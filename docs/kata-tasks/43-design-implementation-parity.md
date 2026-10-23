@@ -98,3 +98,9 @@ Do not add new model providers, generation behavior, PR hosting, or unrelated pa
 ## Done evidence
 
 A single reconciled reference set, updated product/design contracts, the implementation commit, and a native-app acceptance record with the required screenshots, build identity, interaction results, and remaining deviations.
+
+## Edge-free Flow presentation — 23 October 2026
+
+The packaged Fontdone Flow for “The Rust example classifies the constructor result” contained four source-backed nodes and zero edges. The canvas placed them as isolated graph nodes, which looked broken and called them “steps” even though no order or transition was present. Source now renders an edge-free visual as an unordered set of clickable source-point cards with exact source locations, and states that the evidence does not define a path. Real graphs remain interactive; the graph accessibility label now calls their items nodes.
+
+The focused Flow suite passes **6/6**, and `npm run build` passes with the existing large-bundle warning. The app package was not rebuilt because available disk space was 962 MiB, below the previously established 5 GB safe-build threshold after a prior truncated package. This is source/build evidence only; `13yp` still needs a verified native package and screenshot plus its broader screen, theme, and accessibility matrix.

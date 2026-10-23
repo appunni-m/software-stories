@@ -387,3 +387,15 @@ policies, so this run does not qualify them. The app also lacks a terminal
 stage trace that explains the long idle interval. Keep `j53m`, `3bz5`, and
 `ps02` open. The underlying run ID is
 `396a0fdd-7114-4cde-a90f-533887013763`.
+
+## 23 October edge-free Flow presentation
+
+In the packaged Fontdone Flow, four source-backed nodes with no edges were
+spread across an empty canvas and labeled as steps. Source now presents
+edge-free evidence as unordered, clickable source points and reserves the
+graph for diagrams with relationships. The graph accessibility label uses
+“nodes.” Focused Flow tests pass **6/6** and `npm run build` passes. Native
+packaging was deferred because only 962 MiB was free, below the previously
+established 5 GB safe-build threshold. The running app has not been replaced;
+packaged confirmation and the remaining design/accessibility matrix stay open.
+[Design task](kata-tasks/43-design-implementation-parity.md#edge-free-flow-presentation--23-october-2026).

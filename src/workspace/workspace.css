@@ -172,6 +172,12 @@
 .dw-linear-flow-edge {display:flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;color:var(--muted);font-size:12px;line-height:1.5;}
 .dw-linear-flow-edge svg {flex:0 0 auto;color:var(--accent);}
 .dw-linear-flow-edge span {overflow-wrap:anywhere;}
+.dw-unlinked-flow {list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px;max-width:1040px;margin:16px auto 28px;padding:0;}
+.dw-unlinked-flow-point {display:grid;align-content:start;gap:7px;width:100%;min-width:0;height:100%;padding:14px 16px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface-raised);color:var(--text);text-align:left;cursor:pointer;}
+.dw-unlinked-flow-point:hover {border-color:var(--accent);background:var(--surface-hover);}
+.dw-unlinked-flow-point:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
+.dw-unlinked-flow-point strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
+.dw-unlinked-flow-point small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
 .dw-history section {margin-bottom:20px;}
 .dw-history-level {display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:var(--muted);padding:6px 0;font-size:12px;text-align:left;cursor:pointer;}
 .dw-history-level small {margin-left:auto;white-space:nowrap;}

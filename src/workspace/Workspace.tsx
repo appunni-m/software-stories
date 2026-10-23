@@ -28,7 +28,7 @@ import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, searchLimitMessage, searchResultsMessage, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchMode } from './codeSearch';
-import { linearFlowSteps } from './flowPresentation';
+import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
 import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { nextFocusableCommitIndex } from './gitCommitNavigation';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
@@ -536,6 +536,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const sourceValues=sourceValuesByVisualNode(visual);
   const openNodeSource=(node:typeof visual.nodes[number],anchor:ChapterSourceAnchor)=>onOpen(sourceAnchorForVisualNode(anchor,node,node.sourceValue??sourceValues.get(node.nodeId)));
   const linearSteps=linearFlowSteps(visual);
+  const unlinkedNodes=unlinkedFlowNodes(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
   const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
@@ -568,6 +569,22 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
           </li>;
         })}
       </ol>
+    </> : unlinkedNodes ? <>
+      <p>The evidence for this explanation does not define a path between these points. Select one to inspect its code.</p>
+      <ul className="dw-unlinked-flow" aria-label={`Source points in ${visual.title}`}>
+        {unlinkedNodes.map((node) => {
+          const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
+          const evidenceAnchor=anchorsById.get(sourceAnchorId);
+          const anchor=evidenceAnchor?sourceAnchorForVisualNode(evidenceAnchor,node,node.sourceValue??sourceValues.get(node.nodeId)):undefined;
+          if(!anchor)return null;
+          const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
+          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Open source for ${node.label} at ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+            <strong>{node.label}</strong>
+            {node.detail&&<small>{node.detail}</small>}
+            <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
+          </button></li>;
+        })}
+      </ul>
     </> : <>
       <p>Select a step to open its source.</p>
       <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
@@ -624,7 +641,7 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
     };
   },[revisionId,sectionId,sectionRevisionId,nodeKey]);
   return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} edgeTypes={evidenceFlowEdgeTypes} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
-    aria-label={`Read-only code relationship diagram: ${nodes.length} steps`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
+    aria-label={`Read-only code relationship diagram: ${nodes.length} nodes`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
     onInit={(flow)=>{instance.current=flow;scheduleCheck.current();}}
     onNodesChange={(changes)=>{if(changes.some((change)=>change.type==='dimensions'))scheduleCheck.current();}}
     onMoveEnd={(_event,next)=>{const clean=cleanFlowViewport(next);if(clean)onViewportChange(clean);}}

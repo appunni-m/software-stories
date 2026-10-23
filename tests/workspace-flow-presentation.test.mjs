@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linearFlowSteps } from '../src/workspace/flowPresentation.ts';
+import { linearFlowSteps, unlinkedFlowNodes } from '../src/workspace/flowPresentation.ts';
 
 const nodes = Array.from({length: 6}, (_, index) => ({
   nodeId: `node-${index}`, label: `Step ${index}`, detail: null, hotspotId: null, evidenceAnchorIds: [`anchor-${index}`],
@@ -31,10 +31,19 @@ test('branching, cyclic, disconnected and duplicate-node diagrams stay in the gr
   for (const candidate of [branching, cyclic, disconnected, duplicate]) assert.equal(linearFlowSteps(candidate), null);
 });
 
+test('node-only explanations use unlinked source points instead of a relationship graph', () => {
+  const candidate=visual({nodes:nodes.slice(0,4),edges:[]});
+  assert.deepEqual(unlinkedFlowNodes(candidate)?.map(({nodeId})=>nodeId),nodes.slice(0,4).map(({nodeId})=>nodeId));
+  assert.equal(unlinkedFlowNodes(visual()),null);
+  assert.equal(unlinkedFlowNodes(visual({nodes:[],edges:[]})),null);
+  assert.equal(unlinkedFlowNodes(visual({nodes:[nodes[0],nodes[0]],edges:[]})),null);
+});
+
 test('the production Flow renders sequence steps with evidence links and preserves graph controls for other diagrams', () => {
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
   assert.match(source, /const linearSteps=linearFlowSteps\(visual\)/);
+  assert.match(source, /const unlinkedNodes=unlinkedFlowNodes\(visual\)/);
   assert.match(source, /const sourceValues=sourceValuesByVisualNode\(visual\)/);
   assert.match(source, /sourceAnchorForVisualNode\(anchor,node,node\.sourceValue\?\?sourceValues\.get\(node\.nodeId\)\)/);
   assert.match(source, /n\.sourceAnchorId&&n\.evidenceAnchorIds\.includes\(n\.sourceAnchorId\)/);
@@ -43,6 +52,9 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
   assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{visual\.title\}`\}/);
   assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: \$\{node\.label\}\. Open source \$\{sourceLabel\}`\}/);
+  assert.match(source, /className="dw-unlinked-flow" aria-label=\{`Source points in \$\{visual\.title\}`\}/);
+  assert.match(source, /className="dw-unlinked-flow-point" aria-label=\{`Open source for \$\{node\.label\} at \$\{sourceLabel\}`\}/);
+  assert.match(source, /aria-label=\{`Read-only code relationship diagram: \$\{nodes\.length\} nodes`\}/);
   assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}:\$\{FLOW_DIAGRAM_LAYOUT_VERSION\}`\}/);
   assert.match(source, /function EvidenceFlowCanvas\(/);
   assert.match(source, /viewportClipsNodeBounds\(bounds,flow\.getViewport\(\),size\.width,size\.height,28\)/);

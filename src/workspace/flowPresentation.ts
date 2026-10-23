@@ -5,6 +5,13 @@ export interface LinearFlowStep {
   next?: LinkedVisualEdge;
 }
 
+/** A node-only explanation has no evidenced relationships to lay out as a graph. */
+export function unlinkedFlowNodes(visual: EvidenceLinkedVisualSpec): LinkedVisualNode[] | null {
+  if (visual.nodes.length === 0 || visual.edges.length !== 0) return null;
+  const ids = new Set(visual.nodes.map((node) => node.nodeId));
+  return ids.size === visual.nodes.length ? visual.nodes : null;
+}
+
 /**
  * Long, unbranched diagrams are easier to read as a source-linked sequence than
  * as a graph shrunk to fit one narrow canvas. Branches, cycles and disconnected
