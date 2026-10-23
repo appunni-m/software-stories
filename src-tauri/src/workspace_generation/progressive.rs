@@ -674,61 +674,48 @@ pub(crate) fn list_workspace_answer_records(
     Ok(listing)
 }
 
-fn reconcile_workspace_generation_jobs(
-    storage: &Path,
-    manager: &codex_agent::CodexAgentManager,
-) -> Result<Vec<super::jobs::JobRecord>, String> {
-    let stored = super::jobs::list(storage)?;
-    let mut active_job_ids = std::collections::HashSet::new();
-    for job in &stored {
-        if manager.with_operation_state(&job.job_id, |active| Ok(active))? {
-            active_job_ids.insert(job.job_id.clone());
-        }
-    }
-    let mut answer_outcomes = std::collections::HashMap::new();
-    if let Ok(listing) = reading::list_for_management(storage) {
-        for answer in listing.records {
-            let (answer, active) = manager.with_operation_state(&answer.run_id, |active| {
-                if !active && answer.outcome == Outcome::Working {
-                    Ok((
-                        reading::interrupt(storage, &answer.run_id, Outcome::Interrupted)?,
-                        false,
-                    ))
-                } else {
-                    Ok((answer.clone(), active))
-                }
-            })?;
-            if active {
-                active_job_ids.insert(answer.run_id.clone());
-            }
-            answer_outcomes.insert(answer.run_id, answer.outcome);
-        }
-    }
-    super::jobs::reconcile(storage, &active_job_ids, &answer_outcomes)
-}
-
-/// Query durable workspace generation jobs by listing their stable job IDs.
-/// Inactive records are reconciled against saved answer outcomes before return.
+/// List durable workspace job records. Reading this bounded local ledger does
+/// not replay answer receipts or resume provider work.
 #[tauri::command]
-pub(crate) fn list_workspace_generation_jobs(
+pub(crate) async fn list_workspace_generation_jobs(
     app: AppHandle,
-    manager: State<'_, codex_agent::CodexAgentManager>,
 ) -> Result<Vec<super::jobs::JobRecord>, String> {
     let storage = app_data_directory(&app)?;
-    reconcile_workspace_generation_jobs(&storage, manager.inner())
+    tauri::async_runtime::spawn_blocking(move || super::jobs::list(&storage))
+        .await
+        .map_err(|_| "The workspace job list worker stopped.".to_owned())?
 }
 
-/// Query one job by its stable run/job ID. This also performs lazy restart
-/// reconciliation for all persisted jobs.
+/// Query one job by its stable run/job ID. Restart reconciliation validates
+/// only this job's answer receipt, never every saved answer in the workspace.
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn get_workspace_generation_job(
+pub(crate) async fn get_workspace_generation_job(
     app: AppHandle,
     manager: State<'_, codex_agent::CodexAgentManager>,
     job_id: String,
 ) -> Result<super::jobs::JobRecord, String> {
     let storage = app_data_directory(&app)?;
-    let _ = reconcile_workspace_generation_jobs(&storage, manager.inner())?;
-    super::jobs::get(&storage, &job_id)
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let job = super::jobs::get(&storage, &job_id)?;
+        let worker_active = manager.with_operation_state(&job_id, |active| Ok(active))?;
+        let job_is_active = matches!(
+            &job.state,
+            &super::jobs::JobState::Preparing
+                | &super::jobs::JobState::Running
+                | &super::jobs::JobState::StopRequested
+        );
+        let answer_outcome = if worker_active || !job_is_active {
+            None
+        } else {
+            reading::scoped(&storage, &job.job_id, &job.project_id, &job.snapshot_id)
+                .ok()
+                .map(|answer| answer.outcome)
+        };
+        super::jobs::reconcile_one(&storage, &job_id, worker_active, answer_outcome)
+    })
+    .await
+    .map_err(|_| "The workspace job check worker stopped.".to_owned())?
 }
 
 /// Durably record Stop before asking the run owner to cancel provider work.

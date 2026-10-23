@@ -14,6 +14,17 @@ function nativeReads(handler) {
 }
 const turns = (h, project = 'project', snapshot = 'snapshot') => h.store.getWorkspace(project, snapshot).explorations.flatMap((e) => e.turns);
 
+test('answer restoration does not preflight the whole durable job ledger', async () => {
+  let jobLists = 0;
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') return [];
+    assert.fail(`Unexpected command ${name}`);
+  }), { listWorkspaceGenerationJobs: async () => { jobLists++; return []; } });
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  assert.equal(jobLists, 0);
+  assert.equal(h.calls.filter((call) => call.name === 'list_workspace_answers').length, 1);
+});
+
 test('a section arriving during initial restoration is read before that restoration finishes', { timeout: 2000 }, async () => {
   const listed = deferred(); const started = deferred(); let lists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {

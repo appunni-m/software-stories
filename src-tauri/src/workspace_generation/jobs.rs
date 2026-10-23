@@ -6,8 +6,10 @@
 
 use crate::{codex_agent, evidence_ledger::sections::Outcome};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use std::collections::HashMap;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -270,6 +272,7 @@ pub(crate) fn finish(storage: &Path, job_id: &str, state: JobState) -> Result<Jo
 /// Reconcile records that lost their in-process worker. A validated saved
 /// answer outcome takes precedence over a crash between answer publication and
 /// the corresponding job-state write.
+#[cfg(test)]
 pub(crate) fn reconcile(
     storage: &Path,
     active_job_ids: &HashSet<String>,
@@ -296,6 +299,35 @@ pub(crate) fn reconcile(
         write_store(storage, &store)?;
     }
     Ok(store.jobs)
+}
+
+/// Reconcile just one job after checking only its own active worker and answer
+/// receipt. Listing jobs must not replay every saved answer to discover stale
+/// records, since each replay independently validates a full snapshot index.
+pub(crate) fn reconcile_one(
+    storage: &Path,
+    job_id: &str,
+    worker_active: bool,
+    answer_outcome: Option<Outcome>,
+) -> Result<JobRecord, String> {
+    validate_job_id(job_id)?;
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if !job.state.is_active() || worker_active {
+        return Ok(job.clone());
+    }
+    job.state = match answer_outcome {
+        Some(Outcome::Complete) => JobState::Completed,
+        Some(Outcome::Partial) => JobState::PartiallyCompleted,
+        Some(Outcome::Stopped) => JobState::Stopped,
+        Some(Outcome::Failed) => JobState::Failed,
+        Some(Outcome::Working | Outcome::Interrupted) | None => JobState::Interrupted,
+    };
+    job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    let reconciled = job.clone();
+    write_store(storage, &store)?;
+    Ok(reconciled)
 }
 
 fn find_job_mut<'a>(store: &'a mut StoreFile, job_id: &str) -> Result<&'a mut JobRecord, String> {
@@ -499,6 +531,24 @@ mod tests {
                 .find(|job| job.job_id == stopped.job_id)
                 .unwrap()
                 .state,
+            JobState::Preparing
+        );
+    }
+
+    #[test]
+    fn one_job_reconciliation_never_changes_unrelated_records() {
+        let directory = TestDirectory::new();
+        let partial = start_job(&directory);
+        let unrelated = start_job(&directory);
+
+        assert_eq!(
+            reconcile_one(&directory.0, &partial.job_id, false, Some(Outcome::Partial))
+                .unwrap()
+                .state,
+            JobState::PartiallyCompleted
+        );
+        assert_eq!(
+            get(&directory.0, &unrelated.job_id).unwrap().state,
             JobState::Preparing
         );
     }

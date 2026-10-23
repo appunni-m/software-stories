@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobs, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -330,9 +330,6 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
 async function readSavedWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
   await prepareWorkspaceConversation(project,snapshot);
   await restoreRepositoryGuides(project,snapshot);
-  // Reconcile durable native job state before reading answer receipts. No
-  // provider connection or request is resumed during this local read.
-  await listWorkspaceGenerationJobs().catch(() => []);
   const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
   let failed = false;
   let firstFailure: unknown;
