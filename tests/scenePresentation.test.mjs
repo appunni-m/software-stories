@@ -181,6 +181,22 @@ describe('AI-authored HTML scene contract', () => {
       anchorIds: ['anchor:dispatch'], nodeIds: dispatchNodes.map((node) => node.nodeId),
     }]);
   });
+  it('keeps stored-scene replay strict about inert fields and claim-owned evidence', () => {
+    const safe = presentation();
+    assert.equal(validStoredScenePresentation(safe, nodes, claims), true);
+
+    const executableMarkup = presentation();
+    executableMarkup.scenes[0].elements[0].html = '<script>run()</script>';
+    assert.equal(validStoredScenePresentation(executableMarkup, nodes, claims), false);
+
+    const unknownSceneField = presentation();
+    unknownSceneField.scenes[0].source = 'outside the scene contract';
+    assert.equal(validStoredScenePresentation(unknownSceneField, nodes, claims), false);
+
+    assert.equal(validStoredScenePresentation(safe, [{
+      ...nodes[0], evidenceAnchorIds: ['anchor:foreign'],
+    }], claims), false);
+  });
   it('recognizes plural early returns as an ordered selector requirement', () => {
     const earlyReturnClaims = [{ ...claims[0], prose: 'Several early returns are checked in source order; a miss continues to the next guard.' }];
     const stack = [
