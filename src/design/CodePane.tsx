@@ -32,7 +32,7 @@ export function CodePane({ path, contents, theme, reveal, canExplain = true, onE
     if (!host.current) return;
     const view = new EditorView({ parent: host.current, state: EditorState.create({
       doc: contents, extensions: [
-        EditorState.readOnly.of(true), lineNumbers(), drawSelection(), highlightActiveLine(), EditorView.lineWrapping,
+        EditorState.readOnly.of(true), lineNumbers(), drawSelection(), highlightActiveLine(),
         ...(/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(path) ? [javascript({ typescript: /\.(?:[cm]?ts|tsx)$/i.test(path), jsx: /\.[jt]sx$/i.test(path) })] : []), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}` }),

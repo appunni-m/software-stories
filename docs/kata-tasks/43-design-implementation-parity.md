@@ -31,6 +31,10 @@ The focused Flow/persistence checks pass **55/55**, and the production frontend 
 
 The screenshot was inspected live but is not saved as a durable file. This verifies one dark/system Flow state only. Other workspace states, themes, accessibility, large-repository behavior, and the full screen-by-screen acceptance remain open; keep `13yp` open.
 
+## Preserve source lines in the workspace editor — 2026-10-23
+
+The installed Fontdone workspace displayed long Rust statements as wrapped fragments in the source pane, weakening the editor-like reading experience and hiding original line shape. The source editor now leaves CodeMirror soft wrapping disabled so long code lines can be inspected with the editor's horizontal scroll. The focused editor contract check passes **2/2**, and `npm run build` passes with the existing large-bundle warning. This is a source-level correction only: the installed bundle still shows the prior wrapping behavior, and the full packaged/zoom/keyboard matrix remains open. Keep `13yp` open.
+
 
 ## User outcome
 

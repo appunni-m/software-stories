@@ -409,3 +409,13 @@ the matching outcomes in one workspace update without removing their turns or
 saved answers. The focused notification/outcome suites pass **42/42** and
 `npm run build` passes. The v30 app remains running, so packaged behavior and
 the broader notification acceptance matrix are still open. [Notification task](kata-tasks/62-notification-center.md#dismiss-repeated-attempts-together--23-october-2026).
+
+## 23 October source editor line fidelity
+
+The live Fontdone workspace visually wrapped long Rust lines into fragments.
+CodeMirror soft wrapping is now disabled in the workspace source pane, leaving
+horizontal inspection available while preserving the source's actual line
+boundaries. The focused editor contract suite passes **2/2** and the
+production frontend build passes with the existing large-bundle warning. This is source-only; the
+running app still has the previous editor and no packaged zoom/navigation
+acceptance is claimed. [Design parity task](kata-tasks/43-design-implementation-parity.md#preserve-source-lines-in-the-workspace-editor--2026-10-23).
