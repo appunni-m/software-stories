@@ -784,12 +784,19 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let instructions = system_instructions();
     assert!(instructions.contains("One transition per claim/scene"));
     assert!(instructions.contains("Prefer 1–2 claims per slide"));
-    assert!(instructions.contains("at most two code names per claim"));
-    assert!(instructions.contains("target 100–500 bytes and 1–2 evidence refs per claim"));
+    assert!(
+        instructions.contains("use at most two evidence refs and two exact code names per claim")
+    );
+    assert!(instructions.contains("no more than two direct evidence refs or code names per claim"));
+    assert!(instructions.contains("target 100–500 bytes and use at most two evidence refs"));
+    assert!(instructions.contains("claims that need more sources into separately cited claims"));
     assert!(instructions.contains("omit nearby context refs that do not"));
     assert!(instructions.contains("Prefer 1–2 claims per slide (max 4 tightly connected)"));
     assert!(instructions.contains("Target at most eight nodes"));
-    assert!(instructions.contains("Split broader paths/branch sets"));
+    assert!(
+        instructions
+            .contains("Split claims that need more sources and split broader paths/branch sets")
+    );
     assert!(instructions.contains("preserve every guard and outcome"));
     assert!(instructions.contains("Never claim measured timings"));
     assert!(instructions.contains("State the decision rule before examples"));
