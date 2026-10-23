@@ -108,9 +108,9 @@ five-tool retrieval schemas and progressive tool catalogs retain their pinned
 historical identities.
 
 Ordinary and progressive requests share the current scene and teaching
-instructions. Progressive contracts fingerprint
-`storyPolicy: "ai-html-compositions-v17"`,
-`teachingPolicy: "meaning-first-v25"`, and the exact composed instructions
+instructions. Progressive contracts fingerprint the current source policies
+`storyPolicy: "ai-html-compositions-v37"`,
+`teachingPolicy: "meaning-first-v27"`, and the exact composed instructions
 without changing stored checkpoint identities or replaying generation. A
 fingerprint change applies to future requests; it does not rewrite saved guides.
 These are generation instructions, not semantic acceptance.

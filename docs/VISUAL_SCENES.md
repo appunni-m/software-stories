@@ -47,44 +47,33 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v25` and teaching
-policy `meaning-first-v26`. It asks the model to identify the source-backed
-relationship first, then make the most specific available visual form the
-focal point. It rejects scenes that would tell the same story after swapping
-project names, generic panels/cards/rows used as the diagram, and component
-catalogs without a concrete guard, transition or result. Supported forms
-include timelines, branches, selectors, transforms, before/after states,
-tables, lanes, trees, stacks, queues, byte strips, matrices, metrics, and
-graphs. Mutually exclusive success and failure outcomes fork visibly from the
-operation result instead of appearing as consecutive steps. The prompt keeps
-plain-language labels, all meaningful inputs and
-outcomes, and clickable evidence. Ordered selectors use at most three checks
-per scene and split longer chains into consecutive scenes; every guard and
-destination gets its own short label. Exact source values appear only when their
-literal spelling or bytes matter. If the code evidence cannot support a useful
-visual, narration and source links remain valid. Adjacent scenes may keep the
-same visual identity when that helps the reader track one object; form changes
-when behavior changes. A graph is reserved for genuinely non-linear
-relationships; source links or a sequence of real calls do not by themselves
-justify one. Model output remains typed data rendered by the app; it cannot
-execute HTML, JavaScript, CSS or Three.js. A 3-D renderer is only appropriate
-for source-grounded spatial behavior when a tested app-owned renderer exists.
-Each scene now starts from a short visual idea and a focal object, relationship
-and consequence. Across a story, the model should vary forms when the code's
-behavior changes (for example, bytes, a decision fork, changed state, a mapping
-table, or an ordered path), while reusing a form only when it helps track the
-same subject. It should compose the available semantic primitives into a
-behavior-specific responsive HTML scene rather than defaulting to a generic
-block diagram. Version 24 also distinguishes source-ordered calls from
-alternatives: calls that run in sequence use a timeline or linked path, while a
-branch requires mutually exclusive destinations selected by one evidenced
-guard. Each branch condition appears once and each destination label names its
-behavior or resulting state. Version 25 requires each visible value to carry
-source-backed behavior, not just repeat its label, and keeps tooltip/help text
-supplementary. Four or more sequential state updates should be grouped in a
-compact table or split into short scenes at natural boundaries. These are
+The current source contract uses story policy
+`ai-html-compositions-v37` and teaching policy `meaning-first-v27`. It starts
+from a real input or situation, follows only source-supported changes and
+outcomes, and gives each scene one behavior to make visible. Layout follows the
+behavior: ordered checks use a selector, a single decision uses a branch, state
+changes use a before/after or transform, verified order uses a timeline, and
+independent actors use lanes. A graph is for relationships those forms cannot
+show clearly; a sequence of calls alone does not justify one.
+
+A section uses one visual mode throughout. If a visual would mislead, every
+claim uses a narration scene with no generated visual elements. Otherwise each
+claim has a source-linked visual scene. The narration follows the subject from
+its caller, input or decision through the supported consequences, including
+guards, alternatives, failures and uncertainty. It points to a visual cue only
+as a brief landmark. Layout must enact the behavior rather than default to a
+uniform card grid; it changes at an evidenced handoff, not for decoration.
+Exact source values are used only when their literal bytes or spelling matter;
+illustrations are labeled and never presented as observed execution. These are
 generation instructions, not evidence of quality; fresh rendered examples
 still need review.
+
+The app renders only its typed, bounded HTML/CSS vocabulary. Model output cannot
+execute HTML, JavaScript, CSS, URLs, remote assets or Three.js. A 3-D renderer
+is not currently supported. Structural checks can reject invalid trees,
+unsupported values and repeated content across a transformation arrow, but
+they cannot prove that a visually changed value accurately teaches the code's
+meaning. That still requires source review and human comprehension checks.
 The 12-node and 20-edge limits apply across the whole section, not once per
 scene; per-scene limits are ceilings, not targets. These prompt instructions
 and structural checks do not prove that a fresh guide teaches well; rendered

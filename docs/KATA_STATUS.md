@@ -369,3 +369,21 @@ distinct categories. The focused section-ledger suite passes 22 tests. Existing
 Fontdone receipts and the active v30 app remain unchanged, and these categories
 are not yet joined to the separate runtime timing trace. Keep `ps02` open.
 [Details and limits](kata-tasks/71-generation-timing-traces.md#no-publication-failure-category--23-october-2026).
+
+## 23 October v30 Guide terminal update
+
+The fresh seven-topic Fontdone Guide `c9028af6-e6e1-4a3e-bd9f-464d6d4ec5f5`
+on `main@5249b72371` was stopped after its active C-ABI operation produced no
+proposal or slide. The operation made four evidence-tool calls, delivered 3,000
+source bytes, and published no sections. Its last recorded runtime update was
+at 24.831 seconds; the app continued to report it as building for more than
+ten minutes. After Stop, the app and job record both reported `stopped`, with
+0/7 topics explored and 0 slides ready. Previously saved explanations were
+left intact, and no replacement request was started.
+
+The checked-in source now declares story policy `ai-html-compositions-v37` and
+teaching policy `meaning-first-v27`; the installed v30 app predates those
+policies, so this run does not qualify them. The app also lacks a terminal
+stage trace that explains the long idle interval. Keep `j53m`, `3bz5`, and
+`ps02` open. The underlying run ID is
+`396a0fdd-7114-4cde-a90f-533887013763`.

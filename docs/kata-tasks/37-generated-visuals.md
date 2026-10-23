@@ -825,3 +825,24 @@ start a duplicate Guide or reset attempts. Preserve this run and its receipts;
 qualify v34 only after this run reaches a terminal state. Whole-repository
 coverage, rendered explanation quality, source clicks, audio listening,
 accessibility and human comprehension remain open.
+
+## v30 fresh Guide stopped without a section — 23 October 2026
+
+The separate seven-topic Fontdone Guide
+`c9028af6-e6e1-4a3e-bd9f-464d6d4ec5f5` was active in the installed v30 app for
+`main@5249b72371`. Its active C-ABI operation
+`396a0fdd-7114-4cde-a90f-533887013763` completed four evidence-tool calls and
+delivered 3,000 source bytes, then produced no proposal or section for more than
+ten minutes. The app still showed it as building, so Stop was used; the guide
+and job record now both show `stopped`, with 0 slides and 0/7 topics explored.
+Earlier saved explanations and receipts were preserved. No new request was
+started.
+
+This is a stalled-operation observation, not evidence that the model rejected
+the visual schema: no proposal reached native validation. The runtime trace
+contains no terminal stage explaining the idle interval. Current source is
+story policy `ai-html-compositions-v37` / teaching policy `meaning-first-v27`
+at `a8a9891`, but the installed v30 executable predates those prompts and this
+run cannot qualify them. Preserve `ps02`'s timing gap and `3bz5`'s incremental
+publication gap. Fresh rendered visuals, source-click behavior, narration,
+accessibility and human comprehension still require qualification.
