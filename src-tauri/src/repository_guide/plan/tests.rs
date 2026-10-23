@@ -292,7 +292,9 @@ fn plan_instructions_keep_the_full_requested_scope() {
         instructions
             .contains("Never name the opening lead, the current section or a later section")
     );
-    assert!(instructions.contains("at least one unit for each distinct input surface"));
+    assert!(instructions.contains(
+        "Identify every materially different caller-controlled input surface supported by source"
+    ));
     assert!(
         instructions.contains("never present one representative path as whole-project coverage")
     );

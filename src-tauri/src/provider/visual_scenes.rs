@@ -341,9 +341,7 @@ pub(crate) mod tests {
         assert!(shared.contains("Do not speak function, method, type, field or error identifiers"));
         assert!(shared.contains("Selector checks stay source ordered"));
         assert!(shared.contains("visible miss/fallback"));
-        assert!(
-            super::instructions().contains("Default source to null for readable behavior labels")
-        );
+        assert!(super::instructions().contains("Default every node's source to null"));
         assert!(
             super::instructions()
                 .contains("Do not display a source expression just to make a visual clickable")

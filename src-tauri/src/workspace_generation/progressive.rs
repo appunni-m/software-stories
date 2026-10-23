@@ -41,9 +41,10 @@ const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this
 
 const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of eight proposals are shared corrections, at most one per key. Exact successful replays count as attempts but not corrections. proposalCorrectionLimit ends that key. At finishNow, stop tools and return the final manifest from evidence already read.";
 
-// The base contract fits within 32 KB. Checked byte-range hints and their
-// policy add a small, bounded amount of metadata, so reserve 2 KB for them.
-const INITIAL_REQUEST_LIMIT_BYTES: usize = 34_000;
+// Progressive teaching and visual policies now exceed the old 34 KB ceiling
+// once a checked starting range is added. Keep headroom for the question and
+// reference metadata without allowing source text into this request contract.
+const INITIAL_REQUEST_LIMIT_BYTES: usize = 64 * 1024;
 
 const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference at its claim-owned scene position. Each node/edge must cite unique references from its own claim; different items may share a reference. Correct the reference or remove only its duplicate entry, preserving the claim, supported behavior and chosen representation. Keep a useful composition; this finding never requires a graph.";
 const CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS: &str = "chapter... findings are fixed native chapter-validator categories; issue messages and source paths are withheld. Correct a chapterInvalidVisual or chapterInvalidClaim in this section without dropping its supported behavior. chapterWrongSnapshot, chapterHashMismatch, chapterIndexUnavailable and chapterSourceUnavailable indicate snapshot/integrity boundaries: do not change citations to evade them; stop retrying that section and state the boundary in incompleteTopics. Correct chapterMissingPath, chapterRangeMismatch, chapterExcerptMismatch, chapterAmbiguousRemap, chapterMissingSymbol and chapterInvalidDependency only against references already delivered; do not broaden files or invent evidence. Other chapter... codes identify their named validator category. A generic sectionValidation means no safe category was available; do not repeat the same proposal.";
