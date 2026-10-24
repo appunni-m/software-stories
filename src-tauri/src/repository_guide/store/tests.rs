@@ -39,6 +39,36 @@ fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     assert!(lease(&f.storage, &id).unwrap().is_some());
 }
 
+#[test]
+fn persistent_worker_lock_files_do_not_consume_saved_guide_capacity() {
+    assert_eq!(MAX_GUIDES, 1_000);
+    assert_eq!(MAX_BYTES, MAX_GUIDES as u64 * MAX_RECORD as u64);
+
+    let f = Fixture::new();
+    for _ in 0..30 {
+        let guide = record(&f);
+        create(&f.storage, &guide).unwrap();
+        drop(lease(&f.storage, &guide.id).unwrap().unwrap());
+    }
+    for _ in 0..3 {
+        drop(
+            lease(&f.storage, &Uuid::new_v4().to_string())
+                .unwrap()
+                .unwrap(),
+        );
+    }
+
+    let directory = directory(&f.storage).unwrap();
+    assert_eq!(fs::read_dir(&directory).unwrap().count(), 64);
+    let next = record(&f);
+    create(&f.storage, &next).unwrap();
+    assert!(exists(&f.storage, &next.id).unwrap());
+
+    let entries = scan(&directory).unwrap();
+    assert_eq!(entries.records.len(), 31);
+    assert_eq!(entries.lock_files, 34);
+}
+
 #[cfg(unix)]
 #[test]
 fn ending_the_owner_releases_a_lease_even_if_an_inherited_descriptor_remains() {

@@ -5,9 +5,16 @@ use super::*;
 use std::fs::{self, File, OpenOptions};
 
 const MAX_RECORD: usize = 256 * 1024;
-const MAX_ENTRIES: usize = 64;
-const MAX_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_GUIDES: usize = 1_000;
+const MAX_LOCK_FILES: usize = MAX_GUIDES + 256;
+const MAX_BYTES: u64 = MAX_GUIDES as u64 * MAX_RECORD as u64;
 pub(super) static STORE: Mutex<()> = Mutex::new(());
+
+struct StoreEntries {
+    records: Vec<(String, u64)>,
+    lock_files: usize,
+    bytes: u64,
+}
 
 fn directory(storage: &Path) -> Result<std::path::PathBuf, String> {
     let directory = storage.join("repository-guides");
@@ -87,14 +94,8 @@ fn save_record(storage: &Path, record: &Record, new: bool) -> Result<(), String>
     let previous = fs::symlink_metadata(&destination)
         .ok()
         .map_or(0, |m| m.len());
-    if entries
-        .iter()
-        .map(|(_, size)| size)
-        .sum::<u64>()
-        .saturating_sub(previous)
-        + bytes.len() as u64
-        > MAX_BYTES
-        || (new && entries.len() >= MAX_ENTRIES)
+    if entries.bytes.saturating_sub(previous) + bytes.len() as u64 > MAX_BYTES
+        || (new && entries.records.len() >= MAX_GUIDES)
     {
         return Err("Repository guide storage is full. Existing work was preserved.".into());
     }
@@ -108,14 +109,13 @@ fn save_record(storage: &Path, record: &Record, new: bool) -> Result<(), String>
         codex_agent::atomic_private_write(&destination, &bytes)
     }
 }
-fn scan(directory: &Path) -> Result<Vec<(String, u64)>, String> {
-    let mut entries = Vec::new();
+fn scan(directory: &Path) -> Result<StoreEntries, String> {
+    let mut entries = StoreEntries {
+        records: Vec::new(),
+        lock_files: 0,
+        bytes: 0,
+    };
     for entry in fs::read_dir(directory).map_err(|_| "Saved guides could not be listed.")? {
-        if entries.len() >= MAX_ENTRIES {
-            return Err(
-                "The guide directory limit was reached. Existing work was preserved.".into(),
-            );
-        }
         let entry = entry.map_err(|_| "A guide entry could not be inspected.")?;
         let meta = fs::symlink_metadata(entry.path())
             .map_err(|_| "A guide entry could not be inspected.")?;
@@ -125,23 +125,44 @@ fn scan(directory: &Path) -> Result<Vec<(String, u64)>, String> {
                     .into(),
             );
         }
-        entries.push((
-            entry
-                .file_name()
-                .to_str()
-                .ok_or("A guide filename is invalid.")?
-                .to_owned(),
-            meta.len(),
-        ));
-    }
-    if entries.iter().map(|(_, size)| size).sum::<u64>() > MAX_BYTES {
-        return Err("Saved guide storage exceeds its limit.".into());
+        let name = entry
+            .file_name()
+            .to_str()
+            .ok_or("A guide filename is invalid.")?
+            .to_owned();
+        if name.ends_with(".json") {
+            if entries.records.len() >= MAX_GUIDES || meta.len() > MAX_RECORD as u64 {
+                return Err(
+                    "The saved guide storage limit was reached. Existing work was preserved."
+                        .into(),
+                );
+            }
+            entries.bytes = entries.bytes.saturating_add(meta.len());
+            if entries.bytes > MAX_BYTES {
+                return Err(
+                    "Saved guide storage exceeds its limit. Existing work was preserved.".into(),
+                );
+            }
+            entries.records.push((name, meta.len()));
+        } else if name.ends_with(".lock") {
+            if entries.lock_files >= MAX_LOCK_FILES || meta.len() != 0 {
+                return Err(
+                    "The guide lock-file limit was reached. Existing work was preserved.".into(),
+                );
+            }
+            entries.lock_files += 1;
+        } else {
+            return Err(
+                "The guide directory contains an unsupported entry. Existing work was preserved."
+                    .into(),
+            );
+        }
     }
     Ok(entries)
 }
 pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<Record>, String> {
     let mut records = Vec::new();
-    for (name, _) in scan(&directory(storage)?)? {
+    for (name, _) in scan(&directory(storage)?)?.records {
         let Some(id) = name.strip_suffix(".json") else {
             continue;
         };
@@ -166,7 +187,7 @@ pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
         _ => return Err("Guide storage could not be checked. Existing work was preserved.".into()),
     }
     let mut reservations = Vec::new();
-    for (name, _) in scan(&directory)? {
+    for (name, _) in scan(&directory)?.records {
         let Some(id) = name.strip_suffix(".json") else {
             continue;
         };
@@ -201,7 +222,7 @@ fn lock_named(storage: &Path, name: &str) -> Result<Option<crate::file_lease::Le
     use std::os::unix::fs::OpenOptionsExt;
     let directory = directory(storage)?;
     let lock_path = directory.join(name);
-    if !lock_path.exists() && scan(&directory)?.len() >= MAX_ENTRIES {
+    if !lock_path.exists() && scan(&directory)?.lock_files >= MAX_LOCK_FILES {
         return Err("The guide directory limit was reached. No new worker was admitted.".into());
     }
     let file = OpenOptions::new()
