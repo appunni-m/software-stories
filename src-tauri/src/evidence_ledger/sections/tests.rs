@@ -224,6 +224,34 @@ fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
             .any(|finding| finding["code"] == "selectorShape")
     );
     assert!(valid_findings(&findings));
+
+    let mut repeated = crate::provider::visual_scenes::tests::composed_proposal(3);
+    repeated["sections"][0]["visual"]["nodes"] = json!([
+        {"label":"Invalid header","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+        {"label":"Public format dispatch","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+        {"label":"Valid header","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+        {"label":"Public format dispatch","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
+    ]);
+    repeated["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([
+        {"kind":"selector","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"text","parentIndex":1,"nodeIndex":0,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"text","parentIndex":1,"nodeIndex":1,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"text","parentIndex":4,"nodeIndex":2,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"text","parentIndex":4,"nodeIndex":3,"tone":"neutral","value":"","valueOrigin":"none"}
+    ]);
+    let findings = guide_scene_findings(&repeated.to_string());
+    assert!(findings.iter().any(|finding| {
+        finding["location"] == "/section/visual/presentation/scenes/0/elements/6/nodeIndex"
+            && finding["code"] == "sceneBranchLabels"
+    }));
+    assert!(valid_findings(&findings));
+    assert!(
+        !serde_json::to_string(&findings)
+            .unwrap()
+            .contains("Public format dispatch")
+    );
 }
 
 #[test]

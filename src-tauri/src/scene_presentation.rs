@@ -28,7 +28,7 @@ pub(crate) fn visible_graph_node_count(
 
 mod quality;
 pub(crate) mod tree;
-pub(crate) use quality::repetition_positions;
+pub(crate) use quality::{repeated_selector_outcome_positions, repetition_positions};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -92,6 +92,7 @@ pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
 pub(crate) fn validate_fresh_semantic_layouts(
     presentation: &ScenePresentation,
     claims: &[ChapterClaim],
+    nodes: &[VisualNode],
 ) -> Result<(), String> {
     for (scene, claim) in presentation.scenes.iter().zip(claims) {
         if requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
@@ -102,6 +103,13 @@ pub(crate) fn validate_fresh_semantic_layouts(
                     .into(),
             );
         }
+    }
+    let labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+    if !repeated_selector_outcome_positions(presentation, &labels).is_empty() {
+        return Err(
+            "A selector must label each branch outcome by its specific guard and result, rather than repeating a shared mechanism label."
+                .into(),
+        );
     }
     Ok(())
 }
@@ -630,7 +638,7 @@ mod tests {
         // must use the source-ordered selector grammar for these guards.
         validate(&presentation, &nodes, &claims).unwrap();
         assert!(
-            validate_fresh_semantic_layouts(&presentation, &claims)
+            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("selector composition at the root")
         );
@@ -644,7 +652,48 @@ mod tests {
             value: String::new(),
             value_origin: ValueOrigin::None,
         }];
-        validate_fresh_semantic_layouts(&presentation, &claims).unwrap();
+        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+    }
+
+    #[test]
+    fn fresh_selector_scenes_use_distinct_behavior_specific_outcome_labels() {
+        let (mut nodes, mut claims, mut presentation) = fixture();
+        presentation.scenes.truncate(1);
+        claims.truncate(1);
+        nodes[0].label = "Public format dispatch".into();
+        nodes[1].label = " public   FORMAT dispatch ".into();
+        for node in nodes.iter_mut().take(4) {
+            node.evidence_anchor_ids = claims[0]
+                .anchors
+                .iter()
+                .map(|anchor| anchor.anchor_id.clone())
+                .collect();
+        }
+        presentation.scenes[0].mode = SceneMode::Composition;
+        presentation.scenes[0].elements = serde_json::from_value(json!([
+            {"kind":"selector","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":2,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":0,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":3,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":1,"tone":"neutral","value":"","valueOrigin":"none"}
+        ]))
+        .unwrap();
+        let node_labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+        let labels = repeated_selector_outcome_positions(&presentation, &node_labels);
+        assert_eq!(labels, vec![(0, 6)]);
+        assert!(validate(&presentation, &nodes, &claims).is_ok());
+        assert!(
+            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+                .unwrap_err()
+                .contains("specific guard and result")
+        );
+
+        nodes[1].label = "PFR face parser".into();
+        let node_labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+        assert!(repeated_selector_outcome_positions(&presentation, &node_labels).is_empty());
+        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
     }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {

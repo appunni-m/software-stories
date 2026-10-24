@@ -557,6 +557,7 @@ fn guide_scene_findings(response: &str) -> Vec<Value> {
             let code = match problem {
                 "selectorRequired" => "selectorRequired",
                 "selectorShape" => "selectorShape",
+                "selectorOutcomeLabel" => "sceneBranchLabels",
                 "transformShape" => "transformShape",
                 "sceneEvidence" => "sceneEvidence",
                 "narrationRequired" | "narrationLength" => "sceneNarration",
@@ -620,6 +621,31 @@ fn scene_repetition_findings(section: &Value) -> Vec<Value> {
     };
     crate::scene_presentation::repetition_positions(&presentation, &labels).into_iter()
         .map(|(scene, element)| json!({"location":format!("/section/visual/presentation/scenes/{scene}/elements/{element}"),"code":"sceneRepetition"}))
+        .collect()
+}
+
+fn scene_branch_label_findings(section: &Value) -> Vec<Value> {
+    let visual = &section["visual"];
+    let Some(labels) = visual["nodes"]
+        .as_array()
+        .filter(|nodes| nodes.len() <= 12)
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .map(|node| node["label"].as_str())
+                .collect::<Option<Vec<_>>>()
+        })
+    else {
+        return vec![];
+    };
+    let Ok(presentation) = serde_json::from_value(visual["presentation"].clone()) else {
+        return vec![];
+    };
+    crate::scene_presentation::repeated_selector_outcome_positions(&presentation, &labels)
+        .into_iter()
+        .map(|(scene, element)| {
+            json!({"location":format!("/section/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"code":"sceneBranchLabels"})
+        })
         .collect()
 }
 
@@ -807,6 +833,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneVersion"
                             | "sceneNarration"
                             | "sceneRepetition"
+                            | "sceneBranchLabels"
                             | "sceneSourceValue"
                             | "scenePresentationLimit"
                             | "selectorRequired"
@@ -1301,6 +1328,7 @@ impl ActiveAnswer {
                                                 findings = visual_evidence_findings(&proposal.section);
                                                 findings.extend(scene_evidence_findings(&proposal.section));
                                                 findings.extend(scene_repetition_findings(&proposal.section));
+                                                findings.extend(scene_branch_label_findings(&proposal.section));
                                                 findings.extend(scene_source_value_findings(&proposal.section, resolved.text()));
                                                 findings.truncate(64);
                                                 if findings.is_empty() {

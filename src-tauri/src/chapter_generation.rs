@@ -141,7 +141,7 @@ fn canonicalize_visual_proposal(
 
     if let Some(presentation) = &proposed.presentation {
         crate::scene_presentation::validate(presentation, &nodes, claims)?;
-        crate::scene_presentation::validate_fresh_semantic_layouts(presentation, claims)?;
+        crate::scene_presentation::validate_fresh_semantic_layouts(presentation, claims, &nodes)?;
         crate::scene_presentation::validate_graph_density(presentation, &nodes, &edges, claims)?;
     }
     let kind = match proposed.kind {

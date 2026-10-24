@@ -38,6 +38,28 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             }
             issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"sceneProblem":"sceneEvidence"}));
         }
+        let branch_labels = section
+            .get("visual")
+            .and_then(|visual| visual.get("nodes"))
+            .and_then(Value::as_array)
+            .filter(|nodes| nodes.len() <= 12)
+            .and_then(|nodes| {
+                nodes
+                    .iter()
+                    .map(|node| node.get("label")?.as_str())
+                    .collect::<Option<Vec<_>>>()
+            });
+        if let Some(labels) = branch_labels {
+            for (scene, element) in crate::scene_presentation::repeated_selector_outcome_positions(
+                &presentation,
+                &labels,
+            ) {
+                if issues.len() >= super::MAX_ISSUES {
+                    return;
+                }
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"sceneProblem":"selectorOutcomeLabel"}));
+            }
+        }
         for (index, scene) in presentation.scenes.iter().enumerate() {
             if scene.narration.trim().is_empty() || scene.narration.len() > 4_000 {
                 if issues.len() >= super::MAX_ISSUES {
@@ -265,5 +287,45 @@ mod tests {
                 .iter()
                 .any(|finding| finding["sceneProblem"] == "selectorRequired")
         );
+    }
+
+    #[test]
+    fn selector_outcome_label_repetition_gets_a_bounded_positional_repair() {
+        let mut proposal = composed_proposal(3);
+        proposal["sections"][0]["visual"]["nodes"] = json!([
+            {"label":"Invalid header","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"Public format dispatch","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"Valid header","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":" public   FORMAT dispatch ","detail":"private detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
+        ]);
+        proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([
+            {"kind":"selector","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":0,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":1,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":2,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":3,"tone":"neutral","value":"","valueOrigin":"none"}
+        ]);
+
+        let findings = crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
+        let duplicate = findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "selectorOutcomeLabel")
+            .unwrap();
+        assert_eq!(
+            duplicate["location"],
+            "/sections/0/visual/presentation/scenes/0/elements/6/nodeIndex"
+        );
+        let serialized = serde_json::to_string(&findings).unwrap();
+        assert!(!serialized.contains("Public format dispatch"));
+        assert!(!serialized.contains("private detail"));
+        let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
+        assert!(prompt.contains("selectorOutcomeLabel finding"));
+        assert!(
+            prompt
+                .contains("label each outcome with its specific source-grounded guard and result")
+        );
+        assert!(!prompt.contains("Public format dispatch"));
     }
 }
