@@ -87,3 +87,17 @@ published; the saved section survived. No retry or second provider request was
 sent. This proves one selected-code explanation and source-return path, not the
 original reported click exception or the full Code Lens reproduction matrix.
 Keep the issue open; no more provider request is authorized by this run.
+
+## Fresh authorized Code Lens attempt — 25 October 2026
+
+The user explicitly authorized one new Code Lens request for
+`src/tt/glyf.rs:564–583` on Fontdone `main@5249b72371`. The selection was
+verified in the packaged app before clicking **Explain this code**. The app
+created the matching question and remained open, but the attempt ended with:
+“I couldn’t verify an explanation from the selected code, so nothing was
+saved. Try asking about one behavior at a time, or ask how a specific caller
+or helper changes the result.” The UI reported that no section was published;
+earlier saved explanations remained. No narration was synthesized. This
+confirms a recoverable failed outcome for this exact request, but it does not
+reproduce the original click exception or prove that selected-code generation
+works reliably. Keep the issue open; this authorization covered one request.
