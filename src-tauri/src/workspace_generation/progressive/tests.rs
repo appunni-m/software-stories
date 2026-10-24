@@ -601,11 +601,17 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains(
         "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
     ));
+    assert!(instructions.contains(
+        "use valueOrigin:source only for exact text in that claim’s evidence when the literal matters"
+    ));
     assert!(
         instructions
-            .contains("every non-empty value must use valueOrigin:source only for exact text")
+            .contains("valueOrigin:explanation for concise explanatory copy grounded in the claim")
     );
-    assert!(instructions.contains("Never mark explanatory card text as none"));
+    assert!(
+        instructions
+            .contains("valueOrigin:illustration only for invented hypothetical inputs or outputs")
+    );
     assert!(instructions.contains(
         "transformShape means the transform must have exactly three direct content-leaf children"
     ));
@@ -625,9 +631,8 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     );
     assert!(instructions.contains("On sceneSourceValue, for node sources default to source:null"));
     assert!(
-        instructions.contains(
-            "For scene element values, every non-empty value must use valueOrigin:source"
-        )
+        instructions
+            .contains("For scene element values, use valueOrigin:source only for exact text")
     );
     assert!(instructions.contains("empty values use valueOrigin:none"));
 }
@@ -658,8 +663,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v37:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v37"));
+    assert!(system_instructions().contains("Visual design method v38:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v38"));
     assert!(system_instructions().contains("each branch's parentKey names the selector key"));
     assert!(
         system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
@@ -712,7 +717,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["proposalVersion"], "answerSectionV6");
     assert_eq!(
         contract["sceneAuthoringPolicy"],
-        "claim-owned-scene-local-identities-v3"
+        "claim-owned-scene-local-identities-v4"
     );
     assert!(system_instructions().contains("Target at most eight nodes"));
     assert!(system_instructions().contains("one edge of context"));

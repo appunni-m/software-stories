@@ -53,7 +53,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
     if (e.kind === 'divider') return <hr key={index} className={className}/>;
     const node = visual.nodes[e.nodeIndex!];
-    const illustrated = e.valueOrigin === 'illustration';
+    const originLabel = e.valueOrigin === 'source' ? 'Source value' : e.valueOrigin === 'illustration' ? 'Illustrative example' : null;
     const value = e.value;
     const sourceValue = e.valueOrigin === 'source' ? value : undefined;
     let body: ReactNode = value ? <span className="html-scene-value">{value}</span> : null;
@@ -67,11 +67,11 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ?? undefined}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`}
-      aria-label={sceneNodeAccessibleLabel(node, value, illustrated)}
+      aria-label={sceneNodeAccessibleLabel(node, value, e.valueOrigin)}
       onClick={() => onOpenNode(node.nodeId, sourceValue)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue); } }}>
       <span className="html-scene-label">{node.label}<Code2 size={12}/></span>
       {body}
-      {illustrated && <small className="html-example-label">Illustrative example</small>}
+      {originLabel && <small className="html-origin-label">{originLabel}</small>}
     </div>;
   };
   return <section className="html-scene" aria-label={scene.title}>

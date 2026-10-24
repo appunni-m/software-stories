@@ -282,6 +282,7 @@ pub enum ElementTone {
 pub enum ValueOrigin {
     None,
     Source,
+    Explanation,
     Illustration,
 }
 
@@ -344,8 +345,9 @@ pub fn validate(
                 ValueOrigin::None if element.value.is_empty() => {},
                 ValueOrigin::Source if !element.value.trim().is_empty()
                     && anchors.iter().any(|a| a.excerpt.contains(&element.value)) => {},
+                ValueOrigin::Explanation if !element.value.trim().is_empty() => {},
                 ValueOrigin::Illustration if !element.value.trim().is_empty() => {},
-                _ => return Err("A value needs an exact source substring or an explicitly labeled illustration; empty values use origin none.".into()),
+                _ => return Err("A value needs an exact source substring, grounded explanation, or explicitly labeled illustration; empty values use origin none.".into()),
             }
             if element.kind == ElementKind::Matrix {
                 let rows: Vec<_> = element.value.lines().collect();
@@ -459,7 +461,7 @@ pub(crate) fn proposal_schema() -> Value {
                         "nodeIndex":{"type":["integer","null"],"minimum":0,"maximum":11},
                         "tone":{"type":"string","enum":["neutral","accent","muted","positive","warning"]},
                         "value":{"type":"string","maxLength":1024},
-                        "valueOrigin":{"type":"string","enum":["none","source","illustration"]}
+                        "valueOrigin":{"type":"string","enum":["none","source","explanation","illustration"]}
                     }}}
             }}}
     }})
@@ -702,6 +704,23 @@ mod tests {
         let decoded: ScenePresentation = serde_json::from_value(encoded).unwrap();
         assert_eq!(presentation, decoded);
         assert!(validate(&decoded, &nodes, &claims).is_ok());
+    }
+
+    #[test]
+    fn grounded_explanatory_values_have_a_distinct_serialized_origin() {
+        let (nodes, claims, mut presentation) = fixture();
+        let element = &mut presentation.scenes[0].elements[0];
+        element.value = "The first matching format selects this decoder".into();
+        element.value_origin = ValueOrigin::Explanation;
+        validate(&presentation, &nodes, &claims).unwrap();
+
+        let encoded = serde_json::to_value(&presentation).unwrap();
+        assert_eq!(
+            encoded["scenes"][0]["elements"][0]["valueOrigin"],
+            "explanation"
+        );
+        assert!(proposal_schema()["properties"]["scenes"]["items"]["properties"]["elements"]["items"]["properties"]["valueOrigin"]["enum"]
+            .as_array().is_some_and(|origins| origins.iter().any(|origin| origin == "explanation")));
     }
 
     #[test]

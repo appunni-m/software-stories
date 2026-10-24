@@ -427,7 +427,7 @@ fn authored_scene_value_findings(section: &Value) -> Vec<Value> {
             } else {
                 let invalid_origin = match element["valueOrigin"].as_str() {
                     Some("none") | None => !value.is_empty(),
-                    Some("source" | "illustration") => value.trim().is_empty(),
+                    Some("source" | "explanation" | "illustration") => value.trim().is_empty(),
                     Some(_) => false,
                 };
                 invalid_origin.then_some("sceneSourceValue")
@@ -718,7 +718,9 @@ fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
             }
             let invalid_origin = match &element.value_origin {
                 ValueOrigin::None => !element.value.is_empty(),
-                ValueOrigin::Source | ValueOrigin::Illustration => element.value.trim().is_empty(),
+                ValueOrigin::Source | ValueOrigin::Explanation | ValueOrigin::Illustration => {
+                    element.value.trim().is_empty()
+                }
             };
             if invalid_origin {
                 findings.push(json!({"location":location,"code":"sceneSourceValue"}));

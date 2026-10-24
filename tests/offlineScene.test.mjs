@@ -50,6 +50,15 @@ it('offline scenes keep semantic transform roles and source-linked destinations'
   assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 3);
 });
 
+it('offline scenes do not badge grounded explanatory copy as a hypothetical example', () => {
+  const authored = scene('text', 'The first matching format selects this decoder');
+  authored.elements[1].valueOrigin = 'explanation';
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
+  const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
+  assert.match(markup, /The first matching format selects this decoder/);
+  assert.doesNotMatch(markup, /Illustrative example/);
+});
+
 it('offline scenes show ordered selector checks and explicit fall-through', () => {
   const authored = scene('token', 'first output');
   authored.elements = [

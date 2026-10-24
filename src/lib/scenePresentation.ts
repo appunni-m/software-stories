@@ -8,7 +8,7 @@ export interface SceneElement {
   nodeIndex: number | null;
   tone: 'neutral' | 'accent' | 'muted' | 'positive' | 'warning';
   value: string;
-  valueOrigin: 'none' | 'source' | 'illustration';
+  valueOrigin: 'none' | 'source' | 'explanation' | 'illustration';
 }
 export interface PresentationScene {
   claimIndex: number;
@@ -37,13 +37,14 @@ const requiresOrderedSelector = (claim: string, title: string, narration: string
 /** Keep the visual cue's meaning available when the composition is explored
  * with a keyboard or screen reader, even while its prose stays collapsed.
  */
-export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 'detail'>, value: string, illustrated: boolean): string {
+export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 'detail'>, value: string, valueOrigin: SceneElement['valueOrigin']): string {
   const sentence = (text: string) => text.trim().replace(/[.!?]+$/u, '');
+  const origin = valueOrigin === 'source' ? 'Source value' : valueOrigin === 'illustration' ? 'Illustrative example' : '';
   return [
     sentence(node.label),
     value ? sentence(`Shown value: ${value}`) : '',
     node.detail ? sentence(`Meaning: ${node.detail}`) : '',
-    illustrated ? 'Illustrative example' : '',
+    origin,
     'Open supporting code',
   ].filter(Boolean).join('. ');
 }
@@ -128,7 +129,7 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
       const e = elements[i];
       if (!record(e) || !exact(e, ['kind', 'parentIndex', 'nodeIndex', 'tone', 'value', 'valueOrigin'])
         || !kinds.has(String(e.kind)) || !['neutral', 'accent', 'muted', 'positive', 'warning'].includes(String(e.tone))
-        || typeof e.value !== 'string' || bytes(e.value) > 1024 || !['none', 'source', 'illustration'].includes(String(e.valueOrigin))) return false;
+        || typeof e.value !== 'string' || bytes(e.value) > 1024 || !['none', 'source', 'explanation', 'illustration'].includes(String(e.valueOrigin))) return false;
       if (i === 0 && e.parentIndex === null) depths.push(0);
       else if (index(e.parentIndex, i) && containerKinds.has(String(elements[e.parentIndex].kind))) {
         if (++counts[e.parentIndex] > 12) return false;

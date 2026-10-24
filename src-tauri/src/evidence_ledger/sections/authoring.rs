@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 pub(crate) mod narration;
 
-pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v3";
+pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v4";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

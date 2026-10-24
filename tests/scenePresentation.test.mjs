@@ -14,8 +14,17 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(sceneNodeAccessibleLabel({
       label: 'PFR0 prefix check',
       detail: 'The source checks whether data starts with b"PFR0".',
-    }, 'PFR0', true), 'PFR0 prefix check. Shown value: PFR0. Meaning: The source checks whether data starts with b"PFR0". Illustrative example. Open supporting code');
-    assert.equal(sceneNodeAccessibleLabel({ label: 'Return target', detail: null }, '', false), 'Return target. Open supporting code');
+    }, 'PFR0', 'illustration'), 'PFR0 prefix check. Shown value: PFR0. Meaning: The source checks whether data starts with b"PFR0". Illustrative example. Open supporting code');
+    assert.equal(sceneNodeAccessibleLabel({ label: 'Return target', detail: null }, '', 'none'), 'Return target. Open supporting code');
+    assert.equal(sceneNodeAccessibleLabel({ label: 'Format decision', detail: null }, 'first format check', 'explanation'), 'Format decision. Shown value: first format check. Open supporting code');
+    assert.equal(sceneNodeAccessibleLabel({ label: 'Source token', detail: null }, 'PFR0', 'source'), 'Source token. Shown value: PFR0. Source value. Open supporting code');
+  });
+
+  it('keeps grounded explanatory copy separate from literal source and hypothetical examples', () => {
+    const grounded = presentation([element('text', 'The first matching format selects this decoder', 'explanation')]);
+    assert.equal(validScenePresentation(grounded, nodes, claims), true);
+    const ungroundedSource = presentation([element('text', 'The first matching format selects this decoder', 'source')]);
+    assert.equal(validScenePresentation(ungroundedSource, nodes, claims), false);
   });
 
   it('current scenes allow meaningful values and roles while rejecting presentation-only changes', () => {

@@ -76,7 +76,7 @@
 .html-scene table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .html-scene th, .html-scene td { padding: 9px; text-align: left; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .html-scene th { color: var(--muted); font-weight: 500; }
-.html-example-label { color: var(--muted); font-size: 10px; font-style: italic; }
+.html-origin-label { color: var(--muted); font-size: 10px; font-style: italic; }
 .html-scene-arrow { display: grid; place-items: center; color: var(--muted); padding: 0; flex: 0 0 24px; }
 .html-scene-row > .html-scene-arrow { transform: rotate(-90deg); }
 .html-scene-divider { border: 0; border-top: 1px solid var(--border); width: 100%; }
