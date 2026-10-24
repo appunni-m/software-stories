@@ -17,8 +17,11 @@ Paths, symbols, short phrases and scoped searches retain range search. The
 agent-facing ledger now also preserves the index's bounded `queryCoverage`
 terms for file results. Current-source checks pass: agent-context 23/23,
 context-MCP 10/10, evidence-ledger 48/48, plus rustfmt and diff checks. The
-frozen broad Fontdone recall set has not been rerun, so this is not a retrieval
-or explanation-quality pass. No Kata task was closed.
+post-change local Fontdone service profile has now been rerun: eight-page file
+discovery followed by scoped reads found 12/12 expected ranges for both broad
+queries, but a single broad range page remained at 1/12. This does not measure
+MCP `auto` dispatch or agent tool choice, so it is not an agent retrieval or
+explanation-quality pass. No Kata task was closed.
 
 ## 17 October progressive-generation checkpoint (historical)
 

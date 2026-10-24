@@ -87,3 +87,16 @@ now preserved for file results; range results omit this optional metadata.
 The 12-span Fontdone broad range recall has not been rerun through the agent
 with this default, so no retrieval-recall or explanation-quality improvement
 is claimed. Keep `a699`, `0wdn`, and `gk46` open.
+
+### Post-change service profile — 25 October 2026
+
+The frozen local service benchmark was rerun at commit `34d67b9` against an
+isolated copy of the Fontdone snapshot, objects and indexes. Across both broad
+queries, eight-page file discovery found all 7/7 expected paths and subsequent
+path-scoped reads found 12/12 expected ranges. The first discovery page found
+6/7 and 4/7 paths; a single broad range page still found 1/12 expected ranges.
+This confirms the retrieval primitives after the default change but does not
+exercise the MCP `auto` dispatch or an agent's tool choice. See the detailed
+[current-source profile](../acceptance/2026-10-17-range-retrieval.md).
+Keep the agent orchestration, full retrieval recall and answer-quality gates
+open.

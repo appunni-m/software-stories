@@ -187,3 +187,24 @@ Reran the ignored native service profile at Code Atlas source `2a55680` against 
 The current baseline found all twelve named declarations globally and scoped. Both broad ranked first pages found 1/12 expected ranges. The 256-result candidate window found 8/12 and 7/12 respectively. File discovery found 6/7 and 4/7 expected paths on its first page; across eight pages it found 7/7 paths, and scoping range search to those paths recovered 12/12 ranges for both queries. The first-page file path sets covered 11/12 and 8/12 expected ranges when followed by scoped search.
 
 A temporary experiment unioned per-term candidates with the combined lexical ranking to recover high-coverage ranges outside its bounded candidate pool. Its synthetic 600-decoy regression passed, but the real profile did not improve: first-page recall remained 1/12 for both queries, and the first query's candidate window fell to 6/12 while the second stayed 7/12. The code change and its test were discarded. The measured next path is file discovery followed by scoped range reads; automatic agent orchestration and useful global first-page recall remain unqualified. The experiment's profile completed in 56.94 seconds. No source snippets or provider output were saved.
+
+## Current-source Fontdone profile after automatic file-first default — 25 October 2026
+
+Reran the ignored local service profile at Code Atlas commit `34d67b9` against Fontdone `main@5249b72371`. The fixture was an isolated clone of the saved `snapshots`, `objects`, `indexes`, and `repository-context` directories under `/private/tmp/code-atlas-a699-post-default-20261025`; the running app's storage was not changed. The search profile calls the local range/file-discovery services directly. It makes no model, Codex, or speech request and does not execute Fontdone.
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / source bytes / ranges | 1,621 / 19,296,074 / 3,462 |
+| Syntax / text-fallback files | 153 / 1,468 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| `memory_face` first disk-load + search / warm search | 2,181 ms / 174 ms |
+| Named independently selected ranges | 12/12 globally and file-scoped |
+| Broad range first page | 1/12 for both queries |
+| Broad range pages, within the 256-result window | 8/12 and 7/12 |
+| File discovery, first page | 6/7 and 4/7 expected paths |
+| File discovery across eight pages, then scoped retrieval | 7/7 paths and 12/12 ranges for both queries |
+| First-page discovery paths followed by scoped retrieval | 11/12 and 8/12 ranges |
+| Eight-page file discovery time | 1,305 ms / 1,255 ms |
+| All broad range pages time | 11,195 ms / 10,804 ms |
+
+This repeats the service-level discovery-then-scope result after the `search_code` automatic default change; it does not measure an agent choosing and using that default. The profile used an existing prepared parser index, so the first value is a disk-loaded search, not a cold index build. Results are one run without a variance estimate, and the all-page totals aggregate bounded request payloads rather than a single model context. A single broad range page remains at 1/12. Keep `a699`, `gk46`, and dependent guide-quality tasks open; this is not an explanation-quality or packaged acceptance result. The temporary test output is in `/tmp/code-atlas-a699-post-default-20261025.log`; no Fontdone source was copied into this repository.
