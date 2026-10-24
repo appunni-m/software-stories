@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideOmissionQuestion, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -117,6 +117,28 @@ test('root Guide me always starts the incremental repository guide while scoped 
     kind:'ask',intent:'Guide me through this topic, its decisions and consequences.',
   });
 });
+
+test('finished guides turn bounded omissions into a focused follow-up question',()=>{
+  const question=repositoryGuideOmissionQuestion(['C ABI exports and errors','WASM wrapper routing','C ABI exports and errors']);
+  assert.match(question,/C ABI exports and errors; WASM wrapper routing/);
+  assert.match(question,/find the relevant implementation in the captured source/);
+  assert.match(question,/do not repeat sections already covered/);
+  assert.equal(repositoryGuideOmissionQuestion([' ', '\n\t']),null);
+  const many=repositoryGuideOmissionQuestion(Array.from({length:10},(_,index)=>`topic ${index}`));
+  assert.match(many,/topic 7/);
+  assert.doesNotMatch(many,/topic 8/);
+});
+
+test('a completed guide exposes omissions as a nested source exploration',async()=>{
+  const {readFileSync}=await import('node:fs');
+  const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/repositoryGuideOmissionQuestion\(turn\.guide\?\.omissions\?\?\[\]\)/);
+  assert.match(source,/selectedGuideSlide===guideSlides\.length-1/);
+  assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
+  assert.match(source,/ask\(question,current\.view==='flow'\?'flow':'guide',turn\.context,turn\.id,true\)/);
+  assert.match(source,/!keepQuestionScoped&&isRepositoryGuideIntent\(clean\)/);
+});
+
 test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{
   const opening={...section,runId:guideId};
   const planning={...guide(),revision:0,status:'planning',openingRunId:guideId,openingRunIds:[guideId],units:[],
