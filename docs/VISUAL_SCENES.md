@@ -48,13 +48,21 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v37` and teaching policy `meaning-first-v27`. It starts
+`ai-html-compositions-v39` and teaching policy `meaning-first-v27`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
 behavior: ordered checks use a selector, a single decision uses a branch, state
 changes use a before/after or transform, verified order uses a timeline, and
 independent actors use lanes. A graph is for relationships those forms cannot
 show clearly; a sequence of calls alone does not justify one.
+
+Graph edges must name the operation that actually establishes the relationship.
+A caller that looks up an item and then invokes a loader establishes call order;
+it does not establish that the lookup produced the loader's success or failure
+status. Outcome branches begin at the operation or status check that produces
+them. The Full map is the complete set of source-backed edges, not an inferred
+bridge between separate scenes. If the code only proves order, show order without
+claiming the later operation's result.
 
 A section uses one visual mode throughout. If a visual would mislead, every
 claim uses a narration scene with no generated visual elements. Otherwise each
