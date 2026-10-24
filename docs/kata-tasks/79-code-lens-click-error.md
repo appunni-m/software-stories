@@ -25,7 +25,9 @@ The native summary now carries only its finite failure category into the workspa
 - `cargo test --manifest-path src-tauri/Cargo.toml --lib`: 745 passed, 18 ignored.
 - `npm run quality:build` passed; this is required before the offline quality tests.
 - `npm test`: 646 passed.
-- `npm run build` passed. The packaged macOS app has not yet been rebuilt and checked for this change.
+- `npm run build` passed.
+- `npm run bundle:macos` passed and produced a fresh Code Atlas app bundle and DMG.
+- Installed that bundle as `/Users/lazytrot/Applications/Code Atlas.app`, reopened the existing Fontdone workspace, and verified the retained failed question now displays: “I couldn’t verify an explanation from the selected code, so nothing was saved. Try asking about one behavior at a time, or ask how a specific caller or helper changes the result.” The app remained open. The earlier question/failure survived the app restart, and the new message appeared without another provider request.
 
 ## Reproduction matrix
 On the packaged app, distinguish these actions and record the exact result for each: open a captured file from Explorer; open a cited range from Guide; select code and choose **Explain this code**; open the legacy **Explain cited range** review if that screen is reachable. For each, record project/snapshot, relative path, inclusive line range, visible error, whether the app stays open, and whether a provider review was created. Start with Fontdone `main@5249b72371` and a captured text file.
@@ -38,4 +40,4 @@ On the packaged app, distinguish these actions and record the exact result for e
 - Cover both supported Code Lens entry points, if both remain in the current product, without adding a legacy path solely for this test.
 
 ## Completion evidence
-Run the focused source-navigation and selected-code controls in the packaged app and record exact results. The selected-code generation failure above is confirmed; the original click exception is still unknown. The actionable no-published-section message is implemented and covered by frontend/native regressions. Before closing, install the rebuilt app and verify that message appears after a failed request, survives reopening, and leaves source/Guide navigation usable. Keep the original user report unconfirmed until its exact control and exception are identified. Source navigation requires no model invocation; any provider generation requires its own authorization.
+Run the focused source-navigation and selected-code controls in the packaged app and record exact results. The selected-code generation failure above is confirmed; the original click exception is still unknown. The actionable no-published-section message is implemented, covered by frontend/native regressions, and confirmed in the rebuilt installed app after reopening the retained failed question. This check did not re-run Explorer/citation navigation after restart. Keep the original user report unconfirmed until its exact control and exception are identified. Source navigation requires no model invocation; any provider generation requires its own authorization.
