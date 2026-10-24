@@ -591,6 +591,9 @@ fn scene_narration_findings(section: &Value) -> Vec<Value> {
     for (index, scene) in scenes.iter().enumerate() {
         match scene["narration"].as_str() {
             Some(text) if !text.trim().is_empty() && text.len() <= 4_000 => {
+                if crate::scene_presentation::has_compact_spoken_code_token(text) {
+                    findings.push(json!({"location":format!("/section/visual/presentation/scenes/{index}/narration"),"code":"sceneSpeechRole"}));
+                }
                 total += text.split_whitespace().collect::<Vec<_>>().join(" ").len() + usize::from(index > 0);
             }
             _ => findings.push(json!({"location":format!("/section/visual/presentation/scenes/{index}/narration"),"code":"sceneNarration"})),
@@ -832,6 +835,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneEvidence"
                             | "sceneVersion"
                             | "sceneNarration"
+                            | "sceneSpeechRole"
                             | "sceneRepetition"
                             | "sceneBranchLabels"
                             | "sceneSourceValue"

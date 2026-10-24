@@ -47,6 +47,7 @@ const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of
 const INITIAL_REQUEST_LIMIT_BYTES: usize = 64 * 1024;
 
 const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference at its claim-owned scene position. Each node/edge must cite unique references from its own claim; different items may share a reference. Correct the reference or remove only its duplicate entry, preserving the claim, supported behavior and chosen representation. Keep a useful composition; this finding never requires a graph.";
+const SPEECH_ROLE_REPAIR_INSTRUCTIONS: &str = "sceneSpeechRole identifies compact all-caps abbreviations or format tokens in spoken narration. Replace each with the role it plays in this behavior; keep exact spelling in the visible claim and clickable source link. Do not delete the affected behavior or claim.";
 const CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS: &str = "chapter... findings are fixed native chapter-validator categories; issue messages and source paths are withheld. Correct a chapterInvalidVisual or chapterInvalidClaim in this section without dropping its supported behavior. chapterWrongSnapshot, chapterHashMismatch, chapterIndexUnavailable and chapterSourceUnavailable indicate snapshot/integrity boundaries: do not change citations to evade them; stop retrying that section and state the boundary in incompleteTopics. Correct chapterMissingPath, chapterRangeMismatch, chapterExcerptMismatch, chapterAmbiguousRemap, chapterMissingSymbol and chapterInvalidDependency only against references already delivered; do not broaden files or invent evidence. Other chapter... codes identify their named validator category. A generic sectionValidation means no safe category was available; do not repeat the same proposal.";
 
 fn system_instructions() -> String {
@@ -69,7 +70,7 @@ fn system_instructions_for(repository_guide_slide: bool) -> String {
 /// The operation supplies its research role and final result independently.
 pub(crate) fn instructions_for_role(role: &str, final_instructions: &str) -> String {
     format!(
-        "{role}\n\n{INSTRUCTIONS}\n\n{SCENE_PACING_INSTRUCTIONS}\n\n{PROPOSAL_ALLOCATION_INSTRUCTIONS}\n\n{final_instructions}\n\n{}\n\n{PUBLICATION_ORDER_INSTRUCTIONS}\n\n{REFERENCE_REPAIR_INSTRUCTIONS}\n\n{CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS}",
+        "{role}\n\n{INSTRUCTIONS}\n\n{SCENE_PACING_INSTRUCTIONS}\n\n{PROPOSAL_ALLOCATION_INSTRUCTIONS}\n\n{final_instructions}\n\n{}\n\n{PUBLICATION_ORDER_INSTRUCTIONS}\n\n{REFERENCE_REPAIR_INSTRUCTIONS}\n\n{SPEECH_ROLE_REPAIR_INSTRUCTIONS}\n\n{CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS}",
         provider::visual_scenes::progressive_teaching_instructions()
     )
 }

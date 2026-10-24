@@ -255,6 +255,28 @@ fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
 }
 
 #[test]
+fn progressive_scene_feedback_replaces_compact_tokens_with_spoken_roles() {
+    let mut proposal = crate::provider::visual_scenes::tests::composed_proposal(3);
+    let section = &mut proposal["sections"][0];
+    section["visual"]["presentation"]["scenes"][0]["narration"] = json!(
+        "The SFNT marker routes the bytes to the parser, while PFR0 uses its dedicated loader."
+    );
+
+    let findings = scene_narration_findings(section);
+    assert_eq!(
+        findings,
+        vec![json!({
+            "location":"/section/visual/presentation/scenes/0/narration",
+            "code":"sceneSpeechRole"
+        })]
+    );
+    assert!(valid_findings(&findings));
+    let serialized = serde_json::to_string(&findings).unwrap();
+    assert!(!serialized.contains("SFNT"));
+    assert!(!serialized.contains("PFR0"));
+}
+
+#[test]
 fn progressive_scene_feedback_reports_non_unique_node_source_values_without_leaking_source() {
     let source_value = "flags = flags.without(LoadFlags::RENDER);";
     let section = json!({

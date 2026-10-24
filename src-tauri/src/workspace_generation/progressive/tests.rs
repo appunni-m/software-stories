@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v27:"));
+    assert!(instructions.contains("Teaching policy v28:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("Narration tells the subject's journey in direct speech"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -647,7 +647,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v27");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v28");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no visual helps the section, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
@@ -670,8 +670,11 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v41:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v41"));
+    assert!(system_instructions().contains("Visual design method v42:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v42"));
+    assert!(
+        system_instructions().contains("sceneSpeechRole identifies compact all-caps abbreviations")
+    );
     assert!(system_instructions().contains("a caller lookup followed by a load is a call or sequence, not a status edge from the lookup"));
     assert!(system_instructions().contains("Each branch's parentKey names the selector key"));
     assert!(system_instructions().contains("both leaves' parentKey names their branch key"));

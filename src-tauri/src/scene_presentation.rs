@@ -95,6 +95,11 @@ pub(crate) fn validate_fresh_semantic_layouts(
     nodes: &[VisualNode],
 ) -> Result<(), String> {
     for (scene, claim) in presentation.scenes.iter().zip(claims) {
+        if has_compact_spoken_code_token(&scene.narration) {
+            return Err(
+                "Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead.".into(),
+            );
+        }
         if requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
             && (scene.mode != SceneMode::Composition || !has_ordered_selector_root(&scene.elements))
         {
@@ -127,6 +132,24 @@ pub(crate) fn validate_fresh_semantic_layouts(
         );
     }
     Ok(())
+}
+
+/// Detect compact all-caps/code-format tokens in newly authored speech. Exact
+/// identifiers remain available in the adjacent claim and source link. This is
+/// a narrow TTS-readability check, not a semantic or pronunciation guarantee.
+pub(crate) fn has_compact_spoken_code_token(text: &str) -> bool {
+    text.split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .any(|token| {
+            let letters = token
+                .chars()
+                .filter(|character| character.is_ascii_alphabetic())
+                .collect::<Vec<_>>();
+            letters.len() >= 3
+                && letters
+                    .iter()
+                    .all(|character| character.is_ascii_uppercase())
+        })
 }
 
 /// Authored speech stays separate from exact implementation claims. This checks
@@ -911,6 +934,43 @@ mod tests {
             scene.narration = "é".repeat(600);
         }
         assert!(narration(&presentation, &claims).is_err());
+    }
+
+    #[test]
+    fn fresh_spoken_script_flags_compact_code_tokens_but_allows_role_language() {
+        for script in [
+            "The SFNT marker selects the parser.",
+            "PFR0 goes to its dedicated loader.",
+            "The C ABI returns an error when the handle is absent.",
+            "UTF-8 text follows the byte path.",
+        ] {
+            assert!(
+                has_compact_spoken_code_token(script),
+                "expected a compact code token in {script:?}"
+            );
+        }
+        for script in [
+            "The font-table signature selects the parser.",
+            "The dedicated loader handles that format.",
+            "The exported interface returns an error when the handle is absent.",
+            "The input text follows the byte path.",
+            "Rust reads the file and returns a bitmap.",
+        ] {
+            assert!(
+                !has_compact_spoken_code_token(script),
+                "unexpected code token in {script:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fresh_scene_admission_rejects_compact_spoken_tokens() {
+        let (nodes, claims, mut presentation) = fixture();
+        presentation.scenes[0].narration =
+            "The SFNT marker selects the parser; its role stays visible in the source.".into();
+        let error = validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap_err();
+        assert!(error.contains("compact code abbreviation or format token"));
+        assert!(!error.contains("SFNT"));
     }
 
     #[test]
