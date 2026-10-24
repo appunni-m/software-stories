@@ -14,7 +14,7 @@ function fixture() {
     generationOrigin: { projectId: 'project', snapshotId: scope.snapshotId, targetPath: scope.primaryPath, plannedChapter: scope } });
   let cancelled = false;
   const commands = {
-    build: async (scope) => { calls.push(`build:${scope.target.stepId}`); return { ...steps.find((step) => step.scope === scope).review, reviewId: `fresh-${scope.target.stepId}` }; },
+    build: async (scope) => { calls.push(`build:${scope.target.stepId}`); return { ...steps.find((step) => step.scope.target.stepId === scope.target.stepId).review, reviewId: `fresh-${scope.target.stepId}` }; },
     matches: () => true,
     send: async (review) => { calls.push(`send:${review.reviewId}`); const scope = steps.find((step) => step.review.fingerprint === review.fingerprint).scope;
       return { generationId: scope.target.stepId, revision: revision(scope), validation: { status: 'valid' } }; },
@@ -45,6 +45,22 @@ it('resumes from exact saved step lineage and does not skip rejected or unrelate
   await runChapterBatch(f.steps, f.commands, f.options);
   assert.ok(!f.calls.includes('build:step1'));
   assert.ok(f.calls.includes('save:step2'));
+});
+
+it('keeps two questions for the same file separate by accepted step identity', async () => {
+  const f = fixture();
+  const sameFileSteps = f.steps;
+  sameFileSteps[1].scope.primaryPath = sameFileSteps[0].scope.primaryPath;
+  sameFileSteps[1].scope.question = 'How does the second operation use the same file?';
+
+  const result = await runChapterBatch(sameFileSteps, f.commands, f.options);
+
+  assert.deepEqual(result.map((chapter) => chapter.generationOrigin.plannedChapter.target.stepId), ['step1', 'step2']);
+  assert.equal(result[0].generationOrigin.targetPath, result[1].generationOrigin.targetPath);
+  assert.notEqual(result[0].generationOrigin.plannedChapter.question, result[1].generationOrigin.plannedChapter.question);
+  assert.equal(chapterForStep([result[0]], sameFileSteps[1].scope, 'project'), undefined);
+  assert.equal(chapterForStep([result[1]], sameFileSteps[0].scope, 'project'), undefined);
+  assert.deepEqual(f.calls.filter((call) => call.startsWith('send:')), ['send:fresh-step1', 'send:fresh-step2']);
 });
 
 it('stops before transmission when reviewed account, source, settings or prompt change', async () => {
