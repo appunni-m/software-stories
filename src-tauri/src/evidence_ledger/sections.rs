@@ -382,12 +382,65 @@ fn wrapped_authored(proposal: &mut Proposal) -> Result<(String, authoring::Compi
     if proposal.proposal_version != NARRATION_PROPOSAL_VERSION {
         return Err(finding("proposalShape"));
     }
-    let compiled = authoring::narration::compile(&proposal.section)?;
+    let mut value_findings = authored_scene_value_findings(&proposal.section);
+    let compiled = match authoring::narration::compile(&proposal.section) {
+        Ok(compiled) if value_findings.is_empty() => compiled,
+        Ok(_) => return Err(value_findings),
+        Err(mut shape_findings) => {
+            value_findings.append(&mut shape_findings);
+            value_findings.truncate(64);
+            return Err(value_findings);
+        }
+    };
     proposal.section = compiled.section.clone();
     Ok((
         wrapped(proposal).map_err(|_| finding("proposalShape"))?,
         compiled,
     ))
+}
+
+/// Report authored scene values before scene compilation can stop at an
+/// unrelated shape finding. This lets one repair address both defects.
+fn authored_scene_value_findings(section: &Value) -> Vec<Value> {
+    let Some(claims) = section["claims"]
+        .as_array()
+        .filter(|claims| claims.len() <= 8)
+    else {
+        return vec![];
+    };
+    let mut findings = Vec::new();
+    for (claim_index, claim) in claims.iter().enumerate() {
+        let Some(elements) = claim["scene"]["elements"]
+            .as_array()
+            .filter(|elements| elements.len() <= 48)
+        else {
+            continue;
+        };
+        for (element_index, element) in elements.iter().enumerate() {
+            let Some(value) = element["value"].as_str() else {
+                continue;
+            };
+            let location =
+                format!("/section/claims/{claim_index}/scene/elements/{element_index}/value");
+            let code = if value.len() > 1024 {
+                Some("scenePresentationLimit")
+            } else {
+                let invalid_origin = match element["valueOrigin"].as_str() {
+                    Some("none") | None => !value.is_empty(),
+                    Some("source" | "illustration") => value.trim().is_empty(),
+                    Some(_) => false,
+                };
+                invalid_origin.then_some("sceneSourceValue")
+            };
+            if let Some(code) = code {
+                findings.push(json!({"location":location,"code":code}));
+                if findings.len() == 64 {
+                    return findings;
+                }
+            }
+        }
+    }
+    findings
 }
 
 /// Resolve every proposal through the current grounded-name policy.
@@ -753,6 +806,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneNarration"
                             | "sceneRepetition"
                             | "sceneSourceValue"
+                            | "scenePresentationLimit"
                             | "selectorRequired"
                             | "selectorShape"
                             | "transformShape"

@@ -484,6 +484,33 @@ fn guide_slide_rejection_locks_the_first_valid_section_key() {
 }
 
 #[test]
+fn authored_scene_value_feedback_survives_an_earlier_shape_rejection() {
+    let mut raw = authoring::tests::proposal("code:1", "entry", 0);
+    let elements = &mut raw["section"]["claims"][0]["scene"]["elements"];
+    elements[1]["parentKey"] = json!("missing-layout");
+    elements[1]["value"] = json!("Borrowed font bytes");
+    elements[1]["valueOrigin"] = json!("none");
+    elements[3]["value"] = json!("x".repeat(1025));
+
+    let mut proposal: Proposal = serde_json::from_value(raw).unwrap();
+    let findings = match wrapped_authored(&mut proposal) {
+        Err(findings) => findings,
+        Ok(_) => panic!("invalid scene values and structure must be rejected"),
+    };
+    let codes = findings
+        .iter()
+        .filter_map(|finding| finding["code"].as_str())
+        .collect::<Vec<_>>();
+    assert!(codes.contains(&"sceneSourceValue"));
+    assert!(codes.contains(&"scenePresentationLimit"));
+    assert!(codes.contains(&"sceneAuthoringKey"));
+    assert!(valid_findings(&findings));
+    let serialized = serde_json::to_string(&findings).unwrap();
+    assert!(!serialized.contains("Borrowed font bytes"));
+    assert!(!serialized.contains(&"x".repeat(1025)));
+}
+
+#[test]
 fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
