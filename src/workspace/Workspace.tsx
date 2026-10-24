@@ -25,6 +25,7 @@ import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
 import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
+import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, searchLimitMessage, searchResultsMessage, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchMode } from './codeSearch';
@@ -271,11 +272,7 @@ export function DeveloperWorkspace(props:Props) {
       }
       return;
     }
-    const contexts=[...new Set(pending.paths)].slice(0,12).flatMap((path)=>{
-      const file=props.manifest.files.find((candidate)=>candidate.path===path&&candidate.kind==='file'
-        &&candidate.contentKind==='text'&&!candidate.secretLike);
-      return file?[{path:file.path,sha256:file.sha256}]:[];
-    });
+    const contexts=largeFileExplanationContexts(pending,props.manifest.files);
     if(!contexts.some((context)=>context.path===pending.targetPath)){
       handledLargeFileExplanation.current=pending.id;
       setConsentError('This file is not available as readable text in the selected snapshot.');
