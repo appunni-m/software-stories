@@ -84,6 +84,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
         snapshot_id: guide.snapshot_id.clone(),
         question: opening.question.clone(),
         outcome: Outcome::Partial,
+        failure_code: None,
         sections: vec![],
         incomplete_topics: vec!["The initial transition remains unexplored.".into()],
     });
@@ -154,6 +155,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
             snapshot_id: guide.snapshot_id.clone(),
             question: opening.question.clone(),
             outcome: Outcome::Failed,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec![],
         });
@@ -191,6 +193,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
         snapshot_id: next.snapshot_id.clone(),
         question: opening.question.clone(),
         outcome: Outcome::Partial,
+        failure_code: None,
         sections: vec![],
         incomplete_topics: vec!["The opening remains incomplete.".into()],
     });
@@ -206,6 +209,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
             snapshot_id: next.snapshot_id.clone(),
             question: retry_question,
             outcome: Outcome::Partial,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec!["The opening retry remains incomplete.".into()],
         }),

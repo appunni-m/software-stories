@@ -10,7 +10,7 @@ import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -240,7 +240,7 @@ async function reconcileAnswer(project: string, snapshot: string, turnId: string
   if (failures.length) throw failures[0];
   const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
   if (owner?.runIds?.at(-1) === summary.runId) patchTurn(project,snapshot,turnId,{status:summary.outcome === 'complete' ? 'ready' : summary.outcome,
-    notes:cleanAnswerNotes(summary.incompleteTopics),error:undefined});
+    notes:cleanAnswerNotes(summary.incompleteTopics),failureCode:cleanExplanationFailureCode(summary.failureCode),error:undefined});
   return revision;
 }
 /** Startup summaries are already replay-validated by native code, and their
@@ -255,7 +255,7 @@ function reconcileListedAnswer(project: string, snapshot: string, turnId: string
   }))}));
   const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
   if (owner?.runIds?.at(-1) === summary.runId) patchTurn(project,snapshot,turnId,{status:summary.outcome === 'complete' ? 'ready' : summary.outcome,
-    notes:cleanAnswerNotes(summary.incompleteTopics),error:undefined});
+    notes:cleanAnswerNotes(summary.incompleteTopics),failureCode:cleanExplanationFailureCode(summary.failureCode),error:undefined});
 }
 interface Restoration { queue: RefreshQueue; check: () => void }
 const restorations = new Map<string, Restoration>();
@@ -511,7 +511,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   if ((turn.runIds?.length ?? 0) >= 32) { patchTurn(project,snapshot,id,{error:'This question has reached its retry limit. Ask a follow-up to continue.'}); return null; }
   const job = {cancelled:false,runId:null as string | null,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
   const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
-  patchTurn(project,snapshot,id,{status:'queued',error:undefined});
+  patchTurn(project,snapshot,id,{status:'queued',failureCode:undefined,error:undefined});
   const queueWaitStarted = rendererClock();
   const release = await enterQuestionQueue();
   const rendererQueueWaitMs = Math.min(86_400_000, Math.max(0, Math.round(rendererClock() - queueWaitStarted)));

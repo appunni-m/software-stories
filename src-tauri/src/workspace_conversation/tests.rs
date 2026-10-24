@@ -27,6 +27,19 @@ fn state() -> Value {
 }
 
 #[test]
+fn finite_answer_failure_codes_are_preserved_but_unknown_values_are_rejected() {
+    let f = Fixture::new();
+    let mut current = state();
+    current["explorations"][0]["turns"][0]["failureCode"] = json!("noPublishedSections");
+    let saved = save(&f.0, "project", "snapshot", None, current.clone()).unwrap();
+    assert_eq!(saved.state, current);
+
+    let mut invalid = current;
+    invalid["explorations"][0]["turns"][0]["failureCode"] = json!("raw provider failure");
+    assert!(save(&f.0, "project", "snapshot", Some(saved.revision), invalid).is_err());
+}
+
+#[test]
 fn absent_read_creates_nothing_and_scope_keys_are_unambiguous() {
     let f = Fixture::new();
     assert_eq!(load(&f.0, "project", "snapshot").unwrap(), None);
@@ -610,6 +623,7 @@ fn invalid_trees_contexts_scopes_and_unknown_content_cannot_replace_a_valid_file
             json!({"guide":{"revisionId":"ok","sectionId":""}}),
         ),
         ("outcomeNotice", json!({"read":"not-a-hash"})),
+        ("failureCode", json!("raw provider failure")),
     ] {
         let mut s = state();
         s["explorations"][0]["turns"][0][field] = value;

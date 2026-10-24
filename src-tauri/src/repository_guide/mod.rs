@@ -330,6 +330,7 @@ fn synthetic_failed_slide(
         snapshot_id: snapshot_id.into(),
         question: question.into(),
         outcome: Outcome::Failed,
+        failure_code: None,
         sections: vec![],
         incomplete_topics: vec![
             "This slide did not publish. The guide preserved its other progress.".into(),

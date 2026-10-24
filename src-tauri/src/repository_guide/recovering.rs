@@ -115,6 +115,7 @@ fn reconcile_with_reader(
             snapshot_id: record.snapshot_id.clone(),
             question: attempt.question.clone(),
             outcome: Outcome::Interrupted,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec![
                 "The investigation stopped before a saved answer was available.".into(),

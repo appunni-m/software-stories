@@ -68,6 +68,7 @@ pub(super) fn record(f: &Fixture) -> Record {
             snapshot_id: result.snapshot_id.clone(),
             question: opening::LEARNING_QUESTION.into(),
             outcome: Outcome::Interrupted,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec!["Synthetic terminal opening for unit-state tests.".into()],
         }),
@@ -106,6 +107,7 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
             project_id: record.project_id.clone(),
             snapshot_id: record.snapshot_id.clone(),
             outcome,
+            failure_code: None,
             sections,
             incomplete_topics: vec![],
         }),
@@ -388,6 +390,7 @@ fn a_slide_gets_one_automatic_recovery_and_keeps_one_explicit_continuation() {
             snapshot_id,
             question: attempt.question.clone(),
             outcome: Outcome::Failed,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec!["The first bounded attempt failed.".into()],
         });
@@ -422,6 +425,7 @@ fn a_slide_gets_one_automatic_recovery_and_keeps_one_explicit_continuation() {
             snapshot_id,
             question: attempt.question.clone(),
             outcome: Outcome::Failed,
+            failure_code: None,
             sections: vec![],
             incomplete_topics: vec!["The automatic recovery also failed.".into()],
         });

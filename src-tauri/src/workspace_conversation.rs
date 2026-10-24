@@ -415,6 +415,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             "question",
             "context",
             "status",
+            "failureCode",
             "revisionId",
             "generationId",
             "error",
@@ -452,6 +453,30 @@ fn turn(v: &Value) -> Result<&str, String> {
         || !optional(o, "outcomeAt", |v| integer(v, 9_007_199_254_740_991))
         || !optional(o, "outcomeSequence", |v| integer(v, 9_007_199_254_740_991))
     {
+        return Err(UNAVAILABLE.into());
+    }
+    if o.get("failureCode").is_some_and(|value| {
+        !value.as_str().is_some_and(|code| {
+            matches!(
+                code,
+                "stopped"
+                    | "invalidToolArguments"
+                    | "toolEvent"
+                    | "contextTimeout"
+                    | "contextPeerClosed"
+                    | "contextTransport"
+                    | "contextDelivery"
+                    | "runTimeout"
+                    | "runtimeIdentity"
+                    | "finalManifestTooLarge"
+                    | "invalidFinalManifest"
+                    | "unsupportedManifestVersion"
+                    | "noPublishedSections"
+                    | "invalidIncompleteTopics"
+                    | "unknown"
+            )
+        })
+    }) {
         return Err(UNAVAILABLE.into());
     }
     if let Some(guide) = o.get("guide") {

@@ -11,6 +11,8 @@ pub(crate) struct Summary {
     pub(crate) snapshot_id: String,
     pub(crate) question: String,
     pub(crate) outcome: Outcome,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) failure_code: Option<FailureCode>,
     pub(crate) sections: Vec<SectionNotice>,
     pub(crate) incomplete_topics: Vec<String>,
 }
@@ -40,6 +42,7 @@ impl Answer {
             snapshot_id: self.binding.snapshot_id.clone(),
             question: self.question.clone(),
             outcome: self.outcome.clone(),
+            failure_code: self.failure_code.clone(),
             incomplete_topics: self.incomplete_topics.clone(),
             sections: self
                 .sections

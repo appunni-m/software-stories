@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { errorMessageOr, explanationErrorMessage } from '../src/lib/errorMessage.ts';
+import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../src/lib/errorMessage.ts';
 
 describe('native and frontend error messages', () => {
   it('preserves string rejections returned by Rust commands', () => {
@@ -32,4 +32,13 @@ it('explains current claim validation failures without source identifiers', () =
     assert.doesNotMatch(result, /section:|record_pipeline_operation_path|prices/);
   }
   assert.equal(explanationErrorMessage('Codex account access expired.'), 'Codex account access expired.');
+});
+
+it('turns a rejected empty answer into a useful, private retry hint', () => {
+  const message = explanationFailureMessage('noPublishedSections');
+  assert.match(message, /couldn’t verify an explanation/);
+  assert.match(message, /one behavior at a time/);
+  assert.match(message, /caller or helper/);
+  assert.doesNotMatch(message, /namedIdentifierEvidence|proposalCorrectionLimit|noPublishedSections/);
+  assert.equal(explanationErrorMessage('The answer did not publish any sections.'), message);
 });

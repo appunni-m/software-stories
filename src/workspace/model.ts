@@ -9,9 +9,14 @@ export interface PublishedSection {
   runId: string; key: string; order: number; generationId: string; revisionId: string;
   supersedes: string | null; contextElapsedMs: number; runElapsedMs: number | null;
 }
+export type ExplanationFailureCode = 'stopped' | 'invalidToolArguments' | 'toolEvent' | 'contextTimeout'
+  | 'contextPeerClosed' | 'contextTransport' | 'contextDelivery' | 'runTimeout' | 'runtimeIdentity'
+  | 'finalManifestTooLarge' | 'invalidFinalManifest' | 'unsupportedManifestVersion'
+  | 'noPublishedSections' | 'invalidIncompleteTopics' | 'unknown';
 export interface AnswerSummary {
   runId: string; projectId: string; snapshotId: string; question: string;
   outcome: 'working' | 'complete' | 'partial' | 'stopped' | 'failed' | 'interrupted';
+  failureCode?: ExplanationFailureCode;
   sections: PublishedSection[]; incompleteTopics: string[];
 }
 export interface RepositoryGuide {
@@ -30,6 +35,7 @@ export interface Turn {
   id: string; question: string; context: Context[];
   status: 'queued' | 'working' | 'waiting' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
   revisionId?: string; generationId?: string; error?: string;
+  failureCode?: ExplanationFailureCode;
   runIds?: string[]; publishedSections?: PublishedSection[];
   notes?: string[];
   guideId?: string;
@@ -127,6 +133,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if (!validRunId(t.guideId)) { delete t.guideId; delete t.guide; }
         else delete t.guide; // Native job state is authoritative after reopening.
         t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
+        t.failureCode = cleanExplanationFailureCode(t.failureCode);
+        if (!t.failureCode) delete t.failureCode;
         t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
         if(t.answerVersions)t.answerVersions=cleanAnswerVersions(t.answerVersions,t);
@@ -309,6 +317,10 @@ export function cleanAnswerNotes(value: unknown): string[] {
 }
 
 const validRunId = (id: unknown): id is string => typeof id === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id);
+const explanationFailureCodes = new Set<ExplanationFailureCode>(['stopped','invalidToolArguments','toolEvent','contextTimeout','contextPeerClosed','contextTransport','contextDelivery','runTimeout','runtimeIdentity','finalManifestTooLarge','invalidFinalManifest','unsupportedManifestVersion','noPublishedSections','invalidIncompleteTopics','unknown']);
+export function cleanExplanationFailureCode(value: unknown): ExplanationFailureCode | undefined {
+  return typeof value === 'string' && explanationFailureCodes.has(value as ExplanationFailureCode) ? value as ExplanationFailureCode : undefined;
+}
 const validGenerationId = (id: unknown): id is string => typeof id === 'string' && id.startsWith('generation:') && validRunId(id.slice('generation:'.length));
 export function cleanPublishedSections(value: unknown): PublishedSection[] {
   if (!Array.isArray(value)) return [];

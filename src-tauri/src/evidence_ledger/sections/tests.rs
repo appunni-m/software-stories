@@ -673,6 +673,16 @@ fn a_manifest_without_a_published_section_has_a_specific_failure_class() {
         FailureCode::from_error(&error),
         FailureCode::NoPublishedSections
     );
+    let summary = reading::interrupt_with_failure(
+        &f.storage,
+        &answer.value.binding.operation_id,
+        Outcome::Failed,
+        Some(FailureCode::NoPublishedSections),
+    )
+    .unwrap();
+    let wire = serde_json::to_value(summary).unwrap();
+    assert_eq!(wire["failureCode"], "noPublishedSections");
+    assert_eq!(wire["outcome"], "failed");
 }
 
 #[test]

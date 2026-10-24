@@ -140,6 +140,19 @@ test('startup merges every native-verified answer without replaying individual r
   stop();
 });
 
+test('a failed native answer restores its finite reason for the reader', async () => {
+  const failed = { ...answer, outcome: 'failed', failureCode: 'noPublishedSections', sections: [], incompleteTopics: [] };
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') return [failed];
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  const restored = turns(h)[0];
+  assert.equal(restored.status, 'failed');
+  assert.equal(restored.failureCode, 'noPublishedSections');
+  assert.equal(restored.publishedSections.length, 0);
+});
+
 test('wrong-scope events and events after disposal cannot restore another workspace', async () => {
   const h = workspaceStoreHarness(() => assert.fail('Unexpected native read'));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');

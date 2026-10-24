@@ -12,7 +12,20 @@ related: design-parity, exploration-history, t08
 Clicking a captured source file or Code Lens control either opens the exact source/range or presents a recoverable, actionable error. It must not crash the workspace or silently send source to an agent.
 
 ## Report to reproduce
-The user reported that clicking Code Lens on a file threw an error. The running v30 Fontdone workspace is on `main@5249b72371`. Current UI inspection found no Code Lens-specific notification. The source-linked Guide hotspot opened `src/render.rs:425–446`, so that path works; it is not the reported click. Exact file path, clicked control, error text, and crash state remain unknown. Do not count source navigation as reproduction.
+The user reported that clicking Code Lens on a file threw an error. The Fontdone snapshot is `main@5249b72371`. Exact original file path, clicked control, and error text remain unknown, so the original report is not yet confirmed.
+
+## Reproduced Code Lens generation failure — 24 Oct 2026
+With the user’s one-request authorization, selected `src/tt/glyf.rs:564–583` and chose **Explain this code**. The app asked “Explain what `glyf.rs:564–583` does and how it works.” Codex completed after about 124 seconds, but none of three proposed sections passed native evidence validation. The saved answer ended as `failed` with `noPublishedSections`; no explanation section was published. The UI showed only “This question could not be completed.” The app stayed open and did not crash. This reproduces an unhelpful failure result in the selected-code flow, not the original click exception. No additional provider request is authorized.
+
+## Implemented response
+The native summary now carries only its finite failure category into the workspace. The conversation validator accepts that fixed enum and rejects arbitrary diagnostics. The reader shows a plain next step for `noPublishedSections`: ask about one behavior, or ask how a specific caller or helper changes the result. The source validator remains unchanged; failed drafts still cannot publish. Regression coverage verifies summary serialization, bounded conversation persistence, restored UI state, unknown-code rejection, and the user-facing message.
+
+## Verification — 24 Oct 2026
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib`: 745 passed, 18 ignored.
+- `npm run quality:build` passed; this is required before the offline quality tests.
+- `npm test`: 646 passed.
+- `npm run build` passed. The packaged macOS app has not yet been rebuilt and checked for this change.
 
 ## Reproduction matrix
 On the packaged app, distinguish these actions and record the exact result for each: open a captured file from Explorer; open a cited range from Guide; select code and choose **Explain this code**; open the legacy **Explain cited range** review if that screen is reachable. For each, record project/snapshot, relative path, inclusive line range, visible error, whether the app stays open, and whether a provider review was created. Start with Fontdone `main@5249b72371` and a captured text file.
@@ -25,4 +38,4 @@ On the packaged app, distinguish these actions and record the exact result for e
 - Cover both supported Code Lens entry points, if both remain in the current product, without adding a legacy path solely for this test.
 
 ## Completion evidence
-Reproduce the reported path or obtain the exact message from app diagnostics; fix the evidenced cause; add a focused regression for the cause and related invalid/stale/missing-source boundaries; then verify the packaged UI remains usable and returns to the same source/Guide location. If the original failure cannot be reproduced, record the tested controls and keep the user report unconfirmed rather than claiming it fixed. No model invocation is required for source navigation; any provider generation needs its own authorization.
+Run the focused source-navigation and selected-code controls in the packaged app and record exact results. The selected-code generation failure above is confirmed; the original click exception is still unknown. The actionable no-published-section message is implemented and covered by frontend/native regressions. Before closing, install the rebuilt app and verify that message appears after a failed request, survives reopening, and leaves source/Guide navigation usable. Keep the original user report unconfirmed until its exact control and exception are identified. Source navigation requires no model invocation; any provider generation requires its own authorization.

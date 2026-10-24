@@ -103,6 +103,14 @@ test('partial-answer scope notes survive reopening with bounded plain text',()=>
   delete s.explorations[0].turns[0].notes;
   assert.deepEqual(parseWorkspace(JSON.stringify(s),'p','snap').explorations[0].turns[0].notes,[]);
 });
+test('finite explanation failure codes survive reopening and unknown codes are dropped',()=>{
+  const state=addTurn(createWorkspace('p','snap'),{...turn('failed'),status:'failed',failureCode:'noPublishedSections'},'guide');
+  const reopened=decodeWorkspace(JSON.stringify(state),'p','snap');
+  assert.equal(reopened.explorations[0].turns[0].failureCode,'noPublishedSections');
+  state.explorations[0].turns[0].failureCode='private raw diagnostic';
+  const safe=decodeWorkspace(JSON.stringify(state),'p','snap');
+  assert.equal('failureCode' in safe.explorations[0].turns[0],false);
+});
 test('damaged, cyclic or path-traversing saved UI state falls back safely',()=>{
   const s=createWorkspace('p','snap');s.explorations.push({id:'a',parentId:'a',originTurnId:null,title:'bad',turns:[],view:'guide'});
   assert.equal(parseWorkspace(JSON.stringify(s),'p','snap').explorations.length,1);
