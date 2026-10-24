@@ -5,20 +5,20 @@ use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v27";
-pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v39";
+pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v40";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Tell what the real subject does and why it matters; point to a short visual cue only to help the listener follow. Never narrate the artifact itself or open with meta commentary such as ‘these boxes show’, ‘this diagram explains’ or ‘the scene illustrates’. Start with the caller, input or decision, then tell what happens next and where each supported outcome goes. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Do not pronounce all-capital abbreviations or format tags letter by letter; replace them with their job in the behavior. Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same story-first style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v39
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v40
 Build a visual explanation around real code behavior. Follow a real input through source-grounded changes and outcomes. Each scene makes one change, decision or result visible and explains why it matters. Narration tells the subject's journey in direct speech; it never describes the artifact with phrases like ‘these boxes show’ or ‘this diagram illustrates’. Start with the real caller, input or decision, then follow what happens and where each supported outcome goes. Point to a visible cue only as a brief landmark. Preserve guards, alternatives, failures and uncertainty. Label examples; never invent behavior. Use one mode for a whole section. If no visual helps the section, set kind:none and give every claim a narration scene with mode:narration and empty nodes, edges and elements. Otherwise every claim needs a scene with at least one source-linked node. Never mix modes or leave a visual scene empty. Prefix inference narration with its visible label."#;
 
 const BEHAVIOR_TEACHING: &str = r#"Teaching policy v27: Start with the real input or situation; each claim covers one code-backed transition and its consequence. State the decision rule before examples and explain every outcome, guard, alternative and error. Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about. Preserve zero/nonzero and empty-result behavior; never invent intent or results."#;
 
 const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent the behavior being explained. Distinguish rejected, missing, malformed and successfully handled inputs only when the cited implementation shows those cases. A comment, import, identifier or default constructor does not prove later consumer behavior. For downstream effects, cite the consumer plus the producing path and conditions; otherwise leave that effect unexplored. References and identifiers do not prove meaning."#;
 
-const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v39: Let observed behavior choose one app-supported composition per scene, not file type or a favorite template: ordered checks → selector; one guard → branch; changed state/data → transform or beforeAfter; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; lookup → key, hit/miss and route; quantities → metric. Use a graph only when those forms cannot show the relationship; focused graphs show at most eight nodes and one edge of context. Name the behavior as a verb and make layout enact that action with one focal point. Avoid equal-card grids, a repeated flow template and decorative variation. Keep a consistent visual grammar across a journey and change composition only at a real behavioral handoff. Preserve source-backed guards, misses, outcomes, errors and uncertainty; never imply unobserved execution, priority or values. Default every authored node's source to null; use an exact source value only when that literal itself matters and occurs once in the node's cited excerpt. Node evidence keeps code clickable. The app renders safe structured elements; never emit markup, scripts, URLs or handlers. This renderer uses inert app-owned HTML/CSS primitives; do not imply 3-D/WebGL is available."#;
+const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v40: Let observed behavior choose one app-supported composition per scene, not file type or a favorite template: ordered checks → selector; one guard → branch; changed state/data → transform or beforeAfter; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; lookup → key, hit/miss and route; quantities → metric. Use a graph only when those forms cannot show the relationship; focused graphs show at most eight nodes and one edge of context. Name the behavior as a verb and make layout enact that action with one focal point. Give each visual node a distinct, behavior-specific label; do not repeat a generic mechanism label across branches. Reserve the shared mechanism for the scene title and label each branch with its actual guard and result. Avoid equal-card grids, a repeated flow template and decorative variation. Keep a consistent visual grammar across a journey and change composition only at a real behavioral handoff. Preserve source-backed guards, misses, outcomes, errors and uncertainty; never imply unobserved execution, priority or values. Default every authored node's source to null; use an exact source value only when that literal itself matters and occurs once in the node's cited excerpt. Node evidence keeps code clickable. The app renders safe structured elements; never emit markup, scripts, URLs or handlers. This renderer uses inert app-owned HTML/CSS primitives; do not imply 3-D/WebGL is available."#;
 
 const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v30: Every content leaf needs a visible input, guard, change, output or destination; no placeholders or meaning hidden in help/narration. Default every visual node source to null. Use an exact source value only when that literal itself matters to understanding and occurs exactly once in its cited excerpt; never use source for identifiers, labels or code snippets. Node evidence keeps code clickable. Use explanation for short visual copy grounded in the claim, such as a guard, role, or outcome label; it is not a measured runtime value. Use illustration only for an invented hypothetical input or output, and label it illustrative. Do not badge grounded explanation as an example. Keep labels short (2–8 words, under 45 visible characters per card); preserve longer exact tokens only when they matter. Put sentence-length nuance in narration; use a wide/vertical scene instead of several long cards in a row/grid. Limits are ceilings: 8 nodes/section, 12 edges, 24 elements/8 leaves/scene, 6 children/group. If no concise visual fits, use narration and links."#;
 
@@ -186,7 +186,7 @@ pub(crate) mod tests {
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         let instructions = super::instructions();
-        assert!(instructions.contains("ai-html-compositions-v39"));
+        assert!(instructions.contains("ai-html-compositions-v40"));
         assert!(
             instructions.contains(
                 "whole section has at most 12 nodes and 20 edges across all claim scenes"
@@ -198,6 +198,8 @@ pub(crate) mod tests {
         assert!(instructions.contains("one app-supported composition per scene"));
         assert!(instructions.contains("not file type or a favorite template"));
         assert!(instructions.contains("one focal point"));
+        assert!(instructions.contains("Give each visual node a distinct, behavior-specific label"));
+        assert!(instructions.contains("Reserve the shared mechanism for the scene title"));
         assert!(instructions.contains("under 45 visible characters per card"));
         assert!(instructions.contains("instead of several long cards in a row/grid"));
         assert!(instructions.contains("verified order → timeline"));
@@ -298,10 +300,10 @@ pub(crate) mod tests {
     #[test]
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
-        assert!(super::instructions().contains("Visual design method v39:"));
-        assert!(super::progressive_teaching_instructions().contains("Visual design method v39:"));
+        assert!(super::instructions().contains("Visual design method v40:"));
+        assert!(super::progressive_teaching_instructions().contains("Visual design method v40:"));
         assert!(!super::instructions().contains("Visual design method v33:"));
-        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v39"));
+        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v40"));
         assert!(
             shared.contains("Follow a real input through source-grounded changes and outcomes")
         );
