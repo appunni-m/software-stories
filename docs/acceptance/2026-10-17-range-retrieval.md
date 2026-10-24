@@ -182,7 +182,7 @@ This establishes local service retrieval of the pinned real FFI/C declarations a
 
 ## Current-source retrieval strategy comparison — 25 October 2026
 
-Reran the ignored native service profile at Code Atlas source `2a55680` against the existing Fontdone `main@5249b72371` snapshot and syntax index in the isolated retrieval cache `/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-range-retrieval-qbnsm6pm`. The app's original storage was not modified. No model, Codex, speech request, or Fontdone code execution was involved. The profile passed; this was a disk-loaded and same-process cached search measurement, not a cold index build.
+Reran the ignored native service profile at Code Atlas source `2a55680` against the existing Fontdone `main@5249b72371` snapshot and syntax index in a separate temporary retrieval cache. The app's original storage was not modified. No model, Codex, speech request, or Fontdone code execution was involved. The profile passed; this was a disk-loaded and same-process cached search measurement, not a cold index build.
 
 The current baseline found all twelve named declarations globally and scoped. Both broad ranked first pages found 1/12 expected ranges. The 256-result candidate window found 8/12 and 7/12 respectively. File discovery found 6/7 and 4/7 expected paths on its first page; across eight pages it found 7/7 paths, and scoping range search to those paths recovered 12/12 ranges for both queries. The first-page file path sets covered 11/12 and 8/12 expected ranges when followed by scoped search.
 
