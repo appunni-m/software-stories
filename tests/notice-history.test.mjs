@@ -5,6 +5,7 @@ import {NoticeHistory,emptyNoticeHistory,normalizeNotice,noticeKey,projectNotice
 import {notificationAvailability} from '../src/lib/notificationSummary.ts';
 
 const input={title:'Saved update',message:'Font bytes → pixels',projectId:'project-one',snapshotId:'snap-one',target:{kind:'openExploration',explorationId:'root'}};
+const MAX_ITEMS=1000;
 test('conversation retry is a scoped local action and requires both repository and snapshot',()=>{
   const action={kind:'retryConversation'};
   assert.deepEqual(normalizeNotice({...input,target:action}).target,action);
@@ -31,13 +32,13 @@ function fixture({load,update}={}){
 }
 async function fullHistoryFixture(){
   let saved=emptyNoticeHistory();const calls=[];
-  for(let n=0;n<100;n++){
+  for(let n=0;n<MAX_ITEMS;n++){
     const value=normalizeNotice({...input,message:`Existing update ${n}`});
     saved.items.push({id:await noticeKey(value),input:value,createdAtUnixMs:Date.now()+n,read:false});
   }
   const api={load:async()=>structuredClone(saved),update:async operation=>{
     calls.push(operation);
-    if(operation.kind==='publish'&&saved.items.length>=100)throw 'Notification history is full. Dismiss an older notification to save a new one.';
+    if(operation.kind==='publish'&&saved.items.length>=MAX_ITEMS)throw 'Notification history is full. Dismiss an older notification to save a new one.';
     const item=operation.kind==='publish'?{id:await noticeKey(operation.input),input:operation.input,createdAtUnixMs:Date.now(),read:false}:undefined;
     saved=projectNotices(saved,[{operation,...(item?{item}:{})}]);return structuredClone(saved);
   }};
@@ -136,10 +137,10 @@ test('a full notice history accepts a dismissal before retrying the queued publi
   const f=await fullHistoryFixture();const {history}=f;
   await history.publish({...input,message:'Queued update'});await settled(history);
   assert.equal(history.getSnapshot().availability,'unavailable');assert.equal(history.getSnapshot().issue,'full');
-  assert.equal(history.getSnapshot().items.length,101);
+  assert.equal(history.getSnapshot().items.length,MAX_ITEMS+1);
   history.dismiss(f.saved().items[0].id);await settled(history);
   assert.equal(history.getSnapshot().availability,'ready');assert.equal(history.getSnapshot().issue,null);
-  assert.equal(f.saved().items.length,100);assert.ok(f.saved().items.some(item=>item.input.message==='Queued update'));
+  assert.equal(f.saved().items.length,MAX_ITEMS);assert.ok(f.saved().items.some(item=>item.input.message==='Queued update'));
   assert.deepEqual(f.calls.map(operation=>operation.kind),['publish','dismiss','publish']);
 });
 
@@ -149,7 +150,7 @@ test('group dismissal at capacity cancels selected unsaved notices and frees sav
   assert.equal(f.history.getSnapshot().issue,'full');
   const savedId=f.saved().items[0].id;const queued=f.history.getSnapshot().items.find(item=>item.input.message==='Queued group update');assert.ok(queued);
   f.history.dismissMany([savedId,queued.id]);await settled(f.history);
-  assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.saved().items.length,99);
+  assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.saved().items.length,MAX_ITEMS-1);
   assert.ok(!f.saved().items.some(item=>item.input.message==='Queued group update'));
   assert.ok(f.saved().dismissed.includes(savedId));assert.ok(!f.saved().dismissed.includes(queued.id));
   assert.deepEqual(f.calls.map(operation=>operation.kind),['publish','dismissMany']);
@@ -162,7 +163,7 @@ test('dismissing an unsaved full-history notice cancels that pending publication
   assert.ok(queued);assert.equal(f.history.getSnapshot().issue,'full');
   f.history.dismiss(queued.id);await settled(f.history);
   assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.history.getSnapshot().issue,null);
-  assert.equal(f.saved().items.length,100);assert.ok(!f.saved().items.some(item=>item.input.message==='Unsaved update'));
+  assert.equal(f.saved().items.length,MAX_ITEMS);assert.ok(!f.saved().items.some(item=>item.input.message==='Unsaved update'));
   assert.deepEqual(f.calls.map(operation=>operation.kind),['publish']);
 });
 

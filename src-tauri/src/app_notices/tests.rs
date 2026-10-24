@@ -269,6 +269,33 @@ fn corruption_future_schemas_duplicate_keys_and_changed_identity_preserve_origin
 }
 
 #[test]
+fn maximum_sized_records_at_the_thousand_item_cap_fit_the_bounded_history() {
+    let f = Fixture::new();
+    let mut history = History::default();
+    for n in 0..MAX_ITEMS {
+        let mut notice = input(&"🧭".repeat(700));
+        notice.title = "🧭".repeat(100);
+        notice.project_id = Some("p".repeat(4096));
+        notice.snapshot_id = Some("s".repeat(256));
+        notice.occurrence_id = Some(format!("{n:0256}"));
+        notice.target = Some(Target::OpenExploration {
+            exploration_id: "x".repeat(256),
+        });
+        history.items.push(Item {
+            id: key(&notice).unwrap(),
+            input: notice,
+            created_at_unix_ms: n as u64 + 1,
+            read: false,
+        });
+    }
+    let value = serde_json::to_value(&history).unwrap();
+    let bytes = serde_json::to_vec(&value).unwrap();
+    assert!(bytes.len() <= MAX_BYTES);
+    f.save(&value);
+    assert_eq!(list(&f.0).unwrap(), history);
+}
+
+#[test]
 fn capacity_never_evicts_unread_work_and_dismissal_frees_one_visible_slot() {
     let f = Fixture::new();
     for n in 0..MAX_ITEMS {

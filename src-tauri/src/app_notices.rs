@@ -10,10 +10,10 @@ use std::{
 };
 use tauri::AppHandle;
 
-const MAX_ITEMS: usize = 100;
+const MAX_ITEMS: usize = 1_000;
 const NOTICE_HISTORY_SCHEMA_VERSION: u32 = 1;
 const MAX_DISMISSED: usize = 2048;
-const MAX_BYTES: usize = 1024 * 1024;
+const MAX_BYTES: usize = 16 * 1024 * 1024;
 const UNAVAILABLE: &str = "Saved updates are unavailable. Existing work has been preserved.";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
