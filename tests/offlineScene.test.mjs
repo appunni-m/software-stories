@@ -78,6 +78,7 @@ it('offline scenes show ordered selector checks and explicit fall-through', () =
   assert.match(markup, /Check 1/);
   assert.match(markup, /Check 2/);
   assert.match(markup, /No match · continue/);
+  assert.equal((markup.match(/class="scene-branch-item"/g) ?? []).length, 4);
   assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 4);
 });
 

@@ -48,6 +48,11 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
           ])}
         </div>;
       }
+      if (e.kind === 'branch') {
+        return <div key={index} className={className} role="group" aria-label={label}>
+          {children.map((child, childIndex) => <div key={`branch-item-${childIndices[childIndex]}`} className="html-scene-branch-item">{child}</div>)}
+        </div>;
+      }
       return <div key={index} className={className} role={label ? 'group' : undefined} aria-label={label}>{children}</div>;
     }
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;

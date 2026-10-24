@@ -501,14 +501,20 @@ describe('visual story scenes', () => {
   it('keeps semantic HTML scene layouts side by side at the normal reading-pane width', () => {
     const live = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
     const offline = readFileSync(new URL('../src/lib/offlineScene.ts', import.meta.url), 'utf8');
+    const renderer = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
     for (const width of [560, 520, 480]) {
       assert.match(live, new RegExp(`@container \\(max-width:\\s*${width}px\\)`, 'u'));
       assert.match(offline, new RegExp(`@container\\(max-width:${width}px\\)`, 'u'));
     }
     assert.match(live, /@container \(max-width: 520px\) \{[^}]*\.html-scene-timeline/u);
     assert.match(live, /@container \(max-width: 480px\) \{ \.html-scene-branch/u);
+    assert.match(live, /\.html-scene-branch-item\s*\{[^}]*container:\s*html-scene-branch-item\s*\/\s*inline-size/u);
+    assert.match(live, /@container html-scene-branch-item \(max-width:\s*720px\) \{[^}]*\.html-scene-transform/u);
+    assert.match(renderer, /e\.kind === 'branch'[\s\S]*?className="html-scene-branch-item"/u);
     assert.match(offline, /@container\(max-width:520px\)\{\.scene-timeline/u);
     assert.match(offline, /@container\(max-width:480px\)\{\.scene-branch/u);
+    assert.match(offline, /\.scene-branch-item\{[^}]*container:scene-branch-item\/inline-size\}/u);
+    assert.match(offline, /@container scene-branch-item\(max-width:720px\)\{\.scene-transform/u);
   });
 
   it('keeps graph context compact but expands the narrated and focused node details', () => {
