@@ -109,11 +109,13 @@ historical identities.
 
 Ordinary and progressive requests share the current scene and teaching
 instructions. Progressive contracts fingerprint the current source policies
-`storyPolicy: "ai-html-compositions-v37"`,
-`teachingPolicy: "meaning-first-v27"`, and the exact composed instructions
+`storyPolicy: "ai-html-compositions-v42"`,
+`teachingPolicy: "meaning-first-v28"`, and the exact composed instructions
 without changing stored checkpoint identities or replaying generation. A
 fingerprint change applies to future requests; it does not rewrite saved guides.
 These are generation instructions, not semantic acceptance.
+[Current visual policy and examples](VISUAL_SCENES.md); version constants and
+the composed prompt live in `src-tauri/src/provider/visual_scenes.rs`.
 [Implementation evidence and remaining quality gaps](acceptance/2026-10-17-shared-teaching-policy.md).
 
 After source canonicalization, the fresh-preview boundary assembles displayed

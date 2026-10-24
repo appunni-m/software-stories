@@ -840,9 +840,52 @@ started.
 
 This is a stalled-operation observation, not evidence that the model rejected
 the visual schema: no proposal reached native validation. The runtime trace
-contains no terminal stage explaining the idle interval. Current source is
-story policy `ai-html-compositions-v37` / teaching policy `meaning-first-v27`
-at `a8a9891`, but the installed v30 executable predates those prompts and this
-run cannot qualify them. Preserve `ps02`'s timing gap and `3bz5`'s incremental
-publication gap. Fresh rendered visuals, source-click behavior, narration,
+contains no terminal stage explaining the idle interval. At this 23 October
+checkpoint, source policy was `ai-html-compositions-v37` / teaching policy
+`meaning-first-v27` at `a8a9891`; the installed v30 executable predates those
+prompts and this run cannot qualify them. Preserve `ps02`'s timing gap and
+`3bz5`'s incremental publication gap. Fresh rendered visuals, source-click behavior, narration,
 accessibility and human comprehension still require qualification.
+
+## Current source policy — 24 October 2026
+
+The current policy constants are `ai-html-compositions-v42` and
+`meaning-first-v28`, defined in `src-tauri/src/provider/visual_scenes.rs` and
+asserted by the progressive contract tests. The revisions clarify behavior-to-
+visual fit: a single guard uses a branch; only ordered, first-match candidates
+use a selector; an actual source-backed state change uses a transform whose
+operation is visible; and graph outcome edges attach to the operation or status
+check that establishes them. Exact code names remain visible in claims and
+source links while narration describes their role instead of spelling compact
+format tags or identifiers aloud. The app still renders only its bounded,
+typed composition vocabulary; generated executable markup and 3-D/WebGL are
+not supported. See the [reader-facing scene contract](../VISUAL_SCENES.md).
+
+These source/test-contract changes do not qualify the installed app. The v30
+Fontdone Guide remains stopped and predates v42/v28; no fresh Guide or extra
+provider request was run for this update. Keep `j53m` open for generated visual
+quality, coverage, source navigation, narration/listening, accessibility,
+offline export, and human comprehension.
+
+The two focused Rust prompt-contract tests passed (**2/2**). The Open Source
+documentation inventory ran with strict local-link checking and returned zero
+errors, review items, or info items. These checks verify source/version and
+documentation structure only; they do not qualify a rendered Guide.
+
+## Packaged v42 deployment — 24 October 2026
+
+The v42/v28 source was packaged with `npm run bundle:macos`. License and bundle
+metadata checks, the production frontend build, optimized Rust build, app/DMG
+bundling, and the final metadata verifier completed successfully. The verified
+app was installed at `~/Applications/Code Atlas.app`; its executable SHA-256 is
+`631493e52cda17bff3a7c8dc8c214d2103436bd837570011567eddc71acde7fb`. The
+previous app bundle is retained at
+`/private/tmp/code-atlas-before-v42-build-20261024-2303/Code Atlas.pre-update.app`.
+
+After restart, Code Atlas reopened Fontdone `main@5249b72371`, restored the
+saved Code Lens explanation and its six sections, and reconnected the existing
+Codex connection without setup. No Guide or provider request was started. This
+verifies package installation and saved-workspace restoration only; the v42
+visual policy still needs a fresh generated Guide and human review. Keep `j53m`
+open for that quality work and the remaining source-navigation, narration,
+accessibility, offline-export, coverage and comprehension gates.

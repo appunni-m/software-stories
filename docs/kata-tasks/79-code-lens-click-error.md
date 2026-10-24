@@ -17,6 +17,25 @@ The user reported that clicking Code Lens on a file threw an error. The Fontdone
 ## Reproduced Code Lens generation failure — 24 Oct 2026
 With the user’s one-request authorization, selected `src/tt/glyf.rs:564–583` and chose **Explain this code**. The app asked “Explain what `glyf.rs:564–583` does and how it works.” Codex completed after about 124 seconds, but none of three proposed sections passed native evidence validation. The saved answer ended as `failed` with `noPublishedSections`; no explanation section was published. The UI showed only “This question could not be completed.” The app stayed open and did not crash. This reproduces an unhelpful failure result in the selected-code flow, not the original click exception. No additional provider request is authorized.
 
+## Authorized Code Lens retry — 24 Oct 2026
+The user later authorized one request for the same selected range after the failed attempt. In the open packaged Fontdone workspace at `main@5249b72371`, the approved request is now visible as a saved explanation with six sections: transformed child points, component-point choice, placement, point merging, metrics, and contour-endpoint rebasing. The app remained open. The source pane and section-level source controls are visible; this observation does not establish that every citation opens the intended line or that the original click exception is fixed. Preserve the failed attempt above; do not treat the successful explanation as a retry-free result or as resolution of the original report.
+
+This run exercised a new provider request under the user’s explicit authorization. No further provider request is authorized by this checkpoint. Keep the original clicked control/error unknown and run the local source-navigation reproduction matrix before closing.
+
+## Packaged source-navigation spot-check — 24 Oct 2026
+
+In the open Code Atlas app on Fontdone `main@5249b72371`, a source link in the saved `src/tt/glyf.rs:564–583` explanation navigated to `src/tt/glyf.rs:1037–1050`, showing `component_xy_offset` in the source pane. Selecting captured `src/tt/gasp.rs` from Explorer then displayed that file while the Guide and its saved Code Lens sections remained visible. No error dialog appeared and no provider request was started. The app stayed open.
+
+This verifies one cited-range navigation and one Explorer file-open path in the current packaged workspace. The original report's exact control and exception remain unknown; selected-code generation was not re-triggered. Keep `mhqx` open for the remaining reproduction matrix and the original report.
+
+## v42 restart persistence check — 24 Oct 2026
+
+After installing the v42 app, the saved `src/tt/glyf.rs:564–583` Code Lens
+answer and its six sections were restored in Fontdone `main@5249b72371`. The
+existing Codex connection reconnected without setup, and no request was sent.
+This checks persistence across the app replacement; it does not expand the
+source-navigation matrix or identify the original click exception.
+
 ## Implemented response
 The native summary now carries only its finite failure category into the workspace. The conversation validator accepts that fixed enum and rejects arbitrary diagnostics. The reader shows a plain next step for `noPublishedSections`: ask about one behavior, or ask how a specific caller or helper changes the result. The source validator remains unchanged; failed drafts still cannot publish. Regression coverage verifies summary serialization, bounded conversation persistence, restored UI state, unknown-code rejection, and the user-facing message.
 

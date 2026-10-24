@@ -382,9 +382,11 @@ ten minutes. After Stop, the app and job record both reported `stopped`, with
 0/7 topics explored and 0 slides ready. Previously saved explanations were
 left intact, and no replacement request was started.
 
-The checked-in source now declares story policy `ai-html-compositions-v37` and
-teaching policy `meaning-first-v27`; the installed v30 app predates those
-policies, so this run does not qualify them. The app also lacks a terminal
+At this 23 October checkpoint, checked-in source declared story policy
+`ai-html-compositions-v37` and teaching policy `meaning-first-v27`; the
+installed v30 app predates those policies, so this run does not qualify them.
+Current source policy identifiers and their limits are recorded in the
+24 October note below. The app also lacks a terminal
 stage trace that explains the long idle interval. Keep `j53m`, `3bz5`, and
 `ps02` open. The underlying run ID is
 `396a0fdd-7114-4cde-a90f-533887013763`.
@@ -425,3 +427,23 @@ boundaries. The focused editor contract suite passes **2/2** and the
 production frontend build passes with the existing large-bundle warning. This is source-only; the
 running app still has the previous editor and no packaged zoom/navigation
 acceptance is claimed. [Design parity task](kata-tasks/43-design-implementation-parity.md#preserve-source-lines-in-the-workspace-editor--2026-10-23).
+
+## 24 October current visual authoring policy
+
+The checked-in generation source and progressive-contract test now identify the
+current policies as `ai-html-compositions-v42` and `meaning-first-v28`. The
+ordinary and progressive prompts share behavior-specific form selection:
+single guards use branches, ordered first-match candidates use selectors,
+source-backed changes use transforms with the operation visible, and graph
+outcome edges attach to the operation that establishes them. Narration keeps
+exact tokens visible beside the audio while describing their role in speech.
+The typed renderer still does not execute generated HTML or support 3-D
+content. These are current source-contract facts, not a fresh packaged Guide
+result; the stopped v30 run cannot qualify them. The two focused Rust policy
+tests passed, and the strict documentation inventory found no findings. The
+v42/v28 app was subsequently built and installed; it reopened the saved Fontdone
+workspace, retained the Code Lens sections, and reconnected Codex without setup.
+No fresh Guide or provider request was started, so rendered visual quality
+remains unqualified. See [visual scene behavior and
+limits](VISUAL_SCENES.md) and [the open generated-visuals acceptance
+gates](kata-tasks/37-generated-visuals.md).
