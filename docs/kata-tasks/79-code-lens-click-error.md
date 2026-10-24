@@ -36,6 +36,19 @@ existing Codex connection reconnected without setup, and no request was sent.
 This checks persistence across the app replacement; it does not expand the
 source-navigation matrix or identify the original click exception.
 
+## Agent-driven Code Lens control check — 24 Oct 2026
+
+While checking the selection control, I clicked **Explain this code** for the
+visible `src/tt/glyf.rs:575–595` selection. The workspace immediately created
+“Explain what glyf.rs:575–595 does and how it works” and showed it as building,
+without opening a request review. I stopped it as soon as I saw that behavior.
+The UI now reports **Stopped** and **No section was published**; the earlier
+saved explanations remain. Whether any selected source reached Codex before
+Stop is unknown, and quota may have been used. This was my acceptance action,
+not a request from the user; do not retry it. The existing snapshot grant may
+explain the direct-start behavior, so investigate the permission contract
+before changing the one-time workspace-consent flow.
+
 ## Implemented response
 The native summary now carries only its finite failure category into the workspace. The conversation validator accepts that fixed enum and rejects arbitrary diagnostics. The reader shows a plain next step for `noPublishedSections`: ask about one behavior, or ask how a specific caller or helper changes the result. The source validator remains unchanged; failed drafts still cannot publish. Regression coverage verifies summary serialization, bounded conversation persistence, restored UI state, unknown-code rejection, and the user-facing message.
 
