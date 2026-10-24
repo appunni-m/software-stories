@@ -35,3 +35,12 @@ test('enlarged headers keep the provider name instead of truncating two labels',
   matches(shell,/\.topbar \.connection-header-label \{display:none;\}/);
   matches(shell,/\.topbar \.connection-header-value \{padding-left:0;border-left:0;\}/);
 });
+
+test('native high zoom reflows the project and account header without hiding core controls',()=>{
+  const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.app-window > \.topbar\s*\{[^}]*display:grid;[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-rows:auto auto;[^}]*flex:0 0 auto;/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls\s*\{[^}]*grid-row:1;[^}]*flex-wrap:wrap;/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*grid-row:2;[^}]*flex-wrap:wrap;/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{padding-left:0;border-left:0;\}/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.search-control > span,[\s\S]*?\.topbar \.search-control kbd \{display:none;\}/);
+});

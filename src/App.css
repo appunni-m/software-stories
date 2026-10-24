@@ -2222,6 +2222,69 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .connection-header-label {display:none;}
   .topbar .connection-header-value {padding-left:0;border-left:0;}
 }
+/* Native webview zoom does not reduce CSS viewport units. Reflow the header
+   from the explicit zoom signal so its fixed project and account controls do
+   not clip while the workspace switches to its compact pane layout. */
+html[data-app-zoom-compact="true"] .app-window > .topbar {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto;
+  flex:0 0 auto;
+  min-height:80px;
+  gap:3px 8px;
+  padding:4px 8px;
+}
+html[data-app-zoom-compact="true"] .topbar .brand-lockup {display:none;}
+html[data-app-zoom-compact="true"] .topbar .project-controls {
+  grid-column:1;
+  grid-row:1;
+  flex-wrap:wrap;
+  gap:4px;
+}
+html[data-app-zoom-compact="true"] .topbar .project-button {
+  min-width:0;
+  max-width:min(62vw,520px);
+  padding-inline:4px;
+  gap:5px;
+}
+html[data-app-zoom-compact="true"] .topbar .project-button > span {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+html[data-app-zoom-compact="true"] .topbar .header-divider {display:none;}
+html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {min-width:0;}
+html[data-app-zoom-compact="true"] .topbar .snapshot-button {
+  min-width:0;
+  max-width:min(38vw,360px);
+  padding-inline:4px;
+  gap:4px;
+  font-size:10px;
+}
+html[data-app-zoom-compact="true"] .topbar .snapshot-button > span {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+html[data-app-zoom-compact="true"] .topbar .topbar-actions {
+  grid-column:1;
+  grid-row:2;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-left:0;
+}
+html[data-app-zoom-compact="true"] .topbar .connection-header {max-width:none;flex-shrink:0;}
+html[data-app-zoom-compact="true"] .topbar .connection-header-label {display:none;}
+html[data-app-zoom-compact="true"] .topbar .connection-header-value {padding-left:0;border-left:0;}
+html[data-app-zoom-compact="true"] .topbar .search-control {
+  width:30px;
+  min-width:30px;
+  justify-content:center;
+  padding-inline:0;
+}
+html[data-app-zoom-compact="true"] .topbar .search-control > span,
+html[data-app-zoom-compact="true"] .topbar .search-control kbd {display:none;}
 /* Revision review gives authored changes readable space and folds long text. */
 .chapter-revision-diff {gap:12px;padding:0 0 12px;}
 .chapter-revision-diff-group {padding:12px;border-radius:8px;}
