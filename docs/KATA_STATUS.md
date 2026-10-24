@@ -1,6 +1,6 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **23 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 50 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **24 October 2026**, read from live project `code-atlas-rebuild`. **79 records: 51 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
 ## 17 October progressive-generation checkpoint (historical)
 
@@ -101,6 +101,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `c11x` | closed | 1 | [Build a supported-language symbol and relationship index](kata-tasks/06-symbol-index.md) |
 | `8kx6` | closed | 1 | [Browse repository structure and evidence in Atlas](kata-tasks/07-atlas.md) |
 | `3g0a` | closed | 1 | [Inspect exact snapshot source and citations in Code Lens](kata-tasks/08-code-lens.md) |
+| `mhqx` | open | 1 | [Reproduce and repair the Code Lens click error](kata-tasks/79-code-lens-click-error.md) |
 | `4f44` | closed | 1 | [Render safe interactive diagrams with evidence-linked hotspots](kata-tasks/17-linked-visuals.md) |
 | `129x` | closed | 1 | [Resolve calls and exports conservatively under lexical shadowing](kata-tasks/31-parser-binding-resolution.md) |
 | `tmck` | closed | 1 | [Correct identifier and explanation mismatches before publishing a workspace answer](kata-tasks/65-claim-alignment-correction.md) |
@@ -261,7 +262,7 @@ omitted native Rust/C ABI behavior, so whole-repository coverage did not pass.
 Pocket audio was ready to play but was not human-listened. Keep `j53m` and
 `3bz5` open. [Visual review](kata-tasks/37-generated-visuals.md#fresh-v17-visual-prompt-guide-review--23-october-2026) ·
 [Progressive-run review](kata-tasks/73-progressive-answer-sections.md#fresh-packaged-v17-incremental-guide-result--23-october-2026).
-The task inventory is **78 records: 50 open, 28 closed**, matching the live Kata project on 23 October 2026.
+The task inventory is **79 records: 51 open, 28 closed**, matching the live Kata project on 24 October 2026.
 
 The rendered final bitmap slide showed three metric labels without the zero
 fallback value or the shared guard/result relation, although narration named

@@ -22,6 +22,9 @@ function parseTask(file) {
   meta.priority = Number(meta.priority ?? 2);
   meta.labels = (meta.labels || '').split(',').map((value) => value.trim()).filter(Boolean);
   meta.blocked_by = (meta.blocked_by || '').split(',').map((value) => value.trim()).filter(Boolean);
+  if (Object.hasOwn(meta, 'related')) {
+    meta.related = (meta.related || '').split(',').map((value) => value.trim()).filter(Boolean);
+  }
   return meta;
 }
 
@@ -57,7 +60,10 @@ for (const task of tasks) {
   for (const dependency of task.blocked_by) {
     if (!byKey.has(dependency)) throw new Error(`${task.key} references unknown blocker ${dependency}.`);
   }
-  if (task.kind === 'task' && !byKey.has(task.parent)) throw new Error(`${task.key} references unknown parent ${task.parent}.`);
+  for (const related of task.related || []) {
+    if (!byKey.has(related)) throw new Error(`${task.key} references unknown related issue ${related}.`);
+  }
+  if (task.kind === 'task' && task.parent && !byKey.has(task.parent)) throw new Error(`${task.key} references unknown parent ${task.parent}.`);
 }
 
 const kataConfig = resolve(workspace, '.kata.toml');
@@ -87,7 +93,7 @@ function create(task) {
     '--json',
   ];
   if (task.kind === 'milestone') args.push('--parent', refs.get('contract'));
-  if (task.kind === 'task') args.push('--parent', refs.get(task.parent));
+  if (task.kind === 'task' && task.parent) args.push('--parent', refs.get(task.parent));
   for (const label of task.labels) args.push('--label', label);
   run(args, task.body);
   const ref = issueRef(task.title);
@@ -127,6 +133,20 @@ for (const task of tasks) {
     const parentRef = task.kind === 'milestone' ? refs.get('contract') : refs.get(task.parent);
     if (issue.parent?.short_id !== parentRef) run(['edit', issue.short_id, '--parent', parentRef]);
   }
+  if (Object.hasOwn(task, 'related')) {
+    currentIssues = listIssues();
+    issue = currentIssues.find((item) => item.short_id === issue.short_id);
+    const existing = new Set((issue.related || []).map((item) => item.short_id));
+    const desired = new Set(task.related.map((key) => refs.get(key)));
+    for (const relatedRef of existing) {
+      if (!desired.has(relatedRef)) run(['edit', issue.short_id, '--remove-related', relatedRef]);
+    }
+    for (const key of task.related) {
+      const relatedRef = refs.get(key);
+      if (!relatedRef) throw new Error(`Missing related issue ${key} for ${task.key}.`);
+      if (!existing.has(relatedRef)) run(['edit', issue.short_id, '--related', relatedRef]);
+    }
+  }
   currentIssues = listIssues();
 }
 
@@ -153,7 +173,7 @@ for (const task of implementation) {
     const blocker = byKey.get(key);
     return `${refByTitle.get(blocker.title)} ${blocker.title}`;
   }).join('<br>') || '—';
-  const phase = task.parent.replace(/^m/, 'M');
+  const phase = task.phase || task.parent?.replace(/^m/, 'M') || 'Cross-cutting';
   lines.push(`| ${phase} | ${refByTitle.get(task.title)} | ${task.title} | ${blockedBy} | [${task.file}](kata-tasks/${task.file}) |`);
 }
 lines.push(

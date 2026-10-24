@@ -1,6 +1,6 @@
 # Kata backlog — Code Atlas rebuild
 
-> **Live snapshot — 23 October 2026:** Kata project `code-atlas-rebuild` has **78 records: 50 open, 28 closed**. The [current status table](KATA_STATUS.md) is reconciled with live Kata, including packaged acceptance of bounded Git cancellation and the macOS quit lifecycle (`cc7g`, `kghr`). Dated implementation notes below are historical checkpoints and do not replace current issue status or acceptance evidence.
+> **Live snapshot — 24 October 2026:** Kata project `code-atlas-rebuild` has **79 records: 51 open, 28 closed**. The [current status table](KATA_STATUS.md) is reconciled with live Kata, including the new Code Lens reproduction issue (`mhqx`). Dated implementation notes below are historical checkpoints and do not replace current issue status or acceptance evidence.
 
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
@@ -81,6 +81,7 @@ The [native-citation Fontdone qualification](acceptance/2026-10-17-native-citati
 | M1 | c11x | Build a supported-language symbol and relationship index | 7te9 Show every repository path and its capture disposition | [06-symbol-index.md](kata-tasks/06-symbol-index.md) |
 | M1 | 8kx6 | Browse repository structure and evidence in Atlas | c11x Build a supported-language symbol and relationship index | [07-atlas.md](kata-tasks/07-atlas.md) |
 | M1 | 3g0a | Inspect exact snapshot source and citations in Code Lens | 7te9 Show every repository path and its capture disposition<br>c11x Build a supported-language symbol and relationship index | [08-code-lens.md](kata-tasks/08-code-lens.md) |
+| M1 | mhqx | Reproduce and repair the Code Lens click error | — | [79-code-lens-click-error.md](kata-tasks/79-code-lens-click-error.md) |
 | M2 | tsqk | Track chapter coverage for every inventory path | 7te9 Show every repository path and its capture disposition<br>8bw6 Define versioned chapter, section, claim, anchor, and hotspot records | [09-guide-coverage.md](kata-tasks/09-guide-coverage.md) |
 | M2 | wmaj | Add optional Gemini with exact-context consent and billing disclosure | pn1n Build the shared Mac shell and typed application boundary<br>7te9 Show every repository path and its capture disposition | [10-gemini-request-boundary.md](kata-tasks/10-gemini-request-boundary.md) |
 | M2 | 8bw6 | Define versioned chapter, section, claim, anchor, and hotspot records | c11x Build a supported-language symbol and relationship index | [11-chapter-schema.md](kata-tasks/11-chapter-schema.md) |
