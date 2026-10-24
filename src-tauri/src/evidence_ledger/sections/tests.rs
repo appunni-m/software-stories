@@ -357,6 +357,79 @@ fn guide_slide_jobs_can_publish_one_section_and_safely_reject_a_second() {
 }
 
 #[test]
+fn guide_slide_rejection_locks_the_first_valid_section_key() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+
+    let mut rejected = authoring::tests::narrated_proposal(&reference, "entry", 0);
+    rejected["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:missing");
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &rejected.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert_eq!(
+        prepared.findings,
+        vec![json!({
+            "location":"/section/claims/0/evidence/0",
+            "code":"citation"
+        })]
+    );
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+
+    let switched = authoring::tests::narrated_proposal(&reference, "replacement-key", 0);
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &switched.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    let key_conflict = vec![json!({
+        "location":"/sectionKey",
+        "code":"guideSlideKeyConflict"
+    })];
+    assert_eq!(prepared.findings, key_conflict);
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+
+    let corrected = authoring::tests::narrated_proposal(&reference, "entry", 0);
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &corrected.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert!(prepared.findings.is_empty());
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.sections.len(), 1);
+    assert_eq!(saved.sections[0].key, "entry");
+    assert_eq!(saved.attempts.len(), 3);
+    assert_eq!(saved.attempts[1].findings, key_conflict);
+}
+
+#[test]
 fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

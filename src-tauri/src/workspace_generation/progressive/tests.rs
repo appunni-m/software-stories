@@ -582,6 +582,15 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
 
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(
+        instructions
+            .contains("A one-slide guide job locks its first format-valid sectionKey and order")
+    );
+    assert!(
+        instructions.contains(
+            "guideSlideKeyConflict means reuse the first format-valid sectionKey and order"
+        )
+    );
+    assert!(
         instructions.contains(
             "Arrow and divider elements are decoration only: they must have nodeKey:null"
         )

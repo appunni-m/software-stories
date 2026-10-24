@@ -719,6 +719,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "unsupportedProposalVersion"
                             | "proposalShape"
                             | "sectionKeyFormat"
+                            | "guideSlideKeyConflict"
                             | "sectionOrder"
                             | "sectionConflict"
                             | "sectionLimit"
@@ -815,6 +816,13 @@ impl Answer {
             .any(|attempt| Self::proposal_key(&attempt.arguments) == *key)
     }
 
+    fn first_valid_proposal_key(&self) -> Option<String> {
+        self.attempts.iter().find_map(|attempt| {
+            let key = Self::proposal_key(&attempt.arguments)?;
+            valid_key(&key).then_some(key)
+        })
+    }
+
     fn exact_successful_replay(&self, key: &Option<String>, proposal_sha256: &str) -> bool {
         self.attempts.iter().any(|attempt| {
             attempt.generation_id.is_some()
@@ -845,6 +853,7 @@ impl Answer {
                     "proposalShape"
                         | "unsupportedProposalVersion"
                         | "sectionKeyFormat"
+                        | "guideSlideKeyConflict"
                         | "sectionOrder"
                         | "sectionConflict"
                         | "sectionLimit"
@@ -1121,10 +1130,19 @@ impl ActiveAnswer {
         let successful_replay = self
             .value
             .exact_successful_replay(&proposal_key, &proposal_sha256);
+        let guide_slide_key_conflict = section_limit == 1
+            && self.value.sections.is_empty()
+            && self
+                .value
+                .first_valid_proposal_key()
+                .is_some_and(|first| proposal_key.as_deref() != Some(first.as_str()));
         let mut next = self.value.clone();
         let mut generation_id = None;
         let mut findings = finding("proposalShape");
-        if let Some(mut proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok())
+        if guide_slide_key_conflict {
+            findings = vec![json!({"location":"/sectionKey","code":"guideSlideKeyConflict"})];
+        } else if let Some(mut proposal) =
+            parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok())
         {
             if proposal.proposal_version != NARRATION_PROPOSAL_VERSION {
                 findings = vec![
