@@ -414,6 +414,14 @@ async function loadManifest(manifestArg) {
   for (const example of manifest.knownFailureExamples) {
     const item = manifest.cases.find((candidate) => candidate.id === example.caseId);
     const claim = example.schemaShapedClaim;
+    exactKeys(
+      example,
+      [
+        "id", "caseId", "expectedDisposition", "schemaShapedClaim", "failureCodes", "why",
+        ...(example.visualCounterexample === undefined ? [] : ["visualCounterexample"]),
+      ],
+      `Known failure example ${example.id ?? "(unnamed)"}`,
+    );
     if (typeof example.id !== "string" || !example.id.trim() || failureExampleIds.has(example.id)) {
       throw new Error("Known failure examples need distinct, non-empty IDs");
     }
@@ -449,6 +457,27 @@ async function loadManifest(manifestArg) {
     const anchors = validateEvidenceList(claim.evidence, claim.prose, claim.identifiers, example.id, exampleSources, item.path);
     if (claim.aspect === "responsibility" && !anchors.targetAnchored) {
       throw new Error(`${example.id}: responsibility failure example must cite its target file`);
+    }
+    if (example.visualCounterexample !== undefined) {
+      const visual = example.visualCounterexample;
+      exactKeys(visual, ["kind", "from", "to", "path", "quote", "why"], `${example.id} visualCounterexample`);
+      if (visual.kind !== "unsupported-arrow" || typeof visual.from !== "string" || !visual.from.trim()
+        || typeof visual.to !== "string" || !visual.to.trim() || visual.from === visual.to
+        || typeof visual.path !== "string" || typeof visual.quote !== "string"
+        || typeof visual.why !== "string" || !visual.why.trim()) {
+        throw new Error(`${example.id}: visualCounterexample needs distinct endpoints, an exact selected-source quote, and a review rationale`);
+      }
+      const visualSource = exampleSources.get(visual.path);
+      if (!visualSource) throw new Error(`${example.id}: visualCounterexample cites a file outside the selected corpus files`);
+      exactQuoteAnchor(visualSource.text, visual.quote, `${example.id} visualCounterexample`);
+      for (const endpoint of [visual.from, visual.to]) {
+        if (!claim.identifiers.includes(endpoint)) {
+          throw new Error(`${example.id}: visualCounterexample endpoint ${endpoint} is not declared by its schema-shaped claim`);
+        }
+        if (!identifierAppears(visual.quote, endpoint)) {
+          throw new Error(`${example.id}: visualCounterexample source quote does not name endpoint ${endpoint}`);
+        }
+      }
     }
   }
 

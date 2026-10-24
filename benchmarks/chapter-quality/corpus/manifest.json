@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "corpusId": "code-atlas-chapter-quality-v1",
+  "corpusId": "code-atlas-chapter-quality-v2",
   "purpose": "A small, deterministic, synthetic source corpus for human review of source-grounded file chapters. It contains expected facts, not golden chapter prose.",
   "localOnly": true,
   "sourcePolicy": "All repository names and fixture code are invented for this benchmark. The corpus runner must not call a provider or upload source. Real repository evaluation requires the ordinary exact-context review and explicit consent flow.",
@@ -821,6 +821,167 @@
           "sourceSha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e"
         }
       ]
+    },
+    {
+      "id": "ordered-parser-and-independent-table-reads",
+      "repository": "font-parser",
+      "path": "src/face-dispatch.ts",
+      "role": "service/core",
+      "language": "TypeScript",
+      "parserStatus": "supported",
+      "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+      "supportingFiles": [],
+      "complexity": "moderate",
+      "applicability": {
+        "responsibility": {
+          "status": "required",
+          "reason": "The target owns format dispatch and two separate table reads."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "The openFace and readTables entry points are declared in the target."
+        },
+        "executionPath": {
+          "status": "required",
+          "reason": "Format probes are ordered and BDF has a pre-construction error branch."
+        },
+        "inputsOutputs": {
+          "status": "required",
+          "reason": "The functions accept a byte buffer and return a face result or separately named tables."
+        },
+        "stateEffects": {
+          "status": "notApplicable",
+          "reason": "The target reads an input buffer and constructs returned values; it declares no mutable state or store."
+        },
+        "failurePaths": {
+          "status": "required",
+          "reason": "BDF constructor preflight can return an error before bdfFace."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No caller or test file is selected for this synthetic case."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "The target does not establish behavior inside the format constructors or table reader."
+        }
+      },
+      "mustCover": [
+        "open-face-signature",
+        "ordered-pfr-probe",
+        "bdf-preflight-error",
+        "bdf-construction",
+        "truetype-fallback",
+        "separate-table-reads",
+        "separate-table-return"
+      ],
+      "reviewConstraints": [
+        "Do not say every matching BDF signature reaches bdfFace; parseBdfConstructorError can return first.",
+        "Do not draw a data-transfer arrow from loca_data into glyf_data; the code reads and returns them as separate values.",
+        "Do not infer parser, table-reader, or runtime behavior beyond these declarations and calls."
+      ],
+      "files": [
+        {
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "role": "target",
+          "sha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928",
+          "sizeBytes": 1152
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "open-face-signature",
+          "dimension": "responsibility",
+          "statement": "openFace accepts a byte buffer and returns the declared OpenResult type.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "export function openFace(bytes: Uint8Array): OpenResult {",
+          "lineStart": 14,
+          "lineEnd": 14,
+          "byteStart": 623,
+          "byteEndExclusive": 680,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "ordered-pfr-probe",
+          "dimension": "executionPath",
+          "statement": "PCF is checked before PFR0, whose matching branch returns pfrFace.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "  if (hasPrefix(bytes, \"PCF\")) return pcfFace(bytes);\n  if (hasPrefix(bytes, \"PFR0\")) return pfrFace(bytes);",
+          "lineStart": 15,
+          "lineEnd": 16,
+          "byteStart": 681,
+          "byteEndExclusive": 789,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "bdf-preflight-error",
+          "dimension": "failurePaths",
+          "statement": "The BDF path can return a parse error before calling bdfFace.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "    const error = parseBdfConstructorError(bytes);\n    if (error) return { ok: false, error };",
+          "lineStart": 18,
+          "lineEnd": 19,
+          "byteStart": 816,
+          "byteEndExclusive": 910,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "bdf-construction",
+          "dimension": "executionPath",
+          "statement": "The BDF face constructor is called only after the preflight has no error.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "    return bdfFace(bytes);",
+          "lineStart": 20,
+          "lineEnd": 20,
+          "byteStart": 911,
+          "byteEndExclusive": 937,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "truetype-fallback",
+          "dimension": "executionPath",
+          "statement": "When earlier format probes do not return, openFace returns trueTypeFace.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "  return trueTypeFace(bytes);",
+          "lineStart": 22,
+          "lineEnd": 22,
+          "byteStart": 942,
+          "byteEndExclusive": 971,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "separate-table-reads",
+          "dimension": "inputsOutputs",
+          "statement": "readTables obtains loca_data and glyf_data using separate readTable calls.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "export function readTables(bytes: Uint8Array) {\n  const loca_data = readTable(bytes, \"loca\");\n  const glyf_data = readTable(bytes, \"glyf\");",
+          "lineStart": 25,
+          "lineEnd": 27,
+          "byteStart": 975,
+          "byteEndExclusive": 1114,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        },
+        {
+          "id": "separate-table-return",
+          "dimension": "inputsOutputs",
+          "statement": "readTables returns loca_data and glyf_data as separate properties.",
+          "path": "src/face-dispatch.ts",
+          "sourceFile": "fixtures/font-parser/src/face-dispatch.ts",
+          "quote": "  return { loca_data, glyf_data };",
+          "lineStart": 28,
+          "lineEnd": 28,
+          "byteStart": 1115,
+          "byteEndExclusive": 1149,
+          "sourceSha256": "f754efe2d4f1951f3d32f58ab69a16ede7e8e8a2a47d2422a4a6080d53973928"
+        }
+      ]
     }
   ],
   "knownFailureExamples": [
@@ -884,6 +1045,78 @@
         "unsupported-side-effect"
       ],
       "why": "Every declared identifier appears in the cited source, but no output/logging operation exists. A human must assess whether cited ranges entail the prose; string/identifier overlap is not semantic proof."
+    },
+    {
+      "id": "bdf-preflight-overgeneralization",
+      "caseId": "ordered-parser-and-independent-table-reads",
+      "expectedDisposition": "fail",
+      "schemaShapedClaim": {
+        "category": "codeBehavior",
+        "aspect": "execution",
+        "prose": "openFace sends every matching BDF input to bdfFace; only unmatched inputs fall through to trueTypeFace.",
+        "inferenceBasis": "",
+        "identifiers": [
+          "openFace",
+          "bdfFace",
+          "trueTypeFace"
+        ],
+        "evidence": [
+          {
+            "path": "src/face-dispatch.ts",
+            "quote": "export function openFace(bytes: Uint8Array): OpenResult {"
+          },
+          {
+            "path": "src/face-dispatch.ts",
+            "quote": "    return bdfFace(bytes);"
+          },
+          {
+            "path": "src/face-dispatch.ts",
+            "quote": "  return trueTypeFace(bytes);"
+          }
+        ],
+        "relationshipIds": []
+      },
+      "failureCodes": [
+        "omitted-early-error",
+        "overgeneralized-dispatch"
+      ],
+      "why": "The exact declarations and constructor calls are present, but the claim skips parseBdfConstructorError, which can return an error before bdfFace."
+    },
+    {
+      "id": "unsupported-loca-glyf-arrow",
+      "caseId": "ordered-parser-and-independent-table-reads",
+      "expectedDisposition": "fail",
+      "schemaShapedClaim": {
+        "category": "codeBehavior",
+        "aspect": "execution",
+        "prose": "readTables routes loca_data into glyf_data, so the location table determines the glyph bytes returned for parsing.",
+        "inferenceBasis": "",
+        "identifiers": [
+          "readTables",
+          "loca_data",
+          "glyf_data"
+        ],
+        "evidence": [
+          {
+            "path": "src/face-dispatch.ts",
+            "quote": "export function readTables(bytes: Uint8Array) {\n  const loca_data = readTable(bytes, \"loca\");\n  const glyf_data = readTable(bytes, \"glyf\");\n  return { loca_data, glyf_data };\n}"
+          }
+        ],
+        "relationshipIds": []
+      },
+      "failureCodes": [
+        "unsupported-data-transfer",
+        "vacuous-transformation"
+      ],
+      "why": "The source obtains loca and glyf through separate readTable calls and returns the values as siblings. Their co-occurrence does not establish a transfer or transformation.",
+      "visualCounterexample": {
+        "kind": "unsupported-arrow",
+        "from": "loca_data",
+        "to": "glyf_data",
+        "path": "src/face-dispatch.ts",
+        "quote": "export function readTables(bytes: Uint8Array) {\n  const loca_data = readTable(bytes, \"loca\");\n  const glyf_data = readTable(bytes, \"glyf\");\n  return { loca_data, glyf_data };\n}",
+        "why": "A visual arrow asserts a data relationship that the independently cited source does not show."
+      }
     }
   ],
   "minimumRepositoryCount": 2,

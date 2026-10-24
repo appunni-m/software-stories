@@ -1,6 +1,6 @@
-# Chapter quality corpus v1
+# Chapter quality corpus v2
 
-This corpus is a small, checked-in set of invented repository files for reviewing file chapters. It is designed to test source-grounded explanation quality across six roles: route/entrypoint, service/core, data model, test, config, and unsupported language. It is not a set of golden prose answers. Reviewers compare chapter claims with the expected facts and their exact source anchors.
+This corpus is a small, checked-in set of invented repository files for reviewing file chapters. Its cases cover route/entrypoint, service/core, data model, test, config, and unsupported-language roles. It is not a set of golden prose answers. Reviewers compare chapter claims with the expected facts and their exact source anchors.
 
 All fixture repository names and code are synthetic. A corpus runner must be offline and must never call a model or upload source. Evaluate a real repository only through Code Atlas' ordinary exact-context preview and explicit consent flow; do not add real repository content to this checked-in corpus.
 
@@ -24,4 +24,4 @@ Applicability status meanings:
 
 The global `reviewContract` makes the case gate binary. Exact citation matching is only a mechanical precondition: the reviewer must verify that the cited range supports the full claim. A case fails if a required fact is missing or any behavioral assertion is unsupported or contradicted. Short explanations can pass when they cover the applicable facts.
 
-`knownFailureExamples` are intentionally plausible, schema-shaped claims that must fail human review. They demonstrate why valid JSON, exact quote matching, and identifier overlap cannot establish semantic support.
+`knownFailureExamples` are intentionally plausible, schema-shaped claims that must fail human review. They demonstrate why valid JSON, exact quote matching, and identifier overlap cannot establish semantic support. The parser-dispatch fixture preserves a missing early-error branch that makes a broad dispatch claim false. Its visual counterexample records an unsupported arrow between two independently read values; the corpus checker requires that arrow's endpoints and exact source quote to be grounded in the selected fixture, while the human reviewer decides whether the claimed relationship follows from that evidence.

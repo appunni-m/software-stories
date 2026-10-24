@@ -275,3 +275,11 @@ repairs, then obtain actual semantic/visual/narration review. Declaring a Codex
 backend or copying a fingerprint into a report is not proof of an agent run.
 This task remains open; the source-valid Fontdone answer still lacks accepted
 teaching quality. See [the evidence report](../acceptance/2026-10-17-native-quality-boundary.md).
+
+## Synthetic negative-case corpus v2 — 25 October 2026
+
+The offline corpus now includes a synthetic `font-parser` case that preserves two reviewed failure shapes from earlier Fontdone evaluations: a BDF preflight error omitted by a broad dispatch claim, and the unsupported `loca_data → glyf_data` arrow between independently read values. The checker requires the visual endpoints to appear in the claim and its exact source quote. This keeps real repository source out of the checked-in fixture corpus.
+
+Validation: `node scripts/check-chapter-quality.mjs --corpus` passes with seven cases across four synthetic repositories; five corpus-focused Node tests pass, including rejection of stale visual evidence and undeclared endpoints. `node --check` on the checker/tests and `git diff --check` pass. The full focused test file has one unrelated metadata test failure because the built quality helper is stale. At validation time only 1.3 GiB was available, below the project's 5 GiB native build floor, so the helper was not rebuilt.
+
+This records synthetic review fixtures only. It does not replace the original failed artifacts, generate a benchmark chapter, provide human scoring, or close semantic, narration, language, PR, or repository-guide acceptance. Keep `q0sm` open.
