@@ -581,6 +581,20 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     );
 
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
+    assert!(
+        instructions.contains(
+            "Arrow and divider elements are decoration only: they must have nodeKey:null"
+        )
+    );
+    assert!(instructions.contains(
+        "Transform has exactly three direct content-leaf children in input, operation, result order"
+    ));
+    assert!(instructions.contains(
+        "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
+    ));
+    assert!(instructions.contains(
+        "transformShape means the transform must have exactly three direct content-leaf children"
+    ));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
     assert!(instructions.contains("Point to a visible cue only as a brief landmark"));
