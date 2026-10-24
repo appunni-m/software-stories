@@ -211,7 +211,7 @@ fn apply(storage: &Path, operation: Operation) -> Result<History, String> {
             }
             if history.items.len() >= MAX_ITEMS {
                 return Err(
-                    "Saved updates are full. Dismiss an older update before saving more.".into(),
+                    "Notification history is full. Dismiss an older notification to save a new one.".into(),
                 );
             }
             let now = SystemTime::now()

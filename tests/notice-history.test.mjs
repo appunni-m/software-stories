@@ -37,7 +37,7 @@ async function fullHistoryFixture(){
   }
   const api={load:async()=>structuredClone(saved),update:async operation=>{
     calls.push(operation);
-    if(operation.kind==='publish'&&saved.items.length>=100)throw 'Saved updates are full. Dismiss an older update before saving more.';
+    if(operation.kind==='publish'&&saved.items.length>=100)throw 'Notification history is full. Dismiss an older notification to save a new one.';
     const item=operation.kind==='publish'?{id:await noticeKey(operation.input),input:operation.input,createdAtUnixMs:Date.now(),read:false}:undefined;
     saved=projectNotices(saved,[{operation,...(item?{item}:{})}]);return structuredClone(saved);
   }};

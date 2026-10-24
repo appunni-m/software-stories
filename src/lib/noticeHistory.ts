@@ -50,7 +50,7 @@ export async function noticeKey(input:SavedNoticeInput):Promise<string> {
 
 function historyIssue(error:unknown):NoticeHistoryIssue {
   const message=typeof error==='string'?error:error instanceof Error?error.message:'';
-  return message.startsWith('Saved updates are full.')?'full':'unavailable';
+  return message.startsWith('Notification history is full.')?'full':'unavailable';
 }
 
 export function projectNotices(base:NoticeHistoryData,pending:readonly Pending[]):NoticeHistoryData {

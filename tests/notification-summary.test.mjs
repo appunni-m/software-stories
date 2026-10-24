@@ -166,9 +166,9 @@ describe('notification totals', () => {
 
   it('explains how to recover a full local notification history', () => {
     assert.deepEqual(notificationSummary([], 'unavailable', 'full'), {
-      label: 'Notifications, saved updates full', badge: null,
-      announcement: 'Saved updates are full. Dismiss an older update to make room.',
-      status: 'New updates are waiting to save. Dismiss an older update to make room.',
+      label: 'Notifications, history full', badge: null,
+      announcement: 'Notification history is full. Dismiss an older notification to make room.',
+      status: 'New notifications are waiting to save. Dismiss an older notification to make room.',
     });
   });
 
