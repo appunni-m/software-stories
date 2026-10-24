@@ -374,8 +374,8 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
 export async function removeAnswerRecord(project: string, snapshot: string, runId: string) {
   await invoke('remove_workspace_answer_record',{projectId:project,snapshotId:snapshot,runId});
 }
-export function appendRepositoryGuide(project: string, snapshot: string, question: string): string {
-  const id = appendQuestion(project,snapshot,question,[],'guide');
+export function appendRepositoryGuide(project: string, snapshot: string, question: string, parentTurn?: string): string {
+  const id = appendQuestion(project,snapshot,question,[],'guide',parentTurn);
   patchTurn(project,snapshot,id,{guideId:crypto.randomUUID()});
   return id;
 }

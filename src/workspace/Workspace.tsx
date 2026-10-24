@@ -242,20 +242,20 @@ export function DeveloperWorkspace(props:Props) {
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);focusComposer();}
-  function startRepositoryGuide(question:string) {
+  function startRepositoryGuide(question:string,parentTurn?:string) {
     if(conversationUnavailable)return;
     if(!connection.status?.authenticated){onSettings();return;}
-    const id=appendRepositoryGuide(projectId,snapshotId,question);
+    const id=appendRepositoryGuide(projectId,snapshotId,question,parentTurn);
     setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId)void runRepositoryGuide(projectId,snapshotId,id,state.grantId);
     else {setGuideConsent({id,resume:false});setConsentError(null);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
-  function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string,keepQuestionScoped=false){
+  function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string){
     if(conversationUnavailable)return;
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);focusComposer();return;}
     if(!connection.status?.authenticated){onSettings();return;}
-    if(!keepQuestionScoped&&isRepositoryGuideIntent(clean)){startRepositoryGuide(clean);return;}
+    if(isRepositoryGuideIntent(clean)){startRepositoryGuide(clean,parentTurn);return;}
     const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
@@ -306,7 +306,7 @@ export function DeveloperWorkspace(props:Props) {
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
   function exploreGuideOmissions(turn:Turn){
     const question=repositoryGuideOmissionQuestion(turn.guide?.omissions??[]);
-    if(question)ask(question,current.view==='flow'?'flow':'guide',turn.context,turn.id,true);
+    if(question)startRepositoryGuide(question,turn.id);
   }
   useEffect(()=>{
     const find=()=>{setActivity('search');setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};

@@ -145,13 +145,16 @@ test('partial guide coverage note names omissions concisely',()=>{
 test('a completed guide exposes omissions as a nested source exploration',async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  const store=readFileSync(new URL('../src/workspace/store.ts',import.meta.url),'utf8');
   assert.match(source,/repositoryGuideOmissionQuestion\(turn\.guide\?\.omissions\?\?\[\]\)/);
   assert.match(source,/selectedGuideSlide===guideSlides\.length-1/);
   assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
   assert.match(source,/coverageSummary=\{omissionSummary\?\?undefined\}/);
   assert.match(source,/className="dw-guide-coverage" role="status"><strong>Partial guide<\/strong><span>Still uncovered:/);
-  assert.match(source,/ask\(question,current\.view==='flow'\?'flow':'guide',turn\.context,turn\.id,true\)/);
-  assert.match(source,/!keepQuestionScoped&&isRepositoryGuideIntent\(clean\)/);
+  assert.match(source,/if\(question\)startRepositoryGuide\(question,turn\.id\)/);
+  assert.match(source,/function startRepositoryGuide\(question:string,parentTurn\?:string\)/);
+  assert.match(source,/appendRepositoryGuide\(projectId,snapshotId,question,parentTurn\)/);
+  assert.match(store,/appendQuestion\(project,snapshot,question,\[\],'guide',parentTurn\)/);
 });
 
 test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{

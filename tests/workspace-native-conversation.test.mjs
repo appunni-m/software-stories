@@ -155,6 +155,26 @@ test('repository guide start, resume and refill carry renderer queue wait to nat
   assert.ok(Number.isInteger(advanceArgs.rendererQueueWaitMs)&&advanceArgs.rendererQueueWaitMs>=0&&advanceArgs.rendererQueueWaitMs<=86_400_000);
 });
 
+test('an uncovered-topic Guide is a nested, durable guide under the original question',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const parentId=h.store.appendRepositoryGuide('project','snapshot','How does this project work?');
+  const childId=h.store.appendRepositoryGuide('project','snapshot','Explore uncovered topics',parentId);
+  const state=h.store.getWorkspace('project','snapshot');
+  const parent=state.explorations[0].turns.find(turn=>turn.id===parentId);
+  const childExploration=state.explorations.find(exploration=>exploration.originTurnId===parentId);
+  assert.ok(parent?.guideId);assert.ok(childExploration);
+  assert.notEqual(childExploration.id,'root');assert.equal(childExploration.parentId,'root');
+  assert.equal(childExploration.turns.length,1);assert.equal(childExploration.turns[0].id,childId);
+  assert.ok(childExploration.turns[0].guideId,'the follow-up uses the outline-and-slide Guide path');
+  assert.equal(state.currentId,childExploration.id);
+  await h.store.flushAllWorkspaceConversations();
+  const saved=b.records.get(scope).state;
+  assert.equal(saved.currentId,childExploration.id);
+  assert.equal(saved.explorations.find(exploration=>exploration.originTurnId===parentId).turns[0].id,childId);
+  assert.ok(h.calls.every(call=>['load_workspace_conversation','save_workspace_conversation'].includes(call.name)),
+    'creating the nested child does not start inference until the app dispatches the owned Guide');
+});
+
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
   const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');
