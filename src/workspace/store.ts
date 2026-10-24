@@ -137,6 +137,12 @@ export function useWorkspaceOutcomes(project?: string, snapshot?: string): Quest
 function patchTurn(project: string, snapshot: string, id: string, patch: Partial<Turn>) {
   updateWorkspace(project, snapshot, (s) => ({ ...s, explorations: s.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...patch } : t) })) }));
 }
+function patchTurnForLatestRun(project: string, snapshot: string, id: string, runId: string, patch: Partial<Turn>): boolean {
+  const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((candidate) => candidate.id === id);
+  if (turn?.runIds?.at(-1) !== runId) return false;
+  patchTurn(project,snapshot,id,patch);
+  return true;
+}
 export function appendQuestion(project: string, snapshot: string, question: string, context: Context[], view: View, parentTurn?: string): string {
   const id = crypto.randomUUID();
   updateWorkspace(project, snapshot, (s) => addTurn(s,{id,question,context,status:'queued'},view,parentTurn?{originTurnId:parentTurn,id:crypto.randomUUID()}:undefined));
@@ -178,10 +184,11 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
         : saved.state === 'failed' ? 'failed'
         : saved.state === 'interrupted' ? 'interrupted'
         : 'stopped';
-      patchTurn(project,snapshot,id,{status,error:undefined});
-      if (status === 'ready' || status === 'partial') void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
+      if (patchTurnForLatestRun(project,snapshot,id,runId,{status,error:undefined}) && (status === 'ready' || status === 'partial')) {
+        void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
+      }
     }).catch((failure) => {
-      patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The question could not be stopped. Try Stop again.')});
+      patchTurnForLatestRun(project,snapshot,id,runId,{error:errorMessageOr(failure,'The question could not be stopped. Try Stop again.')});
     });
     return;
   }

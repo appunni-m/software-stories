@@ -130,6 +130,42 @@ test('incremental workspace questions use the saved model and reasoning effort',
   assert.ok(generation.input.rendererQueueWaitMs>=0&&generation.input.rendererQueueWaitMs<=86_400_000);
 });
 
+test('late Stop replies cannot overwrite a newer retry on the same question', { timeout: 2000 }, async () => {
+  async function verifyLateStop(finishStop) {
+    const b=backend(),oldStarted=deferred(),newStarted=deferred(),oldAnswer=deferred(),newAnswer=deferred(),lateStop=deferred();
+    let generationCount=0,oldRunId;
+    const h=workspaceStoreHarness(async(name,args)=>{
+      if(name==='generate_progressive_workspace_answer'){
+        generationCount++;
+        if(generationCount===1){oldRunId=args.input.runId;oldStarted.resolve();return oldAnswer.promise;}
+        newStarted.resolve();return newAnswer.promise;
+      }
+      if(name==='load_workspace_answer')throw new Error('No saved answer');
+      return b.invoke(name,args);
+    },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'}),stopWorkspaceGenerationJob:async()=>lateStop.promise});
+    await h.store.prepareWorkspaceConversation('project','snapshot');
+    const id=h.store.appendQuestion('project','snapshot','Explain the parser decision',[],'guide');
+    const first=h.store.runQuestion('project','snapshot',id,'grant');await oldStarted.promise;
+    h.store.stopQuestion('project','snapshot',id);await flushLocalReads();
+    oldAnswer.resolve({runId:oldRunId,projectId:'project',snapshotId:'snapshot',question:'Explain the parser decision',outcome:'complete',sections:[],incompleteTopics:[]});
+    await first;
+    assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'ready');
+    const retry=h.store.runQuestion('project','snapshot',id,'grant');await newStarted.promise;
+    const current=h.store.getWorkspace('project','snapshot').explorations[0].turns[0];
+    assert.notEqual(current.runIds.at(-1),oldRunId);
+    finishStop(lateStop,oldRunId);
+    await flushLocalReads();
+    const afterLateStop=h.store.getWorkspace('project','snapshot').explorations[0].turns[0];
+    assert.equal(afterLateStop.status,'working');
+    assert.equal(afterLateStop.error,undefined);
+    assert.notEqual(afterLateStop.runIds.at(-1),oldRunId);
+    newAnswer.resolve({runId:afterLateStop.runIds.at(-1),projectId:'project',snapshotId:'snapshot',question:'Explain the parser decision',outcome:'complete',sections:[],incompleteTopics:[]});
+    await retry;
+  }
+  await verifyLateStop((pending,runId)=>pending.resolve({jobId:runId,projectId:'project',snapshotId:'snapshot',state:'stopped'}));
+  await verifyLateStop((pending)=>pending.reject(new Error('The old Stop request failed late')));
+});
+
 test('repository guide start, resume and refill carry renderer queue wait to native commands',async()=>{
   const b=backend(),held=deferred(),generationStarted=deferred();let now=0,startArgs,resumeArgs,advanceArgs;
   const h=workspaceStoreHarness(async(name,args)=>{
