@@ -93,12 +93,15 @@ pub(crate) fn is_code_path(path: &str) -> bool {
             matches!(
                 extension,
                 "rs" | "ts"
+                    | "mts"
+                    | "cts"
                     | "tsx"
                     | "js"
                     | "jsx"
                     | "mjs"
                     | "cjs"
                     | "py"
+                    | "pyw"
                     | "pyi"
                     | "go"
                     | "c"
@@ -557,11 +560,14 @@ fn validate_selection(
 mod tests {
     use super::*;
     #[test]
-    fn only_implementation_paths_are_eligible() {
+    fn parser_supported_implementation_paths_are_discoverable() {
         for path in [
             "src/render.rs",
             "lib/parser.py",
+            "lib/windowed.pyw",
             "app/widget.tsx",
+            "app/package.mts",
+            "app/environment.cts",
             "build/CMakeLists.txt",
         ] {
             assert!(is_code_path(path));
