@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
@@ -101,7 +101,9 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const [autoPlay, setAutoPlay] = useState(false);
   const [manualVisit, setManualVisit] = useState(0);
   const sectionCompletionSent = useRef(false);
-  const [fullMap, setFullMap] = useState(savedPosition.fullMap);
+  const canShowFullMap = Boolean(visual && supportsStoryFullMap(visual)
+    && (visual.edges.length > 0 || !visual.presentation));
+  const [fullMap, setFullMap] = useState(savedPosition.fullMap && canShowFullMap);
   const canvasViewport = useRef<FlowViewport|undefined>(savedPosition.viewport);
   const mapView = useRef(fullMap);
   const restoredFocus = restoreStoryFocus(visual, savedPosition.focusedNodeId, savedPosition.focusedEdgeId);
@@ -326,7 +328,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         <span className="story-scene-title" title={scene.title}>{scene.title}</span>
         <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
         <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${item.title}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
-        {visual && (visual.edges.length > 0 || !visual.presentation) && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
+        {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
       </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>

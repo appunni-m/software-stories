@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -14,6 +14,29 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('offers the full graph only when the section explicitly includes one', () => {
+    const composed = {
+      ...visual,
+      presentation: { schemaVersion: 3, scenes: [
+        { claimIndex: 0, title: 'Trace the request', narration: 'The request reaches the handler.', mode: 'composition', elements: [] },
+        { claimIndex: 1, title: 'Handle invalid input', narration: 'Invalid input returns an error.', mode: 'composition', elements: [] },
+      ] },
+    };
+    assert.equal(supportsStoryFullMap(undefined), false);
+    assert.equal(supportsStoryFullMap(composed), false);
+    assert.equal(supportsStoryFullMap({ ...composed, presentation: { ...composed.presentation, scenes: [
+      ...composed.presentation.scenes.slice(0, 1),
+      { ...composed.presentation.scenes[1], mode: 'graph' },
+    ] } }), true);
+    assert.equal(supportsStoryFullMap(visual), true, 'legacy graph-only sections retain their map');
+  });
+
+  it('hides Full map when a section has only composed scenes', () => {
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(component, /const canShowFullMap = Boolean\(visual && supportsStoryFullMap\(visual\)/u);
+    assert.match(component, /\{canShowFullMap && <button className="story-map-toggle"/u);
+  });
+
   it('keeps long edge labels scannable while preserving short labels', () => {
     assert.equal(visibleStoryEdgeLabel('PFR0 prefix matches'), 'PFR0 prefix matches');
     const full = 'Prefix matches; hand off and return this result.';

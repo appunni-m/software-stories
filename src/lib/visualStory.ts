@@ -15,6 +15,11 @@ export interface StoryLayoutResult {
   nodes: { id: string; position: { x: number; y: number } }[];
 }
 
+/** A full graph is an authored view only when the section has no composition contract or includes a graph scene. */
+export function supportsStoryFullMap(visual: EvidenceLinkedVisualSpec | undefined): boolean {
+  return Boolean(visual && (!visual.presentation || visual.presentation.scenes.some((scene) => scene.mode === 'graph')));
+}
+
 export const STORY_NODE_WIDTH = 195;
 export const STORY_EDGE_LABEL_MAX_WIDTH = 180;
 export const STORY_EDGE_LABEL_HEIGHT = 40;

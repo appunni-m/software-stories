@@ -64,6 +64,10 @@ them. The Full map is the complete set of source-backed edges, not an inferred
 bridge between separate scenes. If the code only proves order, show order without
 claiming the later operation's result.
 
+The reader offers **Full map** only when the authored section includes a graph
+scene. Composition-only lessons keep their chosen visual instead of exposing a
+separate AI-generated graph outline.
+
 A section uses one visual mode throughout. If a visual would mislead, every
 claim uses a narration scene with no generated visual elements. Otherwise each
 claim has a source-linked visual scene. The narration follows the subject from
