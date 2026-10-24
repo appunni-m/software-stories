@@ -242,6 +242,13 @@ describe('visual story scenes', () => {
     assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
   });
 
+  it('exposes matrix dimensions and each row to assistive technology', () => {
+    const component = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
+    assert.ok(component.includes('const matrixLabel = ['));
+    assert.ok(component.includes('...rows.map((row, rowIndex) => `row ${rowIndex + 1}: ${row}`),'));
+    assert.ok(component.includes('role="img" aria-label={matrixLabel}'));
+  });
+
   it('renders evidence-backed relationship labels and exposes semantic source controls', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     assert.match(component, /function EvidenceStoryEdge\(/u);

@@ -65,7 +65,11 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     if (e.kind === 'bytes') body = <span className="html-byte-strip">{value.trim().split(/\s+/u).map((cell, i) => <span key={i}><b>{cell}</b><small>{i}</small></span>)}</span>;
     if (e.kind === 'matrix') {
       const rows = value.trimEnd().split(/\r?\n/u);
-      body = <span className="html-pixel-matrix" role="img" aria-label={`${rows.length} by ${rows[0].length} cell representation`} style={{ gridTemplateColumns: `repeat(${rows[0].length}, 1fr)` }}>{rows.flatMap((row, y) => [...row].map((cell, x) => <i key={`${x}:${y}`} className={cell === '1' ? 'is-filled' : ''}/>))}</span>;
+      const matrixLabel = [
+        `${rows.length} by ${rows[0].length} cell representation`,
+        ...rows.map((row, rowIndex) => `row ${rowIndex + 1}: ${row}`),
+      ].join('; ');
+      body = <span className="html-pixel-matrix" role="img" aria-label={matrixLabel} style={{ gridTemplateColumns: `repeat(${rows[0].length}, 1fr)` }}>{rows.flatMap((row, y) => [...row].map((cell, x) => <i key={`${x}:${y}`} className={cell === '1' ? 'is-filled' : ''}/>))}</span>;
     }
     if (e.kind === 'table') body = <table><tbody>{value.trimEnd().split(/\r?\n/u).map((row, i) => <tr key={i}>{row.split('|').map((cell, j) => i === 0 ? <th key={j} scope="col">{cell}</th> : <td key={j}>{cell}</td>)}</tr>)}</tbody></table>;
     if (e.kind === 'code') body = value ? <pre><code>{value}</code></pre> : null;

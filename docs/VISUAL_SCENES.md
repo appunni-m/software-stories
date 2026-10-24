@@ -290,8 +290,8 @@ Broad representation quality across languages and operations remains task
 
 The schema-4 offline exporter renders HTML compositions and attaches verified
 cached audio to individual scenes, with matching transcripts and independent
-hashes. Offline matrix compositions expose their dimensions and exact row values
-through an accessible name. Source-backed visual values are omitted when cited
+hashes. Live and offline matrix compositions expose their dimensions and exact
+row values through an accessible name. Source-backed visual values are omitted when cited
 excerpts are omitted.
 Graph scenes retain a source-outline fallback. Navigation and playback remain
 manual in the script-free export; it does not reproduce the app's automatic
