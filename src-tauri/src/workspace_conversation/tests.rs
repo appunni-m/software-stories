@@ -27,6 +27,29 @@ fn state() -> Value {
 }
 
 #[test]
+fn storage_write_failures_give_specific_safe_recovery_guidance() {
+    let full = conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::StorageFull));
+    assert_eq!(full, SAVE_STORAGE_FULL);
+    assert!(full.contains("Free disk space"));
+
+    let quota =
+        conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::QuotaExceeded));
+    assert_eq!(quota, SAVE_STORAGE_FULL);
+
+    let permissions =
+        conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+    assert_eq!(permissions, SAVE_STORAGE_ACCESS);
+    assert!(permissions.contains("Check local storage permissions"));
+
+    let other = conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::Other));
+    assert_eq!(other, SAVE_STORAGE);
+    for message in [full, permissions, other] {
+        assert!(!message.contains('/'));
+        assert!(!message.contains("ErrorKind"));
+    }
+}
+
+#[test]
 fn finite_answer_failure_codes_are_preserved_but_unknown_values_are_rejected() {
     let f = Fixture::new();
     let mut current = state();

@@ -2583,16 +2583,22 @@ impl Drop for TemporaryDirectory {
 }
 
 pub(crate) fn ensure_private_directory(path: &Path) -> Result<(), String> {
+    ensure_private_directory_with_error(path, |error| private_codex_file_error(error, "created"))
+}
+
+pub(crate) fn ensure_private_directory_with_error(
+    path: &Path,
+    error_message: impl Fn(&std::io::Error) -> String,
+) -> Result<(), String> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
         Ok(_) => return Err("The Codex data path is not a regular local directory.".to_owned()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            fs::create_dir(path)
-                .map_err(|_| "The private Codex data directory could not be created.")?;
+            fs::create_dir(path).map_err(|error| error_message(&error))?;
         }
-        Err(_) => return Err("The private Codex data directory could not be inspected.".to_owned()),
+        Err(error) => return Err(error_message(&error)),
     }
-    private_permissions(path, 0o700)
+    private_permissions_with_error(path, 0o700, &error_message)
 }
 
 fn private_codex_file_error(error: &std::io::Error, operation: &str) -> String {
@@ -2612,6 +2618,16 @@ fn private_codex_file_error(error: &std::io::Error, operation: &str) -> String {
 }
 
 pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    create_private_file_with_error(path, bytes, &|error, operation| {
+        private_codex_file_error(error, operation)
+    })
+}
+
+fn create_private_file_with_error(
+    path: &Path,
+    bytes: &[u8],
+    error_message: &impl Fn(&std::io::Error, &str) -> String,
+) -> Result<(), String> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -2621,11 +2637,11 @@ pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), Strin
     }
     let mut file = options
         .open(path)
-        .map_err(|error| private_codex_file_error(&error, "created"))?;
+        .map_err(|error| error_message(&error, "created"))?;
     let result = file
         .write_all(bytes)
         .and_then(|_| file.sync_all())
-        .map_err(|error| private_codex_file_error(&error, "saved"));
+        .map_err(|error| error_message(&error, "saved"));
     drop(file);
     if result.is_err() {
         // Only remove the file we successfully created with create_new. Never
@@ -2636,6 +2652,16 @@ pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), Strin
 }
 
 pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    atomic_private_write_with_error(path, bytes, |error, operation| {
+        private_codex_file_error(error, operation)
+    })
+}
+
+pub(crate) fn atomic_private_write_with_error(
+    path: &Path,
+    bytes: &[u8],
+    error_message: impl Fn(&std::io::Error, &str) -> String,
+) -> Result<(), String> {
     if fs::symlink_metadata(path)
         .is_ok_and(|metadata| metadata.file_type().is_symlink() || !metadata.is_file())
     {
@@ -2643,9 +2669,8 @@ pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), Stri
     }
     let temporary = path.with_file_name(format!(".settings-{}.tmp", Uuid::new_v4()));
     let result = (|| {
-        create_private_file(&temporary, bytes)?;
-        fs::rename(&temporary, path)
-            .map_err(|_| "Codex configuration could not be saved.".to_owned())?;
+        create_private_file_with_error(&temporary, bytes, &error_message)?;
+        fs::rename(&temporary, path).map_err(|error| error_message(&error, "saved"))?;
         // The file was synced before rename. Sync its directory entry before
         // a caller announces durable publication. A failure here is uncertain;
         // preserve the new destination for inspection, never roll it back.
@@ -2655,7 +2680,7 @@ pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), Stri
                 .ok_or("Private file directory is unavailable.")?,
         )
         .and_then(|directory| directory.sync_all())
-        .map_err(|_| "The private file rename could not be confirmed durable.".to_owned())?;
+        .map_err(|error| error_message(&error, "saved"))?;
         Ok(())
     })();
     let _ = fs::remove_file(&temporary);
@@ -2663,15 +2688,25 @@ pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), Stri
 }
 
 fn private_permissions(path: &Path, mode: u32) -> Result<(), String> {
+    private_permissions_with_error(path, mode, &|_| {
+        "Private Codex file permissions could not be applied.".to_owned()
+    })
+}
+
+fn private_permissions_with_error(
+    path: &Path,
+    mode: u32,
+    error_message: &impl Fn(&std::io::Error) -> String,
+) -> Result<(), String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(mode))
-            .map_err(|_| "Private Codex file permissions could not be applied.".to_owned())
+            .map_err(|error| error_message(&error))
     }
     #[cfg(not(unix))]
     {
-        let _ = (path, mode);
+        let _ = (path, mode, error_message);
         Ok(())
     }
 }

@@ -304,6 +304,21 @@ test('a safe save contention reason reaches the retry notice',async()=>{
   assert.doesNotMatch(JSON.stringify(notices),/src\/pending\.rs/);
 });
 
+test('specific local-storage recovery guidance reaches the notice without exposing details',async()=>{
+  for(const message of [
+    'Local storage is full. Free disk space, then retry saving; your changes remain open in this window.',
+    'Code Atlas cannot write conversation data. Check local storage permissions, then retry; your changes remain open in this window.',
+  ]){
+    const b=backend(),h=native(b),notices=[];h.onWindowEvent('code-atlas:workspace-notice',e=>notices.push(clone(e.detail)));
+    await h.store.prepareWorkspaceConversation('project','snapshot');
+    b.controls.beforeSave=()=>{throw new Error(message);};
+    h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/private.rs'}));
+    await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'),new RegExp(message.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.equal(notices.length,1);assert.equal(notices[0].message,message);
+    assert.doesNotMatch(JSON.stringify(notices),/src\/private\.rs|private filesystem|ErrorKind/);
+  }
+});
+
 test('lost save acknowledgment is recognized before newer local edits are saved',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');let lost=true;
   b.controls.afterSave=()=>{if(lost){lost=false;throw new Error('acknowledgment lost');}};

@@ -18,6 +18,8 @@ const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
 const CONFLICT: &str = "Another window saved this conversation. Your unsaved changes have been preserved in this window.";
 const SAVE_STORAGE: &str = "Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.";
+const SAVE_STORAGE_FULL: &str = "Local storage is full. Free disk space, then retry saving; your changes remain open in this window.";
+const SAVE_STORAGE_ACCESS: &str = "Code Atlas cannot write conversation data. Check local storage permissions, then retry; your changes remain open in this window.";
 const SAVE_BUSY: &str = "A conversation save is still in progress. Wait a moment, then retry.";
 const SAVE_INVALID: &str = "Code Atlas rejected this conversation update. Your saved work is intact and the unsaved changes remain open.";
 const SAVE_TOO_LARGE: &str = "This conversation exceeds the local save limit. Your saved work is intact and the unsaved changes remain open.";
@@ -1032,8 +1034,8 @@ fn save(
     validate(&state, project, snapshot).map_err(|_| SAVE_INVALID.to_owned())?;
     let path = location(storage, project, snapshot)?;
     let directory = path.parent().ok_or(UNAVAILABLE)?;
-    crate::codex_agent::ensure_private_directory(storage).map_err(|_| SAVE_STORAGE)?;
-    crate::codex_agent::ensure_private_directory(directory).map_err(|_| SAVE_STORAGE)?;
+    crate::codex_agent::ensure_private_directory_with_error(storage, conversation_storage_error)?;
+    crate::codex_agent::ensure_private_directory_with_error(directory, conversation_storage_error)?;
     let mut options = fs::OpenOptions::new();
     options.read(true).write(true).create(true).truncate(false);
     #[cfg(unix)]
@@ -1045,9 +1047,9 @@ fn save(
     }
     let lock = options
         .open(path.with_extension("lock"))
-        .map_err(|_| SAVE_STORAGE)?;
+        .map_err(|error| conversation_storage_error(&error))?;
     let _lease = crate::file_lease::try_exclusive(lock)
-        .map_err(|_| SAVE_STORAGE)?
+        .map_err(|error| conversation_storage_error(&error))?
         .ok_or(SAVE_BUSY)?;
     let previous = load(storage, project, snapshot)?;
     // An acknowledgment may be lost after the atomic write. An exact replay is
@@ -1074,8 +1076,22 @@ fn save(
     if bytes.len() > MAX_BYTES {
         return Err(SAVE_TOO_LARGE.into());
     }
-    crate::codex_agent::atomic_private_write(&path, &bytes).map_err(|_| SAVE_STORAGE)?;
+    crate::codex_agent::atomic_private_write_with_error(&path, &bytes, |error, _operation| {
+        conversation_storage_error(error)
+    })?;
     Ok(record)
+}
+
+fn conversation_storage_error(error: &std::io::Error) -> String {
+    match error.kind() {
+        std::io::ErrorKind::StorageFull | std::io::ErrorKind::QuotaExceeded => {
+            SAVE_STORAGE_FULL.to_owned()
+        }
+        std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem => {
+            SAVE_STORAGE_ACCESS.to_owned()
+        }
+        _ => SAVE_STORAGE.to_owned(),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]

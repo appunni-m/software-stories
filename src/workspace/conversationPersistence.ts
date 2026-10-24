@@ -22,6 +22,8 @@ const safeSaveFailure=(failure:unknown):string=>{
   if(message==='A conversation save is still in progress. Wait a moment, then retry.')return message;
   if(message==='Another window saved this conversation. Your unsaved changes have been preserved in this window.')return overlapSaveFailure;
   if(message==='Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.')return message;
+  if(message==='Local storage is full. Free disk space, then retry saving; your changes remain open in this window.')return message;
+  if(message==='Code Atlas cannot write conversation data. Check local storage permissions, then retry; your changes remain open in this window.')return message;
   if(message==='Code Atlas rejected this conversation update. Your saved work is intact and the unsaved changes remain open.')return message;
   if(message==='This conversation exceeds the local save limit. Your saved work is intact and the unsaved changes remain open.')return message;
   return genericSaveFailure;
