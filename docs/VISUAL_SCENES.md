@@ -11,6 +11,7 @@ The current graph layout and workspace navigation remain available.
 | --- | --- |
 | Which bytes identify a format | Indexed byte strip, highlighted signature, code value |
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
+| How a code-proven point or vector is mapped | Coordinate-free point-flow: symbolic point markers around the actual operation, with no invented positions |
 | How a mode or enum selects a handler | Table mapping each value to its selected route |
 | Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
 | One guard decides success or failure | Branch showing the guard and each supported outcome |
@@ -50,7 +51,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v43` and teaching policy `meaning-first-v28`. It starts
+`ai-html-compositions-v44` and teaching policy `meaning-first-v28`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
@@ -163,7 +164,7 @@ Stored visual version 2 has an optional `presentation` field. New chapter
 compositions and progressive generations use presentation version 3;
 progressive publication uses answer checkpoint version 8. Historical admitted
 proposals and immutable answer checkpoints keep their original saved content.
-The current renderer supports semantic `transform`, `tree`, `queue`, and
+The current renderer supports semantic `transform`, coordinate-free `pointFlow`, `tree`, `queue`, and
 `selector` groups in addition to the existing layouts. Composition data
 participates in visual fingerprints, revision comparisons and selective visual
 reuse.
@@ -236,7 +237,7 @@ decoder errors. It does not authorize a value or bypass canonicalization.
 
 - Groups: layout `row`, `column`, `grid`, `panel`, `compare`; semantic
   `timeline`, `lanes`, `branch`, `selector`, `beforeAfter`, `transform`,
-  `tree`, `queue`, and LIFO `stack`.
+  coordinate-free `pointFlow`, `tree`, `queue`, and LIFO `stack`.
 - Content: `card`, `token`, `code`, `metric`, `bytes`, `matrix`, `table`, `text`.
 - Decoration: `arrow`, `divider`, with no free content or source action.
 - Tones: `neutral`, `accent`, `muted`, `positive`, `warning`, mapped to app theme
@@ -250,6 +251,9 @@ decoder errors. It does not authorize a value or bypass canonicalization.
 - A `transform` has exactly three direct children: input, operation, result.
   The app renders them as labeled stages connected in reading order. The result
   must represent a meaningful change when the scene claims a transformation.
+- `pointFlow` has the same three source-linked stages and a distinct point/function
+  visual. Use it only when cited code proves a point or vector mapping. It labels
+  itself symbolic and never implies coordinates or geometry absent from source.
 - A `tree` groups nested source-backed data. A `queue` shows FIFO order from
   front to back; it is not an unordered collection.
 - A `selector` has at least two direct `branch` groups in source order. Each

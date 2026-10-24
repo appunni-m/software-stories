@@ -22,6 +22,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
         branch: 'Decision and outcomes', beforeAfter: 'Before and after states',
         transform: 'Input, operation and result', tree: 'Nested data hierarchy',
+        pointFlow: 'Coordinate-free point transformation; symbolic only, no coordinates shown',
         queue: 'First in, first out queue, ordered front to back',
         selector: 'Ordered first-match selector; checks are evaluated in source order',
       };
@@ -46,6 +47,21 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
             </div>,
             ...(childIndex < 2 ? [<ArrowRight key={`arrow-${childIndex}`} aria-hidden="true" className="html-scene-transform-arrow" size={22}/>] : []),
           ])}
+        </div>;
+      }
+      if (e.kind === 'pointFlow') {
+        const slots = ['Point in', 'Operation', 'Point out'];
+        return <div key={index} className={className} role="group" aria-label={label}>
+          {children.flatMap((child, childIndex) => [
+            <div key={`point-flow-slot-${childIndex}`} className={`html-scene-pointFlow-slot point-flow-slot-${childIndex}`}>
+              <span className={childIndex === 1 ? 'html-scene-pointFlow-function' : 'html-scene-pointFlow-mark'} aria-hidden="true">
+                {childIndex === 1 ? 'ƒ' : <i/>}
+              </span>
+              <small>{slots[childIndex]}</small>{child}
+            </div>,
+            ...(childIndex < 2 ? [<ArrowRight key={`point-flow-arrow-${childIndex}`} aria-hidden="true" className="html-scene-pointFlow-arrow" size={22}/>] : []),
+          ])}
+          <p className="html-scene-pointFlow-note">Symbolic point flow · no coordinates shown</p>
         </div>;
       }
       if (e.kind === 'branch') {

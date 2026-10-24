@@ -1,6 +1,6 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
 
-export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'tree' | 'queue'
+export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'pointFlow' | 'tree' | 'queue'
   | 'selector' | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
 export interface SceneElement {
   kind: ElementKind;
@@ -18,7 +18,7 @@ export interface PresentationScene {
   elements: SceneElement[];
 }
 export interface ScenePresentation { schemaVersion: 3; scenes: PresentationScene[] }
-export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'tree', 'queue', 'selector']);
+export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'pointFlow', 'tree', 'queue', 'selector']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
@@ -158,7 +158,11 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
     }
     return leaves >= 1 && leaves <= 12 && elements.every((e, i) => {
       if (containerKinds.has(e.kind) && counts[i] === 0) return false;
-      if (e.kind === 'transform' && counts[i] !== 3) return false;
+      if ((e.kind === 'transform' || e.kind === 'pointFlow') && counts[i] !== 3) return false;
+      if (e.kind === 'pointFlow') {
+        const directChildren = elements.filter(child => child.parentIndex === i);
+        if (directChildren.length !== 3 || directChildren.some(child => containerKinds.has(child.kind) || child.kind === 'arrow' || child.kind === 'divider')) return false;
+      }
       if (e.kind === 'selector') {
         const checks = elements.flatMap((child, childIndex) => child.parentIndex === i ? [childIndex] : []);
         if (checks.length < 2 || checks.some(check => elements[check].kind !== 'branch')) return false;

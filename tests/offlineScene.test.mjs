@@ -50,6 +50,24 @@ it('offline scenes keep semantic transform roles and source-linked destinations'
   assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 3);
 });
 
+it('offline pointFlow scenes show point symbols without implying coordinates', () => {
+  const authored = scene('token', 'pt', 'pointFlow');
+  authored.elements.push(
+    { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'transform_point(pt, comp)', valueOrigin: 'illustration' },
+    { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'positive', value: 'transformed', valueOrigin: 'explanation' },
+  );
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
+  const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
+  assert.match(markup, /scene-pointFlow/);
+  assert.match(markup, /Coordinate-free point transformation; symbolic only, no coordinates shown/);
+  assert.match(markup, /Symbolic point flow · no coordinates shown/);
+  assert.match(markup, /<small>Point in<\/small>/);
+  assert.match(markup, /<small>Operation<\/small>/);
+  assert.match(markup, /<small>Point out<\/small>/);
+  assert.equal((markup.match(/scene-pointFlow-arrow/g) ?? []).length, 2);
+  assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 3);
+});
+
 it('offline scenes do not badge grounded explanatory copy as a hypothetical example', () => {
   const authored = scene('text', 'The first matching format selects this decoder');
   authored.elements[1].valueOrigin = 'explanation';

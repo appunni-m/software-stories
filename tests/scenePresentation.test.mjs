@@ -104,6 +104,30 @@ describe('AI-authored HTML scene contract', () => {
       element('token', 'newest item', 'illustration', 0),
     ]), nodes, claims));
   });
+  it('supports a coordinate-free point-flow composition with three source-linked stages', () => {
+    const pointFlow = [
+      { ...element('pointFlow'), nodeIndex: null },
+      element('token', 'point', 'explanation', 0),
+      element('code', 'map_point(point, transform)', 'illustration', 0),
+      element('token', 'mapped point', 'explanation', 0),
+    ];
+    assert.equal(validScenePresentation(presentation(pointFlow), nodes, claims), true);
+    for (const count of [2, 4]) {
+      const malformed = [
+        { ...element('pointFlow'), nodeIndex: null },
+        ...Array.from({ length: count }, (_, index) => element('token', `stage ${index}`, 'illustration', 0)),
+      ];
+      assert.equal(validScenePresentation(presentation(malformed), nodes, claims), false);
+    }
+    const wrapped = [
+      { ...element('pointFlow'), nodeIndex: null },
+      { ...element('column', '', 'none', 0), nodeIndex: null },
+      element('token', 'point', 'explanation', 1),
+      element('code', 'map_point(point, transform)', 'illustration', 0),
+      element('token', 'mapped point', 'explanation', 0),
+    ];
+    assert.equal(validScenePresentation(presentation(wrapped), nodes, claims), false);
+  });
   it('requires ordered selectors to contain guarded branches with visible outcomes', () => {
     const candidateClaims = [{ ...claims[0], prose: 'The first matching candidate wins and a miss tries the next candidate.' }];
     const selector = [

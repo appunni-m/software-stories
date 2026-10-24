@@ -664,7 +664,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         )
     );
     assert!(instructions.contains(
-        "Transform has exactly three direct content-leaf children in input, operation, result order"
+        "Transform has exactly three direct content-leaf children in input, operation, result order; each child's parentKey names the transform key. PointFlow has the same three direct slots and is reserved for a source-proved point or vector mapping; it shows symbolic point markers only, with no fabricated coordinates."
     ));
     assert!(instructions.contains(
         "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
@@ -738,8 +738,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v43:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v43"));
+    assert!(system_instructions().contains("Visual design method v44:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v44"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")

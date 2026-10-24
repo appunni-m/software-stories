@@ -96,12 +96,21 @@ pub(crate) fn findings(elements: &[SceneElement]) -> Vec<TreeFinding> {
                 "A composition needs 1–12 cited content elements and no empty groups.",
             );
         }
-        if element.kind == ElementKind::Transform && children[index] != 3 {
+        let point_flow_has_only_direct_content = element.kind != ElementKind::PointFlow
+            || !elements.iter().any(|child| {
+                child.parent_index == Some(index)
+                    && (child.kind.container() || child.kind.decorative())
+            });
+        if matches!(
+            &element.kind,
+            ElementKind::Transform | ElementKind::PointFlow
+        ) && (children[index] != 3 || !point_flow_has_only_direct_content)
+        {
             add(
                 Some(index),
                 "transformShape",
                 "parentIndex",
-                "A transform needs exactly three direct children: input, operation and result.",
+                "A transform or pointFlow needs exactly three direct children: input, operation and result.",
             );
         }
         if element.kind == ElementKind::Selector {
@@ -169,6 +178,9 @@ mod tests {
         let mut transform = vec![element("transform", None)];
         transform.extend((0..3).map(|_| element("token", Some(0))));
         assert!(findings(&transform).is_empty());
+        let mut point_flow = vec![element("pointFlow", None)];
+        point_flow.extend((0..3).map(|_| element("token", Some(0))));
+        assert!(findings(&point_flow).is_empty());
         for kind in [
             "card", "token", "code", "metric", "bytes", "matrix", "table", "text", "arrow",
             "divider",
@@ -238,6 +250,30 @@ mod tests {
             !findings(&elements)
                 .iter()
                 .any(|finding| finding.code == "transformShape")
+        );
+        for child_count in [2, 4] {
+            let mut elements = vec![element("pointFlow", None)];
+            elements.extend((0..child_count).map(|_| element("token", Some(0))));
+            assert!(
+                findings(&elements).iter().any(|finding| {
+                    finding.code == "transformShape" && finding.element == Some(0)
+                })
+            );
+        }
+        let mut elements = vec![element("pointFlow", None)];
+        elements.extend((0..3).map(|_| element("token", Some(0))));
+        assert!(
+            findings(&elements)
+                .iter()
+                .all(|finding| finding.code != "transformShape")
+        );
+
+        elements[2] = element("column", Some(0));
+        elements.push(element("token", Some(2)));
+        assert!(
+            findings(&elements)
+                .iter()
+                .any(|finding| { finding.code == "transformShape" && finding.element == Some(0) })
         );
     }
 
