@@ -300,3 +300,7 @@ only one representative WASM glyph path, explicitly excluding native Rust and
 C ABI paths, so it does not satisfy broad repository coverage. Audio showed
 Ready to play but was not listened to. See task `j53m` for the scene, narration,
 source-link and scope review. Keep `3bz5` open.
+
+## Guide lifetime regression check — 24 October 2026
+
+The current full-Guide outline and per-slide route use `RunDeadline::UserControlled`; native source, tool-call, proposal and storage budgets remain bounded, and the user can stop the run. Focused regressions passed at HEAD `2fe8b16`: `cargo test --lib ten_minutes` (3/3), including continued evidence-ledger work, validation and publication after eleven minutes; and `cargo test --lib no_wall_clock_deadline` (3/3), covering the Guide run guard, outline planner and progressive slide contract. The current Repository Guide route is therefore not subject to the ten-minute timeout seen in the historical operation. This does not prove a fresh packaged whole-repository Guide, timely progress, answer quality or stop/restart recovery; no provider request was made. Keep `3bz5` open.
