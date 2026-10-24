@@ -38,6 +38,10 @@ Depends on [local range retrieval](69-local-range-retrieval.md). Prefer an app-o
 
 Workspace owned-tool retrieval is implemented in source, with deterministic tests, a successful small synthetic investigation, and the separately checked focused Fontdone predicate below. Broad Fontdone generation and packaged parent acceptance remain open. Earlier dated checkpoints describe the preceding fixed-evidence adapter; the current admission contract enables only the five owned tools.
 
+## Broad-question discovery instruction — 25 October 2026
+
+The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
+
 ## Retrieval foundation checkpoint — 17 October
 
 Native search/read/cancel and structural definition/relationship/map commands now exist; see the [measured limitations](../acceptance/2026-10-17-range-retrieval.md). Broad single-query lexical retrieval found only 2/12 expected declarations. Named global retrieval missed FFI/C adapter declarations that file-scoped search recovered. The owned agent must inspect the module map, vary queries/scopes and follow validated relationships without asking the reader to select references. This is not implemented or enabled in Codex yet. `a699` remains the open prerequisite; retain the existing account/model constraints and qualify the complete evidence ledger before transmission.

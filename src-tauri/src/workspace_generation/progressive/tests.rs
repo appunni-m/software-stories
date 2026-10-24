@@ -615,6 +615,16 @@ fn fontdone_progressive_account_probe() {
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
     assert!(instructions.contains("Teaching policy v28:"));
+    assert!(instructions.contains(
+        "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
+    ));
+    assert!(instructions.contains(
+        "then use resultKind:\"ranges\" scoped to those paths and batch the needed reads"
+    ));
+    assert!(instructions.contains("For a narrow question or supplied source range, start there and skip repository-wide discovery"));
+    assert!(
+        instructions.contains("Do not page the whole repository before reading implementation")
+    );
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("Narration tells the subject's journey in direct speech"));
     assert!(instructions.starts_with(ANSWER_ROLE));
