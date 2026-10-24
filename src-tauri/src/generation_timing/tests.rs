@@ -109,6 +109,213 @@ fn timing_diagnostics_preserve_the_selected_model_and_effort() {
 }
 
 #[test]
+fn application_outcome_is_correlated_after_provider_return_and_is_idempotent() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now() - Duration::from_millis(30));
+    trace.finish(Ok(()));
+    drop(trace);
+    let terminal = inspect(&f.0, &id)
+        .unwrap()
+        .unwrap()
+        .terminal
+        .unwrap()
+        .elapsed_ms;
+    let result = ApplicationResult {
+        outcome: ApplicationOutcome::Complete,
+        observation: ApplicationObservation::Live,
+        observed_elapsed_ms: Some(terminal + 1),
+        published_section_count: 1,
+        first_useful_elapsed_ms: Some(terminal.saturating_sub(1)),
+    };
+    record_application_result(&f.0, &id, result.clone()).unwrap();
+    let first = fs::read(path(&f.0, &id).unwrap()).unwrap();
+    // Late reads do not overwrite the result recorded by the live worker.
+    record_application_result(
+        &f.0,
+        &id,
+        ApplicationResult {
+            outcome: ApplicationOutcome::Interrupted,
+            observation: ApplicationObservation::Reconciled,
+            observed_elapsed_ms: None,
+            published_section_count: 0,
+            first_useful_elapsed_ms: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(first, fs::read(path(&f.0, &id).unwrap()).unwrap());
+
+    let saved = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(saved.schema_version, SCHEMA_VERSION);
+    assert_eq!(saved.terminal.as_ref().unwrap().state, Terminal::Returned);
+    assert_eq!(saved.application_result, Some(result));
+    let text = serde_json::to_string(&saved).unwrap();
+    for forbidden in ["question", "source", "contents", "model reasoning"] {
+        assert!(!text.contains(forbidden));
+    }
+}
+
+#[test]
+fn reconciled_application_outcome_upgrades_legacy_trace_without_inventing_time() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now());
+    trace.finish(Ok(()));
+    drop(trace);
+    let file = path(&f.0, &id).unwrap();
+    let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    old["schemaVersion"] = json!(PREVIOUS_SCHEMA_VERSION);
+    old.as_object_mut().unwrap().remove("applicationResult");
+    fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
+    assert_eq!(
+        inspect(&f.0, &id).unwrap().unwrap().schema_version,
+        PREVIOUS_SCHEMA_VERSION
+    );
+
+    record_application_result(
+        &f.0,
+        &id,
+        ApplicationResult {
+            outcome: ApplicationOutcome::Interrupted,
+            observation: ApplicationObservation::Reconciled,
+            observed_elapsed_ms: None,
+            published_section_count: 1,
+            first_useful_elapsed_ms: Some(0),
+        },
+    )
+    .unwrap();
+    let saved = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(saved.schema_version, SCHEMA_VERSION);
+    assert_eq!(
+        saved.application_result.unwrap().observation,
+        ApplicationObservation::Reconciled
+    );
+}
+
+#[test]
+fn live_application_result_supersedes_a_reconciliation_race() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now() - Duration::from_millis(20));
+    trace.finish(Ok(()));
+    drop(trace);
+    let terminal = inspect(&f.0, &id)
+        .unwrap()
+        .unwrap()
+        .terminal
+        .unwrap()
+        .elapsed_ms;
+    record_application_result(
+        &f.0,
+        &id,
+        ApplicationResult {
+            outcome: ApplicationOutcome::Complete,
+            observation: ApplicationObservation::Reconciled,
+            observed_elapsed_ms: None,
+            published_section_count: 1,
+            first_useful_elapsed_ms: Some(terminal),
+        },
+    )
+    .unwrap();
+    record_application_result(
+        &f.0,
+        &id,
+        ApplicationResult {
+            outcome: ApplicationOutcome::Complete,
+            observation: ApplicationObservation::Live,
+            observed_elapsed_ms: Some(terminal + 1),
+            published_section_count: 1,
+            first_useful_elapsed_ms: Some(terminal),
+        },
+    )
+    .unwrap();
+    let result = inspect(&f.0, &id)
+        .unwrap()
+        .unwrap()
+        .application_result
+        .unwrap();
+    assert_eq!(result.observation, ApplicationObservation::Live);
+    assert_eq!(result.observed_elapsed_ms, Some(terminal + 1));
+}
+
+#[test]
+fn application_timing_rejects_cross_clock_and_out_of_order_values() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now() - Duration::from_millis(40));
+    trace.finish(Ok(()));
+    drop(trace);
+    let terminal = inspect(&f.0, &id)
+        .unwrap()
+        .unwrap()
+        .terminal
+        .unwrap()
+        .elapsed_ms;
+    let file = path(&f.0, &id).unwrap();
+
+    assert!(
+        record_application_result(
+            &f.0,
+            &id,
+            ApplicationResult {
+                outcome: ApplicationOutcome::Complete,
+                observation: ApplicationObservation::Live,
+                observed_elapsed_ms: Some(terminal.saturating_sub(1)),
+                published_section_count: 0,
+                first_useful_elapsed_ms: None,
+            },
+        )
+        .is_err()
+    );
+    assert!(
+        inspect(&f.0, &id)
+            .unwrap()
+            .unwrap()
+            .application_result
+            .is_none()
+    );
+
+    // Reconciled outcomes can be stored on a trace with no terminal event,
+    // but they cannot claim an elapsed value from this process's clock.
+    let mut value: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    value.as_object_mut().unwrap().remove("terminal");
+    fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
+    assert!(
+        record_application_result(
+            &f.0,
+            &id,
+            ApplicationResult {
+                outcome: ApplicationOutcome::Interrupted,
+                observation: ApplicationObservation::Reconciled,
+                observed_elapsed_ms: Some(terminal + 1),
+                published_section_count: 0,
+                first_useful_elapsed_ms: None,
+            },
+        )
+        .is_err()
+    );
+    record_application_result(
+        &f.0,
+        &id,
+        ApplicationResult {
+            outcome: ApplicationOutcome::Interrupted,
+            observation: ApplicationObservation::Reconciled,
+            observed_elapsed_ms: None,
+            published_section_count: 0,
+            first_useful_elapsed_ms: None,
+        },
+    )
+    .unwrap();
+    assert!(
+        inspect(&f.0, &id)
+            .unwrap()
+            .unwrap()
+            .application_result
+            .is_some()
+    );
+}
+
+#[test]
 fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     let f = Fixture::new();
     let id = run();
@@ -149,8 +356,10 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     // Version-2 records written before these optional checkpoints remain readable.
     let file = path(&f.0, &id).unwrap();
     let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    old["schemaVersion"] = json!(PREVIOUS_SCHEMA_VERSION);
     old.as_object_mut().unwrap().remove("preparationStages");
     old.as_object_mut().unwrap().remove("rendererQueueWaitMs");
+    old.as_object_mut().unwrap().remove("applicationResult");
     fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
     let old_record = inspect(&f.0, &id).unwrap().unwrap();
     assert!(old_record.preparation_stages.is_empty());
@@ -225,7 +434,7 @@ fn diagnostics_reject_corruption_duplicates_unexpected_content_and_identity_chan
     let original = fs::read(&file).unwrap();
     let original_value: Value = serde_json::from_slice(&original).unwrap();
     for (key, bad) in [
-        ("schemaVersion", json!(3)),
+        ("schemaVersion", json!(4)),
         ("modelId", json!("private source")),
         ("events", json!([])),
         ("clock", json!("wall clock")),

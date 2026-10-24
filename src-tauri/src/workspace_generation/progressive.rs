@@ -41,6 +41,56 @@ const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this
 
 const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of eight proposals are shared corrections, at most one per key. Exact successful replays count as attempts but not corrections. proposalCorrectionLimit ends that key. At finishNow, stop tools and return the final manifest from evidence already read.";
 
+fn application_timing_result(
+    summary: &Summary,
+    observation: crate::generation_timing::ApplicationObservation,
+    observed_elapsed_ms: Option<u64>,
+) -> Option<crate::generation_timing::ApplicationResult> {
+    let outcome = match &summary.outcome {
+        Outcome::Complete => crate::generation_timing::ApplicationOutcome::Complete,
+        Outcome::Partial => crate::generation_timing::ApplicationOutcome::Partial,
+        Outcome::Stopped => crate::generation_timing::ApplicationOutcome::Stopped,
+        Outcome::Failed => crate::generation_timing::ApplicationOutcome::Failed,
+        Outcome::Interrupted => crate::generation_timing::ApplicationOutcome::Interrupted,
+        Outcome::Working => return None,
+    };
+    let first_useful_elapsed_ms = summary
+        .sections
+        .iter()
+        .min_by_key(|section| section.order)
+        .and_then(|section| section.run_elapsed_ms);
+    Some(crate::generation_timing::ApplicationResult {
+        outcome,
+        observation,
+        observed_elapsed_ms,
+        published_section_count: summary.sections.len(),
+        first_useful_elapsed_ms,
+    })
+}
+
+fn record_application_timing(
+    storage: &Path,
+    summary: &Summary,
+    observation: crate::generation_timing::ApplicationObservation,
+    observed_elapsed_ms: Option<u64>,
+) {
+    let Some(result) = application_timing_result(summary, observation, observed_elapsed_ms) else {
+        return;
+    };
+    if crate::generation_timing::inspect(storage, &summary.run_id)
+        .ok()
+        .flatten()
+        .is_none()
+    {
+        return;
+    }
+    if let Err(error) =
+        crate::generation_timing::record_application_result(storage, &summary.run_id, result)
+    {
+        eprintln!("Generation application outcome timing could not be saved: {error}");
+    }
+}
+
 // Progressive teaching and visual policies now exceed the old 34 KB ceiling
 // once a checked starting range is added. Keep headroom for the question and
 // reference metadata without allowing source text into this request contract.
@@ -376,6 +426,12 @@ pub(crate) fn run_with_starting_ranges(
         Ok(Ok(())) => {
             // Cleanup cannot hide a durable result or provoke another inference.
             let summary = sections::inspect(storage, &input.run_id)?.summary();
+            record_application_timing(
+                storage,
+                &summary,
+                crate::generation_timing::ApplicationObservation::Live,
+                Some(u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX)),
+            );
             let _ = super::jobs::finish(storage, &input.run_id, super::jobs::JobState::Completed)
                 .map_err(|error| {
                     eprintln!("Workspace generation job completion could not be saved: {error}")
@@ -409,6 +465,12 @@ pub(crate) fn run_with_starting_ranges(
                 },
                 Some(failure_code),
             )?;
+            record_application_timing(
+                storage,
+                &saved,
+                crate::generation_timing::ApplicationObservation::Live,
+                Some(u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX)),
+            );
             let job_state = if cancelled {
                 super::jobs::JobState::Stopped
             } else if saved.outcome == Outcome::Partial {
@@ -476,6 +538,12 @@ fn load_saved_answer_with_reader(
         if let Some(summary) = manager.with_operation_state(run_id, |active| {
             reading::reconcile_observed(storage, answer, active)
         })? {
+            record_application_timing(
+                storage,
+                &summary,
+                crate::generation_timing::ApplicationObservation::Reconciled,
+                None,
+            );
             return Ok(summary);
         }
     }
@@ -638,7 +706,7 @@ pub(crate) fn timing_report(
     Ok(TimingReport {
         schema_version: 3,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded, and no answer trace exists if the operation fails before starting an answer run. This WebView duration is not comparable to or combined with native monotonic timestamps. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded, and no answer trace exists if the operation fails before starting an answer run. This WebView duration is not comparable to or combined with native monotonic timestamps. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if !active && answer.outcome == Outcome::Working {
             Outcome::Interrupted

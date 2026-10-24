@@ -20,6 +20,9 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
+const PREVIOUS_SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum EventKind {
@@ -106,6 +109,36 @@ pub(crate) enum Terminal {
     Abandoned,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ApplicationOutcome {
+    Complete,
+    Partial,
+    Stopped,
+    Failed,
+    Interrupted,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ApplicationObservation {
+    Live,
+    Reconciled,
+}
+
+/// The answer-store result correlated with a provider run. Reconciled results
+/// deliberately have no elapsed time because they may be observed after a
+/// process restart on a different monotonic clock.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ApplicationResult {
+    pub(crate) outcome: ApplicationOutcome,
+    pub(crate) observation: ApplicationObservation,
+    pub(crate) observed_elapsed_ms: Option<u64>,
+    pub(crate) published_section_count: usize,
+    pub(crate) first_useful_elapsed_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct End {
@@ -158,6 +191,8 @@ pub(crate) struct Record {
     token_usage: Option<ReportedUsage>,
     runtime_turns: Vec<RuntimeTurn>,
     terminal: Option<End>,
+    #[serde(default)]
+    application_result: Option<ApplicationResult>,
     write_failures: u32,
     truncated: bool,
 }
@@ -224,8 +259,10 @@ fn read(path: &Path) -> Result<Record, String> {
 
 fn validate(record: &Record) -> Result<(), String> {
     let invalid = || "Timing diagnostics are invalid.".to_owned();
-    if record.schema_version != 2
-        || record.clock != "nativeCodexAdmissionV1"
+    if !matches!(
+        record.schema_version,
+        PREVIOUS_SCHEMA_VERSION | SCHEMA_VERSION
+    ) || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
         || !safe_model_id(&record.model_id)
         || record.reasoning_effort.trim().is_empty()
@@ -245,6 +282,9 @@ fn validate(record: &Record) -> Result<(), String> {
             .first()
             .is_none_or(|e| e.kind != EventKind::ManagerEntered)
     {
+        return Err(invalid());
+    }
+    if record.schema_version == PREVIOUS_SCHEMA_VERSION && record.application_result.is_some() {
         return Err(invalid());
     }
     runtime::validate(record)?;
@@ -275,6 +315,37 @@ fn validate(record: &Record) -> Result<(), String> {
         .is_some_and(|end| end.elapsed_ms < previous || end.elapsed_ms > MAX_ELAPSED)
     {
         return Err(invalid());
+    }
+    if let Some(result) = &record.application_result {
+        if record.schema_version != SCHEMA_VERSION
+            || result.published_section_count > 6
+            || result
+                .observed_elapsed_ms
+                .is_some_and(|elapsed| elapsed > MAX_ELAPSED)
+            || result
+                .first_useful_elapsed_ms
+                .is_some_and(|elapsed| elapsed > MAX_ELAPSED)
+            || (result.published_section_count == 0 && result.first_useful_elapsed_ms.is_some())
+            || record.terminal.as_ref().is_some_and(|terminal| {
+                result
+                    .first_useful_elapsed_ms
+                    .is_some_and(|elapsed| elapsed > terminal.elapsed_ms)
+            })
+            || match result.observation {
+                ApplicationObservation::Live => result.observed_elapsed_ms.is_none_or(|elapsed| {
+                    record
+                        .terminal
+                        .as_ref()
+                        .is_none_or(|terminal| elapsed < terminal.elapsed_ms)
+                        || result
+                            .first_useful_elapsed_ms
+                            .is_some_and(|first| first > elapsed)
+                }),
+                ApplicationObservation::Reconciled => result.observed_elapsed_ms.is_some(),
+            }
+        {
+            return Err(invalid());
+        }
     }
     if let Some(context) = &record.context {
         if context.origin_elapsed_ms.is_some_and(|ms| ms > MAX_ELAPSED) || context.calls.len() > 64
@@ -424,7 +495,7 @@ impl Trace {
         let state = (|| -> Result<State, String> {
             let _guard = STORE.lock().map_err(|_| "Timing storage is unavailable.")?;
             let record = Record {
-                schema_version: 2,
+                schema_version: SCHEMA_VERSION,
                 clock: "nativeCodexAdmissionV1".into(),
                 run_id: run.into(),
                 request_fingerprint: (!fingerprint.is_empty()).then(|| fingerprint.into()),
@@ -445,6 +516,7 @@ impl Trace {
                 token_usage: None,
                 runtime_turns: vec![],
                 terminal: None,
+                application_result: None,
                 write_failures: 0,
                 truncated: false,
             };
@@ -567,6 +639,38 @@ impl Trace {
             true
         });
     }
+}
+
+/// Append the answer-store outcome after the provider trace has closed. This
+/// is intentionally independent of the trace object's terminal update; a
+/// diagnostic write failure never changes generation or saved answer state.
+pub(crate) fn record_application_result(
+    storage: &Path,
+    run: &str,
+    result: ApplicationResult,
+) -> Result<(), String> {
+    let path = path(storage, run)?;
+    let _guard = STORE.lock().map_err(|_| "Timing storage is unavailable.")?;
+    let mut record = read(&path)?;
+    if record.run_id != run {
+        return Err("Timing identity changed.".into());
+    }
+    if let Some(existing) = &record.application_result {
+        if existing.observation != ApplicationObservation::Reconciled
+            || result.observation != ApplicationObservation::Live
+        {
+            return Ok(());
+        }
+    }
+    record.schema_version = SCHEMA_VERSION;
+    record.application_result = Some(result);
+    validate(&record)?;
+    let bytes =
+        serde_json::to_vec(&record).map_err(|_| "Timing diagnostics could not be encoded.")?;
+    if bytes.len() > MAX_BYTES {
+        return Err("Timing diagnostics exceeded their limit.".into());
+    }
+    codex_agent::atomic_private_write(&path, &bytes)
 }
 
 impl Drop for Trace {

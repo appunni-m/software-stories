@@ -106,6 +106,64 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
 }
 
 #[test]
+fn application_timing_carries_terminal_outcome_and_first_section_without_crossing_clocks() {
+    let section = |order, run_elapsed_ms| SectionNotice {
+        run_id: "run".into(),
+        project_id: "project".into(),
+        snapshot_id: "snapshot".into(),
+        key: format!("section-{order}"),
+        order,
+        generation_id: format!("generation-{order}"),
+        revision_id: format!("revision-{order}"),
+        supersedes: None,
+        context_elapsed_ms: 20,
+        run_elapsed_ms,
+    };
+    let mut summary = Summary {
+        run_id: "run".into(),
+        project_id: "project".into(),
+        snapshot_id: "snapshot".into(),
+        question: "synthetic question".into(),
+        outcome: Outcome::Partial,
+        failure_code: None,
+        sections: vec![section(1, Some(90)), section(0, Some(42))],
+        incomplete_topics: vec!["synthetic uncovered topic".into()],
+    };
+    let live = application_timing_result(
+        &summary,
+        crate::generation_timing::ApplicationObservation::Live,
+        Some(120),
+    )
+    .unwrap();
+    assert_eq!(
+        live.outcome,
+        crate::generation_timing::ApplicationOutcome::Partial
+    );
+    assert_eq!(live.published_section_count, 2);
+    assert_eq!(live.first_useful_elapsed_ms, Some(42));
+    assert_eq!(live.observed_elapsed_ms, Some(120));
+
+    let recovered = application_timing_result(
+        &summary,
+        crate::generation_timing::ApplicationObservation::Reconciled,
+        None,
+    )
+    .unwrap();
+    assert_eq!(recovered.first_useful_elapsed_ms, Some(42));
+    assert_eq!(recovered.observed_elapsed_ms, None);
+
+    summary.outcome = Outcome::Working;
+    assert!(
+        application_timing_result(
+            &summary,
+            crate::generation_timing::ApplicationObservation::Live,
+            Some(140),
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn native_worker_registration_prevents_false_restart_interruption() {
     let manager = codex_agent::CodexAgentManager::default();
     let run = Uuid::new_v4().to_string();

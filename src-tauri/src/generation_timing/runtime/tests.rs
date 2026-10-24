@@ -81,7 +81,7 @@ fn runtime_counters_keep_correction_separate_and_never_sum_cumulative_usage() {
     );
     trace.finish(Ok(()));
     let record = inspect(&f.0, &id).unwrap().unwrap();
-    assert_eq!(record.schema_version, 2);
+    assert_eq!(record.schema_version, super::super::SCHEMA_VERSION);
     assert_eq!(record.runtime_turns.len(), 2);
     assert_eq!(record.runtime_turns[0].observations[1].count, 20_000);
     assert_eq!(record.runtime_turns[0].observations.len(), 3);
