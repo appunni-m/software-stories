@@ -179,3 +179,11 @@ Ran the native parser and retrieval profiles from Code Atlas source `b7ff94c` ag
 | Discovery / all ranked-page time | 1,176–1,202 ms / 8,242–8,751 ms |
 
 This establishes local service retrieval of the pinned real FFI/C declarations and a multi-step discovery-to-scope path. Global first-page recall is still too weak to infer that an agent will find every path without refining its searches. The profile does not qualify packaged behavior or answer quality. The machine-readable observations are in the [large-file retrieval artifact](artifacts/2026-10-21-fontdone-large-file-retrieval.json). Keep `a699` and `0wdn` open.
+
+## Current-source retrieval strategy comparison — 25 October 2026
+
+Reran the ignored native service profile at Code Atlas source `2a55680` against the existing Fontdone `main@5249b72371` snapshot and syntax index in the isolated retrieval cache `/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-range-retrieval-qbnsm6pm`. The app's original storage was not modified. No model, Codex, speech request, or Fontdone code execution was involved. The profile passed; this was a disk-loaded and same-process cached search measurement, not a cold index build.
+
+The current baseline found all twelve named declarations globally and scoped. Both broad ranked first pages found 1/12 expected ranges. The 256-result candidate window found 8/12 and 7/12 respectively. File discovery found 6/7 and 4/7 expected paths on its first page; across eight pages it found 7/7 paths, and scoping range search to those paths recovered 12/12 ranges for both queries. The first-page file path sets covered 11/12 and 8/12 expected ranges when followed by scoped search.
+
+A temporary experiment unioned per-term candidates with the combined lexical ranking to recover high-coverage ranges outside its bounded candidate pool. Its synthetic 600-decoy regression passed, but the real profile did not improve: first-page recall remained 1/12 for both queries, and the first query's candidate window fell to 6/12 while the second stayed 7/12. The code change and its test were discarded. The measured next path is file discovery followed by scoped range reads; automatic agent orchestration and useful global first-page recall remain unqualified. The experiment's profile completed in 56.94 seconds. No source snippets or provider output were saved.
