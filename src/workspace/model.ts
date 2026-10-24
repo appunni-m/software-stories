@@ -201,7 +201,10 @@ export function repositoryGuideOmissionTopics(omissions: readonly string[]): str
 export function repositoryGuideOmissionSummary(omissions: readonly string[]): string | null {
   const topics = repositoryGuideOmissionTopics(omissions);
   if (!topics.length) return null;
-  const visible = topics.slice(0, 3).map((topic) => topic.length > 84 ? `${topic.slice(0, 81).trimEnd()}…` : topic).join(' · ');
+  const visible = topics.slice(0, 3).map((topic) => {
+    const label = topic.replace(/^(?:not yet covered|not covered|uncovered|omitted)\s*:\s*/i, '').trim();
+    return label.length > 84 ? `${label.slice(0, 81).trimEnd()}…` : label;
+  }).join(' · ');
   const remaining = topics.length - 3;
   return remaining > 0 ? `${visible} · and ${remaining} more` : visible;
 }

@@ -132,6 +132,8 @@ test('finished guides turn bounded omissions into a focused follow-up question',
 test('partial guide coverage note names omissions concisely',()=>{
   assert.equal(repositoryGuideOmissionSummary([' C ABI exports and errors ','WASM wrapper routing','C ABI exports and errors']),
     'C ABI exports and errors · WASM wrapper routing');
+  assert.equal(repositoryGuideOmissionSummary(['Not yet covered: C ABI input','Not yet covered: WASM routes']),
+    'C ABI input · WASM routes');
   assert.equal(repositoryGuideOmissionSummary(['']),null);
   assert.equal(repositoryGuideOmissionSummary(Array.from({length:6},(_,index)=>`topic ${index}`)),
     'topic 0 · topic 1 · topic 2 · and 3 more');
