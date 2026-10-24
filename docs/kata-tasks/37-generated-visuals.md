@@ -924,3 +924,21 @@ addition. It does not qualify v44: no new provider request has been made after
 the policy change. Keep `j53m` open for generated-scene review, source
 navigation, narration/audio, accessibility/reflow, export and comprehension
 acceptance.
+
+## Visual composition pass — 25 October 2026
+
+The authoring prompt is now `ai-html-compositions-v45`. It gives the model an
+explicit design pass before it emits the bounded scene tree: identify the code
+behavior and one focal object or relationship, choose the narrowest semantic
+visual, and check that the source-specific change remains visible with
+narration hidden. It separates layout containers from visual meaning and
+calls out generic dashboards, component inventories, collages, and
+interchangeable card piles as failures. Evidence, schema limits, and the
+app-owned renderer rules are unchanged. Three.js remains unsupported as
+model-authored code; an app-owned 3-D form would require a demonstrated
+spatial behavior and a renderer.
+
+This is prompt-contract work only. No fresh Guide/provider request or TTS
+generation was made, and the saved v30 Guide predates v45. Fresh rendered
+quality, source navigation, narration/listening, accessibility, offline export,
+and comprehension remain open. Keep `j53m` open.

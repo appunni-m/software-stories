@@ -738,8 +738,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v44:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v44"));
+    assert!(system_instructions().contains("Visual design method v45:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v45"));
+    assert!(system_instructions().contains("Visual composition pass v45"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")

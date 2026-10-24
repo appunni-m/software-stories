@@ -31,6 +31,16 @@ but should not replace its data shape, branch, or state change. One section can
 mix HTML and graph scenes. A graph should be used only for source-proved paths or
 relationships, not merely because a prior renderer expected edges.
 
+The design pass starts with what the cited code does to its input or state:
+change it, select it, move it, wait, branch, or fail. Each scene centers one
+focal object or relationship and uses the narrowest semantic form that makes it
+visible. Rows, columns, and groups arrange the visual; they are not a visual
+idea by themselves. With narration collapsed,
+the source-specific values and layout should still expose the claim's main
+change or decision. Avoid dashboards, component inventories, collages, and
+interchangeable card piles. Different behavior can justify a different form;
+novelty alone does not.
+
 ## Generation and evidence
 
 Progressive Codex publication and fresh chapter generation support
@@ -51,7 +61,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v44` and teaching policy `meaning-first-v28`. It starts
+`ai-html-compositions-v45` and teaching policy `meaning-first-v28`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
