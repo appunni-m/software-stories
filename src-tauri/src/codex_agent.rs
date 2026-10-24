@@ -2595,6 +2595,22 @@ pub(crate) fn ensure_private_directory(path: &Path) -> Result<(), String> {
     private_permissions(path, 0o700)
 }
 
+fn private_codex_file_error(error: &std::io::Error, operation: &str) -> String {
+    let guidance = match error.kind() {
+        std::io::ErrorKind::StorageFull | std::io::ErrorKind::QuotaExceeded => {
+            "Local storage is full. Free disk space, then try again."
+        }
+        std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem => {
+            "Code Atlas cannot write to its private local storage. Check folder permissions, then try again."
+        }
+        std::io::ErrorKind::AlreadyExists => {
+            "A temporary file already exists. Close and reopen Code Atlas, then try again."
+        }
+        _ => "Check available disk space and local storage permissions, then try again.",
+    };
+    format!("The private Codex file could not be {operation}. {guidance}")
+}
+
 pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
@@ -2605,11 +2621,11 @@ pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), Strin
     }
     let mut file = options
         .open(path)
-        .map_err(|_| "The private Codex file could not be created.")?;
+        .map_err(|error| private_codex_file_error(&error, "created"))?;
     let result = file
         .write_all(bytes)
         .and_then(|_| file.sync_all())
-        .map_err(|_| "The private Codex file could not be saved.".to_owned());
+        .map_err(|error| private_codex_file_error(&error, "saved"));
     drop(file);
     if result.is_err() {
         // Only remove the file we successfully created with create_new. Never
@@ -2798,6 +2814,32 @@ mod tests {
         assert!(
             validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err()
         );
+    }
+
+    #[test]
+    fn private_codex_file_failures_explain_storage_actions_without_paths() {
+        let full = private_codex_file_error(
+            &std::io::Error::from(std::io::ErrorKind::StorageFull),
+            "created",
+        );
+        assert!(full.contains("Local storage is full"));
+        assert!(full.contains("Free disk space"));
+
+        let quota = private_codex_file_error(
+            &std::io::Error::from(std::io::ErrorKind::QuotaExceeded),
+            "saved",
+        );
+        assert!(quota.contains("Local storage is full"));
+
+        let denied = private_codex_file_error(
+            &std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+            "saved",
+        );
+        assert!(denied.contains("Check folder permissions"));
+
+        let other =
+            private_codex_file_error(&std::io::Error::from(std::io::ErrorKind::Other), "created");
+        assert!(other.contains("Check available disk space"));
     }
 
     #[test]
