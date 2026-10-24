@@ -580,3 +580,9 @@ These unbuilt/unexecuted checks neither prevent nor refund reported usage and ca
 On Darwin 24.6.0 arm64, the full `npm run check` command passed at source revision `d2ba580` (the following `4990094` commit changes documentation only). It rebuilt the native quality helper, ran the six-case synthetic chapter corpus, frontend tests, TypeScript/Vite production build, Rust library tests, and `cargo check`. Rust compilation emitted 29 unused/dead-code warnings but no errors. The captured run did not retain per-suite test counts.
 
 This is a broad offline regression baseline, not evidence for every trigger in the acceptance matrix above. It did not exercise packaged UI races, filesystem cap-plus-sentinel behavior beyond existing fixtures, a fresh account-backed request, native accessibility, or full recovery/cancellation boundaries. No provider/TTS request, login, app launch, or bundle build occurred. Keep this task open.
+
+### Current-main full offline check — 2026-10-25
+
+On Darwin 24.6.0 arm64, `npm run check` passed at source revision `8d8e11d`. It built the native quality helper, accepted all 7 synthetic corpus cases across 4 repositories, passed the corpus checker, frontend tests (654/654), TypeScript and Vite production build, Rust library tests (759 passed, 18 ignored) and `cargo check`. Compilation emitted existing unused/dead-code warnings, with no errors. A standalone `npm test` before building the helper failed because the harness requires `code-atlas-quality`; the documented `npm run check` order builds it first, and the full run passed.
+
+This current-main check confirms the offline regression baseline only. It does not execute the per-trigger snapshot, redirect, race, persistence, provider, narration, native UI or accessibility matrix above, and does not validate the packaged app or fresh AI/TTS behavior. Those cases remain pending; keep this task open.
