@@ -25,7 +25,7 @@ it('offline composition preserves every supported data and layout primitive', ()
       assert.match(markup, /href="#evidence-1-1"/);
       assert.doesNotMatch(markup, /<script|onClick|onclick|<input>/);
       if (kind === 'matrix') {
-        assert.match(markup, /2 by 2 cell representation/);
+        assert.match(markup, /aria-label="2 by 2 cell representation; row 1: 01; row 2: 10"/);
         assert.equal((markup.match(/class="filled"/g) ?? []).length, 2);
       }
       if (kind === 'table') assert.match(markup, /<th scope="col">input<\/th>/);

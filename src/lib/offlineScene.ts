@@ -46,7 +46,12 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     }
     if (element.kind === 'matrix') {
       const rows = element.value.trimEnd().split(/\r?\n/u);
-      body = `<span class="scene-matrix" role="img" aria-label="${rows.length} by ${rows[0].length} cell representation" style="grid-template-columns:repeat(${rows[0].length},1fr)">${rows.flatMap(row => [...row].map(cell => `<i class="${cell === '1' ? 'filled' : 'empty'}"></i>`)).join('')}</span>`;
+      const matrixLabel = [
+        `${rows.length} by ${rows[0].length} cell representation`,
+        ...rows.map((row, rowIndex) => `row ${rowIndex + 1}: ${row}`),
+      ].join('; ');
+      const cells = rows.flatMap(row => [...row].map(cell => `<i class="${cell === '1' ? 'filled' : 'empty'}"></i>`)).join('');
+      body = `<span class="scene-matrix" role="img" aria-label="${escapeSceneText(matrixLabel)}" style="grid-template-columns:repeat(${rows[0].length},1fr)">${cells}</span>`;
     }
     if (element.kind === 'table') {
       body = `<table><tbody>${element.value.trimEnd().split(/\r?\n/u).map((row, i) => `<tr>${row.split('|').map(cell => i === 0 ? `<th scope="col">${escapeSceneText(cell)}</th>` : `<td>${escapeSceneText(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
