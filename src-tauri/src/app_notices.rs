@@ -71,6 +71,7 @@ pub(crate) enum Operation {
     Publish { input: Input },
     Read { id: String },
     Dismiss { id: String },
+    DismissMany { ids: Vec<String> },
 }
 
 impl Default for History {
@@ -251,6 +252,33 @@ fn apply(storage: &Path, operation: Operation) -> Result<History, String> {
             }
             history.items.retain(|item| item.id != id);
             history.dismissed.push(id);
+        }
+        Operation::DismissMany { ids } => {
+            if ids.is_empty() || ids.len() > MAX_DISMISSED {
+                return Err(UNAVAILABLE.into());
+            }
+            let mut seen = HashSet::with_capacity(ids.len());
+            for id in &ids {
+                if !valid_key(id) || !seen.insert(id.clone()) {
+                    return Err(UNAVAILABLE.into());
+                }
+            }
+            let existing = ids
+                .into_iter()
+                .filter(|id| history.items.iter().any(|item| item.id == *id))
+                .collect::<Vec<_>>();
+            if existing.is_empty() {
+                return Ok(history);
+            }
+            if history.dismissed.len().saturating_add(existing.len()) > MAX_DISMISSED {
+                return Err(
+                    "Saved update acknowledgments are full. Existing updates have been preserved."
+                        .into(),
+                );
+            }
+            let dismissed = existing.iter().cloned().collect::<HashSet<_>>();
+            history.items.retain(|item| !dismissed.contains(&item.id));
+            history.dismissed.extend(existing);
         }
     }
     let bytes = serde_json::to_vec(&history).map_err(|_| UNAVAILABLE)?;

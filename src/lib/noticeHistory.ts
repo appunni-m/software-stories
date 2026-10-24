@@ -10,8 +10,10 @@ export interface SavedNoticeInput {
 }
 export interface AppNotice {id:string;input:SavedNoticeInput;createdAtUnixMs:number;read:boolean}
 export interface NoticeHistoryData {schemaVersion:1;items:AppNotice[];dismissed:string[]}
-export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string};
+export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string} | {kind:'dismissMany';ids:string[]};
 type Pending = {kind:'load'} | {operation:NoticeOperation;item?:AppNotice};
+const MAX_BATCH_DISMISSALS=2048;
+const isDismissOperation=(operation:NoticeOperation) => operation.kind==='dismiss'||operation.kind==='dismissMany';
 export type NoticeHistoryIssue = 'full'|'unavailable';
 export interface NoticeHistorySnapshot {items:AppNotice[];availability:'loading'|'ready'|'unavailable';issue:NoticeHistoryIssue|null}
 export interface NoticeHistoryApi {load():Promise<NoticeHistoryData>;update(operation:NoticeOperation):Promise<NoticeHistoryData>}
@@ -59,7 +61,8 @@ export function projectNotices(base:NoticeHistoryData,pending:readonly Pending[]
     if(op.kind==='publish') {
       if(entry.item && !dismissed.has(entry.item.id) && !items.some(item=>item.id===entry.item!.id)) items.push(entry.item);
     } else if(op.kind==='read') items=items.map(item=>item.id===op.id?{...item,read:true}:item);
-    else {items=items.filter(item=>item.id!==op.id);dismissed.add(op.id);}
+    else if(op.kind==='dismiss') {items=items.filter(item=>item.id!==op.id);dismissed.add(op.id);}
+    else if(op.kind==='dismissMany') {const ids=new Set(op.ids);items=items.filter(item=>!ids.has(item.id));for(const id of ids)dismissed.add(id);}
   }
   return {schemaVersion:1,items,dismissed:[...dismissed]};
 }
@@ -130,6 +133,26 @@ export class NoticeHistory {
     }
     this.enqueueNow({kind:'dismiss',id});
   }
+  dismissMany(ids:readonly string[]) {
+    const requested=[...new Set(ids)];
+    if(this.closing){this.deferred.push(()=>this.dismissMany(requested));return;}
+    if(!requested.length||requested.length>MAX_BATCH_DISMISSALS)return;
+    let persistedIds=requested;
+    if(this.blocked==='full') {
+      const saved=new Set(this.base.items.map(item=>item.id));
+      const selected=new Set(requested);
+      this.pending=this.pending.filter(entry=>{
+        if('operation' in entry&&entry.operation.kind==='publish'&&entry.item&&selected.has(entry.item.id)&&!saved.has(entry.item.id))return false;
+        return true;
+      });
+      persistedIds=requested.filter(id=>saved.has(id));
+      if(!persistedIds.length) {
+        if(!this.pending.some(entry=>'operation' in entry&&entry.operation.kind==='publish')){this.blocked=null;this.capacityRecovery=false;}
+        this.emit();this.run();return;
+      }
+    }
+    this.enqueueNow({kind:'dismissMany',ids:persistedIds});
+  }
   retry() {if(this.closing||this.blocked==='full')return;this.blocked=null;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
   beginClose():()=>void {
     if(this.closing)throw new Error('Closing is already in progress.');
@@ -160,7 +183,7 @@ export class NoticeHistory {
   private enqueueNow(operation:NoticeOperation) {
     this.start();
     const entry:Pending={operation};
-    if(operation.kind==='dismiss'&&(this.blocked==='full'||this.capacityRecovery)) {
+    if(isDismissOperation(operation)&&(this.blocked==='full'||this.capacityRecovery)) {
       const firstQueued=this.running?1:0;
       let index=this.pending.findIndex((item,position)=>position>=firstQueued&&'operation' in item&&item.operation.kind==='publish');
       if(index<0)index=this.pending.length;
@@ -189,7 +212,7 @@ export class NoticeHistory {
       this.capacityRecovery=this.blocked==='full';
       if(this.capacityRecovery&&this.pending.length>1) {
         const [head,...tail]=this.pending;
-        this.pending=[head!,...tail.filter((entry)=>'operation' in entry&&entry.operation.kind==='dismiss'),...tail.filter((entry)=>!('operation' in entry&&entry.operation.kind==='dismiss'))];
+        this.pending=[head!,...tail.filter((entry)=>'operation' in entry&&isDismissOperation(entry.operation)),...tail.filter((entry)=>!('operation' in entry&&isDismissOperation(entry.operation)))];
       }
     } finally {this.running=false;this.emit();}
   }

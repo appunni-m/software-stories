@@ -223,7 +223,7 @@ describe('notification totals', () => {
     assert.match(app, /Dismiss all \$\{groupedOutcomes\.length\} attempts/);
     assert.match(app, /markQuestionOutcomes\(s,groupedOutcomes\.map/);
     assert.match(app, /Dismiss all \$\{groupedNotices\.length\} notices/);
-    assert.match(app, /groupedNotices\.forEach\(notice=>noticeHistory\.dismiss\(notice\.id\)\)/);
+    assert.match(app, /noticeHistory\.dismissMany\(groupedNotices\.map\(notice=>notice\.id\)\)/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
     assert.match(app, /bucket: notificationBucketForOutcome\(outcome\.tone\)/);

@@ -1477,7 +1477,7 @@ function App() {
       return {
         id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
         groupKey,
-        groupActions:groupedNotices.length>1?[{label:`Dismiss all ${groupedNotices.length} notices`,run:()=>groupedNotices.forEach(notice=>noticeHistory.dismiss(notice.id))}]:undefined,
+        groupActions:groupedNotices.length>1?[{label:`Dismiss all ${groupedNotices.length} notices`,run:()=>noticeHistory.dismissMany(groupedNotices.map(notice=>notice.id))}]:undefined,
         bucket:item.read?'updates':'attention',countLabel:'notices',
         message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
         actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',

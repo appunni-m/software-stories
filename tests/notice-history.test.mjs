@@ -143,6 +143,18 @@ test('a full notice history accepts a dismissal before retrying the queued publi
   assert.deepEqual(f.calls.map(operation=>operation.kind),['publish','dismiss','publish']);
 });
 
+test('group dismissal at capacity cancels selected unsaved notices and frees saved slots atomically',async()=>{
+  const f=await fullHistoryFixture();
+  await f.history.publish({...input,message:'Queued group update',occurrenceId:'queued'});await settled(f.history);
+  assert.equal(f.history.getSnapshot().issue,'full');
+  const savedId=f.saved().items[0].id;const queued=f.history.getSnapshot().items.find(item=>item.input.message==='Queued group update');assert.ok(queued);
+  f.history.dismissMany([savedId,queued.id]);await settled(f.history);
+  assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.saved().items.length,99);
+  assert.ok(!f.saved().items.some(item=>item.input.message==='Queued group update'));
+  assert.ok(f.saved().dismissed.includes(savedId));assert.ok(!f.saved().dismissed.includes(queued.id));
+  assert.deepEqual(f.calls.map(operation=>operation.kind),['publish','dismissMany']);
+});
+
 test('dismissing an unsaved full-history notice cancels that pending publication',async()=>{
   const f=await fullHistoryFixture();
   await f.history.publish({...input,message:'Unsaved update'});await settled(f.history);
@@ -172,6 +184,32 @@ test('read and dismiss projection never mutates the saved data or another notice
   const normalized=normalizeNotice(input),id=await noticeKey(normalized),item={id,input:normalized,createdAtUnixMs:1,read:false};const base={schemaVersion:1,items:[item],dismissed:[]};
   assert.equal(projectNotices(base,[{operation:{kind:'read',id}}]).items[0].read,true);assert.equal(base.items[0].read,false);
   assert.equal(projectNotices(base,[{operation:{kind:'dismiss',id}}]).items.length,0);assert.equal(base.items.length,1);assert.deepEqual(base.dismissed,[]);
+  const secondInput=normalizeNotice({...input,occurrenceId:'second'}),secondId=await noticeKey(secondInput);
+  const batch=projectNotices({...base,items:[item,{id:secondId,input:secondInput,createdAtUnixMs:2,read:false}]},[{operation:{kind:'dismissMany',ids:[id,secondId]}}]);
+  assert.deepEqual(batch.items,[]);assert.deepEqual(batch.dismissed,[id,secondId]);
+});
+
+test('group dismissal persists exact IDs in one native update and leaves unrelated work intact',async()=>{
+  const f=fixture();
+  for(let n=0;n<26;n++)await f.history.publish({...input,occurrenceId:'attempt-'+n});
+  await f.history.flush();
+  const ids=f.history.getSnapshot().items.map(item=>item.id);
+  await f.history.publish({...input,projectId:'another-project',snapshotId:'another-snapshot',occurrenceId:'other'});await f.history.flush();
+  f.calls.length=0;
+  f.history.dismissMany(ids);await f.history.flush();
+  assert.equal(f.calls.length,1);assert.deepEqual(f.calls[0],{kind:'dismissMany',ids});
+  assert.equal(f.saved().items.length,1);assert.equal(f.saved().items[0].input.projectId,'another-project');
+  assert.deepEqual(f.saved().dismissed,ids);assert.equal(f.history.getSnapshot().items.length,1);
+});
+
+test('group dismissal during close is deferred and then flushed once',async()=>{
+  const f=fixture();
+  for(let n=0;n<3;n++)await f.history.publish({...input,occurrenceId:'close-'+n});
+  await f.history.flush();const ids=f.history.getSnapshot().items.map(item=>item.id);f.calls.length=0;
+  const resume=f.history.beginClose();f.history.dismissMany(ids);await f.history.flush();
+  assert.deepEqual(f.calls,[]);assert.equal(f.history.getSnapshot().items.length,3);
+  resume();await f.history.flush();assert.equal(f.calls.length,1);assert.equal(f.calls[0].kind,'dismissMany');
+  assert.deepEqual(f.saved().dismissed,ids);assert.equal(f.history.getSnapshot().items.length,0);
 });
 
 test('new background notices notify subscribers without executing navigation or reopening a panel',async()=>{
