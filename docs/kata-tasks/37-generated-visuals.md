@@ -942,3 +942,17 @@ This is prompt-contract work only. No fresh Guide/provider request or TTS
 generation was made, and the saved v30 Guide predates v45. Fresh rendered
 quality, source navigation, narration/listening, accessibility, offline export,
 and comprehension remain open. Keep `j53m` open.
+
+## Packaged point-transform source round-trip — 25 October 2026
+
+In the installed Code Atlas workspace on Fontdone
+`main@5249b72371`, opened the saved one-scene visual
+“How composite component points are transformed.” Its operation cue opened
+captured `src/tt/glyf.rs:554–574`; the source pane moved to those lines, and
+“Show explanation” returned to the same visual and scene. This confirms a
+saved composition can open and return from its cited source without a new
+provider request. The visual predates the v44 `pointFlow` form and still uses a
+three-card transform, so it does not qualify the newer form or show that the
+scene is sufficiently visual. Audio was not played. No fresh generation,
+human comprehension, 200% reflow, keyboard, VoiceOver, reduced-motion,
+offline-export or whole-guide quality check was performed. Keep `j53m` open.
