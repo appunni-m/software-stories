@@ -197,6 +197,14 @@ export function canContinueRepositoryGuide(guide: Omit<RepositoryGuide, 'answers
   return guide?.canContinue === true;
 }
 
+/** Make terminal guide coverage visible without labeling an active outline early. */
+export function repositoryGuideCoverageLabel(guide: Omit<RepositoryGuide, 'answers'> | undefined): 'Partial coverage' | 'Incomplete' | null {
+  if (!guide || guide.status === 'planning' || guide.status === 'building' || guide.status === 'waitingForPlayback') return null;
+  if (guide.status !== 'ready') return 'Incomplete';
+  return guide.omissions.length > 0 || guide.units.some((unit) => unit.status !== 'complete')
+    ? 'Partial coverage' : null;
+}
+
 /** Return a small, safe display/request list from a guide's omission labels. */
 export function repositoryGuideOmissionTopics(omissions: readonly string[]): string[] {
   return [...new Set(omissions

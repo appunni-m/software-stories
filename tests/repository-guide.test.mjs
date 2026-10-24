@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -51,6 +51,14 @@ test('playback-paced guides retain their waiting state and explain when another 
   turn=state.explorations[0].turns[0];
   assert.equal(turn.status,'waiting');
   assert.equal(turn.guide,undefined,'native guide state is reloaded instead of trusting a stale browser copy');
+});
+test('guide coverage is clear when a finished outline omits or leaves topics ready',()=>{
+  const active=guide();assert.equal(repositoryGuideCoverageLabel(active),null);
+  const complete={...active,status:'ready',units:active.units.map((unit)=>({...unit,status:'complete'})),omissions:[]};
+  assert.equal(repositoryGuideCoverageLabel(complete),null);
+  assert.equal(repositoryGuideCoverageLabel({...complete,omissions:['CLI entry paths were not covered.']}),'Partial coverage');
+  assert.equal(repositoryGuideCoverageLabel({...complete,units:[{...complete.units[0],status:'ready'},complete.units[1]]}),'Partial coverage');
+  assert.equal(repositoryGuideCoverageLabel({...active,status:'stopped'}),'Incomplete');
 });
 test('late progress cannot replace a newer stop or completion receipt',()=>{
   let state=mergeRepositoryGuide(createWorkspace('p','s'),{...guide(),revision:4,status:'ready'});
@@ -151,6 +159,9 @@ test('a completed guide exposes omissions as a nested source exploration',async(
   assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
   assert.match(source,/coverageSummary=\{omissionSummary\?\?undefined\}/);
   assert.match(source,/className="dw-guide-coverage" role="status"><strong>Partial guide<\/strong><span>Still uncovered:/);
+  assert.match(source,/repositoryGuideCoverageLabel\(turn\.guide\)/);
+  assert.match(source,/className="dw-guide-status" role="status">\{guideCoverageLabel\}/);
+  assert.match(source,/dw-guide-outline-count/);
   assert.match(source,/if\(question\)startRepositoryGuide\(question,turn\.id\)/);
   assert.match(source,/function startRepositoryGuide\(question:string,parentTurn\?:string\)/);
   assert.match(source,/appendRepositoryGuide\(projectId,snapshotId,question,parentTurn\)/);
