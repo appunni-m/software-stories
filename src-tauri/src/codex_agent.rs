@@ -2583,7 +2583,16 @@ impl Drop for TemporaryDirectory {
 }
 
 pub(crate) fn ensure_private_directory(path: &Path) -> Result<(), String> {
-    ensure_private_directory_with_error(path, |error| private_codex_file_error(error, "created"))
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+        Ok(_) => return Err("The Codex data path is not a regular local directory.".to_owned()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(path)
+                .map_err(|_| "The private Codex data directory could not be created.")?;
+        }
+        Err(_) => return Err("The private Codex data directory could not be inspected.".to_owned()),
+    }
+    private_permissions(path, 0o700)
 }
 
 pub(crate) fn ensure_private_directory_with_error(
