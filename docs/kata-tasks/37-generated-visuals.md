@@ -889,3 +889,21 @@ verifies package installation and saved-workspace restoration only; the v42
 visual policy still needs a fresh generated Guide and human review. Keep `j53m`
 open for that quality work and the remaining source-navigation, narration,
 accessibility, offline-export, coverage and comprehension gates.
+
+## Symbolic source values in static-code visuals — 25 October 2026
+
+The current story policy is now `ai-html-compositions-v43`. When no concrete
+runtime sample is available, it asks a scene to show the actual source variable
+or field as a symbolic input/result instead of generic stand-ins such as
+“Loaded input” or “Processed result”. It tells the model to mark symbolic values
+when they might be mistaken for observed runtime data and forbids invented
+coordinates, payload contents or measurements. The typed renderer and its
+existing layout vocabulary are unchanged. `docs/VISUAL_SCENES.md` now documents
+the same rule.
+
+Verification: `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+visual_scenes` passed 10/10; the progressive prompt-binding test passed 1/1;
+`cargo fmt --check` passed. This verifies the current source prompt and contract
+tests only. No Guide was generated and no provider request was made, so improved
+rendered quality, source grounding, narration, accessibility and comprehension
+remain unqualified. Keep `j53m` open.

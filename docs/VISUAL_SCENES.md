@@ -50,7 +50,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v42` and teaching policy `meaning-first-v28`. It starts
+`ai-html-compositions-v43` and teaching policy `meaning-first-v28`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
@@ -84,10 +84,16 @@ plain speech. This check is intentionally narrow: it does not prove that the
 remaining wording is natural or that TTS pronounces it well. Layout must enact
 the behavior rather than default to a uniform card grid; it changes at an
 evidenced handoff, not for decoration.
-Exact source values are used only when their literal bytes or spelling matter;
-illustrations are labeled and never presented as observed execution. These are
-generation instructions, not evidence of quality; fresh rendered examples
-still need review.
+For static code without a concrete runtime sample, a visual should use the
+source variable or field as a symbolic input or result when that makes the
+change clearer. Generic stand-ins such as “Loaded input” or “Processed result”
+hide the implementation detail the visual is meant to teach. Label a symbolic
+value if a reader could mistake it for an observed runtime value. Never invent
+coordinates, payload contents or measured outputs. Exact source values are
+used only when their literal bytes or spelling matter; illustrations are
+labeled and never presented as observed execution. These are generation
+instructions, not evidence of quality; fresh rendered examples still need
+review.
 
 The app renders only its typed, bounded HTML/CSS vocabulary. Model output cannot
 execute HTML, JavaScript, CSS, URLs, remote assets or Three.js. A 3-D renderer

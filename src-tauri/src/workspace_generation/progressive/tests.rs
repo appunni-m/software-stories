@@ -738,8 +738,12 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v42:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v42"));
+    assert!(system_instructions().contains("Visual design method v43:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v43"));
+    assert!(
+        system_instructions()
+            .contains("use the actual source variable or field as a symbolic input/result")
+    );
     assert!(
         system_instructions().contains("sceneSpeechRole identifies compact all-caps abbreviations")
     );
