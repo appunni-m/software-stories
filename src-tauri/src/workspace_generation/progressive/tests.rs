@@ -601,6 +601,11 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains(
         "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
     ));
+    assert!(
+        instructions
+            .contains("every non-empty value must use valueOrigin:source only for exact text")
+    );
+    assert!(instructions.contains("Never mark explanatory card text as none"));
     assert!(instructions.contains(
         "transformShape means the transform must have exactly three direct content-leaf children"
     ));
@@ -618,11 +623,13 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
-    assert!(instructions.contains("On sceneSourceValue, default the affected node to source:null"));
+    assert!(instructions.contains("On sceneSourceValue, for node sources default to source:null"));
     assert!(
-        instructions
-            .contains("default the affected node to source:null and keep its evidence clickable")
+        instructions.contains(
+            "For scene element values, every non-empty value must use valueOrigin:source"
+        )
     );
+    assert!(instructions.contains("empty values use valueOrigin:none"));
 }
 
 #[test]

@@ -571,8 +571,9 @@ fn scene_repetition_findings(section: &Value) -> Vec<Value> {
 }
 
 /// Only called after native citation resolution and failed canonicalization.
-/// Exact same-claim quotes explain known node and scene value failures; this
-/// never admits a value or returns source strings as repair feedback.
+/// Exact same-claim quotes and explicit value origins explain known node and
+/// scene value failures; this never admits a value or returns source strings
+/// as repair feedback.
 fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
     use crate::scene_presentation::{SceneMode, ScenePresentation, ValueOrigin};
     let visual = &section["visual"];
@@ -652,10 +653,28 @@ fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
             continue;
         }
         for (element_index, element) in scene.elements.iter().take(48).enumerate() {
-            if element.value_origin != ValueOrigin::Source
-                || element.value.trim().is_empty()
-                || element.value.len() > 1024
-            {
+            let location = format!(
+                "/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/value"
+            );
+            if element.value.len() > 1024 {
+                findings.push(json!({"location":location,"code":"scenePresentationLimit"}));
+                if findings.len() == 64 {
+                    return findings;
+                }
+                continue;
+            }
+            let invalid_origin = match &element.value_origin {
+                ValueOrigin::None => !element.value.is_empty(),
+                ValueOrigin::Source | ValueOrigin::Illustration => element.value.trim().is_empty(),
+            };
+            if invalid_origin {
+                findings.push(json!({"location":location,"code":"sceneSourceValue"}));
+                if findings.len() == 64 {
+                    return findings;
+                }
+                continue;
+            }
+            if !matches!(&element.value_origin, ValueOrigin::Source) {
                 continue;
             }
             let Some(references) = element
@@ -681,7 +700,7 @@ fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
                 })
                 .collect();
             if !quotes.is_empty() && !quotes.iter().any(|quote| quote.contains(&element.value)) {
-                findings.push(json!({"location":format!("/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/value"),"code":"sceneSourceValue"}));
+                findings.push(json!({"location":location,"code":"sceneSourceValue"}));
                 if findings.len() == 64 {
                     return findings;
                 }

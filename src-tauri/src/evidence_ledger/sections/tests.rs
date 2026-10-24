@@ -273,6 +273,60 @@ fn progressive_scene_feedback_reports_non_unique_node_source_values_without_leak
 }
 
 #[test]
+fn progressive_scene_feedback_requires_an_origin_for_nonempty_element_values() {
+    let quote = "let face = open_face(bytes);";
+    let mut section = json!({
+        "visual": {
+            "nodes": [{"evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "presentation": {
+                "schemaVersion":3,
+                "scenes":[{
+                    "claimIndex":0,
+                    "title":"Open the face",
+                    "narration":"The loader turns the selected bytes into a face.",
+                    "mode":"composition",
+                    "elements":[{
+                        "kind":"card",
+                        "nodeIndex":0,
+                        "parentIndex":null,
+                        "tone":"neutral",
+                        "value":"Borrowed font bytes",
+                        "valueOrigin":"none"
+                    }]
+                }]
+            }
+        }
+    });
+    let resolved = json!({"sections":[{"claims":[{"evidence":[{"quote":quote}]}]}]});
+    let expected = vec![json!({
+        "location":"/section/visual/presentation/scenes/0/elements/0/value",
+        "code":"sceneSourceValue"
+    })];
+
+    let findings = scene_source_value_findings(&section, &resolved.to_string());
+    assert_eq!(findings, expected);
+    assert!(valid_findings(&findings));
+
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["valueOrigin"] =
+        json!("illustration");
+    assert!(scene_source_value_findings(&section, &resolved.to_string()).is_empty());
+
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["value"] = json!(quote);
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["valueOrigin"] = json!("source");
+    assert!(scene_source_value_findings(&section, &resolved.to_string()).is_empty());
+
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["value"] =
+        json!("An unquoted label");
+    let findings = scene_source_value_findings(&section, &resolved.to_string());
+    assert_eq!(findings, expected);
+    assert!(
+        !serde_json::to_string(&findings)
+            .unwrap()
+            .contains("An unquoted label")
+    );
+}
+
+#[test]
 fn current_answer_publication_replays_schema_5_with_authored_narration() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
