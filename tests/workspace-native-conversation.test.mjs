@@ -23,7 +23,7 @@ function backend(){
     writes.push(clone(args));if(controls.beforeSave)await controls.beforeSave(args);
     let record=records.get(key);
     if(!record||JSON.stringify(record.state)!==JSON.stringify(args.state)){
-      assert.equal(args.expectedRevision,record?.revision??null,'compare-and-save prevents stale overwrite');
+      if(args.expectedRevision!==(record?.revision??null))throw new Error('Another window saved this conversation. Your unsaved changes have been preserved in this window.');
       record={schemaVersion:1,revision:(record?.revision??0)+1,state:clone(args.state)};records.set(key,record);
     }
     if(controls.afterSave)await controls.afterSave(args);return clone(record);
@@ -248,17 +248,64 @@ test('a safe save contention reason reaches the retry notice',async()=>{
   assert.doesNotMatch(JSON.stringify(notices),/src\/pending\.rs/);
 });
 
-test('lost save acknowledgment replays the same attempt before saving edits made during the failure',async()=>{
+test('lost save acknowledgment is recognized before newer local edits are saved',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');let lost=true;
   b.controls.afterSave=()=>{if(lost){lost=false;throw new Error('acknowledgment lost');}};
   h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/committed.rs'}));await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'));h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/newer.rs'}));
-  await h.store.retryWorkspaceConversation('project','snapshot');const attempts=b.writes.slice(1);assert.deepEqual(attempts.map(x=>x.expectedRevision),[1,1,2]);assert.equal(attempts[0].state.file,attempts[1].state.file);assert.equal(b.records.get(scope).state.file,'src/newer.rs');assert.equal(b.records.get(scope).revision,3);
+  await h.store.retryWorkspaceConversation('project','snapshot');const attempts=b.writes.slice(1);assert.deepEqual(attempts.map(x=>x.expectedRevision),[1,2]);assert.equal(attempts[0].state.file,'src/committed.rs');assert.equal(attempts[1].state.file,'src/newer.rs');assert.equal(b.records.get(scope).state.file,'src/newer.rs');assert.equal(b.records.get(scope).revision,3);
 });
 
-test('a different newer native writer is preserved while the current window retains its unsaved edits',async()=>{
-  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');const other=clone(b.records.get(scope));other.revision++;other.state.file='src/other-window.rs';b.records.set(scope,other);
-  h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/this-window.rs'}));await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'));await assert.rejects(h.store.retryWorkspaceConversation('project','snapshot'));
-  assert.equal(b.records.get(scope).state.file,'src/other-window.rs');assert.equal(h.store.getWorkspace('project','snapshot').file,'src/this-window.rs');
+test('explicit retry merges independent window edits and preserves both windows\' turns',async()=>{
+  const b=backend(),local=native(b),remote=native(b);
+  await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>e.id==='root'?{...e,view:'flow'}:e)}));
+  const remoteTurn=remote.store.appendQuestion('project','snapshot','Remote window question',[],'flow');
+  await remote.store.flushWorkspaceConversation('project','snapshot');
+  local.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/local-window.rs'}));
+  const localTurn=local.store.appendQuestion('project','snapshot','Current window question',[],'guide');
+  await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'),/conversation changed in another window/);
+  await local.store.retryWorkspaceConversation('project','snapshot');
+  const saved=b.records.get(scope).state,root=saved.explorations.find(e=>e.id==='root');
+  assert.equal(saved.file,'src/local-window.rs');assert.equal(root.view,'flow');
+  assert.deepEqual(root.turns.map(t=>t.id),[remoteTurn,localTurn]);
+  assert.equal(root.focusedTurnId,localTurn,'the retrying window keeps its active reader position');
+  assert.deepEqual(clone(local.store.getWorkspace('project','snapshot')),saved);
+  const reopened=native(b);await reopened.store.prepareWorkspaceConversation('project','snapshot');
+  assert.deepEqual(clone(reopened.store.getWorkspace('project','snapshot')),saved);
+});
+
+test('same-field window conflicts keep both copies intact until the current window resolves its choice',async()=>{
+  const b=backend(),local=native(b),remote=native(b);
+  await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:other-window'}));await remote.store.flushWorkspaceConversation('project','snapshot');
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:this-window'}));
+  await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'));
+  await assert.rejects(local.store.retryWorkspaceConversation('project','snapshot'),/This conversation changed in another window/);
+  assert.equal(b.records.get(scope).state.grantId,'grant:other-window');
+  assert.equal(local.store.getWorkspace('project','snapshot').grantId,'grant:this-window');
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:other-window'}));
+  await local.store.retryWorkspaceConversation('project','snapshot');
+  assert.equal(b.records.get(scope).state.grantId,'grant:other-window');
+  assert.equal(local.store.getWorkspace('project','snapshot').grantId,'grant:other-window');
+});
+
+test('concurrent code-context changes stay separate instead of broadening one question',async()=>{
+  const b=backend(),seed=native(b);await seed.store.prepareWorkspaceConversation('project','snapshot');
+  const turnId=seed.store.appendQuestion('project','snapshot','Explain this selection',[{path:'src/base.rs',from:2,to:4}],'guide');
+  await seed.store.flushWorkspaceConversation('project','snapshot');
+  const local=native(b),remote=native(b);
+  await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);
+  const setContext=(path)=>state=>({...state,explorations:state.explorations.map(e=>({...e,turns:e.turns.map(t=>t.id===turnId?{...t,context:[{path,from:9,to:11}]}:t)}))});
+  remote.store.updateWorkspace('project','snapshot',setContext('src/remote.rs'));await remote.store.flushWorkspaceConversation('project','snapshot');
+  local.store.updateWorkspace('project','snapshot',setContext('src/local.rs'));await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'));
+  await assert.rejects(local.store.retryWorkspaceConversation('project','snapshot'),/This conversation changed in another window/);
+  const savedTurn=b.records.get(scope).state.explorations.flatMap(e=>e.turns).find(t=>t.id===turnId);
+  const localTurn=local.store.getWorkspace('project','snapshot').explorations.flatMap(e=>e.turns).find(t=>t.id===turnId);
+  assert.deepEqual(savedTurn.context,[{path:'src/remote.rs',from:9,to:11}]);
+  assert.deepEqual(localTurn.context,[{path:'src/local.rs',from:9,to:11}]);
+  local.store.updateWorkspace('project','snapshot',setContext('src/remote.rs'));
+  await local.store.retryWorkspaceConversation('project','snapshot');
+  assert.deepEqual(b.records.get(scope).state.explorations.flatMap(e=>e.turns).find(t=>t.id===turnId).context,[{path:'src/remote.rs',from:9,to:11}]);
 });
 
 test('malformed or foreign native conversation records are preserved without replacement',async()=>{
