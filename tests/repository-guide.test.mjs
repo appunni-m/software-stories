@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideOmissionQuestion, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -129,12 +129,25 @@ test('finished guides turn bounded omissions into a focused follow-up question',
   assert.doesNotMatch(many,/topic 8/);
 });
 
+test('partial guide coverage note names omissions concisely',()=>{
+  assert.equal(repositoryGuideOmissionSummary([' C ABI exports and errors ','WASM wrapper routing','C ABI exports and errors']),
+    'C ABI exports and errors · WASM wrapper routing');
+  assert.equal(repositoryGuideOmissionSummary(['']),null);
+  assert.equal(repositoryGuideOmissionSummary(Array.from({length:6},(_,index)=>`topic ${index}`)),
+    'topic 0 · topic 1 · topic 2 · and 3 more');
+  const long=repositoryGuideOmissionSummary([`topic ${'x'.repeat(100)}`]);
+  assert.ok(long.length<=84);
+  assert.ok(long.endsWith('…'));
+});
+
 test('a completed guide exposes omissions as a nested source exploration',async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   assert.match(source,/repositoryGuideOmissionQuestion\(turn\.guide\?\.omissions\?\?\[\]\)/);
   assert.match(source,/selectedGuideSlide===guideSlides\.length-1/);
   assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
+  assert.match(source,/coverageSummary=\{omissionSummary\?\?undefined\}/);
+  assert.match(source,/className="dw-guide-coverage" role="status"><strong>Partial guide<\/strong><span>Still uncovered:/);
   assert.match(source,/ask\(question,current\.view==='flow'\?'flow':'guide',turn\.context,turn\.id,true\)/);
   assert.match(source,/!keepQuestionScoped&&isRepositoryGuideIntent\(clean\)/);
 });
