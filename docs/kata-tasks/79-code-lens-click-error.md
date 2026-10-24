@@ -101,3 +101,17 @@ earlier saved explanations remained. No narration was synthesized. This
 confirms a recoverable failed outcome for this exact request, but it does not
 reproduce the original click exception or prove that selected-code generation
 works reliably. Keep the issue open; this authorization covered one request.
+
+## Read-only source and notice-cap check — 25 October 2026
+
+In the same installed Fontdone workspace, clicking the operation cue in the
+saved point-transform scene opened captured `src/tt/glyf.rs:554–574`. The
+source pane showed that range; **Show explanation** returned to the same
+visual and scene. No error, provider request, or narration start occurred.
+
+The current app-notice journal contains 100 of its 1,000 permitted entries;
+the workspace's 176-unread badge also includes question outcomes and other
+update categories. This read-only snapshot does not reproduce a full-history
+condition and does not explain the earlier private Codex-file creation error.
+No saved notices, receipts or explanations were dismissed or changed. The
+original clicked control and exception remain unknown. Keep the issue open.
