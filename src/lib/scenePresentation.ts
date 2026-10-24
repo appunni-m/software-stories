@@ -27,10 +27,9 @@ const index = (v: unknown, bound: number): v is number => typeof v === 'number' 
 const requiresOrderedSelector = (claim: string, title: string, narration: string) => {
   const text = `${claim} ${title} ${narration}`.toLowerCase().replace(/[-_]/gu, ' ');
   return ['first match', 'first matching', 'first applicable', 'first successful', 'ordered probe',
-    'probe order', 'ordered checks', 'checked in source order', 'checks in source order',
-    'priority order', 'priority chain', 'precedence chain', 'fall through', 'fallthrough',
-    'sequential early return', 'early return guard chain', 'multiple early returns',
-    'several early returns', 'guard chain', 'ordered guards']
+    'probe order', 'priority order', 'priority chain', 'precedence chain',
+    'candidate order', 'candidate dispatch', 'tries the next candidate', 'miss tries the next candidate',
+    'next candidate', 'first candidate', 'first handler', 'signature probe', 'first matching signature']
     .some(signal => text.includes(signal));
 };
 
@@ -117,11 +116,12 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
     if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', 'narration']) || scene.claimIndex !== claimIndex
       || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120 || typeof scene.narration !== 'string'
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
-    if (scene.mode === 'graph') return scene.elements.length === 0;
+    const orderedSelector = enforceCurrentQuality && requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration);
+    const selectorRoot = scene.mode === 'composition' && record(scene.elements[0]) && scene.elements[0].kind === 'selector';
+    if (scene.mode === 'graph') return scene.elements.length === 0 && !orderedSelector;
     const elements = scene.elements;
     if (!elements.length || elements.length > 48) return false;
-    if (enforceCurrentQuality && requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration)
-      && !(record(elements[0]) && elements[0].kind === 'selector')) return false;
+    if (enforceCurrentQuality && orderedSelector !== selectorRoot) return false;
     const depths: number[] = [];
     const counts = elements.map(() => 0);
     let leaves = 0;
@@ -164,7 +164,7 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
         if (checks.length < 2 || checks.some(check => elements[check].kind !== 'branch')) return false;
         return checks.every(check => {
           const branchChildren = elements.filter(child => child.parentIndex === check);
-          return branchChildren.length >= 2
+          return branchChildren.length >= 2 && (!enforceCurrentQuality || branchChildren.length === 2)
             && branchChildren.every(child => !containerKinds.has(child.kind) && child.kind !== 'arrow' && child.kind !== 'divider');
         });
       }

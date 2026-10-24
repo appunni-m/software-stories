@@ -13,7 +13,9 @@ The current graph layout and workspace navigation remain available.
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
 | How a mode or enum selects a handler | Table mapping each value to its selected route |
 | Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
-| Which ordered guard returns first | Selector ladder with each guard, outcome and visible handoff after a miss, including sequential early returns |
+| One guard decides success or failure | Branch showing the guard and each supported outcome |
+| Independent validation guards run in a function | Separate scenes, one guard at a time; narration explains that passing lets the input continue |
+| Competing ordered candidates or parser signatures | Selector ladder with one matched outcome per guard and the reader's visible miss-and-continue handoff |
 | How state is organized | LIFO stack, FIFO queue, nested tree, or before/after state |
 | How data changes over time | Ordered timeline, parallel actor lanes, or iteration table with state per step |
 | A count or constraint | Large quantity with its meaning and source |
@@ -48,12 +50,14 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v39` and teaching policy `meaning-first-v27`. It starts
+`ai-html-compositions-v41` and teaching policy `meaning-first-v27`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
-behavior: ordered checks use a selector, a single decision uses a branch, state
-changes use a before/after or transform, verified order uses a timeline, and
-independent actors use lanes. A graph is for relationships those forms cannot
+behavior: one guard with alternatives uses a branch; independent validation
+guards become separate scenes; first-match candidate dispatch uses a selector;
+a source-backed state change uses a transform with its operation visible, and
+`beforeAfter` is reserved for comparing states when this claim does not cover
+the operation. Verified order uses a timeline, and independent actors use lanes. A graph is for relationships those forms cannot
 show clearly; a sequence of calls alone does not justify one.
 
 Graph edges must name the operation that actually establishes the relationship.
@@ -91,9 +95,18 @@ scene; per-scene limits are ceilings, not targets. These prompt instructions
 and structural checks do not prove that a fresh guide teaches well; rendered
 quality still needs human review.
 
-For ordered selector layouts, the selector root must contain its guarded branch
-groups directly. A row or column between the selector and its checks is invalid;
-the guard and each supported destination belong inside the branch group.
+For ordered selector layouts, the selector root must contain its candidate
+branches directly. A row or column between the selector and its checks is
+invalid. Each candidate branch contains exactly one guard and its one matched
+result. The reader already shows the miss-and-continue path between candidates;
+duplicating the miss as an outcome makes a single check look like a selector.
+A single if/else belongs in a `branch`, and independent validation guards are
+split into separate scenes.
+
+Fresh authoring also requires the claim, title or narration to say that a
+candidate miss tries the next candidate before a `selector` is allowed. This
+narrow wording check rejects an unsupported automatic handoff; it cannot prove
+that the cited source actually implements first-match dispatch.
 
 The reader renders execution paths as compact rails rather than bordered step
 cards, and ordered selectors as numbered gates with visible match destinations
@@ -166,12 +179,13 @@ not a recorded execution. Graph scenes use `mode: "graph", elements: []`.
 
 ### Prioritized guards
 
-Use a `selector` only when source order and short-circuiting determine which
-guard wins. Each direct child is a `branch` containing its guard followed by
-one or more outcomes; include the final fallback. The reader labels checks in
-order and shows “No match · continue” between them. A normal `branch` remains
-the right form for one guard with alternatives that have no priority between
-them.
+Use a `selector` only for first-match dispatch among competing ordered
+candidates, such as format signatures, handlers, or priority routes. Each direct
+child is a `branch` containing exactly two content leaves: its guard followed by
+the one result when it matches. The reader labels candidates in order and shows
+“No match · continue” between them. Do not add that miss as a second outcome.
+A normal `branch` remains the right form for one guard with multiple outcomes;
+independent validation guards in one function belong in separate scenes.
 
 ### Meaningful transformations
 
@@ -182,8 +196,11 @@ colors, wrappers or content primitive does not establish a transformation.
 Presentation version 3 adds a dedicated `transform` group with exactly three
 direct children; the renderer labels them input, operation, and result. These
 structural checks do not prove that a changed label or illustrative value
-accurately represents the code. A semantic review must check the input, actual
-operation, guards, and result against captured source.
+accurately represents the code. Prefer `transform` when the cited code shows
+the operation that changes state; its middle slot names that operation. Use
+`beforeAfter` only to compare two source-backed states when the operation
+between them is outside this claim. A semantic review must check the input,
+actual operation, guards, and result against captured source.
 
 The progressive agent receives fixed `sceneRepetition` feedback at the arrow
 position and `transformShape` feedback for a transform with the wrong number of
@@ -222,8 +239,9 @@ decoder errors. It does not authorize a value or bypass canonicalization.
 - A `tree` groups nested source-backed data. A `queue` shows FIFO order from
   front to back; it is not an unordered collection.
 - A `selector` has at least two direct `branch` groups in source order. Each
-  branch begins with a guard and has at least one outcome; the app renders the
-  check sequence and miss handoffs. This shape validation does not prove that
+  branch has exactly two direct content leaves: a guard and its one matching
+  result. The app renders the check sequence and miss handoffs. This shape
+  validation does not prove that
   the chosen guards, outcomes or fallback match the cited code.
 - Byte strips: 1–32 whitespace-separated cells. Matrices: 1–16 equal rows of
   1–24 cells using `0`, `1` or `.`. Tables: at most eight rows and six

@@ -575,10 +575,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         instructions
             .contains("Let observed behavior choose one app-supported composition per scene")
     );
-    assert!(instructions.contains("verified order → timeline"));
-    assert!(
-        instructions.contains("Use a graph only when those forms cannot show the relationship")
-    );
+    assert!(instructions.contains("Verified call order uses timeline"));
+    assert!(instructions.contains(
+        "Use a graph only when those forms cannot show a genuinely non-linear relationship"
+    ));
 
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(
@@ -656,20 +656,25 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "Otherwise give every claim a nonempty visual scene with at least one source-linked node"
     ));
     assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
-    assert!(
-        system_instructions().contains("Selector is the root for first-match/priority/fallback")
-    );
     assert!(system_instructions().contains(
-        "selectorShape means the root selector has 2+ source-ordered direct branch groups"
+        "Use a selector root only for first-match dispatch among competing ordered candidates"
     ));
-    assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v40:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v40"));
-    assert!(system_instructions().contains("a caller lookup followed by a load is a call or sequence, not a status edge from the lookup"));
-    assert!(system_instructions().contains("each branch's parentKey names the selector key"));
+    assert!(system_instructions().contains(
+        "selectorShape means the root selector has 2+ source-ordered direct candidate branches"
+    ));
+    assert!(system_instructions().contains("Each branch has exactly two content leaves"));
     assert!(
-        system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
+        system_instructions()
+            .contains("claim or narration must say that a miss tries the next candidate")
     );
+    assert!(
+        system_instructions().contains("independent validation guards belong in separate scenes")
+    );
+    assert!(system_instructions().contains("Visual design method v41:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v41"));
+    assert!(system_instructions().contains("a caller lookup followed by a load is a call or sequence, not a status edge from the lookup"));
+    assert!(system_instructions().contains("Each branch's parentKey names the selector key"));
+    assert!(system_instructions().contains("both leaves' parentKey names their branch key"));
     assert!(!system_instructions().contains("presentation:{schemaVersion:3"));
     assert!(!system_instructions().contains("Elements have exactly kind,parentIndex,nodeIndex"));
     assert!(system_instructions().contains("under 45 visible characters per card"));
@@ -802,7 +807,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
         instructions
             .contains("Let observed behavior choose one app-supported composition per scene")
     );
-    assert!(instructions.contains("changed state/data → transform or beforeAfter"));
+    assert!(instructions.contains("uses transform, with the actual operation in the middle"));
     assert!(instructions.contains("not file type or a favorite template"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));

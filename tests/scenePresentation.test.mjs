@@ -105,6 +105,7 @@ describe('AI-authored HTML scene contract', () => {
     ]), nodes, claims));
   });
   it('requires ordered selectors to contain guarded branches with visible outcomes', () => {
+    const candidateClaims = [{ ...claims[0], prose: 'The first matching candidate wins and a miss tries the next candidate.' }];
     const selector = [
       { ...element('selector'), nodeIndex: null },
       { ...element('branch', '', 'none', 0), nodeIndex: null },
@@ -114,22 +115,29 @@ describe('AI-authored HTML scene contract', () => {
       element('text', 'No earlier flag matched', 'illustration', 4),
       element('token', 'Use default mode', 'illustration', 4),
     ];
-    assert.ok(validScenePresentation(presentation(selector), nodes, claims));
+    assert.ok(validScenePresentation(presentation(selector), nodes, candidateClaims));
     for (const malformed of [
       selector.slice(0, 4),
       [selector[0], { ...selector[1], kind: 'row' }, ...selector.slice(2)],
       [selector[0], selector[1], selector[2], selector[4], ...selector.slice(5)],
       [selector[0], selector[1], selector[2], { ...selector[3], kind: 'arrow', nodeIndex: null, value: '', valueOrigin: 'none' }, ...selector.slice(4)],
-    ]) assert.equal(validScenePresentation(presentation(malformed), nodes, claims), false);
+    ]) assert.equal(validScenePresentation(presentation(malformed), nodes, candidateClaims), false);
   });
-  it('rejects a LIFO stack for first-match behavior and accepts its ordered selector', () => {
+  it('rejects selectors unless first-match candidate behavior is explicit', () => {
     const firstMatchClaims = [{ ...claims[0], prose: 'The first matching flag wins; later checks run only after a miss.' }];
-    const earlyReturnClaims = [{ ...claims[0], prose: 'The normal renderer uses a sequential early-return guard chain.' }];
+    const independentGuardClaims = [{ ...claims[0], prose: 'Independent validation guards run in sequence; each failure returns its own error, while a pass falls through to the next validation check.' }];
     const stack = [
       { ...element('stack'), nodeIndex: null },
       element('token', 'fallback mode', 'illustration', 0),
     ];
     assert.equal(validScenePresentation(presentation(stack), nodes, firstMatchClaims), false);
+    const oneGuard = [
+      { ...element('branch'), nodeIndex: null },
+      element('text', 'Index converts?', 'illustration', 0),
+      element('token', 'Return conversion error', 'illustration', 0),
+      element('token', 'Continue to bounds check', 'illustration', 0),
+    ];
+    assert.equal(validScenePresentation(presentation(oneGuard), nodes, independentGuardClaims), true);
     const nestedSelector = [
       { ...element('stack'), nodeIndex: null },
       { ...element('selector', '', 'none', 0), nodeIndex: null, parentIndex: 0 },
@@ -152,11 +160,12 @@ describe('AI-authored HTML scene contract', () => {
       element('token', 'Use default mode', 'illustration', 4),
     ];
     assert.equal(validScenePresentation(presentation(selector), nodes, firstMatchClaims), true);
-    assert.equal(validScenePresentation(presentation(stack), nodes, earlyReturnClaims), false);
-    assert.equal(validScenePresentation(presentation(selector), nodes, earlyReturnClaims), true);
-    assert.equal(validScenePresentation({ schemaVersion: 3, scenes: [{
+    assert.equal(validScenePresentation(presentation(selector), nodes, independentGuardClaims), false);
+    const firstMatchGraph = { schemaVersion: 3, scenes: [{
       claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
-    }] }, nodes, firstMatchClaims), true);
+    }] };
+    assert.equal(validScenePresentation(firstMatchGraph, nodes, firstMatchClaims), false);
+    assert.equal(validStoredScenePresentation(firstMatchGraph, nodes, firstMatchClaims), true);
   });
   it('replays structurally safe saved scenes when newer proposal-quality rules reject their layout', () => {
     const narration = 'The parser checks signatures in order. The first match selects a constructor; a miss continues to the next probe.';
@@ -206,8 +215,9 @@ describe('AI-authored HTML scene contract', () => {
       ...nodes[0], evidenceAnchorIds: ['anchor:foreign'],
     }], claims), false);
   });
-  it('recognizes plural early returns as an ordered selector requirement', () => {
-    const earlyReturnClaims = [{ ...claims[0], prose: 'Several early returns are checked in source order; a miss continues to the next guard.' }];
+  it('does not confuse independent early returns with candidate dispatch', () => {
+    const independentGuardClaims = [{ ...claims[0], prose: 'Several independent validation checks run in order; a failure returns its own error and a pass falls through to the next validation check.' }];
+    const candidateClaims = [{ ...claims[0], prose: 'Parser signatures are probed in source order; the first matching candidate wins and a miss tries the next candidate.' }];
     const stack = [
       { ...element('stack'), nodeIndex: null },
       element('token', 'fallback mode', 'illustration', 0),
@@ -221,8 +231,9 @@ describe('AI-authored HTML scene contract', () => {
       element('text', 'No earlier guard matched', 'illustration', 4),
       element('token', 'Continue to fallback', 'illustration', 4),
     ];
-    assert.equal(validScenePresentation(presentation(stack), nodes, earlyReturnClaims), false);
-    assert.equal(validScenePresentation(presentation(selector), nodes, earlyReturnClaims), true);
+    assert.equal(validScenePresentation(presentation(selector), nodes, independentGuardClaims), false);
+    assert.equal(validScenePresentation(presentation(stack), nodes, candidateClaims), false);
+    assert.equal(validScenePresentation(presentation(selector), nodes, candidateClaims), true);
   });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {

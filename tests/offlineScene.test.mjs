@@ -60,6 +60,7 @@ it('offline scenes do not badge grounded explanatory copy as a hypothetical exam
 });
 
 it('offline scenes show ordered selector checks and explicit fall-through', () => {
+  const candidateClaims = [{ ...claims[0], prose: 'Parser candidates are tried in order; the first matching candidate wins and a miss tries the next candidate.' }];
   const authored = scene('token', 'first output');
   authored.elements = [
     { kind: 'selector', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
@@ -70,7 +71,7 @@ it('offline scenes show ordered selector checks and explicit fall-through', () =
     { kind: 'text', parentIndex: 4, nodeIndex: 0, tone: 'accent', value: 'Otherwise', valueOrigin: 'illustration' },
     { kind: 'token', parentIndex: 4, nodeIndex: 0, tone: 'positive', value: 'Use default mode', valueOrigin: 'illustration' },
   ];
-  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, candidateClaims));
   const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
   assert.equal((markup.match(/scene-selector-step/g) ?? []).length, 2);
   assert.equal((markup.match(/scene-selector-label/g) ?? []).length, 2);

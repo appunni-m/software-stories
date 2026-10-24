@@ -28,7 +28,9 @@ pub(crate) fn visible_graph_node_count(
 
 mod quality;
 pub(crate) mod tree;
-pub(crate) use quality::{repeated_selector_outcome_positions, repetition_positions};
+pub(crate) use quality::{
+    repeated_selector_outcome_positions, repetition_positions, selector_multiple_outcome_positions,
+};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -47,9 +49,9 @@ pub struct PresentationScene {
     pub elements: Vec<SceneElement>,
 }
 
-/// A first-match decision must keep source order visible. In particular, the
-/// LIFO stack renderer reverses its children and must never stand in for an
-/// ordered selector. This is a narrow wording check, not semantic proof.
+/// A first-match dispatch must keep candidate order visible. Independent
+/// validation guards do not qualify: they are separate claims/scenes. This is
+/// a narrow wording check, not semantic proof.
 pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &str) -> bool {
     let text = format!("{claim} {title} {narration}")
         .to_lowercase()
@@ -61,20 +63,18 @@ pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &st
         "first successful",
         "ordered probe",
         "probe order",
-        "ordered checks",
-        "checked in source order",
-        "checks in source order",
         "priority order",
         "priority chain",
         "precedence chain",
-        "fall through",
-        "fallthrough",
-        "sequential early return",
-        "early return guard chain",
-        "multiple early returns",
-        "several early returns",
-        "guard chain",
-        "ordered guards",
+        "candidate order",
+        "candidate dispatch",
+        "tries the next candidate",
+        "miss tries the next candidate",
+        "next candidate",
+        "first candidate",
+        "first handler",
+        "signature probe",
+        "first matching signature",
     ]
     .iter()
     .any(|signal| text.contains(signal))
@@ -86,7 +86,7 @@ pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
         .is_some_and(|root| root.kind == ElementKind::Selector)
 }
 
-/// Fresh model output must not use a graph for source-ordered guard chains.
+/// Fresh model output must not use a graph for first-match candidate dispatch.
 /// Stored scenes retain the version-3 replay contract; this stricter choice
 /// check is called only while admitting newly generated chapter content.
 pub(crate) fn validate_fresh_semantic_layouts(
@@ -103,11 +103,26 @@ pub(crate) fn validate_fresh_semantic_layouts(
                     .into(),
             );
         }
+        if scene.mode == SceneMode::Composition
+            && has_ordered_selector_root(&scene.elements)
+            && !requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
+        {
+            return Err(
+                "A selector implies first-match dispatch among competing candidates, where a miss tries the next candidate. Use a branch for one guard or split independent validation checks into separate scenes."
+                    .into(),
+            );
+        }
     }
     let labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
     if !repeated_selector_outcome_positions(presentation, &labels).is_empty() {
         return Err(
             "A selector must label each branch outcome by its specific guard and result, rather than repeating a shared mechanism label."
+                .into(),
+        );
+    }
+    if !selector_multiple_outcome_positions(presentation).is_empty() {
+        return Err(
+            "Each selector branch needs one guard and its one matching outcome; the rendered miss path already continues to the next candidate. Use a branch for one guard with multiple outcomes, or split independent checks into separate scenes."
                 .into(),
         );
     }
@@ -539,9 +554,9 @@ mod tests {
     }
 
     #[test]
-    fn first_match_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
+    fn ordered_candidate_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
         let (nodes, mut claims, mut presentation) = fixture();
-        claims[0].prose = "The normal renderer uses a sequential early-return guard chain: each match returns, otherwise the next guard is tried.".into();
+        claims[0].prose = "Parser signatures are competing candidates checked in source order; the first matching parser handles the input.".into();
         let scene = &mut presentation.scenes[0];
         scene.title = "The first matching flag wins".into();
         scene.elements = vec![
@@ -626,23 +641,39 @@ mod tests {
     }
 
     #[test]
-    fn fresh_ordered_early_returns_cannot_choose_graph_mode() {
+    fn fresh_independent_guards_do_not_require_an_ordered_selector() {
         let (nodes, claims, mut presentation) = fixture();
         let mut claims = vec![claims[0].clone()];
         presentation.scenes.truncate(1);
-        claims[0].prose = "Several early returns are checked in source order; a miss continues to the next guard.".into();
+        claims[0].prose = "An invalid face index returns an error; a valid index continues into the table-bounds check.".into();
         presentation.scenes[0].mode = SceneMode::Graph;
         presentation.scenes[0].elements.clear();
 
-        // Historical version-3 graphs remain replayable, but a fresh proposal
-        // must use the source-ordered selector grammar for these guards.
+        // Independent validation gates are not first-match candidate dispatch.
+        assert!(!requires_ordered_selector(
+            &claims[0].prose,
+            "Validate the face index",
+            "If conversion fails, return; otherwise continue to the next independent validation."
+        ));
+        assert!(!requires_ordered_selector(
+            "Several early returns validate independent inputs.",
+            "Check each input",
+            "A miss falls through to the next validation check."
+        ));
         validate(&presentation, &nodes, &claims).unwrap();
+        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+
+        claims[0].prose = "Parser signatures are tried in source order; the first matching candidate wins and a miss tries the next candidate.".into();
+        assert!(requires_ordered_selector(
+            &claims[0].prose,
+            "Choose a parser",
+            ""
+        ));
         assert!(
             validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("selector composition at the root")
         );
-
         presentation.scenes[0].mode = SceneMode::Composition;
         presentation.scenes[0].elements = vec![SceneElement {
             kind: ElementKind::Selector,
@@ -652,7 +683,78 @@ mod tests {
             value: String::new(),
             value_origin: ValueOrigin::None,
         }];
+        claims[0].prose = "An invalid face index returns an error; a valid index continues into the table-bounds check.".into();
+        assert!(
+            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+                .unwrap_err()
+                .contains("A selector implies first-match dispatch")
+        );
+        claims[0].prose = "Parser signatures are tried in source order; the first matching candidate wins and a miss tries the next candidate.".into();
         validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+    }
+
+    #[test]
+    fn fresh_selector_branches_have_one_matching_outcome() {
+        let (mut nodes, mut claims, mut presentation) = fixture();
+        claims.truncate(1);
+        presentation.scenes.truncate(1);
+        presentation.scenes[0].mode = SceneMode::Composition;
+        claims[0].prose =
+            "The first matching candidate wins; a miss tries the next candidate.".into();
+        for (node, label) in
+            nodes
+                .iter_mut()
+                .zip(["Guard one", "Outcome one", "Guard two", "Outcome two"])
+        {
+            node.label = label.into();
+        }
+        let mut extra = nodes[0].clone();
+        extra.node_id = "extra-outcome".into();
+        extra.label = "Second outcome".into();
+        nodes.push(extra);
+        let group = |kind, parent| SceneElement {
+            kind,
+            parent_index: parent,
+            node_index: None,
+            tone: ElementTone::Neutral,
+            value: String::new(),
+            value_origin: ValueOrigin::None,
+        };
+        let leaf = |kind, parent| SceneElement {
+            kind,
+            parent_index: Some(parent),
+            node_index: Some(0),
+            tone: ElementTone::Neutral,
+            value: String::new(),
+            value_origin: ValueOrigin::None,
+        };
+        presentation.scenes[0].elements = vec![group(ElementKind::Selector, None)];
+        presentation.scenes[0].elements.extend([
+            group(ElementKind::Branch, Some(0)),
+            leaf(ElementKind::Text, 1),
+            leaf(ElementKind::Token, 1),
+            group(ElementKind::Branch, Some(0)),
+            leaf(ElementKind::Text, 4),
+            leaf(ElementKind::Token, 4),
+        ]);
+        presentation.scenes[0].elements[2].node_index = Some(0);
+        presentation.scenes[0].elements[3].node_index = Some(1);
+        presentation.scenes[0].elements[5].node_index = Some(2);
+        presentation.scenes[0].elements[6].node_index = Some(3);
+        assert!(selector_multiple_outcome_positions(&presentation).is_empty());
+
+        let mut extra_outcome = leaf(ElementKind::Text, 1);
+        extra_outcome.node_index = Some(4);
+        presentation.scenes[0].elements.push(extra_outcome);
+        assert_eq!(
+            selector_multiple_outcome_positions(&presentation),
+            vec![(0, 1)]
+        );
+        assert!(
+            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+                .unwrap_err()
+                .contains("one matching outcome")
+        );
     }
 
     #[test]
@@ -660,6 +762,8 @@ mod tests {
         let (mut nodes, mut claims, mut presentation) = fixture();
         presentation.scenes.truncate(1);
         claims.truncate(1);
+        claims[0].prose =
+            "The first matching candidate wins and a miss tries the next candidate.".into();
         nodes[0].label = "Public format dispatch".into();
         nodes[1].label = " public   FORMAT dispatch ".into();
         for node in nodes.iter_mut().take(4) {

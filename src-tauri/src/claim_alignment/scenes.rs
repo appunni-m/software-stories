@@ -93,6 +93,19 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 }
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/elements"),"sceneProblem":"selectorRequired"}));
             }
+            if scene.mode == SceneMode::Composition
+                && crate::scene_presentation::has_ordered_selector_root(&scene.elements)
+                && !crate::scene_presentation::requires_ordered_selector(
+                    claim,
+                    &scene.title,
+                    &scene.narration,
+                )
+            {
+                if issues.len() >= super::MAX_ISSUES {
+                    return;
+                }
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/elements"),"sceneProblem":"selectorChoice"}));
+            }
             if scene.mode != SceneMode::Composition {
                 continue;
             }
@@ -110,6 +123,14 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 }
                 issues.push(json!({"location":location,"sceneProblem":finding.code}));
             }
+        }
+        for (scene, branch) in
+            crate::scene_presentation::selector_multiple_outcome_positions(&presentation)
+        {
+            if issues.len() >= super::MAX_ISSUES {
+                return;
+            }
+            issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{branch}"),"sceneProblem":"selectorShape"}));
         }
         if issues.len() < super::MAX_ISSUES
             && presentation
@@ -272,7 +293,7 @@ mod tests {
         let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
         assert!(prompt.contains("selectorRequired finding"));
         assert!(prompt.contains("selector must be the root layout"));
-        assert!(prompt.contains("never wrap it in stack"));
+        assert!(prompt.contains("wrap it in stack"));
         assert!(!prompt.contains("first matching flag"));
 
         let mut graph_proposal = composed_proposal(3);
@@ -287,6 +308,28 @@ mod tests {
                 .iter()
                 .any(|finding| finding["sceneProblem"] == "selectorRequired")
         );
+
+        let mut independent = composed_proposal(3);
+        independent["sections"][0]["visual"]["presentation"]["scenes"][0]["title"] =
+            json!("Gate the memory-face open");
+        independent["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"][0]["kind"] =
+            json!("selector");
+        let independent_findings =
+            crate::claim_alignment::chapter_diagnostics(&independent.to_string()).unwrap();
+        let choice = independent_findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "selectorChoice")
+            .unwrap();
+        assert_eq!(
+            choice["location"],
+            "/sections/0/visual/presentation/scenes/0/elements"
+        );
+        let choice_prompt =
+            crate::claim_alignment::prompt_for_issues(independent_findings).unwrap();
+        assert!(
+            choice_prompt.contains("selectors render a miss as a handoff to the next candidate")
+        );
+        assert!(!choice_prompt.contains("Gate the memory-face open"));
     }
 
     #[test]
@@ -327,5 +370,41 @@ mod tests {
                 .contains("label each outcome with its specific source-grounded guard and result")
         );
         assert!(!prompt.contains("Public format dispatch"));
+    }
+
+    #[test]
+    fn selector_miss_is_not_duplicated_as_another_branch_outcome() {
+        let mut proposal = composed_proposal(3);
+        proposal["sections"][0]["visual"]["nodes"] = json!([
+            {"label":"First guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+            {"label":"First result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+            {"label":"Second guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+            {"label":"Second result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+            {"label":"Second result path","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+        ]);
+        proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([
+            {"kind":"selector","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":0,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"token","parentIndex":1,"nodeIndex":1,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"branch","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":2,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"token","parentIndex":4,"nodeIndex":3,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":1,"nodeIndex":4,"tone":"neutral","value":"","valueOrigin":"none"}
+        ]);
+
+        let findings = crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
+        let shape = findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "selectorShape")
+            .unwrap();
+        assert_eq!(
+            shape["location"],
+            "/sections/0/visual/presentation/scenes/0/elements/1"
+        );
+        let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
+        assert!(prompt.contains("exactly one guard and its one matching result"));
+        assert!(prompt.contains("miss-and-continue path"));
+        assert!(!prompt.contains("First guard"));
     }
 }
