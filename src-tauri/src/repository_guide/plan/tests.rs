@@ -245,9 +245,9 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
     assert!(instructions.contains("cited research outline only"));
-    assert!(instructions.contains("First return one opening-range lead"));
-    assert!(instructions.contains("the app authors the opening separately"));
-    assert!(instructions.contains("do not call propose_answer_section"));
+    assert!(instructions.contains("Return an opening-range lead followed"));
+    assert!(instructions.contains("The app authors this opening as a separate slide"));
+    assert!(instructions.contains("do not call `propose_answer_section`"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
     assert!(!contract.to_string().contains("propose_answer_section"));
@@ -278,36 +278,51 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("two to twelve focused follow-on behavior questions"));
-    assert!(instructions.contains("together with the opening cover the requested scope"));
-    assert!(instructions.contains("First return one opening-range lead"));
-    assert!(instructions.contains("key:'opening'"));
-    assert!(instructions.contains("helper that already receives a constructed object"));
-    assert!(instructions.contains("unique lowercase key made only of letters, digits and hyphens"));
-    assert!(instructions.contains("distinct, trimmed research question ending in '?'"));
+    assert!(instructions.contains("two to twelve focused behavior questions"));
+    assert!(instructions.contains("cover the user's requested scope"));
+    assert!(instructions.contains("Return an opening-range lead followed"));
+    assert!(instructions.contains("key `opening`"));
+    assert!(instructions.contains("internal helper that receives an already constructed object"));
+    assert!(instructions.contains("unique lowercase key using only letters, digits, and hyphens"));
+    assert!(instructions.contains("one distinct, trimmed question ending in `?`"));
     assert!(instructions.contains(
-        "Follow-on prerequisites are optional and may name only unique keys from earlier follow-on sections"
+        "Prerequisites are optional and may name only unique keys from earlier follow-on units"
+    ));
+    assert!(instructions.contains("Never name the opening, current unit, or a later unit"));
+    assert!(instructions.contains(
+        "make a source-grounded inventory of caller-controlled languages and entry surfaces"
+    ));
+    assert!(instructions.contains(
+        "Do not count a language as covered because another language's example reaches the same engine"
+    ));
+    assert!(instructions.contains(
+        "Name each materially different surface in its own question, including C, JavaScript/Node, WASM"
+    ));
+    assert!(instructions.contains(
+        "creating a face from memory and loading a glyph into an existing face are separate units"
+    ));
+    assert!(instructions.contains(
+        "prioritize distinct public language/API surfaces and their checked-in callers before auxiliary formats"
     ));
     assert!(
         instructions
-            .contains("Never name the opening lead, the current section or a later section")
+            .contains("Never hide a supported surface in omissions or imply complete coverage")
     );
-    assert!(instructions.contains(
-        "Identify every materially different caller-controlled input surface supported by source"
-    ));
     assert!(
-        instructions.contains("never present one representative path as whole-project coverage")
+        instructions.contains("Never present one representative path as whole-project coverage")
     );
     assert!(instructions.contains("If more than twelve units are needed"));
     assert!(instructions.contains("one answer section's visual budget"));
-    assert!(instructions.contains("Target at most eight distinct evidence nodes"));
-    assert!(instructions.contains("two to four claims/scenes per slide"));
-    assert!(instructions.contains("never exceed 12 nodes or 20 edges"));
-    assert!(instructions.contains("One unit explains one stage or decision"));
-    assert!(instructions.contains("Split long ordered dispatches, branch chains"));
+    assert!(instructions.contains("target at most eight distinct evidence nodes"));
     assert!(
-        instructions.contains("preserve source order, every outcome, continuation and fallback")
+        instructions
+            .contains("two to four claims/scenes, with hard limits of 12 nodes and 20 edges")
     );
+    assert!(instructions.contains("One unit explains one stage or decision"));
+    assert!(instructions.contains(
+        "Split long dispatches, branch chains, separate API operations, or multi-stage behavior"
+    ));
+    assert!(instructions.contains("Preserve source order, outcomes, continuation, and fallback"));
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
