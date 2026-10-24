@@ -41,12 +41,49 @@ struct Search {
     #[serde(default)]
     offset: usize,
 }
-#[derive(Default, Deserialize)]
+#[derive(Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum SearchResultKind {
     #[default]
+    Auto,
     Ranges,
     Files,
+}
+
+impl SearchResultKind {
+    fn resolve(self, query: &str, scope: Option<&str>) -> Self {
+        if !matches!(self, Self::Auto) {
+            return self;
+        }
+
+        let query = query.trim();
+        let query_chars = query.chars().collect::<Vec<_>>();
+        let has_code_syntax = query
+            .chars()
+            .any(|ch| matches!(ch, '/' | '\\' | '(' | ')' | '[' | ']' | '{' | '}' | ';'))
+            || query_chars.iter().enumerate().any(|(index, ch)| {
+                *ch == '.'
+                    && index > 0
+                    && index + 1 < query_chars.len()
+                    && query_chars[index - 1].is_alphanumeric()
+                    && query_chars[index + 1].is_alphanumeric()
+            })
+            || query.contains("::")
+            || query.contains("->")
+            || query.contains("=>")
+            || query.contains("==")
+            || query.contains('_')
+            || query.split_whitespace().any(|word| {
+                word.chars()
+                    .zip(word.chars().skip(1))
+                    .any(|(left, right)| left.is_lowercase() && right.is_uppercase())
+            });
+        if scope.is_none() && !has_code_syntax && query.split_whitespace().count() >= 3 {
+            Self::Files
+        } else {
+            Self::Ranges
+        }
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -761,6 +798,7 @@ impl Session {
             Tool::Search => {
                 let args: Search = parse(request.arguments)?;
                 let query_scope = scope(args.scope.as_deref());
+                let result_kind = args.result_kind.resolve(&args.query, query_scope);
                 if query_scope.is_some_and(|p| !context::safe_path(p)) {
                     return Err("Search within a captured file or folder.".into());
                 }
@@ -782,12 +820,14 @@ impl Session {
                     limit: args.limit.clamp(1, 32),
                     offset: args.offset,
                 };
-                let result = match args.result_kind {
-                    SearchResultKind::Ranges => repository_context_commands::search_snapshot(
-                        &self.storage,
-                        &input,
-                        &native_request,
-                    ),
+                let result = match result_kind {
+                    SearchResultKind::Auto | SearchResultKind::Ranges => {
+                        repository_context_commands::search_snapshot(
+                            &self.storage,
+                            &input,
+                            &native_request,
+                        )
+                    }
                     SearchResultKind::Files => repository_context_commands::search_files_snapshot(
                         &self.storage,
                         &input,

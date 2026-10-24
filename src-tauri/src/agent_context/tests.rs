@@ -4,10 +4,38 @@ use serde_json::json;
 use std::{io::Write, os::unix::net::UnixStream, thread, time::Instant};
 
 #[test]
-fn search_result_kind_defaults_to_ranges_and_accepts_file_discovery() {
+fn search_result_kind_automatically_discovers_files_for_broad_queries() {
     let arguments = json!({"query":"glyph rendering","scope":null,"limit":8,"offset":0});
     let default: Search = parse(arguments.clone()).unwrap();
-    assert!(matches!(default.result_kind, SearchResultKind::Ranges));
+    assert!(matches!(default.result_kind, SearchResultKind::Auto));
+    assert!(matches!(
+        default
+            .result_kind
+            .resolve("How does composite point attachment work?", None),
+        SearchResultKind::Files
+    ));
+    assert!(matches!(
+        default
+            .result_kind
+            .resolve("How does composite point attachment work.", None),
+        SearchResultKind::Files
+    ));
+    assert!(matches!(
+        default.result_kind.resolve("glyph rendering", None),
+        SearchResultKind::Ranges
+    ));
+    assert!(matches!(
+        default
+            .result_kind
+            .resolve("How does composite point attachment work?", Some("src/tt")),
+        SearchResultKind::Ranges
+    ));
+    assert!(matches!(
+        default
+            .result_kind
+            .resolve("What does get_glyph_location do?", None),
+        SearchResultKind::Ranges
+    ));
 
     let files: Search = parse(json!({
         "query":"glyph rendering",
@@ -18,6 +46,16 @@ fn search_result_kind_defaults_to_ranges_and_accepts_file_discovery() {
     }))
     .unwrap();
     assert!(matches!(files.result_kind, SearchResultKind::Files));
+
+    let ranges: Search = parse(json!({
+        "query":"How does composite point attachment work?",
+        "scope":null,
+        "limit":8,
+        "offset":0,
+        "resultKind":"ranges"
+    }))
+    .unwrap();
+    assert!(matches!(ranges.result_kind, SearchResultKind::Ranges));
 }
 
 #[test]
@@ -320,6 +358,29 @@ fn owned_mcp_search_read_and_result_events_share_native_evidence() {
     s.check_complete().unwrap();
     assert!(s.event(&completed, true).is_err());
 }
+
+#[test]
+fn omitted_search_kind_discovers_broad_queries_as_files_before_ranges() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let (_, text) = exchange(
+        &mut s,
+        "search_code",
+        json!({"query":"How does a greeting work?","scope":null,"limit":4}),
+    );
+    let result: Value = serde_json::from_str(&text).unwrap();
+    let matches = result["context"]["result"]["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["range"]["path"], SIMPLE_PATH);
+    assert!(matches[0].get("queryCoverage").is_some());
+    assert_eq!(matches[0]["queryCoverage"]["totalTerms"], 5);
+    assert_eq!(
+        matches[0]["queryCoverage"]["matchedTerms"],
+        json!(["greeting"])
+    );
+    s.check_complete().unwrap();
+}
+
 #[test]
 fn invalid_range_returns_no_code_and_an_agent_can_correct_it() {
     let f = Fixture::new();

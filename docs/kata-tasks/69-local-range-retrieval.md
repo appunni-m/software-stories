@@ -68,3 +68,22 @@ The ignored native service profile was rerun at Code Atlas HEAD `2fe8b16` agains
 For `font bytes rendered glyph bitmap entry parsing outline hinting rasterization`, the first 32-file page contained 6/7 expected implementation paths; eight file pages found all 7, and path-scoped searches recovered all 12 independently selected ranges. For `font buffer glyph image format outline hinting pixel coverage`, the first page contained 4/7 paths; eight pages again found all 7 and scoped searches recovered 12/12 ranges. Global range search still found only 1/12 expected ranges on the first page and 8/12 or 7/12 inside the 256-candidate window. Exhausting the range window took 17,504 ms and 12,659 ms; file discovery took 2,804 ms and 1,312 ms. The named declaration queries found 12/12 globally and file-scoped.
 
 An initial isolated run omitted the parser index and reported text fallback only; it was discarded. The accepted measurements above used the existing parser index and a separate writable retrieval cache. They confirm the staged local-search path, while the weak global first page, cancellation/corruption and retention matrices, packaged answer path and semantic answer quality remain open. No provider request was made. Profile output remains in temporary storage; no Fontdone source or provider response was copied into this repository. Keep `a699`, `0wdn`, and `gk46` open.
+
+## Automatic file-first discovery for broad agent queries — 25 October 2026
+
+`search_code` now defaults to `auto`. An unscoped natural-language query with
+at least three words discovers a bounded file shortlist first; short phrases,
+paths, identifiers, code syntax, and scoped queries retain range search. The
+agent can still explicitly choose `files` or `ranges`. This makes the measured
+file-first workflow the tool default instead of relying on the agent to set
+`resultKind` correctly. The search remains lexical and discovery paths remain
+hints, not evidence; claims still require exact `read_code` references.
+
+Focused regressions verify default selection, explicit overrides, path scope,
+symbol-like queries and the advertised schema. The end-to-end MCP fixture also
+exposed that the index computed `queryCoverage`, but the evidence ledger had
+stripped it from the agent response. The bounded matched terms and total are
+now preserved for file results; range results omit this optional metadata.
+The 12-span Fontdone broad range recall has not been rerun through the agent
+with this default, so no retrieval-recall or explanation-quality improvement
+is claimed. Keep `a699`, `0wdn`, and `gk46` open.

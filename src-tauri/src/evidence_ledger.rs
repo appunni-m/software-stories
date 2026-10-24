@@ -150,6 +150,8 @@ struct SearchCandidate<'a> {
     line: usize,
     exact_identifier: bool,
     declaration_match: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    query_coverage: Option<&'a context::QueryCoverage>,
 }
 
 impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
@@ -163,6 +165,7 @@ impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
                     line: hit.line,
                     exact_identifier: hit.exact_identifier,
                     declaration_match: hit.declaration_match,
+                    query_coverage: hit.query_coverage.as_ref(),
                 })
                 .collect(),
             limited: result.limited,

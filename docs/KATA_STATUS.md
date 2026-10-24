@@ -1,6 +1,24 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **24 October 2026**, read from live project `code-atlas-rebuild`. **79 records: 51 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **25 October 2026**, read from live project `code-atlas-rebuild`. **79 records: 51 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+
+## 25 October incremental-work checkpoint
+
+One explicitly authorized Code Lens request for Fontdone
+`main@5249b72371`, `src/tt/glyf.rs:564–583`, ended without a published
+section. The app stayed open, retained earlier saved explanations, and showed
+the recoverable `noPublishedSections` message. This is recorded in `mhqx`; it
+does not reproduce the user's original click exception or qualify selected-code
+generation as reliable.
+
+For `a699`, omitted `search_code.resultKind` now defaults to bounded file
+discovery for unscoped natural-language queries with at least three words.
+Paths, symbols, short phrases and scoped searches retain range search. The
+agent-facing ledger now also preserves the index's bounded `queryCoverage`
+terms for file results. Current-source checks pass: agent-context 23/23,
+context-MCP 10/10, evidence-ledger 48/48, plus rustfmt and diff checks. The
+frozen broad Fontdone recall set has not been rerun, so this is not a retrieval
+or explanation-quality pass. No Kata task was closed.
 
 ## 17 October progressive-generation checkpoint (historical)
 

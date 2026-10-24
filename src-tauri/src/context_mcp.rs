@@ -55,11 +55,11 @@ fn read_tools() -> Vec<Tool> {
     let offset = json!({"type":"integer","minimum":0,"maximum":100000});
     let search_offset = json!({"type":"integer","minimum":0,"maximum":255});
     let query = json!({"type":"string","minLength":2,"maxLength":240});
-    let result_kind = json!({"type":"string","enum":["ranges","files"],"description":"Optional. Defaults to ranges. Use files to discover likely captured paths for a broad question, then search again with resultKind ranges and scope set to a returned path."});
+    let result_kind = json!({"type":"string","enum":["auto","ranges","files"],"description":"Optional. Auto is the default: broad natural-language queries discover likely files first; identifiers, code syntax, short phrases, and scoped queries return ranges. Use explicit ranges or files to override, then search discovered paths with resultKind ranges."});
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Prefer an exact identifier or a short distinctive phrase; for broad behavior questions, resultKind:files discovers likely paths by distinct query-term coverage and returns one verifiable range per path. Each file result includes queryCoverage.matchedTerms and totalTerms so you can see which terms caused its rank; stemming may match inflected forms. Treat these as file-selection hints, not evidence of behavior. Inspect nextOffset pages as needed, then repeat with resultKind:ranges and that path as scope; read_code proves details. For a broad behavior question, search its important operations separately, then use definitions and relationships to follow the actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
+            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Auto is the default: broad natural-language queries discover likely files by distinct query-term coverage, while identifiers, code syntax, short phrases, and scoped searches return ranges. Prefer an exact identifier or a short distinctive phrase for code search. File results include queryCoverage.matchedTerms and totalTerms so you can see which terms caused their rank; stemming may match inflected forms. Treat files as selection hints, not evidence of behavior. Inspect nextOffset pages as needed, then search ranges within promising paths; read_code proves details. For broad behavior questions, search important operations separately and use definitions and relationships to follow actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Results include capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code before making claims.",
             json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset,"resultKind":result_kind}),
         ),
         (
@@ -421,13 +421,16 @@ mod tests {
         assert!(search_description.contains("important operations separately"));
         assert!(search_description.contains("distinct query-term coverage"));
         assert!(search_description.contains("queryCoverage.matchedTerms and totalTerms"));
-        assert!(search_description.contains("file-selection hints, not evidence of behavior"));
+        assert!(
+            search_description.contains("Treat files as selection hints, not evidence of behavior")
+        );
+        assert!(search_description.contains("Auto is the default"));
         assert!(search_description.contains("retry once with a shorter identifier"));
         assert!(search_description.contains("pass it as offset"));
         assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);
         assert_eq!(
             search.input_schema["properties"]["resultKind"]["enum"],
-            json!(["ranges", "files"])
+            json!(["auto", "ranges", "files"])
         );
         assert!(
             !search.input_schema["required"]
