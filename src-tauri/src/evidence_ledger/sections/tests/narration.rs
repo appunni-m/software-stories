@@ -79,6 +79,41 @@ fn all_nonvisual_claim_speech_is_published_and_replayed_without_manufacturing_a_
 }
 
 #[test]
+fn narration_only_speech_rejects_compact_code_tokens_with_fixed_feedback() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let answer = start_narrated(&ledger, &f, &runtime, &cancel);
+    let mut proposal = narrated(&reference);
+    proposal["section"]["claims"][0]["scene"]["narration"] =
+        json!("The PFR0 tag sends the font bytes into the dedicated face loader.");
+
+    let prepared = answer
+        .prepare(
+            &ledger,
+            &proposal.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
+        .unwrap();
+
+    assert!(prepared.generation_id.is_none());
+    assert_eq!(
+        prepared.findings,
+        vec![json!({
+            "location":"/section/claims/0/scene/narration",
+            "code":"sceneSpeechRole"
+        })]
+    );
+    assert!(
+        !serde_json::to_string(&prepared.findings)
+            .unwrap()
+            .contains("PFR0")
+    );
+}
+
+#[test]
 fn replay_normalizes_visual_source_anchor_references() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

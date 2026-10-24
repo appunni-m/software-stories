@@ -130,9 +130,12 @@ unit; each unit preserves its ordered checks, outcomes and fallbacks.
 
 Spoken narration describes implementation tokens by role instead of reading
 them aloud, including method/type names, abbreviations, format tags,
-field/table names and error labels. Exact tokens remain available through
-source links; speech uses cues such as “the face's glyph-loading call,” “the
-first font-format check,” or “the glyph's stored width.”
+field/table names and error labels. Fresh composed scenes, authored narration-
+only scenes and standalone generated narration all reject compact all-caps
+tokens in speech; exact tokens remain available through source links. Speech
+uses cues such as “the face's glyph-loading call,” “the first font-format
+check,” or “the glyph's stored width.” Historical saved chapters remain
+replayable under their original contract.
 
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model

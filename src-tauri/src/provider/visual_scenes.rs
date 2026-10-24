@@ -108,10 +108,18 @@ pub(crate) fn prepare_generated_sections(
         if !(20..=4_000).contains(&complete.len()) {
             return Err("The complete grounded narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
-        let narration = chapters::authored_section_narration(section)?
-            .unwrap_or_else(|| section.spoken_text.trim().to_owned());
+        let authored_narration = chapters::authored_section_narration(section)?;
+        let narration = authored_narration
+            .as_deref()
+            .unwrap_or_else(|| section.spoken_text.trim())
+            .to_owned();
         if !(20..=4_000).contains(&narration.len()) {
             return Err("The complete authored narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
+        }
+        if authored_narration.is_none()
+            && crate::scene_presentation::has_compact_spoken_code_token(&narration)
+        {
+            return Err("Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead. No draft was saved.".into());
         }
         if section.claims.iter().any(|claim| match &claim.category {
             chapters::ClaimCategory::Inference { visible_label, .. } => {
@@ -437,12 +445,19 @@ pub(crate) mod tests {
     #[test]
     fn invalid_standalone_narration_never_leaves_a_half_prepared_revision() {
         let fixture = Fixture::new();
-        for speech in ["too short".to_owned(), "é".repeat(2_001)] {
+        for speech in [
+            "too short".to_owned(),
+            "é".repeat(2_001),
+            "The PFR0 tag routes bytes to its dedicated font-face loader.".to_owned(),
+        ] {
             let mut draft = revision(&fixture, serde_json::to_value(simple_proposal()).unwrap());
             draft.sections[0].visual = None;
             draft.sections[0].spoken_text = speech;
             let original = draft.clone();
-            assert!(prepare_generated_sections(&mut draft, None).is_err());
+            let error = prepare_generated_sections(&mut draft, None).unwrap_err();
+            if original.sections[0].spoken_text.contains("PFR0") {
+                assert!(error.contains("compact code abbreviation or format token"));
+            }
             assert_eq!(draft, original);
         }
     }

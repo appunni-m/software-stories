@@ -32,6 +32,9 @@ pub(in crate::evidence_ledger::sections) fn compile(
         if !(20..=1_000).contains(&script.len()) {
             return Err(issue(&format!("{at}/narration"), "sceneNarration"));
         }
+        if crate::scene_presentation::has_compact_spoken_code_token(script) {
+            return Err(issue(&format!("{at}/narration"), "sceneSpeechRole"));
+        }
         scripts.push(script.to_owned());
         claim["scene"] = Value::Null;
     }
