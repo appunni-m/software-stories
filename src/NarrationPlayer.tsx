@@ -87,7 +87,11 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
   const [pocketStatus, setPocketStatus] = useState<PocketTtsStatus | null>(null);
-  const [prewarmState, setPrewarmState] = useState<NarrationPrewarmState>('idle');
+  const [prewarmState, setPrewarmState] = useState<NarrationPrewarmState | 'checking'>(
+    isNativeRuntime() && preferences.backend === 'pocket-tts' && preferences.spokenText.trim()
+      ? 'checking'
+      : 'idle',
+  );
   const pocketStatusGenerationRef = useRef(0);
   const spokenTextUtf8Bytes = useMemo(() => new TextEncoder().encode(draft.spokenText).length, [draft.spokenText]);
   const draftRef = useRef(draft);
@@ -348,6 +352,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const requestedDraft = draft;
+    const shouldCheckCache = isNativeRuntime()
+      && requestedDraft.backend === 'pocket-tts'
+      && requestedDraft.spokenText.trim().length > 0;
     const refresh = async () => {
       try {
         const result = await getLocalNarrationPreparationStatus({
@@ -367,8 +374,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         if (active) setPrewarmState('unavailable');
       }
     };
-    setPrewarmState('idle');
-    if (isNativeRuntime() && requestedDraft.backend === 'pocket-tts' && requestedDraft.spokenText.trim()) {
+    setPrewarmState(shouldCheckCache ? 'checking' : 'idle');
+    if (shouldCheckCache) {
       timer = setTimeout(() => { void refresh(); }, 100);
     }
     return () => {
@@ -704,7 +711,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track && savedAudioMatchesDraft && currentTime <= 0 ? ' is-ready' : track ? '' : prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track && savedAudioMatchesDraft && currentTime <= 0 ? narrationAvailabilityLabel('ready') : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track && savedAudioMatchesDraft && currentTime <= 0 ? ' is-ready' : track ? '' : prewarmState === 'checking' || prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track && savedAudioMatchesDraft && currentTime <= 0 ? narrationAvailabilityLabel('ready') : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
       <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>

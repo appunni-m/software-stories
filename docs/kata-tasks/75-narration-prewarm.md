@@ -78,3 +78,47 @@ This run did not record the exact preparing-to-ready transition, inspect the
 canonical cache key or worker cache-hit counter, test offline/restart reuse, or
 exercise failure, cancellation, shutdown, and subjective listening quality.
 The section remains in the app for review; keep the issue open.
+
+## Cache-status and namespace correction — 25 October 2026
+
+The packaged v44 reader briefly showed **Audio not prepared** after reopening a
+saved section, then resolved to **Ready to play** with its 18-second Pocket clip.
+The player waits 100 ms before asking native storage for the canonical cache
+status, but had initialized that interval as `idle`, which misreported
+“not prepared.” The UI now has a local `checking` state and shows
+**Checking audio** until the status request resolves; `idle` remains the actual
+no-cache result. Pocket audio now writes under
+`pocket-narration-cache-v1`, while Gemini remains under its own cache version.
+Reads also check the previous shared Gemini-named directory for a matching
+Pocket fingerprint, preserving clips already created by older app builds.
+
+Verification on this source:
+
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib narration::tests::` —
+  **31 passed**, including separation of the two new cache namespaces and reuse
+  of a Pocket WAV from the previous shared location.
+- `node --experimental-strip-types --test tests/narration.test.mjs
+  tests/visualStory.test.mjs` — **60 passed**.
+- `npm run build` — passed; Vite reports the existing large main-chunk warning.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
+  `git diff --check` — passed.
+
+## v45 packaged cache-reuse recheck — 25 October 2026
+
+The v45 release app and DMG built successfully; license notices, embedded
+metadata and DMG checksum all passed. The installed executable matches the
+bundle at SHA-256
+`d1eb8c3a1c66ccc89095ea82d48f0da1394f913afa86936aa0375c8600d1b44d`.
+After relaunch, Code Atlas restored Fontdone `main@5249b72371`, its existing
+Code Lens section, and the Codex connection. Connections → Voice showed
+**Pocket TTS — on this Mac, free**, **Ready to listen**, Alba, with text staying
+on this Mac. The saved 18-second section showed **Ready to play** after the
+restart. The on-disk narration tree still contains only the old shared
+`gemini-narration-cache-v1` directory; no Pocket synthesis ran during this
+check. Thus the installed build successfully found the saved section's matching
+Pocket audio through the compatibility read, without generating another clip.
+
+This did not capture the brief **Checking audio** state before the lookup
+resolved, test offline restart, inspect a file-to-section hash independently,
+exercise worker cancellation/failure, or perform a listening review. Keep those
+acceptance gates open.

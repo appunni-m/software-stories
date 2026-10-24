@@ -384,6 +384,8 @@ describe('visual story scenes', () => {
 
   it('loads a completed local prewarm before Play without autoplaying it', () => {
     const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+    assert.match(component, /useState<NarrationPrewarmState \| 'checking'>/u);
+    assert.match(component, /setPrewarmState\(shouldCheckCache \? 'checking' : 'idle'\)/u);
     assert.match(component, /prewarmState !== 'ready'/u);
     assert.match(component, /cacheHydrationKeyRef\.current === cacheHydrationKey/u);
     assert.match(component, /void makeReviewRef\.current\(true\)/u);

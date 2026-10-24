@@ -73,3 +73,17 @@ On the packaged app, distinguish these actions and record the exact result for e
 
 ## Completion evidence
 Run the focused source-navigation and selected-code controls in the packaged app and record exact results. The selected-code generation failure above is confirmed; the original click exception is still unknown. The actionable no-published-section message is implemented, covered by frontend/native regressions, and confirmed in the rebuilt installed app after reopening the retained failed question. This check did not re-run Explorer/citation navigation after restart. Keep the original user report unconfirmed until its exact control and exception are identified. Source navigation requires no model invocation; any provider generation requires its own authorization.
+
+## One authorized request after the v44 rebuild — 25 October 2026
+
+The user authorized one Code Lens request for `src/tt/glyf.rs:564–583` in
+Fontdone `main@5249b72371`. The app saved one section,
+“Preparing each composite component’s points,” with a scene titled
+“Transforming component points.” Its evidence links cite
+`src/tt/glyf.rs:554–574` and `:575–595`. A source hotspot opened its cited range,
+and returning preserved the explanation. The app remained open. During the v44
+replacement the multi-detail operation was interrupted after this section had
+published; the saved section survived. No retry or second provider request was
+sent. This proves one selected-code explanation and source-return path, not the
+original reported click exception or the full Code Lens reproduction matrix.
+Keep the issue open; no more provider request is authorized by this run.

@@ -54,6 +54,7 @@ describe('default code-name pronunciation', () => {
 
 describe('narration preparation status', () => {
   it('uses plain-language states for cached and on-demand audio', () => {
+    assert.equal(narrationAvailabilityLabel('checking'), 'Checking audio');
     assert.equal(narrationAvailabilityLabel('idle'), 'Audio not prepared');
     assert.equal(narrationAvailabilityLabel('preparing'), 'Preparing audio');
     assert.equal(narrationAvailabilityLabel('ready'), 'Ready to play');

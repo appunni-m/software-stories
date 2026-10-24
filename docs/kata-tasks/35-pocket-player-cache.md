@@ -105,3 +105,24 @@ was not matched to the section fingerprint, so the observation does not
 distinguish a previous matching cache hit from newly synthesized audio. Keep
 listening quality, invalidation, cancellation, offline export and restart
 qualification open.
+
+## Backend cache namespace correction — 25 October 2026
+
+Code inspection found that `cache_path` placed both Pocket and Gemini WAVs under
+`gemini-narration-cache-v1`, even though their hashed cache contracts were
+already different. New writes now select `pocket-narration-cache-v1` for Pocket
+and keep Gemini under `gemini-narration-cache-v1`. Pocket reads fall back to
+the old shared location only for the exact Pocket cache key, so existing local
+clips remain available and are not synthesized again. The focused native
+narration suite passes **31 tests**; a synthetic regression covers the new
+namespace and old-location reuse. This is source-level evidence; fresh native
+packaging, backend round trips, cache invalidation, offline export and the
+human listening review remain open.
+
+The v45 bundle has since been installed and reopened on Fontdone
+`main@5249b72371`. Voice settings still show Pocket/Alba ready, and the saved
+18-second Code Lens narration shows **Ready to play** after the restart. The
+cache tree still has only the old shared directory, and no TTS operation ran;
+this confirms the new app can reuse the existing Pocket cache entry there. It
+does not test new Pocket writes under the distinct namespace, offline restart,
+engine round trips, invalidation, export, cancellation or human listening.

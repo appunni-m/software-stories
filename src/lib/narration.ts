@@ -127,8 +127,9 @@ export function localNarrationAction(cachedAudioAvailable: boolean): 'play-cache
   return cachedAudioAvailable ? 'play-cache' : 'synthesize';
 }
 
-export function narrationAvailabilityLabel(state: NarrationPrewarmState): string {
+export function narrationAvailabilityLabel(state: NarrationPrewarmState | 'checking'): string {
   switch (state) {
+    case 'checking': return 'Checking audio';
     case 'preparing': return 'Preparing audio';
     case 'ready': return 'Ready to play';
     case 'unavailable': return 'Audio unavailable';
