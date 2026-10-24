@@ -1,12 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
+import { addTurn, createWorkspace, parseWorkspace, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
 import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
 const patch = (state, id, values, now = 100) => recordQuestionOutcomes(state, { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...values } : t) })) }, now);
+
+test('the Guide reader hides draft bookkeeping but keeps an explicit rejection warning', () => {
+  assert.equal(workspaceAnswerLifecycleBadge('draft'), null);
+  assert.equal(workspaceAnswerLifecycleBadge('accepted'), null);
+  assert.equal(workspaceAnswerLifecycleBadge('rejected'), 'Rejected');
+});
 
 test('Guide and History show the question topic and preserve the exact prompt in a collapsed disclosure', () => {
   const question = '  Explain how\nFont::memory_face selects a format. ';

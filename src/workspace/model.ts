@@ -1,5 +1,6 @@
 import { cleanReaderProgress, cleanStoryProgress, cleanDiagramProgress, sameSection, withReaderProgress, type StoryProgress, type DiagramProgress, type ReaderProgress } from '../lib/readerProgress.ts';
 import { cleanAnswerVersions, ownsAnswerRevision, type AnswerVersion } from './answerVersions.ts';
+import type { ChapterRevisionLifecycle } from '../lib/commands.ts';
 /** Flat, snapshot-scoped conversation state. Generated text lives in native revisions. */
 export type View = 'guide' | 'flow' | 'history';
 export interface Context { path: string; sha256?: string; from?: number; to?: number }
@@ -42,6 +43,11 @@ export interface Turn {
 }
 export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
+
+/** Keep publication bookkeeping out of the reader; only a rejected result needs a visible warning. */
+export function workspaceAnswerLifecycleBadge(lifecycle: ChapterRevisionLifecycle): 'Rejected' | null {
+  return lifecycle === 'rejected' ? 'Rejected' : null;
+}
 
 /** History describes an available result only when its exact revision loaded.
  * A stopped question and an unavailable revision are still useful history. */
