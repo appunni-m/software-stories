@@ -149,7 +149,14 @@ export function DeveloperWorkspace(props:Props) {
   };
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
   const focusTurn = (turnId:string) => update((s)=>({...s,explorations:s.explorations.map(e=>e.id===current.id?{...e,focusedTurnId:turnId}:e)}));
-  const focusAnswer = (turnId:string,revisionId:string,sectionId:string) => update((s)=>focusAnswerSection(s,current.id,turnId,{revisionId,sectionId}));
+  const focusAnswer = (turnId:string,revisionId:string,sectionId:string) => {
+    update((s)=>focusAnswerSection(s,current.id,turnId,{revisionId,sectionId}));
+    requestAnimationFrame(()=>{
+      const target=Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]')??[])
+        .find((node)=>node.dataset.questionId===turnId);
+      target?.scrollIntoView({block:'start'});
+    });
+  };
   const go = (id:string) => { update((s)=>openWorkspaceExploration(s,id)); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
@@ -422,7 +429,7 @@ function Answer(props:AnswerProps){
     const next=guideSlides[index];
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
     const firstSection=revision?.sections[0];
-    if(revision&&firstSection)props.onSection(revision.revisionId,firstSection.sectionId);
+    if(revision&&firstSection)props.onFocus(revision.revisionId,firstSection.sectionId);
   };
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);

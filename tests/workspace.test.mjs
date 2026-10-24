@@ -203,6 +203,14 @@ test('opening a compact answer stores its exact section across Guide and Flow sw
     'the focused turn and its Guide reading position must be updated together');
 });
 
+test('selecting another Guide slide reveals its answer card in the reader',()=>{
+  const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/if\(revision&&firstSection\)props\.onFocus\(revision\.revisionId,firstSection\.sectionId\)/,
+    'Guide slide navigation must focus the selected section through the workspace');
+  assert.match(source,/target\?\.scrollIntoView\(\{block:'start'\}\)/,
+    'the selected Guide answer must return to view when its section changes');
+});
+
 test('stable section identity survives ordering and safely falls back for a changed answer',()=>{
   const sections=[{sectionId:'two'},{sectionId:'one'},{sectionId:'three'}];
   assert.equal(sectionPosition('rev',sections,{revisionId:'rev',sectionId:'one'}),1);
