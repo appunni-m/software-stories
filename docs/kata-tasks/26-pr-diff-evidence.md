@@ -18,7 +18,7 @@ Build a separate static parser index for each revision. Prioritize changed paths
 
 Attach high-confidence resolved imports when their target is a changed file. Attach calls and test references only when they resolve to an exact changed declaration. Keep base and head records separate. Every relationship source anchor and resolved declaration anchor identifies the exact commit object ID, blob ID, path, and line range.
 
-Report relationship analysis as complete, partial, or unavailable. Complete means the supported Rust, TypeScript, TSX, and JavaScript parser subset was indexed within these bounds. Parser uncertainty, unsupported files, dynamic/unresolved edges, tree/source/time limits, and per-file relationship caps must never be described as proof of no other reference. This is static source evidence; it does not infer runtime impact.
+Report relationship analysis as complete, partial, or unavailable. Complete means the bundled Rust, TypeScript, TSX, JavaScript, Python, and Go parser variants were indexed within these bounds; it does not mean complete semantics in any language. Python module imports and Go package imports remain unresolved. Parser uncertainty, unsupported files, dynamic/unresolved edges, tree/source/time limits, and per-file relationship caps must never be described as proof of no other reference. This is static source evidence; it does not infer runtime impact.
 
 The comparison must not checkout, change refs, update the index, or write repository files. It must not modify existing repository chapter history.
 

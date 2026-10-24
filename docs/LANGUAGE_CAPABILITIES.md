@@ -1,6 +1,6 @@
 # Language capabilities
 
-**Status reviewed: 2026-10-21.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
+**Status reviewed: 2026-10-24.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
 
 ## Tiers
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | **Partial structural** | A bundled syntax parser may produce declarations and conservative import, call, or test-reference candidates. Resolved relationships retain exact source anchors; ambiguous and dynamic relationships are withheld or labeled unresolved. | Complete language semantics, framework entry points, runtime call graphs, every import/call, or language-specific narrative quality. |
 | **Text only** | Eligible captured text remains locally readable and can support exact source citations in a reviewed explanation. | Local declarations, imports, calls, or test-reference relationships. |
-| **Unavailable** | The inventory retains the path and capture reason. | Source citations when source bytes were not captured or are not valid text. |
+| **Not analyzed** | The inventory retains the path, capture disposition, and reason when available. | Structural evidence or source citations when suitable text bytes were not captured. |
 | **Qualified structural** | No language currently has this tier. | Do not interpret parser availability or chapter-schema validity as qualification. |
 
 ## Current operation matrix
@@ -19,7 +19,7 @@
 | TypeScript (`.ts`, `.mts`, `.cts`) | Available for eligible captured text | **Partial structural**: TypeScript grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a TypeScript-specific human review. |
 | TSX (`.tsx`) | Available for eligible captured text | **Partial structural**: TSX grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a TSX-specific human review. |
 | JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) | Available for eligible captured text | **Partial structural**: JavaScript grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a JavaScript-specific human review. |
-| Python (`.py`, `.pyi`) | Available for eligible captured text | **Partial structural**: the Python grammar indexes functions, classes, methods, same-file direct calls, and conservative import/call candidates. Module imports remain unresolved. | Not qualified; Python module/package resolution and framework conventions are not implemented. | Not qualified by a Python-specific human review. |
+| Python (`.py`, `.pyi`, `.pyw`) | Available for eligible captured text | **Partial structural**: the Python grammar indexes functions, classes, methods, same-file direct calls, and conservative import/call candidates. Module imports remain unresolved. | Not qualified; Python module/package resolution and framework conventions are not implemented. | Not qualified by a Python-specific human review. |
 | Go (`.go`) | Available for eligible captured text | **Partial structural**: the Go grammar indexes functions, methods, structs, interfaces, same-file direct calls, and conservative import/call candidates. Package imports remain unresolved. | Not qualified; Go package resolution and framework conventions are not implemented. | Not qualified by a Go-specific human review. |
 | Other captured text | Available for eligible captured text | **Text only**: no local structural parser is shipped for these files. | Not qualified. | The provider may explain selected text with exact local citations, but language-specific explanation quality is not qualified. |
 
@@ -31,10 +31,10 @@ The local index recognizes a bounded syntax subset. It attempts declarations and
 
 - **Partial structural** means a local syntax parser is available, while relationship and narrative coverage remain incomplete.
 - **Text only** means captured text and citations are available, but local symbols and relationships are not produced.
-- **Not analyzed** means the inventory entry has no declared parser capability or captured text suitable for structure analysis.
+- **Not analyzed** means the entry has no suitable captured text for analysis, such as a binary file or a path excluded from capture. Captured text without a bundled parser remains **Text only**, including text with an unrecognized extension.
 - **Qualified structural** is not currently advertised for any language.
 
-The Guide and Files surfaces in the source checkout use these labels per path. The packaged app has not been inspected for this iteration, so this is not native UI acceptance. See [Getting started](GETTING_STARTED.md) for the source-review workflow and [Troubleshooting](TROUBLESHOOTING.md) for capture/index limitations.
+The current source maps parser-backed text to **Partial structural**, captured text without a supported parser to **Text only**, and non-text or uncaptured entries to **Not analyzed**. Capture disposition and its reason remain separate from the capability label. The packaged workspace was reopened on 2026-10-24, but the language-capability labels themselves were not inspected in that packaged run; this is not native UI acceptance. See [Getting started](GETTING_STARTED.md) for the source-review workflow and [Troubleshooting](TROUBLESHOOTING.md) for capture/index limitations.
 
 ## Qualification still required
 

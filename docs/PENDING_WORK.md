@@ -32,7 +32,7 @@ Kata `tmck` tracks [the bounded correction contract](kata-tasks/65-claim-alignme
 
 These are implemented changes in commit `0494bd4`, awaiting acceptance in `xymb`.
 
-The subsequent product review identified three core gaps: chapters currently contain no generated visuals; repository-wide narrative quality is unqualified; and structural language support is limited to Rust, TypeScript/TSX and JavaScript. See [the current agent evaluation](research/2026-10-15-agent-backends.md).
+At the October 15 product review, three gaps were recorded: generated visuals, repository-wide narrative quality, and structural parsing limited to Rust, TypeScript/TSX, and JavaScript. Since then, source added partial Python and Go parsers and AI-authored visual scenes. Those additions do not qualify language-specific narratives or whole-repository quality. See [language capabilities](LANGUAGE_CAPABILITIES.md), [visual scenes](VISUAL_SCENES.md), and [the agent evaluation](research/2026-10-15-agent-backends.md).
 
 ## Subsequent implementation update — 2026-10-15
 

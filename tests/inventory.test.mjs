@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildInventory, emptyInventoryFilters, filterInventory, languageSupportNote, languageSupportTier, paginateInventory } from '../src/lib/inventory.ts';
+import { buildInventory, emptyInventoryFilters, filterInventory, languageSupportLabel, languageSupportNote, languageSupportTier, paginateInventory } from '../src/lib/inventory.ts';
 
 const manifest = {
   directories: [
@@ -11,6 +11,7 @@ const manifest = {
     { path: 'src/main.rs', kind: 'file', sizeBytes: 40, sha256: 'a'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'src/utility.py', kind: 'file', sizeBytes: 12, sha256: 'e'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'src/stubs.pyi', kind: 'file', sizeBytes: 12, sha256: 'f'.repeat(64), contentKind: 'text', secretLike: false },
+    { path: 'src/windowed.pyw', kind: 'file', sizeBytes: 12, sha256: '8'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'src/service.go', kind: 'file', sizeBytes: 12, sha256: '1'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'assets/logo.bin', kind: 'file', sizeBytes: 2, sha256: 'b'.repeat(64), contentKind: 'binary', secretLike: false },
     { path: 'src/.env', kind: 'file', sizeBytes: 14, sha256: 'c'.repeat(64), contentKind: 'text', secretLike: true },
@@ -42,6 +43,8 @@ describe('snapshot inventory', () => {
     assert.equal(byPath.get('src/utility.py').language, 'Python');
     assert.equal(byPath.get('src/utility.py').parserReadiness, 'notReady');
     assert.equal(byPath.get('src/stubs.pyi').parserReadiness, 'notReady');
+    assert.equal(byPath.get('src/windowed.pyw').language, 'Python');
+    assert.equal(byPath.get('src/windowed.pyw').parserReadiness, 'notReady');
     assert.equal(byPath.get('src/service.go').language, 'Go');
     assert.equal(byPath.get('src/service.go').parserReadiness, 'notReady');
     assert.equal(byPath.get('large.dat').disposition, 'skipped');
@@ -57,6 +60,16 @@ describe('snapshot inventory', () => {
     assert.match(languageSupportNote('partialStructural', python.language), /Module imports/);
     assert.equal(languageSupportTier(go), 'partialStructural');
     assert.match(languageSupportNote('partialStructural', go.language), /Package imports/);
+  });
+
+  it('keeps user-facing capability labels consistent for captured unknown text and unavailable bytes', () => {
+    const rows = buildInventory(manifest);
+    const unknownText = rows.find((row) => row.path === 'src/unknown.zzz');
+    const binary = rows.find((row) => row.path === 'assets/logo.bin');
+    assert.equal(languageSupportTier(unknownText), 'textOnly');
+    assert.equal(languageSupportLabel('textOnly'), 'Text only');
+    assert.equal(languageSupportTier(binary), 'unavailable');
+    assert.equal(languageSupportLabel('unavailable'), 'Not analyzed');
   });
 
   it('filters without changing the underlying inventory count or capture state', () => {

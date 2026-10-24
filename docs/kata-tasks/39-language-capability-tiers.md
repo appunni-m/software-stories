@@ -52,3 +52,9 @@ Record a concrete adapter decision with: pinned component and language-server ve
 ## Scope of recorded validation — 2026-10-16 audit
 
 The dated validation counts above are historical records, not a new run against the current checkout. No tests or builds ran during this audit. They do not qualify the later chapter-version-4, agent-runtime, narration, packaged-app or complete language/narrative changes. Current release acceptance remains governed by the open parent/capability tasks and the deferred cases in `xymb`.
+
+## Capability documentation reconciliation — 2026-10-24
+
+The current Rust index maps `.py`, `.pyi`, and `.pyw` to the partial Python parser; the user-facing inventory also shows captured text without a supported parser as **Text only** and non-text/uncaptured entries as **Not analyzed**. `docs/LANGUAGE_CAPABILITIES.md` now matches these extensions and labels. The dated October 15 gap statement in `docs/PENDING_WORK.md` is explicitly historical and points to the later Python/Go parser and visual-scene work. The PR evidence contract now names all six bundled parsers and retains the unresolved Python/Go package-resolution limit.
+
+Verification against `src-tauri/src/index.rs`, `src/lib/inventory.ts`, and `src-tauri/Cargo.lock` found the six parser mappings and pinned versions consistent. The focused inventory suite passes 7/7, and the open-source documentation audit reports no structural findings. This correction does not establish packaged label acceptance, language-specific generated narrative quality, framework behavior, or mixed-language qualification; keep this task open.
