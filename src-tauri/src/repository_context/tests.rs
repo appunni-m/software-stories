@@ -271,6 +271,18 @@ fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     let first = search(None, 0);
     assert_eq!(first.matches.len(), 1);
     assert_eq!(first.matches[0].range.path, "src/a.rs");
+    let coverage = first.matches[0]
+        .query_coverage
+        .as_ref()
+        .expect("file discovery should expose the terms that ranked this path");
+    assert_eq!(coverage.total_terms, 3);
+    assert_eq!(coverage.matched_terms, ["covered", "glyphs", "rendered"]);
+    let serialized = serde_json::to_value(&first.matches[0]).unwrap();
+    assert_eq!(
+        serialized["queryCoverage"]["matchedTerms"],
+        serde_json::json!(["covered", "glyphs", "rendered"])
+    );
+    assert_eq!(serialized["queryCoverage"]["totalTerms"], 3);
     assert!(first.next_offset.is_some());
     assert_eq!(
         first.matches[0].range.source_sha256,
@@ -280,6 +292,12 @@ fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     let second = search(None, first.next_offset.unwrap());
     assert_eq!(second.matches.len(), 1);
     assert_eq!(second.matches[0].range.path, "src/sub/c.rs");
+    let coverage = second.matches[0]
+        .query_coverage
+        .as_ref()
+        .expect("each discovered path should explain its lexical coverage");
+    assert_eq!(coverage.total_terms, 3);
+    assert_eq!(coverage.matched_terms, ["covered", "glyphs"]);
     assert_ne!(first.matches[0].range.path, second.matches[0].range.path);
 
     let scoped = search(Some("src/sub"), 0);
@@ -326,6 +344,12 @@ fn broad_file_discovery_prefers_distinct_query_coverage_over_one_rare_term() {
         result.matches[0].range.path, "src/00-coverage.txt",
         "a broad discovery query should lead with the file covering four distinct terms, not the file matching only the rarest term"
     );
+    let coverage = result.matches[0]
+        .query_coverage
+        .as_ref()
+        .expect("file discovery should expose the same coverage signal it ranks by");
+    assert_eq!(coverage.matched_terms, ["alpha", "beta", "delta", "gamma"]);
+    assert_eq!(coverage.total_terms, 5);
 }
 
 #[test]

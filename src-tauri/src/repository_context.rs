@@ -235,6 +235,15 @@ pub(crate) struct SearchHit {
     pub(crate) exact_identifier: bool,
     pub(crate) declaration_match: bool,
     pub(crate) score: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) query_coverage: Option<QueryCoverage>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct QueryCoverage {
+    pub(crate) matched_terms: Vec<String>,
+    pub(crate) total_terms: usize,
 }
 
 #[derive(Serialize)]
@@ -1525,6 +1534,7 @@ fn search_identifier_declarations(
                     exact_identifier: true,
                     declaration_match: true,
                     score: 0.0,
+                    query_coverage: None,
                 });
             }
             cursor = found.end();
@@ -1685,6 +1695,7 @@ fn search_pattern(
                 exact_identifier: false,
                 declaration_match: false,
                 score: 0.0,
+                query_coverage: None,
             };
             matches.push(hit);
             // One result per non-overlapping evidence window, even on long lines.
@@ -2016,7 +2027,12 @@ pub(crate) fn search_files_with_mode_page(
             let (range_id, _, _) = best_ranges.get(&file_path)?;
             let score = scores.iter().sum::<f32>();
             let coverage = scores.iter().filter(|score| **score > 0.0).count();
-            Some((file_path, *range_id, score, coverage))
+            let matched_terms = scores
+                .iter()
+                .enumerate()
+                .filter_map(|(index, score)| (*score > 0.0).then(|| words[index].clone()))
+                .collect::<Vec<_>>();
+            Some((file_path, *range_id, score, coverage, matched_terms))
         })
         .collect::<Vec<_>>();
     ranked_files.sort_by(|left, right| {
@@ -2034,7 +2050,9 @@ pub(crate) fn search_files_with_mode_page(
         .build_literals(&words)
         .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let mut matches = Vec::new();
-    for (file_path, range_id, score, _) in ranked_files.into_iter().skip(offset).take(limit) {
+    for (file_path, range_id, score, _, matched_terms) in
+        ranked_files.into_iter().skip(offset).take(limit)
+    {
         budget.check()?;
         let range = prepared
             .metadata
@@ -2087,6 +2105,10 @@ pub(crate) fn search_files_with_mode_page(
             exact_identifier: false,
             declaration_match: false,
             score,
+            query_coverage: Some(QueryCoverage {
+                matched_terms,
+                total_terms: words.len(),
+            }),
         });
     }
     budget.check()?;
@@ -2414,6 +2436,7 @@ fn search_ranked(
             exact_identifier,
             declaration_match,
             score,
+            query_coverage: None,
         });
     }
     budget.check()?;

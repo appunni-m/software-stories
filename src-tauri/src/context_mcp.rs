@@ -59,7 +59,7 @@ fn read_tools() -> Vec<Tool> {
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Prefer an exact identifier or a short distinctive phrase; for broad behavior questions, resultKind:files discovers likely paths by distinct query-word coverage and returns one verifiable range per path. Inspect nextOffset pages as needed, then repeat with resultKind:ranges and that path as scope; read_code proves details. For a broad behavior question, search its important operations separately, then use definitions and relationships to follow the actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
+            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Prefer an exact identifier or a short distinctive phrase; for broad behavior questions, resultKind:files discovers likely paths by distinct query-term coverage and returns one verifiable range per path. Each file result includes queryCoverage.matchedTerms and totalTerms so you can see which terms caused its rank; stemming may match inflected forms. Treat these as file-selection hints, not evidence of behavior. Inspect nextOffset pages as needed, then repeat with resultKind:ranges and that path as scope; read_code proves details. For a broad behavior question, search its important operations separately, then use definitions and relationships to follow the actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
             json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset,"resultKind":result_kind}),
         ),
         (
@@ -419,7 +419,9 @@ mod tests {
         assert!(search_description.contains("lexical, not semantic"));
         assert!(search_description.contains("terms independently"));
         assert!(search_description.contains("important operations separately"));
-        assert!(search_description.contains("distinct query-word coverage"));
+        assert!(search_description.contains("distinct query-term coverage"));
+        assert!(search_description.contains("queryCoverage.matchedTerms and totalTerms"));
+        assert!(search_description.contains("file-selection hints, not evidence of behavior"));
         assert!(search_description.contains("retry once with a shorter identifier"));
         assert!(search_description.contains("pass it as offset"));
         assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);

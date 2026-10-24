@@ -40,7 +40,7 @@ Workspace owned-tool retrieval is implemented in source, with deterministic test
 
 ## Broad-question discovery instruction — 25 October 2026
 
-The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
+The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. File-discovery results now expose the distinct query terms that contributed to each path's rank, so the agent can see the lexical basis instead of inferring it from an opaque score. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
 
 ## Retrieval foundation checkpoint — 17 October
 
