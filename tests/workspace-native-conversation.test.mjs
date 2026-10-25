@@ -327,7 +327,7 @@ test('lost save acknowledgment is recognized before newer local edits are saved'
   await h.store.retryWorkspaceConversation('project','snapshot');const attempts=b.writes.slice(1);assert.deepEqual(attempts.map(x=>x.expectedRevision),[1,2]);assert.equal(attempts[0].state.file,'src/committed.rs');assert.equal(attempts[1].state.file,'src/newer.rs');assert.equal(b.records.get(scope).state.file,'src/newer.rs');assert.equal(b.records.get(scope).revision,3);
 });
 
-test('explicit retry merges independent window edits and preserves both windows\' turns',async()=>{
+test('automatically merges independent window edits and preserves both windows\' turns',async()=>{
   const b=backend(),local=native(b),remote=native(b);
   await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);
   remote.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>e.id==='root'?{...e,view:'flow'}:e)}));
@@ -335,8 +335,7 @@ test('explicit retry merges independent window edits and preserves both windows\
   await remote.store.flushWorkspaceConversation('project','snapshot');
   local.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/local-window.rs'}));
   const localTurn=local.store.appendQuestion('project','snapshot','Current window question',[],'guide');
-  await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'),/conversation changed in another window/);
-  await local.store.retryWorkspaceConversation('project','snapshot');
+  await local.store.flushWorkspaceConversation('project','snapshot');
   const saved=b.records.get(scope).state,root=saved.explorations.find(e=>e.id==='root');
   assert.equal(saved.file,'src/local-window.rs');assert.equal(root.view,'flow');
   assert.deepEqual(root.turns.map(t=>t.id),[remoteTurn,localTurn]);
@@ -344,6 +343,31 @@ test('explicit retry merges independent window edits and preserves both windows\
   assert.deepEqual(clone(local.store.getWorkspace('project','snapshot')),saved);
   const reopened=native(b);await reopened.store.prepareWorkspaceConversation('project','snapshot');
   assert.deepEqual(clone(reopened.store.getWorkspace('project','snapshot')),saved);
+});
+
+test('a new question merges disjoint window edits before dispatching generation',async()=>{
+  const b=backend(),remote=native(b);let generationArgs;
+  const local=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){
+      generationArgs=args;
+      const saved=b.records.get(scope).state.explorations.find(e=>e.id==='root').turns.map(t=>t.id);
+      assert.ok(saved.includes(remoteTurn),'the other window is durable before generation starts');
+      assert.ok(saved.includes(localTurn),'the new question is durable before generation starts');
+      return {runId:args.input.runId,projectId:args.input.projectId,snapshotId:args.input.snapshotId,
+        question:args.input.question,outcome:'complete',sections:[],incompleteTopics:[]};
+    }
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  await local.store.prepareWorkspaceConversation('project','snapshot');
+  await remote.store.prepareWorkspaceConversation('project','snapshot');
+  const remoteTurn=remote.store.appendQuestion('project','snapshot','Remote window question',[],'flow');
+  await remote.store.flushWorkspaceConversation('project','snapshot');
+  const localTurn=local.store.appendQuestion('project','snapshot','Explain this selected range',[],'guide');
+  await local.store.runQuestion('project','snapshot',localTurn,'grant');
+  await local.store.flushWorkspaceConversation('project','snapshot');
+  assert.ok(generationArgs,'the failed local save was reconciled instead of turning the question into a no-op');
+  assert.equal(local.store.getWorkspace('project','snapshot').explorations[0].turns.some(t=>t.id===remoteTurn),true);
+  assert.equal(local.store.getWorkspace('project','snapshot').explorations[0].turns.some(t=>t.id===localTurn),true);
 });
 
 test('same-field window conflicts keep both copies intact until the current window resolves its choice',async()=>{

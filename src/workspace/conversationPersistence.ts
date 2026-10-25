@@ -16,11 +16,17 @@ interface IO {
 const unavailable=()=>new Error('Your conversation could not be saved. Existing explanations have been preserved.');
 const genericSaveFailure='Some conversation changes could not be saved. Existing explanations are preserved.';
 const overlapSaveFailure='This conversation changed in another window. Your edits are still here; retry to merge separate changes. If the same item changed in both windows, choose which version to keep, then retry.';
+const nativeRevisionConflict='Another window saved this conversation. Your unsaved changes have been preserved in this window.';
+const isConversationRevisionConflict=(failure:unknown):boolean=>{
+  const message=typeof failure==='string'?failure:failure instanceof Error?failure.message:
+    failure&&typeof failure==='object'&&'message' in failure&&typeof failure.message==='string'?failure.message:'';
+  return message===nativeRevisionConflict||message===overlapSaveFailure;
+};
 const safeSaveFailure=(failure:unknown):string=>{
   const message=typeof failure==='string'?failure:failure instanceof Error?failure.message:
     failure&&typeof failure==='object'&&'message' in failure&&typeof failure.message==='string'?failure.message:'';
   if(message==='A conversation save is still in progress. Wait a moment, then retry.')return message;
-  if(message==='Another window saved this conversation. Your unsaved changes have been preserved in this window.')return overlapSaveFailure;
+  if(isConversationRevisionConflict(message))return overlapSaveFailure;
   if(message==='Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.')return message;
   if(message==='The Mac reported insufficient local storage space. Check available disk space, then retry saving; your changes remain open in this window.')return message;
   if(message==='A local storage quota was reached. Check the app or filesystem storage limit, then retry saving; your changes remain open in this window.')return message;
@@ -142,6 +148,27 @@ export class ConversationPersistence {
     const state=decodeWorkspace(JSON.stringify(value.state),this.io.projectId,this.io.snapshotId);
     if(!state)throw unavailable();return state;
   }
+  private async reconcileRevisionConflict():Promise<void> {
+    const latest=await this.io.load();
+    if(!latest)throw unavailable();
+    const remote=this.record(latest),failedAttempt=this.attempt;
+    if(!failedAttempt)throw new Error(overlapSaveFailure);
+    const local=this.pending??failedAttempt.state;
+    // A save can reach disk and then lose its acknowledgment. Treat the exact
+    // attempted snapshot as committed, then replay only newer local edits.
+    if(equal(remote,failedAttempt.state)){
+      this.revision=latest.revision;this.persisted=remote;
+      if(this.pending){this.attempt={revision:latest.revision,state:this.pending};this.pending=null;}
+      else this.attempt=null;
+      return;
+    }
+    if(!this.persisted)throw new Error(overlapSaveFailure);
+    const merged=mergeConversationStates(this.persisted,local,remote);
+    if(!merged.state)throw new Error(overlapSaveFailure);
+    const safeMerged=this.record({schemaVersion:1,revision:latest.revision,state:merged.state});
+    this.revision=latest.revision;this.persisted=remote;this.attempt={revision:latest.revision,state:safeMerged};this.pending=null;
+    this.io.restore(safeMerged);
+  }
   start():Promise<void> {
     if(this.availability==='ready')return Promise.resolve();
     if(this.starting)return this.starting;
@@ -163,9 +190,16 @@ export class ConversationPersistence {
     if(this.active)return this.active;
     if(this.blocked)return Promise.reject(new Error(this.failure));
     this.active=(async()=>{
+      let conflictRecoveries=0;
       while(this.attempt||this.pending){
         if(!this.attempt){this.attempt={revision:this.revision,state:this.pending!};this.pending=null;}
-        const record=await this.io.save(this.attempt.revision,this.attempt.state);const saved=this.record(record);
+        let record:ConversationRecord;
+        try{record=await this.io.save(this.attempt.revision,this.attempt.state);}
+        catch(failure){
+          if(!isConversationRevisionConflict(failure)||conflictRecoveries>=3)throw failure;
+          await this.reconcileRevisionConflict();conflictRecoveries++;continue;
+        }
+        const saved=this.record(record);
         if(record.revision<(this.revision??0))throw unavailable();
         this.revision=record.revision;this.persisted=saved;this.attempt=null;
       }
