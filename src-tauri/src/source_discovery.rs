@@ -286,7 +286,7 @@ fn metadata(
     // vectors for every captured file made discovery scale as files × index
     // entries on large repositories.
     let mut indexed_files = HashMap::new();
-    let mut symbols_by_path = HashMap::<&str, Vec<&index::IndexedSymbol>>::new();
+    let mut symbols_by_path = HashMap::<&str, Vec<(usize, &index::IndexedSymbol)>>::new();
     let mut links_by_path = HashMap::<&str, Vec<&index::IndexedRelationship>>::new();
     let mut symbol_relevance_by_path = HashMap::<&str, usize>::new();
     let mut link_relevance_by_path = HashMap::<&str, usize>::new();
@@ -304,9 +304,14 @@ fn metadata(
                     .or_insert(relevance);
             }
             let symbols = symbols_by_path.entry(symbol.path.as_str()).or_default();
-            if symbols.len() < 18 {
-                symbols.push(symbol);
-            }
+            symbols.push((matched_terms, symbol));
+            symbols.sort_by(|(left_score, left), (right_score, right)| {
+                right_score
+                    .cmp(left_score)
+                    .then_with(|| left.anchor.start_line.cmp(&right.anchor.start_line))
+                    .then_with(|| left.qualified_name.cmp(&right.qualified_name))
+            });
+            symbols.truncate(18);
         }
         for edge in &local_index.relationships {
             if edge.confidence == index::RelationshipConfidence::High {
@@ -367,7 +372,7 @@ fn metadata(
             .get(file.path.as_str())
             .into_iter()
             .flatten()
-            .map(|symbol| json!({"name":symbol.qualified_name,"line":symbol.anchor.start_line}))
+            .map(|(_, symbol)| json!({"name":symbol.qualified_name,"line":symbol.anchor.start_line}))
             .collect();
         let links: Vec<_> = links_by_path
             .get(file.path.as_str())
