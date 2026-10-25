@@ -186,7 +186,7 @@ pub(crate) fn search_snapshot(
     input: &SearchInput,
     request: &Request,
 ) -> Result<context::SearchResult, String> {
-    search_snapshot_kind(storage, input, request, false)
+    search_snapshot_kind(storage, input, request, false, Instant::now()).result
 }
 
 pub(crate) fn search_files_snapshot(
@@ -194,7 +194,60 @@ pub(crate) fn search_files_snapshot(
     input: &SearchInput,
     request: &Request,
 ) -> Result<context::SearchResult, String> {
-    search_snapshot_kind(storage, input, request, true)
+    search_snapshot_kind(storage, input, request, true, Instant::now()).result
+}
+
+pub(crate) struct SearchExecution {
+    pub(crate) result: Result<context::SearchResult, String>,
+    pub(crate) stages: Vec<crate::generation_timing::ContextStage>,
+}
+
+pub(crate) fn search_snapshot_timed(
+    storage: &Path,
+    input: &SearchInput,
+    request: &Request,
+    origin: Instant,
+) -> SearchExecution {
+    search_snapshot_kind(storage, input, request, false, origin)
+}
+
+pub(crate) fn search_files_snapshot_timed(
+    storage: &Path,
+    input: &SearchInput,
+    request: &Request,
+    origin: Instant,
+) -> SearchExecution {
+    search_snapshot_kind(storage, input, request, true, origin)
+}
+
+fn stage_offset(origin: Instant) -> u64 {
+    u64::try_from(origin.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+fn run_search_stage<T>(
+    origin: Instant,
+    kind: crate::generation_timing::ContextStageKind,
+    cancelled: &AtomicBool,
+    stages: &mut Vec<crate::generation_timing::ContextStage>,
+    operation: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let started_ms = stage_offset(origin);
+    let result = operation();
+    let finished_ms = stage_offset(origin);
+    let outcome = if result.is_ok() {
+        crate::generation_timing::ContextStageOutcome::Complete
+    } else if cancelled.load(Ordering::Acquire) {
+        crate::generation_timing::ContextStageOutcome::Stopped
+    } else {
+        crate::generation_timing::ContextStageOutcome::Failed
+    };
+    stages.push(crate::generation_timing::ContextStage {
+        kind,
+        started_ms,
+        finished_ms,
+        outcome,
+    });
+    result
 }
 
 fn search_snapshot_kind(
@@ -202,82 +255,148 @@ fn search_snapshot_kind(
     input: &SearchInput,
     request: &Request,
     file_results: bool,
-) -> Result<context::SearchResult, String> {
-    context::validate_search_mode(&input.query, input.path.as_deref(), input.limit, input.mode)?;
-    context::validate_search_page(input.limit, input.offset)?;
-    let budget = context::Budget::new(&request.cancelled);
-    let mut work = loop {
-        budget.check()?;
-        match request.jobs.0.work.try_lock() {
-            Ok(guard) => break guard,
-            Err(std::sync::TryLockError::WouldBlock) => {
-                std::thread::sleep(Duration::from_millis(10))
-            }
-            Err(_) => return Err("Code search is temporarily unavailable.".to_owned()),
+    origin: Instant,
+) -> SearchExecution {
+    let mut stages = Vec::with_capacity(8);
+    let result = (|| {
+        run_search_stage(
+            origin,
+            crate::generation_timing::ContextStageKind::SearchValidation,
+            &request.cancelled,
+            &mut stages,
+            || {
+                context::validate_search_mode(
+                    &input.query,
+                    input.path.as_deref(),
+                    input.limit,
+                    input.mode,
+                )?;
+                context::validate_search_page(input.limit, input.offset)
+            },
+        )?;
+        let budget = context::Budget::new(&request.cancelled);
+        let mut work = run_search_stage(
+            origin,
+            crate::generation_timing::ContextStageKind::SearchCacheLock,
+            &request.cancelled,
+            &mut stages,
+            || loop {
+                budget.check()?;
+                match request.jobs.0.work.try_lock() {
+                    Ok(guard) => break Ok(guard),
+                    Err(std::sync::TryLockError::WouldBlock) => {
+                        std::thread::sleep(Duration::from_millis(10))
+                    }
+                    Err(_) => {
+                        break Err("Code search is temporarily unavailable.".to_owned());
+                    }
+                }
+            },
+        )?;
+        let manifest = run_search_stage(
+            origin,
+            crate::generation_timing::ContextStageKind::SnapshotManifestLoad,
+            &request.cancelled,
+            &mut stages,
+            || snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id),
+        )?;
+        let tag = run_search_stage(
+            origin,
+            crate::generation_timing::ContextStageKind::SearchCacheCheck,
+            &request.cancelled,
+            &mut stages,
+            || context::cache_tag(storage, &manifest),
+        )?;
+        let reuse = work.tag.as_ref() == Some(&tag)
+            && work
+                .checked
+                .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
+            && work.prepared.is_some();
+        if !reuse {
+            // An absent or damaged syntax index must not make captured text unavailable.
+            let started_ms = stage_offset(origin);
+            let loaded_index =
+                index::load_snapshot_index(storage, &input.project_id, &input.snapshot_id);
+            let finished_ms = stage_offset(origin);
+            let syntax = loaded_index.ok().flatten();
+            stages.push(crate::generation_timing::ContextStage {
+                kind: crate::generation_timing::ContextStageKind::SyntaxIndexLoad,
+                started_ms,
+                finished_ms,
+                outcome: if syntax.is_some() {
+                    crate::generation_timing::ContextStageOutcome::Complete
+                } else {
+                    crate::generation_timing::ContextStageOutcome::Fallback
+                },
+            });
+            work.prepared = Some(run_search_stage(
+                origin,
+                crate::generation_timing::ContextStageKind::SearchIndexPreparation,
+                &request.cancelled,
+                &mut stages,
+                || context::prepare(storage, &manifest, syntax.as_ref(), &budget),
+            )?);
+            let mut published_tag = run_search_stage(
+                origin,
+                crate::generation_timing::ContextStageKind::SearchCachePublishCheck,
+                &request.cancelled,
+                &mut stages,
+                || context::cache_tag(storage, &manifest),
+            )?;
+            // If parsing finishes during this build, the next search refreshes syntax.
+            published_tag.retain_syntax_from(&tag);
+            work.tag = Some(published_tag);
+            work.checked = Some(Instant::now());
+        } else if let Some(prepared) = &mut work.prepared {
+            prepared.reused_generation = true;
         }
-    };
-    let manifest =
-        snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id)?;
-    let tag = context::cache_tag(storage, &manifest)?;
-    let reuse = work.tag.as_ref() == Some(&tag)
-        && work
-            .checked
-            .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
-        && work.prepared.is_some();
-    if !reuse {
-        // An absent or damaged syntax index must not make captured text unavailable.
-        let syntax = index::load_snapshot_index(storage, &input.project_id, &input.snapshot_id)
-            .unwrap_or(None);
-        work.prepared = Some(context::prepare(
-            storage,
-            &manifest,
-            syntax.as_ref(),
-            &budget,
-        )?);
-        let mut published_tag = context::cache_tag(storage, &manifest)?;
-        // If parsing finishes during this build, the next search refreshes syntax.
-        published_tag.retain_syntax_from(&tag);
-        work.tag = Some(published_tag);
-        work.checked = Some(Instant::now());
-    } else if let Some(prepared) = &mut work.prepared {
-        prepared.reused_generation = true;
-    }
-    let prepared = work
-        .prepared
-        .as_ref()
-        .ok_or("Local code index is unavailable.")?;
-    let result = if file_results {
-        context::search_files_with_mode_page(
-            storage,
-            &manifest,
-            prepared,
-            &input.query,
-            input.path.as_deref(),
-            input.limit,
-            input.offset,
-            &budget,
-            input.mode,
-        )
-    } else {
-        context::search_with_mode_page(
-            storage,
-            &manifest,
-            prepared,
-            &input.query,
-            input.path.as_deref(),
-            input.limit,
-            input.offset,
-            &budget,
-            input.mode,
-        )
-    };
-    // A bounded literal whose matcher cannot be built is a correctable query
-    // failure; the prepared snapshot index remains valid and reusable.
-    if matches!(&result, Err(error) if error.as_str() != context::INVALID_LITERAL_SEARCH_QUERY) {
-        work.tag = None;
-        work.prepared = None;
-    }
-    result
+        let prepared = work
+            .prepared
+            .as_ref()
+            .ok_or("Local code index is unavailable.")?;
+        let result = run_search_stage(
+            origin,
+            crate::generation_timing::ContextStageKind::SearchQuery,
+            &request.cancelled,
+            &mut stages,
+            || {
+                if file_results {
+                    context::search_files_with_mode_page(
+                        storage,
+                        &manifest,
+                        prepared,
+                        &input.query,
+                        input.path.as_deref(),
+                        input.limit,
+                        input.offset,
+                        &budget,
+                        input.mode,
+                    )
+                } else {
+                    context::search_with_mode_page(
+                        storage,
+                        &manifest,
+                        prepared,
+                        &input.query,
+                        input.path.as_deref(),
+                        input.limit,
+                        input.offset,
+                        &budget,
+                        input.mode,
+                    )
+                }
+            },
+        );
+        // A bounded literal whose matcher cannot be built is a correctable query
+        // failure; the prepared snapshot index remains valid and reusable.
+        if matches!(&result, Err(error) if error.as_str() != context::INVALID_LITERAL_SEARCH_QUERY)
+        {
+            work.tag = None;
+            work.prepared = None;
+        }
+        result
+    })();
+    SearchExecution { result, stages }
 }
 
 #[tauri::command]
@@ -403,6 +522,7 @@ pub(crate) async fn search_workspace_source(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     #[test]
     fn cancels_before_dispatch_and_reaps_completed_ownership() {
         let jobs = RepositoryContextJobs::default();
@@ -498,6 +618,111 @@ mod tests {
             }
         }
         assert!(jobs.0.work.lock().unwrap().prepared.is_some());
+    }
+
+    #[test]
+    fn timed_search_separates_cold_index_preparation_from_warm_query_work() {
+        use crate::generation_timing::ContextStageKind as Stage;
+
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let jobs = RepositoryContextJobs::default();
+        let origin = Instant::now();
+        let make_input = |request_id: String| SearchInput {
+            request_id,
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            query: "greeting".to_owned(),
+            mode: context::SearchMode::Code,
+            path: None,
+            limit: 8,
+            offset: 0,
+        };
+
+        let cold_request = jobs.begin(&Uuid::new_v4().to_string()).unwrap();
+        let cold = search_snapshot_timed(
+            &fixture.storage,
+            &make_input(cold_request.id.clone()),
+            &cold_request,
+            origin,
+        );
+        assert!(!cold.result.unwrap().matches.is_empty());
+        assert_eq!(
+            cold.stages
+                .iter()
+                .map(|stage| stage.kind)
+                .collect::<Vec<_>>(),
+            [
+                Stage::SearchValidation,
+                Stage::SearchCacheLock,
+                Stage::SnapshotManifestLoad,
+                Stage::SearchCacheCheck,
+                Stage::SyntaxIndexLoad,
+                Stage::SearchIndexPreparation,
+                Stage::SearchCachePublishCheck,
+                Stage::SearchQuery,
+            ]
+        );
+        assert!(cold.stages.windows(2).all(|pair| {
+            pair[0].started_ms <= pair[0].finished_ms && pair[0].finished_ms <= pair[1].started_ms
+        }));
+        drop(cold_request);
+
+        let warm_request = jobs.begin(&Uuid::new_v4().to_string()).unwrap();
+        let warm = search_snapshot_timed(
+            &fixture.storage,
+            &make_input(warm_request.id.clone()),
+            &warm_request,
+            origin,
+        );
+        assert!(warm.result.unwrap().reused_generation);
+        assert_eq!(
+            warm.stages
+                .iter()
+                .map(|stage| stage.kind)
+                .collect::<Vec<_>>(),
+            [
+                Stage::SearchValidation,
+                Stage::SearchCacheLock,
+                Stage::SnapshotManifestLoad,
+                Stage::SearchCacheCheck,
+                Stage::SearchQuery,
+            ]
+        );
+        let encoded = serde_json::to_string(&warm.stages).unwrap();
+        assert!(!encoded.contains("greeting"));
+        assert!(!encoded.contains("src/"));
+    }
+
+    #[test]
+    fn missing_syntax_index_records_fallback_and_keeps_captured_text_search() {
+        use crate::generation_timing::{ContextStageKind, ContextStageOutcome};
+
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        fs::rename(
+            fixture.storage.join("indexes"),
+            fixture.storage.join("indexes-unavailable"),
+        )
+        .unwrap();
+        let jobs = RepositoryContextJobs::default();
+        let request = jobs.begin(&Uuid::new_v4().to_string()).unwrap();
+        let input = SearchInput {
+            request_id: request.id.clone(),
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            query: "greeting".to_owned(),
+            mode: context::SearchMode::Code,
+            path: None,
+            limit: 8,
+            offset: 0,
+        };
+        let execution = search_snapshot_timed(&fixture.storage, &input, &request, Instant::now());
+        assert!(!execution.result.unwrap().matches.is_empty());
+        let syntax = execution
+            .stages
+            .iter()
+            .find(|stage| stage.kind == ContextStageKind::SyntaxIndexLoad)
+            .unwrap();
+        assert_eq!(syntax.outcome, ContextStageOutcome::Fallback);
     }
 
     #[derive(Deserialize)]

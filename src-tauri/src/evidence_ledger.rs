@@ -283,6 +283,8 @@ struct CallTiming {
     started_ms: u64,
     prepared_ms: Option<u64>,
     finished_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    local_stages: Vec<crate::generation_timing::ContextStage>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -622,6 +624,7 @@ impl Ledger {
                 started_ms: self.context_elapsed_ms(),
                 prepared_ms: None,
                 finished_ms: None,
+                local_stages: Vec::new(),
             },
             rejection_code: None,
         });
@@ -633,6 +636,10 @@ impl Ledger {
         // An in-memory Instant cannot be resumed after process exit. Persisted
         // values describe this operation only; restart never reissues its calls.
         u64::try_from(self.context_started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    }
+
+    pub(crate) fn context_origin(&self) -> Instant {
+        self.context_started
     }
 
     /// Export only fixed tool states, byte counters and monotonic offsets.
@@ -659,6 +666,7 @@ impl Ledger {
                     source_bytes: call.source_bytes,
                     metadata_bytes: call.metadata_bytes,
                     wire_bytes: call.wire_bytes,
+                    stages: call.timing.local_stages.clone(),
                 })
                 .collect(),
         }
@@ -674,6 +682,38 @@ impl Ledger {
             return Err("This context response does not own its pending call.".to_owned());
         }
         Ok(())
+    }
+
+    /// Persist bounded local search timings before returning a fatal search
+    /// error to the owned agent session. Successful calls store them together
+    /// with the prepared response in `deliver_with_local_stages`.
+    pub(crate) fn record_local_search_stages(
+        &mut self,
+        token: &CallToken,
+        stages: Vec<crate::generation_timing::ContextStage>,
+    ) -> Result<(), String> {
+        self.pending(token, Tool::Search)?;
+        let mut next = self.record.clone();
+        let call = next
+            .calls
+            .last_mut()
+            .ok_or("The context call is unavailable.")?;
+        crate::generation_timing::validate_context_stages(
+            call.tool,
+            Some(call.timing.started_ms),
+            None,
+            None,
+            &stages,
+            None,
+        )?;
+        if stages
+            .last()
+            .is_some_and(|stage| stage.finished_ms > self.context_elapsed_ms())
+        {
+            return Err("Search timing extends beyond its native context clock.".into());
+        }
+        call.timing.local_stages = stages;
+        self.save(next)
     }
 
     fn response_budget(&self) -> ResponseBudget {
@@ -979,6 +1019,53 @@ impl Ledger {
         cancelled: &AtomicBool,
         send: impl FnOnce(&[u8]) -> Result<(), String>,
     ) -> Result<(), String> {
+        self.deliver_with_local_stages(
+            token,
+            context,
+            requests,
+            manifest,
+            runtime,
+            cancelled,
+            Vec::new(),
+            send,
+        )
+    }
+
+    pub(crate) fn deliver_with_local_stages(
+        &mut self,
+        token: CallToken,
+        context: Context<'_>,
+        requests: &[RangeRequest],
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+        local_stages: Vec<crate::generation_timing::ContextStage>,
+        send: impl FnOnce(&[u8]) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let call = self
+            .record
+            .calls
+            .last()
+            .ok_or("The context call is unavailable.")?;
+        crate::generation_timing::validate_context_stages(
+            call.tool,
+            Some(call.timing.started_ms),
+            None,
+            None,
+            &local_stages,
+            None,
+        )?;
+        if local_stages
+            .last()
+            .is_some_and(|stage| stage.finished_ms > self.context_elapsed_ms())
+        {
+            return Err("Search timing extends beyond its native context clock.".into());
+        }
+        if !local_stages.is_empty() {
+            // Save before response validation or cancellation checks so failed
+            // delivery still leaves the local work visible in diagnostics.
+            self.record_local_search_stages(&token, local_stages.clone())?;
+        }
         self.check(manifest, runtime, cancelled)?;
         let prepared: Result<(Record, Vec<u8>), String> = (|| {
             let mut response =
@@ -1064,6 +1151,7 @@ impl Ledger {
                 .ok_or("The context call is unavailable.")?;
             call.state = CallState::Prepared;
             call.timing.prepared_ms = Some(self.context_elapsed_ms());
+            call.timing.local_stages = local_stages;
             call.budget_stop = response.budget_stop;
             call.evidence_ids = response.evidence_ids.clone();
             for fragment in response.added {
@@ -1326,6 +1414,15 @@ fn valid_context_timings(record: &Record) -> bool {
                 CallState::Rejected => timing.prepared_ms.is_some() || timing.finished_ms.is_none(),
                 CallState::Uncertain => timing.finished_ms.is_none(),
             }
+            || crate::generation_timing::validate_context_stages(
+                call.tool,
+                Some(timing.started_ms),
+                timing.prepared_ms,
+                timing.finished_ms,
+                &timing.local_stages,
+                None,
+            )
+            .is_err()
         {
             return false;
         }

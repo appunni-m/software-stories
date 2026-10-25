@@ -321,6 +321,93 @@ fn timing_exports_only_current_native_tool_offsets_and_budget_metadata() {
 }
 
 #[test]
+fn search_stage_timings_persist_and_export_without_query_or_source_strings() {
+    use crate::generation_timing::{ContextStage, ContextStageKind, ContextStageOutcome};
+
+    let run_started = Instant::now();
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let token = ledger
+        .begin_call(
+            Tool::Search,
+            &"c".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
+        .unwrap();
+    let origin = ledger.context_origin();
+    let started_ms = u64::try_from(origin.elapsed().as_millis()).unwrap();
+    let stages = vec![ContextStage {
+        kind: ContextStageKind::SearchCacheCheck,
+        started_ms,
+        finished_ms: started_ms,
+        outcome: ContextStageOutcome::Complete,
+    }];
+    ledger
+        .record_local_search_stages(&token, stages.clone())
+        .unwrap();
+
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.calls[0].timing.local_stages, stages);
+    assert!(valid_context_timings(&saved));
+
+    let timing = ledger.timing_diagnostics(run_started);
+    assert_eq!(timing.calls[0].stages, stages);
+    let encoded = serde_json::to_string(&timing).unwrap();
+    for private in [SIMPLE_SOURCE, SIMPLE_PATH, "private search query"] {
+        assert!(!encoded.contains(private));
+    }
+}
+
+#[test]
+fn cancelled_search_delivery_keeps_local_stage_timings() {
+    use crate::generation_timing::{ContextStage, ContextStageKind, ContextStageOutcome};
+
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    let token = ledger
+        .begin_call(
+            Tool::Search,
+            &"d".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancelled,
+        )
+        .unwrap();
+    let started_ms = u64::try_from(ledger.context_origin().elapsed().as_millis()).unwrap();
+    let stages = vec![ContextStage {
+        kind: ContextStageKind::SearchCacheCheck,
+        started_ms,
+        finished_ms: started_ms,
+        outcome: ContextStageOutcome::Complete,
+    }];
+    cancelled.store(true, Ordering::Release);
+
+    assert!(
+        ledger
+            .deliver_with_local_stages(
+                token,
+                Context::SearchError {
+                    code: "invalidQuery",
+                    message: "Please revise the search.",
+                },
+                &[],
+                &f.manifest,
+                &runtime,
+                &cancelled,
+                stages.clone(),
+                |_| Ok(()),
+            )
+            .is_err()
+    );
+    ledger.interrupt();
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.calls[0].timing.local_stages, stages);
+    assert!(valid_context_timings(&saved));
+}
+
+#[test]
 fn invalid_read_batches_return_fixed_feedback_without_partial_evidence() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

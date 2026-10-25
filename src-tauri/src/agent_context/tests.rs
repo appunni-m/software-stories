@@ -396,6 +396,20 @@ fn owned_mcp_search_read_and_result_events_share_native_evidence() {
             .get("text")
             .is_none()
     );
+    let timing = s.ledger.timing_diagnostics(Instant::now());
+    assert_eq!(timing.calls.len(), 1);
+    assert!(timing.calls[0].stages.iter().any(|stage| {
+        stage.kind == crate::generation_timing::ContextStageKind::SearchCacheCheck
+    }));
+    assert!(
+        timing.calls[0]
+            .stages
+            .iter()
+            .any(|stage| { stage.kind == crate::generation_timing::ContextStageKind::SearchQuery })
+    );
+    let safe_timing = serde_json::to_string(&timing).unwrap();
+    assert!(!safe_timing.contains("greeting"));
+    assert!(!safe_timing.contains(SIMPLE_PATH));
     let (completed, text) = exchange(
         &mut s,
         "read_code",

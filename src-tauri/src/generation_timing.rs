@@ -17,6 +17,7 @@ pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
 const MAX_RECORDS: usize = 32;
 const MAX_EVENTS: usize = 128;
 const MAX_PREPARATION_STAGES: usize = 16;
+const MAX_CONTEXT_STAGES_PER_CALL: usize = 8;
 const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
@@ -215,6 +216,41 @@ pub(crate) struct ContextCall {
     pub(crate) source_bytes: usize,
     pub(crate) metadata_bytes: usize,
     pub(crate) wire_bytes: usize,
+    #[serde(default)]
+    pub(crate) stages: Vec<ContextStage>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ContextStageKind {
+    SearchValidation,
+    SearchCacheLock,
+    SnapshotManifestLoad,
+    SearchCacheCheck,
+    SyntaxIndexLoad,
+    SearchIndexPreparation,
+    SearchCachePublishCheck,
+    SearchQuery,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ContextStageOutcome {
+    Complete,
+    Fallback,
+    Failed,
+    Stopped,
+}
+
+/// Bounded local search stage offsets on the owning native context clock.
+/// No query, path, source, or diagnostic string is retained.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ContextStage {
+    pub(crate) kind: ContextStageKind,
+    pub(crate) started_ms: u64,
+    pub(crate) finished_ms: u64,
+    pub(crate) outcome: ContextStageOutcome,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -419,6 +455,14 @@ fn validate(record: &Record) -> Result<(), String> {
             if call.source_bytes as u128 + call.metadata_bytes as u128 > call.wire_bytes as u128 {
                 return Err(invalid());
             }
+            validate_context_stages(
+                call.tool,
+                call.started_ms,
+                call.prepared_ms,
+                call.finished_ms,
+                &call.stages,
+                context.origin_elapsed_ms,
+            )?;
             let values = [call.started_ms, call.prepared_ms, call.finished_ms];
             let mut last = prior;
             for offset in values.into_iter().flatten() {
@@ -484,6 +528,40 @@ pub(crate) fn validate_preparation_stages(stages: &[PreparationStage]) -> Result
             || stage.finished_ms > MAX_ELAPSED
         {
             return Err("Timing diagnostics are invalid.".into());
+        }
+        previous_end = stage.finished_ms;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_context_stages(
+    tool: crate::evidence_ledger::Tool,
+    started_ms: Option<u64>,
+    prepared_ms: Option<u64>,
+    finished_ms: Option<u64>,
+    stages: &[ContextStage],
+    origin_elapsed_ms: Option<u64>,
+) -> Result<(), String> {
+    let invalid = || "Timing diagnostics are invalid.".to_owned();
+    if stages.len() > MAX_CONTEXT_STAGES_PER_CALL
+        || (!stages.is_empty() && tool != crate::evidence_ledger::Tool::Search)
+    {
+        return Err(invalid());
+    }
+    let mut previous_end = started_ms.unwrap_or(0);
+    for stage in stages {
+        if started_ms.is_none_or(|started| stage.started_ms < started)
+            || stage.started_ms < previous_end
+            || stage.finished_ms < stage.started_ms
+            || stage.finished_ms > MAX_ELAPSED
+            || prepared_ms.is_some_and(|prepared| stage.finished_ms > prepared)
+            || finished_ms.is_some_and(|finished| stage.finished_ms > finished)
+            || origin_elapsed_ms
+                .is_some_and(|origin| origin.saturating_add(stage.finished_ms) > MAX_ELAPSED)
+            || (stage.outcome == ContextStageOutcome::Fallback
+                && stage.kind != ContextStageKind::SyntaxIndexLoad)
+        {
+            return Err(invalid());
         }
         previous_end = stage.finished_ms;
     }

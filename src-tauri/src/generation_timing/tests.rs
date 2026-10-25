@@ -61,6 +61,7 @@ fn native_events_keep_one_clock_unknown_usage_and_no_sensitive_fields() {
             source_bytes: 12,
             metadata_bytes: 4,
             wire_bytes: 16,
+            stages: Vec::new(),
         }],
     });
     trace.output(200);
@@ -427,6 +428,63 @@ fn preparation_records_only_fixed_stage_and_outcome_on_failure() {
     let encoded = serde_json::to_string(&stages).unwrap();
     assert!(!encoded.contains("private source"));
     assert!(!encoded.contains("local path"));
+}
+
+#[test]
+fn local_context_stages_are_bounded_ordered_and_source_free() {
+    use crate::evidence_ledger::Tool;
+
+    let stages = vec![
+        ContextStage {
+            kind: ContextStageKind::SearchValidation,
+            started_ms: 10,
+            finished_ms: 11,
+            outcome: ContextStageOutcome::Complete,
+        },
+        ContextStage {
+            kind: ContextStageKind::SyntaxIndexLoad,
+            started_ms: 12,
+            finished_ms: 14,
+            outcome: ContextStageOutcome::Fallback,
+        },
+        ContextStage {
+            kind: ContextStageKind::SearchIndexPreparation,
+            started_ms: 15,
+            finished_ms: 19,
+            outcome: ContextStageOutcome::Complete,
+        },
+    ];
+    assert!(
+        validate_context_stages(Tool::Search, Some(10), Some(20), Some(22), &stages, Some(2),)
+            .is_ok()
+    );
+
+    let encoded = serde_json::to_string(&stages).unwrap();
+    assert!(!encoded.contains("query"));
+    assert!(!encoded.contains("path"));
+    assert!(!encoded.contains("source"));
+
+    let mut unordered = stages.clone();
+    unordered.swap(1, 2);
+    assert!(validate_context_stages(Tool::Search, Some(10), None, None, &unordered, None).is_err());
+    assert!(validate_context_stages(Tool::Read, Some(10), None, None, &stages, None).is_err());
+
+    let mut invalid_fallback = stages.clone();
+    invalid_fallback[0].outcome = ContextStageOutcome::Fallback;
+    assert!(
+        validate_context_stages(Tool::Search, Some(10), None, None, &invalid_fallback, None,)
+            .is_err()
+    );
+
+    let too_many = (0..=MAX_CONTEXT_STAGES_PER_CALL)
+        .map(|index| ContextStage {
+            kind: ContextStageKind::SearchQuery,
+            started_ms: 10 + (index as u64 * 2),
+            finished_ms: 11 + (index as u64 * 2),
+            outcome: ContextStageOutcome::Complete,
+        })
+        .collect::<Vec<_>>();
+    assert!(validate_context_stages(Tool::Search, Some(10), None, None, &too_many, None).is_err());
 }
 
 #[test]

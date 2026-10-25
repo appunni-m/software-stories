@@ -902,25 +902,39 @@ impl Session {
                     limit: args.limit.clamp(1, 32),
                     offset: args.offset,
                 };
-                let result = match result_kind {
+                let execution = match result_kind {
                     SearchResultKind::Auto | SearchResultKind::Ranges => {
-                        repository_context_commands::search_snapshot(
+                        repository_context_commands::search_snapshot_timed(
                             &self.storage,
                             &input,
                             &native_request,
+                            self.ledger.context_origin(),
                         )
                     }
-                    SearchResultKind::Files => repository_context_commands::search_files_snapshot(
-                        &self.storage,
-                        &input,
-                        &native_request,
-                    ),
+                    SearchResultKind::Files => {
+                        repository_context_commands::search_files_snapshot_timed(
+                            &self.storage,
+                            &input,
+                            &native_request,
+                            self.ledger.context_origin(),
+                        )
+                    }
                 };
-                let result = match result {
-                    Ok(result) => result,
+                let stages = execution.stages;
+                match execution.result {
+                    Ok(result) => self.ledger.deliver_with_local_stages(
+                        token,
+                        Context::Search((&result).into()),
+                        &[],
+                        &fresh,
+                        &self.runtime,
+                        cancelled,
+                        stages,
+                        send,
+                    ),
                     Err(error) => {
                         if let Some(message) = recoverable_search_message(&error) {
-                            return self.ledger.deliver(
+                            return self.ledger.deliver_with_local_stages(
                                 token,
                                 Context::SearchError {
                                     code: "invalidQuery",
@@ -930,21 +944,14 @@ impl Session {
                                 &fresh,
                                 &self.runtime,
                                 cancelled,
+                                stages,
                                 send,
                             );
                         }
+                        let _ = self.ledger.record_local_search_stages(&token, stages);
                         return Err(error);
                     }
-                };
-                self.ledger.deliver(
-                    token,
-                    Context::Search((&result).into()),
-                    &[],
-                    &fresh,
-                    &self.runtime,
-                    cancelled,
-                    send,
-                )
+                }
             }
             Tool::Read => {
                 let args: Read = match parse(request.arguments) {
