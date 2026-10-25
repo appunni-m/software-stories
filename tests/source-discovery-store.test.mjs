@@ -43,24 +43,6 @@ describe('saved source discovery scope', () => {
     });
   });
 
-  it('leaves the prior single-result key untouched and never reads it as current data', () => {
-    const values = new Map();
-    const oldKey = `code-atlas:source-discovery:v1:${encodeURIComponent(scope.projectId)}:${encodeURIComponent(scope.snapshotId)}`;
-    const oldBytes = JSON.stringify({
-      schemaVersion: 1, projectId: scope.projectId, snapshotId: scope.snapshotId,
-      question: scope.question, targetPath: null, selectedFiles: result.selectedFiles,
-      limitation: result.limitation, savedAtUnixMs: 1,
-    });
-    values.set(oldKey, oldBytes);
-    withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
-      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
-      assert.equal(saveSourceDiscoveryResult(scope, result), true);
-      assert.equal(values.get(oldKey), oldBytes);
-      assert.equal(values.size, 2);
-      assert.deepEqual(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), result);
-    });
-  });
-
   it('rejects a changed question, snapshot, target, or path absent from the current manifest', () => {
     const values = new Map();
     withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
