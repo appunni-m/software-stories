@@ -1,0 +1,69 @@
+name: macOS signed release candidate
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release-candidate:
+    name: Sign, notarize, and inspect release artifacts
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Confirm tag matches app version
+        run: |
+          node --input-type=module -e 'import { readFileSync } from "node:fs"; const version = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8")).version; if (process.env.GITHUB_REF_NAME !== `v${version}`) { console.error(`Tag ${process.env.GITHUB_REF_NAME} must match app version v${version}.`); process.exit(1); } console.log(`Building Code Atlas ${version}.`);'
+
+      - name: Require Developer ID and notarization credentials
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Configure these GitHub Actions secrets before tagging a release: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Build, sign, notarize, and verify
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run bundle:macos:release-candidate
+
+      - name: Upload artifacts for release review
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-atlas-${{ github.ref_name }}-macos-release-candidate
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/*.sha256

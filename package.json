@@ -12,6 +12,7 @@
     "licenses:generate": "node scripts/generate-third-party-notices.mjs",
     "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
     "bundle:macos": "npm run licenses:check && node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
+    "bundle:macos:release-candidate": "npm run licenses:check && node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify && node scripts/verify-macos-release-candidate.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "quality:build": "cargo build --locked --manifest-path src-tauri/Cargo.toml --bin code-atlas-quality",
     "quality:corpus": "node scripts/check-chapter-quality.mjs --corpus",
