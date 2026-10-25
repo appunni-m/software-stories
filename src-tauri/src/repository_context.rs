@@ -1969,7 +1969,7 @@ pub(crate) fn search_files_with_mode_page(
     // A term has one IDF weight for the entire query, so each path/range only
     // needs to retain which positive-weight terms matched. A 32-bit mask keeps
     // the bounded 50,000-range index from allocating a heap vector per hit.
-    let mut path_terms: HashMap<String, u32> = HashMap::new();
+    let mut path_terms: HashMap<&str, u32> = HashMap::new();
     let mut range_terms: HashMap<usize, u32> = HashMap::new();
     let mut term_weights = vec![0.0f32; term_groups.len()];
     // File discovery returns one result per path, so IDF must count files,
@@ -2041,7 +2041,7 @@ pub(crate) fn search_files_with_mode_page(
         };
         for range_id in matching_ranges {
             let range = &prepared.metadata.ranges[range_id];
-            *path_terms.entry(range.path.clone()).or_default() |= term_bit;
+            *path_terms.entry(range.path.as_str()).or_default() |= term_bit;
             *range_terms.entry(range_id).or_default() |= term_bit;
         }
     }
@@ -2057,13 +2057,13 @@ pub(crate) fn search_files_with_mode_page(
         }
         (score, coverage)
     };
-    let mut best_ranges: HashMap<String, (usize, f32, usize)> = HashMap::new();
+    let mut best_ranges: HashMap<&str, (usize, f32, usize)> = HashMap::new();
     for (range_id, mask) in &range_terms {
         let range = &prepared.metadata.ranges[*range_id];
         let (score, coverage) = score_terms(*mask);
         let replace =
             best_ranges
-                .get(&range.path)
+                .get(range.path.as_str())
                 .is_none_or(|(best_id, best_score, best_coverage)| {
                     score.total_cmp(best_score).is_gt()
                         || (score.total_cmp(best_score).is_eq() && coverage > *best_coverage)
@@ -2077,14 +2077,14 @@ pub(crate) fn search_files_with_mode_page(
                                 ))
                 });
         if replace {
-            best_ranges.insert(range.path.clone(), (*range_id, score, coverage));
+            best_ranges.insert(range.path.as_str(), (*range_id, score, coverage));
         }
     }
 
     let mut ranked_files = path_terms
         .into_iter()
         .filter_map(|(file_path, mask)| {
-            let (range_id, _, _) = best_ranges.get(&file_path)?;
+            let (range_id, _, _) = best_ranges.get(file_path)?;
             let (score, coverage) = score_terms(mask);
             let matched_terms = words
                 .iter()
@@ -2123,7 +2123,7 @@ pub(crate) fn search_files_with_mode_page(
         if range.path != file_path {
             return Err("The code search index is invalid.".to_owned());
         }
-        let captured = source_with_budget(storage, manifest, &file_path, budget)?;
+        let captured = source_with_budget(storage, manifest, file_path, budget)?;
         // Source verification reads and hashes the complete captured blob. A
         // request may be cancelled while that bounded read is in progress.
         budget.check()?;
