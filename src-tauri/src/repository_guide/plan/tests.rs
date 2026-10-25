@@ -327,7 +327,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("make one focused search_code call with resultKind:files")
+            .contains("start with list_modules to identify top-level modules")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
@@ -353,8 +353,12 @@ fn plan_instructions_keep_the_full_requested_scope() {
             "Read several small ranges across those files together in one read_code call"
         )
     );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("do not exhaust search pages"));
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("Use at most six code-tool calls"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
+        "Follow nextOffset while another relevant caller or implementation path may change coverage"
+    ));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
+        "Use at most twelve code-tool calls, matching the native planner budget"
+    ));
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
     assert_eq!(MAX_UNITS + 1, 13);

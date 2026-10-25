@@ -212,7 +212,7 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
     assert!(
         planning
             .base_instructions()
-            .contains("Use at most six code-tool calls")
+            .contains("Use at most twelve code-tool calls, matching the native planner budget")
     );
 
     let slide = Session::new_guide_progressive(
