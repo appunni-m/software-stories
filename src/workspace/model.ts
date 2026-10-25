@@ -153,30 +153,67 @@ export function cleanComposerDraft(value: unknown): ComposerDraft | undefined {
   }
   return question||context.length?{question,context}:undefined;
 }
+const WORKSPACE_STATE_KEYS = ['version','projectId','snapshotId','currentId','file','explorations','grantId'] as const;
+const EXPLORATION_KEYS = ['id','parentId','originTurnId','title','view','turns','focusedTurnId','revealTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft'] as const;
+const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','guideId','guide','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
+function hasOnlyKeys(value: unknown, allowed: readonly string[]): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function isWorkspaceContext(value: unknown): value is Context {
+  if (!hasOnlyKeys(value, ['path','sha256','from','to'])) return false;
+  const path = value.path;
+  const validPath = typeof path === 'string' && path.length > 0 && !path.startsWith('/') && !path.includes('\\')
+    && !path.split('/').some((part) => !part || part === '.' || part === '..')
+    && !/[\u0000-\u001f\u007f]/u.test(path) && new TextEncoder().encode(path).byteLength <= 4096;
+  const hasFrom = Object.hasOwn(value, 'from'), hasTo = Object.hasOwn(value, 'to');
+  const validLines = !hasFrom && !hasTo || hasFrom && hasTo
+    && Number.isSafeInteger(value.from) && Number.isSafeInteger(value.to)
+    && Number(value.from) >= 1 && Number(value.to) >= Number(value.from);
+  const validHash = !Object.hasOwn(value, 'sha256') || typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/u.test(value.sha256);
+  return validPath && validLines && validHash;
+}
 /** The browser preview starts with an empty tree when its saved state is unavailable. */
 export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
   const fallback = () => null;
   try {
-    const value = JSON.parse(raw ?? 'null') as WorkspaceState;
+    const parsed: unknown = JSON.parse(raw ?? 'null');
+    if (!hasOnlyKeys(parsed, WORKSPACE_STATE_KEYS)) return fallback();
+    const value = parsed as unknown as WorkspaceState;
     if (!value || value.version !== 1 || value.projectId !== projectId || value.snapshotId !== snapshotId || !Array.isArray(value.explorations) || !value.explorations.length || value.explorations.length > 2000) return fallback();
     const ids = new Set(value.explorations.map((e) => e.id));
     if (ids.size !== value.explorations.length || !ids.has('root') || !ids.has(value.currentId)) return fallback();
     for (const e of value.explorations) {
+      if (!hasOnlyKeys(e, EXPLORATION_KEYS)) return fallback();
       if (typeof e.id !== 'string' || typeof e.title !== 'string' || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
-      if (Object.hasOwn(e, 'scrollTop')) return fallback();
+      if (e.reveal !== undefined && !isWorkspaceContext(e.reveal)) return fallback();
+      if (e.scrollPositions !== undefined && (!hasOnlyKeys(e.scrollPositions, ['guide','flow','history'])
+        || Object.values(e.scrollPositions).some((position) => !validScroll(position)))) return fallback();
+      if (e.fileFlow !== undefined && !hasOnlyKeys(e.fileFlow, ['path','showAll'])) return fallback();
+      if (e.draft !== undefined && (!hasOnlyKeys(e.draft, ['question','context'])
+        || typeof e.draft.question !== 'string' || e.draft.question.length > 1000
+        || !Array.isArray(e.draft.context) || e.draft.context.length > 32 || !e.draft.context.every(isWorkspaceContext))) return fallback();
+      if (e.draft && new Set(e.draft.context.map((context) => `${context.path}\u0000${context.from ?? ''}\u0000${context.to ?? ''}`)).size !== e.draft.context.length) return fallback();
       e.scrollPositions = cleanScrollPositions(e.scrollPositions);
       const draft=cleanComposerDraft(e.draft);
       if(draft)e.draft=draft;else delete e.draft;
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
-      if(typeof e.codeOpen!=='boolean')delete e.codeOpen;
-      if(!e.fileFlow||typeof e.fileFlow.path!=='string'||e.fileFlow.path.startsWith('/')||e.fileFlow.path.includes('\\')||e.fileFlow.path.split('/').some(p=>!p||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(e.fileFlow.path)||new TextEncoder().encode(e.fileFlow.path).length>4096||typeof e.fileFlow.showAll!=='boolean')delete e.fileFlow;
-      else e.fileFlow={path:e.fileFlow.path,showAll:e.fileFlow.showAll};
-      if (!e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
+      if (e.codeOpen !== undefined && typeof e.codeOpen !== 'boolean') return fallback();
+      if (e.fileFlow !== undefined && (typeof e.fileFlow.path !== 'string' || e.fileFlow.path.startsWith('/') || e.fileFlow.path.includes('\\')
+        || e.fileFlow.path.split('/').some((p) => !p || p === '.' || p === '..') || /[\u0000-\u001f\u007f]/.test(e.fileFlow.path)
+        || new TextEncoder().encode(e.fileFlow.path).length > 4096 || typeof e.fileFlow.showAll !== 'boolean')) return fallback();
+      if (e.fileFlow) e.fileFlow={path:e.fileFlow.path,showAll:e.fileFlow.showAll};
+      if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) return fallback();
       for (const t of e.turns) {
+        if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
         if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
           || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
-          || t.context.some((c) => typeof c.path !== 'string' || c.path.startsWith('/') || c.path.split('/').includes('..'))) return fallback();
+          || !t.context.every(isWorkspaceContext)) return fallback();
+        if (t.reading !== undefined && (!hasOnlyKeys(t.reading, ['guide','flow'])
+          || Object.values(t.reading).some((position) => position !== undefined && !hasOnlyKeys(position, ['revisionId','sectionId'])))) return fallback();
+        if (t.outcomeNotice !== undefined && !hasOnlyKeys(t.outcomeNotice, ['read','dismissed'])) return fallback();
         const reading = t.reading;
         if (!validRunId(t.guideId)) { delete t.guideId; delete t.guide; }
         else delete t.guide; // Native job state is authoritative after reopening.
