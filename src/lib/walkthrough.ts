@@ -1,6 +1,22 @@
 import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
 import type { ChapterRevision, ChapterSection } from './commands.ts';
 
+const MAX_REMEMBERED_PROGRESS_CHARS = 16 * 1024;
+const MAX_REMEMBERED_ID_CHARS = 1024;
+const MAX_REMEMBERED_SECTION_ID_CHARS = 128;
+const MAX_REMEMBERED_PLAYBACK_SECONDS = 60 * 60;
+const MAX_REMEMBERED_TRANSCRIPT_PIXELS = 10_000_000;
+
+function boundedRememberedId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= MAX_REMEMBERED_ID_CHARS
+    && value.trim().length > 0 && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
+function boundedSectionId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= MAX_REMEMBERED_SECTION_ID_CHARS
+    && /^[A-Za-z0-9][A-Za-z0-9:_-]*$/u.test(value);
+}
+
 export function orderedSections(revision: ChapterRevision): ChapterSection[] {
   return [...revision.sections].sort((left, right) => left.order - right.order || left.sectionId.localeCompare(right.sectionId));
 }
@@ -60,21 +76,28 @@ export function parseRememberedProgress(
   chapterId: string,
   revisionId: string,
 ): RememberedWalkthroughProgress | null {
-  if (!serialized) return null;
+  if (typeof serialized !== 'string' || serialized.length === 0 || serialized.length > MAX_REMEMBERED_PROGRESS_CHARS
+    || !boundedRememberedId(projectId) || !boundedRememberedId(chapterId) || !boundedRememberedId(revisionId)) return null;
   try {
-    const value = JSON.parse(serialized) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(serialized);
     const expected = ['version', 'projectId', 'chapterId', 'revisionId', 'sectionId', 'playbackPosition', 'transcriptPosition'];
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const value = parsed as Record<string, unknown>;
     if (Object.keys(value).length !== expected.length || !expected.every(key => Object.hasOwn(value, key))
       || value.version !== 2
+      || !boundedRememberedId(value.projectId)
       || value.projectId !== projectId
+      || !boundedRememberedId(value.chapterId)
       || value.chapterId !== chapterId
+      || !boundedRememberedId(value.revisionId)
       || value.revisionId !== revisionId
-      || typeof value.sectionId !== 'string'
-      || value.sectionId.length === 0) return null;
+      || !boundedSectionId(value.sectionId)) return null;
     const playbackPosition = value.playbackPosition;
     const transcriptPosition = value.transcriptPosition;
-    if (typeof playbackPosition !== 'number' || !Number.isFinite(playbackPosition) || playbackPosition < 0
-      || typeof transcriptPosition !== 'number' || !Number.isFinite(transcriptPosition) || transcriptPosition < 0) return null;
+    if (typeof playbackPosition !== 'number' || !Number.isFinite(playbackPosition)
+      || playbackPosition < 0 || playbackPosition > MAX_REMEMBERED_PLAYBACK_SECONDS
+      || typeof transcriptPosition !== 'number' || !Number.isFinite(transcriptPosition)
+      || transcriptPosition < 0 || transcriptPosition > MAX_REMEMBERED_TRANSCRIPT_PIXELS) return null;
     return { sectionId: value.sectionId, playbackPosition, transcriptPosition };
   } catch {
     return null;
