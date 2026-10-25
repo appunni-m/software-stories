@@ -652,6 +652,18 @@ enum CodexOperation {
     PrChange,
 }
 impl CodexOperation {
+    fn run_deadline(self) -> codex_agent::RunDeadline {
+        // These are user-started agentic operations with an explicit Stop path.
+        // A wall-clock cutoff can discard a useful answer during generation or validation.
+        match self {
+            Self::Chapter
+            | Self::RepositoryPlan
+            | Self::CodeLens
+            | Self::PrGuide
+            | Self::PrChange => codex_agent::RunDeadline::UserControlled,
+        }
+    }
+
     fn accepts(self, review: &provider::ProviderRequestReview) -> bool {
         let no_git = review.pr_guide_context.is_none() && review.pr_change_context.is_none();
         match self {
@@ -822,7 +834,7 @@ async fn prepare_codex_operation(
             .as_str()
             .unwrap_or("")
             .to_owned(),
-        run_deadline: codex_agent::RunDeadline::TenMinutes,
+        run_deadline: operation.run_deadline(),
         approval_policy: review.generation_config["approvalPolicy"]
             .as_str()
             .unwrap_or("")
@@ -999,5 +1011,23 @@ fn codex_run_failure_kind(message: &str) -> provider::ProviderFailureKind {
         Kind::UnavailableModel
     } else {
         Kind::ProviderRejectedRequest
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CodexOperation, codex_agent::RunDeadline};
+
+    #[test]
+    fn user_started_codex_operations_have_no_wall_clock_deadline() {
+        for operation in [
+            CodexOperation::Chapter,
+            CodexOperation::RepositoryPlan,
+            CodexOperation::CodeLens,
+            CodexOperation::PrGuide,
+            CodexOperation::PrChange,
+        ] {
+            assert_eq!(operation.run_deadline(), RunDeadline::UserControlled);
+        }
     }
 }
