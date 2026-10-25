@@ -5,6 +5,7 @@ import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, Rotate
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import type { ClaudeOperationReviewMode } from './lib/claudeReview';
+import { PrGuideOperationFence, type PrGuideOperationToken } from './lib/prGuideLifecycle';
 import {
   acceptPrGuideDraft,
   buildProviderPrChangeExplanationRequestReview,
@@ -66,6 +67,19 @@ export function PrGuideStudio({
   recovery,
   onRecoveryReviewReady,
 }: PrGuideStudioProps) {
+  const operationScope = {
+    projectId,
+    baseRef,
+    headRef,
+    comparisonId: comparison.comparisonId ?? '',
+  };
+  const operationScopeRef = useRef(operationScope);
+  operationScopeRef.current = operationScope;
+  const operationFenceRef = useRef<PrGuideOperationFence | null>(null);
+  if (operationFenceRef.current === null) operationFenceRef.current = new PrGuideOperationFence(operationScope);
+  operationFenceRef.current.setScope(operationScope);
+  const sendOperationRef = useRef<PrGuideOperationToken | null>(null);
+  const cancelOperationRef = useRef<PrGuideOperationToken | null>(null);
   const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api' | 'handoff'>(() => readPrGuideBackend());
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
@@ -203,10 +217,18 @@ export function PrGuideStudio({
     };
   }, [backend, providerId]);
 
-  useEffect(() => () => {
-    reviewLifecycle.current += 1;
-    const reviewId = requestReviewRef.current?.reviewId;
-    if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
+  useEffect(() => {
+    operationFenceRef.current?.mount(operationScopeRef.current);
+    return () => {
+      operationFenceRef.current?.unmount();
+      sendOperationRef.current = null;
+      cancelOperationRef.current = null;
+      reviewLifecycle.current += 1;
+      const reviewId = requestReviewRef.current?.reviewId;
+      // Unsent previews are disposable. A sent request is already bound to this comparison;
+      // its validated late result is retained in that comparison's history by the native store.
+      if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
+    };
   }, []);
 
   useEffect(() => {
@@ -326,16 +348,21 @@ export function PrGuideStudio({
 
   async function handleSend() {
     if (!requestReview || !hasApiKey || sending || !completeConsent(consent)) return;
+    const operation = operationFenceRef.current?.begin('send') ?? null;
+    if (!operation) return;
+    const sendReview = requestReview;
+    sendOperationRef.current = operation;
     setSending(true);
     setRequestError(null);
     setCancelStatus(null);
     cancelRequested.current = false;
     try {
       const result = await sendProviderPrGuideRequest({
-        reviewId: requestReview.reviewId,
-        fingerprint: requestReview.fingerprint,
+        reviewId: sendReview.reviewId,
+        fingerprint: sendReview.fingerprint,
         consent,
       });
+      if (!operationFenceRef.current?.isCurrent(operation)) return;
       requestReviewRef.current = null;
       setRequestReview(null);
       setConsent(NO_CONSENT);
@@ -350,29 +377,53 @@ export function PrGuideStudio({
         : 'The guide passed local citation validation and is saved as an unaccepted draft. Review its claims before acceptance.');
       await refreshHistory();
     } catch {
+      if (!operationFenceRef.current?.isCurrent(operation)) return;
       requestReviewRef.current = null;
       setRequestReview(null);
       setConsent(NO_CONSENT);
       setRequestError({ kind: 'networkUnavailable', message: 'The result could not be confirmed. Check this comparison’s PR Guide history before sending a new reviewed request.' });
     } finally {
-      setSending(false);
-      setCancelBusy(false);
+      if (operationFenceRef.current?.isCurrent(operation)) {
+        operationFenceRef.current.finish(operation);
+        sendOperationRef.current = null;
+        if (cancelOperationRef.current) {
+          operationFenceRef.current.invalidate('cancel');
+          cancelOperationRef.current = null;
+        }
+        setSending(false);
+        setCancelBusy(false);
+      }
     }
   }
 
   async function handleCancel() {
     if (!requestReview || !sending || cancelBusy) return;
+    const sendOperation = sendOperationRef.current;
+    if (!sendOperation || !operationFenceRef.current?.isCurrent(sendOperation)) return;
+    const operation = operationFenceRef.current.begin('cancel');
+    if (!operation) return;
+    cancelOperationRef.current = operation;
+    const reviewId = requestReview.reviewId;
+    const providerName = disclosure?.displayName ?? 'The provider';
     setCancelBusy(true);
     cancelRequested.current = true;
     try {
-      const stopped = await cancelProviderRequest(requestReview.reviewId);
-      setCancelStatus(stopped
-        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received the selected diff; any response remains an unaccepted draft.`
-        : 'The request had already finished locally. Any returned guide remains an unaccepted draft until you review it.');
+      const stopped = await cancelProviderRequest(reviewId);
+      if (operationFenceRef.current?.isCurrent(operation) && operationFenceRef.current.isCurrent(sendOperation)) {
+        setCancelStatus(stopped
+          ? `Cancellation reached the local request. ${providerName} may already have received the selected diff; any response remains an unaccepted draft.`
+          : 'The request had already finished locally. Any returned guide remains an unaccepted draft until you review it.');
+      }
     } catch {
-      setCancelStatus(`Code Atlas could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received the selected diff; check the draft history after the request finishes.`);
+      if (operationFenceRef.current?.isCurrent(operation) && operationFenceRef.current.isCurrent(sendOperation)) {
+        setCancelStatus(`Code Atlas could not confirm a local abort. ${providerName} may already have received the selected diff; check the draft history after the request finishes.`);
+      }
     } finally {
-      setCancelBusy(false);
+      if (operationFenceRef.current?.isCurrent(operation)) {
+        operationFenceRef.current.finish(operation);
+        cancelOperationRef.current = null;
+        setCancelBusy(false);
+      }
     }
   }
 
@@ -393,50 +444,66 @@ export function PrGuideStudio({
 
   async function handleAccept() {
     if (!currentDraft || !comparison.comparisonId || includedClaimIds.length === 0 || decisionBusy) return;
+    const operation = operationFenceRef.current?.begin('decision') ?? null;
+    if (!operation) return;
+    const revisionId = currentDraft.revisionId;
+    const comparisonId = comparison.comparisonId;
     setDecisionBusy(true);
     setDecisionError(null);
     try {
       const accepted = await acceptPrGuideDraft({
         projectId,
-        comparisonId: comparison.comparisonId,
-        revisionId: currentDraft.revisionId,
+        comparisonId,
+        revisionId,
         includedClaimIds,
       });
+      if (!operationFenceRef.current?.isCurrent(operation)) return;
       setCurrentDraft(null);
       setIncludedClaimIds([]);
       setNotice(`Accepted PR Guide revision ${accepted.revisionNumber}. Its history is separate from repository file chapters.`);
       await refreshHistory();
     } catch {
-      setDecisionError('The selected guide could not be accepted. The saved draft and existing guide history were preserved.');
+      if (operationFenceRef.current?.isCurrent(operation)) setDecisionError('The selected guide could not be accepted. The saved draft and existing guide history were preserved.');
     } finally {
-      setDecisionBusy(false);
+      if (operationFenceRef.current?.isCurrent(operation)) {
+        operationFenceRef.current.finish(operation);
+        setDecisionBusy(false);
+      }
     }
   }
 
   async function handleReject() {
     if (!currentDraft || !comparison.comparisonId || decisionBusy) return;
+    const operation = operationFenceRef.current?.begin('decision') ?? null;
+    if (!operation) return;
+    const revisionId = currentDraft.revisionId;
+    const comparisonId = comparison.comparisonId;
     setDecisionBusy(true);
     setDecisionError(null);
     try {
       const rejected = await rejectPrGuideDraft({
         projectId,
-        comparisonId: comparison.comparisonId,
-        revisionId: currentDraft.revisionId,
+        comparisonId,
+        revisionId,
         reason: rejectionReason,
       });
+      if (!operationFenceRef.current?.isCurrent(operation)) return;
       setCurrentDraft(null);
       setIncludedClaimIds([]);
       setNotice(`Rejected PR Guide draft ${rejected.revisionNumber}. Existing accepted guides and file chapters were not changed.`);
       await refreshHistory();
     } catch {
-      setDecisionError('The draft could not be rejected. Existing local PR Guide history was preserved.');
+      if (operationFenceRef.current?.isCurrent(operation)) setDecisionError('The draft could not be rejected. Existing local PR Guide history was preserved.');
     } finally {
-      setDecisionBusy(false);
+      if (operationFenceRef.current?.isCurrent(operation)) {
+        operationFenceRef.current.finish(operation);
+        setDecisionBusy(false);
+      }
     }
   }
 
   function openDraft(revision: PrGuideRevision) {
-    if (decisionBusy || building || sending) return;
+    if (decisionBusy || building || sending || operationFenceRef.current?.isActive('decision')) return;
     setCurrentDraft(revision);
     setIncludedClaimIds(allClaimIds(revision));
     setDecisionError(null);

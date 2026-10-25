@@ -41,20 +41,34 @@ test('comparison identity remounts PR Guide state and decisions stay scoped to t
   const acceptStart = source.indexOf('async function handleAccept()');
   const acceptEnd = source.indexOf('\n  async function handleReject()', acceptStart);
   const accept = source.slice(acceptStart, acceptEnd);
-  assert.ok(accept.includes('comparisonId: comparison.comparisonId'));
-  assert.ok(accept.includes('revisionId: currentDraft.revisionId'));
+  assert.ok(accept.includes('const comparisonId = comparison.comparisonId;'));
+  assert.ok(accept.includes('const revisionId = currentDraft.revisionId;'));
+  assert.ok(accept.includes('comparisonId,\n        revisionId,'));
 
   const rejectStart = source.indexOf('async function handleReject()');
   const rejectEnd = source.indexOf('\n  function openDraft', rejectStart);
   const reject = source.slice(rejectStart, rejectEnd);
-  assert.ok(reject.includes('comparisonId: comparison.comparisonId'));
-  assert.ok(reject.includes('revisionId: currentDraft.revisionId'));
+  assert.ok(reject.includes('const comparisonId = comparison.comparisonId;'));
+  assert.ok(reject.includes('const revisionId = currentDraft.revisionId;'));
+  assert.ok(reject.includes('comparisonId,\n        revisionId,'));
 
   const historyEffectStart = source.indexOf('useEffect(() => {\n    if (comparison.status !== \'ready\' || !comparison.comparisonId)');
   const historyEffectEnd = source.indexOf('\n  function clearReview()', historyEffectStart);
   const historyEffect = source.slice(historyEffectStart, historyEffectEnd);
   assert.ok(historyEffect.includes('detail?.projectId === projectId && detail.comparisonId === comparisonId'));
   assert.ok(historyEffect.includes('historyLookup.current += 1'));
+});
+
+test('sent and decision callbacks are fenced to their original comparison and completion', () => {
+  assert.match(source, /new PrGuideOperationFence\(operationScope\)/);
+  assert.match(source, /operationFenceRef\.current\.setScope\(operationScope\)/);
+  assert.match(source, /begin\('send'\)/);
+  assert.match(source, /begin\('cancel'\)/);
+  assert.equal((source.match(/begin\('decision'\)/g) ?? []).length, 2);
+  assert.match(source, /if \(!operationFenceRef\.current\?\.isCurrent\(operation\)\) return;/);
+  assert.match(source, /operationFenceRef\.current\?\.isCurrent\(sendOperation\)/);
+  assert.match(source, /operationFenceRef\.current\?\.unmount\(\)/);
+  assert.match(source, /its validated late result is retained in that comparison's history/);
 });
 
 test('an empty PR Guide shows why every changed file was excluded', () => {
