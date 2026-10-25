@@ -982,12 +982,16 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-rebase-conflict { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--border); border-radius: 5px; }
 .chapter-rebase-conflict legend { padding: 0 4px; color: var(--text); font-size: 8px; font-weight: 650; }
 .chapter-rebase-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.chapter-rebase-option { min-width: 0; display: grid; align-content: start; gap: 5px; }
 .chapter-rebase-options label { min-width: 0; display: flex; align-items: flex-start; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised); cursor: pointer; }
 .chapter-rebase-options label.is-selected { border-color: var(--accent-border); background: color-mix(in srgb,var(--accent) 8%,var(--surface)); }
 .chapter-rebase-options input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--accent); }
 .chapter-rebase-options label > span { min-width: 0; display: grid; gap: 3px; }
 .chapter-rebase-options strong { color: var(--text); font-size: 8px; }
 .chapter-rebase-options small { overflow-wrap: anywhere; color: var(--muted); font-size: 8px; line-height: 1.4; }
+.chapter-rebase-option-details { min-width: 0; color: var(--muted); font-size: 8px; }
+.chapter-rebase-option-details summary { width: fit-content; cursor: pointer; }
+.chapter-rebase-option-details pre { max-height: 240px; overflow: auto; margin: 5px 0 0; padding: 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: 8px/1.5 ui-monospace,monospace; }
 .chapter-rebase-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
 .chapter-rebase-actions [role="status"] { color: var(--muted); font-size: 8px; }
 @media (max-width: 720px) { .chapter-rebase-options { grid-template-columns: minmax(0,1fr); } .chapter-rebase-heading { flex-wrap: wrap; } }

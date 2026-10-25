@@ -25,12 +25,16 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
               const isDraft=choice==='draft';
               const title=isDraft?'Your draft':`Saved r${latest.revisionNumber}`;
               const description=isDraft?conflict.draftSummary:conflict.latestSummary;
-              return <label key={choice} className={choices[conflict.id]===choice?'is-selected':''}>
-                <input type="radio" name={`rebase-${conflict.id}`} value={choice}
-                  checked={choices[conflict.id]===choice}
-                  onChange={()=>setChoices(current=>({...current,[conflict.id]:choice}))}/>
-                <span><strong>{title}</strong><small title={description}>{description}</small></span>
-              </label>;
+              const fullContent=isDraft?conflict.draftDetail:conflict.latestDetail;
+              return <div key={choice} className="chapter-rebase-option">
+                <label className={choices[conflict.id]===choice?'is-selected':''}>
+                  <input type="radio" name={`rebase-${conflict.id}`} value={choice}
+                    checked={choices[conflict.id]===choice}
+                    onChange={()=>setChoices(current=>({...current,[conflict.id]:choice}))}/>
+                  <span><strong>{title}</strong><small title={description}>{description}</small></span>
+                </label>
+                <details className="chapter-rebase-option-details"><summary>View full {isDraft?'draft':'saved'} content</summary><pre>{fullContent}</pre></details>
+              </div>;
             })}
           </div>
         </fieldset>)}

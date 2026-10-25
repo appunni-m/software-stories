@@ -8,6 +8,8 @@ export interface ChapterRebaseConflict {
   label:string;
   draftSummary:string;
   latestSummary:string;
+  draftDetail:string;
+  latestDetail:string;
 }
 
 export interface ChapterRebaseResult {
@@ -28,13 +30,21 @@ function summary(value:unknown):string {
   return 'Updated';
 }
 
+function detail(value:unknown):string {
+  if(value===undefined)return 'Removed in this version.';
+  if(value===null)return 'None';
+  if(typeof value==='string')return value;
+  try{return JSON.stringify(value,null,2)??String(value);}
+  catch{return String(value);}
+}
+
 function mergeValue<T>(
   id:string,label:string,base:T,draft:T,latest:T,
   choices:ChapterRebaseChoices,conflicts:ChapterRebaseConflict[],
 ):T {
   if(same(draft,base))return copy(latest);
   if(same(latest,base)||same(draft,latest))return copy(draft);
-  conflicts.push({id,label,draftSummary:summary(draft),latestSummary:summary(latest)});
+  conflicts.push({id,label,draftSummary:summary(draft),latestSummary:summary(latest),draftDetail:detail(draft),latestDetail:detail(latest)});
   return copy(choices[id]==='draft'?draft:latest);
 }
 
@@ -86,7 +96,7 @@ export function rebaseChapterDraft(
       if(mine&&newer){
         if(sameSectionContent(mine,newer)){sections.push(copy(newer));continue;}
         const conflictId=`${id}:new`;
-        conflicts.push({id:conflictId,label:`New section · ${mine.title}`,draftSummary:summary(mine.title),latestSummary:summary(newer.title)});
+        conflicts.push({id:conflictId,label:`New section · ${mine.title}`,draftSummary:summary(mine.title),latestSummary:summary(newer.title),draftDetail:detail(mine),latestDetail:detail(newer)});
         sections.push(copy(choices[conflictId]==='draft'?mine:newer));
       }else if(mine||newer)sections.push(copy((mine??newer)!));
       continue;
@@ -95,14 +105,14 @@ export function rebaseChapterDraft(
     if(!mine){
       if(sameSectionContent(original,newer!))continue;
       const conflictId=`${id}:presence`;
-      conflicts.push({id:conflictId,label:`${original.title} · section`,draftSummary:'Remove this section',latestSummary:summary(newer!.title)});
+      conflicts.push({id:conflictId,label:`${original.title} · section`,draftSummary:'Remove this section',latestSummary:summary(newer!.title),draftDetail:'This draft removes the section.',latestDetail:detail(newer)});
       if(choices[conflictId]!=='draft')sections.push(copy(newer!));
       continue;
     }
     if(!newer){
       if(sameSectionContent(original,mine))continue;
       const conflictId=`${id}:presence`;
-      conflicts.push({id:conflictId,label:`${original.title} · section`,draftSummary:summary(mine.title),latestSummary:'Remove this section'});
+      conflicts.push({id:conflictId,label:`${original.title} · section`,draftSummary:summary(mine.title),latestSummary:'Remove this section',draftDetail:detail(mine),latestDetail:'This revision removes the section.'});
       if(choices[conflictId]==='draft')sections.push(copy(mine));
       continue;
     }
