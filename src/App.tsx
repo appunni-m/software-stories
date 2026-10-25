@@ -1936,12 +1936,7 @@ function App() {
                   projectId: currentProject.projectId,
                   snapshotId: selectedSnapshot.snapshotId,
                 })}
-                onGenerate={(targetPath) => setProviderDialog({
-                  kind: 'review',
-                  projectId: currentProject.projectId,
-                  snapshotId: selectedSnapshot.snapshotId,
-                  targetPath,
-                })}
+                onGenerate={(targetPath) => reviewFileWithProvider(targetPath)}
               />
             ) : currentWorkspace === 'chapter-studio' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Chapter Studio…</span></div>
