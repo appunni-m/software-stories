@@ -24,7 +24,6 @@
 .dw-file:hover,.dw-file.active {background:var(--surface-hover);color:var(--text);}
 .dw-file.active {box-shadow:inset 2px 0 var(--accent);}
 .dw-folder svg {color:var(--dim);}
-.dw-explorations-heading {border-top:1px solid var(--border);padding-top:12px;}
 .dw-explorations {list-style:none;padding:4px 0 12px;margin:0;max-height:250px;overflow:auto;flex-shrink:0;}
 .dw-explorations ul {list-style:none;padding:0;margin:0;border-left:1px solid var(--border);margin-left:15px;}
 .dw-explorations li > button {display:flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--muted);width:100%;text-align:left;cursor:pointer;padding:6px 10px;font-size:11px;}
