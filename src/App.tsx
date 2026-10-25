@@ -1274,6 +1274,14 @@ function App() {
       });
       return;
     }
+    if (!currentSnapshots.some((snapshot) => snapshot.snapshotId === targetSnapshotId)) {
+      setNotice({
+        title: 'This source snapshot is unavailable',
+        message: 'The citation does not belong to a snapshot in the selected repository. Choose the repository and snapshot that contain this source, then reopen the citation.',
+        tone: 'error',
+      });
+      return;
+    }
     const activeElement = document.activeElement;
     const returnFocusTarget = activeElement instanceof HTMLElement
       ? activeElement.dataset.focusKey ?? activeElement.closest<HTMLElement>('[data-focus-key]')?.dataset.focusKey
