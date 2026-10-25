@@ -10,6 +10,8 @@ const MAX_PATH_CHARS = 1024;
 const MAX_REASON_CHARS = 1200;
 const MAX_LIMITATION_CHARS = 2000;
 const MAX_RECORD_BYTES = 32 * 1024;
+const MAX_SAVED_RESULTS = 8;
+const MAX_COLLECTION_BYTES = 128 * 1024;
 
 export const SOURCE_DISCOVERY_SAVED_EVENT = 'code-atlas:source-discovery-saved';
 
@@ -22,6 +24,13 @@ interface SavedSourceDiscovery {
   selectedFiles: { path: string; reason: string }[];
   limitation: string;
   savedAtUnixMs: number;
+}
+
+interface SavedSourceDiscoveryCollection {
+  schemaVersion: 2;
+  projectId: string;
+  snapshotId: string;
+  records: SavedSourceDiscovery[];
 }
 
 function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
@@ -91,7 +100,45 @@ function validRecord(value: unknown): value is SavedSourceDiscovery {
     || !boundedText(record.snapshotId, MAX_SNAPSHOT_CHARS) || !boundedCharacters(record.question, MAX_QUESTION_CHARS)
     || !(record.targetPath === null || relativePath(record.targetPath, MAX_TARGET_PATH_CHARS))
     || !Number.isSafeInteger(record.savedAtUnixMs) || Number(record.savedAtUnixMs) <= 0) return false;
-  return validResult({ selectedFiles: record.selectedFiles, limitation: record.limitation });
+  if (!validResult({ selectedFiles: record.selectedFiles, limitation: record.limitation })) return false;
+  try { return byteLength(JSON.stringify(record)) <= MAX_RECORD_BYTES; }
+  catch { return false; }
+}
+
+function validCollection(value: unknown): value is SavedSourceDiscoveryCollection {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const collection = value as Record<string, unknown>;
+  if (!hasExactKeys(collection, ['schemaVersion', 'projectId', 'snapshotId', 'records'])
+    || collection.schemaVersion !== 2 || !boundedText(collection.projectId, MAX_ID_CHARS)
+    || !boundedText(collection.snapshotId, MAX_SNAPSHOT_CHARS) || !Array.isArray(collection.records)
+    || collection.records.length < 1 || collection.records.length > MAX_SAVED_RESULTS) return false;
+
+  const scopes = new Set<string>();
+  for (const record of collection.records) {
+    if (!validRecord(record) || record.projectId !== collection.projectId || record.snapshotId !== collection.snapshotId) return false;
+    const identity = JSON.stringify([record.question, record.targetPath]);
+    if (scopes.has(identity)) return false;
+    scopes.add(identity);
+  }
+  return true;
+}
+
+function recordMatchesScope(record: SavedSourceDiscovery, scope: SourceDiscoveryScope): boolean {
+  return record.projectId === scope.projectId && record.snapshotId === scope.snapshotId
+    && record.question === scope.question && record.targetPath === targetPath(scope);
+}
+
+function readSavedRecords(serialized: string, scope: SourceDiscoveryScope): SavedSourceDiscovery[] | null {
+  if (byteLength(serialized) > MAX_COLLECTION_BYTES) return null;
+  try {
+    const parsed: unknown = JSON.parse(serialized);
+    if (validCollection(parsed) && parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId) {
+      return parsed.records;
+    }
+    // Upgrade the previous single-scope record on the next successful save.
+    if (validRecord(parsed) && parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId) return [parsed];
+    return null;
+  } catch { return null; }
 }
 
 /** Save only a bounded code-selection result. Reviews, consent and source contents are never retained. */
@@ -109,8 +156,32 @@ export function saveSourceDiscoveryResult(scope: SourceDiscoveryScope, result: S
     savedAtUnixMs: Date.now(),
   };
   try {
-    const serialized = JSON.stringify(record);
-    if (byteLength(serialized) > MAX_RECORD_BYTES) return false;
+    const current = localStorage.getItem(key);
+    const previousRecords = current === null ? [] : readSavedRecords(current, scope);
+    // Do not replace a malformed or foreign record silently.
+    if (previousRecords === null) return false;
+
+    const previousNewest = Math.max(0, ...previousRecords.map((candidate) => candidate.savedAtUnixMs));
+    record.savedAtUnixMs = Math.max(record.savedAtUnixMs, previousNewest);
+    const identity = JSON.stringify([record.question, record.targetPath]);
+    let records = [
+      ...previousRecords.filter((candidate) => JSON.stringify([candidate.question, candidate.targetPath]) !== identity),
+      record,
+    ].sort((left, right) => right.savedAtUnixMs - left.savedAtUnixMs
+      || Number(right === record) - Number(left === record));
+    let serialized = '';
+    while (records.length > 0) {
+      const collection: SavedSourceDiscoveryCollection = {
+        schemaVersion: 2,
+        projectId: scope.projectId,
+        snapshotId: scope.snapshotId,
+        records,
+      };
+      serialized = JSON.stringify(collection);
+      if (records.length <= MAX_SAVED_RESULTS && byteLength(serialized) <= MAX_COLLECTION_BYTES) break;
+      records = records.slice(0, -1);
+    }
+    if (records.length === 0 || byteLength(serialized) > MAX_COLLECTION_BYTES) return false;
     localStorage.setItem(key, serialized);
     return true;
   } catch { return false; }
@@ -125,15 +196,18 @@ export function loadSourceDiscoveryResult(
   if (!key) return null;
   try {
     const serialized = localStorage.getItem(key);
-    if (!serialized || byteLength(serialized) > MAX_RECORD_BYTES) return null;
+    if (!serialized || byteLength(serialized) > MAX_COLLECTION_BYTES) return null;
     const parsed: unknown = JSON.parse(serialized);
-    if (!validRecord(parsed) || parsed.projectId !== scope.projectId || parsed.snapshotId !== scope.snapshotId
-      || parsed.question !== scope.question || parsed.targetPath !== targetPath(scope)) return null;
+    const records = validCollection(parsed)
+      ? parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId ? parsed.records : []
+      : validRecord(parsed) ? [parsed] : [];
+    const saved = records.find((record) => recordMatchesScope(record, scope));
+    if (!saved) return null;
     const allowed = new Set(availablePaths);
-    if (parsed.selectedFiles.some(({ path }) => !allowed.has(path))) return null;
+    if (saved.selectedFiles.some(({ path }) => !allowed.has(path))) return null;
     return {
-      selectedFiles: parsed.selectedFiles.map(({ path, reason }) => ({ path, reason })),
-      limitation: parsed.limitation,
+      selectedFiles: saved.selectedFiles.map(({ path, reason }) => ({ path, reason })),
+      limitation: saved.limitation,
     };
   } catch { return null; }
 }
