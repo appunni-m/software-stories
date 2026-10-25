@@ -370,6 +370,34 @@ test('a new question merges disjoint window edits before dispatching generation'
   assert.equal(local.store.getWorkspace('project','snapshot').explorations[0].turns.some(t=>t.id===localTurn),true);
 });
 
+test('a new attempt reconciles a previously blocked window conflict before generation',async()=>{
+  const b=backend(),remote=native(b);let generationArgs;let remoteTurn;let localTurn;
+  const local=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){
+      generationArgs=args;
+      const saved=b.records.get(scope).state.explorations.find(e=>e.id==='root').turns.map(t=>t.id);
+      assert.ok(saved.includes(remoteTurn),'the other window is retained before generation starts');
+      assert.ok(saved.includes(localTurn),'the retried question is saved before generation starts');
+      return {runId:args.input.runId,projectId:args.input.projectId,snapshotId:args.input.snapshotId,
+        question:args.input.question,outcome:'complete',sections:[],incompleteTopics:[]};
+    }
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  await local.store.prepareWorkspaceConversation('project','snapshot');
+  await remote.store.prepareWorkspaceConversation('project','snapshot');
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:remote'}));
+  remoteTurn=remote.store.appendQuestion('project','snapshot','Remote window question',[],'flow');
+  await remote.store.flushWorkspaceConversation('project','snapshot');
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:local'}));
+  await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'),/conversation changed in another window/);
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:local'}));
+  await remote.store.flushWorkspaceConversation('project','snapshot');
+  localTurn=local.store.appendQuestion('project','snapshot','Retry this focused question',[],'guide');
+  await local.store.runQuestion('project','snapshot',localTurn,'grant');
+  await local.store.flushWorkspaceConversation('project','snapshot');
+  assert.ok(generationArgs,'a safe merge clears the prior blocked save before the user’s next generation attempt');
+});
+
 test('same-field window conflicts keep both copies intact until the current window resolves its choice',async()=>{
   const b=backend(),local=native(b),remote=native(b);
   await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);

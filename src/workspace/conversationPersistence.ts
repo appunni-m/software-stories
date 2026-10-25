@@ -215,6 +215,15 @@ export class ConversationPersistence {
     if(this.blocked)throw new Error(this.failure);
     while(this.active||this.pending||this.attempt)await this.drain();
   }
+  /** A new explicit generation action may safely reconcile one earlier window conflict. */
+  async flushForGeneration():Promise<void> {
+    try{await this.flush();}
+    catch(failure){
+      if(!isConversationRevisionConflict(failure))throw failure;
+      await this.retry();
+      await this.flush();
+    }
+  }
   async flushBeforeClose():Promise<void> {
     // A failed initial read with no edits has nothing to flush and must not trap startup.
     if(this.starting)try{await this.starting;}catch{/* Original bytes are preserved by start. */}

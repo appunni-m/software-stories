@@ -93,6 +93,7 @@ export function prepareWorkspaceConversation(project:string,snapshot:string):Pro
   return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();
 }
 export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
+export function flushWorkspaceConversationBeforeGeneration(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flushForGeneration():Promise.resolve();}
 export function retryWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).retry():Promise.resolve();}
 export function useConversationAvailability(project:string,snapshot:string){
   return useSyncExternalStore(notify=>{listeners.add(notify);return()=>{listeners.delete(notify);};},()=>isNativeRuntime()?savedConversation(project,snapshot).availability:'ready');
@@ -442,7 +443,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     if (job.cancelled) return;
     if(closingWorkspace)throw new Error(closingMessage);
     patchTurn(project,snapshot,id,{status:'working',error:undefined});
-    await flushWorkspaceConversation(project,snapshot);
+    await flushWorkspaceConversationBeforeGeneration(project,snapshot);
     if(closingWorkspace)throw new Error(closingMessage);
     await ensureCodexConnection(true);
     if (job.cancelled) return;
@@ -483,7 +484,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     const current=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
     if(!current?.guideId||!canContinueGuide(current))return;
     patchTurn(project,snapshot,turnId,{status:'working',error:undefined});
-    await flushWorkspaceConversation(project,snapshot);
+    await flushWorkspaceConversationBeforeGeneration(project,snapshot);
     if(job.cancelled||closingWorkspace)return;
     await ensureCodexConnection(true);
     if(job.cancelled||closingWorkspace)return;
@@ -523,7 +524,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     const selection = readCodexSelection();
     const runId = crypto.randomUUID(); job.runId = runId;
     patchTurn(project,snapshot,id,{runIds:[...(turn.runIds ?? []),runId]});
-    await flushWorkspaceConversation(project,snapshot);check();
+    await flushWorkspaceConversationBeforeGeneration(project,snapshot);check();
     // Subscribe before dispatch. Events carry identities only; the native save
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {
