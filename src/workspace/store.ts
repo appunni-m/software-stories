@@ -313,8 +313,12 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
       return mergePublishedSections(owner,[section]);
     }),
   }))}));
-  window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
+  // Queue local narration before notifying the reader. Otherwise the player can
+  // check preparation status in the gap, see "idle", and stop polling before
+  // this new section reaches the bounded native prewarm queue. This remains
+  // fire-and-forget; synthesis cannot delay publishing the saved section.
   if (prewarmAudio) prewarmRevisionNarration(revision);
+  window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
 async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary, prewarmAudio = false) {
