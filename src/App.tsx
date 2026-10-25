@@ -4878,9 +4878,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       <section className="chapter-studio-card" aria-labelledby="chapter-studio-title">
         <div className="chapter-studio-topline">
           <div>
-            <div className="step-pill"><span>GUIDE EDITOR</span> SOURCE FIRST · VERSIONED</div>
-            <h2 id="chapter-studio-title" data-focus-key="heading:chapter-studio">Inspect what each file actually does.</h2>
-            <p>Each file explanation stays separate. The optional repository overview never counts files as explained; changes are saved as local versions.</p>
+            <div className="step-pill"><span>CHAPTER STUDIO</span></div>
+            <h2 id="chapter-studio-title" data-focus-key="heading:chapter-studio">Review each explanation against its code.</h2>
+            <p>Choose a file, check its cited lines, and edit one section at a time.</p>
           </div>
           <div className="chapter-studio-top-actions">
             <button className="primary-button" onClick={onGenerateOverview} disabled={editing || Boolean(pendingDraft)} title={editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
