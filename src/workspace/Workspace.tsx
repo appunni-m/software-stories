@@ -248,7 +248,7 @@ export function DeveloperWorkspace(props:Props) {
     return()=>{active=false;controller.abort();if(gitRequest.current===controller)gitRequest.current=null;};
   },[projectId,showChanges,gitReload]);
   useEffect(()=>{
-    if(workspace!=='changes'||gitBusy||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
+    if(workspace!=='changes'||gitBusy||gitRequest.current||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
     const head=commits.find((commit)=>commit.parents[0]);
     if(!head||defaultComparedHead.current===head.oid)return;
     defaultComparedHead.current=head.oid;
