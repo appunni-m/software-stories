@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -150,11 +150,22 @@ test('partial guide coverage note names omissions concisely',()=>{
   assert.ok(long.endsWith('…'));
 });
 
+test('uncovered guide topics include failed planned units',()=>{
+  assert.deepEqual(repositoryGuideUncoveredTopics({
+    omissions:['C ABI errors'],
+    units:[
+      {key:'api',question:'Explain the public API',prerequisites:[],status:'complete',runIds:['run-1']},
+      {key:'wasm',question:'Explain the WASM route',prerequisites:[],status:'failed',runIds:['run-2']},
+    ],
+  }),['C ABI errors','Explain the WASM route']);
+  assert.deepEqual(repositoryGuideUncoveredTopics(undefined),[]);
+});
+
 test('a completed guide exposes omissions as a nested source exploration',async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   const store=readFileSync(new URL('../src/workspace/store.ts',import.meta.url),'utf8');
-  assert.match(source,/repositoryGuideOmissionQuestion\(turn\.guide\?\.omissions\?\?\[\]\)/);
+  assert.match(source,/repositoryGuideOmissionQuestion\(repositoryGuideUncoveredTopics\(turn\.guide\)\)/);
   assert.match(source,/selectedGuideSlide===guideSlides\.length-1/);
   assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
   assert.match(source,/coverageSummary=\{omissionSummary\?\?undefined\}/);

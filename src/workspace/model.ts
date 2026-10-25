@@ -229,6 +229,14 @@ export function repositoryGuideOmissionTopics(omissions: readonly string[]): str
     .filter(Boolean))].slice(0, 8).map((topic) => topic.slice(0, 180));
 }
 
+/** Include both planner omissions and planned units that never completed. */
+export function repositoryGuideUncoveredTopics(guide: Pick<RepositoryGuide, 'omissions' | 'units'> | undefined): string[] {
+  if (!guide) return [];
+  return [...guide.omissions, ...guide.units
+    .filter((unit) => unit.status !== 'complete')
+    .map((unit) => unit.question)];
+}
+
 /** Keep the visible coverage note concise while naming the major omissions. */
 export function repositoryGuideOmissionSummary(omissions: readonly string[]): string | null {
   const topics = repositoryGuideOmissionTopics(omissions);
