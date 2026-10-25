@@ -370,6 +370,9 @@ export function DeveloperWorkspace(props:Props) {
       setCodeRequestReviewError('This source selection changed. Close this review, reopen the captured file, and select the code again.');
       return;
     }
+    // Keep the reviewed question available if the saved account/backend needs
+    // attention. The connection check can open Settings and return here.
+    if(!requireCodexConnection())return;
     setCodeRequestReview(null);setCodeRequestReviewError(null);
     openFile(review.context);
     ask(review.question,current.view==='flow'?'flow':'guide',[review.context]);
