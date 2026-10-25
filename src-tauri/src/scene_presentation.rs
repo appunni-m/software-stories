@@ -136,31 +136,19 @@ pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
         .is_some_and(|root| root.kind == ElementKind::Selector)
 }
 
-/// Fresh model output must not use a graph for first-match candidate dispatch.
-/// Stored scenes retain the version-3 replay contract; this stricter choice
-/// check is called only while admitting newly generated chapter content.
-pub(crate) fn validate_fresh_semantic_layouts(
+/// Apply the current authored-layout rules to new content and every replayed
+/// revision so a saved scene cannot retain an obsolete presentation policy.
+pub(crate) fn validate_semantic_layouts(
     presentation: &ScenePresentation,
     claims: &[ChapterClaim],
     nodes: &[VisualNode],
 ) -> Result<(), String> {
     for (scene, claim) in presentation.scenes.iter().zip(claims) {
-        if !scene_narration_is_concise(&scene.narration) {
-            return Err(
-                "New scene narration must use at most two short sentences and 320 UTF-8 bytes."
-                    .into(),
-            );
-        }
-        if has_compact_spoken_code_token(&scene.narration) {
-            return Err(
-                "Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead.".into(),
-            );
-        }
         if requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
             && (scene.mode != SceneMode::Composition || !has_ordered_selector_root(&scene.elements))
         {
             return Err(
-                "Source-ordered guards need a selector composition at the root, not a graph or another layout."
+                "Source-ordered guards need a selector composition at the root so each guard, outcome and fall-through stays visible; a LIFO stack reverses the priority."
                     .into(),
             );
         }
@@ -208,29 +196,11 @@ pub(crate) fn has_compact_spoken_code_token(text: &str) -> bool {
         })
 }
 
-/// Authored speech stays separate from exact implementation claims. This checks
-/// coverage/identity and bounds, not whether a paraphrase preserves semantics.
+/// Authored speech stays separate from exact implementation claims and follows
+/// one concise, code-aware policy both when saved and when generated.
 pub(crate) fn narration(
     presentation: &ScenePresentation,
     claims: &[ChapterClaim],
-) -> Result<Vec<String>, String> {
-    narration_with_policy(presentation, claims, false)
-}
-
-/// Enforce the current authoring limit only while preparing new content.
-/// Stored revisions keep the older bounded narration contract so an app
-/// upgrade does not make previously saved explanations unreadable.
-pub(crate) fn narration_for_generation(
-    presentation: &ScenePresentation,
-    claims: &[ChapterClaim],
-) -> Result<Vec<String>, String> {
-    narration_with_policy(presentation, claims, true)
-}
-
-fn narration_with_policy(
-    presentation: &ScenePresentation,
-    claims: &[ChapterClaim],
-    require_concise: bool,
 ) -> Result<Vec<String>, String> {
     if presentation.schema_version != 3 {
         return Err("A scene presentation must use schema version 3.".into());
@@ -243,18 +213,14 @@ fn narration_with_policy(
         let text = scene.narration.trim();
         if scene.claim_index != index
             || claim.anchors.is_empty()
-            || if require_concise {
-                !scene_narration_is_concise(text)
-            } else {
-                text.is_empty() || text.len() > 4_000
-            }
+            || !scene_narration_is_concise(text)
         {
-            return Err(if require_concise {
-                "Each newly authored scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into()
-            } else {
-                "Each stored scene needs bounded narration and its own consecutive anchored claim."
-                    .into()
-            });
+            return Err("Each scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into());
+        }
+        if has_compact_spoken_code_token(text) {
+            return Err(
+                "Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead.".into(),
+            );
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
         scripts.push(match &claim.category {
@@ -443,11 +409,6 @@ pub fn validate(
             }
             continue;
         }
-        if requires_ordered_selector(&claims[index].prose, &scene.title, &scene.narration)
-            && !has_ordered_selector_root(&scene.elements)
-        {
-            return Err("A first-match composition needs a root selector layout so each guard, outcome and fall-through stays visible; a LIFO stack reverses the priority.".into());
-        }
         if let Some(finding) = tree::findings(&scene.elements).first() {
             return Err(finding.message.into());
         }
@@ -514,6 +475,7 @@ pub fn validate(
             }
         }
     }
+    validate_semantic_layouts(presentation, claims, nodes)?;
     let labels: Vec<_> = nodes.iter().map(|n| n.label.as_str()).collect();
     if !repetition_positions(presentation, &labels).is_empty() {
         return Err("A transformation must show distinct input/result labels or values.".into());
@@ -660,8 +622,18 @@ mod tests {
 
     #[test]
     fn ordered_candidate_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
-        let (nodes, mut claims, mut presentation) = fixture();
+        let (mut nodes, mut claims, mut presentation) = fixture();
         claims[0].prose = "Parser signatures are competing candidates checked in source order; the first matching parser handles the input.".into();
+        let claim_anchors: Vec<_> = claims[0]
+            .anchors
+            .iter()
+            .map(|anchor| anchor.anchor_id.clone())
+            .collect();
+        for node in &mut nodes {
+            node.evidence_anchor_ids = claim_anchors.clone();
+        }
+        nodes[1].label = "First candidate decoder".into();
+        nodes[3].label = "Default decoder".into();
         let scene = &mut presentation.scenes[0];
         scene.title = "The first matching flag wins".into();
         scene.elements = vec![
@@ -723,6 +695,10 @@ mod tests {
             leaf(ElementKind::Text, 4, "No earlier flag matched"),
             leaf(ElementKind::Token, 4, "Use the default loader"),
         ];
+        presentation.scenes[0].elements[2].node_index = Some(0);
+        presentation.scenes[0].elements[3].node_index = Some(1);
+        presentation.scenes[0].elements[5].node_index = Some(2);
+        presentation.scenes[0].elements[6].node_index = Some(3);
         validate(&presentation, &nodes, &claims).unwrap();
 
         let mut wrapped = presentation.scenes[0].elements.clone();
@@ -742,11 +718,11 @@ mod tests {
         );
         presentation.scenes[0].elements = wrapped;
         let error = validate(&presentation, &nodes, &claims).unwrap_err();
-        assert!(error.contains("root selector layout"));
+        assert!(error.contains("selector composition at the root"));
     }
 
     #[test]
-    fn fresh_independent_guards_do_not_require_an_ordered_selector() {
+    fn current_independent_guards_do_not_require_an_ordered_selector() {
         let (nodes, claims, mut presentation) = fixture();
         let mut claims = vec![claims[0].clone()];
         presentation.scenes.truncate(1);
@@ -766,7 +742,7 @@ mod tests {
             "A miss falls through to the next validation check."
         ));
         validate(&presentation, &nodes, &claims).unwrap();
-        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+        validate_semantic_layouts(&presentation, &claims, &nodes).unwrap();
 
         claims[0].prose = "Parser signatures are tried in source order; the first matching candidate wins and a miss tries the next candidate.".into();
         assert!(requires_ordered_selector(
@@ -775,7 +751,7 @@ mod tests {
             ""
         ));
         assert!(
-            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+            validate_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("selector composition at the root")
         );
@@ -790,16 +766,16 @@ mod tests {
         }];
         claims[0].prose = "An invalid face index returns an error; a valid index continues into the table-bounds check.".into();
         assert!(
-            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+            validate_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("A selector implies first-match dispatch")
         );
         claims[0].prose = "Parser signatures are tried in source order; the first matching candidate wins and a miss tries the next candidate.".into();
-        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+        validate_semantic_layouts(&presentation, &claims, &nodes).unwrap();
     }
 
     #[test]
-    fn fresh_selector_branches_have_one_matching_outcome() {
+    fn current_selector_branches_have_one_matching_outcome() {
         let (mut nodes, mut claims, mut presentation) = fixture();
         claims.truncate(1);
         presentation.scenes.truncate(1);
@@ -856,14 +832,14 @@ mod tests {
             vec![(0, 1)]
         );
         assert!(
-            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+            validate_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("one matching outcome")
         );
     }
 
     #[test]
-    fn fresh_selector_scenes_use_distinct_behavior_specific_outcome_labels() {
+    fn current_selector_scenes_use_distinct_behavior_specific_outcome_labels() {
         let (mut nodes, mut claims, mut presentation) = fixture();
         presentation.scenes.truncate(1);
         claims.truncate(1);
@@ -892,9 +868,9 @@ mod tests {
         let node_labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
         let labels = repeated_selector_outcome_positions(&presentation, &node_labels);
         assert_eq!(labels, vec![(0, 6)]);
-        assert!(validate(&presentation, &nodes, &claims).is_ok());
+        assert!(validate(&presentation, &nodes, &claims).is_err());
         assert!(
-            validate_fresh_semantic_layouts(&presentation, &claims, &nodes)
+            validate_semantic_layouts(&presentation, &claims, &nodes)
                 .unwrap_err()
                 .contains("specific guard and result")
         );
@@ -902,7 +878,7 @@ mod tests {
         nodes[1].label = "PFR face parser".into();
         let node_labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
         assert!(repeated_selector_outcome_positions(&presentation, &node_labels).is_empty());
-        validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+        validate_semantic_layouts(&presentation, &claims, &nodes).unwrap();
     }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {
@@ -923,8 +899,13 @@ mod tests {
             .unwrap()
             .nodes
             .clone();
-        let mut scenes: Vec<_> = section
-            .claims
+        let mut claims = section.claims.clone();
+        for claim in &mut claims {
+            claim.prose =
+                "The implementation transforms the selected input and returns its result."
+                    .into();
+        }
+        let mut scenes: Vec<_> = claims
             .iter()
             .enumerate()
             .map(|(i, _)| PresentationScene {
@@ -946,7 +927,7 @@ mod tests {
         }];
         (
             nodes,
-            section.claims.clone(),
+            claims,
             ScenePresentation {
                 schema_version: 3,
                 scenes,
@@ -1034,18 +1015,18 @@ mod tests {
         let mut wrong = presentation.clone();
         wrong.scenes[0].claim_index = 1;
         assert!(narration(&wrong, &claims).is_err());
-        let mut earlier_policy = presentation.clone();
-        earlier_policy.scenes[0].narration = "First outcome. Second outcome. Third outcome.".into();
-        assert!(validate(&earlier_policy, &nodes, &claims).is_ok());
-        assert!(narration(&earlier_policy, &claims).is_ok());
-        assert!(narration_for_generation(&earlier_policy, &claims).is_err());
+        let mut long_legacy_speech = presentation.clone();
+        long_legacy_speech.scenes[0].narration =
+            "First outcome. Second outcome. Third outcome.".into();
+        assert!(validate(&long_legacy_speech, &nodes, &claims).is_err());
+        assert!(narration(&long_legacy_speech, &claims).is_err());
         presentation.scenes[0].narration = "é".repeat(600);
-        assert!(narration(&presentation, &claims).is_ok());
-        assert!(narration_for_generation(&presentation, &claims).is_err());
+        assert!(validate(&presentation, &nodes, &claims).is_err());
+        assert!(narration(&presentation, &claims).is_err());
     }
 
     #[test]
-    fn fresh_spoken_script_flags_compact_code_tokens_but_allows_role_language() {
+    fn current_spoken_script_flags_compact_code_tokens_but_allows_role_language() {
         for script in [
             "The SFNT marker selects the parser.",
             "PFR0 goes to its dedicated loader.",
@@ -1072,11 +1053,11 @@ mod tests {
     }
 
     #[test]
-    fn fresh_scene_admission_rejects_compact_spoken_tokens() {
+    fn current_scene_admission_rejects_compact_spoken_tokens() {
         let (nodes, claims, mut presentation) = fixture();
         presentation.scenes[0].narration =
             "The SFNT marker selects the parser; its role stays visible in the source.".into();
-        let error = validate_fresh_semantic_layouts(&presentation, &claims, &nodes).unwrap_err();
+        let error = validate(&presentation, &nodes, &claims).unwrap_err();
         assert!(error.contains("compact code abbreviation or format token"));
         assert!(!error.contains("SFNT"));
     }

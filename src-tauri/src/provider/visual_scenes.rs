@@ -112,7 +112,7 @@ pub(crate) fn prepare_generated_sections(
         if !(20..=4_000).contains(&complete.len()) {
             return Err("The complete grounded narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
-        let authored_narration = chapters::authored_section_narration_for_generation(section)?;
+        let authored_narration = chapters::authored_section_narration(section)?;
         let narration = authored_narration
             .as_deref()
             .unwrap_or_else(|| section.spoken_text.trim())

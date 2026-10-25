@@ -169,8 +169,7 @@ pub(crate) fn repeated_selector_outcome_positions(
 /// Return a selector branch when it lists more than the one result associated
 /// with its guard. The reader renders a miss-and-continue path automatically;
 /// a second outcome under the same guard would blur that path with the matched
-/// result. Structural replay may still accept historical scenes with this
-/// shape; fresh authoring applies this stricter rule.
+/// result.
 pub(crate) fn selector_multiple_outcome_positions(
     presentation: &ScenePresentation,
 ) -> Vec<(usize, usize)> {

@@ -441,22 +441,6 @@ fn section_has_standalone_narration(section: &ChapterSection) -> bool {
 pub(crate) fn authored_section_narration(
     section: &ChapterSection,
 ) -> Result<Option<String>, String> {
-    authored_section_narration_with_policy(section, false)
-}
-
-/// Validate newly generated scene scripts against the current authoring
-/// contract. The read path deliberately keeps using the prior bound so saved
-/// revisions remain readable after prompt-policy changes.
-pub(crate) fn authored_section_narration_for_generation(
-    section: &ChapterSection,
-) -> Result<Option<String>, String> {
-    authored_section_narration_with_policy(section, true)
-}
-
-fn authored_section_narration_with_policy(
-    section: &ChapterSection,
-    require_concise: bool,
-) -> Result<Option<String>, String> {
     let Some(presentation) = section
         .visual
         .as_ref()
@@ -465,11 +449,7 @@ fn authored_section_narration_with_policy(
     else {
         return Ok(None);
     };
-    let scripts = if require_concise {
-        crate::scene_presentation::narration_for_generation(presentation, &section.claims)?
-    } else {
-        crate::scene_presentation::narration(presentation, &section.claims)?
-    };
+    let scripts = crate::scene_presentation::narration(presentation, &section.claims)?;
     Ok(Some(scripts.join(" ")))
 }
 
