@@ -79,7 +79,8 @@ export function rebaseChapterDraft(
   const sameTarget=base.projectId===latest.projectId&&latest.projectId===draft.projectId
     &&base.snapshotId===latest.snapshotId&&latest.snapshotId===draft.snapshotId
     &&base.chapterId===latest.chapterId&&latest.chapterId===draft.chapterId
-    &&base.target.targetId===latest.target.targetId&&latest.target.targetId===draft.target.targetId;
+    &&base.target.targetId===latest.target.targetId&&latest.target.targetId===draft.target.targetId
+    &&same(base.target.scope,latest.target.scope)&&same(latest.target.scope,draft.target.scope);
   if(!sameTarget)throw new Error('These chapter versions do not share the same project, snapshot and target.');
 
   const conflicts:ChapterRebaseConflict[]=[];
