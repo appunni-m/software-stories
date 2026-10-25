@@ -4748,6 +4748,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   };
   const saveEdits = async () => {
     if (!candidate || !selectedRevision || busy) return;
+    if (historyAvailability !== 'ready') {
+      setFeedback({ message: 'Saved revision history is still loading or unavailable. Your draft is preserved; refresh history before saving.', tone: 'info' });
+      return;
+    }
     if (!isLatestCurrent) {
       setFeedback({ message: 'A newer revision is available. Your unsaved edit is preserved; review the newer version before creating another draft.', tone: 'info' });
       return;
@@ -4771,7 +4775,19 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       onSelectRevision(saved.revision);
     } catch (error) {
       if (!studioMounted.current) return;
-      setFeedback({ message: errorMessageOr(error, 'The draft could not be saved.'), tone: 'error' });
+      const message = errorMessageOr(error, 'The draft could not be saved.');
+      if (/chapter changed since it was opened|no longer the latest revision/iu.test(message)) {
+        const history = chapterHistory.current;
+        if (history) {
+          setLoadError(null);
+          setLoading(true);
+          setFeedback({ message: 'A newer revision was saved while you were editing. Your draft is preserved while the latest version loads.', tone: 'info' });
+          await history.refresh();
+          if (!studioMounted.current) return;
+          return;
+        }
+      }
+      setFeedback({ message, tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
     }
@@ -4978,7 +4994,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           <div className="chapter-review-actions">
                             <button className="text-button" onClick={cancelEditing} disabled={busy}>Cancel</button>
                             <button className="secondary-button" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</button>
-                            <button className="primary-button" onClick={() => { void saveEdits(); }} disabled={busy || !candidate || !isLatestCurrent} title={!isLatestCurrent ? 'A newer revision exists. Compare the drafts before continuing.' : undefined}><Save size={14} /> {isLatestCurrent ? 'Save as new draft' : 'Newer version exists'}</button>
+                            <button className="primary-button" onClick={() => { void saveEdits(); }} disabled={busy || !candidate || !isLatestCurrent || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Wait for saved revision history to finish refreshing.' : !isLatestCurrent ? 'A newer revision exists. Compare the drafts before continuing.' : undefined}><Save size={14} /> {isLatestCurrent ? 'Save as new draft' : 'Newer version exists'}</button>
                           </div>
                         </> : <>
                           <span className="chapter-validation-summary">{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision is read-only.' : selectedRevision.lifecycle === 'rejected' ? `Rejected · ${selectedRevision.decisionNote ?? 'Reason not recorded'}` : `Evidence status: ${selectedRevision.validationStatus}`}</span>
