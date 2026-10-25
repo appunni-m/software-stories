@@ -1,11 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 export interface SourceDiscoveryScope { projectId: string; snapshotId: string; question: string; targetPath?: string | null }
 export interface DocumentationNotice { path: string; status: 'declaredDeprecated' | 'unverified'; reason: string }
+export type DiscoveryCoverageGapCategory = 'largeFiles' | 'unreadableSource' | 'unsupportedLanguage' | 'indexLimit' | 'partialParse' | 'unavailableSource' | 'incompleteIndex' | 'unindexedFiles';
+export interface DiscoveryCoverageGap { category: DiscoveryCoverageGapCategory; count: number; examples: string[]; message: string }
 export type SourceDiscoveryIndexStatus = 'complete' | 'partial' | 'cancelled' | 'missing' | 'unreadable';
 export interface SourceDiscoveryReview {
   reviewId: string; fingerprint: string; modelId: string; effort: string; question: string;
   metadata: string; candidateCount: number; omittedCount: number; indexStatus: SourceDiscoveryIndexStatus;
-  documentation: DocumentationNotice[];
+  documentation: DocumentationNotice[]; coverageGaps: DiscoveryCoverageGap[];
 }
 export interface SourceDiscoveryResult { selectedFiles: { path: string; reason: string }[]; limitation: string }
 export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: string; effort: string; workspaceGrant?: string }) =>

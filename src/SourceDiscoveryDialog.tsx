@@ -2,11 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { FileSearch, LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
-import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
+import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type DiscoveryCoverageGapCategory, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { loadSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
 import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, loadSnapshotManifest, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
+
+const coverageGapLabels: Record<DiscoveryCoverageGapCategory, string> = {
+  largeFiles: 'large files',
+  unreadableSource: 'unreadable source files',
+  unsupportedLanguage: 'files without a local parser',
+  indexLimit: 'files beyond local index limits',
+  partialParse: 'partially mapped files',
+  unavailableSource: 'unreadable source files',
+  incompleteIndex: 'files missing from the local map',
+  unindexedFiles: 'files missing from the local map',
+};
 
 export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
@@ -119,12 +130,24 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     <div className="provider-dialog-content">
       {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
         <p>Codex will search <strong>{review.candidateCount.toLocaleString()} captured code files</strong> and use the available names and connections to choose what matters. You do not need to select references.</p>
-        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This discovery shares your question, captured code paths, available symbol names and static links with OpenAI through Codex. Account quota applies. File contents are reviewed separately before chapter generation.</p>
+        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This discovery shares your question, captured code paths, code-map coverage, available symbol names and static links with OpenAI through Codex. Account quota applies. File contents are reviewed separately before chapter generation.</p>
         {review.indexStatus === 'partial' && <p className="source-warning">The local code map is incomplete. Discovery can still use captured files and the symbols and connections that were found; some may be missing.</p>}
         {review.indexStatus === 'cancelled' && <p className="source-warning">Building the local code map was cancelled. Discovery can use captured files and any saved partial map; some connections may be missing.</p>}
         {review.indexStatus === 'missing' && <p className="source-warning">No local code map is available. Discovery will use captured file paths only; code relationships are unknown.</p>}
         {review.indexStatus === 'unreadable' && <p className="source-warning">The saved local code map could not be read. Discovery will use captured file paths only; code relationships are unknown.</p>}
         {review.omittedCount > 0 && <p className="source-warning">{review.omittedCount.toLocaleString()} code paths do not fit this discovery window. The result will show this scope limit.</p>}
+        {review.coverageGaps.length > 0 && (
+          <details>
+            <summary>Code outside this discovery pass · {review.coverageGaps.reduce((total, gap) => total + gap.count, 0).toLocaleString()} paths</summary>
+            <ul>{review.coverageGaps.map((gap) => (
+              <li key={gap.category}>
+                <strong>{gap.count.toLocaleString()} {coverageGapLabels[gap.category]}</strong>
+                <p>{gap.message}</p>
+                {gap.examples.length > 0 && <p><code>{gap.examples.join(', ')}</code></p>}
+              </li>
+            ))}</ul>
+          </details>
+        )}
         <details><summary>What Codex will inspect</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}
       </>}

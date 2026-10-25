@@ -2,14 +2,14 @@
 //! Discovery proposes scope, never proves behavior or accepts generated work.
 
 use crate::{
-    ProjectSessions, app_data_directory, codex_agent,
+    app_data_directory, codex_agent,
     codex_identity::CodexReviewRuntime,
     index,
     snapshot::{self, CapturedContentKind, InventoryPathKind, SnapshotManifest},
-    strict_json,
+    strict_json, ProjectSessions,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -58,6 +58,16 @@ pub(crate) struct DiscoveryReview {
     omitted_count: usize,
     index_status: DiscoveryIndexStatus,
     documentation: Vec<DocumentationNotice>,
+    coverage_gaps: Vec<DiscoveryCoverageGap>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DiscoveryCoverageGap {
+    category: String,
+    count: usize,
+    examples: Vec<String>,
+    message: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -214,6 +224,7 @@ fn metadata(
         usize,
         DiscoveryIndexStatus,
         Vec<DocumentationNotice>,
+        Vec<DiscoveryCoverageGap>,
     ),
     String,
 > {
@@ -274,31 +285,64 @@ fn metadata(
             Ok(None) => (None, DiscoveryIndexStatus::Missing),
             Err(_) => (None, DiscoveryIndexStatus::Unreadable),
         };
+    // Build path lookups once. Filtering the complete symbol and relationship
+    // vectors for every captured file made discovery scale as files × index
+    // entries on large repositories.
+    let mut indexed_files = HashMap::new();
+    let mut symbols_by_path = HashMap::<&str, Vec<&index::IndexedSymbol>>::new();
+    let mut links_by_path = HashMap::<&str, Vec<&index::IndexedRelationship>>::new();
+    if let Some(local_index) = &local_index {
+        for indexed in &local_index.files {
+            indexed_files.insert(indexed.path.as_str(), indexed);
+        }
+        for symbol in &local_index.symbols {
+            let symbols = symbols_by_path.entry(symbol.path.as_str()).or_default();
+            if symbols.len() < 18 {
+                symbols.push(symbol);
+            }
+        }
+        for edge in &local_index.relationships {
+            if edge.confidence == index::RelationshipConfidence::High {
+                let links = links_by_path
+                    .entry(edge.evidence.path.as_str())
+                    .or_default();
+                if links.len() < 10 {
+                    links.push(edge);
+                }
+            }
+        }
+    }
+    let coverage_gaps = discovery_coverage_gaps(&manifest, &indexed_files, local_index.is_some());
     let mut sizes = BTreeMap::new();
     let mut files = Vec::new();
     let mut budget = 0;
     for file in candidates {
-        let symbols: Vec<_> = local_index
-            .as_ref()
+        let symbols: Vec<_> = symbols_by_path
+            .get(file.path.as_str())
             .into_iter()
-            .flat_map(|value| value.symbols.iter())
-            .filter(|symbol| symbol.path == file.path)
-            .take(18)
+            .flatten()
             .map(|symbol| json!({"name":symbol.qualified_name,"line":symbol.anchor.start_line}))
             .collect();
-        let links: Vec<_> = local_index
-            .as_ref()
+        let links: Vec<_> = links_by_path
+            .get(file.path.as_str())
             .into_iter()
-            .flat_map(|value| value.relationships.iter())
-            .filter(|edge| {
-                edge.evidence.path == file.path
-                    && edge.confidence == index::RelationshipConfidence::High
-            })
-            .take(10)
+            .flatten()
             .map(|edge| json!({"kind":edge.kind,"path":edge.target_path,"name":edge.target_label}))
             .collect();
-        let record =
-            json!({"path":file.path,"bytes":file.size_bytes,"symbols":symbols,"staticLinks":links});
+        let indexing = indexed_files
+            .get(file.path.as_str())
+            .map(|indexed| {
+                json!({
+                    "status": &indexed.status,
+                    "language": &indexed.language,
+                    "message": &indexed.message
+                })
+            })
+            .unwrap_or_else(|| {
+                json!({"status": if local_index.is_some() { "notIndexed" } else { "unavailable" }})
+            });
+        let record = json!({"path":file.path,"bytes":file.size_bytes,"indexing":indexing,
+            "symbols":symbols,"staticLinks":links});
         let length = serde_json::to_vec(&record)
             .map_err(|_| "The code index could not be encoded.")?
             .len();
@@ -316,10 +360,121 @@ fn metadata(
     let text = serde_json::to_string(
         &json!({"question":input.question,"fixedTarget":input.target_path,
         "indexStatus":index_status,"captureStatus":manifest.summary.status,
-        "omittedCodeFiles":total-sizes.len(),"codeFiles":files,"documentationHints":documentation}),
+        "omittedCodeFiles":total-sizes.len(),"codeFiles":files,"coverageGaps":coverage_gaps,
+        "documentationHints":documentation}),
     )
     .map_err(|_| "The code index could not be encoded.")?;
-    Ok((text, sizes, total, index_status, documentation))
+    Ok((
+        text,
+        sizes,
+        total,
+        index_status,
+        documentation,
+        coverage_gaps,
+    ))
+}
+
+fn discovery_coverage_gaps(
+    manifest: &SnapshotManifest,
+    indexed_files: &HashMap<&str, &index::IndexedFile>,
+    has_index: bool,
+) -> Vec<DiscoveryCoverageGap> {
+    struct Gap {
+        message: &'static str,
+        count: usize,
+        examples: Vec<String>,
+    }
+
+    let mut gaps = BTreeMap::<&'static str, Gap>::new();
+    for file in &manifest.files {
+        if file.kind != InventoryPathKind::File
+            || file.secret_like
+            || !is_code_path(&file.path)
+            || file.path.split('/').any(|part| {
+                matches!(
+                    part,
+                    "vendor" | "node_modules" | ".git" | "deprecated" | "target" | "dist"
+                )
+            })
+        {
+            continue;
+        }
+
+        let gap = if file.size_bytes > 250_000 {
+            Some((
+                "largeFiles",
+                "These captured files are larger than this discovery request can include. Their exact ranges need a separate bounded source lookup.",
+            ))
+        } else if !matches!(
+            file.content_kind,
+            CapturedContentKind::Text | CapturedContentKind::Unknown
+        ) {
+            Some((
+                "unreadableSource",
+                "These code paths were captured, but their contents are not readable text for this discovery request.",
+            ))
+        } else if has_index {
+            match indexed_files.get(file.path.as_str()) {
+                Some(indexed) => match &indexed.status {
+                    index::IndexFileStatus::Indexed => None,
+                    index::IndexFileStatus::UnsupportedLanguage => Some((
+                        "unsupportedLanguage",
+                        "No local parser is available for these captured files. Their source remains available, but symbol and relationship search is limited.",
+                    )),
+                    index::IndexFileStatus::FileTooLarge
+                    | index::IndexFileStatus::IndexLimitExceeded
+                    | index::IndexFileStatus::AnalysisLimitExceeded
+                    | index::IndexFileStatus::ParserUnavailable => Some((
+                        "indexLimit",
+                        "These files are captured, but local code-map limits prevented complete indexing.",
+                    )),
+                    index::IndexFileStatus::PartialParse | index::IndexFileStatus::ParseError => {
+                        Some((
+                            "partialParse",
+                            "The local parser could not fully map these captured files. Treat their code relationships as incomplete.",
+                        ))
+                    }
+                    index::IndexFileStatus::Binary
+                    | index::IndexFileStatus::InvalidEncoding
+                    | index::IndexFileStatus::SourceUnavailable => Some((
+                        "unavailableSource",
+                        "These captured paths could not be read as source while building the local code map.",
+                    )),
+                    index::IndexFileStatus::Cancelled => Some((
+                        "incompleteIndex",
+                        "Indexing stopped before these captured files were mapped.",
+                    )),
+                },
+                None => Some((
+                    "unindexedFiles",
+                    "These captured files are not present in the saved code map.",
+                )),
+            }
+        } else {
+            None
+        };
+
+        if let Some((category, message)) = gap {
+            let entry = gaps.entry(category).or_insert_with(|| Gap {
+                message,
+                count: 0,
+                examples: Vec::new(),
+            });
+            entry.count += 1;
+            if entry.examples.len() < 4 {
+                entry.examples.push(file.path.clone());
+            }
+        }
+    }
+
+    gaps.into_iter()
+        .map(|(category, gap)| DiscoveryCoverageGap {
+            category: category.to_owned(),
+            count: gap.count,
+            examples: gap.examples,
+            message: gap.message.to_owned(),
+        })
+        .collect()
 }
 
 fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<DocumentationNotice> {
@@ -434,7 +589,8 @@ pub(crate) async fn prepare_source_discovery(
                 &runtime,
             )?;
         }
-        let (metadata, sizes, total, index_status, documentation) = metadata(&storage, &input)?;
+        let (metadata, sizes, total, index_status, documentation, coverage_gaps) =
+            metadata(&storage, &input)?;
         let review = DiscoveryReview {
             review_id: Uuid::new_v4().to_string(),
             fingerprint: fingerprint(&input, &metadata, &runtime)?,
@@ -446,6 +602,7 @@ pub(crate) async fn prepare_source_discovery(
             omitted_count: total - sizes.len(),
             index_status,
             documentation,
+            coverage_gaps,
         };
         Ok(Pending {
             input,
@@ -518,7 +675,7 @@ pub(crate) async fn send_source_discovery(
     tauri::async_runtime::spawn_blocking(move || {
         let observed = runtime.review_runtime(&storage)?;
         if let Some(grant) = &prepared.input.workspace_grant { crate::workspace::check_grant(&storage, grant, &prepared.input.project_id, &prepared.input.snapshot_id, &observed)?; }
-        let (fresh, _, _, _, _) = metadata(&storage, &prepared.input)?;
+        let (fresh, _, _, _, _, _) = metadata(&storage, &prepared.input)?;
         if fingerprint(&prepared.input, &fresh, &observed)? != prepared.review.fingerprint {
             return Err("The code index or account changed. Prepare discovery again.".to_owned());
         }
@@ -633,7 +790,7 @@ mod tests {
             effort: "max".to_owned(),
             workspace_grant: None,
         };
-        let (encoded, sizes, total, index_status, docs) =
+        let (encoded, sizes, total, index_status, docs, _) =
             metadata(&fixture.storage, &input).unwrap();
         assert!(matches!(
             index_status,
@@ -642,13 +799,11 @@ mod tests {
         assert!(total > 0 && sizes.contains_key("src/greeting.ts"));
         assert!(sizes.keys().all(|path| !path.ends_with(".md")));
         let value: Value = serde_json::from_str(&encoded).unwrap();
-        assert!(
-            value["codeFiles"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|file| !file["symbols"].as_array().unwrap().is_empty())
-        );
+        assert!(value["codeFiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| !file["symbols"].as_array().unwrap().is_empty()));
         assert_eq!(
             docs.iter()
                 .find(|doc| doc.path == "README.md")
@@ -704,7 +859,7 @@ mod tests {
         let index_path = saved_index_path(&fixture.storage);
 
         std::fs::remove_file(&index_path).unwrap();
-        let (missing_metadata, missing_sizes, _, missing_status, _) =
+        let (missing_metadata, missing_sizes, _, missing_status, _, _) =
             metadata(&fixture.storage, &input).unwrap();
         assert_eq!(missing_status, DiscoveryIndexStatus::Missing);
         assert!(missing_sizes.contains_key("src/greeting.ts"));
@@ -715,7 +870,7 @@ mod tests {
         }));
 
         std::fs::write(&index_path, b"not a saved index").unwrap();
-        let (unreadable_metadata, unreadable_sizes, _, unreadable_status, _) =
+        let (unreadable_metadata, unreadable_sizes, _, unreadable_status, _, _) =
             metadata(&fixture.storage, &input).unwrap();
         assert_eq!(unreadable_status, DiscoveryIndexStatus::Unreadable);
         assert!(unreadable_sizes.contains_key("src/greeting.ts"));
@@ -738,7 +893,8 @@ mod tests {
             let mut encoded: Value = serde_json::from_slice(&original).unwrap();
             encoded["status"] = Value::String(status.to_owned());
             std::fs::write(&index_path, serde_json::to_vec(&encoded).unwrap()).unwrap();
-            let (metadata_text, sizes, _, actual, _) = metadata(&fixture.storage, &input).unwrap();
+            let (metadata_text, sizes, _, actual, _, _) =
+                metadata(&fixture.storage, &input).unwrap();
             assert_eq!(actual, expected);
             assert!(sizes.contains_key("src/greeting.ts"));
             let metadata: Value = serde_json::from_str(&metadata_text).unwrap();
@@ -764,14 +920,12 @@ mod tests {
         ] {
             assert!(validate_selection(&proposal(paths), &sizes, Some("src/a.rs")).is_err());
         }
-        assert!(
-            validate_selection(
-                r#"{"selectedFiles":[],"limitation":"x","limitation":"y"}"#,
-                &sizes,
-                None
-            )
-            .is_err()
-        );
+        assert!(validate_selection(
+            r#"{"selectedFiles":[],"limitation":"x","limitation":"y"}"#,
+            &sizes,
+            None
+        )
+        .is_err());
     }
 }
 
