@@ -2,6 +2,7 @@ import { cleanReaderProgress, cleanStoryProgress, cleanDiagramProgress, sameSect
 import { cleanAnswerVersions, ownsAnswerRevision, type AnswerVersion } from './answerVersions.ts';
 import type { ChapterRevisionLifecycle } from '../lib/commands.ts';
 
+// Match workspace_conversation::MAX_BYTES before either parsing or persisting.
 const MAX_WORKSPACE_STATE_BYTES = 8 * 1024 * 1024;
 
 function exceedsUtf8ByteLimit(value: string, limit: number): boolean {
@@ -313,7 +314,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
 /** Keep browser-preview writes within the same byte limit used during restore. */
 export function serializeWorkspace(state: WorkspaceState): string | null {
   const serialized = JSON.stringify(state);
-  return exceedsUtf8ByteLimit(serialized, MAX_WORKSPACE_STATE_BYTES) ? null : serialized;
+  return typeof serialized === 'string' && !exceedsUtf8ByteLimit(serialized, MAX_WORKSPACE_STATE_BYTES)
+    ? serialized : null;
 }
 
 /** A guide is one conversation card, even across independent native runs and
