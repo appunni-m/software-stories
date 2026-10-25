@@ -244,6 +244,8 @@ pub fn classify_chapter_freshness(
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_index_identity);
+    let retrieval_index_dependencies =
+        retrieved_index_dependencies(revision, from_manifest, from_index);
 
     let sections = revision
         .sections
@@ -258,6 +260,7 @@ pub fn classify_chapter_freshness(
                 section,
                 retrieval_ranges,
                 retrieval_index_identity.as_deref(),
+                &retrieval_index_dependencies,
             );
             assessment.finish(section)
         })
@@ -272,11 +275,7 @@ pub fn classify_chapter_freshness(
             to: index_summary(to_index, to_manifest),
         },
         sections,
-        reverse_dependencies: build_reverse_dependencies(
-            revision,
-            Some(from_manifest),
-            from_index,
-        ),
+        reverse_dependencies: build_reverse_dependencies(revision, &retrieval_index_dependencies),
     })
 }
 
@@ -323,6 +322,7 @@ fn assess_section(
     section: &ChapterSection,
     retrieval_ranges: Option<&[crate::repository_context::CodeRange]>,
     retrieval_index_identity: Option<&str>,
+    retrieval_index_dependencies: &[SectionDependency],
 ) -> SectionAssessment {
     let mut result = SectionAssessment::default();
     let mut anchors = HashMap::<String, &ChapterSourceAnchor>::new();
@@ -334,6 +334,11 @@ fn assess_section(
     for claim in &section.claims {
         dependencies.extend(claim.dependencies.iter().map(DependencyKey::from));
     }
+    dependencies.extend(
+        retrieval_index_dependencies
+            .iter()
+            .map(DependencyKey::from),
+    );
 
     let mut anchored_paths = HashSet::new();
     for anchor in anchors.values() {
@@ -1875,8 +1880,7 @@ fn push_unique_change(changes: &mut Vec<FreshnessSourceChange>, change: Freshnes
 
 fn build_reverse_dependencies(
     revision: &ChapterRevision,
-    source_manifest: Option<&SnapshotManifest>,
-    source_index: Option<&SnapshotIndex>,
+    retrieval_index_dependencies: &[SectionDependency],
 ) -> Vec<ReverseDependency> {
     type DependencyMap = BTreeMap<String, (String, BTreeSet<String>, BTreeSet<String>)>;
     let mut dependencies = DependencyMap::new();
@@ -1977,15 +1981,12 @@ fn build_reverse_dependencies(
         } else {
             Vec::new()
         };
-        let retrieval_relationship_dependencies =
-            retrieved_relationship_dependencies(revision, source_manifest, source_index);
-
         for dependency in section
             .dependencies
             .iter()
             .chain(section.claims.iter().flat_map(|claim| &claim.dependencies))
             .chain(retrieval_dependencies.iter())
-            .chain(retrieval_relationship_dependencies.iter())
+            .chain(retrieval_index_dependencies.iter())
         {
             let (key, path) = match dependency {
                 SectionDependency::SourceFile {
@@ -2028,17 +2029,18 @@ fn build_reverse_dependencies(
         .collect()
 }
 
-fn retrieved_relationship_dependencies(
+/// Bind the indexed one-hop context around retrieved symbols to the section.
+/// Whole-file reads already cover endpoints inside a retrieved file; external
+/// endpoints retain exact symbol dependencies so their implementations can
+/// stale only the sections that use them.
+fn retrieved_index_dependencies(
     revision: &ChapterRevision,
-    source_manifest: Option<&SnapshotManifest>,
+    source_manifest: &SnapshotManifest,
     source_index: Option<&SnapshotIndex>,
 ) -> Vec<SectionDependency> {
     if revision.sections.len() != 1 {
         return Vec::new();
     }
-    let Some(source_manifest) = source_manifest else {
-        return Vec::new();
-    };
     let Some(source_index) = source_index else {
         return Vec::new();
     };
@@ -2057,12 +2059,17 @@ fn retrieved_relationship_dependencies(
     {
         return Vec::new();
     }
-    let symbol_ids = revision
+    let ranges = revision
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
-        .into_iter()
-        .flatten()
+        .unwrap_or_default();
+    let retrieved_paths = ranges
+        .iter()
+        .map(|range| range.path.clone())
+        .collect::<BTreeSet<_>>();
+    let symbol_ids = ranges
+        .iter()
         .flat_map(|range| [&range.enclosing, &range.parent])
         .flatten()
         .map(|context| context.symbol_id.clone())
@@ -2099,6 +2106,7 @@ fn retrieved_relationship_dependencies(
         }
         dependencies.insert(
             (
+                0_u8,
                 evidence.path.clone(),
                 relationship.relationship_id.clone(),
                 evidence.source_sha256.clone(),
@@ -2109,13 +2117,59 @@ fn retrieved_relationship_dependencies(
                 relationship_id: relationship.relationship_id.clone(),
             },
         );
+
+        for endpoint_id in std::iter::once(&relationship.source_id)
+            .chain(relationship.target_id.iter())
+        {
+            if symbol_ids.contains(endpoint_id) {
+                continue;
+            }
+            let Some(symbol) = source_index
+                .symbols
+                .iter()
+                .find(|symbol| &symbol.symbol_id == endpoint_id)
+            else {
+                continue;
+            };
+            if retrieved_paths.contains(&symbol.path) {
+                continue;
+            }
+            let index_file = source_index
+                .files
+                .iter()
+                .find(|file| file.path == symbol.path);
+            let manifest_file = source_manifest
+                .files
+                .iter()
+                .find(|file| file.path == symbol.path);
+            let source_sha256 = &symbol.anchor.source_sha256;
+            if !index_file.is_some_and(|file| {
+                file.status == IndexFileStatus::Indexed && file.source_sha256 == *source_sha256
+            }) || !manifest_file.is_some_and(|file| file.sha256 == *source_sha256)
+            {
+                continue;
+            }
+            dependencies.insert(
+                (
+                    1_u8,
+                    symbol.path.clone(),
+                    symbol.symbol_id.clone(),
+                    source_sha256.clone(),
+                ),
+                SectionDependency::Symbol {
+                    path: symbol.path.clone(),
+                    source_sha256: source_sha256.clone(),
+                    symbol_id: symbol.symbol_id.clone(),
+                },
+            );
+        }
     }
     dependencies.into_values().collect()
 }
 
 #[cfg(test)]
 pub(crate) fn asset_ids_for_revision(revision: &ChapterRevision) -> Vec<String> {
-    let mut ids = build_reverse_dependencies(revision, None, None)
+    let mut ids = build_reverse_dependencies(revision, &[])
         .into_iter()
         .flat_map(|dependency| dependency.asset_ids)
         .collect::<Vec<_>>();
@@ -2788,7 +2842,7 @@ mod tests {
         };
         let revision = revision(vec![section]);
         let visual_id = visual_asset_id(&revision, "visual-section");
-        let dependencies = build_reverse_dependencies(&revision, None, None);
+        let dependencies = build_reverse_dependencies(&revision, &[]);
         let linked_anchor = &revision.sections[0].claims[0].anchors[0];
         let linked = dependencies
             .iter()
@@ -2813,7 +2867,7 @@ mod tests {
 
         let mut no_visual = revision.clone();
         no_visual.sections[0].visual = None;
-        assert!(build_reverse_dependencies(&no_visual, None, None).iter().all(|item| {
+        assert!(build_reverse_dependencies(&no_visual, &[]).iter().all(|item| {
             item.asset_ids
                 .iter()
                 .all(|asset| !asset.starts_with("visual:"))
