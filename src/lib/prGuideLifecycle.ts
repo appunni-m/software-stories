@@ -5,7 +5,7 @@ export type PrGuideOperationScope = {
   comparisonId: string;
 };
 
-export type PrGuideOperationKind = 'send' | 'cancel' | 'decision';
+export type PrGuideOperationKind = 'build' | 'send' | 'cancel' | 'decision';
 
 export type PrGuideOperationToken = {
   kind: PrGuideOperationKind;

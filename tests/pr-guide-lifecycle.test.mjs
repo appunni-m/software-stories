@@ -10,11 +10,12 @@ test('changing the global AI connection abandons an in-flight PR request review'
   assert.ok(source.includes('const refreshDirectApiSelection = () => {\n      abandonRequestReview();'));
   assert.ok(source.includes('setProviderId(saved.providerId);\n      setModelId(saved.modelId);'));
 
-  const abandonStart = source.indexOf('function abandonRequestReview()');
+  const abandonStart = source.indexOf('function abandonRequestReview(');
   const abandonEnd = source.indexOf('\n  function toggleChange', abandonStart);
   const abandon = source.slice(abandonStart, abandonEnd);
   for (const required of [
     'reviewLifecycle.current += 1',
+    "operationFenceRef.current?.invalidate('build')",
     'setBuilding(false)',
     'discardProviderRequestReview(requestReviewRef.current.reviewId)',
     'requestReviewRef.current = null',
@@ -26,12 +27,12 @@ test('late PR request-review results are discarded without updating the abandone
   const buildStart = source.indexOf('async function handleBuildReview()');
   const buildEnd = source.indexOf('\n  async function handleSend()', buildStart);
   const build = source.slice(buildStart, buildEnd);
-  assert.ok(build.indexOf('clearReview();') < build.indexOf('const lifecycle = reviewLifecycle.current'));
+  assert.ok(build.indexOf('clearReview(true);') < build.indexOf('const lifecycle = reviewLifecycle.current'));
   for (const required of [
-    'if (lifecycle !== reviewLifecycle.current)',
+    'if (lifecycle !== reviewLifecycle.current || !operationFenceRef.current?.isCurrent(operation))',
     'void discardProviderRequestReview(result.data.reviewId)',
-    'if (lifecycle === reviewLifecycle.current) setRequestError',
-    'if (lifecycle === reviewLifecycle.current) setBuilding(false)',
+    'lifecycle === reviewLifecycle.current && operationFenceRef.current?.isCurrent(operation)',
+    'operationFenceRef.current.finish(operation)',
   ]) assert.ok(build.includes(required), 'missing abandoned-result guard: ' + required);
 });
 
@@ -62,6 +63,7 @@ test('comparison identity remounts PR Guide state and decisions stay scoped to t
 test('sent and decision callbacks are fenced to their original comparison and completion', () => {
   assert.match(source, /new PrGuideOperationFence\(operationScope\)/);
   assert.match(source, /operationFenceRef\.current\.setScope\(operationScope\)/);
+  assert.match(source, /begin\('build'\)/);
   assert.match(source, /begin\('send'\)/);
   assert.match(source, /begin\('cancel'\)/);
   assert.equal((source.match(/begin\('decision'\)/g) ?? []).length, 2);

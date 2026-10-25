@@ -260,15 +260,16 @@ export function PrGuideStudio({
     return () => { active = false; historyActive.current = false; historyLookup.current += 1; window.removeEventListener('code-atlas:pr-guides-changed', changed); };
   }, [comparison.comparisonId, comparison.status, projectId]);
 
-  function clearReview() {
-    abandonRequestReview();
+  function clearReview(preserveBuildOperation = false) {
+    abandonRequestReview(preserveBuildOperation);
     setCurrentDraft(null);
     setIncludedClaimIds([]);
     setNotice(null);
   }
 
-  function abandonRequestReview() {
+  function abandonRequestReview(preserveBuildOperation = false) {
     reviewLifecycle.current += 1;
+    if (!preserveBuildOperation) operationFenceRef.current?.invalidate('build');
     setBuilding(false);
     if (requestReviewRef.current) void discardProviderRequestReview(requestReviewRef.current.reviewId).catch(() => {});
     requestReviewRef.current = null;
@@ -314,7 +315,9 @@ export function PrGuideStudio({
 
   async function handleBuildReview() {
     if (!canBuild || !comparison.comparisonId) return;
-    clearReview();
+    const operation = operationFenceRef.current?.begin('build') ?? null;
+    if (!operation) return;
+    clearReview(true);
     const lifecycle = reviewLifecycle.current;
     setBuilding(true);
     setRequestError(null);
@@ -328,7 +331,7 @@ export function PrGuideStudio({
         selectedChanges: selectedChanges.map(({ basePath, headPath }) => ({ basePath, headPath })),
         modelId,
       });
-      if (lifecycle !== reviewLifecycle.current) {
+      if (lifecycle !== reviewLifecycle.current || !operationFenceRef.current?.isCurrent(operation)) {
         if (result.status === 'ok') void discardProviderRequestReview(result.data.reviewId).catch(() => {});
         return;
       }
@@ -340,9 +343,14 @@ export function PrGuideStudio({
       setRequestReview(result.data);
       setConsent(NO_CONSENT);
     } catch {
-      if (lifecycle === reviewLifecycle.current) setRequestError({ kind: 'invalidReview', message: 'The local PR Guide request preview could not be built. No model request was sent.' });
+      if (lifecycle === reviewLifecycle.current && operationFenceRef.current?.isCurrent(operation)) {
+        setRequestError({ kind: 'invalidReview', message: 'The local PR Guide request preview could not be built. No model request was sent.' });
+      }
     } finally {
-      if (lifecycle === reviewLifecycle.current) setBuilding(false);
+      if (lifecycle === reviewLifecycle.current && operationFenceRef.current?.isCurrent(operation)) {
+        operationFenceRef.current.finish(operation);
+        setBuilding(false);
+      }
     }
   }
 
@@ -706,7 +714,7 @@ export function PrGuideStudio({
           {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">
             {!hasApiKey && <button type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</button>}
-            <button type="button" className="secondary-button" onClick={clearReview} disabled={sending}>Discard this review</button>
+            <button type="button" className="secondary-button" onClick={() => clearReview()} disabled={sending}>Discard this review</button>
             <button type="button" className="primary-button" onClick={() => { void handleSend(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}>
               <Send size={15} /> {sending ? 'Sending reviewed request…' : 'Send reviewed request'}
             </button>

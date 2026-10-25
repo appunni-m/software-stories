@@ -11,6 +11,9 @@ const comparison = {
 
 test('a comparison has at most one in-flight action of each kind', () => {
   const fence = new PrGuideOperationFence(comparison);
+  const build = fence.begin('build');
+  assert.ok(build);
+  assert.equal(fence.begin('build'), null);
   const send = fence.begin('send');
 
   assert.ok(send);
@@ -20,6 +23,7 @@ test('a comparison has at most one in-flight action of each kind', () => {
   assert.ok(cancel);
   assert.ok(decision);
   assert.equal(fence.begin('decision'), null);
+  assert.equal(fence.isCurrent(build), true);
   assert.equal(fence.isCurrent(send), true);
   assert.equal(fence.isCurrent(cancel), true);
   assert.equal(fence.isCurrent(decision), true);
