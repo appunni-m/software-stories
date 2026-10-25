@@ -1929,7 +1929,6 @@ impl Validator<'_> {
                 None,
             );
         }
-        let is_current = visual.schema_version == VISUAL_SCHEMA_VERSION;
         if visual.title.trim().is_empty() || visual.title.len() > MAX_VISUAL_TITLE_BYTES {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
@@ -1957,7 +1956,7 @@ impl Validator<'_> {
                 None,
             );
         }
-        if is_current && visual.layout_hint.is_none() {
+        if visual.layout_hint.is_none() {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
                 "A version 2 visual must declare an app-owned layout direction.",
@@ -2009,15 +2008,13 @@ impl Validator<'_> {
                     None,
                 );
             }
-            if is_current {
-                self.validate_visual_evidence(
-                    &node.evidence_anchor_ids,
-                    section_anchor_ids,
-                    section_id,
-                    &node.node_id,
-                );
-                self.validate_visual_source_binding(node, claims, section_anchor_ids, section_id);
-            }
+            self.validate_visual_evidence(
+                &node.evidence_anchor_ids,
+                section_anchor_ids,
+                section_id,
+                &node.node_id,
+            );
+            self.validate_visual_source_binding(node, claims, section_anchor_ids, section_id);
             if let Some(hotspot_id) = &node.hotspot_id {
                 if !hotspot_ids.contains(hotspot_id) {
                     self.visual_hotspot_issue(
@@ -2058,14 +2055,12 @@ impl Validator<'_> {
                     None,
                 );
             }
-            if is_current {
-                self.validate_visual_evidence(
-                    &edge.evidence_anchor_ids,
-                    section_anchor_ids,
-                    section_id,
-                    &edge.edge_id,
-                );
-            }
+            self.validate_visual_evidence(
+                &edge.evidence_anchor_ids,
+                section_anchor_ids,
+                section_id,
+                &edge.edge_id,
+            );
             if !node_ids.contains(edge.from_node_id.as_str())
                 || !node_ids.contains(edge.to_node_id.as_str())
             {
