@@ -823,6 +823,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-review-actions .button-reject { border-color: var(--danger-border); background: var(--surface-raised); color: var(--danger); }
 .chapter-studio-snapshot { display: flex; align-items: center; gap: 5px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font: 8px var(--mono); }
 .chapter-studio-snapshot code { color: var(--accent); }
+.chapter-pending-draft-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.chapter-pending-draft { flex-wrap: wrap; }
 .chapter-studio-layout { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(190px, 26%) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 .chapter-studio-sidebar { min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .chapter-studio-search { display: flex; align-items: center; gap: 7px; padding: 9px; border-bottom: 1px solid var(--border); color: var(--muted); }
