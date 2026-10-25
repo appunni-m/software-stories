@@ -975,10 +975,12 @@ fn assess_retrieval_index_context(
         if !relevant_symbols.is_empty() {
             let old_relationships = retrieval_relationships(from_index, &relevant_symbols);
             let new_relationships = retrieval_relationships(to_index, &relevant_symbols);
-            for (_, evidence_path) in old_relationships
-                .symmetric_difference(&new_relationships)
-            {
-                changed_relationship_paths.insert(evidence_path.clone());
+            // Compare semantic edge counts per evidence file. Moving an
+            // unchanged edge within a file must not make the Guide stale.
+            for relationship in old_relationships.keys().chain(new_relationships.keys()) {
+                if old_relationships.get(relationship) != new_relationships.get(relationship) {
+                    changed_relationship_paths.insert(relationship.1.clone());
+                }
             }
         }
     }
@@ -994,31 +996,23 @@ fn assess_retrieval_index_context(
 fn retrieval_relationships(
     index: &SnapshotIndex,
     symbol_ids: &BTreeSet<String>,
-) -> BTreeSet<(String, String)> {
-    index
-        .relationships
-        .iter()
-        .filter(|relationship| {
-            symbol_ids.contains(&relationship.source_id)
-                || relationship
-                    .target_id
-                    .as_ref()
-                    .is_some_and(|target| symbol_ids.contains(target))
-        })
-        .map(|relationship| {
-            (
-                format!(
-                    "{}|{}|{}-{}|{}",
-                    relationship_descriptor(index, relationship),
-                    relationship.evidence.path,
-                    relationship.evidence.start_byte,
-                    relationship.evidence.end_byte,
-                    relationship.evidence.source_sha256,
-                ),
-                relationship.evidence.path.clone(),
-            )
-        })
-        .collect()
+) -> BTreeMap<(String, String), usize> {
+    let mut relationships = BTreeMap::new();
+    for relationship in index.relationships.iter().filter(|relationship| {
+        symbol_ids.contains(&relationship.source_id)
+            || relationship
+                .target_id
+                .as_ref()
+                .is_some_and(|target| symbol_ids.contains(target))
+    })
+    {
+        let key = (
+            relationship_descriptor(index, relationship),
+            relationship.evidence.path.clone(),
+        );
+        *relationships.entry(key).or_insert(0) += 1;
+    }
+    relationships
 }
 
 fn assess_symbol_dependency(
