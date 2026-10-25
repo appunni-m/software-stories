@@ -18,7 +18,8 @@ const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
 const CONFLICT: &str = "Another window saved this conversation. Your unsaved changes have been preserved in this window.";
 const SAVE_STORAGE: &str = "Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.";
-const SAVE_STORAGE_FULL: &str = "Local storage is full. Free disk space, then retry saving; your changes remain open in this window.";
+const SAVE_STORAGE_FULL: &str = "The Mac reported insufficient local storage space. Check available disk space, then retry saving; your changes remain open in this window.";
+const SAVE_STORAGE_QUOTA: &str = "A local storage quota was reached. Check the app or filesystem storage limit, then retry saving; your changes remain open in this window.";
 const SAVE_STORAGE_ACCESS: &str = "Code Atlas cannot write conversation data. Check local storage permissions, then retry; your changes remain open in this window.";
 const SAVE_BUSY: &str = "A conversation save is still in progress. Wait a moment, then retry.";
 const SAVE_INVALID: &str = "Code Atlas rejected this conversation update. Your saved work is intact and the unsaved changes remain open.";
@@ -1084,9 +1085,8 @@ fn save(
 
 fn conversation_storage_error(error: &std::io::Error) -> String {
     match error.kind() {
-        std::io::ErrorKind::StorageFull | std::io::ErrorKind::QuotaExceeded => {
-            SAVE_STORAGE_FULL.to_owned()
-        }
+        std::io::ErrorKind::StorageFull => SAVE_STORAGE_FULL.to_owned(),
+        std::io::ErrorKind::QuotaExceeded => SAVE_STORAGE_QUOTA.to_owned(),
         std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem => {
             SAVE_STORAGE_ACCESS.to_owned()
         }

@@ -306,7 +306,8 @@ test('a safe save contention reason reaches the retry notice',async()=>{
 
 test('specific local-storage recovery guidance reaches the notice without exposing details',async()=>{
   for(const message of [
-    'Local storage is full. Free disk space, then retry saving; your changes remain open in this window.',
+    'The Mac reported insufficient local storage space. Check available disk space, then retry saving; your changes remain open in this window.',
+    'A local storage quota was reached. Check the app or filesystem storage limit, then retry saving; your changes remain open in this window.',
     'Code Atlas cannot write conversation data. Check local storage permissions, then retry; your changes remain open in this window.',
   ]){
     const b=backend(),h=native(b),notices=[];h.onWindowEvent('code-atlas:workspace-notice',e=>notices.push(clone(e.detail)));

@@ -30,11 +30,13 @@ fn state() -> Value {
 fn storage_write_failures_give_specific_safe_recovery_guidance() {
     let full = conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::StorageFull));
     assert_eq!(full, SAVE_STORAGE_FULL);
-    assert!(full.contains("Free disk space"));
+    assert!(full.contains("available disk space"));
 
     let quota =
         conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::QuotaExceeded));
-    assert_eq!(quota, SAVE_STORAGE_FULL);
+    assert_eq!(quota, SAVE_STORAGE_QUOTA);
+    assert_ne!(quota, full);
+    assert!(quota.contains("quota"));
 
     let permissions =
         conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::PermissionDenied));
@@ -43,7 +45,7 @@ fn storage_write_failures_give_specific_safe_recovery_guidance() {
 
     let other = conversation_storage_error(&std::io::Error::from(std::io::ErrorKind::Other));
     assert_eq!(other, SAVE_STORAGE);
-    for message in [full, permissions, other] {
+    for message in [full, quota, permissions, other] {
         assert!(!message.contains('/'));
         assert!(!message.contains("ErrorKind"));
     }
