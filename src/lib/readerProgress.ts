@@ -11,26 +11,33 @@ export interface DiagramProgress extends SectionIdentity { viewport:FlowViewport
 export interface ReaderProgress { stories:StoryProgress[]; diagrams:DiagramProgress[] }
 
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
+const only=(value:Record<string,unknown>,keys:readonly string[])=>Object.keys(value).every(key=>keys.includes(key));
 const id=(value:unknown):value is string=>typeof value==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(value);
 const identity=(value:Record<string,unknown>):value is Record<string,unknown>&SectionIdentity=>id(value.revisionId)&&id(value.sectionId)&&id(value.sectionRevisionId);
 export function sameSection(a:SectionIdentity,b:SectionIdentity):boolean {
   return a.revisionId===b.revisionId&&a.sectionId===b.sectionId&&a.sectionRevisionId===b.sectionRevisionId;
 }
 export function cleanFlowViewport(value:unknown):FlowViewport|undefined {
-  if(!object(value)||typeof value.x!=='number'||typeof value.y!=='number'||typeof value.zoom!=='number'
+  if(!object(value)||!only(value,['x','y','zoom'])||Object.keys(value).length!==3
+    ||typeof value.x!=='number'||typeof value.y!=='number'||typeof value.zoom!=='number'
     ||!Number.isFinite(value.x)||Math.abs(value.x)>10_000_000||!Number.isFinite(value.y)||Math.abs(value.y)>10_000_000
     ||!Number.isFinite(value.zoom)||value.zoom<.1||value.zoom>4)return undefined;
   return {x:value.x,y:value.y,zoom:value.zoom};
 }
 export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
-  if(!object(value)||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
+  const required=['revisionId','sectionId','sectionRevisionId','sceneId','positions','fullMap','focusLayoutVersion'];
+  const allowed=[...required,'viewport','focusedNodeId','focusedEdgeId'];
+  if(!object(value)||!only(value,allowed)||!required.every(key=>Object.hasOwn(value,key))
+    ||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
   if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
+  if(Object.hasOwn(value,'focusedNodeId')&&!id(value.focusedNodeId)
+    ||Object.hasOwn(value,'focusedEdgeId')&&!id(value.focusedEdgeId))return undefined;
   const entries=Object.entries(value.positions);
   if(entries.length>128||entries.some(([key,n])=>!id(key)||typeof n!=='number'||!Number.isFinite(n)||n<0||n>3600))return undefined;
-  const viewport=value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
-  if(value.viewport!==undefined&&!viewport)return undefined;
-  const focusedNodeId=id(value.focusedNodeId)?value.focusedNodeId:undefined;
-  const focusedEdgeId=id(value.focusedEdgeId)?value.focusedEdgeId:undefined;
+  const viewport=Object.hasOwn(value,'viewport')?cleanFlowViewport(value.viewport):undefined;
+  if(Object.hasOwn(value,'viewport')&&!viewport)return undefined;
+  const focusedNodeId=value.focusedNodeId as string|undefined;
+  const focusedEdgeId=value.focusedEdgeId as string|undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
     sceneId:value.sceneId,positions:Object.fromEntries(entries) as Record<string,number>,fullMap:value.fullMap,
     focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
@@ -38,7 +45,9 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
     ...(viewport?{viewport}:{})};
 }
 export function cleanDiagramProgress(value:unknown):DiagramProgress|undefined {
-  if(!object(value)||!identity(value)||value.layoutVersion!==FLOW_DIAGRAM_LAYOUT_VERSION)return undefined;
+  const keys=['revisionId','sectionId','sectionRevisionId','viewport','layoutVersion'];
+  if(!object(value)||!only(value,keys)||Object.keys(value).length!==keys.length
+    ||!identity(value)||value.layoutVersion!==FLOW_DIAGRAM_LAYOUT_VERSION)return undefined;
   const viewport=cleanFlowViewport(value.viewport);
   return viewport?{revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}:undefined;
 }
