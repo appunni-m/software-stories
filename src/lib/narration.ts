@@ -137,6 +137,13 @@ export function narrationAvailabilityLabel(state: NarrationPrewarmState | 'check
   }
 }
 
+/** Avoid presenting an unloaded audio duration as a real zero-second clip. */
+export function narrationDurationLabel(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—:—';
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60).toString().padStart(2, '0')}:${(total % 60).toString().padStart(2, '0')}`;
+}
+
 function isIdentifierCharacter(character: string | undefined): boolean {
   return Boolean(character && /[\p{L}\p{N}_$]/u.test(character));
 }

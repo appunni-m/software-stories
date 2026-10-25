@@ -35,6 +35,7 @@ import {
   defaultNarrationText,
   localNarrationAction,
   narrationAvailabilityLabel,
+  narrationDurationLabel,
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
@@ -753,7 +754,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : 'Play'}
           </button>
           <button type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
-          <span className="walkthrough-duration">{formatTime(currentTime)} / {formatTime(duration)}</span>
+          <span className="walkthrough-duration" aria-label={`Elapsed ${formatTime(currentTime)}, duration ${duration > 0 ? narrationDurationLabel(duration) : 'loading'}`}>
+            {formatTime(currentTime)} / {narrationDurationLabel(duration)}
+          </span>
         </div>
         <label className="walkthrough-seek-label">
           <span>Audio position</span>

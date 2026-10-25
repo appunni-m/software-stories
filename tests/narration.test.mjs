@@ -8,6 +8,7 @@ import {
   DEFAULT_NARRATION_VOICE,
   localNarrationAction,
   narrationAvailabilityLabel,
+  narrationDurationLabel,
   narrationPreferencesMatch,
   parseNarrationPreferences,
 } from '../src/lib/narration.ts';
@@ -59,6 +60,14 @@ describe('narration preparation status', () => {
     assert.equal(narrationAvailabilityLabel('preparing'), 'Preparing audio');
     assert.equal(narrationAvailabilityLabel('ready'), 'Ready to play');
     assert.equal(narrationAvailabilityLabel('unavailable'), 'Audio unavailable');
+  });
+
+  it('does not show unloaded audio metadata as a zero-second recording', () => {
+    assert.equal(narrationDurationLabel(0), '—:—');
+    assert.equal(narrationDurationLabel(Number.NaN), '—:—');
+    assert.equal(narrationDurationLabel(Number.POSITIVE_INFINITY), '—:—');
+    assert.equal(narrationDurationLabel(13.8), '00:13');
+    assert.equal(narrationDurationLabel(61), '01:01');
   });
 });
 
