@@ -177,6 +177,27 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
             canonical_claims.push(Value::Object(canonical));
             continue;
         }
+        // `source` is a required field in the current authored-node contract.
+        // Serde treats a missing `Option<T>` as `None`, so enforce presence
+        // before decoding instead of silently accepting an older/incomplete
+        // node shape as an explicit `source: null`.
+        if let Some((index, _)) = scene
+            .get("nodes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .enumerate()
+            .find(|(_, node)| {
+                !node
+                    .as_object()
+                    .is_some_and(|fields| fields.contains_key("source"))
+            })
+        {
+            return Err(issue(
+                &format!("{base}/nodes/{index}/source"),
+                "sceneAuthoringShape",
+            ));
+        }
         let scene: Scene =
             serde_json::from_value(scene).map_err(|_| issue(&base, "sceneAuthoringShape"))?;
         if scene.nodes.is_empty()

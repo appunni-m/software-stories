@@ -119,6 +119,27 @@ fn exact_node_source_binding_resolves_only_an_existing_node_reference() {
 }
 
 #[test]
+fn authored_nodes_must_explicitly_declare_null_or_bound_source() {
+    let mut raw = section("code:1");
+    raw["claims"][0]["scene"]["nodes"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("source");
+
+    let issue = compile(&raw).err().unwrap();
+    assert_eq!(
+        issue[0],
+        json!({
+            "location":"/section/claims/0/scene/nodes/0/source",
+            "code":"sceneAuthoringShape"
+        })
+    );
+    assert!(!jsonschema::validator_for(&section_schema())
+        .unwrap()
+        .is_valid(&raw));
+}
+
+#[test]
 fn identical_keys_in_different_scenes_cannot_cross_claim_or_element_scope() {
     let mut raw = section("code:1");
     let mut second = raw["claims"][0].clone();
