@@ -354,13 +354,13 @@ fn assess_section(
         );
     }
 
-    // Progressive repository explanations retain the exact files read while
-    // investigating their one-section answer. Treat those reads as section
-    // dependencies too: cited lines may still match while another part of a
-    // retrieved file has changed the behavior the section was based on.
-    let mut retrieval_files = BTreeMap::<String, String>::new();
+    // Progressive explanations retain the exact chunks read while generating
+    // each section. Check those chunks and their enclosing symbols so an edit
+    // elsewhere in the same file does not invalidate the whole explanation.
+    let mut verified_ranges = BTreeMap::new();
+    let mut retrieval_file_hashes = BTreeMap::<String, String>::new();
     for range in retrieval_ranges.unwrap_or_default() {
-        let previous_hash = retrieval_files
+        let previous_hash = retrieval_file_hashes
             .entry(range.path.clone())
             .or_insert_with(|| range.source_sha256.clone());
         if previous_hash != &range.source_sha256 {
@@ -369,15 +369,25 @@ fn assess_section(
                 "The section's recorded retrieval ranges disagree about a source file version.",
                 Some(&range.path),
             );
+            continue;
         }
+        verified_ranges.insert(
+            (
+                range.path.clone(),
+                range.source_sha256.clone(),
+                range.start_byte,
+                range.end_byte,
+                range.chunk_sha256.clone(),
+            ),
+            range,
+        );
     }
-    for (path, source_sha256) in &retrieval_files {
-        assess_file_dependency(
+    for range in verified_ranges.values() {
+        assess_retrieval_range_dependency(
             storage_dir,
             from_manifest,
             to_manifest,
-            path,
-            source_sha256,
+            range,
             &mut result,
         );
     }
@@ -812,6 +822,198 @@ fn assess_file_dependency(
     );
 }
 
+fn assess_retrieval_range_dependency(
+    storage_dir: &Path,
+    from_manifest: &SnapshotManifest,
+    to_manifest: &SnapshotManifest,
+    retrieved: &crate::repository_context::CodeRange,
+    result: &mut SectionAssessment,
+) {
+    let path = retrieved.path.as_str();
+    if retrieved.snapshot_id != from_manifest.summary.snapshot_id {
+        result.unknown(
+            "retrievalSnapshotMismatch",
+            "A retrieved code range belongs to a different accepted snapshot.",
+            Some(path),
+        );
+        return;
+    }
+    let Some(old_file) = from_manifest.files.iter().find(|file| file.path == path) else {
+        result.unknown(
+            "sourceUnavailable",
+            "A retrieved code range is missing from the accepted snapshot manifest.",
+            Some(path),
+        );
+        return;
+    };
+    if old_file.sha256 != retrieved.source_sha256 {
+        result.unknown(
+            "sourceHashMismatch",
+            "A retrieved code range does not match its accepted snapshot file hash.",
+            Some(path),
+        );
+        return;
+    }
+    let old_source = match read_source(storage_dir, from_manifest, path) {
+        Ok(source) if source.sha256 == old_file.sha256 => source,
+        Ok(_) => {
+            result.unknown(
+                "sourceHashMismatch",
+                "The accepted source bytes for a retrieved code range do not match the manifest.",
+                Some(path),
+            );
+            return;
+        }
+        Err(message) => {
+            result.unknown("sourceUnavailable", message, Some(path));
+            return;
+        }
+    };
+    let Some(old_text) = old_source
+        .contents
+        .get(retrieved.start_byte..retrieved.end_byte)
+    else {
+        result.unknown(
+            "retrievalRangeMismatch",
+            "A retrieved code range has invalid or non-UTF-8 byte boundaries.",
+            Some(path),
+        );
+        return;
+    };
+    if old_text.is_empty()
+        || format!("{:x}", Sha256::digest(old_text.as_bytes())) != retrieved.chunk_sha256
+    {
+        result.unknown(
+            "retrievalRangeMismatch",
+            "The saved retrieved range does not match its accepted source bytes.",
+            Some(path),
+        );
+        return;
+    }
+    let old_start_line = byte_position(old_source.contents.as_bytes(), retrieved.start_byte).0;
+    let old_end_line = byte_position(old_source.contents.as_bytes(), retrieved.end_byte - 1).0;
+    if (old_start_line as usize) != retrieved.start_line
+        || (old_end_line as usize) != retrieved.end_line
+    {
+        result.unknown(
+            "retrievalRangeMismatch",
+            "The saved retrieved range line numbers do not match its accepted source bytes.",
+            Some(path),
+        );
+        return;
+    }
+
+    let Some(new_file) = to_manifest.files.iter().find(|file| file.path == path) else {
+        if path_was_skipped(to_manifest, path)
+            || to_manifest.summary.status != CaptureStatus::Complete
+        {
+            result.unknown(
+                "sourceNotCaptured",
+                "The target snapshot could not confirm the retrieved code range because the file was skipped or capture was incomplete.",
+                Some(path),
+            );
+        } else {
+            result.stale(
+                "retrievedSourceDeleted",
+                "The source file containing this retrieved code range is absent from the complete target snapshot.",
+                Some(path),
+                Some(FreshnessSourceChange {
+                    path: path.to_owned(),
+                    kind: "deleted".to_owned(),
+                    old_range: Some(range(
+                        path,
+                        &from_manifest.summary.snapshot_id,
+                        &old_file.sha256,
+                        old_start_line,
+                        old_end_line,
+                    )),
+                    new_range: None,
+                }),
+            );
+        }
+        return;
+    };
+    let new_source = match read_source(storage_dir, to_manifest, path) {
+        Ok(source) if source.sha256 == new_file.sha256 => source,
+        Ok(_) => {
+            result.unknown(
+                "sourceHashMismatch",
+                "The target source bytes for a retrieved code range do not match the manifest.",
+                Some(path),
+            );
+            return;
+        }
+        Err(message) => {
+            result.unknown("sourceUnavailable", message, Some(path));
+            return;
+        }
+    };
+    if new_file.sha256 == retrieved.source_sha256 {
+        result.current();
+        return;
+    }
+
+    let matches = new_source
+        .contents
+        .match_indices(old_text)
+        .map(|(start, _)| start)
+        .take(2)
+        .collect::<Vec<_>>();
+    let [new_start] = matches.as_slice() else {
+        if matches.is_empty() {
+            result.stale(
+                "retrievedRangeChanged",
+                "The exact code range used for this explanation no longer appears in the target source.",
+                Some(path),
+                Some(FreshnessSourceChange {
+                    path: path.to_owned(),
+                    kind: "modified".to_owned(),
+                    old_range: Some(range(
+                        path,
+                        &from_manifest.summary.snapshot_id,
+                        &old_file.sha256,
+                        old_start_line,
+                        old_end_line,
+                    )),
+                    new_range: None,
+                }),
+            );
+        } else {
+            result.unknown(
+                "retrievalRangeAmbiguous",
+                "The exact code range appears more than once in the target source, so its new location is ambiguous.",
+                Some(path),
+            );
+        }
+        return;
+    };
+    let new_end = *new_start + old_text.len();
+    let new_start_line = byte_position(new_source.contents.as_bytes(), *new_start).0;
+    let new_end_line = byte_position(new_source.contents.as_bytes(), new_end - 1).0;
+    result.safe(Some(FreshnessSourceChange {
+        path: path.to_owned(),
+        kind: if *new_start == retrieved.start_byte {
+            "unrelatedEdit".to_owned()
+        } else {
+            "shifted".to_owned()
+        },
+        old_range: Some(range(
+            path,
+            &from_manifest.summary.snapshot_id,
+            &old_file.sha256,
+            old_start_line,
+            old_end_line,
+        )),
+        new_range: Some(range(
+            path,
+            &to_manifest.summary.snapshot_id,
+            &new_file.sha256,
+            new_start_line,
+            new_end_line,
+        )),
+    }));
+}
+
 fn assess_retrieval_index_context(
     from_manifest: &SnapshotManifest,
     from_index: Option<&SnapshotIndex>,
@@ -955,25 +1157,21 @@ fn assess_retrieval_index_context(
         }
 
         let relevant_symbols = symbols.get(&path).cloned().unwrap_or_default();
-        let mut symbol_changed = false;
+        let mut symbol_unavailable = false;
         for symbol_id in &relevant_symbols {
             let old_symbol = from_index
                 .symbols
                 .iter()
                 .find(|symbol| symbol.symbol_id == *symbol_id && symbol.path == path);
-            let new_symbol = to_index
-                .symbols
-                .iter()
-                .find(|symbol| symbol.symbol_id == *symbol_id && symbol.path == path);
-            if old_symbol.is_none() || new_symbol.is_none() || old_symbol != new_symbol {
-                symbol_changed = true;
+            if old_symbol.is_none() {
+                symbol_unavailable = true;
                 break;
             }
         }
-        if symbol_changed {
+        if symbol_unavailable {
             result.unknown(
-                "retrievalSymbolChanged",
-                "A symbol surrounding retrieved code changed in the target index; review the section.",
+                "retrievalSymbolUnavailable",
+                "The accepted index is missing a symbol recorded in this section's retrieval context.",
                 Some(&path),
             );
         }
@@ -1966,26 +2164,31 @@ fn build_reverse_dependencies(
             );
         }
 
-        let retrieval_dependencies = if revision.sections.len() == 1 {
-            revision
+        if revision.sections.len() == 1 {
+            for range in revision
                 .generation_origin
                 .as_ref()
                 .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
                 .unwrap_or_default()
-                .iter()
-                .map(|range| SectionDependency::SourceFile {
-                    path: range.path.clone(),
-                    source_sha256: range.source_sha256.clone(),
-                })
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
+            {
+                add(
+                    format!(
+                        "retrievalRange:{}:{}:{}:{}:{}",
+                        range.path,
+                        range.source_sha256,
+                        range.start_byte,
+                        range.end_byte,
+                        range.chunk_sha256,
+                    ),
+                    range.path.clone(),
+                    BTreeSet::new(),
+                );
+            }
+        }
         for dependency in section
             .dependencies
             .iter()
             .chain(section.claims.iter().flat_map(|claim| &claim.dependencies))
-            .chain(retrieval_dependencies.iter())
             .chain(retrieval_index_dependencies.iter())
         {
             let (key, path) = match dependency {
@@ -2029,10 +2232,9 @@ fn build_reverse_dependencies(
         .collect()
 }
 
-/// Bind the indexed one-hop context around retrieved symbols to the section.
-/// Whole-file reads already cover endpoints inside a retrieved file; external
-/// endpoints retain exact symbol dependencies so their implementations can
-/// stale only the sections that use them.
+/// Bind enclosing declarations and one-hop relationships around retrieved
+/// ranges to the section. Declaration checks remain local to each symbol, and
+/// external endpoints retain exact symbol dependencies.
 fn retrieved_index_dependencies(
     revision: &ChapterRevision,
     source_manifest: &SnapshotManifest,
@@ -2079,6 +2281,47 @@ fn retrieved_index_dependencies(
     }
 
     let mut dependencies = BTreeMap::new();
+    for (path, symbol_id) in ranges
+        .iter()
+        .flat_map(|range| {
+            [&range.enclosing, &range.parent]
+                .into_iter()
+                .flatten()
+                .map(move |context| (range.path.as_str(), context.symbol_id.as_str()))
+        })
+        .collect::<BTreeSet<_>>()
+    {
+        let Some(symbol) = source_index
+            .symbols
+            .iter()
+            .find(|symbol| symbol.symbol_id == symbol_id && symbol.path == path)
+        else {
+            continue;
+        };
+        let source_sha256 = &symbol.anchor.source_sha256;
+        let index_file = source_index.files.iter().find(|file| file.path == path);
+        let manifest_file = source_manifest.files.iter().find(|file| file.path == path);
+        if !index_file.is_some_and(|file| {
+            file.status == IndexFileStatus::Indexed && file.source_sha256 == *source_sha256
+        }) || !manifest_file.is_some_and(|file| file.sha256 == *source_sha256)
+        {
+            continue;
+        }
+        dependencies.insert(
+            (
+                0_u8,
+                path.to_owned(),
+                symbol.symbol_id.clone(),
+                source_sha256.clone(),
+            ),
+            SectionDependency::Symbol {
+                path: path.to_owned(),
+                source_sha256: source_sha256.clone(),
+                symbol_id: symbol.symbol_id.clone(),
+            },
+        );
+    }
+
     for relationship in &source_index.relationships {
         if !symbol_ids.contains(&relationship.source_id)
             && !relationship
@@ -2106,7 +2349,7 @@ fn retrieved_index_dependencies(
         }
         dependencies.insert(
             (
-                0_u8,
+                1_u8,
                 evidence.path.clone(),
                 relationship.relationship_id.clone(),
                 evidence.source_sha256.clone(),
@@ -2151,7 +2394,7 @@ fn retrieved_index_dependencies(
             }
             dependencies.insert(
                 (
-                    1_u8,
+                    2_u8,
                     symbol.path.clone(),
                     symbol.symbol_id.clone(),
                     source_sha256.clone(),
