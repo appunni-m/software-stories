@@ -2414,65 +2414,81 @@ fn search_ranked(
         .fixed_strings(true)
         .build_literals(&exact_terms)
         .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
-    let mut matches = vec![];
-    let mut sources = HashMap::new();
-    for (id, (exact_identifier, declaration_match, _, score)) in ranked.into_iter().take(limit) {
-        budget.check()?;
-        let range = &prepared.metadata.ranges[id];
-        if !sources.contains_key(&range.path) {
-            sources.insert(
-                range.path.clone(),
-                source_with_budget(storage, manifest, &range.path, budget)?,
-            );
-        }
-        let captured = sources
-            .get(&range.path)
-            .ok_or("Captured source is unavailable.")?;
-        if captured.sha256 != range.source_sha256 {
-            return Err("A code result belongs to a different source version.".to_owned());
-        }
-        let read = range_from_source(captured, range.start_byte, range.end_byte)?;
-        if read.range.chunk_sha256 != range.chunk_sha256
-            || read.range.start_line != range.start_line
-            || read.range.end_line != range.end_line
-        {
-            return Err("A saved code range changed. Rebuild the local code index.".to_owned());
-        }
-        let mut line = range.start_line;
-        let mut text = read
-            .contents
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim()
-            .chars()
-            .take(360)
-            .collect::<String>();
-        Searcher::new()
-            .search_slice(
-                if exact_identifier {
-                    &exact_matcher
-                } else {
-                    &matcher
-                },
-                read.contents.as_bytes(),
-                UTF8(|number, found| {
-                    line = range.start_line + number as usize - 1;
-                    text = found.trim().chars().take(360).collect();
-                    Ok(false)
-                }),
-            )
-            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
-        matches.push(SearchHit {
-            range: range.clone(),
-            line,
-            text,
-            exact_identifier,
-            declaration_match,
-            score,
-            query_coverage: None,
-        });
+    // Keep relevance order while verifying only one full captured file at a
+    // time. Retaining a source blob for every result path can multiply peak
+    // memory by the page size when a broad query spans large files.
+    let selected = ranked.into_iter().take(limit).collect::<Vec<_>>();
+    let mut positions_by_path = HashMap::<String, Vec<usize>>::new();
+    for (position, (id, _)) in selected.iter().enumerate() {
+        let path = &prepared.metadata.ranges[*id].path;
+        positions_by_path
+            .entry(path.clone())
+            .or_default()
+            .push(position);
     }
+    let mut ordered_matches = std::iter::repeat_with(|| None)
+        .take(selected.len())
+        .collect::<Vec<Option<SearchHit>>>();
+    for (path, positions) in positions_by_path {
+        budget.check()?;
+        let captured = source_with_budget(storage, manifest, &path, budget)?;
+        for position in positions {
+            budget.check()?;
+            let (id, (exact_identifier, declaration_match, _, score)) = selected[position];
+            let range = &prepared.metadata.ranges[id];
+            if range.path != path {
+                return Err("The code search index is invalid.".to_owned());
+            }
+            if captured.sha256 != range.source_sha256 {
+                return Err("A code result belongs to a different source version.".to_owned());
+            }
+            let read = range_from_source(&captured, range.start_byte, range.end_byte)?;
+            if read.range.chunk_sha256 != range.chunk_sha256
+                || read.range.start_line != range.start_line
+                || read.range.end_line != range.end_line
+            {
+                return Err("A saved code range changed. Rebuild the local code index.".to_owned());
+            }
+            let mut line = range.start_line;
+            let mut text = read
+                .contents
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .chars()
+                .take(360)
+                .collect::<String>();
+            Searcher::new()
+                .search_slice(
+                    if exact_identifier {
+                        &exact_matcher
+                    } else {
+                        &matcher
+                    },
+                    read.contents.as_bytes(),
+                    UTF8(|number, found| {
+                        line = range.start_line + number as usize - 1;
+                        text = found.trim().chars().take(360).collect();
+                        Ok(false)
+                    }),
+                )
+                .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
+            ordered_matches[position] = Some(SearchHit {
+                range: range.clone(),
+                line,
+                text,
+                exact_identifier,
+                declaration_match,
+                score,
+                query_coverage: None,
+            });
+        }
+    }
+    let matches = ordered_matches
+        .into_iter()
+        .map(|hit| hit.ok_or_else(|| "A code search result is unavailable.".to_owned()))
+        .collect::<Result<Vec<_>, _>>()?;
     budget.check()?;
     let result_bytes = json(&matches)?.len();
     Ok(SearchResult {
