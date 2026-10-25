@@ -176,6 +176,12 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(selection.effort));
+  const modelAvailabilityMessage = models.length === 0 ? null
+    : !selectedModel ? selection.modelId
+      ? `Saved model ${selection.modelId} is not available in this Codex account. Choose a listed model in Connection settings; Code Atlas will not switch models for you.`
+      : 'Choose a model in Connection settings before generating.'
+    : !modelReady ? `Saved reasoning level ${selection.effort || '(none)'} is not available for ${selectedModel.displayName}. Choose a supported level in Connection settings.`
+    : null;
   const sourceReady = gitGuide ? Boolean(gitGuide.comparisonId && gitGuide.selectedChanges.length > 0 && gitGuide.selectedChanges.length <= 12)
     : gitChange ? Boolean(gitChange.comparisonId && Number.isInteger(gitChange.hunkIndex) && gitChange.hunkIndex >= 0)
     : Boolean(manifest && paths.length > 0 && paths.length <= 12
@@ -211,14 +217,6 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const acceptModels = (value: CodexModel[]) => {
     setModels(value);
     publishCodexModels(value);
-    setSelection((previous) => {
-      if (!value.length) return previous;
-      if (value.some((model) => model.modelId === previous.modelId && model.supportedReasoningEfforts.includes(previous.effort))) return previous;
-      const model = value.find((item) => item.modelId === 'gpt-6-luna') ?? value.find((item) => item.isDefault) ?? value[0];
-      const next = { modelId: model?.modelId ?? '', effort: model?.supportedReasoningEfforts.includes('max') ? 'max' : model?.defaultReasoningEffort ?? model?.supportedReasoningEfforts[0] ?? '' };
-      remember(next.modelId, next.effort);
-      return next;
-    });
   };
 
   const acceptStatus = (value: CodexAgentStatus) => {
@@ -728,6 +726,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             </section></details>
               </div>
             </details>}
+            {status?.authenticated && modelAvailabilityMessage && <p className="provider-status-note" role="status">{modelAvailabilityMessage}</p>}
             {otherRun && <p className="provider-status-note" role="status">Another Codex operation is active. Wait for it to finish, then refresh account status.</p>}
             {mode !== 'settings' && <section className="provider-review-card" aria-labelledby="codex-source-title">
               <div className="provider-section-heading"><div><span>{gitOperation ? 'GIT COMPARISON' : 'IMMUTABLE SNAPSHOT'} · {comparisonId ?? snapshotId}</span><h3 id="codex-source-title">{gitOperation ? 'Review the selected changes' : codeLensTarget ? 'Review the selected code' : planning ? 'Code for your route' : 'Code for this explanation'}</h3></div></div>

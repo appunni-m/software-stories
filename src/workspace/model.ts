@@ -72,14 +72,19 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   const saved = !!turn.revisionId && availableRevisions.has(turn.revisionId)
     || !!turn.publishedSections?.some((section) => availableRevisions.has(section.revisionId));
   if (saved) {
+    const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide) : null;
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
       : turn.status === 'working' ? 'Adding more detail.'
       : turn.status === 'waiting' ? 'Building the next slide as you listen.'
       : turn.status === 'partial' ? 'Partially completed.'
       : turn.status === 'stopped' ? 'Stopped.'
       : turn.status === 'interrupted' ? 'Interrupted.'
-      : turn.status === 'failed' ? 'Could not finish.' : 'Saved explanation.';
-    return { text: `${state}${turn.status === 'ready' ? '' : ' Saved sections are available.'}`, action: 'Open explanation' };
+      : turn.status === 'failed' ? 'Could not finish.'
+      : guideCoverage === 'Partial coverage' ? 'Guide partly covered.' : 'Saved explanation.';
+    const readyNote = turn.status === 'ready' && guideCoverage === 'Partial coverage'
+      ? ' Some planned topics remain uncovered.'
+      : turn.status === 'ready' ? '' : ' Saved sections are available.';
+    return { text: `${state}${readyNote}`, action: 'Open explanation' };
   }
   const text: Record<Turn['status'], string> = {
     queued: 'Waiting to start…', working: 'Working on this question…',

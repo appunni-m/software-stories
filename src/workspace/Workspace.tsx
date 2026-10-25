@@ -505,11 +505,15 @@ function Answer(props:AnswerProps){
   const failureMessage=explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
   const timeoutRecovery=repositoryGuideTimeoutRecovery(turn);
-  const omissionQuestion=turn.guideId&&turn.guide&&!canContinueRepositoryGuide(turn.guide)
-    &&(turn.status==='ready'||turn.status==='partial')&&selectedGuideSlide===guideSlides.length-1
-    ?repositoryGuideOmissionQuestion(turn.guide.omissions):null;
-  const omissionSummary=omissionQuestion?repositoryGuideOmissionSummary(turn.guide?.omissions??[]):null;
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide);
+  const uncoveredGuideTopics=turn.guide?[...turn.guide.omissions,...turn.guide.units.filter((unit)=>unit.status!=='complete').map((unit)=>unit.question)]:[];
+  const omissionQuestion=turn.guideId&&turn.guide&&!canContinueRepositoryGuide(turn.guide)
+    &&(turn.status==='ready'||turn.status==='partial')&&selectedGuideSlide>=0
+    ?repositoryGuideOmissionQuestion(uncoveredGuideTopics):null;
+  const omissionSummary=omissionQuestion?repositoryGuideOmissionSummary(uncoveredGuideTopics):null;
+  const guideCoverageSummary=guideCoverageLabel==='Partial coverage'
+    ?omissionSummary??'Some planned topics were not completed.'
+    :null;
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${questionSummaryText(turn.question)}`}>
     <QuestionDisclosure question={turn.question}/>
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:timeoutRecovery?<><span>{timeoutRecovery}</span><Button size="1" variant="soft" onClick={props.onRetry}>Start a new guide</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds while you listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):'Try again'}</Button></>}</div>
@@ -523,7 +527,7 @@ function Answer(props:AnswerProps){
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}
       branchLabel={omissionQuestion?'Explore uncovered topics':undefined}
-      coverageSummary={omissionSummary??undefined}
+      coverageSummary={guideCoverageSummary??undefined}
       onBranch={omissionQuestion?()=>props.onExploreOmissions(turn):props.onBranch}/>}
     {!turn.guideId&&progressiveAnswerSequence&&sectionItems.some((item)=>item.kind==='unavailable')&&<details className="dw-unavailable-group"><summary>{sectionItems.filter((item)=>item.kind==='unavailable').reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0)} saved answer part(s) unavailable</summary><p>These parts could not be reopened. Re-explain this question to build them again.</p><Button size="1" variant="soft" onClick={props.onRetry}>Explain this question again</Button></details>}
     {!turn.guideId&&!progressiveAnswerSequence&&sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion

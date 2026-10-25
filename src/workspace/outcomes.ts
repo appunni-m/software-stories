@@ -1,4 +1,4 @@
-import type { Exploration, PublishedSection, Turn, WorkspaceState } from './model';
+import { repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
@@ -185,11 +185,13 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
       answerRevisionIds: [...new Set([turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
         ...(turn.answerVersions ?? []).map((version) => version.revisionId)].filter((id): id is string => Boolean(id)))],
       read: turn.outcomeNotice?.read === key,
-      title: turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
+      title: turn.status === 'ready' && hasAnswer(turn) && turn.guideId && repositoryGuideCoverageLabel(turn.guide) === 'Partial coverage' ? 'Guide partly covered'
+        : turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
         : turn.status === 'stopped' ? 'Question stopped'
         : turn.status === 'interrupted' ? 'Question interrupted'
         : turn.status === 'partial' && hasAnswer(turn) ? 'Explanation partly complete' : 'Question needs attention',
-      tone: turn.status === 'ready' && hasAnswer(turn) ? 'info' : turn.status === 'failed' ? 'error' : 'warning',
+      tone: turn.status === 'ready' && hasAnswer(turn) && (!turn.guideId || repositoryGuideCoverageLabel(turn.guide) !== 'Partial coverage') ? 'info'
+        : turn.status === 'failed' ? 'error' : 'warning',
     }));
 }
 
