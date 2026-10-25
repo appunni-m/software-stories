@@ -694,7 +694,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains(
         "Let observed behavior choose the visual mode independently for each claim scene"
     ));
-    assert!(instructions.contains("Verified call order uses timeline"));
+    assert!(instructions.contains("use timeline for verified call order"));
     assert!(instructions.contains(
         "Use a graph only when those forms cannot show a genuinely non-linear relationship"
     ));
@@ -830,7 +830,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert!(
         system_instructions().contains(
-            "LIFO stacks are authored oldest/bottom first and displayed newest/top first"
+            "LIFO as a stack authored oldest/bottom first and displayed newest/top first"
         )
     );
     assert_eq!(
@@ -945,7 +945,8 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     assert!(instructions.contains(
         "Let observed behavior choose the visual mode independently for each claim scene"
     ));
-    assert!(instructions.contains("uses transform, with the actual operation in the middle"));
+    assert!(instructions.contains("Use a three-part transform only when one cited operation maps a named input value or state to a distinct result"));
+    assert!(instructions.contains("Do not use transform as the generic layout for call paths, collection behavior, or chains of decisions"));
     assert!(instructions.contains("pointFlow takes precedence and keeps a symbolic point visible on both sides of the operation"));
     assert!(instructions.contains("Do not choose by file type or a favorite template."));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
