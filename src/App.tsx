@@ -4991,7 +4991,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
                               <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>
-                              <button className="secondary-button button-reject" onClick={() => { setRejectReason(''); setRejecting(true); }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> Reject</button>
+                              <button className="secondary-button button-reject" aria-expanded={rejecting} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
                             </>}
                           </div>
                         </>}
