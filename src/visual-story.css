@@ -36,8 +36,11 @@
 .story-source-stage { background: var(--canvas); padding: 18px; height: clamp(250px, 37vh, 450px); overflow: auto; }
 .story-source-stage > div:first-child { display: flex; align-items: center; gap: 7px; color: var(--muted); font: 12px var(--mono); }
 .story-source-stage pre { font: 13px/1.8 var(--mono); color: var(--text); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
-.story-source-stage .story-no-visual { height: 100%; flex-direction: column; justify-content: center; text-align: center; gap: 16px; }
+.story-source-stage .story-no-visual { display: flex; box-sizing: border-box; min-height: 100%; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; }
+.story-source-fallback > span { max-width: 420px; color: var(--text); font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
 .story-no-visual small { max-width: 300px; font: 13px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
+.story-source-fallback > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; max-width: min(100%, 420px); padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-raised); color: var(--accent); font: 12px/1.4 var(--mono); overflow-wrap: anywhere; }
+.story-source-fallback > button:hover { border-color: var(--accent); }
 .story-playbar { position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: 28px minmax(0,1fr) 28px; align-items: center; gap: 4px; padding: 4px 8px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); }
 .story-previous, .story-next { display: grid; place-items: center; min-height: 30px; border: 0; border-radius: 5px; background: transparent; }
 .story-playbar .is-story-audio { min-width: 0; max-width: 100%; box-sizing: border-box; margin: 0; padding: 0 3px; border: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "playback status" "read edit"; align-items: center; column-gap: 8px; row-gap: 2px; background: transparent; }

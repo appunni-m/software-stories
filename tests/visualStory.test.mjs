@@ -37,6 +37,17 @@ describe('visual story scenes', () => {
     assert.match(component, /\{canShowFullMap && <button className="story-map-toggle"/u);
   });
 
+  it('keeps source-only scenes compact and opens their cited range beside the answer', () => {
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    assert.match(component, /className="story-no-visual story-source-fallback"/u);
+    assert.match(component, /Open the cited code beside this explanation to inspect this step\./u);
+    assert.match(component, /onClick=\{\(\) => onOpenAnchor\(anchor, `reader-citation:\$\{anchor\.anchorId\}`\)\}/u);
+    assert.doesNotMatch(component, /<pre><code>\{anchor\.excerpt\}<\/code><\/pre>/u,
+      'the Explorer already shows the captured code; do not duplicate a long excerpt as the visual');
+    assert.match(styles, /\.story-source-stage \.story-no-visual\s*\{[^}]*display:\s*flex/u);
+  });
+
   it('keeps long edge labels scannable while preserving short labels', () => {
     assert.equal(visibleStoryEdgeLabel('PFR0 prefix matches'), 'PFR0 prefix matches');
     const full = 'Prefix matches; hand off and return this result.';

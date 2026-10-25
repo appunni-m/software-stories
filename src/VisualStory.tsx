@@ -369,8 +369,19 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         <Background gap={24} /><Controls showInteractive={false} />
       </ReactFlow>
     </div> : <div className="story-source-stage">
-      {anchor ? <><div><Code2 size={15} /><span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span></div><pre><code>{anchor.excerpt}</code></pre></>
-        : <div className="story-no-visual"><Network size={28} /><span>{section.title}</span><small>{inspection.status === 'unavailable' ? 'This saved visual cannot be displayed. Narration and source links are available.' : 'No diagram was saved for this section.'}</small></div>}
+      {anchor ? <div className="story-no-visual story-source-fallback">
+        <Code2 size={28} aria-hidden="true" />
+        <span>{section.title}</span>
+        <small>Open the cited code beside this explanation to inspect this step.</small>
+        <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
+          aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
+          onClick={() => onOpenAnchor(anchor, `reader-citation:${anchor.anchorId}`)}>
+          <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
+        </button>
+      </div> : <div className="story-no-visual">
+        <Network size={28} aria-hidden="true" /><span>{section.title}</span>
+        <small>{inspection.status === 'unavailable' ? 'This saved visual cannot be displayed. Narration and source links are available.' : 'No diagram was saved for this section.'}</small>
+      </div>}
     </div>}
     <div className="story-playbar">
       <button className="story-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
