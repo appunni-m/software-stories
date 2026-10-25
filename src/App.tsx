@@ -1194,6 +1194,17 @@ function App() {
       setNotice({ title: 'This source range is no longer available', message: 'Open the cited code in the selected snapshot again before requesting an explanation.' });
       return;
     }
+    const resolvedRange = resolveCodeLensCitation(
+      range,
+      undefined,
+      sourceDocument.sha256,
+      splitCapturedSourceLines(sourceDocument.contents).length,
+      sourceDocument.contents,
+    );
+    if (resolvedRange.status !== 'verified') {
+      setNotice({ title: 'This source range could not be verified', message: 'Reopen the captured file and select its code again before requesting an explanation.' });
+      return;
+    }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setProviderDialog({
       kind: 'code-lens-range',
@@ -1201,11 +1212,11 @@ function App() {
       snapshotId: selectedSnapshot.snapshotId,
       target: {
         path: targetPath,
-        sourceSha256: range.sourceSha256,
-        startLine: range.startLine,
-        endLine: range.endLine,
-        startByte: range.startByte ?? null,
-        endByteExclusive: range.endByteExclusive ?? null,
+        sourceSha256: resolvedRange.range.sourceSha256!,
+        startLine: resolvedRange.range.startLine,
+        endLine: resolvedRange.range.endLine,
+        startByte: resolvedRange.range.startByte ?? null,
+        endByteExclusive: resolvedRange.range.endByteExclusive ?? null,
       },
     });
   };
