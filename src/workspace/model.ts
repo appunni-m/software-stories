@@ -325,16 +325,6 @@ export function isRepositoryGuideIntent(question: string): boolean {
   return false;
 }
 
-/** Explain recovery for a guide saved by an app build with the old deadline. */
-export function repositoryGuideTimeoutRecovery(turn: Pick<Turn, 'guideId' | 'error' | 'question'>): string | null {
-  if (!turn.error || !/^The Codex (?:operation|run) exceeded ten minutes\b/i.test(turn.error)) return null;
-  if (turn.guideId) {
-    return 'This saved guide hit the old 10-minute limit. Start a new guide to build from a saved outline and continue slide by slide; it will not stop just because ten minutes passed. Any saved slides remain available.';
-  }
-  if (!isRepositoryGuideIntent(turn.question)) return null;
-  return 'This project-wide answer hit the 10-minute limit. A new guide will save an outline first, then build a few slides at a time. It can keep going until you stop it. Your original question stays here.';
-}
-
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

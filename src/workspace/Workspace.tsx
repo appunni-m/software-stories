@@ -18,7 +18,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
@@ -411,16 +411,13 @@ export function DeveloperWorkspace(props:Props) {
   function retryTurn(turn:Turn) {
     if(conversationUnavailable)return;
     if(!requireCodexConnection())return;
-    // The timeout recovery UI promises a new incremental guide. Check it
-    // before the saved guideId branch, which would otherwise resume the same
-    // legacy operation and risk repeating its old deadline failure.
-    if(repositoryGuideTimeoutRecovery(turn)){startRepositoryGuide(turn.question);return;}
     if(turn.guideId){
       if(canContinueRepositoryGuide(turn.guide)&&state.grantId)void runRepositoryGuide(projectId,snapshotId,turn.id,state.grantId,true);
       else if(canContinueRepositoryGuide(turn.guide))setGuideConsent({id:turn.id,resume:true});
       else setGuideConsent({id:appendRepositoryGuide(projectId,snapshotId,turn.question),resume:false});
       setConsentError(null);return;
     }
+    if(isRepositoryGuideIntent(turn.question)){startRepositoryGuide(turn.question);return;}
     if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else setConsentTurn(turn.id);
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
@@ -563,7 +560,6 @@ function Answer(props:AnswerProps){
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const failureMessage=explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
-  const timeoutRecovery=repositoryGuideTimeoutRecovery(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide);
   const uncoveredGuideTopics=repositoryGuideUncoveredTopics(turn.guide);
   const canExtendOmissions=!!(turn.guideId&&turn.guide?.canExtend===true&&!canContinueRepositoryGuide(turn.guide)
@@ -574,11 +570,11 @@ function Answer(props:AnswerProps){
     :null;
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${questionSummaryText(turn.question)}`}>
     <QuestionDisclosure question={turn.question}/>
-    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:timeoutRecovery?<><span>{timeoutRecovery}</span><Button size="1" variant="soft" onClick={props.onRetry}>Start a new guide</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds while you listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):'Try again'}</Button></>}</div>
+    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds while you listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline"><summary>{turn.guide.title}{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel}</span>}<span className="dw-guide-outline-count">{guideSlides.length} slide{guideSlides.length===1?'':'s'} ready · {turn.guide.units.filter((u)=>u.status==='complete').length}/{turn.guide.units.length} topics explored</span></summary><ol>{turn.guide.units.map((unit)=>{const ready=sections.some((section)=>section.key===unit.key);return <li key={unit.key}><span>{unit.question}</span><small>{ready?'Ready':unit.status==='working'?'Building':unit.status}</small></li>;})}</ol><p>{turn.guide.capturedFiles} captured files were available; {turn.guide.startingFiles} starting files shaped the outline. Completing the listed topics does not explain every file. Open Files to explore file-level explanations.</p>{turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}</details>}
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
     {capacityError&&<AnswerStorage/>}
-    {turn.error&&!timeoutRecovery&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
+    {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
     {sectionSequence&&props.loading&&sections.length>0&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
     {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span>{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={selectedGuideSlide>=guideSlides.length-1&&(!turn.guideId||!canContinueRepositoryGuide(turn.guide))} onClick={()=>{if(selectedGuideSlide<guideSlides.length-1){if(turn.guideId)props.onGuideSlideConsumed?.(guideSlide.revisionId);selectGuideSlide(selectedGuideSlide+1);}else if(turn.guideId&&canContinueRepositoryGuide(turn.guide))props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{selectedGuideSlide>=guideSlides.length-1&&progressText?`Building next ${turn.guideId?'slide':'section'}…`:selectedGuideSlide>=guideSlides.length-1&&turn.guideId&&turn.status==='waiting'?'Build next slide':`Next ${turn.guideId?'slide':'section'}`}<ArrowRight size={13}/></Button></nav>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
