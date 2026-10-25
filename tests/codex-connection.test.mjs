@@ -51,14 +51,25 @@ describe('one-time Codex connection', () => {
 
   it('observes the runtime after dequeuing and starts one agent-led investigation', async () => {
     const source = await readFile(new URL('../src/workspace/store.ts', import.meta.url), 'utf8');
-    const dispatch = source.slice(source.indexOf('const release = await enterQuestionQueue()'));
+    const runQuestion = source.indexOf('export async function runQuestion(');
+    assert.notEqual(runQuestion, -1);
+    const dispatch = source.slice(runQuestion);
+    assert.match(dispatch, /const job = \{cancelled:false,runId,pendingGuideAdvances:\[\] as string\[\]\}; jobs\.set\(id,job\);/);
+    const savedTurn = dispatch.indexOf('flushWorkspaceConversationBeforeGeneration');
+    const queued = dispatch.indexOf('queueWorkspaceGenerationJob');
+    const dequeued = dispatch.indexOf('release=await enterQuestionQueue()');
+    const connected = dispatch.indexOf('await ensureCodexConnection(true); check();');
+    const subscribed = dispatch.indexOf("listen<PublishedSection & {projectId:string;snapshotId:string}>");
+    const generated = dispatch.indexOf("'generate_progressive_workspace_answer'");
+    assert.ok(savedTurn >= 0 && savedTurn < queued, 'persist the question before queue admission');
+    assert.ok(queued < dequeued && dequeued < connected, 'resolve the account only after the queue grants the job');
+    assert.ok(connected < subscribed && subscribed < generated, 'subscribe to publications before dispatch');
     assert.match(dispatch, /await ensureCodexConnection\(true\); check\(\);/);
     assert.ok(dispatch.indexOf('await ensureCodexConnection(true)') < dispatch.indexOf("'generate_progressive_workspace_answer'"));
     assert.equal((dispatch.match(/'generate_progressive_workspace_answer'/g) ?? []).length, 1);
     assert.ok(dispatch.indexOf("'workspace-answer-section'") < dispatch.indexOf("'generate_progressive_workspace_answer'"));
     assert.doesNotMatch(dispatch, /prepareSourceDiscovery|sendSourceDiscovery|buildCodexChapterReview|sendCodexChapterRequest/);
     assert.doesNotMatch(dispatch, /selectedFiles|250000|sizes\.get/);
-    assert.match(dispatch, /job\.runId = runId;/);
   });
 
   it('leaves explicit disconnect and missing or expired login for one deliberate connect action', async () => {
