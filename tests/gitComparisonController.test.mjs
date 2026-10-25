@@ -118,6 +118,7 @@ describe('owned local Git comparison client', () => {
     assert.match(app, /comparison=\{currentProject \? gitComparisonsByProject\[currentProject\.projectId\] \?\? null : null\}/);
     assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
     assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
+    assert.match(workspace, /if\(workspace!=='changes'\|\|gitBusy\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
   });
 
   it('keeps the Stop action visible when history starts a comparison in the collapsed ref panel', () => {
