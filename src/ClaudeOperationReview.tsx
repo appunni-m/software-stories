@@ -17,21 +17,29 @@ function isEffort(value: unknown): value is ClaudeReasoningEffort {
   return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh' || value === 'max';
 }
 
+function isSelection(value: unknown): value is Selection {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = ['modelId', 'effort', 'maxTurns'];
+  return Object.keys(record).length === keys.length && keys.every((key) => Object.hasOwn(record, key))
+    && typeof record.modelId === 'string' && record.modelId.length <= 200
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(record.modelId)
+    && (record.effort === null || isEffort(record.effort))
+    && typeof record.maxTurns === 'number' && Number.isInteger(record.maxTurns)
+    && record.maxTurns >= 1 && record.maxTurns <= 8;
+}
+
 function preferences(): Selection {
   try {
     const text = localStorage.getItem(preferenceKey) ?? '';
     const value: unknown = text.length <= 1024 ? JSON.parse(text) : null;
-    if (value && typeof value === 'object' && 'modelId' in value && 'effort' in value && 'maxTurns' in value
-      && typeof value.modelId === 'string' && value.modelId.length <= 200
-      && (value.effort === null || isEffort(value.effort))
-      && typeof value.maxTurns === 'number' && Number.isInteger(value.maxTurns) && value.maxTurns >= 1 && value.maxTurns <= 8) {
-      return { modelId: value.modelId, effort: value.effort, maxTurns: value.maxTurns };
-    }
+    if (isSelection(value)) return { modelId: value.modelId, effort: value.effort, maxTurns: value.maxTurns };
   } catch { /* Optional defaults contain no account data or consent. */ }
   return { modelId: '', effort: null, maxTurns: 4 };
 }
 
 function remember(value: Selection) {
+  if (!isSelection(value)) return;
   try { localStorage.setItem(preferenceKey, JSON.stringify(value)); } catch { /* Optional. */ }
 }
 
