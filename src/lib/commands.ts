@@ -41,6 +41,7 @@ export interface InterruptedOperation {
 }
 
 export type WorkspaceGenerationJobState =
+  | 'queued'
   | 'preparing'
   | 'running'
   | 'stopRequested'
@@ -54,6 +55,7 @@ export interface WorkspaceGenerationJob {
   jobId: string;
   kind: 'workspaceQuestion' | 'repositoryGuideSlide' | null;
   conversationTurnId: string | null;
+  rendererSessionId: string | null;
   projectId: string;
   snapshotId: string;
   modelId: string | null;
@@ -1470,8 +1472,19 @@ export async function cancelCodexChapterRequest(runId: string): Promise<boolean>
 export function listWorkspaceGenerationJobs(): Promise<WorkspaceGenerationJob[]> {
   return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs');
 }
-export function listWorkspaceGenerationJobsForScope(projectId:string,snapshotId:string):Promise<WorkspaceGenerationJob[]> {
-  return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs_for_scope',{projectId,snapshotId});
+export function queueWorkspaceGenerationJob(input: {
+  jobId:string; conversationTurnId:string; rendererSessionId:string; projectId:string;
+  snapshotId:string; modelId:string; reasoningEffort:string;
+}):Promise<WorkspaceGenerationJob> {
+  return invoke<WorkspaceGenerationJob>('queue_workspace_generation_job', input);
+}
+export function finishQueuedWorkspaceGenerationJob(
+  jobId:string, projectId:string, snapshotId:string, state:'stopped'|'failed'|'interrupted',
+):Promise<WorkspaceGenerationJob> {
+  return invoke<WorkspaceGenerationJob>('finish_queued_workspace_generation_job', {jobId,projectId,snapshotId,state});
+}
+export function listWorkspaceGenerationJobsForScope(projectId:string,snapshotId:string,rendererSessionId:string):Promise<WorkspaceGenerationJob[]> {
+  return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs_for_scope',{projectId,snapshotId,rendererSessionId});
 }
 export function getWorkspaceGenerationJob(jobId: string): Promise<WorkspaceGenerationJob> {
   return invoke<WorkspaceGenerationJob>('get_workspace_generation_job', { jobId });

@@ -306,7 +306,7 @@ pub(crate) fn run_with_starting_ranges(
     preparation.run_stage(
         crate::generation_timing::PreparationKind::JobRegistration,
         || {
-            super::jobs::start(
+            let registered = super::jobs::start(
                 storage,
                 &input.run_id,
                 if guide_intent.is_some() {
@@ -319,8 +319,11 @@ pub(crate) fn run_with_starting_ranges(
                 &input.snapshot_id,
                 &input.model_id,
                 &input.effort,
-            )
-            .map(|_| ())
+            )?;
+            if registered.state == super::jobs::JobState::StopRequested {
+                return Err("Stopped".into());
+            }
+            Ok(())
         },
     )?;
     // Interactive code investigations are explicitly stoppable. Native source,
@@ -430,8 +433,12 @@ pub(crate) fn run_with_starting_ranges(
     let (manifest, prompt, schema, fingerprint, instructions, runtime, session) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
-            let stopped = super::jobs::get(storage, &input.run_id)
-                .is_ok_and(|job| job.state == super::jobs::JobState::StopRequested);
+            let stopped = super::jobs::get(storage, &input.run_id).is_ok_and(|job| {
+                matches!(
+                    job.state,
+                    super::jobs::JobState::StopRequested | super::jobs::JobState::Stopped
+                )
+            });
             if stopped {
                 preparation.mark_last_stopped();
             }
@@ -960,6 +967,52 @@ pub(crate) async fn list_workspace_generation_jobs(
         .map_err(|_| "The workspace job list worker stopped.".to_owned())?
 }
 
+/// Persist a renderer-owned question before it waits for the in-process queue.
+/// Only identifiers and model settings are stored; question and source stay out.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn queue_workspace_generation_job(
+    app: AppHandle,
+    job_id: String,
+    conversation_turn_id: String,
+    renderer_session_id: String,
+    project_id: String,
+    snapshot_id: String,
+    model_id: String,
+    reasoning_effort: String,
+) -> Result<super::jobs::JobRecord, String> {
+    let storage = app_data_directory(&app)?;
+    super::jobs::queue_workspace_question(
+        &storage,
+        &job_id,
+        &conversation_turn_id,
+        &renderer_session_id,
+        &project_id,
+        &snapshot_id,
+        &model_id,
+        &reasoning_effort,
+    )
+}
+
+/// Complete a queued operation that failed before dispatch. Refuse to finish
+/// locally if the native manager has already taken ownership of the job.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn finish_queued_workspace_generation_job(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    job_id: String,
+    project_id: String,
+    snapshot_id: String,
+    state: super::jobs::JobState,
+) -> Result<super::jobs::JobRecord, String> {
+    let storage = app_data_directory(&app)?;
+    manager.with_operation_state(&job_id, |active| {
+        if active {
+            return Err("This workspace job already entered its native worker.".into());
+        }
+        super::jobs::finish_unstarted(&storage, &job_id, &project_id, &snapshot_id, state)
+    })
+}
+
 /// Restore only the current repository/snapshot's jobs. Each inactive worker
 /// is reconciled against its own answer receipt without replaying other scopes.
 #[tauri::command(rename_all = "camelCase")]
@@ -968,7 +1021,11 @@ pub(crate) async fn list_workspace_generation_jobs_for_scope(
     manager: State<'_, codex_agent::CodexAgentManager>,
     project_id: String,
     snapshot_id: String,
+    renderer_session_id: String,
 ) -> Result<Vec<super::jobs::JobRecord>, String> {
+    if uuid::Uuid::parse_str(&renderer_session_id).is_err() {
+        return Err("The workspace renderer session identity is invalid.".into());
+    }
     let storage = app_data_directory(&app)?;
     let manager = manager.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -984,7 +1041,13 @@ pub(crate) async fn list_workspace_generation_jobs_for_scope(
                         .ok()
                         .map(|answer| answer.outcome)
                 };
-                super::jobs::reconcile_one(&storage, &job.job_id, worker_active, answer_outcome)
+                super::jobs::reconcile_one_for_renderer(
+                    &storage,
+                    &job.job_id,
+                    Some(&renderer_session_id),
+                    worker_active,
+                    answer_outcome,
+                )
             })
             .collect()
     })
@@ -1004,10 +1067,16 @@ pub(crate) async fn get_workspace_generation_job(
     let manager = manager.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let job = super::jobs::get(&storage, &job_id)?;
+        if job.state == super::jobs::JobState::Queued {
+            // This API has no renderer-session argument, so it cannot decide
+            // whether a live WebView still owns the queue entry.
+            return Ok(job);
+        }
         let worker_active = manager.with_operation_state(&job_id, |active| Ok(active))?;
         let job_is_active = matches!(
             &job.state,
-            &super::jobs::JobState::Preparing
+            &super::jobs::JobState::Queued
+                | &super::jobs::JobState::Preparing
                 | &super::jobs::JobState::Running
                 | &super::jobs::JobState::StopRequested
         );
@@ -1034,9 +1103,27 @@ pub(crate) fn stop_workspace_generation_job(
     snapshot_id: String,
 ) -> Result<super::jobs::JobRecord, String> {
     let storage = app_data_directory(&app)?;
-    super::jobs::request_stop_or_record(&storage, &job_id, &project_id, &snapshot_id)?;
+    let requested =
+        super::jobs::request_stop_or_record(&storage, &job_id, &project_id, &snapshot_id)?;
     if !manager.cancel(&job_id) {
-        return Err("Stop was saved, but cancellation could not reach the active workspace generation. Query its job state before trying again.".into());
+        if matches!(
+            requested.state,
+            super::jobs::JobState::Completed
+                | super::jobs::JobState::PartiallyCompleted
+                | super::jobs::JobState::Stopped
+                | super::jobs::JobState::Failed
+                | super::jobs::JobState::Interrupted
+        ) {
+            return Ok(requested);
+        }
+        return super::jobs::finish_unstarted(
+            &storage,
+            &job_id,
+            &project_id,
+            &snapshot_id,
+            super::jobs::JobState::Stopped,
+        )
+        .map_err(|_| "Stop was saved, but the native worker already owns this question. Query its job state before trying again.".into());
     }
     super::jobs::get(&storage, &job_id)
 }

@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
+import { finishQueuedWorkspaceGenerationJob, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, prewarmLocalNarration, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -43,6 +43,9 @@ const states = new Map<string, WorkspaceState>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
+// A new identity on WebView reload lets native recovery distinguish live
+// renderer-owned queue entries from entries whose owner disappeared.
+const rendererSessionId = crypto.randomUUID();
 const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot]);
 const browserPreviewKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
 const conversations=new Map<string,ConversationPersistence>();
@@ -375,7 +378,7 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
       failed = true;
     }
   }
-  try { restoreWorkspaceJobStates(project,snapshot,await listWorkspaceGenerationJobsForScope(project,snapshot)); }
+  try { restoreWorkspaceJobStates(project,snapshot,await listWorkspaceGenerationJobsForScope(project,snapshot,rendererSessionId)); }
   catch { /* Saved answers remain readable; an unavailable job ledger is conservative. */ }
   if (failed) throw firstFailure;
 }
@@ -386,7 +389,9 @@ function restoreWorkspaceJobStates(project:string,snapshot:string,jobs:Workspace
     const turns=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns);
     const turn=turns.find((candidate)=>candidate.id===job.conversationTurnId);
     if (!turn||!turn.runIds?.includes(job.jobId)||turn.runIds.at(-1)!==job.jobId) continue;
-    const status:Turn['status']=job.state==='preparing'||job.state==='running'||job.state==='stopRequested'?'working'
+    if(job.state==='queued'&&job.rendererSessionId===rendererSessionId&&turn.status==='working')continue;
+    const status:Turn['status']=job.state==='queued'?'queued'
+      :job.state==='preparing'||job.state==='running'||job.state==='stopRequested'?'working'
       :job.state==='completed'?'ready':job.state==='partiallyCompleted'?'partial'
       :job.state==='stopped'?'stopped':job.state==='failed'?'failed':'interrupted';
     patchTurn(project,snapshot,turn.id,status==='working'?{status,error:undefined}:{status});
@@ -525,21 +530,25 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   const turn = owner?.turns.find((t) => t.id === id);
   if (!turn || !owner) return null;
   if ((turn.runIds?.length ?? 0) >= 32) { patchTurn(project,snapshot,id,{error:'This question has reached its retry limit. Ask a follow-up to continue.'}); return null; }
-  const job = {cancelled:false,runId:null as string | null,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
+  const runId = crypto.randomUUID();
+  const selection = readCodexSelection();
+  const job = {cancelled:false,runId,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
   const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
-  patchTurn(project,snapshot,id,{status:'queued',failureCode:undefined,error:undefined});
-  const queueWaitStarted = rendererClock();
-  const release = await enterQuestionQueue();
-  const rendererQueueWaitMs = Math.min(86_400_000, Math.max(0, Math.round(rendererClock() - queueWaitStarted)));
+  patchTurn(project,snapshot,id,{status:'queued',failureCode:undefined,error:undefined,runIds:[...(turn.runIds ?? []),runId]});
+  let release:(()=>void)|null=null;
   let unlisten: (() => void) | undefined;
   let adoption = Promise.resolve();
   try {
+    // Save turn identity first so either side of the following native write
+    // can be reconciled after a WebView reload.
+    await flushWorkspaceConversationBeforeGeneration(project,snapshot);check();
+    await queueWorkspaceGenerationJob({jobId:runId,conversationTurnId:id,rendererSessionId,projectId:project,snapshotId:snapshot,
+      modelId:selection.modelId,reasoningEffort:selection.effort});
+    const queueWaitStarted=rendererClock();
+    release=await enterQuestionQueue();
+    const queueWaitMs = Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-queueWaitStarted)));
     check(); patchTurn(project,snapshot,id,{status:'working',error:undefined});
     await ensureCodexConnection(true); check();
-    const selection = readCodexSelection();
-    const runId = crypto.randomUUID(); job.runId = runId;
-    patchTurn(project,snapshot,id,{runIds:[...(turn.runIds ?? []),runId]});
-    await flushWorkspaceConversationBeforeGeneration(project,snapshot);check();
     // Subscribe before dispatch. Events carry identities only; the native save
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {
@@ -551,16 +560,23 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     });
     check();
     const summary = await invoke<AnswerSummary>('generate_progressive_workspace_answer',{input:{
-      runId,turnId:id,projectId:project,snapshotId:snapshot,grantId,
-      rendererQueueWaitMs,
+      runId,turnId:id,projectId:project,snapshotId:snapshot,grantId,rendererQueueWaitMs:queueWaitMs,
       question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200),
-      references:turn.context.map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,
+      references:(getWorkspace(project,snapshot).explorations.find((e)=>e.id===owner.id)?.turns.find((t)=>t.id===id)?.context ?? [])
+        .map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,
     }});
     await adoption;
     const revision = await reconcileAnswer(project,snapshot,id,summary,true);
     return revision;
   } catch (failure) {
     await adoption;
+    try {
+      const state=job.cancelled?'stopped':closingWorkspace?'interrupted':'failed';
+      // Native ownership is checked atomically. This closes the queued record
+      // if IPC failed before worker registration and is a no-op once native
+      // execution or terminal reconciliation owns it.
+      await finishQueuedWorkspaceGenerationJob(runId,project,snapshot,state);
+    } catch { /* A native worker may have taken ownership during dispatch. */ }
     let recovered = false;
     if (job.runId) {
       try {
@@ -575,5 +591,5 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       patchTurn(project,snapshot,id,{status:job.cancelled ? 'stopped' : message===closingMessage ? 'interrupted' : saved?.length ? 'partial' : 'failed',error:job.cancelled ? undefined : message});
     }
     return null;
-  } finally { unlisten?.(); release(); jobs.delete(id); }
+  } finally { unlisten?.(); release?.(); jobs.delete(id); }
 }

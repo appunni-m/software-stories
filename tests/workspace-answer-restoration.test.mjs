@@ -50,6 +50,27 @@ test('restoration keeps a native worker visible after a webview reload without r
   assert.deepEqual(h.calls.filter((call)=>call.name==='generate_progressive_workspace_answer'),[]);
 });
 
+test('restoration preserves a renderer-owned queued question and never dispatches it again',async()=>{
+  const runId='11111111-1111-4111-8111-111111111111';
+  const turnId='33333333-3333-4333-8333-333333333333';let listedSession;
+  const base={jobId:runId,kind:'workspaceQuestion',conversationTurnId:turnId,projectId:'project',snapshotId:'snapshot',
+    modelId:'gpt-6-luna',reasoningEffort:'max',sourceFingerprintSha256:null,requestFingerprintSha256:null,runtimeIdentitySha256:null,
+    state:'queued',workerRegistered:false,providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:2};
+  const h=workspaceStoreHarness(nativeReads(async(name)=>{
+    if(name==='list_workspace_answers')return [];
+    if(name==='list_workspace_generation_jobs_for_scope')return [];
+    assert.fail(`Unexpected command ${name}`);
+  }),{listWorkspaceGenerationJobsForScope:async(projectId,snapshotId,rendererSessionId)=>{
+    assert.equal(projectId,'project');assert.equal(snapshotId,'snapshot');listedSession=rendererSessionId;
+    assert.match(rendererSessionId,/^[0-9a-f-]{36}$/i);return [{...base,rendererSessionId}];
+  }});
+  h.store.updateWorkspace('project','snapshot',(state)=>({...state,explorations:state.explorations.map((e)=>e.id==='root'
+    ?{...e,turns:[{id:turnId,question:'Explain the queued work',context:[],status:'queued',runIds:[runId]}]}:e)}));
+  await h.store.restoreWorkspaceAnswers('project','snapshot');
+  assert.ok(listedSession);assert.equal(turns(h)[0].status,'queued');
+  assert.deepEqual(h.calls.filter((call)=>call.name==='generate_progressive_workspace_answer'),[]);
+});
+
 test('restoration never maps a guide slide or a mismatched turn onto a question',async()=>{
   const runId='11111111-1111-4111-8111-111111111111';
   const guideRunId='55555555-5555-4555-8555-555555555555';

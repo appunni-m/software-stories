@@ -17,8 +17,8 @@ use std::{
 };
 use uuid::Uuid;
 
-const PREVIOUS_STORE_SCHEMA_VERSION: u32 = 1;
-const STORE_SCHEMA_VERSION: u32 = 2;
+const STORE_SCHEMA_VERSIONS: [u32; 3] = [1, 2, 3];
+const STORE_SCHEMA_VERSION: u32 = 3;
 const MAX_STORE_BYTES: usize = 1024 * 1024;
 const MAX_JOB_COUNT: usize = 512;
 const MAX_TURN_IDS: usize = 64;
@@ -27,6 +27,7 @@ static STORE: Mutex<()> = Mutex::new(());
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum JobState {
+    Queued,
     Preparing,
     Running,
     StopRequested,
@@ -46,7 +47,10 @@ pub(crate) enum JobKind {
 
 impl JobState {
     fn is_active(&self) -> bool {
-        matches!(self, Self::Preparing | Self::Running | Self::StopRequested)
+        matches!(
+            self,
+            Self::Queued | Self::Preparing | Self::Running | Self::StopRequested
+        )
     }
 
     fn is_terminal(&self) -> bool {
@@ -62,6 +66,10 @@ pub(crate) struct JobRecord {
     pub(crate) kind: Option<JobKind>,
     #[serde(default)]
     pub(crate) conversation_turn_id: Option<String>,
+    /// Ephemeral WebView owner for a queued renderer operation. A new renderer
+    /// session can recover it as Interrupted without replaying its request.
+    #[serde(default)]
+    pub(crate) renderer_session_id: Option<String>,
     pub(crate) project_id: String,
     pub(crate) snapshot_id: String,
     #[serde(default)]
@@ -113,7 +121,7 @@ pub(crate) fn start(
         let existing = &store.jobs[existing_index];
         if existing.project_id == project_id
             && existing.snapshot_id == snapshot_id
-            && existing.state == JobState::StopRequested
+            && matches!(existing.state, JobState::Queued | JobState::StopRequested)
             && !existing.worker_registered
             && existing.provider_thread_id.is_none()
             && existing.provider_turn_ids.is_empty()
@@ -123,6 +131,10 @@ pub(crate) fn start(
             let job = &mut store.jobs[existing_index];
             bind_requested_identity(job, kind, conversation_turn_id, model_id, reasoning_effort)?;
             job.worker_registered = true;
+            job.renderer_session_id = None;
+            if job.state == JobState::Queued {
+                job.state = JobState::Preparing;
+            }
             job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
             let registered = job.clone();
             write_store(storage, &store)?;
@@ -140,6 +152,7 @@ pub(crate) fn start(
         job_id: job_id.to_owned(),
         kind: Some(kind),
         conversation_turn_id: conversation_turn_id.map(str::to_owned),
+        renderer_session_id: None,
         project_id: project_id.to_owned(),
         snapshot_id: snapshot_id.to_owned(),
         model_id: Some(model_id.to_owned()),
@@ -149,6 +162,101 @@ pub(crate) fn start(
         runtime_identity_sha256: None,
         state: JobState::Preparing,
         worker_registered: true,
+        provider_thread_id: None,
+        provider_turn_ids: Vec::new(),
+        preparation_stages: Vec::new(),
+        created_at_unix_ms: now,
+        updated_at_unix_ms: now,
+    };
+    store.jobs.push(job.clone());
+    write_store(storage, &store)?;
+    Ok(job)
+}
+
+/// Persist a question before it waits for the renderer-owned work queue. This
+/// records intent and configuration only; it contains no question or source.
+pub(crate) fn queue_workspace_question(
+    storage: &Path,
+    job_id: &str,
+    conversation_turn_id: &str,
+    renderer_session_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    model_id: &str,
+    reasoning_effort: &str,
+) -> Result<JobRecord, String> {
+    validate_identity(job_id, project_id, snapshot_id)?;
+    validate_requested_identity(
+        JobKind::WorkspaceQuestion,
+        Some(conversation_turn_id),
+        model_id,
+        reasoning_effort,
+    )?;
+    if Uuid::parse_str(renderer_session_id).is_err() {
+        return Err("The workspace renderer session identity is invalid.".into());
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    if let Some(index) = store.jobs.iter().position(|job| job.job_id == job_id) {
+        let existing = &store.jobs[index];
+        if existing.project_id != project_id || existing.snapshot_id != snapshot_id {
+            return Err("This workspace generation job belongs to another snapshot.".into());
+        }
+        if existing.state == JobState::Queued
+            && !existing.worker_registered
+            && existing.renderer_session_id.as_deref() == Some(renderer_session_id)
+        {
+            let job = &store.jobs[index];
+            if job.kind == Some(JobKind::WorkspaceQuestion)
+                && job.conversation_turn_id.as_deref() == Some(conversation_turn_id)
+                && job.model_id.as_deref() == Some(model_id)
+                && job.reasoning_effort.as_deref() == Some(reasoning_effort)
+            {
+                return Ok(job.clone());
+            }
+            return Err("This queued workspace job is already bound to another question.".into());
+        }
+        if existing.state == JobState::StopRequested
+            && !existing.worker_registered
+            && existing.provider_thread_id.is_none()
+            && existing.provider_turn_ids.is_empty()
+        {
+            let job = &mut store.jobs[index];
+            bind_requested_identity(
+                job,
+                JobKind::WorkspaceQuestion,
+                Some(conversation_turn_id),
+                model_id,
+                reasoning_effort,
+            )?;
+            job.renderer_session_id = Some(renderer_session_id.to_owned());
+            job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+            let stopped = job.clone();
+            write_store(storage, &store)?;
+            return Ok(stopped);
+        }
+        return Err("This workspace generation job ID has already been used.".into());
+    }
+    if store.jobs.len() >= MAX_JOB_COUNT {
+        return Err(
+            "The local workspace job history is full. Existing job records were preserved.".into(),
+        );
+    }
+    let now = now_unix_ms();
+    let job = JobRecord {
+        job_id: job_id.to_owned(),
+        kind: Some(JobKind::WorkspaceQuestion),
+        conversation_turn_id: Some(conversation_turn_id.to_owned()),
+        renderer_session_id: Some(renderer_session_id.to_owned()),
+        project_id: project_id.to_owned(),
+        snapshot_id: snapshot_id.to_owned(),
+        model_id: Some(model_id.to_owned()),
+        reasoning_effort: Some(reasoning_effort.to_owned()),
+        source_fingerprint_sha256: None,
+        request_fingerprint_sha256: None,
+        runtime_identity_sha256: None,
+        state: JobState::Queued,
+        worker_registered: false,
         provider_thread_id: None,
         provider_turn_ids: Vec::new(),
         preparation_stages: Vec::new(),
@@ -356,7 +464,11 @@ pub(crate) fn request_stop(storage: &Path, job_id: &str) -> Result<JobRecord, St
         return Err("This workspace generation job has already finished.".into());
     }
     if job.state != JobState::StopRequested {
-        job.state = JobState::StopRequested;
+        job.state = if job.state == JobState::Queued && !job.worker_registered {
+            JobState::Stopped
+        } else {
+            JobState::StopRequested
+        };
         job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
     }
     let updated = job.clone();
@@ -385,7 +497,11 @@ pub(crate) fn request_stop_or_record(
             return Err("This workspace generation job has already finished.".into());
         }
         if job.state != JobState::StopRequested {
-            job.state = JobState::StopRequested;
+            job.state = if job.state == JobState::Queued && !job.worker_registered {
+                JobState::Stopped
+            } else {
+                JobState::StopRequested
+            };
             job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
         }
         let updated = job.clone();
@@ -402,6 +518,7 @@ pub(crate) fn request_stop_or_record(
         job_id: job_id.to_owned(),
         kind: None,
         conversation_turn_id: None,
+        renderer_session_id: None,
         project_id: project_id.to_owned(),
         snapshot_id: snapshot_id.to_owned(),
         model_id: None,
@@ -420,6 +537,47 @@ pub(crate) fn request_stop_or_record(
     store.jobs.push(job.clone());
     write_store(storage, &store)?;
     Ok(job)
+}
+
+/// Finish a question that never entered the native worker. This is used when
+/// connection or conversation preparation fails while the job is still queued.
+pub(crate) fn finish_unstarted(
+    storage: &Path,
+    job_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    state: JobState,
+) -> Result<JobRecord, String> {
+    validate_identity(job_id, project_id, snapshot_id)?;
+    if !matches!(
+        state,
+        JobState::Stopped | JobState::Failed | JobState::Interrupted
+    ) {
+        return Err(
+            "An unstarted workspace job must finish as stopped, failed or interrupted.".into(),
+        );
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if job.project_id != project_id || job.snapshot_id != snapshot_id {
+        return Err("This workspace job belongs to another snapshot.".into());
+    }
+    if job.state.is_terminal() {
+        return Ok(job.clone());
+    }
+    if job.worker_registered || !matches!(job.state, JobState::Queued | JobState::StopRequested) {
+        return Err("This workspace job already entered its native worker.".into());
+    }
+    job.state = if job.state == JobState::StopRequested {
+        JobState::Stopped
+    } else {
+        state
+    };
+    job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    let updated = job.clone();
+    write_store(storage, &store)?;
+    Ok(updated)
 }
 
 pub(crate) fn finish(storage: &Path, job_id: &str, state: JobState) -> Result<JobRecord, String> {
@@ -534,7 +692,10 @@ pub(crate) fn reconcile(
             Some(Outcome::Partial) => JobState::PartiallyCompleted,
             Some(Outcome::Stopped) => JobState::Stopped,
             Some(Outcome::Failed) => JobState::Failed,
-            Some(Outcome::Working | Outcome::Interrupted) | None => JobState::Interrupted,
+            Some(Outcome::Working | Outcome::Interrupted) | None => match job.state {
+                JobState::StopRequested if !job.worker_registered => JobState::Stopped,
+                _ => JobState::Interrupted,
+            },
         };
         job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
         changed = true;
@@ -554,10 +715,28 @@ pub(crate) fn reconcile_one(
     worker_active: bool,
     answer_outcome: Option<Outcome>,
 ) -> Result<JobRecord, String> {
+    reconcile_one_for_renderer(storage, job_id, None, worker_active, answer_outcome)
+}
+
+/// Reconcile a scoped job while preserving queued work owned by this live
+/// renderer. Queued work from any earlier renderer is interruption-only.
+pub(crate) fn reconcile_one_for_renderer(
+    storage: &Path,
+    job_id: &str,
+    renderer_session_id: Option<&str>,
+    worker_active: bool,
+    answer_outcome: Option<Outcome>,
+) -> Result<JobRecord, String> {
     validate_job_id(job_id)?;
     let _guard = lock()?;
     let mut store = read_store(storage)?;
     let job = find_job_mut(&mut store, job_id)?;
+    if job.state == JobState::Queued
+        && renderer_session_id
+            .is_some_and(|session| job.renderer_session_id.as_deref() == Some(session))
+    {
+        return Ok(job.clone());
+    }
     if !job.state.is_active() || worker_active {
         return Ok(job.clone());
     }
@@ -566,7 +745,10 @@ pub(crate) fn reconcile_one(
         Some(Outcome::Partial) => JobState::PartiallyCompleted,
         Some(Outcome::Stopped) => JobState::Stopped,
         Some(Outcome::Failed) => JobState::Failed,
-        Some(Outcome::Working | Outcome::Interrupted) | None => JobState::Interrupted,
+        Some(Outcome::Working | Outcome::Interrupted) | None => match job.state {
+            JobState::StopRequested if !job.worker_registered => JobState::Stopped,
+            _ => JobState::Interrupted,
+        },
     };
     job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
     let reconciled = job.clone();
@@ -587,6 +769,10 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
     if (job.kind == Some(JobKind::WorkspaceQuestion) && job.conversation_turn_id.is_none())
         || job
             .conversation_turn_id
+            .as_deref()
+            .is_some_and(|id| Uuid::parse_str(id).is_err())
+        || job
+            .renderer_session_id
             .as_deref()
             .is_some_and(|id| Uuid::parse_str(id).is_err())
         || job
@@ -623,6 +809,17 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
                 || job.reasoning_effort.is_none()))
     {
         return Err("The saved workspace job identity is incomplete.".into());
+    }
+    if job.state == JobState::Queued
+        && (job.worker_registered
+            || job.kind != Some(JobKind::WorkspaceQuestion)
+            || job.conversation_turn_id.is_none()
+            || job.renderer_session_id.is_none()
+            || saved_hash_count != 0
+            || job.provider_thread_id.is_some()
+            || !job.provider_turn_ids.is_empty())
+    {
+        return Err("The saved queued workspace job is invalid.".into());
     }
     if job
         .provider_thread_id
@@ -713,17 +910,13 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
     };
     let mut store: StoreFile = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
-    if !matches!(
-        store.schema_version,
-        PREVIOUS_STORE_SCHEMA_VERSION | STORE_SCHEMA_VERSION
-    ) || store.jobs.len() > MAX_JOB_COUNT
-    {
+    if !STORE_SCHEMA_VERSIONS.contains(&store.schema_version) || store.jobs.len() > MAX_JOB_COUNT {
         return Err(
             "Workspace generation job data uses an unsupported or oversized format.".into(),
         );
     }
-    // Version one had no request identity fields. Their defaults remain absent;
-    // the next successful write upgrades the envelope without reissuing work.
+    // Older envelopes retain their saved job state; the next successful write
+    // upgrades the envelope without reissuing work.
     store.schema_version = STORE_SCHEMA_VERSION;
     let mut ids = HashSet::new();
     for job in &store.jobs {
@@ -950,6 +1143,45 @@ mod tests {
     }
 
     #[test]
+    fn version_two_records_migrate_with_renderer_identity_defaulted() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let turn_id = Uuid::new_v4().to_string();
+        let legacy = serde_json::json!({"schemaVersion":2,"jobs":[{"jobId":job_id,
+            "kind":"workspaceQuestion","conversationTurnId":turn_id,
+            "projectId":"project-a","snapshotId":"snapshot-a","modelId":"gpt-6-luna",
+            "reasoningEffort":"max","sourceFingerprintSha256":null,
+            "requestFingerprintSha256":null,"runtimeIdentitySha256":null,"state":"running",
+            "workerRegistered":true,"providerThreadId":"thread-a","providerTurnIds":["turn-a"],
+            "preparationStages":[],"createdAtUnixMs":1,"updatedAtUnixMs":2}]});
+        fs::write(
+            store_path(&directory.0),
+            serde_json::to_vec(&legacy).unwrap(),
+        )
+        .unwrap();
+
+        let loaded = get(&directory.0, &job_id).unwrap();
+        assert_eq!(
+            loaded.conversation_turn_id.as_deref(),
+            Some(turn_id.as_str())
+        );
+        assert_eq!(loaded.renderer_session_id, None);
+        assert_eq!(loaded.state, JobState::Running);
+        finish(&directory.0, &job_id, JobState::Interrupted).unwrap();
+        let migrated: serde_json::Value =
+            serde_json::from_slice(&fs::read(store_path(&directory.0)).unwrap()).unwrap();
+        assert_eq!(migrated["schemaVersion"], STORE_SCHEMA_VERSION);
+        assert_eq!(
+            migrated["jobs"][0]["rendererSessionId"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            get(&directory.0, &job_id).unwrap().state,
+            JobState::Interrupted
+        );
+    }
+
+    #[test]
     fn scoped_job_reads_do_not_return_another_snapshot() {
         let directory = TestDirectory::new();
         let first = start_job(&directory);
@@ -967,6 +1199,176 @@ mod tests {
         assert_eq!(
             list_for_scope(&directory.0, "project-a", "snapshot-a").unwrap(),
             vec![first]
+        );
+    }
+
+    #[test]
+    fn queued_question_is_durable_idempotent_and_contains_no_prompt_or_source() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let turn_id = Uuid::new_v4().to_string();
+        let renderer_id = Uuid::new_v4().to_string();
+        let queued = queue_workspace_question(
+            &directory.0,
+            &job_id,
+            &turn_id,
+            &renderer_id,
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        assert_eq!(queued.state, JobState::Queued);
+        assert!(!queued.worker_registered);
+        assert_eq!(
+            queued.renderer_session_id.as_deref(),
+            Some(renderer_id.as_str())
+        );
+        assert_eq!(
+            queue_workspace_question(
+                &directory.0,
+                &job_id,
+                &turn_id,
+                &renderer_id,
+                "project-a",
+                "snapshot-a",
+                "gpt-6-luna",
+                "max",
+            )
+            .unwrap(),
+            queued
+        );
+        assert!(
+            queue_workspace_question(
+                &directory.0,
+                &job_id,
+                &turn_id,
+                &Uuid::new_v4().to_string(),
+                "project-a",
+                "snapshot-a",
+                "gpt-6-luna",
+                "max",
+            )
+            .is_err()
+        );
+        let saved = fs::read_to_string(store_path(&directory.0)).unwrap();
+        assert!(!saved.contains("question"));
+        assert!(!saved.contains("source.rs"));
+        assert!(!saved.contains("secret source"));
+    }
+
+    #[test]
+    fn queued_question_is_adopted_by_its_native_worker_without_changing_identity() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let turn_id = Uuid::new_v4().to_string();
+        queue_workspace_question(
+            &directory.0,
+            &job_id,
+            &turn_id,
+            &Uuid::new_v4().to_string(),
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        let started = start(
+            &directory.0,
+            &job_id,
+            JobKind::WorkspaceQuestion,
+            Some(&turn_id),
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        assert_eq!(started.state, JobState::Preparing);
+        assert!(started.worker_registered);
+        assert_eq!(started.renderer_session_id, None);
+        assert_eq!(
+            started.conversation_turn_id.as_deref(),
+            Some(turn_id.as_str())
+        );
+    }
+
+    #[test]
+    fn queued_question_stop_and_renderer_reconciliation_never_replay_inference() {
+        let directory = TestDirectory::new();
+        let current_id = Uuid::new_v4().to_string();
+        let turn_id = Uuid::new_v4().to_string();
+        let renderer_id = Uuid::new_v4().to_string();
+        queue_workspace_question(
+            &directory.0,
+            &current_id,
+            &turn_id,
+            &renderer_id,
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        assert_eq!(
+            reconcile_one_for_renderer(&directory.0, &current_id, Some(&renderer_id), false, None,)
+                .unwrap()
+                .state,
+            JobState::Queued
+        );
+        assert_eq!(
+            reconcile_one_for_renderer(
+                &directory.0,
+                &current_id,
+                Some(&Uuid::new_v4().to_string()),
+                false,
+                None,
+            )
+            .unwrap()
+            .state,
+            JobState::Interrupted
+        );
+
+        let stop_id = Uuid::new_v4().to_string();
+        queue_workspace_question(
+            &directory.0,
+            &stop_id,
+            &Uuid::new_v4().to_string(),
+            &renderer_id,
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        assert_eq!(
+            request_stop_or_record(&directory.0, &stop_id, "project-a", "snapshot-a")
+                .unwrap()
+                .state,
+            JobState::Stopped
+        );
+        assert_eq!(
+            finish_unstarted(
+                &directory.0,
+                &stop_id,
+                "project-a",
+                "snapshot-a",
+                JobState::Failed,
+            )
+            .unwrap()
+            .state,
+            JobState::Stopped
+        );
+        assert!(
+            finish_unstarted(
+                &directory.0,
+                &stop_id,
+                "project-b",
+                "snapshot-a",
+                JobState::Failed,
+            )
+            .is_err()
         );
     }
 

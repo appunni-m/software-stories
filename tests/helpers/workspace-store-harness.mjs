@@ -33,6 +33,16 @@ export function workspaceStoreHarness(invoke,options={}) {
       listWorkspaceGenerationJobsForScope: options.listWorkspaceGenerationJobsForScope ?? (async () => []),
       getWorkspaceGenerationJob: options.getWorkspaceGenerationJob ?? unexpected,
       stopWorkspaceGenerationJob: options.stopWorkspaceGenerationJob ?? unexpected,
+      queueWorkspaceGenerationJob: options.queueWorkspaceGenerationJob ?? (async (input) => ({
+        jobId:input.jobId,kind:'workspaceQuestion',conversationTurnId:input.conversationTurnId,
+        rendererSessionId:input.rendererSessionId,projectId:input.projectId,snapshotId:input.snapshotId,
+        modelId:input.modelId,reasoningEffort:input.reasoningEffort,state:'queued',workerRegistered:false,
+        providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:1,
+      })),
+      finishQueuedWorkspaceGenerationJob: options.finishQueuedWorkspaceGenerationJob ?? (async (jobId,projectId,snapshotId,state) => ({
+        jobId,kind:'workspaceQuestion',conversationTurnId:null,rendererSessionId:null,projectId,snapshotId,
+        modelId:null,reasoningEffort:null,state,workerRegistered:false,providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:1,
+      })),
       getSnapshotIndexProgress: unexpected, loadSnapshotIndex: unexpected, startSnapshotIndexing: unexpected,
       prewarmLocalNarration: options.prewarmLocalNarration ?? (async () => ({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } })),
     },

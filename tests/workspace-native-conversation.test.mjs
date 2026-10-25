@@ -108,7 +108,7 @@ test('closing during account lookup stops dispatch and failed-close recovery lea
   await h.store.prepareWorkspaceConversation('project','snapshot');const id=h.store.appendQuestion('project','snapshot','Queued before close',[],'guide');
   const running=h.store.runQuestion('project','snapshot',id,'grant');await flushLocalReads();
   const resume=h.store.beginWorkspaceClose();await h.store.flushAllWorkspaceConversations();lookup.resolve();await running;
-  assert.ok(h.calls.every(c=>['load_workspace_conversation','save_workspace_conversation'].includes(c.name)));
+  assert.ok(h.calls.every(c=>['load_workspace_conversation','save_workspace_conversation','load_workspace_answer'].includes(c.name)));
   resume();assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'interrupted');
 });
 
@@ -128,6 +128,58 @@ test('incremental workspace questions use the saved model and reasoning effort',
   assert.equal(generation.input.effort,'medium');
   assert.ok(Number.isInteger(generation.input.rendererQueueWaitMs));
   assert.ok(generation.input.rendererQueueWaitMs>=0&&generation.input.rendererQueueWaitMs<=86_400_000);
+});
+
+test('questions persist native queue identity before waiting and a stopped waiter never dispatches',async()=>{
+  const b=backend(),firstStarted=deferred(),firstAnswer=deferred(),queued=[],finished=[];let generationCount=0;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){
+      generationCount++;
+      if(generationCount===1){firstStarted.resolve(args);return firstAnswer.promise;}
+      return {runId:args.input.runId,projectId:'project',snapshotId:'snapshot',question:args.input.question,outcome:'complete',sections:[],incompleteTopics:[]};
+    }
+    if(name==='load_workspace_answer')throw new Error('No saved answer');
+    return b.invoke(name,args);
+  },{
+    native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'}),
+    queueWorkspaceGenerationJob:async(input)=>{queued.push(input);return {jobId:input.jobId,state:'queued'};},
+    finishQueuedWorkspaceGenerationJob:async(jobId,projectId,snapshotId,state)=>{finished.push({jobId,state});return {jobId,projectId,snapshotId,state};},
+    stopWorkspaceGenerationJob:async(jobId,projectId,snapshotId)=>({jobId,projectId,snapshotId,state:'stopped'}),
+  });
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const firstId=h.store.appendQuestion('project','snapshot','First question',[],'guide');
+  const first=h.store.runQuestion('project','snapshot',firstId,'grant');await firstStarted.promise;
+  const secondId=h.store.appendQuestion('project','snapshot','Second question',[],'guide');
+  const second=h.store.runQuestion('project','snapshot',secondId,'grant');await flushLocalReads();
+  assert.equal(queued.length,2,'both requests have durable native identities before the second waits');
+  assert.notEqual(queued[0].jobId,queued[1].jobId);
+  assert.equal(queued[1].conversationTurnId,secondId);
+  assert.match(queued[1].rendererSessionId,/^[0-9a-f-]{36}$/i);
+  assert.equal(generationCount,1,'the queued question has not reached the Codex worker');
+  assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns.find(turn=>turn.id===secondId).status,'queued');
+  h.store.stopQuestion('project','snapshot',secondId);await flushLocalReads();
+  firstAnswer.resolve({runId:queued[0].jobId,projectId:'project',snapshotId:'snapshot',question:'First question',outcome:'complete',sections:[],incompleteTopics:[]});
+  await first;await second;
+  assert.equal(generationCount,1,'Stop while waiting prevents inference after the queue slot opens');
+  assert.deepEqual(finished,[{jobId:queued[1].jobId,state:'stopped'}]);
+  assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns.find(turn=>turn.id===secondId).status,'stopped');
+});
+
+test('connection preparation failure finishes its persisted question as failed without dispatch',async()=>{
+  const b=backend(),queued=[],finished=[];let generations=0;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){generations++;throw new Error('must not dispatch');}
+    if(name==='load_workspace_answer')throw new Error('No saved answer');
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{throw new Error('Connection is unavailable');},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'}),
+    queueWorkspaceGenerationJob:async(input)=>{queued.push(input);return {jobId:input.jobId,state:'queued'};},
+    finishQueuedWorkspaceGenerationJob:async(jobId,projectId,snapshotId,state)=>{finished.push({jobId,state});return {jobId,projectId,snapshotId,state};}});
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const id=h.store.appendQuestion('project','snapshot','Explain a decision',[],'guide');
+  await h.store.runQuestion('project','snapshot',id,'grant');
+  assert.equal(queued.length,1);assert.equal(generations,0);
+  assert.deepEqual(finished,[{jobId:queued[0].jobId,state:'failed'}]);
+  assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'failed');
 });
 
 test('late Stop replies cannot overwrite a newer retry on the same question', { timeout: 2000 }, async () => {
@@ -491,7 +543,7 @@ test('a real queued question cannot dispatch inference when its native run refer
   const b=backend();let connections=0;const h=workspaceStoreHarness((name,args)=>name==='load_workspace_answer'?Promise.reject(new Error('No saved run')):b.invoke(name,args),{native:true,ensureCodexConnection:async()=>{connections++;},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
   await h.store.prepareWorkspaceConversation('project','snapshot');b.controls.beforeSave=()=>{throw new Error('controlled unavailable storage');};
   const id=h.store.appendQuestion('project','snapshot','Explain this decision',[],'guide');const result=await h.store.runQuestion('project','snapshot',id,'existing-grant');
-  assert.equal(result,null);assert.equal(connections,1);assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'failed');
+  assert.equal(result,null);assert.equal(connections,0,'unreadable conversation state prevents both queue registration and connection preparation');assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'failed');
   assert.deepEqual([...new Set(h.calls.map(c=>c.name))].sort(),['load_workspace_answer','load_workspace_conversation','save_workspace_conversation']);assert.equal(b.records.get(scope).state.explorations[0].turns.length,0);
 });
 
