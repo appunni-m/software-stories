@@ -138,7 +138,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         {review.omittedCount > 0 && <p className="source-warning">{review.omittedCount.toLocaleString()} code paths do not fit this discovery window. The result will show this scope limit.</p>}
         {review.coverageGaps.length > 0 && (
           <details>
-            <summary>Code outside this discovery pass · {review.coverageGaps.reduce((total, gap) => total + gap.count, 0).toLocaleString()} paths</summary>
+            <summary>Coverage notes · {review.coverageGaps.reduce((total, gap) => total + gap.count, 0).toLocaleString()} code paths</summary>
             <ul>{review.coverageGaps.map((gap) => (
               <li key={gap.category}>
                 <strong>{gap.count.toLocaleString()} {coverageGapLabels[gap.category]}</strong>
