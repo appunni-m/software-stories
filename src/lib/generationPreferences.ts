@@ -9,26 +9,33 @@ export interface DirectApiSelection {
   modelId: string;
 }
 
+function validSelectionId(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 256
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
 export function readDirectApiSelection(): DirectApiSelection {
   try {
     const raw = localStorage.getItem(directApiSelectionKey);
     if (!raw) return { providerId: '', modelId: '' };
     const saved: unknown = JSON.parse(raw);
-    if (!saved || typeof saved !== 'object') return { providerId: '', modelId: '' };
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { providerId: '', modelId: '' };
     const record = saved as Record<string, unknown>;
+    if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'providerId') || !Object.hasOwn(record, 'modelId')
+      || !validSelectionId(record.providerId) || !validSelectionId(record.modelId)
+      || record.modelId.length > 0 && record.providerId.length === 0) return { providerId: '', modelId: '' };
     return {
-      providerId: typeof record.providerId === 'string' && record.providerId.length <= 256 ? record.providerId : '',
-      modelId: typeof record.modelId === 'string' && record.modelId.length <= 256 ? record.modelId : '',
+      providerId: record.providerId,
+      modelId: record.modelId,
     };
   } catch { /* Storage is optional. */ }
   return { providerId: '', modelId: '' };
 }
 
 export function rememberDirectApiSelection(selection: DirectApiSelection): void {
-  const saved = {
-    providerId: selection.providerId.slice(0, 256),
-    modelId: selection.modelId.slice(0, 256),
-  };
+  if (!validSelectionId(selection.providerId) || !validSelectionId(selection.modelId)
+    || selection.modelId.length > 0 && selection.providerId.length === 0) return;
+  const saved = { providerId: selection.providerId, modelId: selection.modelId };
   try { localStorage.setItem(directApiSelectionKey, JSON.stringify(saved)); } catch { /* The current session still works. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:direct-api-selection-changed'));
 }
