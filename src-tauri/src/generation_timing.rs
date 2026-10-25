@@ -42,6 +42,7 @@ pub(crate) enum EventKind {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum PreparationKind {
+    JobRegistration,
     WorkerRegistration,
     SnapshotLoad,
     RequestPreparation,
@@ -51,12 +52,26 @@ pub(crate) enum PreparationKind {
     OperationJournal,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PreparationOutcome {
+    Complete,
+    Failed,
+    Stopped,
+}
+
+fn completed_preparation() -> PreparationOutcome {
+    PreparationOutcome::Complete
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PreparationStage {
-    kind: PreparationKind,
-    started_ms: u64,
-    finished_ms: u64,
+    pub(crate) kind: PreparationKind,
+    pub(crate) started_ms: u64,
+    pub(crate) finished_ms: u64,
+    #[serde(default = "completed_preparation")]
+    pub(crate) outcome: PreparationOutcome,
 }
 
 /// Native pre-manager preparation, measured on the same monotonic clock as
@@ -72,18 +87,37 @@ impl Preparation {
         Self {
             origin,
             stage_started: origin,
-            stages: Vec::with_capacity(7),
+            stages: Vec::with_capacity(8),
         }
     }
 
-    pub(crate) fn finish_stage(&mut self, kind: PreparationKind) {
+    pub(crate) fn run_stage<T>(
+        &mut self,
+        kind: PreparationKind,
+        operation: impl FnOnce() -> Result<T, String>,
+    ) -> Result<T, String> {
+        let result = operation();
         let now = Instant::now();
         self.stages.push(PreparationStage {
             kind,
             started_ms: offset_ms(self.origin, self.stage_started),
             finished_ms: offset_ms(self.origin, now),
+            outcome: if result.is_ok() {
+                PreparationOutcome::Complete
+            } else {
+                PreparationOutcome::Failed
+            },
         });
         self.stage_started = now;
+        result
+    }
+
+    pub(crate) fn mark_last_stopped(&mut self) {
+        if let Some(stage) = self.stages.last_mut() {
+            if stage.outcome == PreparationOutcome::Failed {
+                stage.outcome = PreparationOutcome::Stopped;
+            }
+        }
     }
 
     pub(crate) fn into_stages(self) -> Vec<PreparationStage> {
@@ -203,6 +237,10 @@ impl Record {
     pub(crate) fn first_agent_message_delta_ms(&self) -> Option<u64> {
         runtime::first_agent_message_delta_ms(self)
     }
+
+    pub(crate) fn take_preparation_stages(&mut self) -> Vec<PreparationStage> {
+        std::mem::take(&mut self.preparation_stages)
+    }
 }
 
 struct State {
@@ -288,15 +326,14 @@ fn validate(record: &Record) -> Result<(), String> {
         return Err(invalid());
     }
     runtime::validate(record)?;
-    if record.preparation_stages.len() > 8 {
-        return Err(invalid());
-    }
+    validate_preparation_stages(&record.preparation_stages)?;
     let manager_entered_ms = record.events.first().map_or(0, |event| event.elapsed_ms);
     let mut preparation_end = 0;
     for stage in &record.preparation_stages {
         if stage.started_ms < preparation_end
             || stage.finished_ms < stage.started_ms
             || stage.finished_ms > manager_entered_ms
+            || stage.outcome != PreparationOutcome::Complete
         {
             return Err(invalid());
         }
@@ -408,6 +445,23 @@ fn validate(record: &Record) -> Result<(), String> {
         if bytes.0 > 250_000 || bytes.1 > 256_000 || bytes.2 > 1_000_000 {
             return Err(invalid());
         }
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_preparation_stages(stages: &[PreparationStage]) -> Result<(), String> {
+    if stages.len() > 8 {
+        return Err("Timing diagnostics are invalid.".into());
+    }
+    let mut previous_end = 0;
+    for stage in stages {
+        if stage.started_ms < previous_end
+            || stage.finished_ms < stage.started_ms
+            || stage.finished_ms > MAX_ELAPSED
+        {
+            return Err("Timing diagnostics are invalid.".into());
+        }
+        previous_end = stage.finished_ms;
     }
     Ok(())
 }

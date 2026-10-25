@@ -57,7 +57,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
     ];
     let first = first_useful_answer(&publications).unwrap();
     let report = TimingReport {
-        schema_version: 3,
+        schema_version: 4,
         kind: "code-atlas-generation-timing",
         scope: "synthetic scope",
         run_id: "synthetic-run".into(),
@@ -67,9 +67,11 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         first_agent_message_delta_elapsed_ms: Some(12),
         first_useful_answer: Some(first),
         publications,
+        preparation_stages: vec![],
         unmeasured: [
             "repositoryGuidePlanningDuration",
-            "connectionPreparationBeforeManager",
+            "registrationFailureBeforeDurableJob",
+            "coldWarmIndexComparison",
             "rendererAdoption",
             "narrationReadiness",
             "providerWaitVersusModelReasoning",
@@ -77,7 +79,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         ],
     };
     let value = serde_json::to_value(report).unwrap();
-    assert_eq!(value["schemaVersion"], 3);
+    assert_eq!(value["schemaVersion"], 4);
     assert_eq!(value["firstAgentMessageDeltaElapsedMs"], 12);
     assert_eq!(
         value["firstUsefulAnswer"]["generationId"],
@@ -103,6 +105,55 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
             .unwrap()
             .contains(&json!("repositoryGuidePlanningDuration"))
     );
+}
+
+#[test]
+fn failed_local_preparation_is_exportable_without_answer_or_source_content() {
+    let f = Fixture::new();
+    let mut input = input(&f);
+    input.snapshot_id = "missing-snapshot".into();
+    let run_id = input.run_id.clone();
+    let project_id = input.project_id.clone();
+    let snapshot_id = input.snapshot_id.clone();
+    let manager = codex_agent::CodexAgentManager::default();
+
+    let result = run_with_starting_ranges(
+        &f.storage,
+        input,
+        &[],
+        None,
+        &manager,
+        RepositoryContextJobs::default(),
+        &recovery::InterruptionJournal::default(),
+        |_| {},
+        Arc::new(|_| {}),
+    );
+    assert!(result.is_err());
+
+    let job = super::super::jobs::get(&f.storage, &run_id).unwrap();
+    assert_eq!(job.state, super::super::jobs::JobState::Failed);
+    assert_eq!(
+        job.preparation_stages.last().unwrap().kind,
+        crate::generation_timing::PreparationKind::SnapshotLoad
+    );
+    assert_eq!(
+        job.preparation_stages.last().unwrap().outcome,
+        crate::generation_timing::PreparationOutcome::Failed
+    );
+
+    let report = timing_report(&f.storage, &run_id, &project_id, &snapshot_id, false).unwrap();
+    assert_eq!(report.schema_version, 4);
+    assert_eq!(report.answer_outcome, Outcome::Failed);
+    assert!(report.trace.is_none());
+    assert!(report.publications.is_empty());
+    assert_eq!(
+        report.preparation_stages.last().unwrap().outcome,
+        crate::generation_timing::PreparationOutcome::Failed
+    );
+    let encoded = serde_json::to_string(&report).unwrap();
+    assert!(!encoded.contains("How does greeting"));
+    assert!(!encoded.contains("missing-snapshot"));
+    assert!(timing_report(&f.storage, &run_id, "another-project", &snapshot_id, false).is_err());
 }
 
 #[test]

@@ -23,7 +23,7 @@ const MAX_JOB_COUNT: usize = 512;
 const MAX_TURN_IDS: usize = 64;
 static STORE: Mutex<()> = Mutex::new(());
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum JobState {
     Preparing,
@@ -56,6 +56,10 @@ pub(crate) struct JobRecord {
     pub(crate) worker_registered: bool,
     pub(crate) provider_thread_id: Option<String>,
     pub(crate) provider_turn_ids: Vec<String>,
+    /// Fixed, source-free stage measurements for failures before provider
+    /// dispatch. Successful runs keep these checkpoints in the timing trace.
+    #[serde(default)]
+    pub(crate) preparation_stages: Vec<crate::generation_timing::PreparationStage>,
     pub(crate) created_at_unix_ms: u64,
     pub(crate) updated_at_unix_ms: u64,
 }
@@ -110,6 +114,7 @@ pub(crate) fn start(
         worker_registered: true,
         provider_thread_id: None,
         provider_turn_ids: Vec::new(),
+        preparation_stages: Vec::new(),
         created_at_unix_ms: now,
         updated_at_unix_ms: now,
     };
@@ -243,6 +248,7 @@ pub(crate) fn request_stop_or_record(
         worker_registered: false,
         provider_thread_id: None,
         provider_turn_ids: Vec::new(),
+        preparation_stages: Vec::new(),
         created_at_unix_ms: now,
         updated_at_unix_ms: now,
     };
@@ -267,6 +273,79 @@ pub(crate) fn finish(storage: &Path, job_id: &str, state: JobState) -> Result<Jo
         return Ok(updated);
     }
     Ok(job.clone())
+}
+
+/// Preserve bounded preparation stages when a registered job fails before a
+/// provider timing trace can be created. The existing job ID remains the only
+/// correlation key, and stage names never include raw error or source text.
+pub(crate) fn finish_preparation_failure(
+    storage: &Path,
+    job_id: &str,
+    state: JobState,
+    stages: Vec<crate::generation_timing::PreparationStage>,
+) -> Result<JobRecord, String> {
+    validate_job_id(job_id)?;
+    if !matches!(state, JobState::Failed | JobState::Stopped) {
+        return Err("A preparation failure must end in a failed or stopped state.".into());
+    }
+    crate::generation_timing::validate_preparation_stages(&stages)?;
+    let expected = match state {
+        JobState::Failed => crate::generation_timing::PreparationOutcome::Failed,
+        JobState::Stopped => crate::generation_timing::PreparationOutcome::Stopped,
+        _ => unreachable!("validated terminal preparation state"),
+    };
+    if stages.last().is_none_or(|stage| stage.outcome != expected) {
+        return Err("The final preparation stage does not match its job outcome.".into());
+    }
+    if stages
+        .iter()
+        .take(stages.len().saturating_sub(1))
+        .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
+    {
+        return Err("A preparation failure contains an earlier failed stage.".into());
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if !job.state.is_active() {
+        return Ok(job.clone());
+    }
+    job.state = state;
+    job.preparation_stages = stages;
+    job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    let updated = job.clone();
+    write_store(storage, &store)?;
+    Ok(updated)
+}
+
+/// Keep successful local preparation checkpoints on the durable job too. This
+/// is a best-effort fallback if trace creation fails before dispatch records
+/// its own copy.
+pub(crate) fn record_preparation_stages(
+    storage: &Path,
+    job_id: &str,
+    stages: Vec<crate::generation_timing::PreparationStage>,
+) -> Result<JobRecord, String> {
+    validate_job_id(job_id)?;
+    crate::generation_timing::validate_preparation_stages(&stages)?;
+    if stages.is_empty()
+        || stages
+            .iter()
+            .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
+    {
+        return Err("Only successful preparation checkpoints can be recorded here.".into());
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if !job.state.is_active() {
+        return Ok(job.clone());
+    }
+    job.preparation_stages = stages;
+    job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    let updated = job.clone();
+    write_store(storage, &store)?;
+    Ok(updated)
 }
 
 /// Reconcile records that lost their in-process worker. A validated saved
@@ -353,6 +432,28 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
         || job.updated_at_unix_ms < job.created_at_unix_ms
     {
         return Err("The saved workspace job record is invalid.".into());
+    }
+    crate::generation_timing::validate_preparation_stages(&job.preparation_stages)?;
+    if job
+        .preparation_stages
+        .iter()
+        .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
+    {
+        let state_matches = match (job.state, job.preparation_stages.last()) {
+            (JobState::Failed, Some(stage)) => {
+                stage.outcome == crate::generation_timing::PreparationOutcome::Failed
+            }
+            (JobState::Stopped, Some(stage)) => {
+                stage.outcome == crate::generation_timing::PreparationOutcome::Stopped
+            }
+            _ => false,
+        };
+        let earlier_failure = job.preparation_stages[..job.preparation_stages.len() - 1]
+            .iter()
+            .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete);
+        if !state_matches || earlier_failure {
+            return Err("The saved workspace preparation failure is invalid.".into());
+        }
     }
     Ok(())
 }
@@ -494,6 +595,68 @@ mod tests {
             vec!["turn-a".to_owned(), "turn-b".to_owned()]
         );
         assert_eq!(reopened.state, JobState::Completed);
+    }
+
+    #[test]
+    fn preparation_failure_survives_reopen_without_raw_error_text() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        let stages = vec![
+            crate::generation_timing::PreparationStage {
+                kind: crate::generation_timing::PreparationKind::SnapshotLoad,
+                started_ms: 0,
+                finished_ms: 5,
+                outcome: crate::generation_timing::PreparationOutcome::Complete,
+            },
+            crate::generation_timing::PreparationStage {
+                kind: crate::generation_timing::PreparationKind::RuntimeReview,
+                started_ms: 5,
+                finished_ms: 9,
+                outcome: crate::generation_timing::PreparationOutcome::Failed,
+            },
+        ];
+        let saved =
+            finish_preparation_failure(&directory.0, &job.job_id, JobState::Failed, stages.clone())
+                .unwrap();
+        assert_eq!(saved.state, JobState::Failed);
+        assert_eq!(saved.preparation_stages, stages);
+        let text = fs::read_to_string(store_path(&directory.0)).unwrap();
+        assert!(!text.contains("error"));
+        assert!(!text.contains("source"));
+        assert_eq!(get(&directory.0, &job.job_id).unwrap(), saved);
+    }
+
+    #[test]
+    fn preparation_failure_state_must_match_final_stage_outcome() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        let stages = vec![crate::generation_timing::PreparationStage {
+            kind: crate::generation_timing::PreparationKind::SnapshotLoad,
+            started_ms: 0,
+            finished_ms: 2,
+            outcome: crate::generation_timing::PreparationOutcome::Failed,
+        }];
+        assert!(
+            finish_preparation_failure(&directory.0, &job.job_id, JobState::Stopped, stages)
+                .is_err()
+        );
+        assert_eq!(get(&directory.0, &job.job_id).unwrap(), job);
+    }
+
+    #[test]
+    fn successful_preparation_checkpoints_remain_available_while_job_runs() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        let stages = vec![crate::generation_timing::PreparationStage {
+            kind: crate::generation_timing::PreparationKind::SnapshotLoad,
+            started_ms: 0,
+            finished_ms: 4,
+            outcome: crate::generation_timing::PreparationOutcome::Complete,
+        }];
+        let updated = record_preparation_stages(&directory.0, &job.job_id, stages.clone()).unwrap();
+        assert_eq!(updated.state, JobState::Preparing);
+        assert_eq!(updated.preparation_stages, stages);
+        assert_eq!(get(&directory.0, &job.job_id).unwrap(), updated);
     }
 
     #[test]

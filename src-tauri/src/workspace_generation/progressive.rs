@@ -293,84 +293,152 @@ pub(crate) fn run_with_starting_ranges(
 ) -> Result<Summary, String> {
     let started_at = Instant::now();
     let mut preparation = crate::generation_timing::Preparation::new(started_at);
-    let _worker = manager.hold_answer_worker(&input.run_id)?;
-    preparation.finish_stage(crate::generation_timing::PreparationKind::WorkerRegistration);
-    let manifest =
-        snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id)?;
-    preparation.finish_stage(crate::generation_timing::PreparationKind::SnapshotLoad);
+    let _worker = preparation.run_stage(
+        crate::generation_timing::PreparationKind::WorkerRegistration,
+        || manager.hold_answer_worker(&input.run_id),
+    )?;
+    // Register the job as soon as the local worker owns it. Failures in the
+    // remaining preparation stages can then be retained and exported without
+    // putting source or raw errors into diagnostics.
+    preparation.run_stage(
+        crate::generation_timing::PreparationKind::JobRegistration,
+        || {
+            super::jobs::start(
+                storage,
+                &input.run_id,
+                &input.project_id,
+                &input.snapshot_id,
+            )
+            .map(|_| ())
+        },
+    )?;
     // Interactive code investigations are explicitly stoppable. Native source,
     // call, proposal and storage budgets bound work; elapsed time does not.
     let run_deadline = RunDeadline::UserControlled;
-    let (prompt, schema, fingerprint, instructions) =
-        starting_ranges::request_for(storage, &input, &manifest, ranges, guide_intent)?;
-    preparation.finish_stage(crate::generation_timing::PreparationKind::RequestPreparation);
-    let runtime = manager.review_runtime(storage)?;
-    preparation.finish_stage(crate::generation_timing::PreparationKind::RuntimeReview);
-    workspace::check_retrieval_grant(
-        storage,
-        &input.grant_id,
-        &input.project_id,
-        &input.snapshot_id,
-        &runtime,
-    )?;
-    preparation.finish_stage(crate::generation_timing::PreparationKind::RetrievalGrant);
-    let session = Arc::new(Mutex::new(if guide_intent.is_some() {
-        agent_context::Session::new_guide_progressive(
-            storage,
-            &input.run_id,
-            manifest.clone(),
-            &runtime,
-            &input.grant_id,
-            jobs,
-            &input.question,
-            &fingerprint,
-            &input.model_id,
-            &input.effort,
-            run_deadline,
-            notify,
-        )?
-    } else {
-        agent_context::Session::new_progressive(
-            storage,
-            &input.run_id,
-            manifest.clone(),
-            &runtime,
-            &input.grant_id,
-            jobs,
-            &input.question,
-            &fingerprint,
-            &input.model_id,
-            &input.effort,
-            run_deadline,
-            notify,
-        )?
-    }));
-    preparation.finish_stage(crate::generation_timing::PreparationKind::RetrievalSession);
-    if let Err(error) = super::jobs::start(
-        storage,
-        &input.run_id,
-        &input.project_id,
-        &input.snapshot_id,
-    ) {
-        let _ = reading::interrupt(storage, &input.run_id, Outcome::Failed);
-        return Err(error);
-    }
-    if let Err(error) = journal.record(
-        storage,
-        recovery::new_provider_operation(
-            input.project_id.clone(),
-            input.snapshot_id.clone(),
-            None,
-            input.run_id.clone(),
-        ),
-    ) {
-        let _ = reading::interrupt(storage, &input.run_id, Outcome::Failed);
-        let _ = super::jobs::finish(storage, &input.run_id, super::jobs::JobState::Failed);
-        return Err(error);
-    }
-    preparation.finish_stage(crate::generation_timing::PreparationKind::OperationJournal);
+    let prepared = (|| {
+        let manifest = preparation.run_stage(
+            crate::generation_timing::PreparationKind::SnapshotLoad,
+            || snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id),
+        )?;
+        let (prompt, schema, fingerprint, instructions) = preparation.run_stage(
+            crate::generation_timing::PreparationKind::RequestPreparation,
+            || starting_ranges::request_for(storage, &input, &manifest, ranges, guide_intent),
+        )?;
+        let runtime = preparation.run_stage(
+            crate::generation_timing::PreparationKind::RuntimeReview,
+            || manager.review_runtime(storage),
+        )?;
+        preparation.run_stage(
+            crate::generation_timing::PreparationKind::RetrievalGrant,
+            || {
+                workspace::check_retrieval_grant(
+                    storage,
+                    &input.grant_id,
+                    &input.project_id,
+                    &input.snapshot_id,
+                    &runtime,
+                )
+            },
+        )?;
+        let session = preparation.run_stage(
+            crate::generation_timing::PreparationKind::RetrievalSession,
+            || {
+                let session = if guide_intent.is_some() {
+                    agent_context::Session::new_guide_progressive(
+                        storage,
+                        &input.run_id,
+                        manifest.clone(),
+                        &runtime,
+                        &input.grant_id,
+                        jobs,
+                        &input.question,
+                        &fingerprint,
+                        &input.model_id,
+                        &input.effort,
+                        run_deadline,
+                        notify,
+                    )?
+                } else {
+                    agent_context::Session::new_progressive(
+                        storage,
+                        &input.run_id,
+                        manifest.clone(),
+                        &runtime,
+                        &input.grant_id,
+                        jobs,
+                        &input.question,
+                        &fingerprint,
+                        &input.model_id,
+                        &input.effort,
+                        run_deadline,
+                        notify,
+                    )?
+                };
+                Ok(Arc::new(Mutex::new(session)))
+            },
+        )?;
+        preparation.run_stage(
+            crate::generation_timing::PreparationKind::OperationJournal,
+            || {
+                journal.record(
+                    storage,
+                    recovery::new_provider_operation(
+                        input.project_id.clone(),
+                        input.snapshot_id.clone(),
+                        None,
+                        input.run_id.clone(),
+                    ),
+                )
+            },
+        )?;
+        Ok((
+            manifest,
+            prompt,
+            schema,
+            fingerprint,
+            instructions,
+            runtime,
+            session,
+        ))
+    })();
+    let (manifest, prompt, schema, fingerprint, instructions, runtime, session) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            let stopped = super::jobs::get(storage, &input.run_id)
+                .is_ok_and(|job| job.state == super::jobs::JobState::StopRequested);
+            if stopped {
+                preparation.mark_last_stopped();
+            }
+            let outcome = if stopped {
+                Outcome::Stopped
+            } else {
+                Outcome::Failed
+            };
+            let _ = reading::interrupt(storage, &input.run_id, outcome);
+            let job_state = if stopped {
+                super::jobs::JobState::Stopped
+            } else {
+                super::jobs::JobState::Failed
+            };
+            if let Err(save_error) = super::jobs::finish_preparation_failure(
+                storage,
+                &input.run_id,
+                job_state,
+                preparation.into_stages(),
+            ) {
+                eprintln!("Workspace preparation timing could not be saved: {save_error}");
+            }
+            return Err(error);
+        }
+    };
     let progress_storage = storage.to_path_buf();
     let progress_job_id = input.run_id.clone();
+    let preparation_stages = preparation.into_stages();
+    if let Err(error) =
+        super::jobs::record_preparation_stages(storage, &input.run_id, preparation_stages.clone())
+    {
+        eprintln!("Workspace preparation timing could not be saved: {error}");
+    }
     let durable_progress = |event: codex_agent::CodexProgress| {
         if let Err(error) = super::jobs::record_progress(
             &progress_storage,
@@ -402,7 +470,7 @@ pub(crate) fn run_with_starting_ranges(
         &fingerprint,
         started_at,
         input.renderer_queue_wait_ms,
-        preparation.into_stages(),
+        preparation_stages,
         durable_progress,
         |response, access| -> Result<String, String> {
             access.check_review(&input.run_id, &fingerprint, &runtime.executable_path)?;
@@ -649,7 +717,8 @@ pub(crate) struct TimingReport {
     first_agent_message_delta_elapsed_ms: Option<u64>,
     first_useful_answer: Option<FirstUsefulAnswerTiming>,
     publications: Vec<PublicationTiming>,
-    unmeasured: [&'static str; 6],
+    preparation_stages: Vec<crate::generation_timing::PreparationStage>,
+    unmeasured: [&'static str; 7],
 }
 
 #[derive(Serialize)]
@@ -690,10 +759,29 @@ pub(crate) fn timing_report(
     snapshot: &str,
     active: bool,
 ) -> Result<TimingReport, String> {
-    let answer = reading::scoped(storage, run, project, snapshot)?;
+    let answer = if reading::exists(storage, run)? {
+        Some(reading::scoped(storage, run, project, snapshot)?)
+    } else {
+        None
+    };
     let trace = crate::generation_timing::inspect(storage, run)?;
+    let job = if trace.is_none() {
+        super::jobs::get(storage, run).ok()
+    } else {
+        None
+    };
+    let preparation_checkpoint = job.filter(|job| !job.preparation_stages.is_empty());
+    if answer.is_none()
+        && preparation_checkpoint
+            .as_ref()
+            .is_none_or(|job| job.project_id != project || job.snapshot_id != snapshot)
+    {
+        return Err("The saved answer timing report is unavailable.".into());
+    }
     let publications = answer
-        .sections
+        .as_ref()
+        .map(|answer| answer.sections.as_slice())
+        .unwrap_or_default()
         .iter()
         .map(|section| PublicationTiming {
             generation_id: section.preview.generation_id.clone(),
@@ -703,15 +791,39 @@ pub(crate) fn timing_report(
         })
         .collect::<Vec<_>>();
     let first_useful_answer = first_useful_answer(&publications);
+    let trace_preparation_stages = trace
+        .as_mut()
+        .map(crate::generation_timing::Record::take_preparation_stages)
+        .filter(|stages| !stages.is_empty());
+    let preparation_stages = trace_preparation_stages
+        .or_else(|| {
+            preparation_checkpoint
+                .as_ref()
+                .map(|job| job.preparation_stages.clone())
+        })
+        .unwrap_or_default();
     Ok(TimingReport {
-        schema_version: 3,
+        schema_version: 4,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded, and no answer trace exists if the operation fails before starting an answer run. This WebView duration is not comparable to or combined with native monotonic timestamps. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
-        answer_outcome: if !active && answer.outcome == Outcome::Working {
-            Outcome::Interrupted
+        answer_outcome: if let Some(answer) = answer {
+            if !active && answer.outcome == Outcome::Working {
+                Outcome::Interrupted
+            } else {
+                answer.outcome
+            }
         } else {
-            answer.outcome
+            match preparation_checkpoint.as_ref().map(|job| &job.state) {
+                Some(
+                    super::jobs::JobState::Preparing
+                    | super::jobs::JobState::Running
+                    | super::jobs::JobState::StopRequested,
+                ) => Outcome::Working,
+                Some(super::jobs::JobState::Stopped) => Outcome::Stopped,
+                Some(super::jobs::JobState::Failed) => Outcome::Failed,
+                _ => return Err("The saved answer timing report is unavailable.".into()),
+            }
         },
         worker_active: active,
         first_agent_message_delta_elapsed_ms: trace
@@ -720,8 +832,10 @@ pub(crate) fn timing_report(
         first_useful_answer,
         trace,
         publications,
+        preparation_stages,
         unmeasured: [
             "repositoryGuidePlanningDuration",
+            "registrationFailureBeforeDurableJob",
             "coldWarmIndexComparison",
             "rendererAdoption",
             "narrationReadiness",

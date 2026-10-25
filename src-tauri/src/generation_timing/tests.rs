@@ -334,11 +334,13 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
                 kind: PreparationKind::SnapshotLoad,
                 started_ms: 0,
                 finished_ms: 2,
+                outcome: PreparationOutcome::Complete,
             },
             PreparationStage {
                 kind: PreparationKind::RequestPreparation,
                 started_ms: 2,
                 finished_ms: 4,
+                outcome: PreparationOutcome::Complete,
             },
         ],
     );
@@ -364,6 +366,36 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     let old_record = inspect(&f.0, &id).unwrap().unwrap();
     assert!(old_record.preparation_stages.is_empty());
     assert_eq!(old_record.renderer_queue_wait_ms, None);
+}
+
+#[test]
+fn preparation_records_only_fixed_stage_and_outcome_on_failure() {
+    let mut preparation = Preparation::new(Instant::now());
+    let error = preparation
+        .run_stage(PreparationKind::SnapshotLoad, || {
+            Err("private source and local path".to_owned())
+        })
+        .unwrap_err();
+    assert!(error.contains("private source"));
+    let stages = preparation.into_stages();
+    assert_eq!(stages.len(), 1);
+    assert_eq!(stages[0].kind, PreparationKind::SnapshotLoad);
+    assert_eq!(stages[0].outcome, PreparationOutcome::Failed);
+    assert!(stages[0].finished_ms >= stages[0].started_ms);
+    let encoded = serde_json::to_string(&stages).unwrap();
+    assert!(!encoded.contains("private source"));
+    assert!(!encoded.contains("local path"));
+}
+
+#[test]
+fn older_preparation_stages_default_to_success_when_read() {
+    let value = json!({
+        "kind": "snapshotLoad",
+        "startedMs": 0,
+        "finishedMs": 4
+    });
+    let stage: PreparationStage = serde_json::from_value(value).unwrap();
+    assert_eq!(stage.outcome, PreparationOutcome::Complete);
 }
 
 #[test]
@@ -555,6 +587,7 @@ fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
             kind: PreparationKind::SnapshotLoad,
             started_ms: 0,
             finished_ms: 1,
+            outcome: PreparationOutcome::Complete,
         }],
     );
     trace.finish(Ok(()));
