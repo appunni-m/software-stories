@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant},
 };
@@ -56,8 +56,18 @@ pub(crate) struct DiscoveryReview {
     metadata: String,
     candidate_count: usize,
     omitted_count: usize,
-    index_available: bool,
+    index_status: DiscoveryIndexStatus,
     documentation: Vec<DocumentationNotice>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+enum DiscoveryIndexStatus {
+    Complete,
+    Partial,
+    Cancelled,
+    Missing,
+    Unreadable,
 }
 
 struct Pending {
@@ -202,7 +212,7 @@ fn metadata(
         String,
         BTreeMap<String, u64>,
         usize,
-        bool,
+        DiscoveryIndexStatus,
         Vec<DocumentationNotice>,
     ),
     String,
@@ -251,10 +261,19 @@ fn metadata(
     {
         return Err("This target is not eligible captured implementation code. Choose a code file in the snapshot.".to_owned());
     }
-    let local_index = index::load_snapshot_index(storage, &input.project_id, &input.snapshot_id)
-        .ok()
-        .flatten();
-    let index_available = local_index.is_some();
+    let (local_index, index_status) =
+        match index::load_snapshot_index(storage, &input.project_id, &input.snapshot_id) {
+            Ok(Some(value)) => {
+                let status = match &value.status {
+                    index::SnapshotIndexStatus::Complete => DiscoveryIndexStatus::Complete,
+                    index::SnapshotIndexStatus::Partial => DiscoveryIndexStatus::Partial,
+                    index::SnapshotIndexStatus::Cancelled => DiscoveryIndexStatus::Cancelled,
+                };
+                (Some(value), status)
+            }
+            Ok(None) => (None, DiscoveryIndexStatus::Missing),
+            Err(_) => (None, DiscoveryIndexStatus::Unreadable),
+        };
     let mut sizes = BTreeMap::new();
     let mut files = Vec::new();
     let mut budget = 0;
@@ -296,11 +315,11 @@ fn metadata(
     let documentation = documentation_notices(storage, &manifest);
     let text = serde_json::to_string(
         &json!({"question":input.question,"fixedTarget":input.target_path,
-        "indexAvailable":index_available,"captureStatus":manifest.summary.status,
+        "indexStatus":index_status,"captureStatus":manifest.summary.status,
         "omittedCodeFiles":total-sizes.len(),"codeFiles":files,"documentationHints":documentation}),
     )
     .map_err(|_| "The code index could not be encoded.")?;
-    Ok((text, sizes, total, index_available, documentation))
+    Ok((text, sizes, total, index_status, documentation))
 }
 
 fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<DocumentationNotice> {
@@ -415,7 +434,7 @@ pub(crate) async fn prepare_source_discovery(
                 &runtime,
             )?;
         }
-        let (metadata, sizes, total, index_available, documentation) = metadata(&storage, &input)?;
+        let (metadata, sizes, total, index_status, documentation) = metadata(&storage, &input)?;
         let review = DiscoveryReview {
             review_id: Uuid::new_v4().to_string(),
             fingerprint: fingerprint(&input, &metadata, &runtime)?,
@@ -425,7 +444,7 @@ pub(crate) async fn prepare_source_discovery(
             metadata,
             candidate_count: sizes.len(),
             omitted_count: total - sizes.len(),
-            index_available,
+            index_status,
             documentation,
         };
         Ok(Pending {
@@ -614,8 +633,13 @@ mod tests {
             effort: "max".to_owned(),
             workspace_grant: None,
         };
-        let (encoded, sizes, total, indexed, docs) = metadata(&fixture.storage, &input).unwrap();
-        assert!(indexed && total > 0 && sizes.contains_key("src/greeting.ts"));
+        let (encoded, sizes, total, index_status, docs) =
+            metadata(&fixture.storage, &input).unwrap();
+        assert!(matches!(
+            index_status,
+            DiscoveryIndexStatus::Complete | DiscoveryIndexStatus::Partial
+        ));
+        assert!(total > 0 && sizes.contains_key("src/greeting.ts"));
         assert!(sizes.keys().all(|path| !path.ends_with(".md")));
         let value: Value = serde_json::from_str(&encoded).unwrap();
         assert!(
@@ -637,6 +661,89 @@ mod tests {
             "declaredDeprecated"
         );
         assert!(encoded.len() < 110_000);
+    }
+
+    fn saved_index_path(storage: &Path) -> PathBuf {
+        let project_dir = std::fs::read_dir(storage.join("indexes"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let version_dir = std::fs::read_dir(project_dir)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        std::fs::read_dir(version_dir)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path()
+    }
+
+    fn fixture_input(fixture: &crate::chapter_generation::tests::Fixture) -> DiscoveryInput {
+        DiscoveryInput {
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            question: "How does the greeting flow work?".to_owned(),
+            target_path: Some("src/greeting.ts".to_owned()),
+            model_id: "gpt-6-luna".to_owned(),
+            effort: "max".to_owned(),
+            workspace_grant: None,
+        }
+    }
+
+    #[test]
+    fn missing_or_unreadable_index_falls_back_to_captured_code_inventory() {
+        use crate::chapter_generation::tests::Fixture;
+        let fixture = Fixture::new();
+        let input = fixture_input(&fixture);
+        let index_path = saved_index_path(&fixture.storage);
+
+        std::fs::remove_file(&index_path).unwrap();
+        let (missing_metadata, missing_sizes, _, missing_status, _) =
+            metadata(&fixture.storage, &input).unwrap();
+        assert_eq!(missing_status, DiscoveryIndexStatus::Missing);
+        assert!(missing_sizes.contains_key("src/greeting.ts"));
+        let missing: Value = serde_json::from_str(&missing_metadata).unwrap();
+        assert_eq!(missing["indexStatus"], "missing");
+        assert!(missing["codeFiles"].as_array().unwrap().iter().any(|file| {
+            file["path"] == "src/greeting.ts" && file["symbols"].as_array().unwrap().is_empty()
+        }));
+
+        std::fs::write(&index_path, b"not a saved index").unwrap();
+        let (unreadable_metadata, unreadable_sizes, _, unreadable_status, _) =
+            metadata(&fixture.storage, &input).unwrap();
+        assert_eq!(unreadable_status, DiscoveryIndexStatus::Unreadable);
+        assert!(unreadable_sizes.contains_key("src/greeting.ts"));
+        let unreadable: Value = serde_json::from_str(&unreadable_metadata).unwrap();
+        assert_eq!(unreadable["indexStatus"], "unreadable");
+    }
+
+    #[test]
+    fn partial_and_cancelled_indexes_are_reported_as_incomplete() {
+        use crate::chapter_generation::tests::Fixture;
+        let fixture = Fixture::new();
+        let input = fixture_input(&fixture);
+        let index_path = saved_index_path(&fixture.storage);
+        let original = std::fs::read(&index_path).unwrap();
+
+        for (status, expected) in [
+            ("partial", DiscoveryIndexStatus::Partial),
+            ("cancelled", DiscoveryIndexStatus::Cancelled),
+        ] {
+            let mut encoded: Value = serde_json::from_slice(&original).unwrap();
+            encoded["status"] = Value::String(status.to_owned());
+            std::fs::write(&index_path, serde_json::to_vec(&encoded).unwrap()).unwrap();
+            let (metadata_text, sizes, _, actual, _) = metadata(&fixture.storage, &input).unwrap();
+            assert_eq!(actual, expected);
+            assert!(sizes.contains_key("src/greeting.ts"));
+            let metadata: Value = serde_json::from_str(&metadata_text).unwrap();
+            assert_eq!(metadata["indexStatus"], status);
+        }
     }
     #[test]
     fn selection_is_bounded_to_advertised_code_and_fixed_target() {

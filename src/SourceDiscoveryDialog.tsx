@@ -44,20 +44,30 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       const connection = await ensureCodexConnection(retry > 0);
       if (!current) return;
       if (!connection.status.authenticated) { setNeedsConnection(true); return; }
-      const existing = await loadSnapshotIndex(scope.projectId, scope.snapshotId);
-      if (!current) return;
-      if (!existing) {
-        setPhase('Building a local map of files, symbols and relationships…');
-        const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
-        while (current) {
-          const progress = await getSnapshotIndexProgress(job.jobId);
-          if (!progress) throw Error('The local index job is unavailable. Try again to use the captured file inventory.');
-          if (progress.status !== 'running') break;
-          await wait();
+      let indexReady = false;
+      try {
+        const existing = await loadSnapshotIndex(scope.projectId, scope.snapshotId);
+        if (!current) return;
+        indexReady = existing !== null;
+        if (!existing) {
+          setPhase('Finding names and connections in the code…');
+          const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
+          while (current) {
+            const progress = await getSnapshotIndexProgress(job.jobId);
+            if (!progress) break;
+            if (progress.status !== 'running') {
+              indexReady = progress.status === 'complete' || progress.status === 'partial';
+              break;
+            }
+            await wait();
+          }
         }
+      } catch {
+        // The local map is an optimization. Backend preparation can still use
+        // the immutable captured file inventory when it is absent or unreadable.
       }
       if (!current) return;
-      setPhase('Preparing AI code discovery…');
+      setPhase(indexReady ? 'Preparing code discovery…' : 'Preparing discovery from the captured code…');
       const selection = readCodexSelection();
       const value = await prepareSourceDiscovery({ ...scope, ...selection });
       if (!current) { void discardSourceDiscovery(value.reviewId).catch(() => {}); return; }
@@ -73,7 +83,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry]);
   async function discover() {
     if (!review || busy || preparing.current || active.current) return;
-    setBusy(true); setError(null); setPhase('Codex is following the index to choose implementation files…');
+    setBusy(true); setError(null); setPhase('Finding the files related to your question…');
     active.current = review.reviewId;
     try {
       const result = await sendSourceDiscovery(review);
@@ -96,9 +106,12 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     <header className="provider-dialog-header"><div><div className="step-pill"><FileSearch size={15} /> AI FINDS THE CODE</div><h2 id="discovery-title">Start with your question</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">
       {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
-        <p>Codex will use <strong>{review.candidateCount.toLocaleString()} indexed code paths</strong>, named symbols and static connections to choose the relevant files. You do not need to select references.</p>
-        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This discovery shares indexed names, relationships, documentation labels and your question with OpenAI through Codex. Account quota applies. File contents are reviewed separately before chapter generation.</p>
-        {!review.indexAvailable && <p className="source-warning">No usable symbol index is available. Discovery can use captured file paths only; relationships remain unknown.</p>}
+        <p>Codex will search <strong>{review.candidateCount.toLocaleString()} captured code files</strong> and use the available names and connections to choose what matters. You do not need to select references.</p>
+        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This discovery shares your question, captured code paths, available symbol names and static links with OpenAI through Codex. Account quota applies. File contents are reviewed separately before chapter generation.</p>
+        {review.indexStatus === 'partial' && <p className="source-warning">The local code map is incomplete. Discovery can still use captured files and the symbols and connections that were found; some may be missing.</p>}
+        {review.indexStatus === 'cancelled' && <p className="source-warning">Building the local code map was cancelled. Discovery can use captured files and any saved partial map; some connections may be missing.</p>}
+        {review.indexStatus === 'missing' && <p className="source-warning">No local code map is available. Discovery will use captured file paths only; code relationships are unknown.</p>}
+        {review.indexStatus === 'unreadable' && <p className="source-warning">The saved local code map could not be read. Discovery will use captured file paths only; code relationships are unknown.</p>}
         {review.omittedCount > 0 && <p className="source-warning">{review.omittedCount.toLocaleString()} code paths do not fit this discovery window. The result will show this scope limit.</p>}
         <details><summary>What Codex will inspect</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}

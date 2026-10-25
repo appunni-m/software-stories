@@ -1,9 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 export interface SourceDiscoveryScope { projectId: string; snapshotId: string; question: string; targetPath?: string | null }
 export interface DocumentationNotice { path: string; status: 'declaredDeprecated' | 'unverified'; reason: string }
+export type SourceDiscoveryIndexStatus = 'complete' | 'partial' | 'cancelled' | 'missing' | 'unreadable';
 export interface SourceDiscoveryReview {
   reviewId: string; fingerprint: string; modelId: string; effort: string; question: string;
-  metadata: string; candidateCount: number; omittedCount: number; indexAvailable: boolean;
+  metadata: string; candidateCount: number; omittedCount: number; indexStatus: SourceDiscoveryIndexStatus;
   documentation: DocumentationNotice[];
 }
 export interface SourceDiscoveryResult { selectedFiles: { path: string; reason: string }[]; limitation: string }
