@@ -194,6 +194,40 @@ fn chapter_validation_feedback_is_bounded_and_rejects_unknown_codes() {
 }
 
 #[test]
+fn no_visual_mismatches_return_specific_field_feedback() {
+    let mut section = json!({"visual":{
+        "kind":"none",
+        "title":"unused title",
+        "direction":"auto",
+        "nodes":[],
+        "edges":[]
+    }});
+    assert_eq!(
+        visual_shape_findings(&section),
+        vec![json!({
+            "location":"/section/visual/title",
+            "code":"visualField"
+        })]
+    );
+
+    section["visual"]["title"] = json!("");
+    section["visual"]["direction"] = json!("leftToRight");
+    section["visual"]["nodes"] = json!([{"unused":"node"}]);
+    section["visual"]["edges"] = json!([{"unused":"edge"}]);
+    section["visual"]["presentation"] = json!({"unused":true});
+    assert_eq!(
+        visual_shape_findings(&section),
+        vec![
+            json!({"location":"/section/visual/direction","code":"visualField"}),
+            json!({"location":"/section/visual/nodes","code":"visualField"}),
+            json!({"location":"/section/visual/edges","code":"visualField"}),
+            json!({"location":"/section/visual/presentation","code":"visualField"})
+        ]
+    );
+    assert!(valid_findings(&visual_shape_findings(&section)));
+}
+
+#[test]
 fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
     let mut proposal = crate::provider::visual_scenes::tests::composed_proposal(3);
     let scene = &mut proposal["sections"][0]["visual"]["presentation"]["scenes"][0];

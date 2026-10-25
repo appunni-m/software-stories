@@ -484,18 +484,65 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
     let Some(visual) = section.get("visual").and_then(Value::as_object) else {
         return vec![json!({"location":"/section/visual","code":"visualField"})];
     };
-    ["kind", "title", "direction", "nodes", "edges"]
+    let mut findings = ["kind", "title", "direction", "nodes", "edges"]
         .into_iter()
         .filter_map(|field| {
             let valid = visual.get(field).is_some_and(|value| match field {
                 "nodes" | "edges" => value.is_array(),
+                "kind" => matches!(
+                    value.as_str(),
+                    Some("none" | "dataFlow" | "sequence" | "hierarchy")
+                ),
+                "direction" => {
+                    matches!(value.as_str(), Some("auto" | "leftToRight" | "topToBottom"))
+                }
                 _ => value.is_string(),
             });
             (!valid).then(
                 || json!({"location":format!("/section/visual/{field}"),"code":"visualField"}),
             )
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    // The no-visual representation has one canonical shape. In particular,
+    // an unused title is still rejected by the chapter canonicalizer; report
+    // that exact field here so a progressive repair does not fall back to the
+    // opaque sectionValidation category.
+    if visual.get("kind").and_then(Value::as_str) == Some("none") {
+        if visual
+            .get("title")
+            .and_then(Value::as_str)
+            .is_some_and(|title| !title.is_empty())
+        {
+            findings.push(json!({"location":"/section/visual/title","code":"visualField"}));
+        }
+        if visual
+            .get("direction")
+            .and_then(Value::as_str)
+            .is_some_and(|direction| matches!(direction, "leftToRight" | "topToBottom"))
+        {
+            findings.push(json!({"location":"/section/visual/direction","code":"visualField"}));
+        }
+        for field in ["nodes", "edges"] {
+            if visual
+                .get(field)
+                .and_then(Value::as_array)
+                .is_some_and(|items| !items.is_empty())
+            {
+                findings.push(
+                    json!({"location":format!("/section/visual/{field}"),"code":"visualField"}),
+                );
+            }
+        }
+        if visual
+            .get("presentation")
+            .is_some_and(|presentation| !presentation.is_null())
+        {
+            findings.push(json!({"location":"/section/visual/presentation","code":"visualField"}));
+        }
+    }
+    findings.truncate(64);
+    findings
 }
 
 /// A repeated reference within one item is rejected by the canonicalizer.

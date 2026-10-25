@@ -373,7 +373,7 @@ fn preparation_records_only_fixed_stage_and_outcome_on_failure() {
     let mut preparation = Preparation::new(Instant::now());
     let error = preparation
         .run_stage(PreparationKind::SnapshotLoad, || {
-            Err("private source and local path".to_owned())
+            Err::<(), _>("private source and local path".to_owned())
         })
         .unwrap_err();
     assert!(error.contains("private source"));

@@ -775,12 +775,15 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["teachingPolicy"], "meaning-first-v29");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
-        "If no claim benefits from a visual, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
+        "If no claim benefits from a visual, set kind:none and give every claim a narration scene"
     ));
     assert!(system_instructions().contains(
-        "Otherwise each claim needs a nonempty visual scene with at least one source-linked node"
+        "Otherwise every claim needs a visual scene with at least one source-linked node"
     ));
     assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
+    assert!(system_instructions().contains(
+        "visualField names the exact visual field to repair; for visual.kind:none use title:\"\", direction:\"auto\", nodes:[], edges:[] and no presentation"
+    ));
     assert!(system_instructions().contains(
         "Use a selector root only for first-match dispatch among competing ordered candidates"
     ));
@@ -938,7 +941,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
         "Let observed behavior choose the visual mode independently for each claim scene"
     ));
     assert!(instructions.contains("uses transform, with the actual operation in the middle"));
-    assert!(instructions.contains("not file type or a favorite template"));
+    assert!(instructions.contains("Do not choose by file type or a favorite template."));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));

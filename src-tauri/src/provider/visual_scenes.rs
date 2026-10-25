@@ -211,7 +211,7 @@ pub(crate) mod tests {
             "Each scene makes one change, decision or result visible and explains why it matters"
         ));
         assert!(instructions.contains("the visual mode independently for each claim scene"));
-        assert!(instructions.contains("not file type or a favorite template"));
+        assert!(instructions.contains("Do not choose by file type or a favorite template."));
         assert!(instructions.contains("one focal point"));
         assert!(instructions.contains("Before proposing another section for the same answer"));
         assert!(instructions.contains(
@@ -367,7 +367,7 @@ pub(crate) mod tests {
             super::instructions()
                 .contains("Each direct branch has exactly two direct content leaves")
         );
-        assert!(shared.contains("not file type or a favorite template"));
+        assert!(shared.contains("Do not choose by file type or a favorite template."));
         assert!(shared.contains("the visual mode independently for each claim scene"));
         assert!(shared.contains("Before proposing another section for the same answer"));
         assert!(shared.contains(
@@ -392,9 +392,7 @@ pub(crate) mod tests {
         assert!(shared.contains(
             "Otherwise every claim needs a visual scene with at least one source-linked node"
         ));
-        assert!(
-            shared.contains("composition and graph scenes may coexist within a visual section")
-        );
+        assert!(shared.contains("a visual section may mix composition and graph scenes"));
         assert!(shared.contains("never describes the artifact"));
         assert!(shared.contains("Do not speak function, method, type, field or error identifiers"));
         assert!(shared.contains("Selector checks stay source ordered"));
