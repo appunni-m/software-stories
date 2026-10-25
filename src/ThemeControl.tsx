@@ -9,8 +9,11 @@ export function ThemeControl() {
   });
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
-    try { localStorage.setItem(key, mode); } catch { /* Optional. */ }
   }, [mode]);
+  const chooseMode = (value: ThemeMode) => {
+    setMode(value);
+    try { localStorage.setItem(key, value); } catch { /* Appearance still applies to this window. */ }
+  };
   const Icon = mode === 'light' ? Sun : mode === 'dark' ? Moon : Monitor;
-  return <label className="theme-control"><Icon size={15} /><span className="sr-only">Appearance</span><select aria-label="Appearance" value={mode} onChange={(event) => setMode(event.target.value as ThemeMode)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>;
+  return <label className="theme-control"><Icon size={15} /><span className="sr-only">Appearance</span><select aria-label="Appearance" value={mode} onChange={(event) => chooseMode(event.target.value as ThemeMode)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>;
 }
