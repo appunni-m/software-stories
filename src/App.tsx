@@ -1918,6 +1918,7 @@ function App() {
       {planningDialog && <RepositoryPlanningDialog
         key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.discoveryResult ?? null, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
         scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
+        onOpenConnections={openProviderSettings}
         onRecoveryResultReady={completeRecoveredProviderReview}
         onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
       {providerDialog && (

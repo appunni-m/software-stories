@@ -34,6 +34,7 @@ import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLay
 import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
 import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
+import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
 
@@ -76,6 +77,12 @@ export function DeveloperWorkspace(props:Props) {
   const conversationUnavailable=props.conversationAvailability==='unavailable';
   const state = useWorkspace(projectId,snapshotId);
   const connection=useConnectionState();
+  const [generationBackend,setGenerationBackend]=useState(()=>readGenerationBackend());
+  useEffect(()=>{
+    const refresh=()=>setGenerationBackend(readGenerationBackend());
+    window.addEventListener('code-atlas:connection-changed',refresh);
+    return()=>window.removeEventListener('code-atlas:connection-changed',refresh);
+  },[]);
   const current = state.explorations.find((e)=>e.id===state.currentId)!;
   const path = ancestors(state);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
@@ -164,6 +171,10 @@ export function DeveloperWorkspace(props:Props) {
   };
   const go = (id:string) => { update((s)=>openWorkspaceExploration(s,id)); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
+  const requireCodexConnection=()=>{
+    if(generationBackend!=='codex'||!connection.status?.authenticated){onSettings();return false;}
+    return true;
+  };
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
   const savePresentation = (turnId:string,kind:'stories'|'diagrams',progress:StoryProgress|DiagramProgress) => update((s)=>rememberPresentation(s,current.id,turnId,kind,progress));
   const selectVersion = (turnId:string,originalRevisionId:string,revisionId:string) => update(s=>rememberAnswerVersion(s,current.id,turnId,originalRevisionId,revisionId,chapters));
@@ -274,7 +285,7 @@ export function DeveloperWorkspace(props:Props) {
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);focusComposer();}
   function startRepositoryGuide(question:string,parentTurn?:string) {
     if(conversationUnavailable)return;
-    if(!connection.status?.authenticated){onSettings();return;}
+    if(!requireCodexConnection())return;
     const id=appendRepositoryGuide(projectId,snapshotId,question,parentTurn);
     setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId)void runRepositoryGuide(projectId,snapshotId,id,state.grantId);
@@ -284,7 +295,7 @@ export function DeveloperWorkspace(props:Props) {
   function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string){
     if(conversationUnavailable)return;
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);focusComposer();return;}
-    if(!connection.status?.authenticated){onSettings();return;}
+    if(!requireCodexConnection())return;
     if(isRepositoryGuideIntent(clean)){startRepositoryGuide(clean,parentTurn);return;}
     const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
@@ -295,7 +306,7 @@ export function DeveloperWorkspace(props:Props) {
     const pending=props.pendingLargeFileExplanation;
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
       ||handledLargeFileExplanation.current===pending.id)return;
-    if(!connection.status?.authenticated){
+    if(generationBackend!=='codex'||!connection.status?.authenticated){
       if(requestedConnectionForLargeFileExplanation.current!==pending.id){
         requestedConnectionForLargeFileExplanation.current=pending.id;
         props.onSettings();
@@ -318,9 +329,10 @@ export function DeveloperWorkspace(props:Props) {
     props.onPendingLargeFileExplanationConsumed?.(pending.id);
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   },[props.pendingLargeFileExplanation,props.workspace,props.manifest.files,props.onSettings,
-    props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,connection.status?.authenticated,state.grantId,conversationUnavailable]);
+    props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,generationBackend,connection.status?.authenticated,state.grantId,conversationUnavailable]);
   function retryTurn(turn:Turn) {
     if(conversationUnavailable)return;
+    if(!requireCodexConnection())return;
     // The timeout recovery UI promises a new incremental guide. Check it
     // before the saved guideId branch, which would otherwise resume the same
     // legacy operation and risk repeating its old deadline failure.
