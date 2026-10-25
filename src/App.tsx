@@ -4991,7 +4991,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
                               <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>
-                              <button className="secondary-button button-reject" aria-expanded={rejecting} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
+                              <button className="secondary-button button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
                             </>}
                           </div>
                         </>}
@@ -5022,7 +5022,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         latest={selectedTarget.latestCurrent}
                       />}
 
-                      {rejecting && selectedRevision.lifecycle === 'draft' && <form className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
+                      {rejecting && selectedRevision.lifecycle === 'draft' && <form id="chapter-rejection-form" className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
                         <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
                         <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || !rejectReason.trim()}>Record rejection</button></div>
                       </form>}
