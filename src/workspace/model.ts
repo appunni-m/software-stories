@@ -155,7 +155,7 @@ export function cleanComposerDraft(value: unknown): ComposerDraft | undefined {
 }
 const WORKSPACE_STATE_KEYS = ['version','projectId','snapshotId','currentId','file','explorations','grantId'] as const;
 const EXPLORATION_KEYS = ['id','parentId','originTurnId','title','view','turns','focusedTurnId','revealTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft'] as const;
-const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','guideId','guide','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
+const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','guideId','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
 function hasOnlyKeys(value: unknown, allowed: readonly string[]): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
     && Object.keys(value).every((key) => allowed.includes(key));
@@ -174,6 +174,25 @@ function isWorkspaceContext(value: unknown): value is Context {
   const validHash = !Object.hasOwn(value, 'sha256') || typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/u.test(value.sha256);
   return validPath && validLines && validHash;
 }
+function strictReaderProgress(value: unknown, ownsRevision: (revisionId: string) => boolean): ReaderProgress | null {
+  if (!hasOnlyKeys(value, ['stories','diagrams']) || !Array.isArray(value.stories) || value.stories.length > 256
+    || !Array.isArray(value.diagrams) || value.diagrams.length > 256) return null;
+  const storyKeys = ['revisionId','sectionId','sectionRevisionId','sceneId','positions','fullMap','viewport','focusedNodeId','focusedEdgeId','focusLayoutVersion'];
+  const diagramKeys = ['revisionId','sectionId','sectionRevisionId','viewport','layoutVersion'];
+  for (const story of value.stories) {
+    if (!hasOnlyKeys(story, storyKeys) || (story.viewport !== undefined && !hasOnlyKeys(story.viewport, ['x','y','zoom']))
+      || (story.focusedNodeId !== undefined && (typeof story.focusedNodeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(story.focusedNodeId)))
+      || (story.focusedEdgeId !== undefined && (typeof story.focusedEdgeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(story.focusedEdgeId)))
+      || typeof story.revisionId !== 'string' || !ownsRevision(story.revisionId)) return null;
+  }
+  for (const diagram of value.diagrams) {
+    if (!hasOnlyKeys(diagram, diagramKeys) || (diagram.viewport !== undefined && !hasOnlyKeys(diagram.viewport, ['x','y','zoom']))
+      || typeof diagram.revisionId !== 'string' || !ownsRevision(diagram.revisionId)) return null;
+  }
+  const clean = cleanReaderProgress(value);
+  return clean.stories.length === value.stories.length && clean.diagrams.length === value.diagrams.length
+    ? value as unknown as ReaderProgress : null;
+}
 /** The browser preview starts with an empty tree when its saved state is unavailable. */
 export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
   const fallback = () => null;
@@ -182,70 +201,85 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
     if (!hasOnlyKeys(parsed, WORKSPACE_STATE_KEYS)) return fallback();
     const value = parsed as unknown as WorkspaceState;
     if (!value || value.version !== 1 || value.projectId !== projectId || value.snapshotId !== snapshotId || !Array.isArray(value.explorations) || !value.explorations.length || value.explorations.length > 2000) return fallback();
+    if (value.file !== null && !isWorkspaceContext({ path: value.file })) return fallback();
+    if (value.grantId !== undefined && !validRunId(value.grantId)) return fallback();
     const ids = new Set(value.explorations.map((e) => e.id));
     if (ids.size !== value.explorations.length || !ids.has('root') || !ids.has(value.currentId)) return fallback();
     for (const e of value.explorations) {
       if (!hasOnlyKeys(e, EXPLORATION_KEYS)) return fallback();
       if (typeof e.id !== 'string' || typeof e.title !== 'string' || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
+      if ((e.id === 'root' && e.originTurnId !== null)
+        || (e.id !== 'root' && (!validRunId(e.id) || !(e.parentId === 'root' || validRunId(e.parentId)) || !validRunId(e.originTurnId)))) return fallback();
+      if (e.file !== undefined && !isWorkspaceContext({ path: e.file })) return fallback();
       if (e.reveal !== undefined && !isWorkspaceContext(e.reveal)) return fallback();
       if (e.scrollPositions !== undefined && (!hasOnlyKeys(e.scrollPositions, ['guide','flow','history'])
         || Object.values(e.scrollPositions).some((position) => !validScroll(position)))) return fallback();
       if (e.fileFlow !== undefined && !hasOnlyKeys(e.fileFlow, ['path','showAll'])) return fallback();
       if (e.draft !== undefined && (!hasOnlyKeys(e.draft, ['question','context'])
         || typeof e.draft.question !== 'string' || e.draft.question.length > 1000
-        || !Array.isArray(e.draft.context) || e.draft.context.length > 32 || !e.draft.context.every(isWorkspaceContext))) return fallback();
+        || !Array.isArray(e.draft.context) || e.draft.context.length > 32 || !e.draft.context.every(isWorkspaceContext)
+        || (!e.draft.question && e.draft.context.length === 0))) return fallback();
       if (e.draft && new Set(e.draft.context.map((context) => `${context.path}\u0000${context.from ?? ''}\u0000${context.to ?? ''}`)).size !== e.draft.context.length) return fallback();
-      e.scrollPositions = cleanScrollPositions(e.scrollPositions);
-      const draft=cleanComposerDraft(e.draft);
-      if(draft)e.draft=draft;else delete e.draft;
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
       if (e.codeOpen !== undefined && typeof e.codeOpen !== 'boolean') return fallback();
       if (e.fileFlow !== undefined && (typeof e.fileFlow.path !== 'string' || e.fileFlow.path.startsWith('/') || e.fileFlow.path.includes('\\')
         || e.fileFlow.path.split('/').some((p) => !p || p === '.' || p === '..') || /[\u0000-\u001f\u007f]/.test(e.fileFlow.path)
         || new TextEncoder().encode(e.fileFlow.path).length > 4096 || typeof e.fileFlow.showAll !== 'boolean')) return fallback();
-      if (e.fileFlow) e.fileFlow={path:e.fileFlow.path,showAll:e.fileFlow.showAll};
       if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) return fallback();
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
-        if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
+        if (!validRunId(t.id) || typeof t.question !== 'string' || !Array.isArray(t.context) || t.context.length > 32
           || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || !t.context.every(isWorkspaceContext)) return fallback();
+        if ((t.revisionId !== undefined && (typeof t.revisionId !== 'string' || !t.revisionId || t.revisionId.length > 256))
+          || (t.generationId !== undefined && !validGenerationId(t.generationId))
+          || (t.error !== undefined && (typeof t.error !== 'string' || t.error.length > 4096))) return fallback();
         if (t.reading !== undefined && (!hasOnlyKeys(t.reading, ['guide','flow'])
-          || Object.values(t.reading).some((position) => position !== undefined && !hasOnlyKeys(position, ['revisionId','sectionId'])))) return fallback();
-        if (t.outcomeNotice !== undefined && !hasOnlyKeys(t.outcomeNotice, ['read','dismissed'])) return fallback();
-        const reading = t.reading;
-        if (!validRunId(t.guideId)) { delete t.guideId; delete t.guide; }
-        else delete t.guide; // Native job state is authoritative after reopening.
-        t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
-        t.failureCode = cleanExplanationFailureCode(t.failureCode);
-        if (!t.failureCode) delete t.failureCode;
-        t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
-        t.notes = cleanAnswerNotes(t.notes);
-        if(t.answerVersions)t.answerVersions=cleanAnswerVersions(t.answerVersions,t);
-        if(t.presentation){
-          const p=cleanReaderProgress(t.presentation);
-          const owned=(revisionId:string)=>ownsAnswerRevision(t,revisionId);
-          t.presentation={stories:p.stories.filter(s=>owned(s.revisionId)),diagrams:p.diagrams.filter(s=>owned(s.revisionId))};
-        }
-        if (typeof t.outcomeAt !== 'number' || !Number.isSafeInteger(t.outcomeAt) || t.outcomeAt < 0) delete t.outcomeAt;
-        if (typeof t.outcomeSequence !== 'number' || !Number.isSafeInteger(t.outcomeSequence) || t.outcomeSequence < 0) delete t.outcomeSequence;
-        const notice = t.outcomeNotice;
-        delete t.outcomeNotice;
-        if (notice && typeof notice === 'object' && !Array.isArray(notice)) {
-          const clean: NonNullable<Turn['outcomeNotice']> = {};
-          for (const field of ['read', 'dismissed'] as const) if (typeof notice[field] === 'string' && /^[a-f0-9]{16}$/.test(notice[field]!)) clean[field] = notice[field];
-          if (Object.keys(clean).length) t.outcomeNotice = clean;
-        }
-        t.reading = {};
-        if (reading && typeof reading === 'object' && !Array.isArray(reading)) {
-          for (const view of ['guide', 'flow'] as const) {
-            const position = cleanReadingPosition(reading[view]);
-            if (position) t.reading[view] = position;
+          || Object.values(t.reading).some((position) => position !== undefined
+            && (!hasOnlyKeys(position, ['revisionId','sectionId']) || !cleanReadingPosition(position))))) return fallback();
+        if (t.outcomeNotice !== undefined && (!hasOnlyKeys(t.outcomeNotice, ['read','dismissed'])
+          || Object.keys(t.outcomeNotice).length === 0
+          || Object.values(t.outcomeNotice).some((id) => typeof id !== 'string' || !/^[a-f0-9]{16}$/u.test(id)))) return fallback();
+        const savedRunIds: unknown = t.runIds;
+        if (savedRunIds !== undefined && (!Array.isArray(savedRunIds) || savedRunIds.length > 32 || savedRunIds.some((id) => !validRunId(id)))) return fallback();
+        const runIds = (savedRunIds === undefined ? [] : savedRunIds) as string[];
+        if (new Set(runIds).size !== runIds.length
+          || (t.guideId !== undefined && !validRunId(t.guideId))
+          || (t.failureCode !== undefined && !cleanExplanationFailureCode(t.failureCode))) return fallback();
+        const rawSections: unknown = t.publishedSections;
+        const sectionValues = rawSections === undefined ? [] : rawSections;
+        if (!Array.isArray(sectionValues) || sectionValues.length > 256
+          || sectionValues.some((section) => !hasOnlyKeys(section, ['runId','key','order','generationId','revisionId','supersedes','contextElapsedMs','runElapsedMs']))) return fallback();
+        const publishedSections = cleanPublishedSections(sectionValues);
+        if (publishedSections.length !== sectionValues.length || publishedSections.some((section) => !runIds.includes(section.runId))) return fallback();
+        const rawNotes: unknown = t.notes;
+        const noteValues = rawNotes === undefined ? [] : rawNotes;
+        if (!Array.isArray(noteValues) || noteValues.length > 8) return fallback();
+        const notes = cleanAnswerNotes(noteValues);
+        if (notes.length !== noteValues.length || notes.some((note, index) => note !== noteValues[index])) return fallback();
+        if (t.outcomeAt !== undefined && (!Number.isSafeInteger(t.outcomeAt) || Number(t.outcomeAt) < 0)) return fallback();
+        if (t.outcomeSequence !== undefined && (!Number.isSafeInteger(t.outcomeSequence) || Number(t.outcomeSequence) < 0)) return fallback();
+        if (t.answerVersions !== undefined) {
+          const versions: unknown = t.answerVersions;
+          if (!Array.isArray(versions) || versions.length > 256 || versions.some((version) => !hasOnlyKeys(version, ['originalRevisionId','revisionId','selected','reading']))) return fallback();
+          for (const version of versions) {
+            if (version.reading !== undefined && (!hasOnlyKeys(version.reading, ['guide','flow'])
+              || Object.values(version.reading).some((sectionId) => sectionId !== undefined
+                && (typeof sectionId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(sectionId))))) return fallback();
           }
+          const cleanVersions = cleanAnswerVersions(versions, t);
+          if (cleanVersions.length !== versions.length) return fallback();
+        }
+        if (t.presentation !== undefined) {
+          const presentation = strictReaderProgress(t.presentation, (revisionId) => ownsAnswerRevision(t, revisionId));
+          if (!presentation) return fallback();
         }
         // A reload never silently resubmits inference. Native saved previews remain recoverable.
-        if (t.status === 'working' || t.status === 'queued') { t.status = 'interrupted'; t.error = 'This question was interrupted. Saved explanations are preserved.'; }
+        if (t.status === 'working' || t.status === 'queued') {
+          t.status = 'interrupted';
+          t.error ??= 'This question was interrupted. Saved explanations are preserved.';
+        }
       }
       if (ancestors(value, e.id)[0]?.id !== 'root') return fallback();
     }
@@ -444,16 +478,6 @@ function cleanReadingPosition(value: unknown): ReadingPosition | undefined {
   return valid(p.revisionId) && valid(p.sectionId) ? { revisionId: p.revisionId, sectionId: p.sectionId } : undefined;
 }
 const validScroll = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10_000_000;
-function cleanScrollPositions(value: unknown): Partial<Record<View, number>> {
-  const result: Partial<Record<View, number>> = {};
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    for (const view of ['guide', 'flow', 'history'] as const) {
-      const top = (value as Partial<Record<View, number>>)[view];
-      if (validScroll(top)) result[view] = top;
-    }
-  }
-  return result;
-}
 /** Stable section IDs survive sorting; positions never carry across revisions. */
 export function sectionPosition(revisionId: string, sections: readonly { sectionId: string }[], saved?: ReadingPosition): number {
   if (saved?.revisionId !== revisionId) return 0;
