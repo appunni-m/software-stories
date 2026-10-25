@@ -93,7 +93,7 @@ function safeFailure(failure: ProviderFailure): string {
     reviewExpired: 'This review expired. Build a new review and confirm it again.',
     reviewChanged: 'The reviewed context or settings changed. Build a new review before sending.',
     reviewUnavailable: 'This review is no longer available. Build a new review.',
-    contextTooLarge: 'The selected context exceeds the request limit. Select fewer or smaller files.',
+    contextTooLarge: 'This request is too large to review, so nothing was sent. Ask Guide about one behavior to let it find the relevant code, or remove supporting files.',
     secretLikeContext: 'The selected context contains a blocked secret-like path or pattern. Remove it before reviewing again.',
     unavailableModel: 'The selected model or reasoning setting is unavailable. Refresh the model catalog and choose again.',
     quotaExceeded: 'The Codex account quota is unavailable or exhausted. Check the account before trying again.',
