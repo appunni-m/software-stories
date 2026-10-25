@@ -2042,7 +2042,12 @@ pub(crate) fn search_files_with_mode_page(
                         || (score.total_cmp(best_score).is_eq() && coverage > *best_coverage)
                         || (score.total_cmp(best_score).is_eq()
                             && coverage == *best_coverage
-                            && range.start_byte < prepared.metadata.ranges[*best_id].start_byte)
+                            && (range.start_byte, range.end_byte, *range_id)
+                                < (
+                                    prepared.metadata.ranges[*best_id].start_byte,
+                                    prepared.metadata.ranges[*best_id].end_byte,
+                                    *best_id,
+                                ))
                 });
         if replace {
             best_ranges.insert(range.path.clone(), (*range_id, score, coverage));
@@ -2367,6 +2372,7 @@ fn search_ranked(
                     .start_byte
                     .cmp(&prepared.metadata.ranges[*b].start_byte)
             })
+            .then_with(|| a.cmp(b))
     });
     if path.is_none() {
         let mut leading_paths = BTreeSet::new();
