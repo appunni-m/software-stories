@@ -178,7 +178,7 @@ import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeL
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
-import { chapterStudioDraftMatchesRoute } from './lib/chapterStudioDraft';
+import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -4300,15 +4300,6 @@ interface ChapterStudioTarget {
   missing: boolean;
 }
 
-interface ChapterStudioDraftCheckpoint {
-  version: 1;
-  projectId: string;
-  snapshotId: string;
-  targetKey: string;
-  baseRevisionId: string;
-  candidate: ChapterRevision;
-}
-
 interface ChapterFreshnessState {
   key: string;
   report: ChapterFreshnessReport | null;
@@ -4429,22 +4420,18 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 }) {
   const snapshotId = manifest.summary.snapshotId;
   const draftStorageKey = `code-atlas:chapter-studio-draft:${projectId}:${snapshotId}`;
-  const [initialDraftState] = useState<{ restored: ChapterStudioDraftCheckpoint | null; pending: ChapterStudioDraftCheckpoint | null } | null>(() => {
+  const [initialDraftState] = useState(() => {
     try {
-      const value = JSON.parse(window.sessionStorage.getItem(draftStorageKey) ?? 'null') as ChapterStudioDraftCheckpoint | null;
-      if (!value || value.version !== 1 || value.projectId !== projectId || value.snapshotId !== snapshotId
-        || typeof value.targetKey !== 'string' || typeof value.baseRevisionId !== 'string'
-        || !value.candidate || value.candidate.projectId !== projectId || value.candidate.snapshotId !== snapshotId
-        || !Array.isArray(value.candidate.sections)) return null;
-      return chapterStudioDraftMatchesRoute(value, routeChapterId, routeRevisionId)
-        ? { restored: value, pending: null }
-        : { restored: null, pending: value };
+      return readChapterStudioDraft(window.sessionStorage.getItem(draftStorageKey), projectId, snapshotId, routeChapterId, routeRevisionId);
     } catch {
-      return null;
+      return { status: 'preserved' as const, reason: 'unreadable' as const };
     }
   });
-  const restoredDraft = initialDraftState?.restored ?? null;
-  const [pendingDraft, setPendingDraft] = useState<ChapterStudioDraftCheckpoint | null>(initialDraftState?.pending ?? null);
+  const restoredDraft = initialDraftState.status === 'restored' ? initialDraftState.checkpoint : null;
+  const [pendingDraft, setPendingDraft] = useState(initialDraftState.status === 'pending' ? initialDraftState.checkpoint : null);
+  const [preservedDraftReason, setPreservedDraftReason] = useState(
+    initialDraftState.status === 'preserved' ? initialDraftState.reason : null,
+  );
   const studioMounted = useRef(false);
   useEffect(() => {
     studioMounted.current = true;
@@ -4489,6 +4476,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   }, [projectId]);
 
   useEffect(() => {
+    if (preservedDraftReason) return;
     if (!editing || !candidate || !selectedRevisionId || !selectedTargetKey) {
       if (pendingDraft) return;
       try { window.sessionStorage.removeItem(draftStorageKey); } catch { /* session storage may be unavailable */ }
@@ -4507,7 +4495,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     } catch {
       setFeedback({ message: 'This unsaved draft could not be preserved for source navigation. Save or cancel before leaving Chapter Studio.', tone: 'error' });
     }
-  }, [candidate, draftStorageKey, editing, pendingDraft, projectId, selectedRevisionId, selectedTargetKey, snapshotId]);
+  }, [candidate, draftStorageKey, editing, pendingDraft, preservedDraftReason, projectId, selectedRevisionId, selectedTargetKey, snapshotId]);
 
   useEffect(() => {
     if (!isNativeRuntime()) return;
@@ -4652,7 +4640,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { projectId } }));
   };
   const beginEditing = () => {
-    if (!selectedRevision || !isLatestCurrent || pendingDraft) return;
+    if (!selectedRevision || !isLatestCurrent || pendingDraft || preservedDraftReason) return;
     setCandidate(structuredClone(selectedRevision));
     setEditing(true);
     setRebasing(false);
@@ -4685,6 +4673,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const discardPendingDraft = () => {
     try { window.sessionStorage.removeItem(draftStorageKey); } catch { /* session storage may be unavailable */ }
     setPendingDraft(null);
+  };
+  const discardPreservedDraft = () => {
+    try {
+      window.sessionStorage.removeItem(draftStorageKey);
+      setPreservedDraftReason(null);
+      setFeedback({ message: 'The unavailable saved edit was discarded. You can now edit a chapter.', tone: 'info' });
+    } catch {
+      setFeedback({ message: 'The saved edit could not be discarded. Its stored data remains untouched.', tone: 'error' });
+    }
   };
   const applyRebase = (latest: ChapterRevision, rebased: ChapterRevision) => {
     setSelectedRevisionId(latest.revisionId);
@@ -4884,7 +4881,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     element?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   };
   const repairIssueCitation = (anchor: ChapterSourceAnchor) => {
-    if (busy || pendingDraft || !isLatestCurrent) return;
+    if (busy || pendingDraft || preservedDraftReason || !isLatestCurrent) return;
     if (!editing) beginEditing();
     setRepairingAnchorId(anchor.anchorId);
   };
@@ -4899,7 +4896,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <p>Choose a file, check its cited lines, and edit one section at a time.</p>
           </div>
           <div className="chapter-studio-top-actions">
-            <button className="primary-button" onClick={onGenerateOverview} disabled={editing || Boolean(pendingDraft)} title={editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
+            <button className="primary-button" onClick={onGenerateOverview} disabled={editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
             <button className="secondary-button" onClick={onGoPlan}><ListChecks size={14} /> Guide</button>
             <span className="chapter-studio-snapshot">Snapshot <code>{snapshotId.slice(-12)}</code></span>
           </div>
@@ -4918,6 +4915,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <button className="text-button" onClick={restorePendingDraft} disabled={!pendingDraftBase || busy}>Restore draft</button>
             <button className="text-button" onClick={discardPendingDraft} disabled={busy}>Discard</button>
           </span>
+        </div>}
+        {preservedDraftReason && <div className="coverage-storage-warning chapter-pending-draft" role="status">
+          <span><strong>Saved edit could not be restored.</strong> {preservedDraftReason === 'unsupported'
+            ? 'It uses a format this version cannot open.'
+            : preservedDraftReason === 'unreadable'
+              ? 'Its saved contents could not be read.'
+              : 'Its saved contents are incomplete or belong to a different snapshot.'} The stored data has been left untouched. Discard it only if you no longer need it.</span>
+          <span className="chapter-pending-draft-actions"><button className="text-button" onClick={discardPreservedDraft} disabled={busy}>Discard saved edit</button></span>
         </div>}
         {editing && <p className="coverage-feedback" role="status">Unsaved changes are kept while you inspect citations. File and revision selection is paused; save or cancel to switch.</p>}
 
@@ -4960,10 +4965,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   {chapterStudioCanGenerate(historyAvailability, status) && !pendingDraft ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
                     {selectedTarget.overview
-                      ? <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Generate current overview</button>
+                      ? <button className="primary-button" onClick={onGenerateOverview} disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined}><Sparkles size={14} /> Generate current overview</button>
                       : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
                         && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
-                        && <button className="primary-button" onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</button>}
+                        && <button className="primary-button" disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined} onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</button>}
                   </div> : null}
                 </div>
 
@@ -5003,8 +5008,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {freshnessKey && isNativeRuntime() && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
                               {selectedFreshness?.loading ? 'Assessing…' : selectedFreshness?.report ? 'Reassess freshness' : 'Assess freshness'}
                             </button>}
-                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft)} title="Create a new draft from this earlier content and revalidate it against the current snapshot."><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
-                            {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
+                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title="Create a new draft from this earlier content and revalidate it against the current snapshot."><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
+                            {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft) || Boolean(preservedDraftReason)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
                               <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>
                               <button className="secondary-button button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
@@ -5121,7 +5126,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       </section>}
 
                       {feedback && <p className={`chapter-review-feedback tone-${feedback.tone}`} role="status">{feedback.message}</p>}
-                      {validation && <ChapterValidationIssues revision={activeDocument} issues={validation.issues} busy={busy} canRepair={isLatestCurrent && !pendingDraft} onReview={reviewIssueLocation} onRepair={repairIssueCitation} />}
+                      {validation && <ChapterValidationIssues revision={activeDocument} issues={validation.issues} busy={busy} canRepair={isLatestCurrent && !pendingDraft && !preservedDraftReason} onReview={reviewIssueLocation} onRepair={repairIssueCitation} />}
 
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>
