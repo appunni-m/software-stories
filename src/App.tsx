@@ -1643,11 +1643,11 @@ function App() {
             className="search-control"
             disabled={!navigation.current.snapshotId}
             onClick={() => window.dispatchEvent(new Event('code-atlas:search'))}
-            aria-label="Search repository files, Command K"
+            aria-label="Search repository files, Command P"
           >
             <Search size={15} />
             <span>Search repository</span>
-            <kbd><Command size={10} /> K</kbd>
+            <kbd><Command size={10} /> P</kbd>
           </button>
           <button
             className="help-button"
