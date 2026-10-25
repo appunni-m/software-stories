@@ -1017,7 +1017,14 @@ function App() {
     setSourceError(null);
     setSourceLoading(true);
     void readSnapshotSource(route.projectId, route.snapshotId, route.relativePath)
-      .then((source) => { if (active) setSourceDocument(source); })
+      .then((source) => {
+        if (!active) return;
+        if (source.snapshotId !== route.snapshotId || source.path !== route.relativePath) {
+          setSourceError('The returned source did not match the selected snapshot and file.');
+          return;
+        }
+        setSourceDocument(source);
+      })
       .catch((error) => {
         if (active) setSourceError(errorMessageOr(error, 'Snapshot source could not be opened.'));
       })
@@ -1180,15 +1187,18 @@ function App() {
   };
 
   const explainCodeLensRangeWithProvider = (targetPath: string, range: SourceLineRange) => {
-    if (!currentProject || !sourceDocument || !range.sourceSha256) {
-      setNotice({ title: 'A verified source range is required', message: 'Open an exact source citation in Files from the selected immutable snapshot before requesting a range explanation.' });
+    if (!currentProject || !selectedSnapshot || !sourceDocument || !range.sourceSha256
+      || sourceDocument.snapshotId !== selectedSnapshot.snapshotId
+      || sourceDocument.path !== targetPath
+      || sourceDocument.sha256 !== range.sourceSha256) {
+      setNotice({ title: 'This source range is no longer available', message: 'Open the cited code in the selected snapshot again before requesting an explanation.' });
       return;
     }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setProviderDialog({
       kind: 'code-lens-range',
       projectId: currentProject.projectId,
-      snapshotId: sourceDocument.snapshotId,
+      snapshotId: selectedSnapshot.snapshotId,
       target: {
         path: targetPath,
         sourceSha256: range.sourceSha256,
