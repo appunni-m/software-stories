@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-const JOURNAL_SCHEMA_VERSION: u32 = 1;
+const JOURNAL_SCHEMA_VERSION: u32 = 2;
 const MAX_JOURNAL_BYTES: usize = 1024 * 1024;
 const MAX_OPERATION_COUNT: usize = 256;
 
@@ -19,7 +19,7 @@ pub enum InterruptedOperationKind {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InterruptedOperation {
     pub operation_id: String,
     pub kind: InterruptedOperationKind,
@@ -77,7 +77,7 @@ pub struct InterruptedGitScope {
 pub struct InterruptionJournal(Arc<Mutex<()>>);
 
 #[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JournalFile {
     schema_version: u32,
     operations: Vec<InterruptedOperation>,
