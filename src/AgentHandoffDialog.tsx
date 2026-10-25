@@ -13,6 +13,7 @@ interface Props {
   mode: Extract<CodexChapterDialogMode, 'settings' | { kind: 'review' | 'overview' }>;
   native: boolean;
   initialAgent: HandoffAgent;
+  onAgentChange: (agent: HandoffAgent) => void;
   onClose: () => void;
   onChooseBackend: () => void;
 }
@@ -24,7 +25,7 @@ const agents: { id: HandoffAgent; name: string }[] = [
 
 /** Manual transport only. Runtime settings and account access belong to the
  * user's agent; the app validates the imported explanation independently. */
-export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChooseBackend }: Props) {
+export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, onClose, onChooseBackend }: Props) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const snapshotId = mode === 'settings' ? null : mode.snapshotId;
   const targetPath = mode !== 'settings' && mode.kind === 'review' ? mode.targetPath ?? null : null;
@@ -178,7 +179,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
       <button className="icon-button" disabled={busy !== null} onClick={onClose} aria-label="Close agent handoff"><X size={17} /></button></header>
     <div className="provider-dialog-content">
       <section className="provider-review-card"><h3>1. Choose your agent</h3>
-        <label className="provider-model-select">Agent<select value={agent} disabled={locked} onChange={(event) => { releaseReview(); setAgent(event.target.value as HandoffAgent); }}>{agents.map((value) => <option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
+        <label className="provider-model-select">Agent<select value={agent} disabled={locked} onChange={(event) => { const next = event.target.value as HandoffAgent; releaseReview(); setAgent(next); onAgentChange(next); }}>{agents.map((value) => <option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
         <p>Choose model, reasoning and approvals inside {agentName}. Code Atlas cannot apply or verify those settings, manage this run, cancel it or constrain its tools. Use a fresh conversation and review the agent’s own account, cost and permissions before pasting.</p>
         {agent === 'antigravity' && <p className="provider-small-note" role="note">Manual handoff only: paste the reviewed task into Antigravity yourself. Google does not allow third-party apps to connect with a consumer Antigravity account.</p>}
         <p className="provider-small-note">This is a manual exchange of text, separate from automatic runtime integration. Your agent’s normal terms, access rules and usage limits apply. Imported output does not attest which agent or model produced it.</p>

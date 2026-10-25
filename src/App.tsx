@@ -114,6 +114,7 @@ import {
   type IndexProgress,
   type RelationshipKind,
   type GitComparisonResult,
+  type HandoffAgent,
 } from './lib/commands';
 import type { ReaderRouteContext } from './Walkthrough';
 import { scrollBehaviorForMotionPreference } from './lib/motion';
@@ -2059,8 +2060,16 @@ function ProviderDialog(props: ProviderDialogProps) {
     if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
     return readGenerationBackend() ?? 'choose';
   });
-  const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>(() => { try { return localStorage.getItem('code-atlas:handoff-agent') === 'antigravity' ? 'antigravity' : 'claude-code'; } catch { return 'claude-code'; } });
-  useEffect(() => { try { localStorage.setItem('code-atlas:handoff-agent', handoffAgent); } catch { /* Optional. */ } }, [handoffAgent]);
+  const [handoffAgent, setHandoffAgent] = useState<HandoffAgent>(() => {
+    try {
+      const saved = localStorage.getItem('code-atlas:handoff-agent');
+      return saved === 'claude-code' || saved === 'codex' || saved === 'antigravity' || saved === 'other' ? saved : 'claude-code';
+    } catch { return 'claude-code'; }
+  });
+  const chooseHandoffAgent = (agent: HandoffAgent) => {
+    setHandoffAgent(agent);
+    try { localStorage.setItem('code-atlas:handoff-agent', agent); } catch { /* Optional. */ }
+  };
   const selectedConnectionSupportsOperation = backend === 'api' || backend === 'claude-setup'
     || backend === 'codex' && agentOperation || backend === 'handoff' && handoffOperation;
   const connectionUnavailable = props.mode.kind !== 'settings' && !selectedConnectionSupportsOperation;
@@ -2091,7 +2100,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
-      initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={chooseConnection} />;
+      initialAgent={handoffAgent} onAgentChange={chooseHandoffAgent} onClose={props.onClose} onChooseBackend={chooseConnection} />;
   }
   if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range')) {
     const selectedMode = props.mode;
@@ -2130,12 +2139,12 @@ function ProviderDialog(props: ProviderDialogProps) {
           <button className="secondary-button" onClick={() => choose('claude-setup')}>Check Claude installation</button>
           <h4>Manual Claude Code handoff</h4>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>
-          <button className="primary-button" disabled={!handoffOperation} onClick={() => { setHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
+          <button className="primary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
           <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or automatic generation is offered here.</p>
         </section>
         <section className="provider-review-card"><h3>Antigravity or another agent · manual handoff</h3>
           <p>Use the same reviewed task and validated import with your chosen agent. Its own account rules and permissions apply. Code Atlas does not manage or verify that external run.</p>
-          <button className="secondary-button" disabled={!handoffOperation} onClick={() => { setHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
+          <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
         </section>
         {!handoffOperation && <p role="status">Manual agent handoffs currently cover file chapters and selected-source overviews. Automatic Claude integration remains pending.</p>}
         <section className="provider-review-card"><h3>Direct API</h3>
