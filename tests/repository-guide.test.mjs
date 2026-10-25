@@ -52,12 +52,13 @@ test('playback-paced guides retain their waiting state and explain when another 
   assert.equal(turn.status,'waiting');
   assert.equal(turn.guide,undefined,'native guide state is reloaded instead of trusting a stale browser copy');
 });
-test('guide coverage is clear when a finished outline omits or leaves topics ready',()=>{
+test('guide coverage distinguishes complete planned topics from whole-repository coverage',()=>{
   const active=guide();assert.equal(repositoryGuideCoverageLabel(active),null);
   const complete={...active,status:'ready',units:active.units.map((unit)=>({...unit,status:'complete'})),omissions:[]};
-  assert.equal(repositoryGuideCoverageLabel(complete),null);
+  assert.equal(repositoryGuideCoverageLabel(complete),'Planned topics complete');
   assert.equal(repositoryGuideCoverageLabel({...complete,omissions:['CLI entry paths were not covered.']}),'Partial coverage');
   assert.equal(repositoryGuideCoverageLabel({...complete,units:[{...complete.units[0],status:'ready'},complete.units[1]]}),'Partial coverage');
+  assert.equal(repositoryGuideCoverageLabel({...complete,units:[]}), 'Incomplete');
   assert.equal(repositoryGuideCoverageLabel({...active,status:'stopped'}),'Incomplete');
 });
 test('late progress cannot replace a newer stop or completion receipt',()=>{
