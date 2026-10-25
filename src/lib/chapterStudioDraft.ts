@@ -1,4 +1,5 @@
 import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
+import { isCurrentChapterGenerationOrigin } from './chapterOrigin.ts';
 import { inspectInteractiveVisual } from './visuals.ts';
 import type { ChapterRevision, ChapterSection } from './commands.ts';
 
@@ -117,7 +118,7 @@ function isRestorableCandidate(value: unknown, projectId: string, snapshotId: st
     || !Number.isSafeInteger(value.createdAtUnixMs) || Number(value.createdAtUnixMs) <= 0
     || Object.hasOwn(value, 'basedOnRevisionId') && value.basedOnRevisionId !== null && typeof value.basedOnRevisionId !== 'string'
     || Object.hasOwn(value, 'decisionNote') && value.decisionNote !== null && typeof value.decisionNote !== 'string'
-    || Object.hasOwn(value, 'generationOrigin') && (!isRecord(value.generationOrigin) || value.generationOrigin.schemaVersion !== 6)
+    || Object.hasOwn(value, 'generationOrigin') && !isCurrentChapterGenerationOrigin(value.generationOrigin)
     || !Array.isArray(value.sections) || value.sections.length === 0 || !value.sections.every(isSection)) return false;
   const candidate = value as unknown as ChapterRevision;
   return candidate.sections.every((section) => section.visual === null
