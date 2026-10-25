@@ -323,7 +323,7 @@ export function DeveloperWorkspace(props:Props) {
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
-  function explain(context:Context){const selected={...context,sha256:source?.path===context.path?source.sha256:context.sha256};openFile(selected);ask(`Explain what ${label(selected)} does and how it works.`,current.view==='flow'?'flow':'guide',[selected]);}
+  function explain(context:Context){const selected={...context,sha256:context.sha256??(source?.path===context.path?source.sha256:undefined)};openFile(selected);ask(`Explain what ${label(selected)} does and how it works.`,current.view==='flow'?'flow':'guide',[selected]);}
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
@@ -431,7 +431,7 @@ export function DeveloperWorkspace(props:Props) {
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   const sourcePane=source
-    ? <CodePane path={source.path} contents={source.contents} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
+    ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
     : <div className="dw-source-empty">{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
   return <ReaderProgressContext.Provider value={{
     story:(identity)=>{const owner=presentationOwner(current,identity.revisionId);return owner?{progress:owner.presentation?.stories.find(p=>sameSection(p,identity)),onProgressChange:(progress)=>savePresentation(owner.id,'stories',progress)}:undefined;},

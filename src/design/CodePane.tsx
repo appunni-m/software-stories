@@ -19,8 +19,8 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
-export function CodePane({ path, contents, theme, reveal, canExplain = true, onExplain, onAttach, onClose }: {
-  path: string; contents: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
+export function CodePane({ path, contents, sha256, theme, reveal, canExplain = true, onExplain, onAttach, onClose }: {
+  path: string; contents: string; sha256?: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
   canExplain?: boolean;
   onExplain: (context: CodeContext) => void; onAttach: (context: CodeContext) => void; onClose: () => void;
 }) {
@@ -36,17 +36,17 @@ export function CodePane({ path, contents, theme, reveal, canExplain = true, onE
         ...(/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(path) ? [javascript({ typescript: /\.(?:[cm]?ts|tsx)$/i.test(path), jsx: /\.[jt]sx$/i.test(path) })] : []), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}` }),
-        keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (r.empty) return false; callback.current({ path, from: v.state.doc.lineAt(r.from).number, to: v.state.doc.lineAt(Math.max(r.from,r.to-1)).number }); return true; } }, ...defaultKeymap]),
+        keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (r.empty) return false; callback.current({ path, sha256, from: v.state.doc.lineAt(r.from).number, to: v.state.doc.lineAt(Math.max(r.from,r.to-1)).number }); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
           if (!update.selectionSet) return;
           const range = update.state.selection.main;
-          setSelection(range.empty ? null : { path, from: update.state.doc.lineAt(range.from).number, to: update.state.doc.lineAt(Math.max(range.from,range.to-1)).number });
+          setSelection(range.empty ? null : { path, sha256, from: update.state.doc.lineAt(range.from).number, to: update.state.doc.lineAt(Math.max(range.from,range.to-1)).number });
         }),
       ],
     }) });
     editor.current = view; setSelection(null);
     return () => { editor.current = null; view.destroy(); };
-  }, [path, contents, theme]);
+  }, [path, contents, sha256, theme]);
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path) return;
