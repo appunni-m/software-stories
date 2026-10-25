@@ -228,6 +228,7 @@ pub(super) fn run(
         storage,
         Input {
             run_id: run_id.clone(),
+            turn_id: None,
             project_id: record.project_id.clone(),
             snapshot_id: record.snapshot_id.clone(),
             grant_id: record.grant_id.clone(),

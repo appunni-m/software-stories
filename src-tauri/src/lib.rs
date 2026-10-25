@@ -2097,6 +2097,7 @@ pub fn run() {
             workspace_generation::progressive::generate_progressive_workspace_answer,
             workspace_generation::progressive::load_workspace_answer,
             workspace_generation::progressive::list_workspace_generation_jobs,
+            workspace_generation::progressive::list_workspace_generation_jobs_for_scope,
             workspace_generation::progressive::get_workspace_generation_job,
             workspace_generation::progressive::stop_workspace_generation_job,
             workspace_generation::progressive::save_workspace_answer_section,

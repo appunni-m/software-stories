@@ -291,6 +291,9 @@ pub(crate) fn run_with_starting_ranges(
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<Summary, String> {
+    if guide_intent.is_none() && input.turn_id.is_none() {
+        return Err("This question is missing its conversation identity. Nothing was sent.".into());
+    }
     let started_at = Instant::now();
     let mut preparation = crate::generation_timing::Preparation::new(started_at);
     let _worker = preparation.run_stage(
@@ -306,8 +309,16 @@ pub(crate) fn run_with_starting_ranges(
             super::jobs::start(
                 storage,
                 &input.run_id,
+                if guide_intent.is_some() {
+                    super::jobs::JobKind::RepositoryGuideSlide
+                } else {
+                    super::jobs::JobKind::WorkspaceQuestion
+                },
+                input.turn_id.as_deref(),
                 &input.project_id,
                 &input.snapshot_id,
+                &input.model_id,
+                &input.effort,
             )
             .map(|_| ())
         },
@@ -327,6 +338,21 @@ pub(crate) fn run_with_starting_ranges(
         let runtime = preparation.run_stage(
             crate::generation_timing::PreparationKind::RuntimeReview,
             || manager.review_runtime(storage),
+        )?;
+        preparation.run_stage(
+            crate::generation_timing::PreparationKind::JobIdentityBinding,
+            || {
+                let source_fingerprint = workspace::manifest_fingerprint(&manifest)?;
+                let runtime_identity = runtime_identity_fingerprint(&runtime)?;
+                super::jobs::bind_reviewed_request(
+                    storage,
+                    &input.run_id,
+                    &source_fingerprint,
+                    &fingerprint,
+                    &runtime_identity,
+                )?;
+                Ok(())
+            },
         )?;
         preparation.run_stage(
             crate::generation_timing::PreparationKind::RetrievalGrant,
@@ -561,6 +587,19 @@ pub(crate) fn run_with_starting_ranges(
             }
         }
     }
+}
+
+fn runtime_identity_fingerprint(
+    runtime: &crate::codex_identity::CodexReviewRuntime,
+) -> Result<String, String> {
+    let identity = serde_json::to_vec(&serde_json::json!({
+        "connectionId": runtime.connection_id,
+        "executableSha256": runtime.executable_sha256,
+        "accountIdentitySha256": runtime.account_identity_sha256,
+        "accountRevision": runtime.account_revision,
+    }))
+    .map_err(|_| "The observed Codex identity could not be recorded.")?;
+    Ok(context::digest(&identity))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -919,6 +958,38 @@ pub(crate) async fn list_workspace_generation_jobs(
     tauri::async_runtime::spawn_blocking(move || super::jobs::list(&storage))
         .await
         .map_err(|_| "The workspace job list worker stopped.".to_owned())?
+}
+
+/// Restore only the current repository/snapshot's jobs. Each inactive worker
+/// is reconciled against its own answer receipt without replaying other scopes.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn list_workspace_generation_jobs_for_scope(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    project_id: String,
+    snapshot_id: String,
+) -> Result<Vec<super::jobs::JobRecord>, String> {
+    let storage = app_data_directory(&app)?;
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let jobs = super::jobs::list_for_scope(&storage, &project_id, &snapshot_id)?;
+        jobs.into_iter()
+            .map(|job| {
+                let worker_active =
+                    manager.with_operation_state(&job.job_id, |active| Ok(active))?;
+                let answer_outcome = if worker_active {
+                    None
+                } else {
+                    reading::scoped(&storage, &job.job_id, &project_id, &snapshot_id)
+                        .ok()
+                        .map(|answer| answer.outcome)
+                };
+                super::jobs::reconcile_one(&storage, &job.job_id, worker_active, answer_outcome)
+            })
+            .collect()
+    })
+    .await
+    .map_err(|_| "The workspace job list worker stopped.".to_owned())?
 }
 
 /// Query one job by its stable run/job ID. Restart reconciliation validates

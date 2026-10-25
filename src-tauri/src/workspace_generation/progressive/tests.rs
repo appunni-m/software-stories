@@ -4,6 +4,7 @@ use crate::chapter_generation::tests::Fixture;
 fn input(f: &Fixture) -> Input {
     Input {
         run_id: Uuid::new_v4().to_string(),
+        turn_id: Some(Uuid::new_v4().to_string()),
         project_id: f.manifest.summary.project_id.clone(),
         snapshot_id: f.manifest.summary.snapshot_id.clone(),
         grant_id: Uuid::new_v4().to_string(),
@@ -579,7 +580,7 @@ fn fontdone_progressive_account_probe() {
     let grant_id =
         workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
     let input = Input {
-        run_id: Uuid::new_v4().to_string(), project_id: project.into(), snapshot_id: snapshot_id.into(), grant_id,
+        run_id: Uuid::new_v4().to_string(), turn_id: Some(Uuid::new_v4().to_string()), project_id: project.into(), snapshot_id: snapshot_id.into(), grant_id,
         question: "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.".into(),
         references: vec![], model_id: "gpt-6-luna".into(), effort: "max".into(), renderer_queue_wait_ms: None,
     };
@@ -827,9 +828,11 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
-    assert!(system_instructions().contains(
-        "LIFO stacks are authored oldest/bottom first and displayed newest/top first"
-    ));
+    assert!(
+        system_instructions().contains(
+            "LIFO stacks are authored oldest/bottom first and displayed newest/top first"
+        )
+    );
     assert_eq!(
         fingerprint,
         context::digest(&serde_json::to_vec(&contract).unwrap())

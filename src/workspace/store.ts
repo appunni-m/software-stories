@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -375,7 +375,22 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
       failed = true;
     }
   }
+  try { restoreWorkspaceJobStates(project,snapshot,await listWorkspaceGenerationJobsForScope(project,snapshot)); }
+  catch { /* Saved answers remain readable; an unavailable job ledger is conservative. */ }
   if (failed) throw firstFailure;
+}
+
+function restoreWorkspaceJobStates(project:string,snapshot:string,jobs:WorkspaceGenerationJob[]) {
+  for (const job of jobs) {
+    if (job.kind!=='workspaceQuestion'||job.projectId!==project||job.snapshotId!==snapshot||!job.conversationTurnId) continue;
+    const turns=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns);
+    const turn=turns.find((candidate)=>candidate.id===job.conversationTurnId);
+    if (!turn||!turn.runIds?.includes(job.jobId)||turn.runIds.at(-1)!==job.jobId) continue;
+    const status:Turn['status']=job.state==='preparing'||job.state==='running'||job.state==='stopRequested'?'working'
+      :job.state==='completed'?'ready':job.state==='partiallyCompleted'?'partial'
+      :job.state==='stopped'?'stopped':job.state==='failed'?'failed':'interrupted';
+    patchTurn(project,snapshot,turn.id,status==='working'?{status,error:undefined}:{status});
+  }
 }
 /** Explicitly remove a terminal investigation receipt after its drafts have
  * been saved. Questions, source links and chapter revisions remain readable. */
@@ -536,7 +551,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     });
     check();
     const summary = await invoke<AnswerSummary>('generate_progressive_workspace_answer',{input:{
-      runId,projectId:project,snapshotId:snapshot,grantId,
+      runId,turnId:id,projectId:project,snapshotId:snapshot,grantId,
       rendererQueueWaitMs,
       question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200),
       references:turn.context.map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,

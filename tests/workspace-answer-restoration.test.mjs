@@ -14,15 +14,82 @@ function nativeReads(handler) {
 }
 const turns = (h, project = 'project', snapshot = 'snapshot') => h.store.getWorkspace(project, snapshot).explorations.flatMap((e) => e.turns);
 
-test('answer restoration does not preflight the whole durable job ledger', async () => {
+test('answer restoration reads only this repository snapshot job ledger', async () => {
   let jobLists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {
     if (name === 'list_workspace_answers') return [];
+    if (name === 'list_workspace_generation_jobs_for_scope') return [];
     assert.fail(`Unexpected command ${name}`);
-  }), { listWorkspaceGenerationJobs: async () => { jobLists++; return []; } });
+  }), { listWorkspaceGenerationJobsForScope: async (projectId,snapshotId) => {
+    assert.equal(projectId,'project'); assert.equal(snapshotId,'snapshot'); jobLists++; return [];
+  } });
   await h.store.restoreWorkspaceAnswers('project', 'snapshot');
-  assert.equal(jobLists, 0);
+  assert.equal(jobLists, 1);
   assert.equal(h.calls.filter((call) => call.name === 'list_workspace_answers').length, 1);
+  assert.equal(h.calls.filter((call) => call.name === 'list_workspace_generation_jobs_for_scope').length, 0);
+});
+
+test('restoration keeps a native worker visible after a webview reload without replaying it', async () => {
+  const runId='11111111-1111-4111-8111-111111111111';
+  const turnId='33333333-3333-4333-8333-333333333333';
+  const job={jobId:runId,kind:'workspaceQuestion',conversationTurnId:turnId,projectId:'project',snapshotId:'snapshot',
+    modelId:'gpt-6-luna',reasoningEffort:'max',sourceFingerprintSha256:'a'.repeat(64),
+    requestFingerprintSha256:'b'.repeat(64),runtimeIdentitySha256:'c'.repeat(64),state:'running',workerRegistered:true,
+    providerThreadId:'thread',providerTurnIds:['turn'],createdAtUnixMs:1,updatedAtUnixMs:2};
+  const h=workspaceStoreHarness(nativeReads(async(name)=>{
+    if(name==='list_workspace_answers') return [];
+    if(name==='list_workspace_generation_jobs_for_scope') return [job];
+    assert.fail(`Unexpected command ${name}`);
+  }),{listWorkspaceGenerationJobsForScope:async(projectId,snapshotId)=>{
+    assert.equal(projectId,'project');assert.equal(snapshotId,'snapshot');return [job];
+  }});
+  h.store.updateWorkspace('project','snapshot',(state)=>({...state,explorations:state.explorations.map((e)=>e.id==='root'
+    ?{...e,turns:[{id:turnId,question:'Explain the caller',context:[],status:'interrupted',runIds:[runId],publishedSections:[]}]}:e)}));
+  await h.store.restoreWorkspaceAnswers('project','snapshot');
+  assert.equal(turns(h)[0].status,'working');
+  assert.deepEqual(h.calls.filter((call)=>call.name==='generate_progressive_workspace_answer'),[]);
+});
+
+test('restoration never maps a guide slide or a mismatched turn onto a question',async()=>{
+  const runId='11111111-1111-4111-8111-111111111111';
+  const guideRunId='55555555-5555-4555-8555-555555555555';
+  const turnId='33333333-3333-4333-8333-333333333333';
+  const wrongTurnId='44444444-4444-4444-8444-444444444444';
+  const base={jobId:runId,projectId:'project',snapshotId:'snapshot',modelId:'gpt-6-luna',reasoningEffort:'max',
+    sourceFingerprintSha256:'a'.repeat(64),requestFingerprintSha256:'b'.repeat(64),runtimeIdentitySha256:'c'.repeat(64),
+    state:'running',workerRegistered:true,providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:2};
+  const guide={...base,jobId:guideRunId,kind:'repositoryGuideSlide',conversationTurnId:turnId};
+  const wrongQuestion={...base,kind:'workspaceQuestion',conversationTurnId:wrongTurnId};
+  const jobs=[guide,wrongQuestion];
+  const h=workspaceStoreHarness(nativeReads(async(name)=>{
+    if(name==='list_workspace_answers') return [];
+    if(name==='list_workspace_generation_jobs_for_scope') return jobs;
+    assert.fail(`Unexpected command ${name}`);
+  }),{listWorkspaceGenerationJobsForScope:async()=>jobs});
+  h.store.updateWorkspace('project','snapshot',(state)=>({...state,explorations:state.explorations.map((e)=>e.id==='root'
+    ?{...e,turns:[{id:turnId,question:'Explain the caller',context:[],status:'interrupted',runIds:[runId]}]}:e)}));
+  await h.store.restoreWorkspaceAnswers('project','snapshot');
+  assert.equal(turns(h)[0].status,'interrupted');
+});
+
+test('job reconciliation keeps the saved failure detail for the reader',async()=>{
+  const runId='11111111-1111-4111-8111-111111111111';
+  const turnId='33333333-3333-4333-8333-333333333333';
+  const job={jobId:runId,kind:'workspaceQuestion',conversationTurnId:turnId,projectId:'project',snapshotId:'snapshot',
+    modelId:'gpt-6-luna',reasoningEffort:'max',sourceFingerprintSha256:'a'.repeat(64),
+    requestFingerprintSha256:'b'.repeat(64),runtimeIdentitySha256:'c'.repeat(64),state:'failed',workerRegistered:true,
+    providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:2};
+  const h=workspaceStoreHarness(nativeReads(async(name)=>{
+    if(name==='list_workspace_answers') return [];
+    if(name==='list_workspace_generation_jobs_for_scope') return [job];
+    assert.fail(`Unexpected command ${name}`);
+  }),{listWorkspaceGenerationJobsForScope:async()=>[job]});
+  const savedError='Codex could not read the captured source.';
+  h.store.updateWorkspace('project','snapshot',(state)=>({...state,explorations:state.explorations.map((e)=>e.id==='root'
+    ?{...e,turns:[{id:turnId,question:'Explain the caller',context:[],status:'interrupted',error:savedError,runIds:[runId]}]}:e)}));
+  await h.store.restoreWorkspaceAnswers('project','snapshot');
+  assert.equal(turns(h)[0].status,'failed');
+  assert.equal(turns(h)[0].error,savedError);
 });
 
 test('a section arriving during initial restoration is read before that restoration finishes', { timeout: 2000 }, async () => {

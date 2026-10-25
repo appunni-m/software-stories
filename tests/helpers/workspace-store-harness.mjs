@@ -30,6 +30,7 @@ export function workspaceStoreHarness(invoke,options={}) {
       isNativeRuntime:()=>options.native??false,
       listChapterRevisions: options.listChapterRevisions ?? (async () => []), cancelCodexChapterRequest: unexpected,
       listWorkspaceGenerationJobs: options.listWorkspaceGenerationJobs ?? (async () => []),
+      listWorkspaceGenerationJobsForScope: options.listWorkspaceGenerationJobsForScope ?? (async () => []),
       getWorkspaceGenerationJob: options.getWorkspaceGenerationJob ?? unexpected,
       stopWorkspaceGenerationJob: options.stopWorkspaceGenerationJob ?? unexpected,
       getSnapshotIndexProgress: unexpected, loadSnapshotIndex: unexpected, startSnapshotIndexing: unexpected,

@@ -40,7 +40,13 @@ fn grant_path(storage: &Path, id: &str) -> Result<PathBuf, String> {
 
 fn manifest_digest(storage: &Path, project: &str, snapshot: &str) -> Result<String, String> {
     let manifest = snapshot::load_snapshot_manifest(storage, project, snapshot)?;
-    let bytes = serde_json::to_vec(&manifest)
+    manifest_fingerprint(&manifest)
+}
+
+pub(crate) fn manifest_fingerprint(
+    manifest: &snapshot::SnapshotManifest,
+) -> Result<String, String> {
+    let bytes = serde_json::to_vec(manifest)
         .map_err(|_| "The snapshot could not be checked.".to_owned())?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }

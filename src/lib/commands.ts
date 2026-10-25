@@ -52,8 +52,15 @@ export type WorkspaceGenerationJobState =
 
 export interface WorkspaceGenerationJob {
   jobId: string;
+  kind: 'workspaceQuestion' | 'repositoryGuideSlide' | null;
+  conversationTurnId: string | null;
   projectId: string;
   snapshotId: string;
+  modelId: string | null;
+  reasoningEffort: string | null;
+  sourceFingerprintSha256: string | null;
+  requestFingerprintSha256: string | null;
+  runtimeIdentitySha256: string | null;
   state: WorkspaceGenerationJobState;
   workerRegistered: boolean;
   providerThreadId: string | null;
@@ -1462,6 +1469,9 @@ export async function cancelCodexChapterRequest(runId: string): Promise<boolean>
 /** Query durable answer jobs; this also reconciles stale records after restart. */
 export function listWorkspaceGenerationJobs(): Promise<WorkspaceGenerationJob[]> {
   return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs');
+}
+export function listWorkspaceGenerationJobsForScope(projectId:string,snapshotId:string):Promise<WorkspaceGenerationJob[]> {
+  return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs_for_scope',{projectId,snapshotId});
 }
 export function getWorkspaceGenerationJob(jobId: string): Promise<WorkspaceGenerationJob> {
   return invoke<WorkspaceGenerationJob>('get_workspace_generation_job', { jobId });

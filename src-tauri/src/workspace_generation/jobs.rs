@@ -17,7 +17,8 @@ use std::{
 };
 use uuid::Uuid;
 
-const STORE_SCHEMA_VERSION: u32 = 1;
+const PREVIOUS_STORE_SCHEMA_VERSION: u32 = 1;
+const STORE_SCHEMA_VERSION: u32 = 2;
 const MAX_STORE_BYTES: usize = 1024 * 1024;
 const MAX_JOB_COUNT: usize = 512;
 const MAX_TURN_IDS: usize = 64;
@@ -36,6 +37,13 @@ pub(crate) enum JobState {
     Interrupted,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum JobKind {
+    WorkspaceQuestion,
+    RepositoryGuideSlide,
+}
+
 impl JobState {
     fn is_active(&self) -> bool {
         matches!(self, Self::Preparing | Self::Running | Self::StopRequested)
@@ -50,8 +58,24 @@ impl JobState {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct JobRecord {
     pub(crate) job_id: String,
+    #[serde(default)]
+    pub(crate) kind: Option<JobKind>,
+    #[serde(default)]
+    pub(crate) conversation_turn_id: Option<String>,
     pub(crate) project_id: String,
     pub(crate) snapshot_id: String,
+    #[serde(default)]
+    pub(crate) model_id: Option<String>,
+    #[serde(default)]
+    pub(crate) reasoning_effort: Option<String>,
+    /// Hashes bind the exact captured source, reviewed request and observed
+    /// Codex account/runtime without retaining source, prompts, paths or email.
+    #[serde(default)]
+    pub(crate) source_fingerprint_sha256: Option<String>,
+    #[serde(default)]
+    pub(crate) request_fingerprint_sha256: Option<String>,
+    #[serde(default)]
+    pub(crate) runtime_identity_sha256: Option<String>,
     pub(crate) state: JobState,
     pub(crate) worker_registered: bool,
     pub(crate) provider_thread_id: Option<String>,
@@ -74,10 +98,15 @@ struct StoreFile {
 pub(crate) fn start(
     storage: &Path,
     job_id: &str,
+    kind: JobKind,
+    conversation_turn_id: Option<&str>,
     project_id: &str,
     snapshot_id: &str,
+    model_id: &str,
+    reasoning_effort: &str,
 ) -> Result<JobRecord, String> {
     validate_identity(job_id, project_id, snapshot_id)?;
+    validate_requested_identity(kind, conversation_turn_id, model_id, reasoning_effort)?;
     let _guard = lock()?;
     let mut store = read_store(storage)?;
     if let Some(existing_index) = store.jobs.iter().position(|job| job.job_id == job_id) {
@@ -92,6 +121,7 @@ pub(crate) fn start(
             // Stop may arrive before the worker has completed local preparation.
             // Preserve that durable request when the worker later registers.
             let job = &mut store.jobs[existing_index];
+            bind_requested_identity(job, kind, conversation_turn_id, model_id, reasoning_effort)?;
             job.worker_registered = true;
             job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
             let registered = job.clone();
@@ -108,8 +138,15 @@ pub(crate) fn start(
     let now = now_unix_ms();
     let job = JobRecord {
         job_id: job_id.to_owned(),
+        kind: Some(kind),
+        conversation_turn_id: conversation_turn_id.map(str::to_owned),
         project_id: project_id.to_owned(),
         snapshot_id: snapshot_id.to_owned(),
+        model_id: Some(model_id.to_owned()),
+        reasoning_effort: Some(reasoning_effort.to_owned()),
+        source_fingerprint_sha256: None,
+        request_fingerprint_sha256: None,
+        runtime_identity_sha256: None,
         state: JobState::Preparing,
         worker_registered: true,
         provider_thread_id: None,
@@ -121,6 +158,111 @@ pub(crate) fn start(
     store.jobs.push(job.clone());
     write_store(storage, &store)?;
     Ok(job)
+}
+
+/// Bind the immutable source, request and observed account/runtime after local
+/// request preparation but before the first provider dispatch.
+pub(crate) fn bind_reviewed_request(
+    storage: &Path,
+    job_id: &str,
+    source_fingerprint_sha256: &str,
+    request_fingerprint_sha256: &str,
+    runtime_identity_sha256: &str,
+) -> Result<JobRecord, String> {
+    validate_job_id(job_id)?;
+    for digest in [
+        source_fingerprint_sha256,
+        request_fingerprint_sha256,
+        runtime_identity_sha256,
+    ] {
+        if !valid_digest(digest) {
+            return Err("The workspace job request identity is invalid.".into());
+        }
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if job.model_id.is_none() || job.reasoning_effort.is_none() {
+        return Err("The workspace job is missing its original question settings.".into());
+    }
+    let bound = [
+        &job.source_fingerprint_sha256,
+        &job.request_fingerprint_sha256,
+        &job.runtime_identity_sha256,
+    ];
+    let proposed = [
+        source_fingerprint_sha256,
+        request_fingerprint_sha256,
+        runtime_identity_sha256,
+    ];
+    if bound.iter().any(|saved| saved.is_some()) {
+        if bound
+            .iter()
+            .zip(proposed)
+            .all(|(saved, proposed)| saved.as_deref() == Some(proposed))
+        {
+            return Ok(job.clone());
+        }
+        return Err("This workspace job is already bound to another reviewed request.".into());
+    }
+    if job.state.is_terminal() {
+        return Err("A finished workspace job cannot be bound to a new request.".into());
+    }
+    job.source_fingerprint_sha256 = Some(source_fingerprint_sha256.to_owned());
+    job.request_fingerprint_sha256 = Some(request_fingerprint_sha256.to_owned());
+    job.runtime_identity_sha256 = Some(runtime_identity_sha256.to_owned());
+    job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    let updated = job.clone();
+    write_store(storage, &store)?;
+    Ok(updated)
+}
+
+fn bind_requested_identity(
+    job: &mut JobRecord,
+    kind: JobKind,
+    conversation_turn_id: Option<&str>,
+    model_id: &str,
+    reasoning_effort: &str,
+) -> Result<(), String> {
+    let matches = job.kind.is_none_or(|saved| saved == kind)
+        && job
+            .conversation_turn_id
+            .as_deref()
+            .is_none_or(|saved| conversation_turn_id == Some(saved))
+        && job
+            .model_id
+            .as_deref()
+            .is_none_or(|saved| saved == model_id)
+        && job
+            .reasoning_effort
+            .as_deref()
+            .is_none_or(|saved| saved == reasoning_effort);
+    if !matches {
+        return Err("This workspace job is already bound to another question.".into());
+    }
+    job.kind = Some(kind);
+    if let Some(conversation_turn_id) = conversation_turn_id {
+        job.conversation_turn_id = Some(conversation_turn_id.to_owned());
+    }
+    job.model_id = Some(model_id.to_owned());
+    job.reasoning_effort = Some(reasoning_effort.to_owned());
+    Ok(())
+}
+
+fn validate_requested_identity(
+    kind: JobKind,
+    conversation_turn_id: Option<&str>,
+    model_id: &str,
+    reasoning_effort: &str,
+) -> Result<(), String> {
+    if (kind == JobKind::WorkspaceQuestion && conversation_turn_id.is_none())
+        || conversation_turn_id.is_some_and(|id| Uuid::parse_str(id).is_err())
+        || !valid_text(model_id, 200)
+        || !valid_text(reasoning_effort, 32)
+    {
+        return Err("The workspace question identity or Codex settings are invalid.".into());
+    }
+    Ok(())
 }
 
 pub(crate) fn get(storage: &Path, job_id: &str) -> Result<JobRecord, String> {
@@ -136,6 +278,22 @@ pub(crate) fn get(storage: &Path, job_id: &str) -> Result<JobRecord, String> {
 pub(crate) fn list(storage: &Path) -> Result<Vec<JobRecord>, String> {
     let _guard = lock()?;
     Ok(read_store(storage)?.jobs)
+}
+
+pub(crate) fn list_for_scope(
+    storage: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+) -> Result<Vec<JobRecord>, String> {
+    if !valid_text(project_id, 4096) || !valid_text(snapshot_id, 256) {
+        return Err("The workspace job scope is invalid.".into());
+    }
+    let _guard = lock()?;
+    Ok(read_store(storage)?
+        .jobs
+        .into_iter()
+        .filter(|job| job.project_id == project_id && job.snapshot_id == snapshot_id)
+        .collect())
 }
 
 /// Persist provider identifiers from native progress before that progress is
@@ -242,8 +400,15 @@ pub(crate) fn request_stop_or_record(
     let now = now_unix_ms();
     let job = JobRecord {
         job_id: job_id.to_owned(),
+        kind: None,
+        conversation_turn_id: None,
         project_id: project_id.to_owned(),
         snapshot_id: snapshot_id.to_owned(),
+        model_id: None,
+        reasoning_effort: None,
+        source_fingerprint_sha256: None,
+        request_fingerprint_sha256: None,
+        runtime_identity_sha256: None,
         state: JobState::StopRequested,
         worker_registered: false,
         provider_thread_id: None,
@@ -419,6 +584,46 @@ fn find_job_mut<'a>(store: &'a mut StoreFile, job_id: &str) -> Result<&'a mut Jo
 
 fn validate_job(job: &JobRecord) -> Result<(), String> {
     validate_identity(&job.job_id, &job.project_id, &job.snapshot_id)?;
+    if (job.kind == Some(JobKind::WorkspaceQuestion) && job.conversation_turn_id.is_none())
+        || job
+            .conversation_turn_id
+            .as_deref()
+            .is_some_and(|id| Uuid::parse_str(id).is_err())
+        || job
+            .model_id
+            .as_deref()
+            .is_some_and(|value| !valid_text(value, 200))
+        || job
+            .reasoning_effort
+            .as_deref()
+            .is_some_and(|value| !valid_text(value, 32))
+        || [
+            &job.source_fingerprint_sha256,
+            &job.request_fingerprint_sha256,
+            &job.runtime_identity_sha256,
+        ]
+        .iter()
+        .any(|value| value.as_deref().is_some_and(|digest| !valid_digest(digest)))
+    {
+        return Err("The saved workspace job identity is invalid.".into());
+    }
+    let identity_hashes = [
+        &job.source_fingerprint_sha256,
+        &job.request_fingerprint_sha256,
+        &job.runtime_identity_sha256,
+    ];
+    let saved_hash_count = identity_hashes
+        .iter()
+        .filter(|value| value.is_some())
+        .count();
+    if (saved_hash_count != 0 && saved_hash_count != identity_hashes.len())
+        || (saved_hash_count == identity_hashes.len()
+            && (job.conversation_turn_id.is_none()
+                || job.model_id.is_none()
+                || job.reasoning_effort.is_none()))
+    {
+        return Err("The saved workspace job identity is incomplete.".into());
+    }
     if job
         .provider_thread_id
         .as_deref()
@@ -477,6 +682,13 @@ fn valid_text(value: &str, max_bytes: usize) -> bool {
     !value.is_empty() && value.len() <= max_bytes && !value.chars().any(char::is_control)
 }
 
+fn valid_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn store_path(storage: &Path) -> PathBuf {
     storage.join("workspace-generation-jobs.json")
 }
@@ -499,13 +711,20 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
             return Err("Workspace generation job data exceeds its local storage limit.".into());
         }
     };
-    let store: StoreFile = serde_json::from_slice(&bytes)
+    let mut store: StoreFile = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
-    if store.schema_version != STORE_SCHEMA_VERSION || store.jobs.len() > MAX_JOB_COUNT {
+    if !matches!(
+        store.schema_version,
+        PREVIOUS_STORE_SCHEMA_VERSION | STORE_SCHEMA_VERSION
+    ) || store.jobs.len() > MAX_JOB_COUNT
+    {
         return Err(
             "Workspace generation job data uses an unsupported or oversized format.".into(),
         );
     }
+    // Version one had no request identity fields. Their defaults remain absent;
+    // the next successful write upgrades the envelope without reissuing work.
+    store.schema_version = STORE_SCHEMA_VERSION;
     let mut ids = HashSet::new();
     for job in &store.jobs {
         validate_job(job)?;
@@ -571,13 +790,184 @@ mod tests {
     }
 
     fn start_job(directory: &TestDirectory) -> JobRecord {
+        let job_id = Uuid::new_v4().to_string();
+        let conversation_turn_id = Uuid::new_v4().to_string();
+        start(
+            &directory.0,
+            &job_id,
+            JobKind::WorkspaceQuestion,
+            Some(&conversation_turn_id),
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn reviewed_job_identity_survives_reopen_without_saving_source_or_account_text() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        let source_fingerprint = "a".repeat(64);
+        let request_fingerprint = "b".repeat(64);
+        let runtime_fingerprint = "c".repeat(64);
+        let saved = bind_reviewed_request(
+            &directory.0,
+            &job.job_id,
+            &source_fingerprint,
+            &request_fingerprint,
+            &runtime_fingerprint,
+        )
+        .unwrap();
+        assert_eq!(
+            bind_reviewed_request(
+                &directory.0,
+                &job.job_id,
+                &source_fingerprint,
+                &request_fingerprint,
+                &runtime_fingerprint,
+            )
+            .unwrap(),
+            saved
+        );
+        assert!(
+            bind_reviewed_request(
+                &directory.0,
+                &job.job_id,
+                &"d".repeat(64),
+                &"b".repeat(64),
+                &"c".repeat(64),
+            )
+            .is_err()
+        );
+
+        let reopened = get(&directory.0, &job.job_id).unwrap();
+        assert_eq!(reopened.conversation_turn_id, job.conversation_turn_id);
+        assert_eq!(reopened.model_id.as_deref(), Some("gpt-6-luna"));
+        assert_eq!(reopened.reasoning_effort.as_deref(), Some("max"));
+        assert_eq!(
+            reopened.source_fingerprint_sha256.as_deref(),
+            Some(source_fingerprint.as_str())
+        );
+        assert_eq!(
+            reopened.request_fingerprint_sha256.as_deref(),
+            Some(request_fingerprint.as_str())
+        );
+        assert_eq!(
+            reopened.runtime_identity_sha256.as_deref(),
+            Some(runtime_fingerprint.as_str())
+        );
+        let contents = fs::read_to_string(store_path(&directory.0)).unwrap();
+        assert!(!contents.contains("private/source.rs"));
+        assert!(!contents.contains("person@example.com"));
+        assert!(!contents.contains("secret source contents"));
+    }
+
+    #[test]
+    fn prestart_stop_tombstone_adopts_only_the_original_question_identity() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let conversation_turn_id = Uuid::new_v4().to_string();
+        request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a").unwrap();
+        let adopted = start(
+            &directory.0,
+            &job_id,
+            JobKind::WorkspaceQuestion,
+            Some(&conversation_turn_id),
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+        assert_eq!(adopted.state, JobState::StopRequested);
+        assert!(adopted.worker_registered);
+        assert!(
+            start(
+                &directory.0,
+                &job_id,
+                JobKind::WorkspaceQuestion,
+                Some(&conversation_turn_id),
+                "project-a",
+                "snapshot-a",
+                "gpt-6-luna",
+                "max",
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn terminal_job_cannot_be_bound_to_a_late_reviewed_request() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        finish(&directory.0, &job.job_id, JobState::Interrupted).unwrap();
+        assert!(
+            bind_reviewed_request(
+                &directory.0,
+                &job.job_id,
+                &"a".repeat(64),
+                &"b".repeat(64),
+                &"c".repeat(64),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn version_one_records_migrate_on_write_without_reissuing_or_losing_state() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let legacy = serde_json::json!({"schemaVersion":1,"jobs":[{"jobId":job_id,
+            "projectId":"project-a","snapshotId":"snapshot-a","state":"running",
+            "workerRegistered":true,"providerThreadId":"thread-a","providerTurnIds":["turn-a"],
+            "preparationStages":[],"createdAtUnixMs":1,"updatedAtUnixMs":2}]});
+        fs::write(
+            store_path(&directory.0),
+            serde_json::to_vec(&legacy).unwrap(),
+        )
+        .unwrap();
+
+        let loaded = get(&directory.0, &legacy["jobs"][0]["jobId"].as_str().unwrap()).unwrap();
+        assert_eq!(loaded.state, JobState::Running);
+        assert_eq!(loaded.conversation_turn_id, None);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &fs::read(store_path(&directory.0)).unwrap()
+            )
+            .unwrap()["schemaVersion"],
+            1
+        );
+        finish(&directory.0, &loaded.job_id, JobState::Interrupted).unwrap();
+        let migrated: serde_json::Value =
+            serde_json::from_slice(&fs::read(store_path(&directory.0)).unwrap()).unwrap();
+        assert_eq!(migrated["schemaVersion"], STORE_SCHEMA_VERSION);
+        let retained = get(&directory.0, &loaded.job_id).unwrap();
+        assert_eq!(retained.provider_thread_id.as_deref(), Some("thread-a"));
+        assert_eq!(retained.provider_turn_ids, vec!["turn-a"]);
+        assert_eq!(retained.state, JobState::Interrupted);
+    }
+
+    #[test]
+    fn scoped_job_reads_do_not_return_another_snapshot() {
+        let directory = TestDirectory::new();
+        let first = start_job(&directory);
         start(
             &directory.0,
             &Uuid::new_v4().to_string(),
-            "project-a",
-            "snapshot-a",
+            JobKind::WorkspaceQuestion,
+            Some(&Uuid::new_v4().to_string()),
+            "project-b",
+            "snapshot-b",
+            "gpt-6-luna",
+            "max",
         )
-        .unwrap()
+        .unwrap();
+        assert_eq!(
+            list_for_scope(&directory.0, "project-a", "snapshot-a").unwrap(),
+            vec![first]
+        );
     }
 
     #[test]
@@ -622,7 +1012,6 @@ mod tests {
         assert_eq!(saved.preparation_stages, stages);
         let text = fs::read_to_string(store_path(&directory.0)).unwrap();
         assert!(!text.contains("error"));
-        assert!(!text.contains("source"));
         assert_eq!(get(&directory.0, &job.job_id).unwrap(), saved);
     }
 
@@ -736,13 +1125,36 @@ mod tests {
     fn stop_before_worker_registration_is_adopted_without_replaying_the_job() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
+        let conversation_turn_id = Uuid::new_v4().to_string();
         let stopped =
             request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a").unwrap();
         assert_eq!(stopped.state, JobState::StopRequested);
-        let adopted = start(&directory.0, &job_id, "project-a", "snapshot-a").unwrap();
+        let adopted = start(
+            &directory.0,
+            &job_id,
+            JobKind::WorkspaceQuestion,
+            Some(&conversation_turn_id),
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
         assert_eq!(adopted.state, stopped.state);
         assert!(adopted.worker_registered);
-        assert!(start(&directory.0, &job_id, "project-a", "snapshot-a").is_err());
+        assert!(
+            start(
+                &directory.0,
+                &job_id,
+                JobKind::WorkspaceQuestion,
+                Some(&conversation_turn_id),
+                "project-a",
+                "snapshot-a",
+                "gpt-6-luna",
+                "max",
+            )
+            .is_err()
+        );
     }
 
     #[test]

@@ -151,6 +151,7 @@ mod tests {
             .range;
         let input = Input {
             run_id: Uuid::new_v4().to_string(),
+            turn_id: Some(Uuid::new_v4().to_string()),
             project_id: f.manifest.summary.project_id.clone(),
             snapshot_id: f.manifest.summary.snapshot_id.clone(),
             grant_id: Uuid::new_v4().to_string(),

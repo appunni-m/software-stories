@@ -47,6 +47,7 @@ pub(crate) enum PreparationKind {
     SnapshotLoad,
     RequestPreparation,
     RuntimeReview,
+    JobIdentityBinding,
     RetrievalGrant,
     RetrievalSession,
     OperationJournal,

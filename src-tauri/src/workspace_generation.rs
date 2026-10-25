@@ -28,6 +28,8 @@ pub(crate) struct Reference {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Input {
     pub(crate) run_id: String,
+    #[serde(default)]
+    pub(crate) turn_id: Option<String>,
     pub(crate) project_id: String,
     pub(crate) snapshot_id: String,
     pub(crate) grant_id: String,
@@ -41,6 +43,10 @@ pub(crate) struct Input {
 
 fn question_prompt(input: &Input, manifest: &snapshot::SnapshotManifest) -> Result<String, String> {
     if Uuid::parse_str(&input.run_id).is_err()
+        || input
+            .turn_id
+            .as_deref()
+            .is_some_and(|turn_id| Uuid::parse_str(turn_id).is_err())
         || input.model_id.trim().is_empty()
         || input.model_id.len() > 200
         || input.effort.trim().is_empty()
