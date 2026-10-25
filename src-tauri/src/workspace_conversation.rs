@@ -16,6 +16,8 @@ const FOCUSED_STORY_LAYOUT_VERSION: u64 = 4;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
+const UNSUPPORTED_READER_LAYOUT: &str =
+    "This saved Guide or Flow layout is unsupported by this version. The saved record has been preserved.";
 const CONFLICT: &str = "Another window saved this conversation. Your unsaved changes have been preserved in this window.";
 const SAVE_STORAGE: &str = "Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.";
 const SAVE_STORAGE_FULL: &str = "The Mac reported insufficient local storage space. Check available disk space, then retry saving; your changes remain open in this window.";
@@ -374,11 +376,8 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             if key == "stories" {
                 if !p.get("sceneId").is_some_and(id)
                     || !p.get("fullMap").is_some_and(Value::is_boolean)
-                    // Layout 3 is a supported on-disk migration source. The
-                    // renderer upgrades it to layout 4 while retaining scene
-                    // and narration positions and discarding stale geometry.
                     || !p.get("focusLayoutVersion").is_some_and(|v| {
-                        matches!(v.as_u64(), Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION))
+                        v.as_u64() == Some(FOCUSED_STORY_LAYOUT_VERSION)
                     })
                     || !optional(p, "focusedNodeId", id)
                     || !optional(p, "focusedEdgeId", id)
@@ -737,10 +736,10 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
         .join(format!("{digest:x}.json")))
 }
 
-/// Reader positions from unsupported layouts or malformed optional fields are
-/// transient. Drop or repair only those positions in memory so they cannot make
-/// the conversation unavailable. Keep story layout 3 as a supported migration
-/// input; the renderer upgrades it to layout 4. The durable record is untouched.
+/// Reader positions from the current layout are transient. Repair malformed
+/// optional fields in memory so they cannot make the conversation unavailable.
+/// Unsupported layout versions are rejected before this function runs, and the
+/// durable record is never rewritten here.
 fn discard_stale_reader_positions(state: &mut Value) {
     let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
         return;
@@ -769,6 +768,45 @@ fn discard_stale_reader_positions(state: &mut Value) {
     }
 }
 
+/// Reject persisted reader layouts from another format before the recovery
+/// sanitizer can discard them. Unsupported records remain byte-for-byte intact.
+fn validate_reader_layout_versions(state: &Value) -> Result<(), String> {
+    let Some(explorations) = state.get("explorations").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for exploration in explorations {
+        let Some(turns) = exploration.get("turns").and_then(Value::as_array) else {
+            continue;
+        };
+        for turn in turns {
+            let Some(presentation) = turn.get("presentation") else {
+                continue;
+            };
+            for (key, version_key, expected) in [
+                (
+                    "stories",
+                    "focusLayoutVersion",
+                    FOCUSED_STORY_LAYOUT_VERSION,
+                ),
+                ("diagrams", "layoutVersion", FLOW_DIAGRAM_LAYOUT_VERSION),
+            ] {
+                let Some(value) = presentation.get(key) else {
+                    continue;
+                };
+                let Some(items) = value.as_array() else {
+                    return Err(UNAVAILABLE.into());
+                };
+                if items.iter().any(|item| {
+                    item.get(version_key).and_then(Value::as_u64) != Some(expected)
+                }) {
+                    return Err(UNSUPPORTED_READER_LAYOUT.into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Keep a saved Guide position only when its answer/section ownership fields
 /// are syntactically usable. Ownership itself remains checked by `validate`.
 /// Optional progress fields are disposable and are repaired independently so
@@ -777,7 +815,7 @@ fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)
     let story = story.as_object_mut()?;
     if !matches!(
         story.get("focusLayoutVersion").and_then(Value::as_u64),
-        Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION)
+        Some(FOCUSED_STORY_LAYOUT_VERSION)
     ) {
         return None;
     }
@@ -979,6 +1017,7 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
     {
         return Err(UNAVAILABLE.into());
     }
+    validate_reader_layout_versions(&record.state)?;
     discard_stale_reader_positions(&mut record.state);
     validate(&record.state, project, snapshot)?;
     Ok(Some(record))

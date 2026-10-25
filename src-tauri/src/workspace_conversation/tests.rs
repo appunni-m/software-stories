@@ -182,33 +182,30 @@ fn a_guide_waiting_between_playback_batches_can_be_saved() {
 }
 
 #[test]
-fn focused_story_layout_accepts_current_and_legacy_migration_versions() {
+fn focused_story_layout_requires_the_current_version() {
     let f = Fixture::new();
     let s = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
     assert_eq!(record.state, s);
-
-    let mut legacy = s.clone();
-    legacy["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
-        json!(3);
-    assert!(save(&f.0, "project", "snapshot", Some(record.revision), legacy).is_ok());
-
-    let record = load(&f.0, "project", "snapshot").unwrap().unwrap();
-
     let before = fs::read(f.path()).unwrap();
-    let mut unsupported = s.clone();
-    unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
-        json!(2);
-    assert!(
-        save(
-            &f.0,
-            "project",
-            "snapshot",
-            Some(record.revision),
-            unsupported
-        )
-        .is_err()
-    );
+
+    for version in [json!(3), json!(2)] {
+        let mut unsupported = s.clone();
+        unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
+            version;
+        assert!(
+            save(
+                &f.0,
+                "project",
+                "snapshot",
+                Some(record.revision),
+                unsupported
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+
     let mut unversioned = s;
     unversioned["explorations"][0]["turns"][0]["presentation"]["stories"][0]
         .as_object_mut()
@@ -260,7 +257,7 @@ fn flow_diagram_layout_requires_the_current_layout_version() {
 }
 
 #[test]
-fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() {
+fn opening_unsupported_reader_layouts_rejects_without_changing_record_bytes() {
     let f = Fixture::new();
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
@@ -272,27 +269,12 @@ fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() 
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
-    let restored = load(&f.0, "project", "snapshot")
-        .unwrap()
-        .expect("a stale reader position must not hide the saved conversation");
-
-    assert_eq!(
-        restored.state["explorations"][0]["turns"][0]["presentation"]["stories"],
-        json!([]),
-        "only story positions from an unsupported layout are reset in memory"
-    );
-    assert_eq!(
-        restored.state["explorations"][0]["turns"][0]["presentation"]["diagrams"]
-            .as_array()
-            .unwrap()
-            .len(),
-        0,
-        "diagram positions from an unsupported layout are reset in memory"
-    );
+    let error = load(&f.0, "project", "snapshot").unwrap_err();
+    assert!(error.contains("unsupported"));
     assert_eq!(
         fs::read(f.path()).unwrap(),
         original_bytes,
-        "opening a saved conversation must not rewrite its durable record"
+        "rejecting an unsupported layout must preserve its durable record"
     );
 }
 

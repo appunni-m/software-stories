@@ -24,14 +24,11 @@ export function cleanFlowViewport(value:unknown):FlowViewport|undefined {
 }
 export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   if(!object(value)||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
-  const previousLayout = value.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION - 1;
-  if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION&&!previousLayout)return undefined;
+  if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
   const entries=Object.entries(value.positions);
   if(entries.length>128||entries.some(([key,n])=>!id(key)||typeof n!=='number'||!Number.isFinite(n)||n<0||n>3600))return undefined;
-  // Preserve scene/audio progress across a renderer layout change, but never
-  // apply coordinates produced by the older graph layout.
-  const viewport=previousLayout||value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
-  if(!previousLayout&&value.viewport!==undefined&&!viewport)return undefined;
+  const viewport=value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
+  if(value.viewport!==undefined&&!viewport)return undefined;
   const focusedNodeId=id(value.focusedNodeId)?value.focusedNodeId:undefined;
   const focusedEdgeId=id(value.focusedEdgeId)?value.focusedEdgeId:undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
