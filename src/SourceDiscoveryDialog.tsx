@@ -3,13 +3,13 @@ import { FileSearch, LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
-import { saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
-import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
+import { loadSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
+import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, loadSnapshotManifest, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
 
-export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = false }: {
-  scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review: SourceDiscoveryReview) => void; onClose: () => void;
+export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true }: {
+  scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
   persistSuccessfulResult?: boolean;
 }) {
   const [review, setReview] = useState<SourceDiscoveryReview | null>(null);
@@ -41,6 +41,18 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     setReview(null); setError(null); setBusy(true); preparing.current = true;
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
+      if (persistSuccessfulResult) {
+        try {
+          const manifest=await loadSnapshotManifest(scope.projectId,scope.snapshotId);
+          if (!current) return;
+          const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&file.disposition==='captured'&&!file.secretLike).map((file)=>file.path);
+          const saved=loadSourceDiscoveryResult(scope,availablePaths);
+          if (saved) { onReady(saved); return; }
+        } catch {
+          // Cached selections are used only after their paths can be checked
+          // against the current immutable manifest. Discovery may still retry.
+        }
+      }
       const connection = await ensureCodexConnection(retry > 0);
       if (!current) return;
       if (!connection.status.authenticated) { setNeedsConnection(true); return; }
@@ -80,7 +92,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       if (active.current) void cancelCodexChapterRequest(active.current).catch(() => {});
       if (prepared.current) void discardSourceDiscovery(prepared.current).catch(() => {});
     };
-  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry]);
+  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, onReady]);
   async function discover() {
     if (!review || busy || preparing.current || active.current) return;
     setBusy(true); setError(null); setPhase('Finding the files related to your question…');
