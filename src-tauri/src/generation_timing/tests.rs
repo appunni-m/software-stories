@@ -320,6 +320,27 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     let f = Fixture::new();
     let id = run();
     let started = Instant::now() - Duration::from_millis(40);
+    let kinds = [
+        PreparationKind::WorkerRegistration,
+        PreparationKind::JobRegistration,
+        PreparationKind::SnapshotLoad,
+        PreparationKind::RequestPreparation,
+        PreparationKind::RuntimeReview,
+        PreparationKind::JobIdentityBinding,
+        PreparationKind::RetrievalGrant,
+        PreparationKind::RetrievalSession,
+        PreparationKind::OperationJournal,
+    ];
+    let stages = kinds
+        .into_iter()
+        .enumerate()
+        .map(|(index, kind)| PreparationStage {
+            kind,
+            started_ms: (index * 2) as u64,
+            finished_ms: (index * 2 + 1) as u64,
+            outcome: PreparationOutcome::Complete,
+        })
+        .collect();
     let trace = Trace::new_with_preparation(
         &f.0,
         &id,
@@ -329,31 +350,43 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         "max",
         started,
         Some(17),
-        vec![
-            PreparationStage {
-                kind: PreparationKind::SnapshotLoad,
-                started_ms: 0,
-                finished_ms: 2,
-                outcome: PreparationOutcome::Complete,
-            },
-            PreparationStage {
-                kind: PreparationKind::RequestPreparation,
-                started_ms: 2,
-                finished_ms: 4,
-                outcome: PreparationOutcome::Complete,
-            },
-        ],
+        stages,
     );
     trace.finish(Ok(()));
     let record = inspect(&f.0, &id).unwrap().unwrap();
     assert_eq!(record.renderer_queue_wait_ms, Some(17));
-    assert_eq!(record.preparation_stages.len(), 2);
+    assert_eq!(record.preparation_stages.len(), 9);
     assert_eq!(
         record.preparation_stages[0].kind,
-        PreparationKind::SnapshotLoad
+        PreparationKind::WorkerRegistration
     );
-    assert_eq!(record.preparation_stages[1].started_ms, 2);
-    assert!(record.preparation_stages[1].finished_ms <= record.events[0].elapsed_ms);
+    assert_eq!(
+        record.preparation_stages[1].kind,
+        PreparationKind::JobRegistration
+    );
+    assert_eq!(
+        record.preparation_stages[8].kind,
+        PreparationKind::OperationJournal
+    );
+    assert!(record.preparation_stages[8].finished_ms <= record.events[0].elapsed_ms);
+    let at_limit = (0..MAX_PREPARATION_STAGES)
+        .map(|index| PreparationStage {
+            kind: PreparationKind::RetrievalSession,
+            started_ms: (index * 2) as u64,
+            finished_ms: (index * 2 + 1) as u64,
+            outcome: PreparationOutcome::Complete,
+        })
+        .collect::<Vec<_>>();
+    assert!(validate_preparation_stages(&at_limit).is_ok());
+    let over_limit = (0..=MAX_PREPARATION_STAGES)
+        .map(|index| PreparationStage {
+            kind: PreparationKind::RetrievalSession,
+            started_ms: (index * 2) as u64,
+            finished_ms: (index * 2 + 1) as u64,
+            outcome: PreparationOutcome::Complete,
+        })
+        .collect::<Vec<_>>();
+    assert!(validate_preparation_stages(&over_limit).is_err());
 
     // Version-2 records written before these optional checkpoints remain readable.
     let file = path(&f.0, &id).unwrap();

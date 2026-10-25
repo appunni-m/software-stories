@@ -16,6 +16,7 @@ pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
 
 const MAX_RECORDS: usize = 32;
 const MAX_EVENTS: usize = 128;
+const MAX_PREPARATION_STAGES: usize = 16;
 const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
@@ -88,7 +89,7 @@ impl Preparation {
         Self {
             origin,
             stage_started: origin,
-            stages: Vec::with_capacity(8),
+            stages: Vec::with_capacity(MAX_PREPARATION_STAGES),
         }
     }
 
@@ -451,7 +452,7 @@ fn validate(record: &Record) -> Result<(), String> {
 }
 
 pub(crate) fn validate_preparation_stages(stages: &[PreparationStage]) -> Result<(), String> {
-    if stages.len() > 8 {
+    if stages.len() > MAX_PREPARATION_STAGES {
         return Err("Timing diagnostics are invalid.".into());
     }
     let mut previous_end = 0;
