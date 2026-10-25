@@ -296,8 +296,14 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
   let closed = false;
   const refresh = (scope: {projectId:string;snapshotId:string;runId:string}) => {
     if (closed || scope.projectId !== project || scope.snapshotId !== snapshot) return;
-    const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(scope.runId));
-    if (turn && jobs.has(turn.id) && !turn.guideId) return;
+    const turns = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns);
+    const turn = turns.find((candidate) => candidate.runIds?.includes(scope.runId));
+    if (turn && jobs.has(turn.id)) return;
+    // Live guides have a guide-scoped section listener below. Avoid a full
+    // saved-answer/guide read for each slide while that owned run is active;
+    // after reload there is no renderer job, so the generic listener still
+    // performs the normal local reconciliation.
+    if (turns.some((candidate) => candidate.guideId && jobs.has(candidate.id))) return;
     void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
   };
   const section = await listen<Pick<AnswerSummary,'projectId'|'snapshotId'|'runId'>>('workspace-answer-section',({payload}) => refresh(payload));
