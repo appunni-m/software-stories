@@ -251,10 +251,16 @@ function App() {
   const [notificationChapterHistory, setNotificationChapterHistory] = useState<{ projectId: string; snapshotId: string; revisionIds: string[] } | null>(null);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
+  const unavailableFileLocationsRef = useRef(new Set<string>());
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const {history:noticeHistory,state:noticeHistoryState}=useNoticeHistory();
   const setNotice=useCallback((input:AppNoticeInput)=>{void noticeHistory.publish({...input,occurrenceId:input.occurrenceId??crypto.randomUUID()});},[noticeHistory]);
+  const preserveUnavailableFileLocation = useCallback((projectId: string) => {
+    if (unavailableFileLocationsRef.current.has(projectId)) return;
+    unavailableFileLocationsRef.current.add(projectId);
+    setNotice({ projectId, title: 'Saved file position is unavailable', message: 'Its stored browser position is malformed, unreadable or unsupported and was left unchanged. Open a file or choose a snapshot in Files to save a new position.', tone: 'warning' });
+  }, [setNotice]);
   useEffect(() => {
     const notify = (event: Event) => {
       const detail=(event as CustomEvent<AppNoticeInput&{explorationId?:string}>).detail;
@@ -886,14 +892,22 @@ function App() {
 
   useEffect(() => {
     if (!isNativeRuntime() && navigation.current.projectId && navigation.current.snapshotId && currentWorkspace === 'atlas') {
-      rememberFileLocation(navigation.current.projectId, {
+      const projectId = navigation.current.projectId;
+      if (readFileLocation(projectId).status === 'unavailable') {
+        preserveUnavailableFileLocation(projectId);
+        return;
+      }
+      rememberFileLocation(projectId, {
         snapshotId: navigation.current.snapshotId, path: navigation.current.relativePath,
       });
     }
-  }, [navigation.current.projectId, navigation.current.snapshotId, navigation.current.relativePath, currentWorkspace]);
+  }, [navigation.current.projectId, navigation.current.snapshotId, navigation.current.relativePath, currentWorkspace, preserveUnavailableFileLocation]);
 
   const selectSnapshot = (summary: SnapshotSummary) => {
     if (!currentProject) return;
+    if (!isNativeRuntime() && rememberFileLocation(currentProject.projectId, { snapshotId: summary.snapshotId }, true)) {
+      unavailableFileLocationsRef.current.delete(currentProject.projectId);
+    }
     setNavigation((state) => navigateToRoute(state, {
       workspace: state.current.workspace,
       projectId: currentProject.projectId,
@@ -977,8 +991,10 @@ function App() {
         const sorted = newestSnapshotsFirst(snapshots);
         setSnapshotsByProject((current) => ({ ...current, [currentProject.projectId]: sorted }));
         setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'ready' });
-        const saved = isNativeRuntime() ? null : readFileLocation(currentProject.projectId);
-        const snapshot = sorted.find((item) => item.snapshotId === saved?.snapshotId) ?? sorted[0];
+        const saved = isNativeRuntime() ? { status: 'missing' as const } : readFileLocation(currentProject.projectId);
+        if (saved.status === 'unavailable') preserveUnavailableFileLocation(currentProject.projectId);
+        const savedLocation = saved.status === 'available' ? saved.location : null;
+        const snapshot = sorted.find((item) => item.snapshotId === savedLocation?.snapshotId) ?? sorted[0];
         if (snapshot) {
           setNavigation((state) => state.current.projectId !== currentProject.projectId || state.current.snapshotId
             ? state : replaceCurrentRoute(state, { ...state.current, snapshotId: snapshot.snapshotId }));
@@ -991,7 +1007,7 @@ function App() {
         }
       });
     return () => { active = false; };
-  }, [currentProject?.projectId, workspaceReload]);
+  }, [currentProject?.projectId, workspaceReload, preserveUnavailableFileLocation]);
 
   useEffect(() => {
     if (!currentProject || !navigation.current.snapshotId) {
@@ -1767,7 +1783,8 @@ function App() {
               comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef}}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
-              onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
+              onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
+                && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
               onCompare={(baseRef,headRef) => {
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
                 if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({projectId,title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
