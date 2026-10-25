@@ -9,7 +9,13 @@ use tantivy::{
     },
 };
 
-type CandidateKey = (f32, (Option<String>, Option<u64>));
+type CandidateKey = (
+    f32,
+    (
+        Option<String>,
+        (Option<u64>, (Option<u64>, Option<String>)),
+    ),
+);
 
 pub(super) fn candidates(
     searcher: &tantivy::Searcher,
@@ -23,15 +29,24 @@ pub(super) fn candidates_with_limit(
     query: &dyn Query,
     limit: usize,
 ) -> tantivy::Result<(Vec<(f32, tantivy::DocAddress)>, usize)> {
-    // Tie breaks must be applied inside TopDocs. Sorting retained hits later
-    // cannot recover lower path/offset values discarded by document-address ties.
+    // Stable range identity participates before TopDocs caps the results.
+    // Sorting retained hits later cannot recover ranges discarded at the cap.
     let collector = TopDocs::with_limit(limit).order_by((
         (SortBySimilarityScore, Order::Desc),
         (
             (SortByString::for_field("source_path"), Order::Asc),
             (
-                SortByStaticFastValue::<u64>::for_field("start_byte"),
-                Order::Asc,
+                (
+                    SortByStaticFastValue::<u64>::for_field("start_byte"),
+                    Order::Asc,
+                ),
+                (
+                    (
+                        SortByStaticFastValue::<u64>::for_field("end_byte"),
+                        Order::Asc,
+                    ),
+                    (SortByString::for_field("range_key"), Order::Asc),
+                ),
             ),
         ),
     ));
@@ -39,8 +54,13 @@ pub(super) fn candidates_with_limit(
         searcher.search(query, &(collector, Count))?;
     let hits = hits
         .into_iter()
-        .map(|((score, (path, start)), address)| {
-            if path.is_none() || start.is_none() || !score.is_finite() {
+        .map(|((score, (path, (start, (end, key)))), address)| {
+            if path.is_none()
+                || start.is_none()
+                || end.is_none()
+                || key.is_none()
+                || !score.is_finite()
+            {
                 return Err(tantivy::TantivyError::InvalidArgument(
                     "The code search ordering fields are invalid.".into(),
                 ));

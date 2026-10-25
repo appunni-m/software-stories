@@ -28,7 +28,7 @@ use tantivy::{
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v4-english-stems-v1-identifiers-v2-policy-v2";
+const VERSION: &str = "atlas-ranges-v5-english-stems-v1-identifiers-v2-policy-v2-stable-order-v1";
 // Search identity/ordering fields do not change source policy or chunk layouts.
 const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
@@ -387,9 +387,10 @@ fn source_with_check(
 
 fn schema() -> Schema {
     let mut schema = Schema::builder();
-    schema.add_text_field("range_key", STRING | STORED);
+    schema.add_text_field("range_key", STRING | STORED | FAST);
     schema.add_text_field("source_path", STRING | FAST);
     schema.add_u64_field("start_byte", FAST);
+    schema.add_u64_field("end_byte", FAST);
     schema.add_text_field("body", TEXT);
     schema.add_text_field(
         "body_stem",
@@ -629,9 +630,12 @@ fn load_generation(
     let range_key = field(&index, "range_key").ok()?;
     let mut seen = BTreeSet::new();
     for (ordinal, segment) in searcher.segment_readers().iter().enumerate() {
+        let range_keys = segment.fast_fields().str("range_key").ok()??;
         let paths = segment.fast_fields().str("source_path").ok()??;
         let starts = segment.fast_fields().u64("start_byte").ok()?;
+        let ends = segment.fast_fields().u64("end_byte").ok()?;
         let mut path = String::new();
+        let mut fast_range_key = String::new();
         for doc_id in segment.doc_ids_alive() {
             budget.check().ok()?;
             let doc = searcher
@@ -639,12 +643,21 @@ fn load_generation(
                 .ok()?;
             let key = doc.get_first(range_key)?.as_str()?;
             let range = metadata.ranges.get(*ranges_by_key.get(key)?)?;
+            let mut range_key_values = range_keys.ords().values_for_doc(doc_id);
             let mut path_values = paths.ords().values_for_doc(doc_id);
             let mut start_values = starts.values_for_doc(doc_id);
-            if !paths.ord_to_str(path_values.next()?, &mut path).ok()?
+            let mut end_values = ends.values_for_doc(doc_id);
+            if !range_keys
+                .ord_to_str(range_key_values.next()?, &mut fast_range_key)
+                .ok()?
+                || range_key_values.next().is_some()
+                || fast_range_key != key
+                || !paths.ord_to_str(path_values.next()?, &mut path).ok()?
                 || path_values.next().is_some()
                 || start_values.next()? != range.start_byte as u64
                 || start_values.next().is_some()
+                || end_values.next()? != range.end_byte as u64
+                || end_values.next().is_some()
                 || path != range.path
                 || !seen.insert(key.to_owned())
             {
@@ -748,6 +761,7 @@ fn prepare_cached(
     let range_key = field(&index, "range_key")?;
     let source_path = field(&index, "source_path")?;
     let start_byte = field(&index, "start_byte")?;
+    let end_byte = field(&index, "end_byte")?;
     let body = field(&index, "body")?;
     let body_stem = field(&index, "body_stem")?;
     let path_field = field(&index, "path")?;
@@ -922,6 +936,7 @@ fn prepare_cached(
                 doc.add_text(range_key, &key);
                 doc.add_text(source_path, &file.path);
                 doc.add_u64(start_byte, chunk.start_byte as u64);
+                doc.add_u64(end_byte, chunk.end_byte as u64);
                 let body_terms = terms(text).join(" ");
                 doc.add_text(body, &body_terms);
                 doc.add_text(body_stem, body_terms);
