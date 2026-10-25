@@ -214,6 +214,14 @@ pub(crate) fn is_code_path(path: &str) -> bool {
         })
 }
 
+fn query_term_matches(value: &str, words: &[String]) -> usize {
+    let lower = value.to_ascii_lowercase();
+    words
+        .iter()
+        .filter(|word| lower.contains(word.as_str()))
+        .count()
+}
+
 fn metadata(
     storage: &Path,
     input: &DiscoveryInput,
@@ -256,22 +264,9 @@ fn metadata(
         .collect();
     words.sort_unstable();
     words.dedup();
-    candidates.sort_by_cached_key(|file| {
-        let lower = file.path.to_ascii_lowercase();
-        let score = words
-            .iter()
-            .filter(|word| lower.contains(word.as_str()))
-            .count()
-            * 10
-            + usize::from(input.target_path.as_ref() == Some(&file.path)) * 10_000
-            + usize::from(lower.starts_with("src/") || lower.contains("/src/")) * 3;
-        (std::cmp::Reverse(score), file.path.clone())
-    });
-    if input
-        .target_path
-        .as_ref()
-        .is_some_and(|target| !candidates.iter().any(|file| &file.path == target))
-    {
+    if input.target_path.as_ref().is_some_and(|target| {
+        !candidates.iter().any(|file| &file.path == target)
+    }) {
         return Err("This target is not eligible captured implementation code. Choose a code file in the snapshot.".to_owned());
     }
     let (local_index, index_status) =
@@ -293,11 +288,21 @@ fn metadata(
     let mut indexed_files = HashMap::new();
     let mut symbols_by_path = HashMap::<&str, Vec<&index::IndexedSymbol>>::new();
     let mut links_by_path = HashMap::<&str, Vec<&index::IndexedRelationship>>::new();
+    let mut symbol_relevance_by_path = HashMap::<&str, usize>::new();
+    let mut link_relevance_by_path = HashMap::<&str, usize>::new();
     if let Some(local_index) = &local_index {
         for indexed in &local_index.files {
             indexed_files.insert(indexed.path.as_str(), indexed);
         }
         for symbol in &local_index.symbols {
+            let matched_terms = query_term_matches(&symbol.qualified_name, &words);
+            if matched_terms > 0 {
+                let relevance = matched_terms * 8;
+                symbol_relevance_by_path
+                    .entry(symbol.path.as_str())
+                    .and_modify(|best| *best = (*best).max(relevance))
+                    .or_insert(relevance);
+            }
             let symbols = symbols_by_path.entry(symbol.path.as_str()).or_default();
             if symbols.len() < 18 {
                 symbols.push(symbol);
@@ -305,6 +310,24 @@ fn metadata(
         }
         for edge in &local_index.relationships {
             if edge.confidence == index::RelationshipConfidence::High {
+                let matched_terms = edge
+                    .target_label
+                    .as_deref()
+                    .map(|label| query_term_matches(label, &words))
+                    .unwrap_or_default()
+                    .max(
+                        edge.target_path
+                            .as_deref()
+                            .map(|path| query_term_matches(path, &words))
+                            .unwrap_or_default(),
+                    );
+                if matched_terms > 0 {
+                    let relevance = matched_terms * 4;
+                    link_relevance_by_path
+                        .entry(edge.evidence.path.as_str())
+                        .and_modify(|best| *best = (*best).max(relevance))
+                        .or_insert(relevance);
+                }
                 let links = links_by_path
                     .entry(edge.evidence.path.as_str())
                     .or_default();
@@ -314,6 +337,27 @@ fn metadata(
             }
         }
     }
+    // Choose the bounded metadata window using indexed names and static-link
+    // labels as well as paths. Otherwise the 96 KB limit can hide relevant
+    // implementations alphabetically before Codex gets to select them.
+    candidates.sort_by_cached_key(|file| {
+        let lower = file.path.to_ascii_lowercase();
+        let path_score = query_term_matches(&lower, &words) * 10
+            + usize::from(lower.starts_with("src/") || lower.contains("/src/")) * 3;
+        let symbol_score = symbol_relevance_by_path
+            .get(file.path.as_str())
+            .copied()
+            .unwrap_or_default();
+        let link_score = link_relevance_by_path
+            .get(file.path.as_str())
+            .copied()
+            .unwrap_or_default();
+        let target_score = usize::from(input.target_path.as_ref() == Some(&file.path)) * 10_000;
+        (
+            std::cmp::Reverse(path_score + symbol_score + link_score + target_score),
+            file.path.clone(),
+        )
+    });
     let coverage_gaps = discovery_coverage_gaps(&manifest, &indexed_files, local_index.is_some());
     let mut sizes = BTreeMap::new();
     let mut files = Vec::new();
