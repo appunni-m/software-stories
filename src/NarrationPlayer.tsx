@@ -754,7 +754,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : 'Play'}
           </button>
           <button type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
-          <span className="walkthrough-duration" aria-label={`Elapsed ${formatTime(currentTime)}, duration ${duration > 0 ? narrationDurationLabel(duration) : 'loading'}`}>
+          <span className="walkthrough-duration" role="group" aria-label={`Elapsed ${formatTime(currentTime)}, duration ${duration > 0 ? narrationDurationLabel(duration) : 'loading'}`}>
             {formatTime(currentTime)} / {narrationDurationLabel(duration)}
           </span>
         </div>

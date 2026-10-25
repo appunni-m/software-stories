@@ -73,5 +73,5 @@ test('native errors propagate unchanged and release the abort listener', async (
 test('the Walkthrough ignores late history success, failure, and cleanup from a departed request', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(workspace, /listWorkspaceCommits\(projectId,controller\.signal\)\.then\(\(value\)=>\{if\(active\)setCommits\(value\);\}\)\.catch\(\(failure\)=>\{\s*if\(active&&!controller\.signal\.aborted\)setGitError/);
-  assert.match(workspace, /finally\(\(\)=>\{if\(active\)setGitBusy\(false\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\}\);\s*return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
+  assert.match(workspace, /finally\(\(\)=>\{if\(active\)\{setGitBusy\(false\);setGitLoaded\(true\);\}if\(gitRequest\.current===controller\)gitRequest\.current=null;\}\);\s*return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
 });
