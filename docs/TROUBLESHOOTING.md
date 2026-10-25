@@ -103,7 +103,37 @@ reject the draft when the explanation overstates what the diff proves.
 
 ## Narration is missing or synthesis is rejected
 
-Audio is optional. The transcript and section navigation remain usable without narration. Choose/prepare the voice once in **Connections → Voice**. Pocket Listen reviews/cache-checks locally and plays without another configuration form. An explicitly selected Google request has its own exact-text review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. A script can contain up to 16,000 UTF-8 bytes; longer scripts should be divided into separate sections. The review shows the exact sequential requests of at most 4,000 bytes each, split at sentence boundaries when possible and whole-word boundaries otherwise.
+Audio is optional. The transcript and section navigation remain usable without narration.
+
+For local Pocket audio, use the native Mac app on Apple Silicon with macOS 14 or
+later. Open **Connections → Voice** and choose **Prepare voice**. First setup
+downloads the app-managed setup tool, Python runtime, pinned dependencies,
+English model, and Alba voice; it needs internet access and available disk
+space and memory. You do not need to install `uv` or Python yourself. Once prepared,
+Pocket synthesizes locally and has no provider usage fee. If setup fails, follow
+the visible connection or storage guidance and choose **Prepare voice** again.
+If an already prepared installation needs repair, open **Voice details and
+troubleshooting → Repair voice setup**. Repair rebuilds the app-managed Python
+environment and retains download caches. Do not delete the app data folder to
+repair narration; that folder also contains snapshots, indexes, revisions, and
+saved audio.
+
+Pocket currently offers the English Alba voice only; voice/style controls for
+Google do not apply to Pocket. Alba MacKenna's source recording is credited
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) in Voice details;
+see the [voice catalog](https://huggingface.co/kyutai/tts-voices). If the Mac
+does not meet Pocket's platform requirements, keep using the transcript or
+choose Google explicitly as a separate cloud option.
+The complete runtime, platform limits, and asset identity are documented in
+[Pocket runtime](research/pocket-tts-runtime.md).
+
+Pocket Listen checks the local cache and uses prepared audio when available;
+playback remains manual. An explicitly selected Google request has its own
+exact-text review and confirmation; it sends the edited spoken script and
+speech settings, not source excerpts by default. A script can contain up to
+16,000 UTF-8 bytes; longer scripts should be divided into separate sections.
+The review shows the exact sequential requests of at most 4,000 bytes each,
+split at sentence boundaries when possible and whole-word boundaries otherwise.
 
 ## A capture or save fails while the Mac is low on disk space
 

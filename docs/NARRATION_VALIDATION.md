@@ -5,6 +5,30 @@ provider/model settings change. It records the human listening checks for
 `70x5`; it does not replace automated cache, segmentation, cancellation, or
 offline-export checks.
 
+## Pocket setup and recovery
+
+- Pocket/Alba is the default in **Connections → Voice**. This run sheet's local
+  checks require Apple Silicon and macOS 14 or later; the browser preview cannot
+  synthesize audio.
+- **Prepare voice** downloads the app-managed `uv`, Python 3.13.14, pinned
+  dependencies, English model, and Alba voice into app storage. Initial setup
+  needs internet access, available disk space, and enough memory to load the
+  model. A separate `uv` or Python
+  installation and an API key are not required. Synthesis then uses local
+  files and a bounded worker; there is no listening server or provider usage
+  fee. The runtime is not bundled for offline first-time setup.
+- If setup fails, follow its visible network, disk, or memory guidance and
+  retry **Prepare voice**. If a previously ready installation is damaged, use
+  **Voice details and troubleshooting → Repair voice setup**. Repair rebuilds
+  the app-managed Python environment and retains download caches. Preserve the
+  app data folder; deleting it also deletes local snapshots, revisions, and
+  saved audio.
+- Pocket currently offers one English voice: Alba. The source recording is by
+  Alba MacKenna and is licensed under CC BY 4.0; Voice details links to the
+  official [voice catalog](https://huggingface.co/kyutai/tts-voices) and
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Pocket does not use
+  the Google voice or delivery-style settings.
+
 ## Before generation
 
 - Record app version/commit, macOS version, selected chapter/section, model ID,
@@ -86,8 +110,8 @@ Unresolved issues:
 
 
 
-## Current Connections workflow (October 16 workspace)
-Open the header's connection button, then **Voice**. Pocket/Alba is the default. Prepare the voice once if needed; repair and license attribution are in Voice details and troubleshooting. Google is optional and explicitly selected here, with its key saved in Keychain. Voice and style apply across answers and repositories, including export cache matching. Existing per-section text and pronunciation edits remain local; legacy cloud settings do not override the global choice.
+## Current Connections workflow (source-checked 25 October 2026)
+Open the header's connection button, then **Voice**. Pocket/Alba is the default and is shared across answers and repositories. Prepare it once; setup status, recovery, and license attribution are under **Voice details and troubleshooting**. Google is optional and explicitly selected here, with its key saved in Keychain. Voice preferences apply to export cache matching. Existing per-section text and pronunciation edits remain local; legacy cloud settings do not override the global choice.
 
 On an answer choose **Play**. Local review/cache lookup and synthesis run behind playback controls. **Read narration** reveals the final pronunciation-expanded script; it starts collapsed. Pause, replay, seek and section Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
 
