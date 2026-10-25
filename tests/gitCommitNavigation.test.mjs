@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextFocusableCommitIndex } from '../src/workspace/gitCommitNavigation.ts';
+import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from '../src/workspace/gitCommitNavigation.ts';
 
 const commits = [
   { parents: ['parent'] },
@@ -22,4 +22,15 @@ test('commit navigation is stable for empty, all-initial, and invalid positions'
   assert.equal(nextFocusableCommitIndex([{ parents: [] }], 0, 1), 0);
   assert.equal(nextFocusableCommitIndex(commits, -1, 1), -1);
   assert.equal(nextFocusableCommitIndex(commits, commits.length, -1), commits.length);
+});
+
+test('commit history gives useful empty and initial-only guidance only after loading completes', () => {
+  const ready = { loaded: true, loading: false, stopped: false, error: null };
+  assert.equal(commitHistoryEmptyMessage([], { ...ready, loaded: false }), null, 'do not flash an empty state before the first read');
+  assert.equal(commitHistoryEmptyMessage([], { ...ready, loading: true }), null);
+  assert.equal(commitHistoryEmptyMessage([], { ...ready, stopped: true }), null);
+  assert.equal(commitHistoryEmptyMessage([], { ...ready, error: 'Git unavailable' }), null);
+  assert.match(commitHistoryEmptyMessage([], ready), /No commits yet.*create the first commit.*refresh/i);
+  assert.match(commitHistoryEmptyMessage([{ parents: [] }], ready), /only the initial commit.*create another commit/i);
+  assert.equal(commitHistoryEmptyMessage(commits, ready), null, 'a comparable history keeps its commit list');
 });

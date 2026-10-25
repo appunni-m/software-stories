@@ -12,3 +12,16 @@ export function nextFocusableCommitIndex(
   }
   return currentIndex;
 }
+
+/** Explain why no first-parent comparison can start after history has loaded. */
+export function commitHistoryEmptyMessage(
+  commits: readonly Pick<GitCommit, 'parents'>[],
+  state: { loaded: boolean; loading: boolean; stopped: boolean; error: string | null },
+): string | null {
+  if (!state.loaded || state.loading || state.stopped || state.error) return null;
+  if (commits.length === 0) return 'No commits yet. Create the first commit, then refresh to compare changes.';
+  if (!commits.some((commit) => commit.parents.length > 0)) {
+    return 'Only the initial commit is available. Create another commit to compare changes.';
+  }
+  return null;
+}

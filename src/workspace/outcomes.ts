@@ -1,6 +1,6 @@
 import type { Exploration, PublishedSection, Turn, WorkspaceState } from './model';
 
-const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
+const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
 
 /** Show the subject of generated requests while keeping the exact prompt available on demand. */
