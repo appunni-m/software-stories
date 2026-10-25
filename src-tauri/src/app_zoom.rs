@@ -28,6 +28,10 @@ fn valid(percent: u16) -> bool {
     (20..=1000).contains(&percent) && percent.is_multiple_of(20)
 }
 
+fn persist_preference(change: Change) -> bool {
+    matches!(change, Change::Action(_))
+}
+
 fn next(current: u16, change: Change) -> Result<u16, String> {
     if !valid(current) {
         return Err(UNAVAILABLE.into());
@@ -51,6 +55,7 @@ impl Default for AppZoom {
 #[derive(Clone, Serialize)]
 struct ZoomChanged {
     percent: u16,
+    persist: bool,
 }
 
 pub(crate) fn extend_menu(
@@ -110,7 +115,13 @@ fn apply(app: &AppHandle, window: &WebviewWindow, change: Change) -> Result<u16,
     if let Some(item) = zoom_label(app) {
         let _ = item.set_text(format!("Zoom: {percent}%"));
     }
-    let _ = window.emit("code-atlas:zoom-changed", ZoomChanged { percent });
+    let _ = window.emit(
+        "code-atlas:zoom-changed",
+        ZoomChanged {
+            percent,
+            persist: persist_preference(change),
+        },
+    );
     Ok(percent)
 }
 
@@ -193,5 +204,11 @@ mod tests {
             assert!(next(percent, Change::Action(ZoomAction::In)).is_err());
         }
         assert!(serde_json::from_str::<ZoomAction>("\"other\"").is_err());
+    }
+
+    #[test]
+    fn restoring_a_default_does_not_mark_it_as_a_user_preference() {
+        assert!(!persist_preference(Change::Restore(100)));
+        assert!(persist_preference(Change::Action(ZoomAction::Reset)));
     }
 }

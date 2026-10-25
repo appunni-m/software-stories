@@ -10,7 +10,8 @@ export function installAppZoom():Promise<void> {
   if(!isNativeRuntime())return Promise.resolve();
   if(installation)return installation;
   installation=(async()=>{
-    const remember=(percent:unknown)=>{
+    const remember=(event:{percent:unknown;persist?:boolean})=>{
+      const percent=event.percent;
       if(!validZoom(percent))return;
       const previousPercent=savedZoom(document.documentElement.dataset.appZoom??null);
       if(previousPercent!==percent){
@@ -23,10 +24,10 @@ export function installAppZoom():Promise<void> {
       }
       document.documentElement.dataset.appZoom=String(percent);
       document.documentElement.dataset.appZoomCompact=String(compactZoomLayout(percent));
-      try{localStorage.setItem(APP_ZOOM_KEY,String(percent));}catch{/* Zoom still works for this window. */}
+      if(event.persist===true)try{localStorage.setItem(APP_ZOOM_KEY,String(percent));}catch{/* Zoom still works for this window. */}
     };
     let percent=100;try{percent=savedZoom(localStorage.getItem(APP_ZOOM_KEY));}catch{/* Open at the actual default. */}
-    const stop=await listen<{percent:number}>('code-atlas:zoom-changed',event=>remember(event.payload?.percent));
+    const stop=await listen<{percent:number;persist:boolean}>('code-atlas:zoom-changed',event=>remember(event.payload));
     try{await invoke<number>('restore_app_zoom',{percent});}catch(error){stop();throw error;}
     window.addEventListener('keydown',event=>{
       const action=zoomShortcut(event);if(!action)return;
