@@ -146,6 +146,7 @@
 .dw-commit small {display:block;color:var(--dim);font-size:10px;margin-top:4px;}
 .dw-commit:hover {background:var(--surface-hover);}
 .dw-tool-content {flex:1;overflow:auto;min-height:0;padding:12px 20px 32px;}
+.dw-tool-reading > #explanations {display:flex;flex-direction:column;min-height:0;}
 .dw-tool-content .empty-workspace {min-height:0;margin:0;padding:12px 0;border:0;max-width:none;}
 .dw-return {margin-bottom:10px;}
 .dw-flow-panel h2,.dw-flow-empty h2 {font-size:17px;line-height:1.5;}
@@ -228,6 +229,7 @@ html[data-app-zoom-compact="true"] .dw-section-controls > span {flex:1 1 50px;}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none;}.dw-panels>#reading-workspace{flex:1!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:block!important;flex:1!important;max-width:none!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none;}.dw-reading>#explanations{display:block!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:850px){.dw-reading>#source{display:none!important;}.dw-narrow-source .dw-reading>#source{display:flex!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:flex!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none!important;}}
+@media(max-width:680px){.dw-tool-reading>#explanations{display:flex!important;}}
 
 .dw-tool-content .git-compare-options > summary {cursor:pointer;color:var(--muted);font-size:12px;padding:8px 0;}
 .dw-tool-content .git-commit-hint {margin:0 0 8px;color:var(--muted);font-size:13px;}
