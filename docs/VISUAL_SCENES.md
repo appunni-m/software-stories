@@ -91,18 +91,19 @@ The reader implementation offers **Full map** only when the authored section
 includes a graph scene. Composition-only lessons keep their chosen visual
 instead of exposing a separate AI-generated graph outline.
 
-A section uses one visual mode throughout. If a visual would mislead, every
-claim uses a narration scene with no generated visual elements. Otherwise each
-claim has a source-linked visual scene. The narration follows the subject from
-its caller, input or decision through the supported consequences, including
-guards, alternatives, failures and uncertainty. It points to a visual cue only
-as a brief landmark. Exact code names stay visible beside the audio; narration
-uses their role in the behavior. Fresh generated narration is rejected when it
-contains a compact all-caps/code-format token so the model can replace it with
-plain speech. This check is intentionally narrow: it does not prove that the
-remaining wording is natural or that TTS pronounces it well. Layout must enact
-the behavior rather than default to a uniform card grid; it changes at an
-evidenced handoff, not for decoration.
+When a section has useful visuals, each claim gets a source-linked scene and
+chooses `composition` or `graph` independently; one section may mix both. If no
+claim benefits from a visual, the section uses narration with clickable
+evidence instead. Narration follows the subject from its caller, input, or
+decision through supported consequences, including guards, alternatives,
+failures, and uncertainty. It points to a visual cue only as a brief landmark.
+Exact code names stay visible beside the audio; narration uses their role in
+the behavior. Fresh generated narration is rejected when it contains a compact
+all-caps/code-format token so the model can replace it with plain speech. This
+check is intentionally narrow: it does not prove that the remaining wording is
+natural or that TTS pronounces it well. Layout must enact the behavior rather
+than default to a uniform card grid; it changes at an evidenced handoff, not
+for decoration.
 For static code without a concrete runtime sample, a visual should use the
 source variable or field as a symbolic input or result when that makes the
 change clearer. Generic stand-ins such as “Loaded input” or “Processed result”
