@@ -4,7 +4,7 @@ import { projectProvenRelationshipGraph } from './atlas';
 const MAX_PLANS = 8;
 const MAX_STEPS = 24;
 const MAX_BOUNDARIES = 48;
-const MAX_STORAGE_CHARS = 500_000;
+const MAX_STORAGE_BYTES = 500_000;
 const MAX_REQUEST_BYTES = 250_000;
 
 export interface JourneyStep {
@@ -49,13 +49,25 @@ export function journeySourceFiles(manifest: SnapshotManifest): CapturedFile[] {
 }
 
 function text(value: unknown, max: number): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= max;
+  return typeof value === 'string' && value.length > 0 && value.length <= max
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
+function relativePath(value: unknown, max = 4096): value is string {
+  return text(value, max) && !value.startsWith('/') && !value.includes('\\')
+    && value.split('/').every((part) => part.length > 0 && part !== '.' && part !== '..');
+}
+
+function exactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return Object.keys(record).length === keys.length && keys.every((key) => Object.hasOwn(record, key));
 }
 
 function anchor(value: unknown): value is SourceAnchor {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as SourceAnchor;
-  return text(item.path, 4096) && /^[a-f0-9]{64}$/.test(item.sourceSha256)
+  if (!exactKeys(value, ['path', 'sourceSha256', 'startByte', 'endByte', 'startLine', 'endLine', 'startColumn', 'endColumn'])) return false;
+  const item = value as unknown as SourceAnchor;
+  return relativePath(item.path) && /^[a-f0-9]{64}$/.test(item.sourceSha256)
     && [item.startByte, item.endByte, item.startLine, item.endLine, item.startColumn, item.endColumn]
       .every((number) => Number.isSafeInteger(number) && number >= 0)
     && item.startLine > 0 && item.endLine >= item.startLine && item.endByte > item.startByte;
@@ -66,8 +78,8 @@ function symbolLabel(symbol: IndexedSymbol): string {
 }
 
 function isJourney(value: unknown, projectId: string, snapshotId: string): value is RepositoryJourney {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as RepositoryJourney;
+  if (!exactKeys(value, ['schemaVersion', 'journeyId', 'projectId', 'snapshotId', 'question', 'createdAtUnixMs', 'indexerVersion', 'steps', 'boundaries', 'truncated', 'selectedStepId', 'readStepIds'])) return false;
+  const item = value as unknown as RepositoryJourney;
   if (item.schemaVersion !== 1 || item.projectId !== projectId || item.snapshotId !== snapshotId
     || !text(item.journeyId, 100) || !text(item.question, 300)
     || !Number.isSafeInteger(item.createdAtUnixMs) || item.createdAtUnixMs < 0
@@ -76,13 +88,15 @@ function isJourney(value: unknown, projectId: string, snapshotId: string): value
     || !Array.isArray(item.boundaries) || item.boundaries.length > MAX_BOUNDARIES || !item.boundaries.every((note) => text(note, 1500))
     || !Array.isArray(item.readStepIds) || item.readStepIds.length > item.steps.length) return false;
   const seen = new Set<string>();
-  for (const step of item.steps) {
-    if (!step || !text(step.stepId, 160) || seen.has(step.stepId) || !text(step.question, 1000)
-      || !text(step.path, 4096) || !/^[a-f0-9]{64}$/.test(step.sourceSha256)
+  for (const rawStep of item.steps) {
+    if (!exactKeys(rawStep, ['stepId', 'question', 'path', 'sourceSha256', 'symbolId', 'symbolName', 'anchor', 'prerequisiteStepId', 'call'])) return false;
+    const step = rawStep as unknown as JourneyStep;
+    if (!text(step.stepId, 160) || seen.has(step.stepId) || !text(step.question, 1000)
+      || !relativePath(step.path) || !/^[a-f0-9]{64}$/.test(step.sourceSha256)
       || !(step.symbolId === null || text(step.symbolId, 500)) || !(step.symbolName === null || text(step.symbolName, 500))
       || !(step.anchor === null || anchor(step.anchor))
       || !(step.prerequisiteStepId === null || seen.has(step.prerequisiteStepId))
-      || !(step.call === null || (step.call && typeof step.call === 'object'
+      || !(step.call === null || (exactKeys(step.call, ['relationshipId', 'evidence'])
         && text(step.call.relationshipId, 500) && anchor(step.call.evidence)))) return false;
     if ((step.symbolId === null) !== (step.anchor === null) || (step.symbolId === null) !== (step.symbolName === null)
       || (step.call === null) !== (step.prerequisiteStepId === null)
@@ -100,7 +114,7 @@ function isJourney(value: unknown, projectId: string, snapshotId: string): value
 export function loadJourneyStore(projectId: string, snapshotId: string, storage: Pick<Storage, 'getItem'> = localStorage): JourneyStore {
   const token = storage.getItem(journeyStorageKey(projectId, snapshotId));
   if (token === null) return { journeys: [], token };
-  if (token.length > MAX_STORAGE_CHARS) throw new Error('The saved journey plan exceeds the local size limit. Its stored data was preserved.');
+  if (new TextEncoder().encode(token).byteLength > MAX_STORAGE_BYTES) throw new Error('The saved journey plan exceeds the local size limit. Its stored data was preserved.');
   let parsed: unknown;
   try { parsed = JSON.parse(token); } catch { throw new Error('The saved journey plan could not be read. Its stored data was preserved.'); }
   if (!Array.isArray(parsed) || parsed.length > MAX_PLANS || !parsed.every((item) => isJourney(item, projectId, snapshotId))
@@ -117,7 +131,7 @@ export function saveJourneyStore(projectId: string, snapshotId: string, journeys
   if (!journeys.every((item) => isJourney(item, projectId, snapshotId))
     || new Set(journeys.map((item) => item.journeyId)).size !== journeys.length) throw new Error('The journey plan could not be validated. The saved plan was preserved.');
   const token = JSON.stringify(journeys);
-  if (token.length > MAX_STORAGE_CHARS) throw new Error('The journey plan exceeds the local size limit. The saved plan was preserved.');
+  if (new TextEncoder().encode(token).byteLength > MAX_STORAGE_BYTES) throw new Error('The journey plan exceeds the local size limit. The saved plan was preserved.');
   if (storage.getItem(journeyStorageKey(projectId, snapshotId)) !== expectedToken) {
     throw new Error('The journey plan changed in another window. Reload the saved plans before editing.');
   }
