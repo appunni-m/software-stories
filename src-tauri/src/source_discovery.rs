@@ -248,13 +248,15 @@ fn metadata(
     };
     let mut candidates: Vec<_> = manifest.files.iter().filter(eligible).collect();
     let total = candidates.len();
-    let words: Vec<_> = input
+    let mut words: Vec<_> = input
         .question
         .split(|c: char| !c.is_alphanumeric())
         .filter(|word| word.len() > 2)
         .map(str::to_ascii_lowercase)
         .collect();
-    candidates.sort_by_key(|file| {
+    words.sort_unstable();
+    words.dedup();
+    candidates.sort_by_cached_key(|file| {
         let lower = file.path.to_ascii_lowercase();
         let score = words
             .iter()
