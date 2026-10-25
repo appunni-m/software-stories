@@ -2013,6 +2013,7 @@ function App() {
         plan={chapterBatchPlan}
         onClose={closeChapterBatch}
         onReviewChapter={reviewGuideRevision}
+        onOpenPendingPreview={(generationId) => setRecoveredPreviewId(generationId)}
       />}
     </div>
     </Theme>

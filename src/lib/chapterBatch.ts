@@ -1,4 +1,5 @@
-import type { ChapterDraftPreview, ChapterRevision, ProviderRequestReview } from './commands';
+import type { ChapterDraftPreview, ChapterRevision, PendingChapterPreviewSummary, ProviderRequestReview } from './commands';
+import { samePlannedTarget } from './chapterOrigin';
 import type { PlannedChapterScope } from './plannedChapters';
 
 export interface ReviewedBatchStep { scope: PlannedChapterScope; review: ProviderRequestReview }
@@ -8,8 +9,30 @@ export interface ChapterBatchCommands {
   send: (review: ProviderRequestReview) => Promise<ChapterDraftPreview>;
   save: (generationId: string) => Promise<ChapterRevision>;
   list: () => Promise<ChapterRevision[]>;
+  findPending?: (scope: PlannedChapterScope) => Promise<PendingChapterPreviewSummary | null>;
   discardReview: (reviewId: string) => Promise<void>;
   discardDraft: (generationId: string) => Promise<void>;
+}
+
+/** Do not regenerate a route step when a matching or unattributable result may still need review. */
+export function pendingPreviewForStep(
+  previews: readonly PendingChapterPreviewSummary[],
+  scope: PlannedChapterScope,
+  projectId: string,
+): PendingChapterPreviewSummary | null {
+  return previews.find((preview) => {
+    if (preview.unavailableReason) {
+      return preview.targetPath === scope.primaryPath
+        && (preview.projectId === null || preview.projectId === projectId)
+        && (preview.snapshotId === null || preview.snapshotId === scope.snapshotId);
+    }
+    if (preview.projectId !== projectId || preview.snapshotId !== scope.snapshotId
+      || preview.targetPath !== scope.primaryPath) return false;
+    if (!preview.generationOrigin) return true;
+    const origin = preview.generationOrigin;
+    if (origin.projectId !== projectId || origin.snapshotId !== scope.snapshotId || origin.targetPath !== scope.primaryPath) return false;
+    return Boolean(origin.plannedChapter && samePlannedTarget(origin.plannedChapter.target, scope.target));
+  }) ?? null;
 }
 
 /** Resume only from a saved revision with this exact accepted learning step. */
@@ -32,7 +55,7 @@ export function chapterForStep(chapters: ChapterRevision[], scope: PlannedChapte
 export async function runChapterBatch(steps: ReviewedBatchStep[], commands: ChapterBatchCommands, options: {
   cancelled: () => boolean;
   active: (reviewId: string | null) => void;
-  progress: (index: number, phase: 'generating' | 'saved' | 'skipped', revision?: ChapterRevision) => void;
+  progress: (index: number, phase: 'generating' | 'saved' | 'skipped' | 'review', revision?: ChapterRevision, pending?: PendingChapterPreviewSummary) => void;
 }) {
   if (!steps.length || steps.length > 24 || new Set(steps.map((step) => step.scope.target.stepId)).size !== steps.length) throw Error('Review a valid route before building chapters.');
   const saved: ChapterRevision[] = [];
@@ -41,6 +64,9 @@ export async function runChapterBatch(steps: ReviewedBatchStep[], commands: Chap
     const existing = chapterForStep(await commands.list(), step.scope, step.review.projectId);
     if (options.cancelled()) break;
     if (existing) { saved.push(existing); options.progress(index, 'skipped', existing); continue; }
+    const pending = await commands.findPending?.(step.scope) ?? null;
+    if (options.cancelled()) break;
+    if (pending) { options.progress(index, 'review', undefined, pending); continue; }
     const fresh = await commands.build(step.scope);
     try {
       if (options.cancelled()) break;
