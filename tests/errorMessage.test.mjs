@@ -42,3 +42,17 @@ it('turns a rejected empty answer into a useful, private retry hint', () => {
   assert.doesNotMatch(message, /namedIdentifierEvidence|proposalCorrectionLimit|noPublishedSections/);
   assert.equal(explanationErrorMessage('The answer did not publish any sections.'), message);
 });
+
+it('surfaces the actionable local-storage recovery when Codex context staging fails', () => {
+  for (const operation of ['created', 'saved']) {
+    const error = `The private Codex file could not be ${operation}. Local storage is full. Free disk space, then try again.`;
+    const message = explanationErrorMessage(error);
+    assert.match(message, /prepare the selected code/);
+    assert.match(message, /Free some space, then try again/);
+    assert.doesNotMatch(message, /private Codex file|Codex file could not be/);
+  }
+  assert.equal(
+    explanationErrorMessage('The private Codex file could not be created. Check permissions.'),
+    'The private Codex file could not be created. Check permissions.',
+  );
+});

@@ -14,6 +14,11 @@ export function errorMessageOr(error: unknown, fallback: string): string {
 /** Keep current source-validation identifiers out of the reading workspace. */
 export function explanationErrorMessage(error: string): string {
   if (error === 'The answer did not publish any sections.') return explanationFailureMessage('noPublishedSections')!;
+  if (
+    /^The private Codex file could not be (?:created|saved)\. Local storage is full\. Free disk space, then try again\.$/u.test(error)
+  ) {
+    return 'Code Atlas could not prepare the selected code because local storage is full. Free some space, then try again.';
+  }
   if (/^The AI explanation does not (?:name its declared source identifier|connect source identifier) '[^']+'(?: to its cited code)?\. No draft was saved\.$/u.test(error)) {
     return 'The AI draft did not connect its explanation to the cited code, so it was not saved. Try this question again.';
   }
