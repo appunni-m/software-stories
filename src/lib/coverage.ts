@@ -114,20 +114,32 @@ function isEligibleForChapter(row: InventoryRow): boolean {
   return isLocallyReadable(row);
 }
 
-function matchingRevision(
-  row: InventoryRow,
+interface PathRevisionIndex {
+  current: ChapterRevision | null;
+  newest: ChapterRevision | null;
+}
+
+function newerRevision(candidate: ChapterRevision, current: ChapterRevision | null): boolean {
+  return current === null || candidate.revisionNumber > current.revisionNumber
+    || (candidate.revisionNumber === current.revisionNumber && candidate.createdAtUnixMs > current.createdAtUnixMs);
+}
+
+/** Index once so coverage scales with files plus revisions, not their product. */
+function revisionsByPath(
   projectId: string,
   snapshotId: string,
   revisions: ChapterRevision[],
-): ChapterRevision | null {
-  const matching = revisions.filter((revision) => {
-    if (revision.projectId !== projectId) return false;
-    const scope = revision.target.scope;
-    return scope.kind === 'file' && scope.path === row.path;
-  });
-  const current = matching.filter((revision) => revision.snapshotId === snapshotId);
-  return (current.length > 0 ? current : matching)
-    .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAtUnixMs - left.createdAtUnixMs)[0] ?? null;
+): Map<string, PathRevisionIndex> {
+  const index = new Map<string, PathRevisionIndex>();
+  for (const revision of revisions) {
+    if (revision.projectId !== projectId || revision.target.scope.kind !== 'file') continue;
+    const path = revision.target.scope.path;
+    const entry = index.get(path) ?? { current: null, newest: null };
+    if (newerRevision(revision, entry.newest)) entry.newest = revision;
+    if (revision.snapshotId === snapshotId && newerRevision(revision, entry.current)) entry.current = revision;
+    index.set(path, entry);
+  }
+  return index;
 }
 
 export function buildCoverageRows(
@@ -142,13 +154,15 @@ export function buildCoverageRows(
     }
   }
   const exclusionsByPath = new Map(plan.exclusions.map((exclusion) => [exclusion.path, exclusion]));
+  const revisionIndex = revisionsByPath(plan.projectId, plan.snapshotId, revisions);
 
   return inventory.map((row) => {
     const group = groupsByPath.get(row.path) ?? null;
     const userExclusion = exclusionsByPath.get(row.path) ?? null;
     // Coverage remains path-specific. A manually named group is organization metadata;
     // its revision must never imply that each member has an individual explanation.
-    const revision = isEligibleForChapter(row) ? matchingRevision(row, plan.projectId, plan.snapshotId, revisions) : null;
+    const indexedRevision = revisionIndex.get(row.path);
+    const revision = isEligibleForChapter(row) ? indexedRevision?.current ?? indexedRevision?.newest ?? null : null;
     let status: CoverageStatus;
     let reason: string | null = null;
 
