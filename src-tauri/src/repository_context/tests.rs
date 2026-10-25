@@ -481,12 +481,14 @@ fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
         "/* filler with other code */\n".repeat(42_000)
     );
     assert!(text.len() > 1_032_893);
+    assert!(text.len() > index::MAX_SOURCE_BYTES_PER_FILE as usize);
     add_source(&mut fixture, "src/adapter.c", &text);
     let repeated_calls = format!(
         "{}pub extern \"C\" fn FT_Load_Glyph(face: Face, glyph: u32) {{}}\n",
         "FT_Load_Glyph(face, glyph, flags);\n".repeat(42_000)
     );
     assert!(repeated_calls.len() > 1_032_893);
+    assert!(repeated_calls.len() > index::MAX_SOURCE_BYTES_PER_FILE as usize);
     add_source(&mut fixture, "src/ffi-late.rs", &repeated_calls);
     let cancelled = AtomicBool::new(false);
     let budget = Budget::new(&cancelled);
@@ -571,6 +573,7 @@ fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
         });
     assert_eq!(declaration.range.path, "src/ffi-late.rs");
     assert_eq!(declaration.line, 42_001);
+    assert!(declaration.range.parser.is_none());
     let component = search(
         &fixture.storage,
         &fixture.manifest,
