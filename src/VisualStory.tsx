@@ -189,7 +189,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },
