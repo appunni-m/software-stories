@@ -50,3 +50,11 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.search-control > span,[\s\S]*?\.topbar \.search-control kbd \{display:none;\}/);
 });
+
+test('native high zoom shows one workspace pane at a time with a return path',()=>{
+  matches(css,/html\[data-app-zoom-compact="true"\] \.dw-panels > #repository-sidebar,[\s\S]*?\.dw-panels > \.dw-separator \{display:none!important;\}/);
+  matches(css,/html\[data-app-zoom-compact="true"\] \.dw-panels > #reading-workspace \{flex:1!important;min-width:0!important;max-width:none!important;\}/);
+  matches(css,/html\[data-app-zoom-compact="true"\] \.dw-narrow-explorer \.dw-panels > #repository-sidebar \{display:flex!important;flex:1 1 100%!important;min-width:0!important;max-width:none!important;\}/);
+  matches(css,/html\[data-app-zoom-compact="true"\] \.dw-narrow-explorer \.dw-panels > #reading-workspace \{display:none!important;\}/);
+  matches(css,/html\[data-app-zoom-compact="true"\] \.developer-workspace \.dw-sidebar-back \{display:inline-flex;\}/);
+});

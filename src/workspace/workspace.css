@@ -225,6 +225,14 @@ html[data-app-zoom-compact="true"] .dw-answer-scroll {padding:14px 10px 32px;}
 html[data-app-zoom-compact="true"] .dw-answer-card {padding:12px;}
 html[data-app-zoom-compact="true"] .dw-section-controls {flex-wrap:wrap;}
 html[data-app-zoom-compact="true"] .dw-section-controls > span {flex:1 1 50px;}
+html[data-app-zoom-compact="true"] .dw-activity {flex-basis:40px;}
+html[data-app-zoom-compact="true"] .dw-activity button {width:39px;}
+html[data-app-zoom-compact="true"] .dw-panels > #repository-sidebar,
+html[data-app-zoom-compact="true"] .dw-panels > .dw-separator {display:none!important;}
+html[data-app-zoom-compact="true"] .dw-panels > #reading-workspace {flex:1!important;min-width:0!important;max-width:none!important;}
+html[data-app-zoom-compact="true"] .dw-narrow-explorer .dw-panels > #repository-sidebar {display:flex!important;flex:1 1 100%!important;min-width:0!important;max-width:none!important;}
+html[data-app-zoom-compact="true"] .dw-narrow-explorer .dw-panels > #reading-workspace {display:none!important;}
+html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {display:inline-flex;}
 @media(max-width:850px){.developer-workspace .dw-narrow-toggle{display:inline-flex;margin-left:auto;}.dw-reading>#source{display:none;}.dw-reading>#explanations{flex:1!important;}.dw-reading>.dw-separator{display:none;}.dw-narrow-source .dw-reading>#source{display:flex!important;flex:1!important;}.dw-narrow-source .dw-reading>#explanations{display:none;}}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none;}.dw-panels>#reading-workspace{flex:1!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:block!important;flex:1!important;max-width:none!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none;}.dw-reading>#explanations{display:block!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:850px){.dw-reading>#source{display:none!important;}.dw-narrow-source .dw-reading>#source{display:flex!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
