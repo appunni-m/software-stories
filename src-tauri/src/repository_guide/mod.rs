@@ -40,6 +40,8 @@ const MAX_UNITS: usize = 12;
 const MAX_CONTINUATION_UNITS: usize = 8;
 pub(crate) const MAX_TOTAL_UNITS: usize = MAX_UNITS + MAX_CONTINUATION_UNITS;
 pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_TOTAL_UNITS + 1;
+const MAX_OMISSIONS: usize = 64;
+const MAX_OMISSION_BYTES: usize = 240;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
 /// Initial builds and explicit resumes fill at most five slides; playback
@@ -181,6 +183,25 @@ fn uuid(id: &str) -> bool {
 }
 fn text(s: &str, min: usize, max: usize) -> bool {
     (min..=max).contains(&s.len()) && s.trim() == s && !s.chars().any(char::is_control)
+}
+
+fn valid_omissions(omissions: &[String]) -> bool {
+    if omissions.len() > MAX_OMISSIONS {
+        return false;
+    }
+    let mut seen = std::collections::HashSet::new();
+    omissions.iter().all(|omission| {
+        text(omission, 1, MAX_OMISSION_BYTES)
+            && seen.insert(normalize_topic(omission))
+    })
+}
+
+fn normalize_topic(topic: &str) -> String {
+    topic
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 fn model_text(s: &str, max: usize) -> bool {
     text(s, 1, max)

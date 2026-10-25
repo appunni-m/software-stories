@@ -86,7 +86,7 @@ pub(super) fn schema() -> Value {
             "key":{"type":"string","maxLength":80},"question":{"type":"string","minLength":16,"maxLength":800},
             "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
             "claims":claims}}},
-        "omissions":{"type":"array","maxItems":8,"items":{"type":"string","maxLength":240}}}})
+        "omissions":{"type":"array","maxItems":MAX_OMISSIONS,"items":{"type":"string","maxLength":MAX_OMISSION_BYTES}}}})
 }
 
 fn starting_ranges(
@@ -124,8 +124,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     if proposal.plan_version != "repositoryGuidePlanV1"
         || !text(&proposal.title, 8, 120)
         || !(3..=MAX_UNITS + 1).contains(&proposal.sections.len())
-        || proposal.omissions.len() > 8
-        || proposal.omissions.iter().any(|s| !text(s, 1, 240))
+        || !valid_omissions(&proposal.omissions)
     {
         return Err("The guide outline exceeds its fixed limits.".into());
     }

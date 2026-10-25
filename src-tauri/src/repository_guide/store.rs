@@ -383,8 +383,7 @@ fn validate(record: &Record) -> Result<(), String> {
             || record.units.len() != plan.units.len()
             || !text(&plan.title, 8, 120)
             || !(1..=4).contains(&plan.opening_ranges.len())
-            || plan.omissions.len() > 8
-            || plan.omissions.iter().any(|s| !text(s, 1, 240))
+            || !valid_omissions(&plan.omissions)
         {
             return Err("The saved guide outline is invalid.".into());
         }
