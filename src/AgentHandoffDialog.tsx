@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileCode2, X } from 'lucide-react';
+import { InlineCodeText } from './InlineCodeText';
 import {
   buildAgentHandoffReview, discardGeneratedChapterDraft, discardProviderRequestReview,
   exportAgentHandoff, importAgentHandoffResult, listChapterRevisions, loadSnapshotManifest,
@@ -205,11 +206,11 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
           <label>Complete JSON response<textarea className="agent-handoff-text" value={response} maxLength={1_000_000} disabled={busy !== null} placeholder="Paste the response including handoffId, fingerprint and chapter" onChange={(event) => setResponse(event.target.value)} /></label>
           <button className="primary-button" disabled={busy !== null || !response.trim()} onClick={() => { void importResult(); }}>Validate imported explanation</button>
         </section>}
-        {preview && <section className="provider-response"><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : 'SOURCE VALIDATED · UNSAVED PREVIEW'}</span><h3>{preview.revision.title}</h3>
+        {preview && <section className="provider-response"><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : 'SOURCE VALIDATED · UNSAVED PREVIEW'}</span><h3><InlineCodeText text={preview.revision.title}/></h3>
           <p>Source citations passed local checks. Explanation quality still needs your review. Agent identity, model, reasoning and permission settings are unverified.</p>
-          <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}><h4>{section.order + 1}. {section.title}</h4><p>{section.prose}</p>
-            <ul>{section.claims.map((claim) => <li key={claim.claimId}><span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p>{claim.prose}</p>{claim.category.kind === 'inference' && <p>Basis: {claim.category.basis}</p>}{claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}><summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary><pre>{anchor.excerpt}</pre></details>)}</li>)}</ul>
-            <details><summary>Narration script</summary><p>{section.spokenText}</p></details></article>)}</div>
+          <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}><h4>{section.order + 1}. <InlineCodeText text={section.title}/></h4><p><InlineCodeText text={section.prose}/></p>
+            <ul>{section.claims.map((claim) => <li key={claim.claimId}><span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p><InlineCodeText text={claim.prose}/></p>{claim.category.kind === 'inference' && <p>Basis: <InlineCodeText text={claim.category.basis}/></p>}{claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}><summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary><pre>{anchor.excerpt}</pre></details>)}</li>)}</ul>
+            <details><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details></article>)}</div>
           <p>{saved ? `Revision ${saved.revisionNumber} saved. Open Guide or Edit to review and accept it.` : 'Saving adds an unaccepted draft. Acceptance remains a separate action.'}</p></section>}
       </>}
       {busy && <p role="status" aria-live="polite">{busy}</p>}{error && <p className="provider-error-text" role="alert">{error}</p>}{note && <p className="provider-status-note" role="status">{note}</p>}

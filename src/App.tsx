@@ -18,6 +18,7 @@ import { LatestLocalRead } from './lib/latestLocalRead';
 import { createLargeFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
+import { InlineCodeText } from './InlineCodeText';
 import { FileFlow } from './FileFlow';
 import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
@@ -2702,7 +2703,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                 {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
-                    <div><span>{savedRevision ? 'SAVED · UNACCEPTED DRAFT' : 'VALIDATED · UNSAVED PREVIEW'}</span><h4 id="provider-response-title">{sendResult.revision.title}</h4></div>
+                    <div><span>{savedRevision ? 'SAVED · UNACCEPTED DRAFT' : 'VALIDATED · UNSAVED PREVIEW'}</span><h4 id="provider-response-title"><InlineCodeText text={sendResult.revision.title}/></h4></div>
                     <p>{savedRevision ? `Draft revision ${savedRevision.revisionNumber} is saved locally. Guide Plan counts it as a draft. Acceptance requires a separate review.` : sectionUpdateMode ? 'Only the selected section received new claims. Other section revision IDs remain unchanged after their citations verify in the current snapshot. Assets with changed evidence are listed below for review.' : 'The schema and exact source citations passed local validation. Review what the claims mean, then save an unaccepted draft. Closing keeps this preview in local recovery until you save or discard it.'}</p>
                     {sectionUpdateMode && <div className="section-update-preview-summary">
                       <strong>Section-by-section revision check</strong>
@@ -2725,7 +2726,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                     <p>Each claim is checked against an exact, unique quote inside the selected source range. Nothing was saved to chapter history.</p>
                     <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => (
                       <li key={claim.claimId}>
-                        <p>{claim.prose}</p>
+                        <p><InlineCodeText text={claim.prose}/></p>
                         <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}>
                           <FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}
                         </button>
@@ -2848,7 +2849,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
         <div className="provider-dialog-body">
           {loading ? <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Checking the saved preview against its exact local snapshot…</span></div> : preview ? (
             <section className="provider-response" aria-label="Recovered generated chapter">
-              <div><span>VALIDATED · UNSAVED PREVIEW</span><h4>{preview.revision.title}</h4></div>
+              <div><span>VALIDATED · UNSAVED PREVIEW</span><h4><InlineCodeText text={preview.revision.title}/></h4></div>
               <p>This is saved local work. No provider request will be sent when you review or save it. Prior consent and request prompts were not stored; sending again requires a new exact-context review and fresh consent.</p>
               <GenerationRecord origin={preview.revision.generationOrigin} />
               <GeneratedChapterPreview revision={preview.revision} />
@@ -2874,19 +2875,19 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
 function GeneratedChapterPreview({ revision }: { revision: ChapterRevision }) {
   return <div className="generated-chapter-sections">
     {revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}>
-      <h5>{section.order + 1}. {section.title}</h5>
-      <p>{section.prose}</p>
+      <h5>{section.order + 1}. <InlineCodeText text={section.title}/></h5>
+      <p><InlineCodeText text={section.prose}/></p>
       <ul>{section.claims.map((claim) => <li key={claim.claimId}>
         <span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span>
-        <p>{claim.prose}</p>
-        {claim.category.kind === 'inference' && <p className="chapter-inference-basis">Basis: {claim.category.basis}</p>}
+        <p><InlineCodeText text={claim.prose}/></p>
+        {claim.category.kind === 'inference' && <p className="chapter-inference-basis">Basis: <InlineCodeText text={claim.category.basis}/></p>}
         {claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}>
           <summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code><span>Open exact evidence</span></summary>
           <pre><code>{anchor.excerpt}</code></pre>
           <small>Snapshot {anchor.snapshotId} · SHA-256 {anchor.sourceSha256.slice(0, 16)}…</small>
         </details>)}
       </li>)}</ul>
-      <details className="chapter-spoken-preview"><summary>Narration script</summary><p>{section.spokenText}</p></details>
+      <details className="chapter-spoken-preview"><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details>
     </article>)}
   </div>;
 }
@@ -3798,8 +3799,8 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
                   const citationLabel = (anchor: ChapterSourceAnchor) => anchor.path === selectedPath
                     ? `Lines ${anchor.startLine}–${anchor.endLine}` : `${anchor.path}:${anchor.startLine}–${anchor.endLine}`;
                   return <article key={section.sectionId}>
-                    <h3><span className="file-step-number">{sectionIndex + 1}</span>{section.title}</h3>
-                    <p>{section.prose}</p>
+                    <h3><span className="file-step-number">{sectionIndex + 1}</span><InlineCodeText text={section.title}/></h3>
+                    <p><InlineCodeText text={section.prose}/></p>
                     {visibleAnchors.length > 0 && <div className="file-explanation-citations" role="group" aria-label={`Evidence for ${section.title}`}>
                       {visibleAnchors.map((anchor) => <button key={anchor.anchorId} title={`${anchor.path}:${anchor.startLine}–${anchor.endLine}`} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
                         <FileCode2 size={12} /><span>{citationLabel(anchor)}</span><ArrowRight size={12} />
@@ -4025,8 +4026,8 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
             {acceptedOverview ? <>
               <div className="guide-tour-copy">
                 <span className="guide-home-kicker">{acceptedOverview.sections.length} SECTION{acceptedOverview.sections.length === 1 ? '' : 'S'} · ACCEPTED REPOSITORY GUIDE</span>
-                <h2 id="guide-home-title">{acceptedOverview.title}</h2>
-                <p>{acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'}</p>
+                <h2 id="guide-home-title"><InlineCodeText text={acceptedOverview.title}/></h2>
+                <p><InlineCodeText text={acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'}/></p>
                 <span className="guide-tour-pacing">Pause, skip, or open the exact source at any point.</span>
               </div>
               <div className="guide-tour-actions">
@@ -4984,15 +4985,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>
-                        <div className="chapter-section-title-row"><span className="chapter-section-number">{String(index + 1).padStart(2, '0')}</span>{editing && candidate ? <input disabled={busy} value={section.title} maxLength={160} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, title: event.target.value }))} aria-label={`Section ${index + 1} title`} /> : <h4>{section.title}</h4>}
+                        <div className="chapter-section-title-row"><span className="chapter-section-number">{String(index + 1).padStart(2, '0')}</span>{editing && candidate ? <input disabled={busy} value={section.title} maxLength={160} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, title: event.target.value }))} aria-label={`Section ${index + 1} title`} /> : <h4><InlineCodeText text={section.title}/></h4>}
                           {editing && <div className="chapter-section-reorder"><button className="icon-button" onClick={() => moveSection(section.sectionId, -1)} disabled={busy || index === 0} aria-label={`Move ${section.title} up`}><MoveUp size={14} /></button><button className="icon-button" onClick={() => moveSection(section.sectionId, 1)} disabled={busy || index === activeDocument.sections.length - 1} aria-label={`Move ${section.title} down`}><MoveDown size={14} /></button></div>}
                         </div>
-                        <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p>{section.prose}</p>}</div>
-                        <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText || <em>No narration script saved.</em>}</p>}</div>
+                        <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p><InlineCodeText text={section.prose}/></p>}</div>
+                        <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText ? <InlineCodeText text={section.spokenText}/> : <em>No narration script saved.</em>}</p>}</div>
                         {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId} id={`studio-claim-${claim.claimId}`} tabIndex={-1}>
                           <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy || section.claims.length <= 1} title={section.claims.length <= 1 ? 'A section needs a claim. Repair its citation or reject the draft.' : 'Remove this claim and its linked visual cues.'} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
-                          {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${section.claims.indexOf(claim) + 1} in ${section.title}`} /> : <p>{claim.prose}</p>}
-                          {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> {claim.category.basis}</p>}
+                          {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${section.claims.indexOf(claim) + 1} in ${section.title}`} /> : <p><InlineCodeText text={claim.prose}/></p>}
+                          {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> <InlineCodeText text={claim.category.basis}/></p>}
                           <div className="chapter-citations"><span>EXACT SOURCE</span>{claim.anchors.length === 0 ? <small>No source range is attached to this claim.</small> : claim.anchors.map((anchor) => <div className="chapter-citation" key={anchor.anchorId}>
                             <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</button>{editing && candidate && <ChapterCitationEditor projectId={projectId} baseRevisionId={selectedRevision.revisionId} snapshotId={candidate.snapshotId} anchor={anchor} paths={manifest.files.filter(file => file.contentKind !== 'binary').map(file => file.path)} disabled={busy} open={repairingAnchorId === anchor.anchorId} onOpenChange={open => setRepairingAnchorId(open ? anchor.anchorId : null)} onApply={replacement => {setSection(section.sectionId, item => replaceCitation(item,anchor.anchorId,replacement));setFeedback({message:'Source link updated in your draft. Review the claim, narration and visuals, then validate before saving.',tone:'info'});}} />}</div>
                             <pre>{anchor.excerpt}</pre>

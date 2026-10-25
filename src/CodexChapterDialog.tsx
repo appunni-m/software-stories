@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import { GenerationRecord } from './GenerationRecord';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
+import { InlineCodeText } from './InlineCodeText';
 import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
 import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -793,8 +794,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 <div><span>TRANSIENT · HUNK GROUNDED</span><h4 id="codex-pr-change-result-title">{prChangeResult.title}</h4></div>
                 <p>Every claim cites an exact quote from this hunk. No chapter or PR Guide revision was saved.</p>
                 <ol className="code-lens-explanation-claims">{prChangeResult.claims.map((claim) => <li key={claim.claimId}>
-                  <span className="chapter-claim-category">{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code behavior'}</span><p>{claim.prose}</p>
-                  {claim.inferenceBasis && <p>Basis: {claim.inferenceBasis}</p>}
+                  <span className="chapter-claim-category">{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code behavior'}</span><p><InlineCodeText text={claim.prose}/></p>
+                  {claim.inferenceBasis && <p>Basis: <InlineCodeText text={claim.inferenceBasis}/></p>}
                   {onOpenPrChangeCitation && <button className="text-button" onClick={() => onOpenPrChangeCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</button>}
                   <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
                 </li>)}</ol><small>{prChangeResult.modelVersion ?? prChangeResult.modelId}</small>
@@ -803,7 +804,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 <div><span>TRANSIENT · RANGE GROUNDED</span><h4 id="codex-range-result-title">What this code does</h4></div>
                 <p>Every claim cites an exact, unique quote inside your selection. Nothing was saved to chapter history.</p>
                 <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => <li key={claim.claimId}>
-                  <p>{claim.prose}</p>
+                  <p><InlineCodeText text={claim.prose}/></p>
                   {onOpenCodeLensCitation && <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>}
                   <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
                 </li>)}</ol>
@@ -811,16 +812,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               </section>}
               {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4>{planResult.plan.title}</h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
-                <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title">{preview.revision.title}</h4></div>
+                <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
                 <GenerationRecord origin={preview.revision.generationOrigin} />
                 <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing or switching backends discards an unsaved preview.'}</p>
                 {preview.updateNotes.length > 0 && <div className="provider-status-note" role="status"><strong>Generation notes</strong><ul>{preview.updateNotes.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
                 {preview.validation.issues.length > 0 && <div className="provider-error-text" role="alert"><strong>Evidence validation issues</strong><ul>{preview.validation.issues.map((issue, index) => <li key={index}>{issue.code}{issue.path ? ` · ${issue.path}` : ''}{issue.sectionId ? ` · ${issue.sectionId}` : ''}</li>)}</ul></div>}
                 <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}>
                   {sectionUpdate && <small>{section.sectionId === sectionUpdate.sectionId ? 'Updated section' : 'Preserved section'}</small>}
-                  <h5>{section.order + 1}. {section.title}</h5><p>{section.prose}</p>
-                  <ul>{section.claims.map((claim) => <li key={claim.claimId}><span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p>{claim.prose}</p>{claim.category.kind === 'inference' && <p>Basis: {claim.category.basis}</p>}{claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}><summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary><pre><code>{anchor.excerpt}</code></pre><small>Snapshot {anchor.snapshotId} · SHA-256 {anchor.sourceSha256}</small></details>)}</li>)}</ul>
-                  <details className="chapter-spoken-preview"><summary>Narration script</summary><p>{section.spokenText}</p></details>
+                  <h5>{section.order + 1}. <InlineCodeText text={section.title}/></h5><p><InlineCodeText text={section.prose}/></p>
+                  <ul>{section.claims.map((claim) => <li key={claim.claimId}><span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p><InlineCodeText text={claim.prose}/></p>{claim.category.kind === 'inference' && <p>Basis: <InlineCodeText text={claim.category.basis}/></p>}{claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}><summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary><pre><code>{anchor.excerpt}</code></pre><small>Snapshot {anchor.snapshotId} · SHA-256 {anchor.sourceSha256}</small></details>)}</li>)}</ul>
+                  <details className="chapter-spoken-preview"><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details>
                 </article>)}</div>
                 <small>{preview.modelVersion ?? preview.modelId} · {preview.inputTokens ?? '—'} input tokens · {preview.outputTokens ?? '—'} output tokens</small>
               </section>}

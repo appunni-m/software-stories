@@ -340,7 +340,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                   onClick={() => selectChapter(revision)}
                 >
                   <span className="walkthrough-chapter-icon"><BookOpen size={14} /></span>
-                  <span className="walkthrough-chapter-copy"><strong>{revision.title}{revision.lifecycle==='draft'?' · Draft preview':''}</strong><small>{targetLabel(revision)} · {revision.sections.length} {revision.sections.length === 1 ? 'section' : 'sections'}</small></span>
+                  <span className="walkthrough-chapter-copy"><strong><InlineCodeText text={revision.title}/>{revision.lifecycle==='draft'?' · Draft preview':''}</strong><small>{targetLabel(revision)} · {revision.sections.length} {revision.sections.length === 1 ? 'section' : 'sections'}</small></span>
                   <ChevronDown size={13} className={isSelectedChapter ? '' : 'is-collapsed'} />
                 </button>
                 {isSelectedChapter && selectedRevision && (

@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, FileCode2, RefreshCw, Sparkles, Trash2 } from 'l
 import { isNativeRuntime, type ChapterClaim, type ChapterRevision, type SnapshotManifest } from './lib/commands';
 import { samePlannedTarget } from './lib/chapterOrigin';
 import { GenerationRecord } from './GenerationRecord';
+import { InlineCodeText } from './InlineCodeText';
 import { ChapterBatchDialog } from './ChapterBatchDialog';
 import { DocumentationNotices } from './DocumentationNotices';
 import { codeLensRangeFromChapterAnchor } from './lib/codeLens';
@@ -301,8 +302,8 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   function claim(value: ChapterClaim) {
     return <article className="plan-rationale" key={value.claimId}>
       <span className="chapter-claim-category">{value.category.kind === 'inference' ? value.category.visibleLabel : value.category.kind === 'codeBehavior' ? 'Code evidence' : 'Repository context'}</span>
-      <p>{value.prose}</p>
-      {value.category.kind === 'inference' && <p className="provider-small-note">Basis: {value.category.basis}</p>}
+      <p><InlineCodeText text={value.prose}/></p>
+      {value.category.kind === 'inference' && <p className="provider-small-note">Basis: <InlineCodeText text={value.category.basis}/></p>}
       <details><summary>Explore source · {value.anchors.length} citation{value.anchors.length === 1 ? '' : 's'}</summary>
         {value.anchors.map((anchor) => <div className="plan-citation" key={anchor.anchorId}>
           <button className="text-button" disabled={locked} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}><FileCode2 size={14} /> {anchor.path}:{anchor.startLine}–{anchor.endLine}</button>

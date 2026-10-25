@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
+import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
@@ -371,7 +372,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     </div> : <div className="story-source-stage">
       {anchor ? <div className="story-no-visual story-source-fallback">
         <Code2 size={28} aria-hidden="true" />
-        <span>{section.title}</span>
+        <span><InlineCodeText text={section.title}/></span>
         <small>Open the cited code beside this explanation to inspect this step.</small>
         <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
           aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
@@ -379,7 +380,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
           <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
         </button>
       </div> : <div className="story-no-visual">
-        <Network size={28} aria-hidden="true" /><span>{section.title}</span>
+        <Network size={28} aria-hidden="true" /><span><InlineCodeText text={section.title}/></span>
         <small>{inspection.status === 'unavailable' ? 'This saved visual cannot be displayed. Narration and source links are available.' : 'No diagram was saved for this section.'}</small>
       </div>}
     </div>}
@@ -397,7 +398,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
     </div>}
     <details className="story-details"><summary>Scene details & source</summary>
-      {focus?.detail && <p>{focus.detail}</p>}
+      {focus?.detail && <p><InlineCodeText text={focus.detail}/></p>}
       {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}>{hotspot.label}<ArrowRight size={13}/></button>}
       {sourceLinkedEdges.length > 0 && <div className="story-details-connections">
         <h3>Connections</h3>
@@ -412,6 +413,6 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       </div>}
       <div className="story-sources">{[...new Map(anchors.filter((item) => scene.anchorIds.includes(item.anchorId)).map((item) => [item.anchorId, item])).values()].map((item) => <button key={item.anchorId} data-focus-key={`reader-citation:${item.anchorId}`} onClick={() => onOpenAnchor(item, `reader-citation:${item.anchorId}`)}>{item.path}:{item.startLine}–{item.endLine}</button>)}</div>
     </details>
-    {section.prose.trim() !== section.spokenText.trim() && <details className="story-details"><summary>Section notes</summary><p>{section.prose}</p></details>}
+    {section.prose.trim() !== section.spokenText.trim() && <details className="story-details"><summary>Section notes</summary><p><InlineCodeText text={section.prose}/></p></details>}
   </section>;
 }

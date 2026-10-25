@@ -3,6 +3,7 @@ import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { InlineCodeText } from './InlineCodeText';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import type { ClaudeOperationReviewMode } from './lib/claudeReview';
 import { PrGuideOperationFence, type PrGuideOperationToken } from './lib/prGuideLifecycle';
@@ -791,16 +792,16 @@ function GuideDraftReview({
   const claimCount = countClaims(revision);
   return (
     <section className="pr-guide-draft-review" aria-labelledby="pr-guide-draft-title">
-      <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · STILL A DRAFT</span><h3 id="pr-guide-draft-title">{revision.title}</h3></div><span className="pr-guide-lifecycle lifecycle-draft">draft</span></div>
+      <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · STILL A DRAFT</span><h3 id="pr-guide-draft-title"><InlineCodeText text={revision.title}/></h3></div><span className="pr-guide-lifecycle lifecycle-draft">draft</span></div>
       <p className="pr-guide-muted">Keep only the claims you want in the accepted guide. Uncheck an inference you reject; the original generated draft remains in history and acceptance appends a separate revision.</p>
       {revision.sections.map((section) => (
         <section className="pr-guide-section" key={section.sectionId}>
-          <h4>{section.title}</h4>
+          <h4><InlineCodeText text={section.title}/></h4>
           {section.claims.map((claim) => (
             <article className={`pr-guide-claim${includedClaimIds.includes(claim.claimId) ? '' : ' excluded'}`} key={claim.claimId}>
               <label className="pr-guide-claim-select"><input type="checkbox" checked={includedClaimIds.includes(claim.claimId)} disabled={busy} onChange={(event) => onClaimChange(claim.claimId, event.target.checked)} /><span><strong>{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code change'}</strong> · {claim.aspect}</span></label>
-              <p>{claim.prose}</p>
-              {claim.category === 'inference' && claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> {claim.inferenceBasis}</p>}
+              <p><InlineCodeText text={claim.prose}/></p>
+              {claim.category === 'inference' && claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> <InlineCodeText text={claim.inferenceBasis}/></p>}
               <ul className="pr-guide-citations">{claim.citations.map((citation, index) => (
                 <li key={`${citation.anchor.revisionId}:${citation.anchor.path}:${citation.anchor.startLine}:${index}`}>
                   <button type="button" className="pr-guide-citation-link" onClick={() => onFocusCitation(citation)}>
@@ -996,12 +997,12 @@ function PrChangeExplanationPanel({
       )}
       {preview && (
         <div className="pr-change-explanation-result" aria-live="polite">
-          <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · TRANSIENT RESULT</span><h4>{preview.title}</h4></div><span>{preview.providerId} · {preview.modelId}</span></div>
+          <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · TRANSIENT RESULT</span><h4><InlineCodeText text={preview.title}/></h4></div><span>{preview.providerId} · {preview.modelId}</span></div>
           {preview.claims.map((claim) => (
             <article className="pr-guide-claim" key={claim.claimId}>
               <strong>{claim.category === 'inference' ? 'Inference' : 'Code change'}</strong>
-              <p>{claim.prose}</p>
-              {claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> {claim.inferenceBasis}</p>}
+              <p><InlineCodeText text={claim.prose}/></p>
+              {claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> <InlineCodeText text={claim.inferenceBasis}/></p>}
               <button type="button" className="pr-guide-citation-link" onClick={() => onFocusChange(changeKey(change), claim.citation.hunkIndex)}>
                 <span>{claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</span>
                 <small>commit {claim.citation.anchor.revisionId.slice(0, 12)} · blob {claim.citation.anchor.blobId.slice(0, 12)} · hunk {claim.citation.hunkIndex + 1}</small>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, Download, FileCode2, X } from 'lucide-react';
+import { InlineCodeText } from './InlineCodeText';
 import { invoke } from '@tauri-apps/api/core';
 import {
   buildNarrationRequestReview,
@@ -325,7 +326,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                           const audioCoverage = narrationCoverage.get(offlineNarrationSectionKey(chapter.revisionId, section.sectionId));
                           return (
                             <div className="offline-export-preview-section" key={section.sectionId}>
-                              <strong>{section.title}</strong>
+                              <strong><InlineCodeText text={section.title}/></strong>
                               <p className="offline-export-muted">Typed diagram asset: {section.typedVisual === 'included' ? 'included' : section.typedVisual === 'unavailable' ? 'unsupported diagram omitted with an explanation' : 'none attached'}.</p>
                               {section.visualNote && <p className="offline-export-muted">{section.visualNote}</p>}
                               {section.sceneNarration.map(scene => <details key={scene.sceneId}>

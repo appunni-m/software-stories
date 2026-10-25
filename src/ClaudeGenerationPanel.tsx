@@ -1,4 +1,5 @@
 import { GenerationRecord } from './GenerationRecord';
+import { InlineCodeText } from './InlineCodeText';
 import { useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -286,38 +287,38 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     <div ref={output} tabIndex={-1} role="group" aria-label="Claude generation result">
       {result?.kind === 'chapter' && <>
         <GenerationRecord origin={result.value.revision.generationOrigin} />
-        <h4>{result.value.revision.title}</h4><p>Validated chapter preview · {saved ? 'saved as an unaccepted draft' : 'not saved or accepted'}</p>
+        <h4><InlineCodeText text={result.value.revision.title}/></h4><p>Validated chapter preview · {saved ? 'saved as an unaccepted draft' : 'not saved or accepted'}</p>
         {result.value.updateNotes.map((text, index) => <p key={index}>{text}</p>)}
         {result.value.revision.sections.map((section) => <article className="provider-chapter-section" key={section.sectionId}>
-          <h5>{section.order + 1}. {section.title}</h5><p>{section.prose}</p>
+          <h5>{section.order + 1}. <InlineCodeText text={section.title}/></h5><p><InlineCodeText text={section.prose}/></p>
           {section.claims.map((claim) => <div key={claim.claimId}>
             <span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel
-              : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p>{claim.prose}</p>
-            {claim.category.kind === 'inference' && <p>Inference basis: {claim.category.basis}</p>}
+              : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p><InlineCodeText text={claim.prose}/></p>
+            {claim.category.kind === 'inference' && <p>Inference basis: <InlineCodeText text={claim.category.basis}/></p>}
             {claim.anchors.map((anchor) => <details key={anchor.anchorId}><summary><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary>
               <pre><code>{anchor.excerpt}</code></pre><small>Snapshot {anchor.snapshotId} · SHA-256 {anchor.sourceSha256}</small></details>)}
           </div>)}
-          <details><summary>Narration script</summary><p>{section.spokenText}</p></details>
+          <details><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details>
         </article>)}
         {!saved && <button className="primary-button" disabled={busy !== null || result.value.validation.status !== 'valid'}
           onClick={() => { void save(); }}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button>}
       </>}
       {result?.kind === 'range' && <><h4>Selected code explained</h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
-        <p>{claim.prose}</p><blockquote>{claim.citation.quote}</blockquote>
+        <p><InlineCodeText text={claim.prose}/></p><blockquote>{claim.citation.quote}</blockquote>
         <button className="text-button" disabled={!onOpenCodeLensCitation} onClick={() => onOpenCodeLensCitation?.(claim.citation)}>
           Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>
       </article>)}</>}
       {result?.kind === 'hunk' && <><h4>{result.value.title}</h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
-        <span className="chapter-claim-category">{claim.category}</span><p>{claim.prose}</p>{claim.inferenceBasis && <p>Inference basis: {claim.inferenceBasis}</p>}
+        <span className="chapter-claim-category">{claim.category}</span><p><InlineCodeText text={claim.prose}/></p>{claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}
         <blockquote>{claim.citation.quote}</blockquote>
         <button className="text-button" disabled={!onOpenPrChangeCitation} onClick={() => onOpenPrChangeCitation?.(claim.citation)}>
           Open {claim.citation.side} evidence · hunk {claim.citation.hunkIndex + 1}</button>
       </article>)}</>}
       {result?.kind === 'guide' && <><h4>{result.value.revision.title}</h4>
         <p>Saved in PR Guide history as an unaccepted draft. Close this dialog to review and accept individual claims.</p>
-        {result.value.revision.sections.map((section) => <article key={section.sectionId}><h5>{section.title}</h5>
-          {section.claims.map((claim) => <div key={claim.claimId}><span className="chapter-claim-category">{claim.category}</span><p>{claim.prose}</p>
-            {claim.inferenceBasis && <p>Inference basis: {claim.inferenceBasis}</p>}</div>)}</article>)}
+        {result.value.revision.sections.map((section) => <article key={section.sectionId}><h5><InlineCodeText text={section.title}/></h5>
+          {section.claims.map((claim) => <div key={claim.claimId}><span className="chapter-claim-category">{claim.category}</span><p><InlineCodeText text={claim.prose}/></p>
+            {claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}</div>)}</article>)}
       </>}
       {result?.kind === 'plan' && <><h4>{result.value.plan.title}</h4>
         <p>Saved locally as an unaccepted learning plan with {result.value.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p>
