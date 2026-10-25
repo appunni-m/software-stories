@@ -1238,7 +1238,20 @@ function App() {
       return;
     }
     const targetSnapshotId = sourceSnapshotId ?? selectedSnapshot?.snapshotId;
-    if (!currentProject || !targetSnapshotId) return;
+    if (!currentProject) {
+      setNotice({
+        title: 'Choose a repository first',
+        message: 'Select a repository before opening source from an explanation.',
+      });
+      return;
+    }
+    if (!targetSnapshotId) {
+      setNotice({
+        title: 'No snapshot selected',
+        message: 'Capture or select a repository snapshot before opening captured source.',
+      });
+      return;
+    }
     const activeElement = document.activeElement;
     const returnFocusTarget = activeElement instanceof HTMLElement
       ? activeElement.dataset.focusKey ?? activeElement.closest<HTMLElement>('[data-focus-key]')?.dataset.focusKey
