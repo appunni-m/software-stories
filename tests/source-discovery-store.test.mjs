@@ -29,14 +29,35 @@ describe('saved source discovery scope', () => {
     withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
       assert.equal(saveSourceDiscoveryResult(scope, result), true);
       assert.deepEqual(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), result);
-      const record = JSON.parse([...values.values()][0]);
+      const collection = JSON.parse([...values.values()][0]);
+      assert.equal(collection.schemaVersion, 2);
+      assert.equal(collection.projectId, scope.projectId);
+      assert.equal(collection.snapshotId, scope.snapshotId);
+      assert.equal(collection.records.length, 1);
+      const record = collection.records[0];
       assert.equal(record.schemaVersion, 1);
-      assert.equal(record.projectId, scope.projectId);
-      assert.equal(record.snapshotId, scope.snapshotId);
       assert.deepEqual(Object.keys(record).sort(), [
         'limitation', 'projectId', 'question', 'savedAtUnixMs', 'schemaVersion', 'selectedFiles', 'snapshotId', 'targetPath',
       ]);
-      assert.doesNotMatch(JSON.stringify(record), /reviewId|fingerprint|consent|sourceContents/i);
+      assert.doesNotMatch(JSON.stringify(collection), /reviewId|fingerprint|consent|sourceContents/i);
+    });
+  });
+
+  it('leaves the prior single-result key untouched and never reads it as current data', () => {
+    const values = new Map();
+    const oldKey = `code-atlas:source-discovery:v1:${encodeURIComponent(scope.projectId)}:${encodeURIComponent(scope.snapshotId)}`;
+    const oldBytes = JSON.stringify({
+      schemaVersion: 1, projectId: scope.projectId, snapshotId: scope.snapshotId,
+      question: scope.question, targetPath: null, selectedFiles: result.selectedFiles,
+      limitation: result.limitation, savedAtUnixMs: 1,
+    });
+    values.set(oldKey, oldBytes);
+    withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
+      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
+      assert.equal(saveSourceDiscoveryResult(scope, result), true);
+      assert.equal(values.get(oldKey), oldBytes);
+      assert.equal(values.size, 2);
+      assert.deepEqual(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), result);
     });
   });
 
@@ -60,9 +81,9 @@ describe('saved source discovery scope', () => {
       assert.equal(saveSourceDiscoveryResult(scope, { selectedFiles: [{ path: 'src/parser.ts', reason: 'x'.repeat(33 * 1024) }], limitation: '' }), false);
       saveSourceDiscoveryResult(scope, result);
       const key = [...values.keys()][0];
-      const record = JSON.parse(values.get(key));
-      record.extra = 'unknown schema';
-      values.set(key, JSON.stringify(record));
+      const collection = JSON.parse(values.get(key));
+      collection.extra = 'unknown schema';
+      values.set(key, JSON.stringify(collection));
       assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
       values.set(key, '{');
       assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);

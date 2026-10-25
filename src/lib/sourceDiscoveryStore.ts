@@ -1,6 +1,6 @@
 import type { SourceDiscoveryResult, SourceDiscoveryScope } from './sourceDiscovery';
 
-const KEY_PREFIX = 'code-atlas:source-discovery:v1:';
+const KEY_PREFIX = 'code-atlas:source-discovery:v2:';
 const MAX_ID_CHARS = 1024;
 const MAX_SNAPSHOT_CHARS = 256;
 const MAX_QUESTION_CHARS = 300;
@@ -135,8 +135,6 @@ function readSavedRecords(serialized: string, scope: SourceDiscoveryScope): Save
     if (validCollection(parsed) && parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId) {
       return parsed.records;
     }
-    // Upgrade the previous single-scope record on the next successful save.
-    if (validRecord(parsed) && parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId) return [parsed];
     return null;
   } catch { return null; }
 }
@@ -199,8 +197,9 @@ export function loadSourceDiscoveryResult(
     if (!serialized || byteLength(serialized) > MAX_COLLECTION_BYTES) return null;
     const parsed: unknown = JSON.parse(serialized);
     const records = validCollection(parsed)
-      ? parsed.projectId === scope.projectId && parsed.snapshotId === scope.snapshotId ? parsed.records : []
-      : validRecord(parsed) ? [parsed] : [];
+      && parsed.projectId === scope.projectId
+      && parsed.snapshotId === scope.snapshotId
+      ? parsed.records : [];
     const saved = records.find((record) => recordMatchesScope(record, scope));
     if (!saved) return null;
     const allowed = new Set(availablePaths);
