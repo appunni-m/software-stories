@@ -798,9 +798,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v47:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v47"));
-    assert!(system_instructions().contains("Visual composition pass v47"));
+    assert!(system_instructions().contains("Choose among these visual grammars by meaning."));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-"));
+    assert!(system_instructions().contains("Visual composition pass"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")
@@ -827,7 +827,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
-    assert!(system_instructions().contains("never a LIFO stack"));
+    assert!(system_instructions().contains(
+        "LIFO stacks are authored oldest/bottom first and displayed newest/top first"
+    ));
     assert_eq!(
         fingerprint,
         context::digest(&serde_json::to_vec(&contract).unwrap())
