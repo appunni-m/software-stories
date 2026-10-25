@@ -7,11 +7,11 @@ import { HtmlScene } from './HtmlScene';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
+import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
 import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
-import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
 
@@ -189,7 +189,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },
