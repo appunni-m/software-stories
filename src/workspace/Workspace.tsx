@@ -19,7 +19,7 @@ import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
 import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
-import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
+import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
@@ -90,6 +90,14 @@ export function DeveloperWorkspace(props:Props) {
     return()=>window.removeEventListener('code-atlas:connection-changed',refresh);
   },[]);
   const current = state.explorations.find((e)=>e.id===state.currentId)!;
+  const query=current.draft?.question??'';
+  const attachments=current.draft?.context??[];
+  function setQuery(question:string){updateWorkspaceDraft(projectId,snapshotId,current.id,{question,context:current.draft?.context??[]});}
+  function setAttachments(next:Context[]|((existing:Context[])=>Context[])){
+    const context=typeof next==='function'?next(current.draft?.context??[]):next;
+    if(context.length<32)setDraftNotice(null);
+    updateWorkspaceDraft(projectId,snapshotId,current.id,{question:current.draft?.question??'',context});
+  }
   const path = ancestors(state);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
   const sourcePaths = useMemo(()=>rankSourcePaths(rows.map((r)=>r.path)),[rows]);
@@ -107,8 +115,6 @@ export function DeveloperWorkspace(props:Props) {
   const [searchBusy,setSearchBusy] = useState(false);
   const [searchError,setSearchError] = useState<string|null>(null);
   const [openFolders,setOpenFolders] = useState<Set<string>>(()=>new Set(['src','app','lib','Sources']));
-  const [query,setQuery] = useState('');
-  const [attachments,setAttachments] = useState<Context[]>([]);
   const [narrowPane,setNarrowPane] = useState<'explanation'|'source'|'explorer'>('explanation');
   const codeOpen = current.codeOpen ?? true;
   const setCodeOpen = (open:boolean) => {
@@ -147,6 +153,7 @@ export function DeveloperWorkspace(props:Props) {
   const [codeRequestReview,setCodeRequestReview] = useState<CodeRequestReview|null>(null);
   const [codeRequestReviewError,setCodeRequestReviewError] = useState<string|null>(null);
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
+  const [draftNotice,setDraftNotice] = useState<string|null>(null);
   const [sharingOpen,setSharingOpen] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
   const handledLargeFileExplanation = useRef<string|null>(null);
@@ -308,12 +315,17 @@ export function DeveloperWorkspace(props:Props) {
   function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false); }
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
-  function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);focusComposer();}
+  function attach(context:Context) {
+    if(attachments.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)){focusComposer();return;}
+    if(attachments.length>=32){setDraftNotice('A question can include up to 32 source references. Remove one to add another.');return;}
+    setDraftNotice(null);
+    setAttachments((all)=>[...all,context]);focusComposer();
+  }
   function startRepositoryGuide(question:string,parentTurn?:string) {
     if(conversationUnavailable)return;
     if(!requireCodexConnection())return;
     const id=appendRepositoryGuide(projectId,snapshotId,question,parentTurn);
-    setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
+    setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId)void runRepositoryGuide(projectId,snapshotId,id,state.grantId);
     else {setGuideConsent({id,resume:false});setConsentError(null);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
@@ -323,7 +335,7 @@ export function DeveloperWorkspace(props:Props) {
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);focusComposer();return;}
     if(!requireCodexConnection())return;
     if(isRepositoryGuideIntent(clean)){startRepositoryGuide(clean,parentTurn);return;}
-    const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
+    const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
@@ -404,7 +416,7 @@ export function DeveloperWorkspace(props:Props) {
     handledLargeFileExplanation.current=pending.id;
     requestedConnectionForLargeFileExplanation.current=null;
     const turnId=appendQuestion(projectId,snapshotId,pending.question,contexts,'guide');
-    setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');
+    setSearchFocused(false);setNarrowPane('explanation');
     if(state.grantId)void runQuestion(projectId,snapshotId,turnId,state.grantId);
     else{setConsentError(null);setConsentTurn(turnId);}
     props.onPendingLargeFileExplanationConsumed?.(pending.id);
@@ -513,6 +525,7 @@ export function DeveloperWorkspace(props:Props) {
             <Tooltip content="Attach open file"><IconButton size="1" variant="ghost" color="gray" disabled={!source||conversationUnavailable} aria-label="Attach open file" onClick={()=>source&&attach({path:source.path,sha256:source.sha256})}><Paperclip size={15}/></IconButton></Tooltip><IconButton size="1" aria-label="Send question" disabled={!query.trim()||conversationUnavailable} onClick={()=>ask(query)}><ArrowUp size={15}/></IconButton>
           </div>
           {connectionNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><Button size="1" variant="soft" onClick={onSettings}>Connections</Button></div>}
+          {draftNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{draftNotice}</p><Button size="1" variant="ghost" onClick={()=>setDraftNotice(null)}>Dismiss</Button></div>}
           {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{searchBusy?'Searching…':searchError?'Search unavailable':results.length?'In your code':'No matching code in this search'}</small>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{shouldOfferExploreWithAI(query,searchMode,searchBusy,searchError,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
         </div>
         {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading">

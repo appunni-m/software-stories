@@ -10,7 +10,7 @@ import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, rememberComposerDraft, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -46,6 +46,7 @@ const states = new Map<string, WorkspaceState>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
+const workspaceDraftTimers = new Map<string,{project:string;snapshot:string;timer:ReturnType<typeof setTimeout>}>();
 // A new identity on WebView reload lets native recovery distinguish live
 // renderer-owned queue entries from entries whose owner disappeared.
 const rendererSessionId = crypto.randomUUID();
@@ -71,6 +72,7 @@ export function beginWorkspaceClose():()=>void {
   };
 }
 export async function flushAllWorkspaceConversations():Promise<void> {
+  flushPendingWorkspaceDraftWrites();
   await Promise.all([...conversations.values()].map(entry=>entry.flushBeforeClose()));
 }
 function savedConversation(project:string,snapshot:string):ConversationPersistence {
@@ -98,8 +100,8 @@ export function prepareWorkspaceConversation(project:string,snapshot:string):Pro
   if(closingWorkspace)return new Promise((resolve,reject)=>{deferredCloseUpdates.push(()=>{void prepareWorkspaceConversation(project,snapshot).then(resolve,reject);});});
   return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();
 }
-export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
-export function flushWorkspaceConversationBeforeGeneration(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flushForGeneration():Promise.resolve();}
+export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{flushPendingWorkspaceDraftWrite(project,snapshot);return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
+export function flushWorkspaceConversationBeforeGeneration(project:string,snapshot:string):Promise<void>{flushPendingWorkspaceDraftWrite(project,snapshot);return isNativeRuntime()?savedConversation(project,snapshot).flushForGeneration():Promise.resolve();}
 export function retryWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).retry():Promise.resolve();}
 export function useConversationAvailability(project:string,snapshot:string){
   return useSyncExternalStore(notify=>{listeners.add(notify);return()=>{listeners.delete(notify);};},()=>isNativeRuntime()?savedConversation(project,snapshot).availability:'ready');
@@ -116,6 +118,7 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
   if(native&&persistence!.availability==='loading')throw new Error('The saved conversation is still opening.');
   const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
+  clearWorkspaceDraftTimer(id);
   states.set(id, next);
   if(native) {
     // When an existing record is unreadable, keep source navigation usable in
@@ -127,6 +130,57 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
     resolveUnsavedConversation(project,snapshot);
   } catch {reportUnsavedConversation(project,snapshot);}
   listeners.forEach((notify) => notify());
+}
+/** Draft edits update the reader immediately and save after typing pauses. */
+export function updateWorkspaceDraft(project:string,snapshot:string,explorationId:string,draft:ComposerDraft|null):void {
+  if(closingWorkspace){deferredCloseUpdates.push(()=>updateWorkspaceDraft(project,snapshot,explorationId,draft));return;}
+  const native=isNativeRuntime();
+  const persistence=native?savedConversation(project,snapshot):undefined;
+  if(native&&persistence!.availability==='loading')throw new Error('The saved conversation is still opening.');
+  const id=key(project,snapshot),previous=getWorkspace(project,snapshot);
+  const next=rememberComposerDraft(previous,explorationId,draft);
+  if(next===previous)return;
+  states.set(id,next);
+  scheduleWorkspaceDraftWrite(project,snapshot);
+  listeners.forEach(notify=>notify());
+}
+function clearWorkspaceDraftTimer(id:string){
+  const pending=workspaceDraftTimers.get(id);
+  if(!pending)return;
+  clearTimeout(pending.timer);
+  workspaceDraftTimers.delete(id);
+}
+function persistWorkspaceDraftState(project:string,snapshot:string){
+  const state=states.get(key(project,snapshot));
+  if(!state)return;
+  if(isNativeRuntime()){
+    const persistence=savedConversation(project,snapshot);
+    if(persistence.availability==='ready')persistence.enqueue(state);
+    else if(persistence.availability==='unavailable')reportUnsavedConversation(project,snapshot,true,'The current question draft could not be saved.');
+    return;
+  }
+  try{
+    localStorage.setItem(browserPreviewKey(project,snapshot),JSON.stringify(state));
+    resolveUnsavedConversation(project,snapshot);
+  }catch{reportUnsavedConversation(project,snapshot);}
+}
+function scheduleWorkspaceDraftWrite(project:string,snapshot:string){
+  const id=key(project,snapshot);
+  clearWorkspaceDraftTimer(id);
+  const timer=setTimeout(()=>{
+    workspaceDraftTimers.delete(id);
+    persistWorkspaceDraftState(project,snapshot);
+  },250);
+  workspaceDraftTimers.set(id,{project,snapshot,timer});
+}
+function flushPendingWorkspaceDraftWrite(project:string,snapshot:string){
+  const id=key(project,snapshot),pending=workspaceDraftTimers.get(id);
+  if(!pending)return;
+  clearWorkspaceDraftTimer(id);
+  persistWorkspaceDraftState(project,snapshot);
+}
+function flushPendingWorkspaceDraftWrites(){
+  for(const pending of [...workspaceDraftTimers.values()])flushPendingWorkspaceDraftWrite(pending.project,pending.snapshot);
 }
 export function useWorkspace(project: string, snapshot: string) {
   return useSyncExternalStore((notify) => { listeners.add(notify); return () => { listeners.delete(notify); }; }, () => getWorkspace(project,snapshot));

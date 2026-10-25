@@ -4,6 +4,7 @@ import type { ChapterRevisionLifecycle } from '../lib/commands.ts';
 /** Flat, snapshot-scoped conversation state. Generated text lives in native revisions. */
 export type View = 'guide' | 'flow' | 'history';
 export interface Context { path: string; sha256?: string; from?: number; to?: number }
+export interface ComposerDraft { question: string; context: Context[] }
 export interface ReadingPosition { revisionId: string; sectionId: string }
 export interface PublishedSection {
   runId: string; key: string; order: number; generationId: string; revisionId: string;
@@ -48,7 +49,7 @@ export interface Turn {
   outcomeSequence?: number;
   outcomeNotice?: { read?: string; dismissed?: string };
 }
-export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollPositions?: Partial<Record<View, number>> }
+export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollPositions?: Partial<Record<View, number>>; draft?: ComposerDraft }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
 
 /** Distinguish questions at each level from child exploration branches. */
@@ -124,6 +125,34 @@ export function ancestors(state: WorkspaceState, id = state.currentId): Explorat
 export function parseWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState {
   return decodeWorkspace(raw,projectId,snapshotId) ?? createWorkspace(projectId,snapshotId);
 }
+/** Keep unsent intent and its selected source scope local to one exploration. */
+export function cleanComposerDraft(value: unknown): ComposerDraft | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const draft=value as {question?:unknown;context?:unknown};
+  if (typeof draft.question!=='string' || !Array.isArray(draft.context)) return undefined;
+  const question=draft.question.slice(0,1000);
+  const context:Context[]=[];
+  const seen=new Set<string>();
+  for (const value of draft.context.slice(0,32)) {
+    if (!value || typeof value!=='object' || Array.isArray(value)) continue;
+    const candidate=value as Context;
+    const path=candidate.path;
+    const validPath=typeof path==='string'&&path.length>0&&!path.startsWith('/')&&!path.includes('\\')
+      &&!path.split('/').some(part=>!part||part==='.'||part==='..')&&!/[\u0000-\u001f\u007f]/.test(path)
+      &&new TextEncoder().encode(path).length<=4096;
+    const hasLines=candidate.from!==undefined||candidate.to!==undefined;
+    const validLines=!hasLines||(Number.isSafeInteger(candidate.from)&&Number.isSafeInteger(candidate.to)
+      &&(candidate.from as number)>=1&&(candidate.to as number)>=(candidate.from as number));
+    const validHash=candidate.sha256===undefined||typeof candidate.sha256==='string'&&/^[a-f0-9]{64}$/.test(candidate.sha256);
+    if (!validPath||!validLines||!validHash) continue;
+    const identity=`${path}\u0000${candidate.from??''}\u0000${candidate.to??''}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    context.push({path,...(candidate.sha256===undefined?{}:{sha256:candidate.sha256}),
+      ...(candidate.from===undefined?{}:{from:candidate.from}),...(candidate.to===undefined?{}:{to:candidate.to})});
+  }
+  return question||context.length?{question,context}:undefined;
+}
 /** The browser preview starts with an empty tree when its saved state is unavailable. */
 export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
   const fallback = () => null;
@@ -137,6 +166,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
       if (Object.hasOwn(e, 'scrollTop')) return fallback();
       e.scrollPositions = cleanScrollPositions(e.scrollPositions);
+      const draft=cleanComposerDraft(e.draft);
+      if(draft)e.draft=draft;else delete e.draft;
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
       if(typeof e.codeOpen!=='boolean')delete e.codeOpen;
       if(!e.fileFlow||typeof e.fileFlow.path!=='string'||e.fileFlow.path.startsWith('/')||e.fileFlow.path.includes('\\')||e.fileFlow.path.split('/').some(p=>!p||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(e.fileFlow.path)||new TextEncoder().encode(e.fileFlow.path).length>4096||typeof e.fileFlow.showAll!=='boolean')delete e.fileFlow;
@@ -420,6 +451,18 @@ export function rememberCodePane(state:WorkspaceState,explorationId:string,codeO
   if(typeof codeOpen!=='boolean'||!state.explorations.some(e=>e.id===explorationId&&e.codeOpen!==codeOpen))return state;
   return {...state,explorations:state.explorations.map(e=>e.id===explorationId?{...e,codeOpen}:e)};
 }
+export function rememberComposerDraft(state:WorkspaceState,explorationId:string,draft:ComposerDraft|null):WorkspaceState {
+  const owner=state.explorations.find(e=>e.id===explorationId);
+  if(!owner)return state;
+  const clean=draft?cleanComposerDraft(draft):undefined;
+  if(JSON.stringify(owner.draft??null)===JSON.stringify(clean??null))return state;
+  return {...state,explorations:state.explorations.map(e=>{
+    if(e.id!==explorationId)return e;
+    const next={...e};
+    if(clean)next.draft=clean;else delete next.draft;
+    return next;
+  })};
+}
 /** Keep the active source path and exact selected/cited lines with this exploration. */
 export function rememberSourceContext(state:WorkspaceState,explorationId:string,context:Context):WorkspaceState {
   const path=context?.path;
@@ -470,10 +513,11 @@ export function addTurn(state: WorkspaceState, turn: Turn, view: View, branch?: 
   let currentId = state.currentId; let explorations = state.explorations;
   if (branch) {
     if (explorations.some((e)=>e.id===branch.id) || !explorations.find((e)=>e.id===currentId)?.turns.some((t)=>t.id===branch.originTurnId)) return state;
+    explorations = explorations.map((e)=>e.id===currentId?{...e,draft:undefined}:e);
     currentId = branch.id;
     explorations = [...explorations, {id:currentId,parentId:state.currentId,originTurnId:branch.originTurnId,title:turn.question,view,turns:[],file:turn.context[0]?.path??state.file??undefined,reveal:turn.context[0]}];
   }
-  return {...state,currentId,file:branch?turn.context[0]?.path??state.file:state.file,explorations:explorations.map((e)=>e.id===currentId?{...e,view,focusedTurnId:turn.id,turns:[...e.turns,turn]}:e)};
+  return {...state,currentId,file:branch?turn.context[0]?.path??state.file:state.file,explorations:explorations.map((e)=>e.id===currentId?{...e,draft:undefined,view,focusedTurnId:turn.id,turns:[...e.turns,turn]}:e)};
 }
 
 /** Keep recent intent with a follow-up; code evidence is selected and validated separately. */

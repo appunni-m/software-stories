@@ -78,6 +78,9 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
     if(equal(ours,theirs))return copy(ours);
     if(equal(ours,before))return copy(theirs);
     if(equal(theirs,before))return copy(ours);
+    // An unsent composer belongs to the currently edited window. Prefer its
+    // latest draft if two windows type into the same exploration concurrently.
+    if(path.at(-1)==='draft')return copy(ours);
     if(isObject(ours)&&isObject(theirs)&&(before===MISSING||isObject(before))){
       const oldObject=before===MISSING?{}:before;
       const result:Record<string,unknown>={};
