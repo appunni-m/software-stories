@@ -26,6 +26,10 @@ export interface CoveragePlan {
   exclusions: CoverageExclusion[];
 }
 
+export type CoveragePlanRead =
+  | { status: 'ready'; plan: CoveragePlan }
+  | { status: 'unavailable'; plan: CoveragePlan; message: string };
+
 export interface CoverageRow {
   inventory: InventoryRow;
   status: CoverageStatus;
@@ -67,22 +71,48 @@ export function coverageStorageKey(projectId: string, snapshotId: string): strin
   return `code-atlas:coverage:v1:${encodeURIComponent(projectId)}:${encodeURIComponent(snapshotId)}`;
 }
 
-export function loadCoveragePlan(projectId: string, snapshotId: string, storage?: Pick<Storage, 'getItem'>): CoveragePlan {
+export function readCoveragePlan(projectId: string, snapshotId: string, storage?: Pick<Storage, 'getItem'>): CoveragePlanRead {
   const empty = emptyCoveragePlan(projectId, snapshotId);
+  let saved: string | null;
   try {
-    const saved = (storage ?? window.localStorage).getItem(coverageStorageKey(projectId, snapshotId));
-    if (!saved) return empty;
-    const parsed: unknown = JSON.parse(saved);
-    if (!isCoveragePlan(parsed) || parsed.projectId !== projectId || parsed.snapshotId !== snapshotId) return empty;
-    return parsed;
+    saved = (storage ?? window.localStorage).getItem(coverageStorageKey(projectId, snapshotId));
   } catch {
-    return empty;
+    return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions could not be read. Their stored data has not been changed.' };
   }
+  if (saved === null) return { status: 'ready', plan: empty };
+  let parsed: unknown;
+  try { parsed = JSON.parse(saved); }
+  catch { return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions are malformed. Their stored data has not been changed.' }; }
+  if (!isCoveragePlan(parsed) || parsed.projectId !== projectId || parsed.snapshotId !== snapshotId) {
+    return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions use an unsupported format or repository snapshot. Their stored data has not been changed.' };
+  }
+  return { status: 'ready', plan: parsed };
 }
 
-export function saveCoveragePlan(plan: CoveragePlan, storage?: Pick<Storage, 'setItem'>): boolean {
+/** Strict convenience reader for current records. Callers that render UI should
+ * use readCoveragePlan so unavailable stored data can be shown and preserved. */
+export function loadCoveragePlan(projectId: string, snapshotId: string, storage?: Pick<Storage, 'getItem'>): CoveragePlan {
+  const result = readCoveragePlan(projectId, snapshotId, storage);
+  if (result.status !== 'ready') throw new Error(result.message);
+  return result.plan;
+}
+
+export function discardCoveragePlan(projectId: string, snapshotId: string, storage?: Pick<Storage, 'removeItem'>): void {
+  (storage ?? window.localStorage).removeItem(coverageStorageKey(projectId, snapshotId));
+}
+
+export function saveCoveragePlan(plan: CoveragePlan, storage?: Pick<Storage, 'getItem' | 'setItem'>): boolean {
+  if (!isCoveragePlan(plan)) return false;
   try {
-    (storage ?? window.localStorage).setItem(coverageStorageKey(plan.projectId, plan.snapshotId), JSON.stringify(plan));
+    const target = storage ?? window.localStorage;
+    const key = coverageStorageKey(plan.projectId, plan.snapshotId);
+    const current = target.getItem(key);
+    if (current !== null) {
+      let parsed: unknown;
+      try { parsed = JSON.parse(current); } catch { return false; }
+      if (!isCoveragePlan(parsed) || parsed.projectId !== plan.projectId || parsed.snapshotId !== plan.snapshotId) return false;
+    }
+    target.setItem(key, JSON.stringify(plan));
     return true;
   } catch {
     return false;
@@ -90,19 +120,44 @@ export function saveCoveragePlan(plan: CoveragePlan, storage?: Pick<Storage, 'se
 }
 
 function isCoveragePlan(value: unknown): value is CoveragePlan {
-  if (!value || typeof value !== 'object') return false;
-  const plan = value as Partial<CoveragePlan>;
-  return plan.schemaVersion === 1
-    && typeof plan.projectId === 'string'
-    && typeof plan.snapshotId === 'string'
-    && Array.isArray(plan.groups)
-    && plan.groups.every((group) => group && typeof group.groupId === 'string'
-      && typeof group.name === 'string' && typeof group.rationale === 'string'
-      && Array.isArray(group.paths) && group.paths.every((path) => typeof path === 'string')
-      && typeof group.createdAtUnixMs === 'number')
-    && Array.isArray(plan.exclusions)
-    && plan.exclusions.every((exclusion) => exclusion && typeof exclusion.path === 'string'
-      && typeof exclusion.reason === 'string' && typeof exclusion.excludedAtUnixMs === 'number');
+  const object = (candidate: unknown): candidate is Record<string, unknown> =>
+    !!candidate && typeof candidate === 'object' && !Array.isArray(candidate);
+  const exactKeys = (candidate: Record<string, unknown>, keys: readonly string[]) =>
+    Object.keys(candidate).length === keys.length && keys.every((key) => Object.hasOwn(candidate, key));
+  const validPath = (path: unknown): path is string => typeof path === 'string' && path.length > 0
+    && !path.startsWith('/') && !path.includes('\\') && !/[\u0000-\u001f\u007f]/u.test(path)
+    && new TextEncoder().encode(path).byteLength <= 1024
+    && !path.split('/').some((part) => !part || part === '.' || part === '..');
+  if (!object(value) || !exactKeys(value, ['schemaVersion', 'projectId', 'snapshotId', 'groups', 'exclusions'])
+    || value.schemaVersion !== 1 || typeof value.projectId !== 'string' || !value.projectId
+    || typeof value.snapshotId !== 'string' || !value.snapshotId
+    || !Array.isArray(value.groups) || value.groups.length > 25_000
+    || !Array.isArray(value.exclusions) || value.exclusions.length > 25_000) return false;
+
+  const groupIds = new Set<string>();
+  const occupiedPaths = new Set<string>();
+  for (const candidate of value.groups) {
+    if (!object(candidate) || !exactKeys(candidate, ['groupId', 'name', 'rationale', 'paths', 'createdAtUnixMs'])
+      || typeof candidate.groupId !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/u.test(candidate.groupId)
+      || groupIds.has(candidate.groupId) || typeof candidate.name !== 'string' || !candidate.name.trim() || candidate.name.length > 100
+      || typeof candidate.rationale !== 'string' || !candidate.rationale.trim() || candidate.rationale.length > 500
+      || !Array.isArray(candidate.paths) || candidate.paths.length < 2
+      || !Number.isSafeInteger(candidate.createdAtUnixMs) || (candidate.createdAtUnixMs as number) < 0
+      || new Set(candidate.paths).size !== candidate.paths.length
+      || candidate.paths.some((path) => !validPath(path) || occupiedPaths.has(path))) return false;
+    groupIds.add(candidate.groupId);
+    for (const path of candidate.paths as string[]) occupiedPaths.add(path);
+  }
+
+  const exclusions = new Set<string>();
+  for (const candidate of value.exclusions) {
+    if (!object(candidate) || !exactKeys(candidate, ['path', 'reason', 'excludedAtUnixMs'])
+      || !validPath(candidate.path) || occupiedPaths.has(candidate.path) || exclusions.has(candidate.path)
+      || typeof candidate.reason !== 'string' || !candidate.reason.trim() || candidate.reason.length > 500
+      || !Number.isSafeInteger(candidate.excludedAtUnixMs) || (candidate.excludedAtUnixMs as number) < 0) return false;
+    exclusions.add(candidate.path);
+  }
+  return true;
 }
 
 function isLocallyReadable(row: InventoryRow): boolean {

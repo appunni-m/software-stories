@@ -183,15 +183,18 @@ import {
   addCoverageGroup,
   buildCoverageRows,
   COVERAGE_STATUSES,
+  discardCoveragePlan,
+  emptyCoveragePlan,
   excludeCoveragePath,
   filterCoverageRows,
-  loadCoveragePlan,
   paginateCoverage,
+  readCoveragePlan,
   removeCoverageGroup,
   restoreCoveragePath,
   saveCoveragePlan,
   summarizeCoverage,
   type CoveragePlan,
+  type CoveragePlanRead,
   type CoverageRow,
   type CoverageStatus,
 } from './lib/coverage';
@@ -3947,7 +3950,14 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
-  const [plan, setPlan] = useState<CoveragePlan>(() => loadCoveragePlan(projectId, snapshotId));
+  const [planRead, setPlanRead] = useState<CoveragePlanRead>(() => readCoveragePlan(projectId, snapshotId));
+  const plan = planRead.plan;
+  const coveragePlanReady = planRead.status === 'ready';
+  const setPlan = (next: CoveragePlan | ((current: CoveragePlan) => CoveragePlan)) => {
+    setPlanRead((current) => current.status === 'ready'
+      ? { ...current, plan: typeof next === 'function' ? next(current.plan) : next }
+      : current);
+  };
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CoverageStatus>('all');
   const [guideView, setGuideView] = useState<'needs-explanation' | 'explained' | 'all'>('needs-explanation');
@@ -3971,7 +3981,8 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   const [revisionsLoading, setRevisionsLoading] = useState(isNativeRuntime());
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [revisionRefresh, setRevisionRefresh] = useState(0);
-  const coverageReady = !revisionsLoading && !revisionsError;
+  const revisionsReady = !revisionsLoading && !revisionsError;
+  const coverageReady = coveragePlanReady && revisionsReady;
   const coverageRows = useMemo(() => buildCoverageRows(rows, plan, revisions)
     .map((row) => coverageReady ? row : { ...row, canSelectForGroup: false, canExclude: false }), [rows, plan, revisions, coverageReady]);
   const totals = useMemo(() => summarizeCoverage(coverageRows), [coverageRows]);
@@ -3991,8 +4002,9 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   const languages = useMemo(() => Array.from(new Set(rows.map((row) => row.language))).sort(), [rows]);
 
   useEffect(() => {
+    if (!coveragePlanReady) return;
     setStorageAvailable(saveCoveragePlan(plan));
-  }, [plan]);
+  }, [plan, coveragePlanReady]);
 
   useEffect(() => {
     const refresh = () => setRevisionRefresh((value) => value + 1);
@@ -4039,6 +4051,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
       : Array.from(new Set([...current, ...visible])));
   };
   const startGroup = () => {
+    if (!coveragePlanReady) return;
     setFeedback(null);
     setGroupName('');
     setGroupRationale('');
@@ -4077,8 +4090,18 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
     }
   };
   const dissolveGroup = (groupId: string, name: string) => {
+    if (!coverageReady) return;
     setPlan((current) => removeCoverageGroup(current, groupId));
     setFeedback(`“${name}” was removed. Its files are independent chapters again.`);
+  };
+  const discardSavedCoveragePlan = () => {
+    try {
+      discardCoveragePlan(projectId, snapshotId);
+      setPlanRead({ status: 'ready', plan: emptyCoveragePlan(projectId, snapshotId) });
+      setFeedback('Saved file groups and exclusions were discarded. Chapter explanations remain unchanged.');
+    } catch {
+      setFeedback('The saved file groups and exclusions could not be removed. Their stored data remains untouched.');
+    }
   };
   const statusLabel: Record<CoverageStatus, string> = {
     missing: 'Needs explanation', draft: 'Draft', rejected: 'Rejected', stale: 'Older snapshot', accepted: 'Accepted',
@@ -4160,16 +4183,18 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
               </div>
               <div className="guide-tour-actions">
                 {canBuildOverview && <button className="primary-button" onClick={onGenerateOverview}><Play size={14} /> Create repository tour <ArrowRight size={15} /></button>}
-                {firstFileToOpen && <button className={canBuildOverview ? 'secondary-button' : 'primary-button'} onClick={() => onOpenFile(firstFileToOpen.inventory.path)}><FileCode2 size={14} /> {firstFileToOpen.status === 'accepted' ? 'Read' : 'Explain'} {firstFileToOpen.inventory.path}</button>}
+                {coverageReady && firstFileToOpen && <button className={canBuildOverview ? 'secondary-button' : 'primary-button'} onClick={() => onOpenFile(firstFileToOpen.inventory.path)}><FileCode2 size={14} /> {firstFileToOpen.status === 'accepted' ? 'Read' : 'Explain'} {firstFileToOpen.inventory.path}</button>}
                 {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
                 {!canBuildOverview && !firstFileToOpen && <button className="primary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse captured files</button>}
               </div>
             </>}
           </section>
           <section className="guide-home-coverage" aria-label="File explanation progress">
-            <div className="guide-home-coverage-heading"><strong>File explanations</strong><span>{revisionsError ? 'Unavailable' : revisionsLoading ? 'Loading…' : `${totals.accepted} / ${guideEligibleTotal}`}</span></div>
-            <div className="guide-home-progress" role="progressbar" aria-label="Captured files with accepted explanations" aria-valuemin={0} aria-valuemax={guideEligibleTotal} aria-valuenow={totals.accepted}><span style={{ width: `${guideProgress}%` }} /></div>
-            <p>{revisionsError ? 'Coverage is unavailable until saved revisions can be read.' : revisionsLoading ? 'Loading saved file explanations…' : `${totals.accepted.toLocaleString()} explained · ${(guideEligibleTotal - totals.accepted).toLocaleString()} still to explore`}</p>
+            <div className="guide-home-coverage-heading"><strong>File explanations</strong><span>{!coveragePlanReady || revisionsError ? 'Unavailable' : revisionsLoading ? 'Loading…' : `${totals.accepted} / ${guideEligibleTotal}`}</span></div>
+            {coverageReady
+              ? <><div className="guide-home-progress" role="progressbar" aria-label="Captured files with accepted explanations" aria-valuemin={0} aria-valuemax={guideEligibleTotal} aria-valuenow={totals.accepted}><span style={{ width: `${guideProgress}%` }} /></div>
+                <p>{`${totals.accepted.toLocaleString()} explained · ${(guideEligibleTotal - totals.accepted).toLocaleString()} still to explore`}</p></>
+              : <p role="status">{!coveragePlanReady ? 'Saved file grouping and exclusion data is unavailable; its counts are not shown.' : revisionsError ? 'Coverage is unavailable until saved revisions can be read.' : 'Loading saved file explanations…'}</p>}
             <div className="guide-home-file-list">
               {coverageReady && (nextFiles.length > 0 ? nextFiles : explainedFiles).slice(0, 3).map((row) => (
                 <button key={row.inventory.path} onClick={() => onOpenFile(row.inventory.path)}>
@@ -4193,13 +4218,13 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
 
       <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
-        <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
+        <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={revisionsReady} returnFocusTarget={returnFocusTarget}
           onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onReadRevision={onReadRevision} onReviewRevision={onReviewRevision} />
       </Suspense>
       </details>
 
       <details className="guide-coverage-disclosure">
-        <summary><span>File-by-file coverage</span><small>{totals.accepted} explained · {Math.max(0, guideEligibleTotal - totals.accepted)} remaining · {totals.total} inventory paths</small></summary>
+        <summary><span>File-by-file coverage</span><small>{coverageReady ? `${totals.accepted} explained · ${Math.max(0, guideEligibleTotal - totals.accepted)} remaining · ${totals.total} inventory paths` : 'Coverage unavailable'}</small></summary>
       <section className="guide-plan-card" aria-labelledby="guide-plan-title">
         <div className="guide-plan-topline">
           <div>
@@ -4211,6 +4236,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
 
         {manifest.summary.status === 'partial' && <p className="coverage-storage-warning" role="status">This snapshot is partial. {manifest.summary.pathsSkipped.toLocaleString()} paths were skipped; open “All paths” to review them and why they were skipped.</p>}
+        {planRead.status === 'unavailable' && <p className="coverage-storage-warning coverage-plan-unavailable" role="alert"><span>{planRead.message} Editing is paused so this data is not overwritten.</span><button className="secondary-button" onClick={discardSavedCoveragePlan}>Discard saved file groups and exclusions</button></p>}
         <details className="guide-source-details">
           <summary>Source snapshot details</summary>
           <div className="guide-plan-identity"><span>{manifest.summary.status === 'partial' ? 'Partial snapshot' : 'Immutable snapshot'}</span><code>{snapshotId}</code><span>{projectId}</span></div>
@@ -4227,7 +4253,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
 
         <div className="guide-list-toolbar">
           <label className="inventory-search"><Search size={14} /><input aria-label="Search guide files" placeholder="Find a file by name or path" value={query} onChange={(event) => setQueryFilter(event.target.value)} /></label>
-          <button className={`secondary-button${groupingOpen ? ' selected' : ''}`} onClick={() => { if (groupingOpen) setGroupFormOpen(false); setGroupingOpen(!groupingOpen); setSelectedPaths([]); }} aria-expanded={groupingOpen}><Layers3 size={14} /> {groupingOpen ? 'Done grouping' : 'Organize files'}</button>
+          <button className={`secondary-button${groupingOpen ? ' selected' : ''}`} onClick={() => { if (groupingOpen) setGroupFormOpen(false); setGroupingOpen(!groupingOpen); setSelectedPaths([]); }} aria-expanded={groupingOpen} disabled={!coverageReady}><Layers3 size={14} /> {groupingOpen ? 'Done grouping' : 'Organize files'}</button>
           <details className="coverage-advanced-filters">
             <summary>More filters</summary>
             <div className="coverage-filter-bar">
@@ -4243,7 +4269,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
           <span className="coverage-match-count" aria-live="polite">{pageData.total.toLocaleString()} files</span>
         </div>
 
-        {groupingOpen && <section className="guide-grouping-panel" aria-label="Organize files into optional groups">
+        {groupingOpen && coverageReady && <section className="guide-grouping-panel" aria-label="Organize files into optional groups">
           <div className="guide-plan-actions">
             <div><strong>Group related files (optional)</strong><span>Groups organize files; every file keeps its own explanation and source links.</span></div>
             <div className="guide-plan-action-buttons"><span aria-live="polite">{selectedPaths.length} selected</span><button className="secondary-button" onClick={startGroup} disabled={selectedPaths.length < 2 || revisionsLoading || Boolean(revisionsError)}>Create group</button>{selectedPaths.length > 0 && <button className="text-button" onClick={() => setSelectedPaths([])}>Clear selection</button>}</div>
@@ -4280,16 +4306,17 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
           onReadRevision={(revisionId) => openRevision(revisionId, 'read')}
           onReviewRevision={(revisionId) => openRevision(revisionId, 'review')}
           onExclude={submitExclusion}
-          onRestore={(path) => { setPlan((current) => restoreCoveragePath(current, path)); setFeedback(`${path} is back in the guide plan.`); }}
+          onRestore={(path) => { if (!coverageReady) return; setPlan((current) => restoreCoveragePath(current, path)); setFeedback(`${path} is back in the guide plan.`); }}
           onCancelExclude={() => setExcludePath(null)}
         />}
-        <div className="coverage-pagination">
+        {!coverageReady && <p className="coverage-feedback" role="status">{!coveragePlanReady ? 'File-by-file coverage is paused until the saved groups and exclusions are reviewed.' : revisionsError ? 'File-by-file coverage is unavailable until saved revisions can be read.' : 'Loading file-by-file coverage…'}</p>}
+        {coverageReady && <div className="coverage-pagination">
           <span>Showing {pageData.firstVisible.toLocaleString()}–{pageData.lastVisible.toLocaleString()} of {pageData.total.toLocaleString()} matches · {totals.total.toLocaleString()} snapshot paths</span>
           <label>Rows <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0); }} aria-label="Rows per coverage page"><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
           <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={pageData.page === 0}>Previous</button>
           <span>Page {pageData.page + 1} of {pageData.pageCount}</span>
           <button onClick={() => setPage((current) => Math.min(pageData.pageCount - 1, current + 1))} disabled={pageData.page >= pageData.pageCount - 1}>Next</button>
-        </div>
+        </div>}
         {feedback && <p className="coverage-feedback" role="status">{feedback}<button className="text-button" onClick={() => setFeedback(null)}>Dismiss</button></p>}
         {!storageAvailable && <p className="coverage-storage-warning" role="status">This session can’t save Guide Plan changes in local storage. Keep this window open to retain them.</p>}
         <p className="coverage-footnote">Draft and accepted counts reflect chapter revisions tied to this exact project and snapshot. Capture exclusions remain unavailable inventory rows; they are never counted as completed explanations.</p>
