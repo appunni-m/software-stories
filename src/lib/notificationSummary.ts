@@ -56,7 +56,9 @@ export function groupNotifications<T extends NotificationGroupingItem>(items: re
     bucket: entries.find((item) => item.groupBucket)?.groupBucket
       ?? (entries.some((item) => item.bucket === 'attention') ? 'attention' : 'updates'),
     countLabel: entries[0]?.countLabel ?? 'updates',
-    unreadCount: entries.filter((item) => item.read === false).length,
+    // Items without a durable read state (for example, interrupted work and
+    // pending previews) stay new until the user resolves or dismisses them.
+    unreadCount: entries.filter((item) => item.read !== true).length,
     items: entries,
   }));
 }

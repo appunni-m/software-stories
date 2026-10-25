@@ -63,7 +63,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
         <strong>{latest.title}</strong>
         {group.items.length > 1 && <span className="notification-group-count">{group.items.length} {group.countLabel}</span>}
         {group.unreadCount > 0 && <span className="notification-read is-new">{group.unreadCount} new</span>}
-        {group.items.length === 1 && latest.read !== undefined && <span className={`notification-read ${latest.read ? 'is-read' : 'is-new'}`}>{latest.read ? 'Read' : 'New'}</span>}
+        {group.items.length === 1 && <span className={`notification-read ${group.unreadCount > 0 ? 'is-new' : 'is-read'}`}>{group.unreadCount > 0 ? 'New' : 'Read'}</span>}
       </div>
       <p>{latest.message}</p>
       {latest.detail && <small className="notification-attempt-detail">{latest.detail}</small>}
