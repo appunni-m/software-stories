@@ -7,6 +7,56 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
+pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 320;
+
+/// A short audio scene must stay listenable even when a generator ignores its
+/// prompt. This is a duration guard, not semantic or language-quality proof.
+pub(crate) fn scene_narration_is_concise(text: &str) -> bool {
+    !text.trim().is_empty()
+        && text.len() <= MAX_SCENE_NARRATION_BYTES
+        && sentence_ending_count(text) <= 2
+}
+
+fn sentence_ending_count(text: &str) -> usize {
+    let chars: Vec<char> = text.chars().collect();
+    let mut count = 0;
+    let mut index = 0;
+    while index < chars.len() {
+        if !is_sentence_ending(chars[index]) {
+            index += 1;
+            continue;
+        }
+
+        let mut has_cjk_ending = matches!(chars[index], '。' | '！' | '？');
+        while index + 1 < chars.len() && is_sentence_ending(chars[index + 1]) {
+            index += 1;
+            has_cjk_ending |= matches!(chars[index], '。' | '！' | '？');
+        }
+        let previous = index.checked_sub(1).and_then(|at| chars.get(at)).copied();
+        let mut after = index + 1;
+        while chars.get(after).is_some_and(|character| {
+            matches!(
+                *character,
+                '\'' | '"' | '”' | '’' | ')' | ']' | '}' | '»' | '」' | '』'
+            )
+        }) {
+            after += 1;
+        }
+        let next = chars.get(after).copied();
+        let decimal_point = chars[index] == '.'
+            && previous.is_some_and(|character| character.is_ascii_digit())
+            && next.is_some_and(|character| character.is_ascii_digit());
+        if !decimal_point && (has_cjk_ending || next.is_none_or(char::is_whitespace)) {
+            count += 1;
+        }
+        index = after;
+    }
+    count
+}
+
+fn is_sentence_ending(character: char) -> bool {
+    matches!(character, '.' | '!' | '?' | '。' | '！' | '？')
+}
 
 pub(crate) fn visible_graph_node_count(
     node_count: usize,
@@ -169,11 +219,10 @@ pub(crate) fn narration(
         let text = scene.narration.trim();
         if scene.claim_index != index
             || claim.anchors.is_empty()
-            || text.is_empty()
-            || text.len() > 4_000
+            || !scene_narration_is_concise(text)
         {
             return Err(
-                "Each scene needs bounded narration and its own consecutive anchored claim.".into(),
+                "Each scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into(),
             );
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -499,7 +548,7 @@ pub(crate) fn proposal_schema() -> Value {
             "type":"object","additionalProperties":false,"required":["claimIndex","title","narration","mode","elements"],"properties":{
                 "claimIndex":{"type":"integer","minimum":0,"maximum":19},
                 "title":{"type":"string","minLength":1,"maxLength":120},
-                "narration":{"type":"string","minLength":1,"maxLength":4000},
+                "narration":{"type":"string","minLength":1,"maxLength":320},
                 "mode":{"type":"string","enum":["composition","graph"]},
                 "elements":{"type":"array","maxItems":48,"items":{
                     "type":"object","additionalProperties":false,
@@ -885,6 +934,28 @@ mod tests {
     }
 
     #[test]
+    fn scene_narration_enforces_short_speech_without_splitting_decimals_or_cjk_sentences() {
+        assert!(scene_narration_is_concise(
+            "A point enters the transform. Its outline position is preserved."
+        ));
+        assert!(scene_narration_is_concise(
+            "Scale 1.5 keeps the curve. Then points are placed."
+        ));
+        assert!(scene_narration_is_concise("点进入变换。轮廓标记保持不变！"));
+        assert!(!scene_narration_is_concise(
+            "First outcome. Second outcome. Third outcome."
+        ));
+        assert!(!scene_narration_is_concise(
+            &"a".repeat(MAX_SCENE_NARRATION_BYTES + 1)
+        ));
+        assert!(!scene_narration_is_concise("  \n  "));
+        assert_eq!(
+            proposal_schema()["properties"]["scenes"]["items"]["properties"]["narration"]["maxLength"],
+            MAX_SCENE_NARRATION_BYTES
+        );
+    }
+
+    #[test]
     fn grounded_explanatory_values_have_a_distinct_serialized_origin() {
         let (nodes, claims, mut presentation) = fixture();
         let element = &mut presentation.scenes[0].elements[0];
@@ -921,7 +992,11 @@ mod tests {
             serde_json::from_value::<ScenePresentation>(encoded).unwrap(),
             presentation
         );
-        for invalid in [String::new(), "é".repeat(2_001)] {
+        for invalid in [
+            String::new(),
+            "é".repeat(2_001),
+            "First outcome. Second outcome. Third outcome.".into(),
+        ] {
             let mut broken = presentation.clone();
             broken.scenes[0].narration = invalid;
             assert!(validate(&broken, &nodes, &claims).is_err());

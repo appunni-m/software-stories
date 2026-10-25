@@ -51,6 +51,24 @@ fn current_schema_rejects_provider_metadata_and_advertises_both_current_modes() 
     assert!(!narration_validator.is_valid(&raw["section"]));
     narrated["section"]["claims"][0]["identifiers"] = json!(["greeting"]);
     assert!(!narration_validator.is_valid(&narrated["section"]));
+    assert_eq!(
+        narration_schema["properties"]["claims"]["items"]["properties"]["scene"]["anyOf"][1]["properties"]
+            ["narration"]["maxLength"],
+        crate::scene_presentation::MAX_SCENE_NARRATION_BYTES
+    );
+}
+
+#[test]
+fn narration_only_scenes_enforce_the_shared_short_speech_contract() {
+    let mut three_sentences = narrated_proposal("code:1", "entry", 0)["section"].clone();
+    three_sentences["claims"][0]["scene"]["narration"] =
+        json!("First result. Second result. Third result.");
+    assert!(compile(&three_sentences).is_err());
+
+    let mut too_long = narrated_proposal("code:1", "entry", 0)["section"].clone();
+    too_long["claims"][0]["scene"]["narration"] =
+        json!("a".repeat(crate::scene_presentation::MAX_SCENE_NARRATION_BYTES + 1));
+    assert!(compile(&too_long).is_err());
 }
 
 #[test]

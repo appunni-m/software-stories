@@ -29,7 +29,9 @@ pub(in crate::evidence_ledger::sections) fn compile(
             return Err(issue(&at, "sceneAuthoringShape"));
         }
         let script = scene.narration.trim();
-        if !(20..=1_000).contains(&script.len()) {
+        if !(20..=crate::scene_presentation::MAX_SCENE_NARRATION_BYTES).contains(&script.len())
+            || !crate::scene_presentation::scene_narration_is_concise(script)
+        {
             return Err(issue(&format!("{at}/narration"), "sceneNarration"));
         }
         if crate::scene_presentation::has_compact_spoken_code_token(script) {
@@ -54,7 +56,7 @@ pub(crate) fn schema() -> Value {
         "required":["title","narration","mode","nodes","edges","elements"],
         "properties":{
             "title":{"type":"string","minLength":1,"maxLength":120},
-            "narration":{"type":"string","minLength":20,"maxLength":1000},
+            "narration":{"type":"string","minLength":20,"maxLength":320},
             "mode":{"type":"string","enum":["narration"]},
             "nodes":{"type":"array","maxItems":0},
             "edges":{"type":"array","maxItems":0},

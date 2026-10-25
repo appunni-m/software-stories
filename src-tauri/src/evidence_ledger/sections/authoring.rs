@@ -392,7 +392,7 @@ pub(crate) fn section_schema() -> Value {
     ]);
     claim["properties"]["scene"] = json!({"anyOf":[{"type":"object","additionalProperties":false,
         "required":["title","narration","mode","nodes","edges","elements"],"properties":{
-        "title":text,"narration":{"type":"string","minLength":1,"maxLength":4000},"mode":{"type":"string","enum":["composition","graph"]},
+        "title":text,"narration":{"type":"string","minLength":1,"maxLength":crate::scene_presentation::MAX_SCENE_NARRATION_BYTES},"mode":{"type":"string","enum":["composition","graph"]},
         "nodes":{"type":"array","minItems":1,"maxItems":12,"items":node},"edges":{"type":"array","maxItems":20,"items":edge},
         "elements":{"type":"array","maxItems":48,"items":element}}},{"type":"null"}]});
     claim["required"]

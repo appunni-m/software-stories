@@ -61,11 +61,16 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             }
         }
         for (index, scene) in presentation.scenes.iter().enumerate() {
-            if scene.narration.trim().is_empty() || scene.narration.len() > 4_000 {
+            if scene.narration.trim().is_empty() {
                 if issues.len() >= super::MAX_ISSUES {
                     return;
                 }
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationRequired"}));
+            } else if !crate::scene_presentation::scene_narration_is_concise(&scene.narration) {
+                if issues.len() >= super::MAX_ISSUES {
+                    return;
+                }
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationConciseness"}));
             }
             if scene.mode == SceneMode::Graph
                 && graph_scene_node_count(section, scene.claim_index)
@@ -136,7 +141,7 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             && presentation
                 .scenes
                 .iter()
-                .all(|s| !s.narration.trim().is_empty() && s.narration.len() <= 4_000)
+                .all(|s| crate::scene_presentation::scene_narration_is_concise(&s.narration))
         {
             let total = presentation
                 .scenes
@@ -271,6 +276,35 @@ mod tests {
             "Preserve all guards, branches, failures, outcomes, evidence and real graph edges"
         ));
         assert!(!prompt.contains("private-node-label"));
+    }
+
+    #[test]
+    fn long_scene_narration_gets_a_private_positional_repair() {
+        let long_sentence = "a".repeat(crate::scene_presentation::MAX_SCENE_NARRATION_BYTES + 1);
+        for narration in [
+            "First outcome. Second outcome. Third outcome.",
+            long_sentence.as_str(),
+        ] {
+            let mut proposal = composed_proposal(3);
+            proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] =
+                json!(narration);
+            let findings =
+                crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
+            let issue = findings
+                .iter()
+                .find(|finding| finding["sceneProblem"] == "narrationConciseness")
+                .unwrap();
+            assert_eq!(
+                issue["location"],
+                "/sections/0/visual/presentation/scenes/0/narration"
+            );
+            let serialized = serde_json::to_string(&findings).unwrap();
+            assert!(!serialized.contains(narration));
+            let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
+            assert!(prompt.contains("narrationConciseness finding"));
+            assert!(prompt.contains("two short sentences or 320 UTF-8 bytes"));
+            assert!(!prompt.contains(narration));
+        }
     }
 
     #[test]

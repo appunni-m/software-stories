@@ -607,7 +607,9 @@ fn guide_scene_findings(response: &str) -> Vec<Value> {
                 "selectorOutcomeLabel" => "sceneBranchLabels",
                 "transformShape" => "transformShape",
                 "sceneEvidence" => "sceneEvidence",
-                "narrationRequired" | "narrationLength" => "sceneNarration",
+                "narrationRequired" | "narrationLength" | "narrationConciseness" => {
+                    "sceneNarration"
+                }
                 "graphDensity" | "elementCount" | "childCount" | "nesting" | "contentCount" => {
                     "sceneAuthoringLimit"
                 }
@@ -637,7 +639,7 @@ fn scene_narration_findings(section: &Value) -> Vec<Value> {
     let mut total = 0;
     for (index, scene) in scenes.iter().enumerate() {
         match scene["narration"].as_str() {
-            Some(text) if !text.trim().is_empty() && text.len() <= 4_000 => {
+            Some(text) if crate::scene_presentation::scene_narration_is_concise(text) => {
                 if crate::scene_presentation::has_compact_spoken_code_token(text) {
                     findings.push(json!({"location":format!("/section/visual/presentation/scenes/{index}/narration"),"code":"sceneSpeechRole"}));
                 }

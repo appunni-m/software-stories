@@ -225,20 +225,26 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
 }
 
 #[test]
-fn narration_limits_include_all_claims_and_publish_nothing_on_failure() {
+fn narration_claim_count_limit_publishes_nothing_on_failure() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
     let reference = read(&mut ledger, &f, &runtime, &cancel);
     let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
     let mut raw = narrated(&reference);
     let mut claim = raw["section"]["claims"][0].clone();
-    claim["scene"]["narration"] = json!("é".repeat(500));
-    raw["section"]["claims"] = json!(vec![claim; 5]);
+    claim["scene"]["narration"] = json!("é".repeat(100));
+    raw["section"]["claims"] = json!(vec![claim; 9]);
     let prepared = answer
         .prepare(&ledger, &raw.to_string(), &f.manifest, &runtime, &cancel)
         .unwrap();
     assert!(prepared.generation_id.is_none());
-    assert_eq!(prepared.findings, finding("presentationLimit"));
+    assert_eq!(
+        prepared.findings,
+        vec![json!({
+            "location":"/section/claims",
+            "code":"sceneAuthoringShape"
+        })]
+    );
     answer
         .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
         .unwrap();
