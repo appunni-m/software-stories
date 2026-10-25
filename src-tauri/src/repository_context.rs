@@ -1966,8 +1966,12 @@ pub(crate) fn search_files_with_mode_page(
         .reader()
         .map_err(|_| "Code search index could not be opened. Try rebuilding it.".to_owned())?
         .searcher();
-    let mut path_terms: HashMap<String, Vec<f32>> = HashMap::new();
-    let mut range_terms: HashMap<usize, Vec<f32>> = HashMap::new();
+    // A term has one IDF weight for the entire query, so each path/range only
+    // needs to retain which positive-weight terms matched. A 32-bit mask keeps
+    // the bounded 50,000-range index from allocating a heap vector per hit.
+    let mut path_terms: HashMap<String, u32> = HashMap::new();
+    let mut range_terms: HashMap<usize, u32> = HashMap::new();
+    let mut term_weights = vec![0.0f32; term_groups.len()];
     // File discovery returns one result per path, so IDF must count files,
     // not chunks. Otherwise one large file with many matching ranges can
     // distort term rarity for every other file in the repository.
@@ -2029,24 +2033,34 @@ pub(crate) fn search_files_with_mode_page(
             .collect::<BTreeSet<_>>();
         let inverse_document_frequency =
             (((total_paths + 1) as f32) / ((matching_paths.len() + 1) as f32)).ln();
+        term_weights[term_index] = inverse_document_frequency;
+        let term_bit = if inverse_document_frequency > 0.0 {
+            1u32 << term_index
+        } else {
+            0
+        };
         for range_id in matching_ranges {
             let range = &prepared.metadata.ranges[range_id];
-            path_terms
-                .entry(range.path.clone())
-                .or_insert_with(|| vec![0.0; term_groups.len()])[term_index] =
-                inverse_document_frequency;
-            range_terms
-                .entry(range_id)
-                .or_insert_with(|| vec![0.0; term_groups.len()])[term_index] =
-                inverse_document_frequency;
+            *path_terms.entry(range.path.clone()).or_default() |= term_bit;
+            *range_terms.entry(range_id).or_default() |= term_bit;
         }
     }
 
+    let score_terms = |mask: u32| {
+        let mut score = 0.0f32;
+        let mut coverage = 0usize;
+        for (index, weight) in term_weights.iter().enumerate() {
+            if mask & (1u32 << index) != 0 {
+                score += weight;
+                coverage += 1;
+            }
+        }
+        (score, coverage)
+    };
     let mut best_ranges: HashMap<String, (usize, f32, usize)> = HashMap::new();
-    for (range_id, scores) in &range_terms {
+    for (range_id, mask) in &range_terms {
         let range = &prepared.metadata.ranges[*range_id];
-        let score = scores.iter().sum::<f32>();
-        let coverage = scores.iter().filter(|score| **score > 0.0).count();
+        let (score, coverage) = score_terms(*mask);
         let replace =
             best_ranges
                 .get(&range.path)
@@ -2069,14 +2083,15 @@ pub(crate) fn search_files_with_mode_page(
 
     let mut ranked_files = path_terms
         .into_iter()
-        .filter_map(|(file_path, scores)| {
+        .filter_map(|(file_path, mask)| {
             let (range_id, _, _) = best_ranges.get(&file_path)?;
-            let score = scores.iter().sum::<f32>();
-            let coverage = scores.iter().filter(|score| **score > 0.0).count();
-            let matched_terms = scores
+            let (score, coverage) = score_terms(mask);
+            let matched_terms = words
                 .iter()
                 .enumerate()
-                .filter_map(|(index, score)| (*score > 0.0).then(|| words[index].clone()))
+                .filter_map(|(index, word)| {
+                    (mask & (1u32 << index) != 0).then(|| word.clone())
+                })
                 .collect::<Vec<_>>();
             Some((file_path, *range_id, score, coverage, matched_terms))
         })
