@@ -160,8 +160,13 @@ fn scan(directory: &Path) -> Result<StoreEntries, String> {
     }
     Ok(entries)
 }
-pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<Record>, String> {
+pub(super) fn list(
+    storage: &Path,
+    project: &str,
+    snapshot: &str,
+) -> Result<(Vec<Record>, usize), String> {
     let mut records = Vec::new();
+    let mut unavailable_count = 0;
     for (name, _) in scan(&directory(storage)?)?.records {
         let Some(id) = name.strip_suffix(".json") else {
             continue;
@@ -173,10 +178,13 @@ pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<
         let scope: RecordScope = serde_json::from_value(value.clone())
             .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
         if scope.project_id == project && scope.snapshot_id == snapshot {
-            records.push(decode_record(id, value)?);
+            match decode_record(id, value) {
+                Ok(record) => records.push(record),
+                Err(_) => unavailable_count += 1,
+            }
         }
     }
-    Ok(records)
+    Ok((records, unavailable_count))
 }
 
 pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservation>, String> {
@@ -374,7 +382,7 @@ fn validate(record: &Record) -> Result<(), String> {
             || continuation_units > MAX_CONTINUATION_UNITS
             || record.units.len() != plan.units.len()
             || !text(&plan.title, 8, 120)
-            || (!plan.opening_ranges.is_empty() && !(1..=4).contains(&plan.opening_ranges.len()))
+            || !(1..=4).contains(&plan.opening_ranges.len())
             || plan.omissions.len() > 8
             || plan.omissions.iter().any(|s| !text(s, 1, 240))
         {

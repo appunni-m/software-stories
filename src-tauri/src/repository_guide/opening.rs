@@ -36,16 +36,7 @@ pub(super) fn question(job: &Record) -> Result<&str, String> {
 
 pub(super) fn starting_ranges(job: &Record) -> Result<&[context::CodeRange], String> {
     let plan = job.plan.as_ref().ok_or("The guide has no outline.")?;
-    let ranges = if !plan.opening_ranges.is_empty() {
-        plan.opening_ranges.as_slice()
-    } else {
-        // Saved guides from before the separate opening lead keep their original
-        // range hints until the user starts a fresh guide.
-        plan.units
-            .first()
-            .map(|unit| unit.starting_ranges.as_slice())
-            .unwrap_or_default()
-    };
+    let ranges = plan.opening_ranges.as_slice();
     if ranges.is_empty() {
         Err("The guide outline has no opening lead.".into())
     } else {

@@ -127,7 +127,8 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
         (4, CONTRACT),
         (5, CONTRACT),
         (6, CONTRACT),
-        (8, CONTRACT),
+        (7, CONTRACT),
+        (9, CONTRACT),
     ] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;

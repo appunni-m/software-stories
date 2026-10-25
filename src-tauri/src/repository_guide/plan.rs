@@ -26,7 +26,6 @@ Use delivered source references only as starting-range hints. Do not write expla
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Plan {
     pub title: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub opening_ranges: Vec<context::CodeRange>,
     pub units: Vec<UnitPlan>,
     pub omissions: Vec<String>,

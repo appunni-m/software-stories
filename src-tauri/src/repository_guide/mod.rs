@@ -28,8 +28,8 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v8-incremental-retries";
-const RECORD_SCHEMA_VERSION: u32 = 7;
+const CONTRACT: &str = "repository-guide-v9-required-opening-ranges";
+const RECORD_SCHEMA_VERSION: u32 = 8;
 #[cfg(test)]
 const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 #[cfg(test)]
@@ -1916,9 +1916,8 @@ fn list_saved_guides_with_count(
     snapshot_id: &str,
     manager: &codex_agent::CodexAgentManager,
 ) -> Result<(Vec<GuideSummary>, usize), String> {
-    let records = store::list(storage, project_id, snapshot_id)?;
+    let (records, mut unavailable_count) = store::list(storage, project_id, snapshot_id)?;
     let mut guides = Vec::with_capacity(records.len());
-    let mut unavailable_count = 0;
     for record in records {
         let guide = (|| {
             let lease = store::lease(storage, &record.id)?;

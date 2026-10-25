@@ -61,12 +61,11 @@ fn opening_uses_its_own_entry_range_instead_of_the_follow_on_slide_ranges() {
 }
 
 #[test]
-fn an_existing_outline_without_opening_ranges_retains_its_previous_lead() {
+fn an_outline_without_its_required_opening_ranges_is_not_replayed() {
     let f = Fixture::new();
     let mut r = planned(&f);
     r.plan.as_mut().unwrap().opening_ranges.clear();
-    let prior_first_unit = r.plan.as_ref().unwrap().units[0].starting_ranges.clone();
-    assert_eq!(starting_ranges(&r).unwrap(), prior_first_unit);
+    assert!(starting_ranges(&r).is_err());
 }
 
 #[test]

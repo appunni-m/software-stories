@@ -99,13 +99,11 @@ fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
 }
 
 #[test]
-fn saved_outlines_from_before_the_opening_range_field_still_deserialize() {
+fn saved_outlines_missing_required_opening_ranges_are_rejected() {
     let plan = canonicalize(&resolve(proposal())).unwrap();
     let mut stored = serde_json::to_value(plan).unwrap();
     stored.as_object_mut().unwrap().remove("openingRanges");
-    let restored: Plan = serde_json::from_value(stored).unwrap();
-    assert!(restored.opening_ranges.is_empty());
-    assert_eq!(restored.units.len(), 2);
+    assert!(serde_json::from_value::<Plan>(stored).is_err());
 }
 #[test]
 fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
