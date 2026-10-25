@@ -9,7 +9,7 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const NARRATION_PROPOSAL_VERSION: &str = "answerSectionV6";
 pub(crate) const NARRATION_ANSWER_VERSION: u32 = 7;
-pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 8;
+pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 9;
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;

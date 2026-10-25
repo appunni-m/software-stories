@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
-pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 3;
+pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 4;
 const MAX_CALLS: usize = 64;
 pub(crate) const REPOSITORY_PLAN_CALL_LIMIT: usize = 12;
 pub(crate) const REPOSITORY_GUIDE_SLIDE_CALL_LIMIT: usize = 18;
@@ -283,7 +283,6 @@ struct CallTiming {
     started_ms: u64,
     prepared_ms: Option<u64>,
     finished_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     local_stages: Vec<crate::generation_timing::ContextStage>,
 }
 
