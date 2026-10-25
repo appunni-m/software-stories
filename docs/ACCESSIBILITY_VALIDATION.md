@@ -254,3 +254,42 @@ Scope: this verifies Code Lens source reflow at the 200% page-zoom setting only.
   The app window was not resized, and Atlas, Walkthrough, Chapter Studio,
   dialogs, VoiceOver, Increase Contrast, and Reduce Motion were not retested.
 ```
+
+### Packaged native follow-up — 2026-10-25
+
+```text
+Date/time and tester: 2026-10-25 05:28 IST; Codex via native computer use
+macOS version / app version+commit: macOS 15.7.7 (24G720); Code Atlas 0.1.0.
+  The installed bundle does not expose its source commit; workspace HEAD was
+  bc8f552 during this check.
+Repository / snapshot ID: fontdone / main@5249b72371
+VoiceOver: incomplete — baseline was off. I temporarily enabled it and checked
+  the caption-panel preference, but no spoken transcript was visible through
+  the app observation. No announcement claims are made; VoiceOver was restored
+  off. The earlier native attempt remains inconclusive for the same reason.
+Keyboard-only journey: partial — Tab moved visible focus from Explain this
+  code to Add selected lines to your question and then the source/Guide splitter.
+  No activation was used on provider actions. This confirms focus visibility
+  across those controls, not the full repository-to-guide journey.
+200% zoom / effective width: fail at the tested window size — five ⌘= presses
+  enlarged the page from the 100% baseline. The Guide was no longer visible
+  beside the source in the viewport, and long source text was clipped at the
+  code pane boundary. The app window was not resized, so the narrow-window
+  combination remains untested. Five ⌘− presses restored the original 100% view.
+Increase Contrast: partial pass — baseline was off. With the macOS preference
+  enabled, the app showed stronger white component boundaries and visible focus
+  outlines. No validation dialog or status/error state was reviewed. Restored off.
+Reduce Motion: partial — baseline was off. With it enabled, saved visual
+  navigation moved from scene 1/3 to scene 2/3 and the app remained usable.
+  Playback stayed stopped. This static observation does not verify animation or
+  smooth-scroll suppression; a citation destination was not established in
+  this pass. Restored off.
+Unresolved controls or announcements: spoken VoiceOver output; a complete
+  keyboard-only file-to-section and citation-return journey; narrow-window
+  200% reflow; rendered status/dialog contrast; and reduced-motion behavior
+  during an actual scroll or transition.
+```
+
+The accessibility settings and page zoom were restored to their original
+off/100% values. The saved scene was returned to scene 1; no narration played,
+and no answer, notice, or receipt was modified.

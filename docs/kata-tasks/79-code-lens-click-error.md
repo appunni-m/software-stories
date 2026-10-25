@@ -115,3 +115,15 @@ update categories. This read-only snapshot does not reproduce a full-history
 condition and does not explain the earlier private Codex-file creation error.
 No saved notices, receipts or explanations were dismissed or changed. The
 original clicked control and exception remain unknown. Keep the issue open.
+
+## Latest one-shot Code Lens run — 25 October 2026
+
+After the user authorized one request, selected exactly
+`src/tt/glyf.rs:564–583` in Fontdone `main@5249b72371` and clicked **Explain
+this code** once. The app created the matching question and remained open, but
+ended with: “I couldn’t verify an explanation from the selected code, so
+nothing was saved. Try asking about one behavior at a time, or ask how a
+specific caller or helper changes the result.” No section was published and no
+narration was synthesized. Earlier saved sections remain available. No retry
+was started. This repeats the recoverable no-published-section outcome; it
+does not reproduce the original click exception. Keep the issue open.
