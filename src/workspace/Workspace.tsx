@@ -386,7 +386,7 @@ export function DeveloperWorkspace(props:Props) {
     const counts=explorationCounts.get(e.id)!;
     const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
     const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
-    return <li key={e.id}><button title={`${title} · ${questionCount} · ${childCount}`} aria-label={`${displayTitle}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>;
+    return <li key={e.id}><button title={`${displayTitle} · ${questionCount} · ${childCount}`} aria-label={`${displayTitle}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>;
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   const sourcePane=source
