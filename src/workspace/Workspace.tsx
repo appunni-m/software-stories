@@ -17,7 +17,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideContinuationQuestion, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
@@ -375,7 +375,7 @@ export function DeveloperWorkspace(props:Props) {
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
   function exploreGuideOmissions(turn:Turn){
-    const question=repositoryGuideOmissionQuestion(repositoryGuideUncoveredTopics(turn.guide));
+    const question=repositoryGuideContinuationQuestion(turn.guide);
     if(question)startRepositoryGuide(question,turn.id);
   }
   useEffect(()=>{

@@ -237,6 +237,17 @@ export function repositoryGuideUncoveredTopics(guide: Pick<RepositoryGuide, 'omi
     .map((unit) => unit.question)];
 }
 
+/** Carry completed plan topics into an uncovered-topic exploration so it can avoid replaying them. */
+export function repositoryGuideContinuationQuestion(guide: Pick<RepositoryGuide, 'omissions' | 'units'> | undefined): string | null {
+  const question = repositoryGuideOmissionQuestion(repositoryGuideUncoveredTopics(guide));
+  if (!question || !guide) return question;
+  const completed = repositoryGuideOmissionTopics(guide.units
+    .filter((unit) => unit.status === 'complete')
+    .map((unit) => unit.question));
+  if (!completed.length) return question;
+  return `${question}\nCompleted topics in the saved guide: ${completed.join('; ')}. Keep those sections as they are and explain only the uncovered topics.`;
+}
+
 /** Keep the visible coverage note concise while naming the major omissions. */
 export function repositoryGuideOmissionSummary(omissions: readonly string[]): string | null {
   const topics = repositoryGuideOmissionTopics(omissions);
