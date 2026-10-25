@@ -45,8 +45,8 @@ function readLocalQuestionDraft(key: string): LocalQuestionDraft {
   catch { return { question: '', issue: 'unreadable' }; }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { question: '', issue: 'invalid' };
   const record = value as Record<string, unknown>;
-  if ('schemaVersion' in record) return { question: '', issue: 'unsupported' };
-  if (Object.keys(record).length !== 1 || !Object.hasOwn(record, 'question') || typeof record.question !== 'string') {
+  if (!Object.hasOwn(record, 'schemaVersion') || record.schemaVersion !== 1) return { question: '', issue: 'unsupported' };
+  if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'question') || typeof record.question !== 'string') {
     return { question: '', issue: 'invalid' };
   }
   return { question: record.question, issue: null };
@@ -69,7 +69,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   ));
   useEffect(() => {
     if (preservedDraftIssue) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({ question })); } catch { /* Optional unsent local draft. */ }
+    try { localStorage.setItem(draftKey, JSON.stringify({ schemaVersion: 1, question })); } catch { /* Optional unsent local draft. */ }
   }, [draftKey, preservedDraftIssue, question]);
   useEffect(() => {
     const reload = () => setSavedDiscovery(loadSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
