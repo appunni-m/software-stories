@@ -35,6 +35,8 @@ export function ChapterBatchDialog({ projectId, plan, onClose, onReviewChapter }
   const dialog = useRef<HTMLElement>(null);
   const backgroundTrigger = useRef<HTMLButtonElement>(null);
   const focusAfterMinimize = useRef(false);
+  const minimizedRef = useRef(minimized);
+  minimizedRef.current = minimized;
   const mounted = useRef(false);
   const runningRef = useRef(false);
   const cancelled = useRef(false);
@@ -48,7 +50,7 @@ export function ChapterBatchDialog({ projectId, plan, onClose, onReviewChapter }
     const previous = document.activeElement as HTMLElement | null;
     dialog.current?.focus();
     const key = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || minimizedRef.current) return;
       event.preventDefault();
       if (runningRef.current) {
         focusAfterMinimize.current = true;
@@ -179,7 +181,7 @@ export function ChapterBatchDialog({ projectId, plan, onClose, onReviewChapter }
       {error && <p role="alert" className="provider-error-text">{error} Completed drafts are preserved; reopen this action to review only the remaining steps. Check Edit and recovery notices before retrying a failed step.</p>}
     </div><footer className="provider-dialog-footer"><button className="secondary-button" onClick={running ? continueInBackground : onClose}>{running ? 'Continue in background' : 'Close'}</button>
       {running && <button className="secondary-button" onClick={stop}>Stop batch</button>}
-      {!done && <button className="primary-button" disabled={busy || !steps.length || !!error} onClick={() => { void build(); }}>Build {steps.length || ''} chapters</button>}
+      {!running && !done && steps.length > 0 && <button className="primary-button" disabled={busy || !!error} onClick={() => { void build(); }}>Build {steps.length} chapters</button>}
     </footer>
   </section></div>;
 }
