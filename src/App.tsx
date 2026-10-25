@@ -264,7 +264,7 @@ function App() {
   useEffect(() => {
     const notify = (event: Event) => {
       const detail=(event as CustomEvent<AppNoticeInput&{explorationId?:string}>).detail;
-      if(detail) setNotice({title:detail.title,message:detail.message,projectId:detail.projectId,snapshotId:detail.snapshotId,occurrenceId:detail.occurrenceId,
+      if(detail) setNotice({title:detail.title,message:detail.message,tone:detail.tone,projectId:detail.projectId,snapshotId:detail.snapshotId,occurrenceId:detail.occurrenceId,
         target:detail.target??(detail.projectId&&detail.snapshotId&&detail.explorationId?{kind:'openExploration',explorationId:detail.explorationId}:null)});
     };
     const resolved=(event:Event)=>{

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -729,6 +729,7 @@ describe('visual story scenes', () => {
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 4 };
     const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
+    assert.deepEqual(readStoryProgressRecord(JSON.stringify(saved), identity, scenes), { status: 'available', progress: saved });
     assert.deepEqual(progress, saved);
     const restored = readSectionStoryProgress(progress, identity, scenes);
     assert.deepEqual(restored, { index: 1, positions: [['entry', 12.4], ['check', 3.2]], fullMap: false, viewport: undefined });
@@ -778,6 +779,9 @@ describe('visual story scenes', () => {
   it('rejects malformed or unscoped progress and never lets it select a foreign scene', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
+    assert.deepEqual(readStoryProgressRecord(null, identity, scenes), { status: 'missing' });
+    assert.deepEqual(readStoryProgressRecord('{bad', identity, scenes), { status: 'unavailable' });
+    assert.deepEqual(readStoryProgressRecord('0'.repeat(64_001), identity, scenes), { status: 'unavailable' });
     for (const raw of [null, '{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
       assert.equal(readStoryProgress(raw, identity, scenes), undefined);
     }

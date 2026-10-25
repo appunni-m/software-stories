@@ -49,6 +49,7 @@ export function rememberFileLocation(projectId: string, location: SavedFileLocat
   if (!isSavedFileLocation(normalized)) return false;
   try {
     const serialized = JSON.stringify(normalized);
+    if (typeof serialized !== 'string') return false;
     if (new TextEncoder().encode(serialized).byteLength > MAX_FILE_LOCATION_BYTES) return false;
     localStorage.setItem(`code-atlas:last-file:${projectId}`, serialized);
     return true;

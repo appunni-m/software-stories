@@ -374,12 +374,25 @@ export function storyViewportBounds(
  * every visible node fits, then let the player restore the scene with a useful
  * view when its pane has become narrower or shorter.
  */
-export function readStoryProgress(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgress | undefined {
+export type StoryProgressRead =
+  | { status: 'missing' }
+  | { status: 'available'; progress: StoryProgress }
+  | { status: 'unavailable' };
+
+export function readStoryProgressRecord(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgressRead {
+  if (raw === null) return { status: 'missing' };
+  if (new TextEncoder().encode(raw).byteLength > 64_000) return { status: 'unavailable' };
   let value: unknown;
-  try { value = raw && raw.length <= 16_000 ? JSON.parse(raw) : null; } catch { value = null; }
-  if (!isCurrentStoryProgress(value)) return undefined;
+  try { value = JSON.parse(raw); } catch { return { status: 'unavailable' }; }
+  if (!isCurrentStoryProgress(value)) return { status: 'unavailable' };
   const clean = cleanStoryProgress(value);
-  return clean && sameSection(clean, identity) && scenes.some(scene => scene.id === clean.sceneId) ? clean : undefined;
+  if (!clean || !sameSection(clean, identity) || !scenes.some(scene => scene.id === clean.sceneId)) return { status: 'unavailable' };
+  return { status: 'available', progress: clean };
+}
+
+export function readStoryProgress(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgress | undefined {
+  const result = readStoryProgressRecord(raw, identity, scenes);
+  return result.status === 'available' ? result.progress : undefined;
 }
 
 function sectionStoryProgress(progress: StoryProgress | undefined, scenes: StoryScene[]): { index: number; positions: [string, number][]; fullMap: boolean; viewport?: FlowViewport; focusedNodeId?: string; focusedEdgeId?: string } {

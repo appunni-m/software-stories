@@ -9,7 +9,7 @@ import { defaultNarrationText, parseNarrationPreferences } from './lib/narration
 import { narrationStorageKey } from './lib/narrationScope';
 import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -83,13 +83,37 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     } catch { return undefined; }
   }, [baseKey, section.spokenText]);
   const scenes = useMemo(() => storyScenes(section, visual, savedScript), [section, visual, savedScript]);
-  const savedPosition = useMemo(() => {
-    const stored = !nativeProgress && !isNativeRuntime()
-      ? (() => { try { return localStorage.getItem(sceneKey); } catch { return null; } })()
-      : null;
-    const browserProgress = stored ? readStoryProgress(stored, identity, scenes) : undefined;
-    return readSectionStoryProgress(nativeProgress ?? browserProgress,identity,scenes,restorePosition);
+  const savedPositionRead = useMemo(() => {
+    let stored: string | null = null;
+    let readFailed = false;
+    if (!nativeProgress && !isNativeRuntime()) {
+      try { stored = localStorage.getItem(sceneKey); } catch { readFailed = true; }
+    }
+    const browserRecord = nativeProgress || isNativeRuntime()
+      ? { status: 'missing' as const }
+      : readFailed ? { status: 'unavailable' as const } : readStoryProgressRecord(stored, identity, scenes);
+    const browserProgress = browserRecord.status === 'available' ? browserRecord.progress : undefined;
+    return {
+      position: readSectionStoryProgress(nativeProgress ?? browserProgress, identity, scenes, restorePosition),
+      unavailable: !nativeProgress && !isNativeRuntime() && browserRecord.status === 'unavailable',
+    };
   }, [sceneKey, scenes, nativeProgress, identity.revisionId, identity.sectionId, identity.sectionRevisionId, restorePosition]);
+  const savedPosition = savedPositionRead.position;
+  const browserProgressScopeKey = JSON.stringify([sceneKey, scenes.map((item) => item.id)]);
+  const unavailableBrowserProgressRef = useRef(savedPositionRead.unavailable);
+  useEffect(() => { unavailableBrowserProgressRef.current = savedPositionRead.unavailable; }, [browserProgressScopeKey, savedPositionRead.unavailable]);
+  const reportedUnavailableProgressRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!savedPositionRead.unavailable || isNativeRuntime()
+      || reportedUnavailableProgressRef.current === browserProgressScopeKey) return;
+    reportedUnavailableProgressRef.current = browserProgressScopeKey;
+    window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: {
+      projectId: revision.projectId, snapshotId: revision.snapshotId,
+      title: 'Saved scene position is unavailable',
+      message: 'Its stored browser position is malformed, unreadable or unsupported and was left unchanged. Choose a scene or open the map to save a new position.',
+      tone: 'warning', occurrenceId: crypto.randomUUID(),
+    } }));
+  }, [browserProgressScopeKey, onProgressChange, revision.projectId, revision.snapshotId, savedPositionRead.unavailable]);
   const [index, setIndex] = useState(savedPosition.index);
   const activeScene = useRef(scenes[savedPosition.index].id);
   const positions = useRef(new Map(savedPosition.positions));
@@ -129,14 +153,20 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     ? sourceAnchorForVisualNode(focusAnchor, focus, focusSourceValue)
     : focusAnchor;
   const hotspot = inspection.status === 'available' && focus?.hotspotId ? inspection.hotspotsById.get(focus.hotspotId) : undefined;
-  const savePosition = (sceneId: string, position?: number, focusSelection?: {nodeId:string|null;edgeId:string|null}) => {
+  const savePosition = (sceneId: string, position?: number, focusSelection?: {nodeId:string|null;edgeId:string|null}, replaceUnavailable = false) => {
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
     const selection=focusSelection??{nodeId:focusedNode,edgeId:focusedEdge};
     const saved={...identity,sceneId,positions:Object.fromEntries(positions.current),fullMap:mapView.current,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
       ...(selection.nodeId?{focusedNodeId:selection.nodeId}:{}),...(selection.edgeId?{focusedEdgeId:selection.edgeId}:{}),
       ...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
-    if(onProgressChange)onProgressChange(saved);
-    else if(!isNativeRuntime())try { localStorage.setItem(sceneKey, JSON.stringify(saved)); } catch { /* Standalone reading works without browser storage. */ }
+    if (unavailableBrowserProgressRef.current && !replaceUnavailable) return;
+    if (onProgressChange) { onProgressChange(saved); return; }
+    if (!isNativeRuntime()) {
+      try {
+        localStorage.setItem(sceneKey, JSON.stringify(saved));
+        unavailableBrowserProgressRef.current = false;
+      } catch { /* Standalone reading works without browser storage. */ }
+    }
   };
   useEffect(() => {
     if (!visual || focusInitialized.current) return;
@@ -146,9 +176,9 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   }, [visual, restoredFocus.nodeId, restoredFocus.edgeId]);
   useEffect(() => {
     const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.sourceAnchorId ?? node.evidenceAnchorIds[0]}`);
-    if (node) { setFocusedNode(node.nodeId); setFocusedEdge(null); savePosition(scene.id, undefined, {nodeId:node.nodeId,edgeId:null}); return; }
+    if (node) { setFocusedNode(node.nodeId); setFocusedEdge(null); savePosition(scene.id, undefined, {nodeId:node.nodeId,edgeId:null}, true); return; }
     const edge = visual?.edges.find((item) => activeFocusTarget?.startsWith(`reader-visual-edge:${item.edgeId}:`));
-    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); savePosition(scene.id, undefined, {nodeId:edge.fromNodeId,edgeId:edge.edgeId}); }
+    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); savePosition(scene.id, undefined, {nodeId:edge.fromNodeId,edgeId:edge.edgeId}, true); }
   }, [activeFocusTarget, visual]);
 
   const select = (next: number, playing = false, nodeId: string | null = null, edgeId: string | null = null) => {
@@ -158,7 +188,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId);
     if (!playing) { setManualVisit((visit) => visit + 1); requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'start', behavior: 'instant' })); }
     if (playing) positions.current.set(scenes[next].id, 0);
-    savePosition(scenes[next].id, undefined, {nodeId,edgeId});
+    savePosition(scenes[next].id, undefined, {nodeId,edgeId}, true);
   };
   const chooseNode = (id: string, sourceValue?: string) => {
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
@@ -329,7 +359,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         <span className="story-scene-title" title={scene.title}>{scene.title}</span>
         <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
         <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${item.title}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
-        {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
+        {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
       </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
@@ -390,7 +420,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section}
         clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
         restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
-        onPlaybackPositionChange={(position) => { savePosition(scene.id, position); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
+        onPlaybackPositionChange={(position) => { savePosition(scene.id, position, undefined, true); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
         onOpenProviderSettings={onSettings} onPlaybackStarted={onSectionPlaybackStarted} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
       <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
     </div>
