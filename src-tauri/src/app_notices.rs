@@ -30,6 +30,7 @@ pub(crate) enum Target {
     OpenRepository {},
     RetryRecents {},
     RetryConversation {},
+    DiscardBrowserPreview {},
     OpenExploration {
         #[serde(rename = "explorationId")]
         exploration_id: String,
@@ -119,7 +120,10 @@ fn validate(input: &Input) -> Result<(), String> {
             return Err("This update has no saved exploration context.".into());
         }
     }
-    if matches!(input.target, Some(Target::RetryConversation {}))
+    if matches!(
+        input.target,
+        Some(Target::RetryConversation {} | Target::DiscardBrowserPreview {})
+    )
         && (input.project_id.is_none() || input.snapshot_id.is_none())
     {
         return Err("This update has no saved conversation context.".into());

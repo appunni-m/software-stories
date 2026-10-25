@@ -8,7 +8,7 @@ import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
-import { getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
@@ -1462,6 +1462,7 @@ function App() {
     if(target?.kind==='openRepository'){void pickLocalRepository('notifications');return;}
     if(target?.kind==='retryRecents'){void retryRecentProjectsLoad();return;}
     if(target?.kind==='retryConversation'&&projectId&&snapshotId){try{await retryWorkspaceConversation(projectId,snapshotId);}catch{/* The same scoped notice remains available for retry. */}return;}
+    if(target?.kind==='discardBrowserPreview'&&projectId&&snapshotId){try{discardUnavailableBrowserPreview(projectId,snapshotId);}catch(failure){setNotice({title:'Saved preview is still unavailable',message:errorMessageOr(failure,'The saved browser preview could not be discarded.'),projectId,snapshotId});}return;}
     if(target?.kind==='openExploration'&&projectId&&snapshotId){
       try{await prepareWorkspaceConversation(projectId,snapshotId);}catch{setNotice({title:'Saved exploration is unavailable',message:'Your saved conversation could not be opened. Existing explanations are preserved.',projectId,snapshotId});return;}
       if(request!==noticeNavigationRequest.current||navigationAtStart!==navigationRef.current)return;
@@ -1527,7 +1528,7 @@ function App() {
         groupActions:groupedNotices.length>1?[{label:`Dismiss all ${groupedNotices.length} notices`,run:()=>noticeHistory.dismissMany(groupedNotices.map(notice=>notice.id))}]:undefined,
         bucket:item.read?'updates':'attention',countLabel:'notices',
         message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
-        actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',
+        actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':item.input.target.kind==='discardBrowserPreview'?'Discard saved preview':'Open explanation',
           movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
           run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
           ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),

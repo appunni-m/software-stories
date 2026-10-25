@@ -8,9 +8,10 @@ import {ConversationPersistence,type ConversationRecord} from './conversationPer
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
+import type { NoticeTarget } from '../lib/noticeHistory';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, rememberComposerDraft, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -43,6 +44,7 @@ export function ensureWorkspaceIndex(project: string, snapshot: string): Promise
 }
 
 const states = new Map<string, WorkspaceState>();
+const browserPreviewWriteBlocked = new Set<string>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
@@ -89,12 +91,12 @@ function resolveUnsavedConversation(project:string,snapshot:string){
   const id=key(project,snapshot),occurrenceId=unsavedWorkspaceEpisodes.get(id);
   if(occurrenceId){unsavedWorkspaceEpisodes.delete(id);window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved',{detail:{projectId:project,snapshotId:snapshot,occurrenceId}}));}
 }
-function reportUnsavedConversation(project:string,snapshot:string,native=false,failureMessage?:string){
+function reportUnsavedConversation(project:string,snapshot:string,native=false,failureMessage?:string,target?:NoticeTarget){
   const id=key(project,snapshot);if(unsavedWorkspaceEpisodes.has(id))return;
   const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
   window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:'Conversation could not be saved',
-    message:native?(failureMessage??'Some conversation changes could not be saved. Existing explanations are preserved.'):'Local workspace storage is unavailable. Generated explanations remain in the native library.',
-    projectId:project,snapshotId:snapshot,occurrenceId,...(native?{target:{kind:'retryConversation'}}:{})}}));
+    message:failureMessage??(native?'Some conversation changes could not be saved. Existing explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.'),
+    projectId:project,snapshotId:snapshot,occurrenceId,...(target?{target}:native?{target:{kind:'retryConversation'}}:{})}}));
 }
 export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{
   if(closingWorkspace)return new Promise((resolve,reject)=>{deferredCloseUpdates.push(()=>{void prepareWorkspaceConversation(project,snapshot).then(resolve,reject);});});
@@ -108,8 +110,28 @@ export function useConversationAvailability(project:string,snapshot:string){
 }
 export function getWorkspace(project: string, snapshot: string): WorkspaceState {
   const id = key(project, snapshot);
-  if (!states.has(id)) { let raw = null; if(!isNativeRuntime())try { raw = localStorage.getItem(browserPreviewKey(project,snapshot)); } catch { /* Browser preview remains usable when storage is unavailable. */ } states.set(id, parseWorkspace(raw, project, snapshot)); }
+  if (!states.has(id)) {
+    let raw: string | null = null;
+    let readFailed = false;
+    if (!isNativeRuntime()) try { raw = localStorage.getItem(browserPreviewKey(project,snapshot)); } catch { readFailed = true; }
+    const restored = decodeWorkspace(raw, project, snapshot);
+    if (!isNativeRuntime() && (readFailed || (raw !== null && restored === null))) browserPreviewWriteBlocked.add(id);
+    states.set(id, restored ?? createWorkspace(project, snapshot));
+  }
   return states.get(id)!;
+}
+/** Explicitly discard only an unsupported browser-preview record after the user
+ * chooses the notification action. The original bytes stay in place otherwise. */
+export function discardUnavailableBrowserPreview(project: string, snapshot: string): void {
+  if (isNativeRuntime()) throw new Error('This action is only available for the browser preview.');
+  const id=key(project,snapshot);
+  if (!browserPreviewWriteBlocked.has(id)) throw new Error('This browser preview has no unavailable saved record to discard.');
+  try { localStorage.removeItem(browserPreviewKey(project,snapshot)); }
+  catch { throw new Error('The saved browser preview could not be discarded. Its stored data remains untouched.'); }
+  browserPreviewWriteBlocked.delete(id);
+  states.set(id,createWorkspace(project,snapshot));
+  resolveUnsavedConversation(project,snapshot);
+  listeners.forEach((notify) => notify());
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
   if(closingWorkspace){deferredCloseUpdates.push(()=>updateWorkspace(project,snapshot,update));return;}
@@ -125,7 +147,9 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
     // memory without replacing or attempting to migrate the preserved bytes.
     if(persistence!.availability==='ready')persistence!.enqueue(next);
   }
-  else try {
+  else if (browserPreviewWriteBlocked.has(id)) {
+    reportUnsavedConversation(project,snapshot,false,'Saved browser workspace data could not be opened. Its original bytes were preserved. Discard it to start fresh; changes in this preview cannot be saved.',{kind:'discardBrowserPreview'});
+  } else try {
     localStorage.setItem(browserPreviewKey(project,snapshot), JSON.stringify(next));
     resolveUnsavedConversation(project,snapshot);
   } catch {reportUnsavedConversation(project,snapshot);}
@@ -157,6 +181,10 @@ function persistWorkspaceDraftState(project:string,snapshot:string){
     const persistence=savedConversation(project,snapshot);
     if(persistence.availability==='ready')persistence.enqueue(state);
     else if(persistence.availability==='unavailable')reportUnsavedConversation(project,snapshot,true,'The current question draft could not be saved.');
+    return;
+  }
+  if(browserPreviewWriteBlocked.has(key(project,snapshot))){
+    reportUnsavedConversation(project,snapshot,false,'Saved browser workspace data could not be opened. Its original bytes were preserved. Discard it to start fresh; changes in this preview cannot be saved.',{kind:'discardBrowserPreview'});
     return;
   }
   try{
