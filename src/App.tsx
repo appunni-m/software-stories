@@ -4921,6 +4921,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                     setSelectedTargetKey(target.key);
                     setSelectedRevisionId(target.latestCurrent?.revisionId ?? target.latestAny?.revisionId ?? null);
                     setEditing(false); setCandidate(null); setValidation(null); setFeedback(null);
+                    setRejecting(false); setRejectReason(''); setFreshnessState(null);
                     if (latest) onSelectRevision(latest);
                     else onClearRevisionRoute();
                   }}
@@ -4957,7 +4958,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                     key={revision.revisionId}
                     className={`chapter-history-item lifecycle-${revision.lifecycle}${selectedRevision?.revisionId === revision.revisionId ? ' is-current' : ''}`}
                     disabled={editing || busy}
-                    onClick={() => { setSelectedRevisionId(revision.revisionId); setEditing(false); setCandidate(null); setValidation(null); setRejecting(false); setFeedback(null); onSelectRevision(revision); }}
+                    onClick={() => { setSelectedRevisionId(revision.revisionId); setEditing(false); setCandidate(null); setValidation(null); setRejecting(false); setRejectReason(''); setFeedback(null); setFreshnessState(null); onSelectRevision(revision); }}
                     aria-pressed={selectedRevision?.revisionId === revision.revisionId}
                     title={`${revision.lifecycle} · snapshot ${revision.snapshotId}`}
                   ><strong>r{revision.revisionNumber}</strong><span>{revision.lifecycle} · {new Date(revision.createdAtUnixMs).toLocaleDateString()}</span><small title={revision.basedOnRevisionId ? `Parent ${revision.basedOnRevisionId}` : 'No parent revision'}>snap {revision.snapshotId.slice(-8)} · {revision.basedOnRevisionId ? `from ${revision.basedOnRevisionId.slice(-8)}` : 'root'}</small></button>)}
@@ -4990,7 +4991,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
                               <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>
-                              <button className="secondary-button button-reject" onClick={() => setRejecting((value) => !value)} disabled={busy || Boolean(pendingDraft)}><X size={14} /> Reject</button>
+                              <button className="secondary-button button-reject" onClick={() => { setRejectReason(''); setRejecting(true); }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> Reject</button>
                             </>}
                           </div>
                         </>}
@@ -5023,7 +5024,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
                         <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
-                        <div><button className="text-button" type="button" onClick={() => setRejecting(false)}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || !rejectReason.trim()}>Record rejection</button></div>
+                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || !rejectReason.trim()}>Record rejection</button></div>
                       </form>}
 
                       {selectedFreshness?.loading && <p className="chapter-review-feedback tone-info" role="status">Comparing this accepted revision with snapshot {snapshotId.slice(-12)}…</p>}
