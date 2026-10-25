@@ -114,7 +114,7 @@ export function DeveloperWorkspace(props:Props) {
   const [searchOffset,setSearchOffset] = useState(0);
   const [searchBusy,setSearchBusy] = useState(false);
   const [searchError,setSearchError] = useState<string|null>(null);
-  const [openFolders,setOpenFolders] = useState<Set<string>>(()=>new Set(['src','app','lib','Sources']));
+  const [openFolders,setOpenFolders] = useState<Set<string>>(()=>new Set());
   const [narrowPane,setNarrowPane] = useState<'explanation'|'source'|'explorer'>('explanation');
   const codeOpen = current.codeOpen ?? true;
   const setCodeOpen = (open:boolean) => {
