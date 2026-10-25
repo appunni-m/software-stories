@@ -294,7 +294,7 @@ export function DeveloperWorkspace(props:Props) {
     defaultComparedHead.current=comparisonKey;
     onCompare(head.parents[0],head.oid);
   },[projectId,workspace,gitBusy,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
-  function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
+  function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false); }
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);focusComposer();}
@@ -423,7 +423,7 @@ export function DeveloperWorkspace(props:Props) {
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   const sourcePane=source
-    ? <CodePane path={source.path} contents={source.contents} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>setCodeOpen(false)}/>
+    ? <CodePane path={source.path} contents={source.contents} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
     : <div className="dw-source-empty">{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
   return <ReaderProgressContext.Provider value={{
     story:(identity)=>{const owner=presentationOwner(current,identity.revisionId);return owner?{progress:owner.presentation?.stories.find(p=>sameSection(p,identity)),onProgressChange:(progress)=>savePresentation(owner.id,'stories',progress)}:undefined;},
