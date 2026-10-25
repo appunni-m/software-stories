@@ -79,7 +79,11 @@ export function DeveloperWorkspace(props:Props) {
   const connection=useConnectionState();
   const [generationBackend,setGenerationBackend]=useState(()=>readGenerationBackend());
   useEffect(()=>{
-    const refresh=()=>setGenerationBackend(readGenerationBackend());
+    const refresh=()=>{
+      const selected=readGenerationBackend();
+      setGenerationBackend(selected);
+      setConnectionNotice(null);
+    };
     window.addEventListener('code-atlas:connection-changed',refresh);
     return()=>window.removeEventListener('code-atlas:connection-changed',refresh);
   },[]);
@@ -136,6 +140,7 @@ export function DeveloperWorkspace(props:Props) {
   const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean}|null>(null);
   const [consentBusy,setConsentBusy] = useState(false);
   const [consentError,setConsentError] = useState<string|null>(null);
+  const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
   const [sharingOpen,setSharingOpen] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
   const handledLargeFileExplanation = useRef<string|null>(null);
@@ -172,7 +177,17 @@ export function DeveloperWorkspace(props:Props) {
   const go = (id:string) => { update((s)=>openWorkspaceExploration(s,id)); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const requireCodexConnection=()=>{
-    if(generationBackend!=='codex'||!connection.status?.authenticated){onSettings();return false;}
+    if(generationBackend!=='codex'){
+      const selected=generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Code';
+      setConnectionNotice(`Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
+      return false;
+    }
+    if(!connection.status?.authenticated){
+      setConnectionNotice('Connect Codex in Connections to continue. Your question stays here.');
+      onSettings();
+      return false;
+    }
+    setConnectionNotice(null);
     return true;
   };
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
@@ -306,13 +321,19 @@ export function DeveloperWorkspace(props:Props) {
     const pending=props.pendingLargeFileExplanation;
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
       ||handledLargeFileExplanation.current===pending.id)return;
-    if(generationBackend!=='codex'||!connection.status?.authenticated){
+    if(generationBackend!=='codex'){
+      setConnectionNotice('This file explanation needs Codex. Switch the saved connection once in Connections to continue.');
+      return;
+    }
+    if(!connection.status?.authenticated){
+      setConnectionNotice('Connect Codex in Connections to continue this file explanation.');
       if(requestedConnectionForLargeFileExplanation.current!==pending.id){
         requestedConnectionForLargeFileExplanation.current=pending.id;
         props.onSettings();
       }
       return;
     }
+    setConnectionNotice(null);
     const contexts=largeFileExplanationContexts(pending,props.manifest.files);
     if(!contexts.some((context)=>context.path===pending.targetPath)){
       handledLargeFileExplanation.current=pending.id;
@@ -428,6 +449,7 @@ export function DeveloperWorkspace(props:Props) {
             <textarea ref={composer} data-focus-key="workspace-composer" rows={1} value={query} maxLength={1000} disabled={conversationUnavailable} aria-label="Ask about this codebase" placeholder={conversationUnavailable?'Saved explanations are read-only for now':'Ask about this codebase'} onChange={(e)=>{e.target.setCustomValidity('');setQuery(e.target.value);}} onFocus={()=>setSearchFocused(true)} onKeyDown={(e)=>{if(e.key==='Escape')setSearchFocused(false);if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();ask(query);}}}/>
             <Tooltip content="Attach open file"><IconButton size="1" variant="ghost" color="gray" disabled={!source||conversationUnavailable} aria-label="Attach open file" onClick={()=>source&&attach({path:source.path,sha256:source.sha256})}><Paperclip size={15}/></IconButton></Tooltip><IconButton size="1" aria-label="Send question" disabled={!query.trim()||conversationUnavailable} onClick={()=>ask(query)}><ArrowUp size={15}/></IconButton>
           </div>
+          {connectionNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><Button size="1" variant="soft" onClick={onSettings}>Connections</Button></div>}
           {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{searchBusy?'Searching…':searchError?'Search unavailable':results.length?'In your code':'No matching code in this search'}</small>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{shouldOfferExploreWithAI(query,searchMode,searchBusy,searchError,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>ask(query)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
         </div>
         {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading">
