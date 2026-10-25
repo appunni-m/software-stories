@@ -586,7 +586,7 @@ function Answer(props:AnswerProps){
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const failureMessage=explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
-  const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide);
+  const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide,sections.length>0);
   const uncoveredGuideTopics=repositoryGuideUncoveredTopics(turn.guide);
   const canExtendOmissions=!!(turn.guideId&&turn.guide?.canExtend===true&&!canContinueRepositoryGuide(turn.guide)
     &&(turn.status==='ready'||turn.status==='partial')&&guideSlideItemIndex===lastAvailableItemIndex);

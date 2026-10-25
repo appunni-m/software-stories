@@ -246,9 +246,9 @@ export function canContinueRepositoryGuide(guide: Omit<RepositoryGuide, 'answers
 }
 
 /** Make terminal guide coverage visible without labeling an active outline early. */
-export function repositoryGuideCoverageLabel(guide: Omit<RepositoryGuide, 'answers'> | undefined): 'Planned topics complete' | 'Partial coverage' | 'Incomplete' | null {
+export function repositoryGuideCoverageLabel(guide: Omit<RepositoryGuide, 'answers'> | undefined, hasPublishedSections = false): 'Planned topics complete' | 'Partial coverage' | 'Incomplete' | null {
   if (!guide || guide.status === 'planning' || guide.status === 'building' || guide.status === 'waitingForPlayback') return null;
-  if (guide.status !== 'ready') return 'Incomplete';
+  if (guide.status !== 'ready') return hasPublishedSections ? 'Partial coverage' : 'Incomplete';
   if (!guide.units.length) return 'Incomplete';
   return guide.omissions.length > 0 || guide.units.some((unit) => unit.status !== 'complete')
     ? 'Partial coverage' : 'Planned topics complete';
