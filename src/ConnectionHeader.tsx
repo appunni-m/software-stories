@@ -19,24 +19,28 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     };
   }, []);
   const codexSelected = backend === 'codex';
-  const ready = codexSelected && connection.status?.authenticated && connection.status.runtimeRunning;
+  const codexRuntimeReady = codexSelected && connection.status?.authenticated && connection.status.runtimeRunning;
   const providerName = apiSelection.providerId === 'gemini' ? 'Gemini'
     : apiSelection.providerId === 'openai' ? 'OpenAI'
       : apiSelection.providerId === 'anthropic' ? 'Anthropic' : apiSelection.providerId;
   const selectedModel = connection.models.find((model) => model.modelId === connection.selection.modelId);
   const codexModel = selectedModel?.displayName ?? connection.selection.modelId;
+  const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(connection.selection.effort));
+  const ready = Boolean(codexRuntimeReady && modelReady);
   const label = backend === null ? 'Choose connection'
     : backend === 'api'
     ? `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? 'Manual agent'
         : connection.checking ? 'Connecting to Codex…'
-          : ready ? `Codex · ${codexModel} · ${connection.selection.effort}` : 'Connect Codex';
+          : ready ? `Codex · ${codexModel} · ${connection.selection.effort}`
+            : codexRuntimeReady ? 'Choose Codex model' : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
-    : backend === null || codexSelected && connection.error ? CircleAlert : PlugZap;
+    : backend === null || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
   const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
     : backend === 'codex'
-    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.` : 'Set up your Codex connection once'
+    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.`
+      : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
     : backend === 'api' ? `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
         : 'Manual agent handoff selected. Open Connections to manage it.';

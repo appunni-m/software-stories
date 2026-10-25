@@ -5,12 +5,23 @@ import { restoreCodexConnection } from './codexConnection';
 export const codexPreferenceKey = 'code-atlas:codex-chapter-preferences';
 export function readCodexSelection(): { modelId: string; effort: string } {
   try {
-    const value = JSON.parse(localStorage.getItem(codexPreferenceKey) ?? 'null');
-    if (typeof value?.modelId === 'string' && typeof value?.effort === 'string') return value;
-  } catch { /* Optional preference. */ }
-  return { modelId: 'gpt-6-luna', effort: 'max' };
+    const serialized = localStorage.getItem(codexPreferenceKey);
+    if (serialized === null) return { modelId: 'gpt-6-luna', effort: 'max' };
+    const value: unknown = JSON.parse(serialized);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { modelId: '', effort: '' };
+    const record = value as Record<string, unknown>;
+    if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'modelId') || !Object.hasOwn(record, 'effort')
+      || typeof record.modelId !== 'string' || !record.modelId.trim() || record.modelId.length > 256
+      || /[\u0000-\u001f\u007f-\u009f]/u.test(record.modelId)
+      || typeof record.effort !== 'string' || !record.effort.trim() || record.effort.length > 32
+      || /[\u0000-\u001f\u007f-\u009f]/u.test(record.effort)) return { modelId: '', effort: '' };
+    return { modelId: record.modelId, effort: record.effort };
+  } catch { /* An unreadable saved selection must not choose another model. */ }
+  return { modelId: '', effort: '' };
 }
 export function rememberCodexSelection(modelId: string, effort: string) {
+  if (!modelId.trim() || modelId.length > 256 || /[\u0000-\u001f\u007f-\u009f]/u.test(modelId)
+    || !effort.trim() || effort.length > 32 || /[\u0000-\u001f\u007f-\u009f]/u.test(effort)) return;
   try { localStorage.setItem(codexPreferenceKey, JSON.stringify({ modelId, effort })); } catch { /* Optional. */ }
   publish({ selection: { modelId, effort } });
 }
