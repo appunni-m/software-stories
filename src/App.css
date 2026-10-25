@@ -2110,6 +2110,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-batch-list { display: grid; gap: 10px; padding-left: 25px; }
 .chapter-batch-list li { padding: 9px; border-bottom: 1px solid var(--border); }
 .chapter-batch-list small { display: block; color: var(--muted); margin-top: 5px; }
+.chapter-batch-background { position: fixed; z-index: 80; right: 20px; bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: min(560px, calc(100vw - 40px)); padding: 14px 16px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface-raised); box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 32%, transparent); }
+.chapter-batch-background > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.chapter-batch-background strong { font-size: 13px; }
+.chapter-batch-background span, .chapter-batch-background small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.chapter-batch-background-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; flex: 0 0 auto; }
+@media (max-width: 650px) { .chapter-batch-background { left: 12px; right: 12px; bottom: 12px; width: auto; align-items: flex-start; flex-direction: column; } .chapter-batch-background-actions { justify-content: flex-start; } }
 
 .documentation-notices { margin: 12px 0; border-left: 3px solid var(--accent-border); padding: 10px 14px; background: var(--surface-raised); }
 .documentation-notices summary { color: var(--muted); cursor: pointer; font-size: 12px; }

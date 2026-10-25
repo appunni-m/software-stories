@@ -30,6 +30,8 @@ import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlans } from './RepositoryPlans';
+import { ChapterBatchDialog } from './ChapterBatchDialog';
+import type { RepositoryPlanRevisionDetail } from './lib/repositoryPlans';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
@@ -299,6 +301,7 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
+  const [chapterBatchPlan, setChapterBatchPlan] = useState<RepositoryPlanRevisionDetail | null>(null);
   const [pendingLargeFileExplanation, setPendingLargeFileExplanation] = useState<PendingLargeFileExplanation | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
@@ -310,6 +313,14 @@ function App() {
     planningReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPlanningDialog(scope);
   }, []);
+  const startChapterBatch = useCallback((plan: RepositoryPlanRevisionDetail) => {
+    if (chapterBatchPlan) {
+      setNotice({ title: 'A chapter route is already running', message: 'Its exact reviewed requests continue in the background. Finish or stop that route before starting another.' });
+      return;
+    }
+    setChapterBatchPlan(plan);
+  }, [chapterBatchPlan, setNotice]);
+  const closeChapterBatch = useCallback(() => setChapterBatchPlan(null), []);
   useEffect(() => {
     if (planningDialog && (navigation.current.workspace !== 'guide-plan'
       || navigation.current.projectId !== planningDialog.projectId || navigation.current.snapshotId !== planningDialog.snapshotId)) {
@@ -1840,6 +1851,7 @@ function App() {
                 onGeneratePlannedChapter={(scope) => openPlanningDialog({ kind: 'planned-chapter',
                   projectId: currentProject.projectId, snapshotId: scope.snapshotId,
                   question: scope.question, selectedPaths: scope.selectedPaths, plannedChapter: scope })}
+                onStartChapterBatch={startChapterBatch}
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
@@ -1996,6 +2008,12 @@ function App() {
           onRecoveryChanged={() => { void refreshPendingChapterPreviews(); }}
         />
       )}
+      {chapterBatchPlan && <ChapterBatchDialog
+        projectId={chapterBatchPlan.plan.preview.plan.projectId}
+        plan={chapterBatchPlan}
+        onClose={closeChapterBatch}
+        onReviewChapter={reviewGuideRevision}
+      />}
     </div>
     </Theme>
   );
@@ -3898,7 +3916,7 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onGeneratePlannedChapter, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onGeneratePlannedChapter, onStartChapterBatch, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   projectName: string;
   manifest: SnapshotManifest;
@@ -3911,6 +3929,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   onGenerateOverview: () => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
   onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
+  onStartChapterBatch: (plan: RepositoryPlanRevisionDetail) => void;
   onReadRevision: (revision: ChapterRevision) => void;
   onReviewRevision: (revision: ChapterRevision) => void;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
@@ -4074,7 +4093,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   return (
     <div className="empty-workspace guide-plan-screen">
       <section className="guide-question-panel" aria-label="Ask the code">
-      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
+      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter} onStartBatch={onStartChapterBatch}
         chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
       </section>
 

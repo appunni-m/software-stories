@@ -4,7 +4,6 @@ import { isNativeRuntime, type ChapterClaim, type ChapterRevision, type Snapshot
 import { samePlannedTarget } from './lib/chapterOrigin';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
-import { ChapterBatchDialog } from './ChapterBatchDialog';
 import { DocumentationNotices } from './DocumentationNotices';
 import { codeLensRangeFromChapterAnchor } from './lib/codeLens';
 import { errorMessageOr } from './lib/errorMessage';
@@ -26,6 +25,7 @@ interface Props {
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
   onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
+  onStartBatch: (plan: RepositoryPlanRevisionDetail) => void;
   chapters: ChapterRevision[];
   chaptersLoading: boolean;
   chaptersError: string | null;
@@ -36,7 +36,7 @@ interface Props {
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
  * discovery is followed by a native evidence-revalidating load before display. */
 export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter,
-  chapters, chaptersLoading, chaptersError, onReadChapter, onReviewChapter,
+  onStartBatch, chapters, chaptersLoading, chaptersError, onReadChapter, onReviewChapter,
 }: Props) {
   const { projectId, snapshotId } = manifest.summary;
   const native = isNativeRuntime();
@@ -69,8 +69,6 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     window.addEventListener(SOURCE_DISCOVERY_SAVED_EVENT, onSaved);
     return () => window.removeEventListener(SOURCE_DISCOVERY_SAVED_EVENT, onSaved);
   }, [projectId, snapshotId, question, availablePaths]);
-  const [batchPlan, setBatchPlan] = useState<RepositoryPlanRevisionDetail | null>(null);
-  const closeBatch = useCallback(() => setBatchPlan(null), []);
   const [summaries, setSummaries] = useState<RepositoryPlanDraftSummary[]>([]);
   const [detail, setDetail] = useState<RepositoryPlanDraftDetail | null>(null);
   const [revisions, setRevisions] = useState<RepositoryPlanRevisionSummary[]>([]);
@@ -110,7 +108,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
         revisionId: revision.revision.revisionId, recordSha256: detail.recordSha256, stepId: step.stepId,
       });
   }).sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber) : [];
-  const locked = discarding || decisionBusy !== null || batchPlan !== null;
+  const locked = discarding || decisionBusy !== null;
   const alreadyAccepted = detail ? revisions.find((item) => item.revision.draftId === detail.preview.plan.draftId) : undefined;
   const availableParents = revisions.filter((item) => item.isHead && item.revision.question === detail?.preview.plan.question);
   async function explainStep() {
@@ -351,7 +349,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     {detail && step && <section className="plan-reader" aria-label="Saved learning plan review">
       <h3>{detail.preview.plan.title}</h3><p>{detail.preview.plan.question}</p>
       {revision && <div className="plan-batch-action"><button className="primary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId}
-        onClick={() => setBatchPlan(revision)}><Sparkles size={15} /> Build all chapters</button><p>One review, then Codex works through the route. Saved steps are skipped.</p></div>}
+        onClick={() => onStartBatch(revision)}><Sparkles size={15} /> Build all chapters</button><p>One review, then Codex works through the route. Saved steps are skipped. You can listen to each saved draft while the next chapter builds.</p></div>}
       <p className="provider-small-note">{revision ? `Accepted revision ${revision.revision.revisionNumber}` : 'Unaccepted plan'} · {detail.preview.plan.plannedSelectedPaths.length} primary files · {detail.preview.plan.citedSelectedPaths.length} cited files · {detail.preview.plan.omittedSelectedPaths.length} selected files without a step. {detail.scope.coverage.unselectedEligibleFileCount} other eligible captured files remain outside the selection.</p>
       <p className="provider-small-note">Capture: {detail.scope.captureStatus} · index: {detail.scope.indexStatus} · {detail.scope.coverage.skippedPathCount} skipped paths · {detail.scope.coverage.excludedCapturedPathCount} excluded captured paths. This is not a whole-repository explanation.</p>
       <details><summary>Snapshot and recorded agent settings</summary><p><code>{detail.preview.plan.snapshotId}</code> · {detail.preview.modelId}</p><pre>{JSON.stringify(detail.settings, null, 2)}</pre><p>These are recorded dispatch labels, not tamper-proof account proof or authorization for a new request. Capture: {detail.scope.captureStatus}; index: {detail.scope.indexStatus}.</p></details>
@@ -410,6 +408,5 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     {historyError && <p className="provider-error-text" role="alert">{historyError}</p>}
     {error && <p className="provider-error-text" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {batchPlan && <ChapterBatchDialog projectId={projectId} plan={batchPlan} onClose={closeBatch} onReviewChapter={onReviewChapter} />}
   </section>;
 }
