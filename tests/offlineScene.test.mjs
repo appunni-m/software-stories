@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
-import { renderOfflineScene } from '../src/lib/offlineScene.ts';
+import { OFFLINE_SCENE_CSS, renderOfflineScene } from '../src/lib/offlineScene.ts';
 import { validScenePresentation } from '../src/lib/scenePresentation.ts';
 
 const anchor = { anchorId: 'anchor:one', excerpt: 'run()' };
@@ -32,6 +32,28 @@ it('offline composition preserves every supported data and layout primitive', ()
       if (kind === 'bytes') assert.match(markup, /<b>30<\/b><small>3<\/small>/);
     }
   }
+});
+
+it('offline stacks read and display the next-to-pop item first', () => {
+  const stackVisual = { nodes: [
+    { label: 'Oldest item', evidenceAnchorIds: ['anchor:one'] },
+    { label: 'Newest item', evidenceAnchorIds: ['anchor:two'] },
+  ] };
+  const stackClaims = [{ anchors: [anchor, { anchorId: 'anchor:two', excerpt: 'run()' }] }];
+  const authored = {
+    claimIndex: 0, title: 'Stack order', narration: 'The newest item leaves first.', mode: 'composition',
+    elements: [
+      { kind: 'stack', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+      { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'neutral', value: 'oldest', valueOrigin: 'illustration' },
+      { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'accent', value: 'newest', valueOrigin: 'illustration' },
+    ],
+  };
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, stackVisual.nodes, stackClaims));
+  const markup = renderOfflineScene(authored, stackVisual, index => `#evidence-${index}`);
+  assert.ok(markup.indexOf('Newest item') < markup.indexOf('Oldest item'));
+  assert.match(markup, /aria-label="Last-in, first-out stack\. Top item is next to pop\."/);
+  assert.match(OFFLINE_SCENE_CSS, /\.scene-stack:before\{content:'NEXT TO POP'/);
+  assert.doesNotMatch(OFFLINE_SCENE_CSS, /\.scene-stack\{[^}]*column-reverse/u);
 });
 
 it('offline scenes keep semantic transform roles and source-linked destinations', () => {

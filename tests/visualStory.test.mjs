@@ -242,6 +242,16 @@ describe('visual story scenes', () => {
     assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
   });
 
+  it('keeps the live stack renderer aligned with the top-first child order', () => {
+    const component = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
+    const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
+    assert.match(component, /sceneChildIndices\(scene\.elements, index\)/u);
+    assert.match(component, /stack:\s*'Last-in, first-out stack\. Top item is next to pop\.'/u);
+    assert.match(styles, /\.html-scene-stack\s*\{[^}]*flex-direction:\s*column;/u);
+    assert.match(styles, /\.html-scene-stack::before\s*\{[^}]*content:\s*'NEXT TO POP'/u);
+    assert.doesNotMatch(styles, /\.html-scene-stack\s*\{[^}]*column-reverse/u);
+  });
+
   it('exposes matrix dimensions and each row to assistive technology', () => {
     const component = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
     assert.ok(component.includes('const matrixLabel = ['));

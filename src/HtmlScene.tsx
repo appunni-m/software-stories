@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowDown, ArrowRight, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
-import { containerKinds, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
+import { containerKinds, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
 import './html-scene.css';
 
 /** The AI composes HTML from bounded layout/data primitives. React owns every
@@ -13,13 +13,14 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
 }) {
   const draw = (index: number): ReactNode => {
     const e = scene.elements[index];
-    const childIndices = scene.elements.flatMap((child, i) => child.parentIndex === index ? [i] : []);
+    const childIndices = sceneChildIndices(scene.elements, index);
     const children = childIndices.map(draw);
     const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}${hasArrows ? ' has-arrows' : ''}`;
     if (containerKinds.has(e.kind)) {
       const labels: Record<string, string> = {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
+        stack: 'Last-in, first-out stack. Top item is next to pop.',
         branch: 'Decision and outcomes', beforeAfter: 'Before and after states',
         transform: 'Input, operation and result', tree: 'Nested data hierarchy',
         pointFlow: 'Coordinate-free point transformation; symbolic only, no coordinates shown',

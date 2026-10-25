@@ -24,6 +24,16 @@ const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
+
+/** Return visual children in their displayed and assistive-technology order.
+ * Stack children are authored oldest/bottom first; the newest item is shown
+ * and read at the top as the next item to pop.
+ */
+export function sceneChildIndices(elements: readonly SceneElement[], parentIndex: number): number[] {
+  const children = elements.flatMap((child, childIndex) => child.parentIndex === parentIndex ? [childIndex] : []);
+  return elements[parentIndex]?.kind === 'stack' ? children.reverse() : children;
+}
+
 const requiresOrderedSelector = (claim: string, title: string, narration: string) => {
   const text = `${claim} ${title} ${narration}`.toLowerCase().replace(/[-_]/gu, ' ');
   return ['first match', 'first matching', 'first applicable', 'first successful', 'ordered probe',

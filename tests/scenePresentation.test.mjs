@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { sceneNodeAccessibleLabel, validScenePresentation, validStoredScenePresentation } from '../src/lib/scenePresentation.ts';
+import { sceneChildIndices, sceneNodeAccessibleLabel, validScenePresentation, validStoredScenePresentation } from '../src/lib/scenePresentation.ts';
 import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
 import { storyScenes } from '../src/lib/visualStory.ts';
 
@@ -10,6 +10,16 @@ const element = (kind, value = '', valueOrigin = 'none', parentIndex = null) => 
 const presentation = (elements = [element('code', 'Hello, ${name}', 'source')]) => ({ schemaVersion: 3, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', narration: 'A name becomes a greeting with the same prefix for every input.', mode: 'composition', elements }] });
 
 describe('AI-authored HTML scene contract', () => {
+  it('orders stack children top-first for visual and assistive-technology reading', () => {
+    const elements = [
+      { ...element('stack'), nodeIndex: null },
+      element('token', 'oldest item', 'illustration', 0),
+      element('token', 'newest item', 'illustration', 0),
+    ];
+    assert.deepEqual(sceneChildIndices(elements, 0), [2, 1]);
+    assert.deepEqual(sceneChildIndices([{ ...element('row'), nodeIndex: null }, ...elements.slice(1)], 0), [1, 2]);
+  });
+
   it('makes each source-linked visual cue meaningful to keyboard and screen-reader users', () => {
     assert.equal(sceneNodeAccessibleLabel({
       label: 'PFR0 prefix check',
