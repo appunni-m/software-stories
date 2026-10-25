@@ -1927,6 +1927,7 @@ function App() {
           mode={providerDialog}
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
+          onOpenConnections={openProviderSettings}
           onRecoveryReviewReady={completeRecoveredProviderReview}
           onOpenPendingPreview={(generationId) => { closeProviderDialog(); setRecoveredPreviewId(generationId); }}
           onOpenCodeLensCitation={(citation) => {
@@ -1975,6 +1976,7 @@ interface ProviderDialogProps {
   mode: ProviderDialogMode;
   native: boolean;
   onClose: () => void;
+  onOpenConnections: () => void;
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
   onOpenPendingPreview: (generationId: string) => void;
@@ -1987,34 +1989,41 @@ function ProviderDialog(props: ProviderDialogProps) {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
     if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
-    const saved = readGenerationBackend();
-    return saved === 'api' || agentOperation && saved !== 'handoff' || handoffOperation ? saved : 'choose';
+    return readGenerationBackend();
   });
   const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>(() => { try { return localStorage.getItem('code-atlas:handoff-agent') === 'antigravity' ? 'antigravity' : 'claude-code'; } catch { return 'claude-code'; } });
   useEffect(() => { try { localStorage.setItem('code-atlas:handoff-agent', handoffAgent); } catch { /* Optional. */ } }, [handoffAgent]);
+  const selectedConnectionSupportsOperation = backend === 'api' || backend === 'claude-setup'
+    || backend === 'codex' && agentOperation || backend === 'handoff' && handoffOperation;
+  const connectionUnavailable = props.mode.kind !== 'settings' && !selectedConnectionSupportsOperation;
   const chooserRef = useRef<HTMLElement>(null);
   useModalFocusTrap(chooserRef);
   useEffect(() => {
-    if (backend !== 'choose') return;
+    if (backend !== 'choose' && !connectionUnavailable) return;
     chooserRef.current?.focus();
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); props.onClose(); }
     };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
-  }, [backend, props.onClose]);
+  }, [backend, connectionUnavailable, props.onClose]);
   const choose = (next: GenerationBackend) => { rememberGenerationBackend(next); setBackend(next); };
+  const openConnections = () => { props.onClose(); requestAnimationFrame(props.onOpenConnections); };
+  const chooseConnection = () => {
+    if (props.mode.kind === 'settings') setBackend('choose');
+    else openConnections();
+  };
   if (props.mode.kind === 'settings' && backend === 'codex') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}/>;
-  if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
+  if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={chooseConnection} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
-    onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
+    onClose={props.onClose} onChooseBackend={chooseConnection}
     onRecoveryResultReady={props.onRecoveryReviewReady}
     onOpenPendingPreview={props.onOpenPendingPreview}
     onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
-      initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
+      initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={chooseConnection} />;
   }
   if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range')) {
     const selectedMode = props.mode;
@@ -2022,10 +2031,18 @@ function ProviderDialog(props: ProviderDialogProps) {
       ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
       : selectedMode;
     return <CodexContextDialog mode={mode}
-      native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
+      native={props.native} onClose={props.onClose} onChooseBackend={chooseConnection}
       onOpenPendingPreview={props.onOpenPendingPreview}
       onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   }
+  if (props.mode.kind !== 'settings') return <div className="provider-overlay">
+    <section className="provider-dialog" ref={chooserRef} role="dialog" aria-modal="true" aria-labelledby="connection-unavailable-title" tabIndex={-1}>
+      <header className="provider-dialog-header"><div><h2 id="connection-unavailable-title">This connection can’t do this action yet</h2>
+        <p>Change your AI connection once from Connections in the header. The current request has not been sent.</p></div>
+        <button className="icon-button" onClick={props.onClose} aria-label="Close connection notice"><X size={17} /></button></header>
+      <div className="provider-dialog-content"><button className="primary-button" onClick={openConnections}>Open Connections</button></div>
+    </section>
+  </div>;
   return <div className="provider-overlay">
     <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
       <header className="provider-dialog-header">
@@ -2062,7 +2079,7 @@ function ProviderDialog(props: ProviderDialogProps) {
   </div>;
 }
 
-function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCodeLensCitation, onChooseBackend }: ProviderDialogProps & { onChooseBackend: () => void }) {
+function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryReviewReady, onOpenCodeLensCitation, onChooseBackend }: ProviderDialogProps & { onChooseBackend: () => void }) {
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState(() => readDirectApiSelection().providerId);
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
@@ -2105,6 +2122,13 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const credentialError = credential?.status === 'error' ? credential.error.message : null;
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
   const reviewMode = mode.kind !== 'settings';
+  const selectedModel = disclosure?.models.find((model) => model.modelId === modelId) ?? null;
+  const connectionProblem = !providerId ? 'Choose an AI provider in Connections.'
+    : !disclosure ? 'The saved provider is unavailable. Choose another provider in Connections.'
+      : !selectedModel ? 'Choose a model in Connections.'
+        : credentialError ? 'Code Atlas could not check the saved API key. Open Connections to review it.'
+          : credentialInfo?.apiKeyConfigured === false ? 'Add an API key in Connections to use this provider.' : null;
+  const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
   const overviewMode = mode.kind === 'overview';
   const sectionUpdateMode = mode.kind === 'section-update';
   const codeLensRangeMode = mode.kind === 'code-lens-range';
@@ -2516,17 +2540,14 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
           <div>
             <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
             <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
-            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Choose a direct API, then inspect the exact snapshot context and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without a model API. Provider keys are optional and stay in macOS Keychain.'}</p>
+            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Uses the saved direct API connection. Inspect the exact snapshot context before sending.') : 'Local browsing works without a model API. Set up an optional provider once here; its key stays in macOS Keychain.'}</p>
           </div>
           <button className="icon-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
 
-        <div className="provider-key-actions">
-          <button className="secondary-button" disabled={keyBusy || sending || saveBusy || requestBuilding || Boolean(sendResult || codeLensResult)} onClick={() => {
-            if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-            onChooseBackend();
-          }}>Change generation backend</button>
-        </div>
+        {!reviewMode && <div className="provider-key-actions">
+          <button className="secondary-button" disabled={keyBusy || sending || saveBusy} onClick={onChooseBackend}>Change AI connection</button>
+        </div>}
 
         {!native ? (
           <div className="provider-preview-only" role="status">
@@ -2539,16 +2560,17 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
           <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{informationError}</span></div>
         ) : (
           <div className="provider-dialog-content">
-            <label className="provider-model-select">Direct API provider
+            {!reviewMode ? <label className="provider-model-select">Direct API provider
               <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={keyBusy || sending || saveBusy || Boolean(sendResult || codeLensResult)}>
                 <option value="">Choose a provider…</option>
                 {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
               </select>
-            </label>
-            {!providerId && <p className="provider-small-note" role="status">Choose a provider explicitly for this task. Provider choice does not send a request or select a model automatically.</p>}
-            {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="provider-small-note" role="status">The saved provider is no longer available. Choose another provider to update your connection.</p>}
-            {modelId && disclosure && !disclosure.models.some((model) => model.modelId === modelId) && <p className="provider-small-note" role="status">The saved model is no longer available for this provider. Choose another model.</p>}
-            {disclosure && <details className="provider-key-card" open={!hasApiKey || !reviewMode}>
+            </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
+            {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
+              <p>{connectionProblem}</p><button className="primary-button" onClick={openConnections}>Open Connections</button>
+            </section>}
+            {reviewMode && providerId && disclosure && selectedModel && credential === null && <p className="provider-small-note" role="status">Checking the saved API connection…</p>}
+            {disclosure && !reviewMode && <details className="provider-key-card" open={!hasApiKey}>
               <summary>{disclosure.displayName} API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
               <div className="provider-key-content">
                 <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open provider setup.'}</p>
@@ -2580,10 +2602,10 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
             {disclosure && (
               <section className="provider-disclosure-card" aria-labelledby="provider-model-title">
                 <div className="provider-section-heading">
-                  <div><span>{disclosure.displayName.toUpperCase()} MODEL ALLOWLIST · CHECKED {disclosure.checkedDate}</span><h3 id="provider-model-title">Versioned models and current terms</h3></div>
+                  <div><span>{disclosure.displayName.toUpperCase()} · CHECKED {disclosure.checkedDate}</span><h3 id="provider-model-title">{reviewMode ? 'Selected model' : 'Models and current terms'}</h3></div>
                   <code>{disclosure.version}</code>
                 </div>
-                {reviewMode && (
+                {!reviewMode && (
                   <label className="provider-model-select">Model
                     <select value={modelId} onChange={(event) => handleModelChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult) || disclosure.models.length === 0}>
                       <option value="">Choose a model…</option>
@@ -2591,7 +2613,12 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                     </select>
                   </label>
                 )}
-                <div className="provider-model-list">
+                {reviewMode && selectedModel && <article className="provider-model selected">
+                  <div><strong>{selectedModel.displayName}</strong><code>{selectedModel.modelId}</code></div>
+                  <p>{selectedModel.freeTierStatus}</p>
+                  <small>Published paid Standard rate: input {selectedModel.paidInputUsdPerMillionTokens}/1M tokens · output {selectedModel.paidOutputUsdPerMillionTokens}/1M tokens.</small>
+                </article>}
+                {!reviewMode && <div className="provider-model-list">
                   {disclosure.models.map((model) => (
                     <article className={`provider-model ${model.modelId === modelId ? 'selected' : ''}`} key={model.modelId}>
                       <div><strong>{model.displayName}</strong><code>{model.modelId}</code></div>
@@ -2601,13 +2628,13 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                       <small>{model.supportsStructuredOutput ? 'Structured JSON output supported' : 'Structured output unavailable'} · {model.supportsStreaming ? 'provider streaming available; Code Atlas sends one non-streaming request' : 'provider streaming unavailable'}</small>
                     </article>
                   ))}
-                </div>
+                </div>}
                 <div className="provider-source-links">
                   <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">{disclosure.displayName} pricing ↗</a>
                   <a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms ↗</a>
                   <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions ↗</a>
                 </div>
-                <p className="provider-small-note">The model list is shipped with the app; Code Atlas does not discover models, change a model automatically, or use a paid fallback. Pricing and availability can change after the checked date.</p>
+                <p className="provider-small-note">Code Atlas uses the selected model and has no automatic paid fallback. Provider pricing and availability can change.</p>
               </section>
             )}
 
