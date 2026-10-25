@@ -33,6 +33,25 @@ interface Props {
   onReviewChapter: (chapter: ChapterRevision) => void;
 }
 
+type LocalQuestionDraft = { question: string; issue: 'unreadable' | 'unsupported' | 'invalid' | null };
+
+function readLocalQuestionDraft(key: string): LocalQuestionDraft {
+  let serialized: string | null;
+  try { serialized = localStorage.getItem(key); }
+  catch { return { question: '', issue: 'unreadable' }; }
+  if (serialized === null) return { question: '', issue: null };
+  let value: unknown;
+  try { value = JSON.parse(serialized); }
+  catch { return { question: '', issue: 'unreadable' }; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { question: '', issue: 'invalid' };
+  const record = value as Record<string, unknown>;
+  if ('schemaVersion' in record) return { question: '', issue: 'unsupported' };
+  if (Object.keys(record).length !== 1 || !Object.hasOwn(record, 'question') || typeof record.question !== 'string') {
+    return { question: '', issue: 'invalid' };
+  }
+  return { question: record.question, issue: null };
+}
+
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
  * discovery is followed by a native evidence-revalidating load before display. */
 export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter,
@@ -41,23 +60,17 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   const { projectId, snapshotId } = manifest.summary;
   const native = isNativeRuntime();
   const draftKey = `code-atlas:plan-input:${projectId}:${snapshotId}`;
-  const [localDraft] = useState(() => {
-    try {
-      const value: unknown = JSON.parse(localStorage.getItem(draftKey) ?? 'null');
-      if (value && typeof value === 'object' && 'question' in value && typeof value.question === 'string') {
-        return { question: value.question };
-      }
-    } catch { /* Draft persistence is optional. */ }
-    return { question: '' };
-  });
+  const [localDraft] = useState(() => readLocalQuestionDraft(draftKey));
   const [question, setQuestion] = useState(localDraft.question);
+  const [preservedDraftIssue, setPreservedDraftIssue] = useState(localDraft.issue);
   const availablePaths = useMemo(() => manifest.files.filter((file) => file.kind === 'file').map((file) => file.path), [manifest.files]);
   const [savedDiscovery, setSavedDiscovery] = useState(() => loadSourceDiscoveryResult(
     { projectId, snapshotId, question: localDraft.question.trim() }, availablePaths,
   ));
   useEffect(() => {
+    if (preservedDraftIssue) return;
     try { localStorage.setItem(draftKey, JSON.stringify({ question })); } catch { /* Optional unsent local draft. */ }
-  }, [draftKey, question]);
+  }, [draftKey, preservedDraftIssue, question]);
   useEffect(() => {
     const reload = () => setSavedDiscovery(loadSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
     const onSaved = (event: Event) => {
@@ -285,7 +298,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!native || mutating.current) return;
+    if (!native || mutating.current || preservedDraftIssue) return;
     setFormError(null);
     const clean = question.trim();
     if ([...clean].length < 8 || [...clean].length > 300 || /[\u0000-\u001f\u007f-\u009f]/u.test(clean)) { setFormError('Write a learning question using 8–300 characters without control characters.'); return; }
@@ -295,6 +308,16 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     setSavedDiscovery(discoveryResult);
     onPlan({ projectId, snapshotId, question: clean,
       selectedPaths: discoveryResult?.selectedFiles.map((file) => file.path) ?? [], discoveryResult: discoveryResult ?? undefined });
+  }
+
+  function discardUnavailableQuestionDraft() {
+    try {
+      localStorage.removeItem(draftKey);
+      setQuestion('');
+      setPreservedDraftIssue(null);
+    } catch {
+      setFormError('The saved question could not be discarded. Its stored data remains untouched.');
+    }
   }
 
   function claim(value: ChapterClaim) {
@@ -316,7 +339,15 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     {!native && <p role="status">Open the macOS app to generate and reopen native plans. No API key is required for the coding-agent routes.</p>}
     {native && <DocumentationNotices projectId={projectId} snapshotId={snapshotId} onOpenFile={(path) => onOpenFile(path, snapshotId)} />}
     <form className="plan-create-form" onSubmit={submit}>
-      <label>What do you want to understand?<input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
+      {preservedDraftIssue && <div className="coverage-storage-warning" role="status">
+        <span><strong>Saved question draft wasn’t opened.</strong> {preservedDraftIssue === 'unsupported'
+          ? 'It uses a format this version cannot open.'
+          : preservedDraftIssue === 'unreadable'
+            ? 'Its saved contents could not be read.'
+            : 'Its saved contents are incomplete.'} The stored data has been left untouched.</span>
+        <button type="button" className="text-button" onClick={discardUnavailableQuestionDraft}>Discard saved question</button>
+      </div>}
+      <label>What do you want to understand?<input value={question} disabled={Boolean(preservedDraftIssue)} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
       <p>Codex follows the code index and flow to choose relevant implementation files. Documentation is treated as guidance and checked against code.</p>
       {savedDiscovery && <section className="provider-review-card plan-saved-code-scope" aria-label="Saved code scope">
         <div><strong>Code found for this question</strong><p>This scope matches the current snapshot and question. Source is reviewed again before generation.</p></div>
@@ -325,7 +356,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
         <button type="button" className="secondary-button" onClick={() => onPlan({ projectId, snapshotId, question: question.trim(), selectedPaths: [] })}>Find code again</button>
       </section>}
       {formError && <p role="alert">{formError}</p>}
-      <button type="submit" className="primary-button" disabled={!native || locked || question.trim().length < 8}>{savedDiscovery ? 'Build route with saved code' : 'Find code and build route'} <ArrowRight size={14} /></button>
+      <button type="submit" className="primary-button" disabled={!native || locked || Boolean(preservedDraftIssue) || question.trim().length < 8}>{savedDiscovery ? 'Build route with saved code' : 'Find code and build route'} <ArrowRight size={14} /></button>
     </form>
     <details className="plan-history" open={summaries.length + revisions.length > 0}><summary>Saved routes · {summaries.length + revisions.length}</summary>
     <div className="plan-saved-heading"><h3>Saved drafts</h3><button className="text-button" disabled={!native || loading || locked} onClick={() => { setError(null); void refresh(); }}><RefreshCw size={14} /> Refresh</button></div>
