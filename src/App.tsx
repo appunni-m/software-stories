@@ -1702,6 +1702,7 @@ function App() {
               onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileExplanation((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
+              comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef}}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
               onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}

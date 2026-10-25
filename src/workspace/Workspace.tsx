@@ -38,6 +38,7 @@ import './workspace.css';
 
 interface Props {
   manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
+  comparisonRefs?: { baseRef?:string; headRef?:string };
   pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string } | null;
   onPendingLargeFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
@@ -116,6 +117,7 @@ export function DeveloperWorkspace(props:Props) {
   const [commits,setCommits] = useState<GitCommit[]>([]);
   const [focusedCommitId,setFocusedCommitId] = useState<string|null>(null);
   const commitButtons = useRef(new Map<string,HTMLButtonElement>());
+  const defaultComparedHead = useRef<string|null>(null);
   const [gitError,setGitError] = useState<string|null>(null);
   const [gitBusy,setGitBusy] = useState(false);
   const [gitStopped,setGitStopped] = useState(false);
@@ -245,6 +247,13 @@ export function DeveloperWorkspace(props:Props) {
     }).finally(()=>{if(active)setGitBusy(false);if(gitRequest.current===controller)gitRequest.current=null;});
     return()=>{active=false;controller.abort();if(gitRequest.current===controller)gitRequest.current=null;};
   },[projectId,showChanges,gitReload]);
+  useEffect(()=>{
+    if(workspace!=='changes'||gitBusy||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
+    const head=commits.find((commit)=>commit.parents[0]);
+    if(!head||defaultComparedHead.current===head.oid)return;
+    defaultComparedHead.current=head.oid;
+    onCompare(head.parents[0],head.oid);
+  },[workspace,gitBusy,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
   function openFile(context:Context) { update((s)=>({...s,file:context.path,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:context.path,reveal:context}:e)}));setReveal(context);setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
