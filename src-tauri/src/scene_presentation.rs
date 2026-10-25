@@ -145,6 +145,12 @@ pub(crate) fn validate_fresh_semantic_layouts(
     nodes: &[VisualNode],
 ) -> Result<(), String> {
     for (scene, claim) in presentation.scenes.iter().zip(claims) {
+        if !scene_narration_is_concise(&scene.narration) {
+            return Err(
+                "New scene narration must use at most two short sentences and 320 UTF-8 bytes."
+                    .into(),
+            );
+        }
         if has_compact_spoken_code_token(&scene.narration) {
             return Err(
                 "Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead.".into(),
@@ -208,6 +214,24 @@ pub(crate) fn narration(
     presentation: &ScenePresentation,
     claims: &[ChapterClaim],
 ) -> Result<Vec<String>, String> {
+    narration_with_policy(presentation, claims, false)
+}
+
+/// Enforce the current authoring limit only while preparing new content.
+/// Stored revisions keep the older bounded narration contract so an app
+/// upgrade does not make previously saved explanations unreadable.
+pub(crate) fn narration_for_generation(
+    presentation: &ScenePresentation,
+    claims: &[ChapterClaim],
+) -> Result<Vec<String>, String> {
+    narration_with_policy(presentation, claims, true)
+}
+
+fn narration_with_policy(
+    presentation: &ScenePresentation,
+    claims: &[ChapterClaim],
+    require_concise: bool,
+) -> Result<Vec<String>, String> {
     if presentation.schema_version != 3 {
         return Err("A scene presentation must use schema version 3.".into());
     }
@@ -219,11 +243,18 @@ pub(crate) fn narration(
         let text = scene.narration.trim();
         if scene.claim_index != index
             || claim.anchors.is_empty()
-            || !scene_narration_is_concise(text)
+            || if require_concise {
+                !scene_narration_is_concise(text)
+            } else {
+                text.is_empty() || text.len() > 4_000
+            }
         {
-            return Err(
-                "Each scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into(),
-            );
+            return Err(if require_concise {
+                "Each newly authored scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into()
+            } else {
+                "Each stored scene needs bounded narration and its own consecutive anchored claim."
+                    .into()
+            });
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
         scripts.push(match &claim.category {
@@ -992,11 +1023,7 @@ mod tests {
             serde_json::from_value::<ScenePresentation>(encoded).unwrap(),
             presentation
         );
-        for invalid in [
-            String::new(),
-            "é".repeat(2_001),
-            "First outcome. Second outcome. Third outcome.".into(),
-        ] {
+        for invalid in [String::new(), "é".repeat(2_001)] {
             let mut broken = presentation.clone();
             broken.scenes[0].narration = invalid;
             assert!(validate(&broken, &nodes, &claims).is_err());
@@ -1007,10 +1034,14 @@ mod tests {
         let mut wrong = presentation.clone();
         wrong.scenes[0].claim_index = 1;
         assert!(narration(&wrong, &claims).is_err());
-        for scene in &mut presentation.scenes {
-            scene.narration = "é".repeat(600);
-        }
-        assert!(narration(&presentation, &claims).is_err());
+        let mut earlier_policy = presentation.clone();
+        earlier_policy.scenes[0].narration = "First outcome. Second outcome. Third outcome.".into();
+        assert!(validate(&earlier_policy, &nodes, &claims).is_ok());
+        assert!(narration(&earlier_policy, &claims).is_ok());
+        assert!(narration_for_generation(&earlier_policy, &claims).is_err());
+        presentation.scenes[0].narration = "é".repeat(600);
+        assert!(narration(&presentation, &claims).is_ok());
+        assert!(narration_for_generation(&presentation, &claims).is_err());
     }
 
     #[test]

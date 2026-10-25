@@ -1107,7 +1107,7 @@ fn canonicalize_overview(
         // Preserve every grounded claim in reading prose; authored narration is
         // separately bounded and checked for visible inference labels.
         section.prose = complete;
-        section.spoken_text = chapters::authored_section_narration(&section)?
+        section.spoken_text = chapters::authored_section_narration_for_generation(&section)?
             .unwrap_or_else(|| section.spoken_text.clone());
         if !chapters::overview_section_copy_supported(&section) {
             return Err("Every repository overview needs complete claim prose and bounded narration; inference labels must remain visible.".to_owned());
