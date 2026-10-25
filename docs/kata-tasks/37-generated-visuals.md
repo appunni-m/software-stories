@@ -976,3 +976,17 @@ The source links opened captured code. This is a useful baseline for the
 coverage problem, not qualification of v46: no new provider request or audio
 playback was made after the prompt edit. Fresh visual-quality, listening,
 accessibility, export and comprehension acceptance remain open.
+
+## Per-claim visual modes — 25 October 2026
+
+The shared story policy is now `ai-html-compositions-v47`. The v46 prompt
+incorrectly required one visual mode for an entire section even though each
+claim scene already carries its own mode and the reader supports both graph and
+HTML-composition scenes. Ordinary and progressive generation now choose mode
+per claim, allowing the forms to mix when the source behavior calls for it.
+Narration-only remains an all-claim choice when no claim benefits from a
+visual. A focused scene-contract test covers a composition followed by a graph
+scene and passes (20/20 in `tests/scenePresentation.test.mjs`). Rust prompt
+assertions and documentation were updated. Native Rust tests were not run
+because free disk space is below 1 GB; no fresh provider generation or human
+visual-quality acceptance was performed. Keep `j53m` open.

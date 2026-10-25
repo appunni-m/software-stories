@@ -639,10 +639,9 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(!instructions.contains("parser fallback starts after those checks"));
     assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
-    assert!(
-        instructions
-            .contains("Let observed behavior choose one app-supported composition per scene")
-    );
+    assert!(instructions.contains(
+        "Let observed behavior choose the visual mode independently for each claim scene"
+    ));
     assert!(instructions.contains("Verified call order uses timeline"));
     assert!(instructions.contains(
         "Use a graph only when those forms cannot show a genuinely non-linear relationship"
@@ -725,10 +724,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["teachingPolicy"], "meaning-first-v29");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
-        "If no visual helps the section, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
+        "If no claim benefits from a visual, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
     ));
     assert!(system_instructions().contains(
-        "Otherwise give every claim a nonempty visual scene with at least one source-linked node"
+        "Otherwise each claim needs a nonempty visual scene with at least one source-linked node"
     ));
     assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
     assert!(system_instructions().contains(
@@ -745,9 +744,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v46:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v46"));
-    assert!(system_instructions().contains("Visual composition pass v46"));
+    assert!(system_instructions().contains("Visual design method v47:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v47"));
+    assert!(system_instructions().contains("Visual composition pass v47"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")
@@ -761,18 +760,16 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(!system_instructions().contains("presentation:{schemaVersion:3"));
     assert!(!system_instructions().contains("Elements have exactly kind,parentIndex,nodeIndex"));
     assert!(system_instructions().contains("under 45 visible characters per card"));
-    assert!(
-        system_instructions()
-            .contains("Let observed behavior choose one app-supported composition per scene")
-    );
+    assert!(system_instructions().contains(
+        "Let observed behavior choose the visual mode independently for each claim scene"
+    ));
     assert!(
         system_instructions()
             .contains("Follow a real input through source-grounded changes and outcomes")
     );
-    assert!(
-        system_instructions()
-            .contains("Let observed behavior choose one app-supported composition per scene")
-    );
+    assert!(system_instructions().contains(
+        "Let observed behavior choose the visual mode independently for each claim scene"
+    ));
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
@@ -886,10 +883,9 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(
-        instructions
-            .contains("Let observed behavior choose one app-supported composition per scene")
-    );
+    assert!(instructions.contains(
+        "Let observed behavior choose the visual mode independently for each claim scene"
+    ));
     assert!(instructions.contains("uses transform, with the actual operation in the middle"));
     assert!(instructions.contains("not file type or a favorite template"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));

@@ -27,6 +27,27 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(validScenePresentation(ungroundedSource, nodes, claims), false);
   });
 
+  it('allows each claim to choose composition or graph mode within one visual section', () => {
+    const twoClaims = [claims[0], {
+      claimId: 'claim:two',
+      anchors: [{ anchorId: 'anchor:two', excerpt: 'load();' }],
+    }];
+    const twoNodes = [nodes[0], {
+      ...nodes[0], nodeId: 'node:two', label: 'Load', evidenceAnchorIds: ['anchor:two'],
+    }];
+    const mixed = {
+      schemaVersion: 3,
+      scenes: [
+        ...presentation().scenes,
+        {
+          claimIndex: 1, title: 'The call reaches its next step',
+          narration: 'The accepted value reaches the load call.', mode: 'graph', elements: [],
+        },
+      ],
+    };
+    assert.equal(validScenePresentation(mixed, twoNodes, twoClaims), true);
+  });
+
   it('current scenes allow meaningful values and roles while rejecting presentation-only changes', () => {
     const root = { ...element('row'), nodeIndex: null };
     const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };

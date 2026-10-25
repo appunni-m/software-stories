@@ -61,9 +61,12 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v46` and teaching policy `meaning-first-v29`. It starts
+`ai-html-compositions-v47` and teaching policy `meaning-first-v29`. It starts
 from a real input or situation, follows only source-supported changes and
-outcomes, and gives each scene one behavior to make visible. Layout follows the
+outcomes, and gives each scene one behavior to make visible. Each claim scene
+selects composition or graph independently, so one visual section can mix those
+modes when the behavior warrants it. Narration-only mode applies only when the
+entire section has no useful visual. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
 guards become separate scenes; first-match candidate dispatch uses a selector;
 a source-backed state change uses a transform with its operation visible, and

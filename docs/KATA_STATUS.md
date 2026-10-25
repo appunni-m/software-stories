@@ -472,10 +472,13 @@ gates](kata-tasks/37-generated-visuals.md).
 ## 25 October cross-section visual coverage prompt
 
 The current chapter/progressive scene policies are now
-`ai-html-compositions-v46` and `meaning-first-v29`. The shared visual review
-asks the generator to compare each proposed section with already published
-sections and add distinct source-backed behavior rather than re-title or
-restage an earlier decision. The reader remains on its bounded typed renderer;
+`ai-html-compositions-v47` and `meaning-first-v29`. Claim scenes independently
+select graph or composition mode, allowing a section to mix visual forms;
+narration-only mode remains section-wide when no claim benefits from a visual.
+The shared visual review asks the generator to compare each proposed section
+with already published sections and add distinct source-backed behavior rather
+than re-title or restage an earlier decision. The reader remains on its bounded
+typed renderer;
 generated JavaScript and Three.js are unsupported. A pre-change, authorized
 Fontdone Code Lens run published three scenes with ready narration but ended
 partial, naming point-attachment success and invalid-index behavior as

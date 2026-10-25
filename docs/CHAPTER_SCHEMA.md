@@ -109,10 +109,13 @@ historical identities.
 
 Ordinary and progressive requests share the current scene and teaching
 instructions. Progressive contracts fingerprint the current source policies
-`storyPolicy: "ai-html-compositions-v46"`,
-`teachingPolicy: "meaning-first-v29"`, and the exact composed instructions
-without changing stored checkpoint identities or replaying generation. A
-fingerprint change applies to future requests; it does not rewrite saved guides.
+`storyPolicy: "ai-html-compositions-v47"`,
+`teachingPolicy: "meaning-first-v29"`, and the exact composed instructions.
+Each claim scene selects graph or composition mode independently, so one visual
+section can mix them; narration-only mode applies only when no claim benefits
+from a visual. This does not change stored checkpoint identities or replay
+generation. A fingerprint change applies to future requests; it does not rewrite
+saved guides.
 These are generation instructions, not semantic acceptance.
 [Current visual policy and examples](VISUAL_SCENES.md); version constants and
 the composed prompt live in `src-tauri/src/provider/visual_scenes.rs`.
