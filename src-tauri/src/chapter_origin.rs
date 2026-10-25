@@ -181,11 +181,18 @@ impl ChapterGenerationOrigin {
         operation_id: &str,
         request_sha256: &str,
         ledger_sha256: &str,
+        model_id: &str,
+        effort: &str,
         ranges: Vec<crate::repository_context::CodeRange>,
         index: Option<&crate::index::SnapshotIndex>,
         sources: &[crate::snapshot::SnapshotSource],
         revision: &ChapterRevision,
     ) -> Result<Self, String> {
+        let settings = RecordedAgentSettings::Codex {
+            model_id: model_id.into(),
+            effort: effort.into(),
+            approval_policy: "never".into(),
+        };
         let index_identity = index.map_or(RecordedIndexIdentity::Unavailable, |index| {
             RecordedIndexIdentity::Available {
                 schema_version: index.schema_version,
@@ -193,7 +200,7 @@ impl ChapterGenerationOrigin {
             }
         });
         let fingerprint = crate::repository_context::digest(
-            &serde_json::to_vec(&(request_sha256, ledger_sha256, &index_identity))
+            &serde_json::to_vec(&(request_sha256, ledger_sha256, &index_identity, &settings))
                 .map_err(|_| "The retrieval origin could not be encoded.")?,
         );
         let origin = Self {
@@ -206,11 +213,7 @@ impl ChapterGenerationOrigin {
             request_fingerprint: fingerprint,
             request_body_sha256: request_sha256.into(),
             contract_version: crate::evidence_ledger::PROGRESSIVE_CONTRACT.into(),
-            settings: RecordedAgentSettings::Codex {
-                model_id: "gpt-6-luna".into(),
-                effort: "max".into(),
-                approval_policy: "never".into(),
-            },
+            settings,
             source_files: sources
                 .iter()
                 .map(|s| RecordedSourceDigest {
@@ -289,12 +292,6 @@ impl ChapterGenerationOrigin {
                 && self.section_update.is_none()
                 && self.purpose == "repositoryOverview"
                 && self.target_path.is_none()
-                && self.settings
-                    == RecordedAgentSettings::Codex {
-                        model_id: "gpt-6-luna".into(),
-                        effort: "max".into(),
-                        approval_policy: "never".into(),
-                    }
                 && retrieval.policy == crate::evidence_ledger::POLICY
                 && match &retrieval.index_identity {
                     RecordedIndexIdentity::Available {
@@ -308,6 +305,7 @@ impl ChapterGenerationOrigin {
                     &self.request_body_sha256,
                     &retrieval.ledger_sha256,
                     &retrieval.index_identity,
+                    &self.settings,
                 ))
                     .is_ok_and(|bytes| {
                         crate::repository_context::digest(&bytes) == self.request_fingerprint
@@ -592,6 +590,8 @@ mod tests {
             &Uuid::new_v4().to_string(),
             &"a".repeat(64),
             &"b".repeat(64),
+            "gpt-6-luna",
+            "max",
             vec![range],
             None,
             &sources,

@@ -809,6 +809,8 @@ mod tests {
                 &Uuid::new_v4().to_string(),
                 &"a".repeat(64),
                 &"b".repeat(64),
+                "gpt-6-luna",
+                "max",
                 vec![range],
                 None,
                 &sources,

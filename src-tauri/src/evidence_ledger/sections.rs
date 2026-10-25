@@ -1409,7 +1409,8 @@ impl ActiveAnswer {
                                                         context::digest(&encode(&checkpoint)?);
                                                     revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
                                                         &self.value.binding.operation_id, &self.value.request_sha256,
-                                                        &checkpoint_sha256, record_ranges(&checkpoint),
+                                                        &checkpoint_sha256, &self.value.binding.model,
+                                                        &self.value.binding.effort, record_ranges(&checkpoint),
                                                         syntax.as_ref(),
                                                         &sources, &revision,
                                                     )?);
