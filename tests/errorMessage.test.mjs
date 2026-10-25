@@ -44,8 +44,11 @@ it('turns a rejected empty answer into a useful, private retry hint', () => {
 });
 
 it('surfaces the actionable local-storage recovery when Codex context staging fails', () => {
-  for (const operation of ['created', 'saved']) {
-    const error = `The private Codex file could not be ${operation}. Local storage is full. Free disk space, then try again.`;
+  for (const error of [
+    'Local storage is full. Free disk space, then try again.',
+    'The private Codex file could not be created. Local storage is full. Free disk space, then try again.',
+    'The private Codex file could not be saved. Local storage is full. Free disk space, then try again.',
+  ]) {
     const message = explanationErrorMessage(error);
     assert.match(message, /prepare the selected code/);
     assert.match(message, /Free some space, then try again/);

@@ -15,7 +15,7 @@ export function errorMessageOr(error: unknown, fallback: string): string {
 export function explanationErrorMessage(error: string): string {
   if (error === 'The answer did not publish any sections.') return explanationFailureMessage('noPublishedSections')!;
   if (
-    /^The private Codex file could not be (?:created|saved)\. Local storage is full\. Free disk space, then try again\.$/u.test(error)
+    /^(?:The private Codex file could not be (?:created|saved)\. )?Local storage is full\. Free disk space, then try again\.$/u.test(error)
   ) {
     return 'Code Atlas could not prepare the selected code because local storage is full. Free some space, then try again.';
   }
