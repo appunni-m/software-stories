@@ -32,6 +32,7 @@ import { searchCapturedSource, searchExploration, searchLimitMessage, searchResu
 import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
 import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
+import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
@@ -252,10 +253,11 @@ export function DeveloperWorkspace(props:Props) {
   useEffect(()=>{
     if(workspace!=='changes'||gitBusy||gitRequest.current||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
     const head=commits.find((commit)=>commit.parents[0]);
-    if(!head||defaultComparedHead.current===head.oid)return;
-    defaultComparedHead.current=head.oid;
+    const comparisonKey=`${projectId}:${head?.oid??''}`;
+    if(!head||defaultComparedHead.current===comparisonKey)return;
+    defaultComparedHead.current=comparisonKey;
     onCompare(head.parents[0],head.oid);
-  },[workspace,gitBusy,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
+  },[projectId,workspace,gitBusy,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
   function openFile(context:Context) { update((s)=>({...s,file:context.path,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:context.path,reveal:context}:e)}));setReveal(context);setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
@@ -399,7 +401,7 @@ export function DeveloperWorkspace(props:Props) {
           </div>
           {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{searchBusy?'Searching…':searchError?'Search unavailable':results.length?'In your code':'No matching code in this search'}</small>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{shouldOfferExploreWithAI(query,searchMode,searchBusy,searchError,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>ask(query)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
         </div>
-        {tool?<div className="dw-tool-content"><Button className="dw-return" size="1" variant="ghost" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</Button>{children}</div>:<Group orientation="horizontal" className="dw-reading">
+        {tool?<div className="dw-tool-content"><Button className="dw-return" size="1" variant="ghost" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</Button><GitHistoryEmptyContext.Provider value={commitHistoryEmpty}>{children}</GitHistoryEmptyContext.Provider></div>:<Group orientation="horizontal" className="dw-reading">
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{source?<CodePane path={source.path} contents={source.contents} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>setCodeOpen(false)}/>:<div className="dw-source-empty">{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
           <Panel id="explanations" minSize="280px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13}/>Guide</Tabs.Trigger><Tabs.Trigger value="flow"><Network size={13}/>Flow</Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13}/>Chat history</Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>setCodeOpen(true)}><Code2 size={15}/></IconButton>}</div>
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>

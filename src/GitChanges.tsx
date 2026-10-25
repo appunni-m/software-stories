@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, FileCode2, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
+import { GitHistoryEmptyContext } from './workspace/gitHistoryContext';
 import {
   compareLocalGitRevisions,
   cancelLocalGitComparison,
@@ -50,6 +51,7 @@ export function GitChangesScreen({
   capturedSource,
   onOpenCapturedSource,
 }: GitChangesScreenProps) {
+  const commitHistoryEmpty = useContext(GitHistoryEmptyContext);
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
   const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
@@ -136,7 +138,7 @@ export function GitChangesScreen({
   return (
     <div className="git-changes-workflow">
       <section className="git-ref-card" aria-labelledby="git-ref-title">
-        {compact && !matchingComparison && <p className="git-commit-hint">Select a commit on the left to inspect its changes.</p>}
+        {compact && !matchingComparison && <p className="git-commit-hint">{commitHistoryEmpty ?? 'Select a commit on the left to inspect its changes.'}</p>}
         <details
           className="git-compare-options"
           open={!compact || busy || comparisonOptionsOpen}

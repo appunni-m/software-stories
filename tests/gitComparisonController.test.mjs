@@ -114,11 +114,16 @@ describe('owned local Git comparison client', () => {
   it('the app cancels departed project work and renders comparison state for the selected project', () => {
     const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
     const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
     assert.match(app, /return \(\) => \{ if \(projectId\) cancelLocalGitComparison\(projectId\); \};\s*\}, \[currentProject\?\.projectId\]\);/);
     assert.match(app, /comparison=\{currentProject \? gitComparisonsByProject\[currentProject\.projectId\] \?\? null : null\}/);
     assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
     assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
     assert.match(workspace, /if\(workspace!=='changes'\|\|gitBusy\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
+    assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,workspace,gitBusy,commits/);
+    assert.match(workspace, /<GitHistoryEmptyContext\.Provider value=\{commitHistoryEmpty\}>\{children\}<\/GitHistoryEmptyContext\.Provider>/);
+    assert.match(screen, /useContext\(GitHistoryEmptyContext\)/);
+    assert.match(screen, /commitHistoryEmpty \?\? 'Select a commit on the left to inspect its changes\.'/);
   });
 
   it('keeps the Stop action visible when history starts a comparison in the collapsed ref panel', () => {
