@@ -2091,6 +2091,7 @@ pub fn run() {
             codex_commands::cancel_codex_chapter_request,
             repository_guide::start_repository_guide,
             repository_guide::resume_repository_guide,
+            repository_guide::retry_repository_guide_unit,
             repository_guide::advance_repository_guide,
             repository_guide::stop_repository_guide,
             repository_guide::list_repository_guides,

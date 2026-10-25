@@ -513,7 +513,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */
-export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false) {
+export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false, retryUnitKey?: string) {
   if (jobs.has(id)) return;
   if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return;}
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
@@ -533,10 +533,12 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     if(closingWorkspace)throw new Error(closingMessage);
     const selection = readCodexSelection();
     job.runId = turn.guideId;
-    const guide = await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
-      ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
-      : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
-          modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
+    const guide = retryUnitKey
+      ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:turn.guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,rendererQueueWaitMs})
+      : await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
+        ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
+        : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
+            modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
     await reconcileGuide(project,snapshot,guide,true);
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }

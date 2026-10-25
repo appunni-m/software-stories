@@ -172,6 +172,7 @@ struct UnitSummary {
     question: String,
     prerequisites: Vec<String>,
     status: String,
+    can_retry: bool,
     run_ids: Vec<String>,
 }
 
@@ -288,6 +289,29 @@ fn unit_research_eligible(record: &Record, index: usize) -> bool {
             .units
             .get(index)
             .is_some_and(|unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
+}
+
+/// A manual slide retry is available only after that exact planned unit has
+/// produced a terminal incomplete result. Pending later units stay in order.
+fn unit_retryable(record: &Record, index: usize) -> bool {
+    record.status != Status::Stopped
+        && record.active_run_id.is_none()
+        && published_slide_count(record).saturating_sub(record.consumed_slide_revisions.len())
+            < GUIDE_SLIDE_BUFFER
+        && record.units.get(index).is_some_and(|unit| {
+            !unit_complete(unit)
+                && unit.attempts.len() < MAX_ATTEMPTS
+                && unit
+                    .attempts
+                    .last()
+                    .and_then(|attempt| attempt.summary.as_ref())
+                    .is_some_and(|answer| {
+                        !matches!(
+                            &answer.outcome,
+                            &Outcome::Working | &Outcome::Complete
+                        )
+                    })
+        })
 }
 
 /// Distinct omitted topics that can still be appended to the saved outline.
@@ -705,11 +729,13 @@ fn guide_summary(
             .units
             .iter()
             .zip(&plan.units)
-            .map(|(unit, planned)| UnitSummary {
+            .enumerate()
+            .map(|(index, (unit, planned))| UnitSummary {
                 key: unit.key.clone(),
                 question: planned.question.clone(),
                 prerequisites: planned.prerequisites.clone(),
                 status: unit_status(unit).into(),
+                can_retry: unit_retryable(record, index),
                 run_ids: unit
                     .attempts
                     .iter()
@@ -1056,6 +1082,7 @@ fn build(
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
     max_new_slides: usize,
+    only_unit_key: Option<&str>,
     renderer_queue_wait_ms: Option<u64>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
@@ -1070,6 +1097,7 @@ fn build(
         jobs,
         journal,
         max_new_slides,
+        only_unit_key,
         renderer_queue_wait_ms,
         progress,
         notify,
@@ -1096,6 +1124,7 @@ fn build_inner(
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
     max_new_slides: usize,
+    only_unit_key: Option<&str>,
     mut renderer_queue_wait_ms: Option<u64>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
@@ -1158,7 +1187,8 @@ fn build_inner(
         changed(&summary(storage, &record)?);
     }
     record = store::read(storage, id)?;
-    if record.status != Status::Stopped
+    if only_unit_key.is_none()
+        && record.status != Status::Stopped
         && record
             .opening
             .as_ref()
@@ -1177,7 +1207,7 @@ fn build_inner(
             renderer_queue_wait_ms.take(),
         )?;
     }
-    if continue_opening && opening_continuation::eligible(&record) {
+    if only_unit_key.is_none() && continue_opening && opening_continuation::eligible(&record) {
         opening_continuation::run(
             storage,
             &record,
@@ -1193,7 +1223,7 @@ fn build_inner(
         )?;
     }
     record = store::read(storage, id)?;
-    if opening_continuation::automatic_retry_eligible(&record) {
+    if only_unit_key.is_none() && opening_continuation::automatic_retry_eligible(&record) {
         opening_continuation::run(
             storage,
             &record,
@@ -1209,12 +1239,21 @@ fn build_inner(
         )?;
     }
     record = store::read(storage, id)?;
-    if plan_extension_eligible(&record) {
+    if only_unit_key.is_none() && plan_extension_eligible(&record) {
         record = append_omission_units(storage, &record)?;
         changed(&summary(storage, &record)?);
     }
     for index in 0..record.units.len() {
         record = store::read(storage, id)?;
+        if only_unit_key.is_some_and(|unit_key| {
+            record
+                .plan
+                .as_ref()
+                .and_then(|plan| plan.units.get(index))
+                .is_none_or(|unit| unit.key != unit_key)
+        }) {
+            continue;
+        }
         if record.status == Status::Stopped {
             break;
         }
@@ -1499,6 +1538,7 @@ pub(crate) async fn start_repository_guide(
         lease,
         false,
         GUIDE_SLIDE_BUFFER,
+        None,
         renderer_queue_wait_ms,
     )
     .await
@@ -1510,6 +1550,7 @@ async fn run_command(
     lease: crate::file_lease::Lease,
     continue_opening: bool,
     max_new_slides: usize,
+    only_unit_key: Option<String>,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
@@ -1519,14 +1560,48 @@ async fn run_command(
         let journal=app.state::<recovery::InterruptionJournal>().inner().clone();
         let emitter=app.clone();
         let guide_id_for_sections=id.clone();
-        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,max_new_slides,renderer_queue_wait_ms,|p|{let _=app.emit("codex-agent-progress",p);},
-            Arc::new(move|section|{
-                let _=emitter.emit("workspace-answer-section",section.clone());
-                let _=emitter.emit("repository-guide-section-published",serde_json::json!({"guideId":&guide_id_for_sections,"section":section}));
+        let result = build(
+            &storage,
+            &id,
+            continue_opening,
+            &manager,
+            jobs,
+            &journal,
+            max_new_slides,
+            only_unit_key.as_deref(),
+            renderer_queue_wait_ms,
+            |progress| {
+                let _ = app.emit("codex-agent-progress", progress);
+            },
+            Arc::new(move |section| {
+                let _ = emitter.emit("workspace-answer-section", section.clone());
+                let _ = emitter.emit(
+                    "repository-guide-section-published",
+                    serde_json::json!({"guideId":&guide_id_for_sections,"section":section}),
+                );
             }),
-            |section|{if saved_section(&storage, section)? { return Ok(()); } let lock=app.state::<crate::ChapterStoreLock>();let _guard=lock.0.lock().map_err(|_|"Chapter storage is unavailable.")?;
-                reading::adopt(&storage,&section.run_id,&section.project_id,&section.snapshot_id,&section.generation_id)?;Ok(())},
-            |guide|{let _=app.emit("repository-guide-changed",guide);});
+            |section| {
+                if saved_section(&storage, section)? {
+                    return Ok(());
+                }
+                let lock = app.state::<crate::ChapterStoreLock>();
+                let _guard = lock
+                    .0
+                    .lock()
+                    .map_err(|_| "Chapter storage is unavailable.")?;
+                reading::adopt(
+                    &storage,
+                    &section.run_id,
+                    &section.project_id,
+                    &section.snapshot_id,
+                    &section.generation_id,
+                )?;
+                Ok(())
+            },
+            |guide| {
+                let _ = app.emit("repository-guide-changed", guide);
+            },
+        );
         result
     }).await.map_err(|_|"The guide worker stopped unexpectedly. Inspect saved work before explicitly resuming; nothing was replayed.".to_owned())?
 }
@@ -1574,6 +1649,7 @@ pub(crate) async fn resume_repository_guide(
             lease,
             false,
             GUIDE_SLIDE_BUFFER,
+            None,
             renderer_queue_wait_ms,
         )
         .await;
@@ -1586,6 +1662,7 @@ pub(crate) async fn resume_repository_guide(
         lease,
         true,
         GUIDE_SLIDE_BUFFER,
+        None,
         renderer_queue_wait_ms,
     )
     .await
@@ -1688,7 +1765,83 @@ pub(crate) async fn advance_repository_guide(
     }
     let expected_revision = record.revision;
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, false, 1, renderer_queue_wait_ms).await
+    run_command(app, storage, id, lease, false, 1, None, renderer_queue_wait_ms).await
+}
+
+/// Retry one terminally incomplete outline unit without replaying or advancing
+/// other guide content. A replacement snapshot grant is accepted only after
+/// the native source scope and active Codex runtime have been revalidated.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn retry_repository_guide_unit(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    id: String,
+    project_id: String,
+    snapshot_id: String,
+    unit_key: String,
+    grant_id: String,
+    consent: bool,
+    renderer_queue_wait_ms: Option<u64>,
+) -> Result<GuideSummary, String> {
+    sessions.get(&project_id)?;
+    if !consent || !key(&unit_key) || !uuid(&grant_id) {
+        return Err("Choose an unfinished guide slide before retrying it.".into());
+    }
+    let storage = app_data_directory(&app)?;
+    let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
+    let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
+    let lease = store::lease(&storage, &id)?
+        .ok_or("This guide is already being built. No second worker was started.")?;
+    let manager = app.state::<codex_agent::CodexAgentManager>();
+    let record = reconcile(&storage, &record, &manager)?;
+    let plan = record.plan.as_ref().ok_or("The guide outline is not ready.")?;
+    let index = plan
+        .units
+        .iter()
+        .position(|unit| unit.key == unit_key)
+        .ok_or("That slide is not part of this guide.")?;
+    if !unit_retryable(&record, index) {
+        return Err("This slide cannot be retried. Its saved work was preserved.".into());
+    }
+    let expected_revision = record.revision;
+    let runtime = manager.review_runtime(&storage)?;
+    workspace::check_retrieval_grant(
+        &storage,
+        &grant_id,
+        &project_id,
+        &snapshot_id,
+        &runtime,
+    )?;
+    crate::evidence_ledger::sections::capacity::with_guide_reservation(
+        &storage,
+        &answer_reservation(&record),
+        || Ok(()),
+    )?;
+    let record = store::update_if_changed(&storage, &id, |current| {
+        if current.revision != expected_revision || current.active_run_id.is_some() {
+            return Err(
+                "The guide changed before its slide retry started. Saved progress was preserved."
+                    .into(),
+            );
+        }
+        if current.grant_id == grant_id {
+            return Ok(false);
+        }
+        current.grant_id = grant_id.clone();
+        Ok(true)
+    })?;
+    store::prepare_continuation(&storage, &id, record.revision)?;
+    run_command(
+        app,
+        storage,
+        id,
+        lease,
+        false,
+        1,
+        Some(unit_key),
+        renderer_queue_wait_ms,
+    )
+    .await
 }
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_repository_guide(

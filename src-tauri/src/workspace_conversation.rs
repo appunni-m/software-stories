@@ -128,7 +128,7 @@ fn context(v: &Value) -> Result<(), String> {
 }
 
 fn guide_unit(v: &Value) -> Result<(), String> {
-    let o = object(v, &["key", "question", "prerequisites", "status", "runIds"])?;
+    let o = object(v, &["key", "question", "prerequisites", "status", "canRetry", "runIds"])?;
     let key = string(o, "key")?;
     let prerequisites = o
         .get("prerequisites")
@@ -155,6 +155,7 @@ fn guide_unit(v: &Value) -> Result<(), String> {
             })
         })
         || prerequisites.iter().collect::<HashSet<_>>().len() != prerequisites.len()
+        || o.get("canRetry").is_some_and(|value| !value.is_boolean())
         || ![
             "pending",
             "working",
