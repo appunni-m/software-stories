@@ -61,30 +61,7 @@ impl SearchResultKind {
         if !matches!(self, Self::Auto) {
             return self;
         }
-
-        let query = query.trim();
-        let query_chars = query.chars().collect::<Vec<_>>();
-        let has_code_syntax = query
-            .chars()
-            .any(|ch| matches!(ch, '/' | '\\' | '(' | ')' | '[' | ']' | '{' | '}' | ';'))
-            || query_chars.iter().enumerate().any(|(index, ch)| {
-                *ch == '.'
-                    && index > 0
-                    && index + 1 < query_chars.len()
-                    && query_chars[index - 1].is_alphanumeric()
-                    && query_chars[index + 1].is_alphanumeric()
-            })
-            || query.contains("::")
-            || query.contains("->")
-            || query.contains("=>")
-            || query.contains("==")
-            || query.contains('_')
-            || query.split_whitespace().any(|word| {
-                word.chars()
-                    .zip(word.chars().skip(1))
-                    .any(|(left, right)| left.is_lowercase() && right.is_uppercase())
-            });
-        if scope.is_none() && !has_code_syntax && query.split_whitespace().count() >= 3 {
+        if context::should_discover_files(query, scope) {
             Self::Files
         } else {
             Self::Ranges
