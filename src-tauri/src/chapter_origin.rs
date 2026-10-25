@@ -69,6 +69,14 @@ pub struct ChapterGenerationOrigin {
 }
 
 impl ChapterGenerationOrigin {
+    pub(crate) fn retrieval_ranges(
+        &self,
+    ) -> Option<&[crate::repository_context::CodeRange]> {
+        self.retrieval
+            .as_ref()
+            .map(|retrieval| retrieval.ranges.as_slice())
+    }
+
     pub(crate) fn from_agent_review(
         review: &provider::ProviderRequestReview,
         revision: &ChapterRevision,
@@ -266,6 +274,7 @@ impl ChapterGenerationOrigin {
                     })
                 && !retrieval.ranges.is_empty()
                 && retrieval.ranges.len() <= 512
+                && revision.sections.len() == 1
                 && retrieval.ranges.iter().all(|r| {
                     crate::repository_context::safe_path(&r.path)
                         && r.snapshot_id == self.snapshot_id

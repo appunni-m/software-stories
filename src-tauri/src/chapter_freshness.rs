@@ -223,6 +223,7 @@ pub fn classify_chapter_freshness(
     {
         return Err("The accepted chapter and comparison snapshots must belong to the same project, and the source snapshot must match the chapter.".to_owned());
     }
+    crate::chapter_origin::validate_revision_origin(revision)?;
     if let Some(index) = from_index {
         if index.project_id != revision.project_id || index.snapshot_id != from_id {
             return Err(
@@ -235,6 +236,10 @@ pub fn classify_chapter_freshness(
             return Err("The target symbol index does not match the selected snapshot.".to_owned());
         }
     }
+    let retrieval_ranges = revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges);
 
     let sections = revision
         .sections
@@ -247,6 +252,7 @@ pub fn classify_chapter_freshness(
                 to_manifest,
                 to_index,
                 section,
+                retrieval_ranges,
             );
             assessment.finish(section)
         })
@@ -306,6 +312,7 @@ fn assess_section(
     to_manifest: &SnapshotManifest,
     to_index: Option<&SnapshotIndex>,
     section: &ChapterSection,
+    retrieval_ranges: Option<&[crate::repository_context::CodeRange]>,
 ) -> SectionAssessment {
     let mut result = SectionAssessment::default();
     let mut anchors = HashMap::<String, &ChapterSourceAnchor>::new();
@@ -328,6 +335,34 @@ fn assess_section(
             to_manifest,
             to_index,
             anchor,
+            &mut result,
+        );
+    }
+
+    // Progressive repository explanations retain the exact files read while
+    // investigating their one-section answer. Treat those reads as section
+    // dependencies too: cited lines may still match while another part of a
+    // retrieved file has changed the behavior the section was based on.
+    let mut retrieval_files = BTreeMap::<String, String>::new();
+    for range in retrieval_ranges.unwrap_or_default() {
+        let previous_hash = retrieval_files
+            .entry(range.path.clone())
+            .or_insert_with(|| range.source_sha256.clone());
+        if previous_hash != &range.source_sha256 {
+            result.unknown(
+                "retrievalEvidenceConflict",
+                "The section's recorded retrieval ranges disagree about a source file version.",
+                Some(&range.path),
+            );
+        }
+    }
+    for (path, source_sha256) in &retrieval_files {
+        assess_file_dependency(
+            storage_dir,
+            from_manifest,
+            to_manifest,
+            path,
+            source_sha256,
             &mut result,
         );
     }
@@ -1694,10 +1729,27 @@ fn build_reverse_dependencies(revision: &ChapterRevision) -> Vec<ReverseDependen
             );
         }
 
+        let retrieval_dependencies = if revision.sections.len() == 1 {
+            revision
+                .generation_origin
+                .as_ref()
+                .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
+                .unwrap_or_default()
+                .iter()
+                .map(|range| SectionDependency::SourceFile {
+                    path: range.path.clone(),
+                    source_sha256: range.source_sha256.clone(),
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
         for dependency in section
             .dependencies
             .iter()
             .chain(section.claims.iter().flat_map(|claim| &claim.dependencies))
+            .chain(retrieval_dependencies.iter())
         {
             let (key, path) = match dependency {
                 SectionDependency::SourceFile {
