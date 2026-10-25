@@ -1,8 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, focusAnswerSection, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, explorationSummaryCounts, focusAnswerSection, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
+
+test('exploration summaries report current questions separately from child branches',()=>{
+  const explorations=[
+    {id:'root',parentId:null,originTurnId:null,title:'Root',view:'guide',turns:[turn('root-1'),turn('root-2')]},
+    {id:'child',parentId:'root',originTurnId:'root-1',title:'Child',view:'flow',turns:[turn('child-1')]},
+    {id:'sibling',parentId:'root',originTurnId:'root-2',title:'Sibling',view:'guide',turns:[]},
+    {id:'grandchild',parentId:'child',originTurnId:'child-1',title:'Grandchild',view:'history',turns:[]},
+  ];
+  const counts=explorationSummaryCounts(explorations);
+  assert.deepEqual(counts.get('root'),{questions:2,children:2});
+  assert.deepEqual(counts.get('child'),{questions:1,children:1});
+  assert.deepEqual(counts.get('sibling'),{questions:0,children:0});
+  assert.equal(counts.has('missing'),false);
+});
 
 test('history never calls an empty or unavailable outcome a saved explanation',()=>{
   const available = new Set(['revision:existing']);
@@ -217,6 +231,12 @@ test('selecting another Guide slide reveals its answer card in the reader',()=>{
     'Guide slide navigation must focus the selected section through the workspace');
   assert.match(source,/target\?\.scrollIntoView\(\{block:'start'\}\)/,
     'the selected Guide answer must return to view when its section changes');
+  assert.match(source,/const restoreTurnId=current\.revealTurnId\?\?current\.focusedTurnId;/,
+    'restart restores the last focused answer when its pixel scroll is stale');
+  assert.match(source,/if\(current\.revealTurnId\)target\.focus\(\{preventScroll:true\}\)/,
+    'restart scroll restoration must not steal keyboard focus');
+  assert.match(source,/current\.id,current\.view,current\.revealTurnId,current\.focusedTurnId,chaptersLoading,tool/,
+    'changing the durable reader target reruns restoration for the current exploration');
 });
 
 test('stable section identity survives ordering and safely falls back for a changed answer',()=>{

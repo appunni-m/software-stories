@@ -50,6 +50,17 @@ export interface Turn {
 export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
 
+/** Distinguish questions at each level from child exploration branches. */
+export function explorationSummaryCounts(explorations: readonly Exploration[]): Map<string, { questions: number; children: number }> {
+  const counts = new Map(explorations.map((item) => [item.id, { questions: item.turns.length, children: 0 }]));
+  for (const item of explorations) {
+    if (!item.parentId) continue;
+    const parent = counts.get(item.parentId);
+    if (parent) parent.children += 1;
+  }
+  return counts;
+}
+
 /** Keep publication bookkeeping out of the reader; only a rejected result needs a visible warning. */
 export function workspaceAnswerLifecycleBadge(lifecycle: ChapterRevisionLifecycle): 'Rejected' | null {
   return lifecycle === 'rejected' ? 'Rejected' : null;
@@ -410,6 +421,23 @@ export function rememberScroll(state: WorkspaceState, explorationId: string, vie
 export function rememberCodePane(state:WorkspaceState,explorationId:string,codeOpen:boolean):WorkspaceState {
   if(typeof codeOpen!=='boolean'||!state.explorations.some(e=>e.id===explorationId&&e.codeOpen!==codeOpen))return state;
   return {...state,explorations:state.explorations.map(e=>e.id===explorationId?{...e,codeOpen}:e)};
+}
+/** Keep the active source path and exact selected/cited lines with this exploration. */
+export function rememberSourceContext(state:WorkspaceState,explorationId:string,context:Context):WorkspaceState {
+  const path=context?.path;
+  const validPath=typeof path==='string'&&path.length>0&&!path.startsWith('/')&&!path.includes('\\')
+    &&!path.split('/').some(part=>!part||part==='.'||part==='..')&&!/[\u0000-\u001f\u007f]/.test(path)
+    &&new TextEncoder().encode(path).length<=4096;
+  const hasLines=context?.from!==undefined||context?.to!==undefined;
+  const validLines=!hasLines||(Number.isSafeInteger(context.from)&&Number.isSafeInteger(context.to)
+    &&(context.from as number)>=1&&(context.to as number)>=(context.from as number));
+  const validHash=context?.sha256===undefined||typeof context.sha256==='string'&&/^[a-f0-9]{64}$/.test(context.sha256);
+  const owner=state.explorations.find(e=>e.id===explorationId);
+  if(!owner||!validPath||!validLines||!validHash)return state;
+  const reveal={path,...(context.sha256===undefined?{}:{sha256:context.sha256}),
+    ...(context.from===undefined?{}:{from:context.from}),...(context.to===undefined?{}:{to:context.to})};
+  if(state.file===path&&owner.file===path&&JSON.stringify(owner.reveal)===JSON.stringify(reveal))return state;
+  return {...state,file:path,explorations:state.explorations.map(e=>e.id===explorationId?{...e,file:path,reveal}:e)};
 }
 export function rememberFileFlow(state:WorkspaceState,explorationId:string,path:string,showAll:boolean):WorkspaceState {
   const owner=state.explorations.find(e=>e.id===explorationId);

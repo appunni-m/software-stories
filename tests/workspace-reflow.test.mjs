@@ -11,6 +11,12 @@ test('opening and closing code always reveals its corresponding narrow pane',()=
   matches(workspace,/aria-label=\{narrowPane==='source'\?'Show explanation':'Show source'\} onClick=\{\(\)=>\{if\(narrowPane==='source'\)setNarrowPane\('explanation'\);else setCodeOpen\(true\);\}\}/);
 });
 
+test('explaining selected code saves its exact source reveal for this exploration',()=>{
+  matches(workspace,/function openFile\(context:Context\) \{ update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);setReveal\(context\);/);
+  matches(workspace,/function explain\(context:Context\)\{const selected=\{\.\.\.context,sha256:source\?\.path===context\.path\?source\.sha256:context\.sha256\};openFile\(selected\);ask\(/);
+  matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
+});
+
 test('view and composer shortcuts reveal their targets before focusing',()=>{
   matches(workspace,/const setView = \(view:View\) => \{setNarrowPane\('explanation'\);/);
   matches(workspace,/function focusComposer\(\)\{setNarrowPane\('explanation'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>composer.current\?\.focus\(\)\);\}/);

@@ -32,6 +32,7 @@
 .dw-explorations li > button > svg {flex-shrink:0;}
 .dw-explorations li > button.active,.dw-explorations li > button:hover {color:var(--text);background:var(--surface-hover);}
 .dw-explorations small {font-size:10px;color:var(--dim);}
+.dw-explorations .dw-child-count {display:inline-flex;align-items:center;gap:2px;color:var(--accent);}
 .dw-sidebar > .dw-explorations {max-height:none;}
 .dw-separator {width:4px;background:var(--border);}
 .dw-separator:hover,.dw-separator:focus-visible {background:var(--accent);}

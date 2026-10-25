@@ -17,7 +17,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, chooseFlowRevision, rankSourcePaths, presentationOwner, rememberCodePane, rememberFileFlow, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
@@ -221,7 +221,7 @@ export function DeveloperWorkspace(props:Props) {
     void readSnapshotSource(projectId,snapshotId,state.file).then((value)=>{if(active){setSource(value);setSourceBusy(false);}}).catch((failure)=>{if(active){setSourceError(errorMessageOr(failure,'This captured file could not be opened.'));setSourceBusy(false);}});
     return()=>{active=false;};
   },[projectId,snapshotId,state.file]);
-  useEffect(()=>{setReveal(current.reveal??null);},[current.id]);
+  useEffect(()=>{setReveal(current.reveal??null);},[current.id,current.reveal]);
   useLayoutEffect(()=>{
     // Ignore layout-generated scroll events until the saved answer has loaded.
     // Capture the owner/view here so a late event cannot move another exploration.
@@ -229,18 +229,28 @@ export function DeveloperWorkspace(props:Props) {
     if(chaptersLoading||tool||!answerScroll.current)return;
     let release=0;
     const restore=requestAnimationFrame(()=>{
-      const target = current.view === 'guide' && current.revealTurnId
-        ? Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]') ?? []).find((node)=>node.dataset.questionId===current.revealTurnId) : null;
+      // `focusedTurnId` is durable and identifies the answer the reader last
+      // opened. `revealTurnId` is a one-shot History navigation request that
+      // may also move keyboard focus; after restart, restore reading without
+      // taking focus away from the user's current control.
+      const restoreTurnId=current.revealTurnId??current.focusedTurnId;
+      const target = current.view === 'guide' && restoreTurnId
+        ? Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]') ?? []).find((node)=>node.dataset.questionId===restoreTurnId) : null;
       if (target) {
         target.scrollIntoView({block:'start'});
-        target.focus({preventScroll:true});
+        if(current.revealTurnId)target.focus({preventScroll:true});
         const top=answerScroll.current?.scrollTop??0;
-        update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===current.id&&e.revealTurnId===current.revealTurnId?{...e,revealTurnId:undefined,scrollPositions:{...e.scrollPositions,guide:top}}:e)}));
+        update((s)=>({...s,explorations:s.explorations.map((e)=>{
+          if(e.id!==current.id)return e;
+          const clearReveal=!!current.revealTurnId&&e.revealTurnId===current.revealTurnId;
+          if(!clearReveal&&e.scrollPositions?.guide===top)return e;
+          return {...e,...(clearReveal?{revealTurnId:undefined}:{}),scrollPositions:{...e.scrollPositions,guide:top}};
+        })}));
       } else answerScroll.current?.scrollTo({top:current.scrollPositions?.[current.view]??0});
       release=requestAnimationFrame(()=>{restoringScroll.current=false;});
     });
     return()=>{cancelAnimationFrame(restore);cancelAnimationFrame(release);};
-  },[current.id,current.view,current.revealTurnId,chaptersLoading,tool]);
+  },[current.id,current.view,current.revealTurnId,current.focusedTurnId,chaptersLoading,tool]);
   useEffect(()=>{
     if(!isNativeRuntime()||!showChanges)return;
     let active=true;const controller=new AbortController();gitRequest.current=controller;
@@ -258,7 +268,7 @@ export function DeveloperWorkspace(props:Props) {
     defaultComparedHead.current=comparisonKey;
     onCompare(head.parents[0],head.oid);
   },[projectId,workspace,gitBusy,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
-  function openFile(context:Context) { update((s)=>({...s,file:context.path,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:context.path,reveal:context}:e)}));setReveal(context);setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
+  function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
   function focusComposer(){setNarrowPane('explanation');onWorkspace('guide-plan');requestAnimationFrame(()=>composer.current?.focus());}
   function showView(view:View){setView(view);setNarrowPane('explanation');onWorkspace('guide-plan');}
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);focusComposer();}
@@ -280,7 +290,7 @@ export function DeveloperWorkspace(props:Props) {
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
-  function explain(context:Context){ask(`Explain what ${label(context)} does and how it works.`,current.view==='flow'?'flow':'guide',[{...context,sha256:source?.path===context.path?source.sha256:context.sha256}]);}
+  function explain(context:Context){const selected={...context,sha256:source?.path===context.path?source.sha256:context.sha256};openFile(selected);ask(`Explain what ${label(selected)} does and how it works.`,current.view==='flow'?'flow':'guide',[selected]);}
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
@@ -368,11 +378,14 @@ export function DeveloperWorkspace(props:Props) {
   const latestRevision=chooseFlowRevision(flowRevisions,latestTurn?.reading?.flow?.revisionId,
     (revision)=>revision.sections.some((section)=>inspectInteractiveVisual(revision,section).status==='available'));
   const activityButtons=[{id:'files',label:'Explorer',icon:Files},{id:'search',label:'Search',icon:Search},{id:'changes',label:'Changes',icon:GitBranch},{id:'history',label:'Explorations',icon:History}] as const;
+  const explorationCounts=explorationSummaryCounts(state.explorations);
   const renderExplorations=(parent:string|null,depth=0):ReactNode=>state.explorations.filter((e)=>e.parentId===parent).map((e)=>{
     const nested=renderExplorations(e.id,depth+1);
     const title=e.id==='root'?projectName:e.title;
-    const questionCount=`${e.turns.length} ${e.turns.length===1?'question':'questions'}`;
-    return <li key={e.id}><button title={title} aria-label={`${title}, ${questionCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={title}/></span><small title={`${questionCount} in this exploration`}>{e.turns.length}</small></button><ul>{nested}</ul></li>;
+    const counts=explorationCounts.get(e.id)!;
+    const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
+    const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
+    return <li key={e.id}><button title={`${title} · ${questionCount} · ${childCount}`} aria-label={`${title}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={title}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>;
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   const sourcePane=source

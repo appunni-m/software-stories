@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {FLOW_DIAGRAM_LAYOUT_VERSION} from '../src/lib/readerProgress.ts';
-import {createWorkspace,addTurn,decodeWorkspace,rememberCodePane,rememberFileFlow,rememberPresentation} from '../src/workspace/model.ts';
+import {createWorkspace,addTurn,decodeWorkspace,rememberCodePane,rememberFileFlow,rememberPresentation,rememberSourceContext} from '../src/workspace/model.ts';
 import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspace-store-harness.mjs';
 import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 
@@ -227,8 +227,32 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   const reopened=native(b,storage);await reopened.store.prepareWorkspaceConversation('project','snapshot');
   const root=reopened.store.getWorkspace('project','snapshot').explorations[0];
   assert.equal(root.codeOpen,false);assert.deepEqual(clone(root.fileFlow),{path:'src/font.rs',showAll:true});
+  assert.equal(root.focusedTurnId,'reader-turn','restart retains the answer the reader last opened');
   assert.deepEqual(clone(root.turns[0].presentation.stories),[story]);assert.equal(root.turns[0].presentation.diagrams[0].viewport.zoom,1.8);
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'),'restart reads local metadata without model, audio or indexing work');
+});
+
+test('the exact Code Lens selection is the saved source reveal after native restart',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const selection={path:'src/tt/glyf.rs',sha256:'a'.repeat(64),from:564,to:583};
+  h.store.updateWorkspace('project','snapshot',state=>rememberSourceContext(state,'root',selection));
+  await h.store.flushWorkspaceConversation('project','snapshot');
+  const reopened=native(b);await reopened.store.prepareWorkspaceConversation('project','snapshot');
+  const state=reopened.store.getWorkspace('project','snapshot');
+  assert.equal(state.file,selection.path);
+  assert.deepEqual(clone(state.explorations[0].reveal),selection);
+  assert.ok(reopened.calls.every(call=>call.name==='load_workspace_conversation'),'restoring a selected range must not dispatch generation');
+});
+
+test('invalid Code Lens source context cannot replace the current saved reveal',()=>{
+  const initial=createWorkspace('project','snapshot');
+  const saved=rememberSourceContext(initial,'root',{path:'src/font.rs',sha256:'b'.repeat(64),from:4,to:8});
+  for(const invalid of [
+    {path:'../outside.rs',from:1,to:2},
+    {path:'src/tt/glyf.rs',from:0,to:2},
+    {path:'src/tt/glyf.rs',from:4,to:3},
+    {path:'src/tt/glyf.rs',from:4,to:5,sha256:'stale'},
+  ]) assert.equal(rememberSourceContext(saved,'root',invalid),saved);
 });
 
 test('nested conversations retain parent turns, source, sections and last views in native storage',async()=>{
