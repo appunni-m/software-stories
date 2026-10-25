@@ -452,6 +452,49 @@ fn omitted_search_kind_discovers_broad_queries_as_files_before_ranges() {
 }
 
 #[test]
+fn exact_successful_search_is_not_recomputed_but_next_page_is_available() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let (_, first_text) = exchange(
+        &mut s,
+        "search_code",
+        json!({"query":"How does a greeting work?","scope":null,"limit":4}),
+    );
+    let first: Value = serde_json::from_str(&first_text).unwrap();
+    assert_eq!(first["context"]["kind"], "search");
+
+    // Explicitly naming the auto-selected result kind is still the same query.
+    let (_, repeated_text) = exchange(
+        &mut s,
+        "search_code",
+        json!({
+            "query":"How does a greeting work?",
+            "scope":null,
+            "limit":4,
+            "resultKind":"files"
+        }),
+    );
+    let repeated: Value = serde_json::from_str(&repeated_text).unwrap();
+    assert_eq!(repeated["context"]["kind"], "searchError");
+    assert_eq!(repeated["context"]["result"]["code"], "duplicateSearch");
+
+    let (_, next_page_text) = exchange(
+        &mut s,
+        "search_code",
+        json!({
+            "query":"How does a greeting work?",
+            "scope":null,
+            "limit":4,
+            "offset":4,
+            "resultKind":"files"
+        }),
+    );
+    let next_page: Value = serde_json::from_str(&next_page_text).unwrap();
+    assert_eq!(next_page["context"]["kind"], "search");
+    s.check_complete().unwrap();
+}
+
+#[test]
 fn invalid_range_returns_no_code_and_an_agent_can_correct_it() {
     let f = Fixture::new();
     let mut s = session(&f);

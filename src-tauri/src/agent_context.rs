@@ -72,6 +72,28 @@ impl SearchResultKind {
         }
     }
 }
+
+fn search_key(
+    query: &str,
+    scope: Option<&str>,
+    limit: usize,
+    offset: usize,
+    result_kind: SearchResultKind,
+) -> Result<String, String> {
+    let kind = match result_kind {
+        SearchResultKind::Files => "files",
+        SearchResultKind::Auto | SearchResultKind::Ranges => "ranges",
+    };
+    let query = query.split_whitespace().collect::<Vec<_>>().join(" ");
+    arguments_digest(&json!({
+        "query": query,
+        "scope": scope,
+        "limit": limit.clamp(1, 32),
+        "offset": offset,
+        "resultKind": kind,
+    }))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Read {
@@ -171,6 +193,7 @@ pub(crate) struct Session {
     listener: UnixListener,
     #[cfg(unix)]
     pending: Option<Pending>,
+    successful_searches: HashSet<String>,
     events: HashMap<String, (Tool, String)>,
     consumed: HashSet<String>,
     completed: HashMap<String, (Tool, String, String)>,
@@ -465,6 +488,7 @@ impl Session {
                 token: format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple()),
                 listener,
                 pending: None,
+                successful_searches: HashSet::new(),
                 events: HashMap::new(),
                 consumed: HashSet::new(),
                 completed: HashMap::new(),
@@ -879,6 +903,28 @@ impl Session {
                         message: "No code or search results were returned. Use 2–240 printable characters and at most 32 searchable terms. Code punctuation is literal. Prefer a code identifier or a short phrase and narrow the captured scope when needed.",
                     }, &[], &fresh, &self.runtime, cancelled, send);
                 }
+                let limit = args.limit.clamp(1, 32);
+                let successful_search = search_key(
+                    &args.query,
+                    query_scope,
+                    limit,
+                    args.offset,
+                    result_kind,
+                )?;
+                if self.successful_searches.contains(&successful_search) {
+                    return self.ledger.deliver(
+                        token,
+                        Context::SearchError {
+                            code: "duplicateSearch",
+                            message: "This exact search already succeeded in this investigation. Reuse its result, or change the query, scope, or page offset to investigate a specific missing part.",
+                        },
+                        &[],
+                        &fresh,
+                        &self.runtime,
+                        cancelled,
+                        send,
+                    );
+                }
                 let input = repository_context_commands::SearchInput {
                     request_id: Uuid::new_v4().to_string(),
                     project_id: fresh.summary.project_id.clone(),
@@ -886,7 +932,7 @@ impl Session {
                     query: args.query,
                     mode: context::SearchMode::Code,
                     path: query_scope.map(str::to_owned),
-                    limit: args.limit.clamp(1, 32),
+                    limit,
                     offset: args.offset,
                 };
                 let execution = match result_kind {
@@ -909,16 +955,22 @@ impl Session {
                 };
                 let stages = execution.stages;
                 match execution.result {
-                    Ok(result) => self.ledger.deliver_with_local_stages(
-                        token,
-                        Context::Search((&result).into()),
-                        &[],
-                        &fresh,
-                        &self.runtime,
-                        cancelled,
-                        stages,
-                        send,
-                    ),
+                    Ok(result) => {
+                        let delivered = self.ledger.deliver_with_local_stages(
+                            token,
+                            Context::Search((&result).into()),
+                            &[],
+                            &fresh,
+                            &self.runtime,
+                            cancelled,
+                            stages,
+                            send,
+                        );
+                        if delivered.is_ok() {
+                            self.successful_searches.insert(successful_search);
+                        }
+                        delivered
+                    }
                     Err(error) => {
                         if let Some(message) = recoverable_search_message(&error) {
                             return self.ledger.deliver_with_local_stages(
