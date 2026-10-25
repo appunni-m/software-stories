@@ -1968,7 +1968,16 @@ pub(crate) fn search_files_with_mode_page(
         .searcher();
     let mut path_terms: HashMap<String, Vec<f32>> = HashMap::new();
     let mut range_terms: HashMap<usize, Vec<f32>> = HashMap::new();
-    let total_ranges = prepared.metadata.ranges.len().max(1);
+    // File discovery returns one result per path, so IDF must count files,
+    // not chunks. Otherwise one large file with many matching ranges can
+    // distort term rarity for every other file in the repository.
+    let total_paths = prepared
+        .metadata
+        .files
+        .iter()
+        .filter(|file| file.chunks > 0)
+        .count()
+        .max(1);
     let range_key_field = field(&prepared.index, "range_key")?;
     for (term_index, variants) in term_groups.iter().enumerate() {
         budget.check()?;
@@ -2014,8 +2023,12 @@ pub(crate) fn search_files_with_mode_page(
         if matching_ranges.is_empty() {
             continue;
         }
+        let matching_paths = matching_ranges
+            .iter()
+            .map(|range_id| prepared.metadata.ranges[*range_id].path.as_str())
+            .collect::<BTreeSet<_>>();
         let inverse_document_frequency =
-            (((total_ranges + 1) as f32) / ((matching_ranges.len() + 1) as f32)).ln();
+            (((total_paths + 1) as f32) / ((matching_paths.len() + 1) as f32)).ln();
         for range_id in matching_ranges {
             let range = &prepared.metadata.ranges[range_id];
             path_terms
