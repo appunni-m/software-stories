@@ -235,6 +235,14 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
     assert!(instructions.contains("skip repository-wide discovery"));
     assert!(instructions.contains("Batch up to eight known ranges in one read_code call"));
     assert!(instructions.contains("Never repeat a successful query"));
+
+    let broad_answer = session(&f);
+    let instructions = broad_answer.base_instructions();
+    assert!(instructions.contains("inspect queryCoverage.matchedTerms and nextOffset"));
+    assert!(instructions.contains("use a distinct focused search for that missing stage/caller"));
+    assert!(instructions.contains(
+        "Never treat the first file page or one matching file as complete repository coverage"
+    ));
 }
 
 #[test]
