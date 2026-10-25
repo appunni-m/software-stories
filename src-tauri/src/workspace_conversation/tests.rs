@@ -161,6 +161,7 @@ fn a_guide_waiting_between_playback_batches_can_be_saved() {
         "openingRunId": null,
         "openingRunIds": ["96c38bee-29db-4147-8a42-0f240daa9292"],
         "canContinue": true,
+        "canExtend": false,
         "continuationOperations": 2,
         "units": [{
             "key": "render-path",

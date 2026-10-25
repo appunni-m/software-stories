@@ -39,6 +39,8 @@ pub(super) struct UnitPlan {
     pub question: String,
     pub prerequisites: Vec<String>,
     pub starting_ranges: Vec<context::CodeRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation_topic: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -203,6 +205,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
             question: unit.question,
             prerequisites: unit.prerequisites,
             starting_ranges: ranges,
+            continuation_topic: None,
         });
     }
     Ok(Plan {

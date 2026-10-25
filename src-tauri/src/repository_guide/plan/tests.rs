@@ -56,10 +56,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
     assert!(!encoded.contains("quote"));
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
-    assert_eq!(
-        schema["properties"]["sections"]["maxItems"],
-        MAX_GUIDE_SLIDES
-    );
+    assert_eq!(schema["properties"]["sections"]["maxItems"], MAX_UNITS + 1);
     assert_eq!(schema["properties"]["sections"]["minItems"], 3);
     assert!(
         schema["properties"]["sections"]["description"]
@@ -81,7 +78,7 @@ fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
             "claims": [{"evidence":[{"referenceId":"code:2"}]}]
         }));
     }
-    assert_eq!(full["sections"].as_array().unwrap().len(), MAX_GUIDE_SLIDES);
+    assert_eq!(full["sections"].as_array().unwrap().len(), MAX_UNITS + 1);
     assert_eq!(
         canonicalize(&resolve(full.clone())).unwrap().units.len(),
         MAX_UNITS
@@ -356,9 +353,10 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
         "Follow nextOffset while another relevant caller or implementation path may change coverage"
     ));
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-        "Use at most twelve code-tool calls, matching the native planner budget"
-    ));
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("Use at most twelve code-tool calls, matching the native planner budget")
+    );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
     assert_eq!(MAX_UNITS + 1, 13);

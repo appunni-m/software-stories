@@ -146,7 +146,7 @@ test('a guide update warms only new revisions already adopted by the native read
   let guideId = '';
   const updatedGuide = {
     projectId: 'project', snapshotId: 'snapshot', revision: 2, id: '', question: 'Follow this repository feature', title: 'Feature path', status: 'building',
-    openingRunId: firstRunId, openingRunIds: [firstRunId], canContinue: true, continuationOperations: 0,
+    openingRunId: firstRunId, openingRunIds: [firstRunId], canContinue: true, canExtend: false, continuationOperations: 0,
     units: [{ key: 'next', question: 'What happens next?', prerequisites: [], status: 'complete', runIds: [nextRunId] }],
     answers: [oldAnswer, nextAnswer], omissions: [], capturedFiles: 2, startingFiles: 2,
   };

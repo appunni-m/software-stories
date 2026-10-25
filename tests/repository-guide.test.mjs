@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideContinuationQuestion, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
 const section={runId,key:'input',order:0,generationId,revisionId:'revision:one',supersedes:null,contextElapsedMs:15,runElapsedMs:20};
 const guide=()=>({revision:1,id:guideId,projectId:'p',snapshotId:'s',question:'How does this project work?',title:'The input journey',status:'building',
-  openingRunId:null,openingRunIds:[],canContinue:false,continuationOperations:0,
+  openingRunId:null,openingRunIds:[],canContinue:false,canExtend:false,continuationOperations:0,
   units:[{key:'input',question:'How does input arrive?',prerequisites:[],status:'working',runIds:[runId]},
     {key:'output',question:'How does output leave?',prerequisites:['input'],status:'pending',runIds:[]}],
   answers:[{runId,projectId:'p',snapshotId:'s',question:'How does input arrive?',outcome:'working',sections:[section],incompleteTopics:[]}],
@@ -126,17 +126,6 @@ test('root Guide me always starts the incremental repository guide while scoped 
   });
 });
 
-test('finished guides turn bounded omissions into a focused follow-up question',()=>{
-  const question=repositoryGuideOmissionQuestion(['C ABI exports and errors','WASM wrapper routing','C ABI exports and errors']);
-  assert.match(question,/C ABI exports and errors; WASM wrapper routing/);
-  assert.match(question,/find the relevant implementation in the captured source/);
-  assert.match(question,/do not repeat sections already covered/);
-  assert.equal(repositoryGuideOmissionQuestion([' ', '\n\t']),null);
-  const many=repositoryGuideOmissionQuestion(Array.from({length:10},(_,index)=>`topic ${index}`));
-  assert.match(many,/topic 7/);
-  assert.doesNotMatch(many,/topic 8/);
-});
-
 test('partial guide coverage note names omissions concisely',()=>{
   assert.equal(repositoryGuideOmissionSummary([' C ABI exports and errors ','WASM wrapper routing','C ABI exports and errors']),
     'C ABI exports and errors · WASM wrapper routing');
@@ -161,35 +150,24 @@ test('uncovered guide topics include failed planned units',()=>{
   assert.deepEqual(repositoryGuideUncoveredTopics(undefined),[]);
 });
 
-test('guide continuation names completed topics so it can avoid repeating them',()=>{
-  const question=repositoryGuideContinuationQuestion({
-    omissions:['C ABI errors'],
-    units:[
-      {key:'api',question:'Explain the public API',prerequisites:[],status:'complete',runIds:['run-1']},
-      {key:'wasm',question:'Explain the WASM route',prerequisites:[],status:'failed',runIds:['run-2']},
-    ],
-  });
-  assert.match(question,/C ABI errors/);
-  assert.match(question,/Completed topics in the saved guide: Explain the public API/);
-  assert.match(question,/explain only the uncovered topics/);
-});
-
-test('a completed guide exposes omissions as a nested source exploration',async()=>{
+test('a completed partial guide extends its saved outline in place',async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   const store=readFileSync(new URL('../src/workspace/store.ts',import.meta.url),'utf8');
-  assert.match(source,/repositoryGuideContinuationQuestion\(turn\.guide\)/);
-  assert.match(source,/selectedGuideSlide===guideSlides\.length-1/);
-  assert.match(source,/branchLabel=\{omissionQuestion\?'Explore uncovered topics'/);
-  assert.match(source,/coverageSummary=\{omissionSummary\?\?undefined\}/);
+  assert.match(source,/turn\.guide\?\.canExtend===true/);
+  assert.match(source,/runRepositoryGuide\(projectId,snapshotId,turn\.id,state\.grantId,true\)/);
+  assert.match(source,/setGuideConsent\(\{id:turn\.id,resume:true\}\)/);
+  assert.match(source,/guideSlideItemIndex===lastAvailableItemIndex/);
+  assert.match(source,/branchLabel=\{canExtendOmissions\?'Explore uncovered topics'/);
+  assert.match(source,/coverageSummary=\{guideCoverageSummary\?\?undefined\}/);
   assert.match(source,/className="dw-guide-coverage" role="status"><strong>Partial guide<\/strong><span>Still uncovered:/);
   assert.match(source,/repositoryGuideCoverageLabel\(turn\.guide\)/);
   assert.match(source,/className="dw-guide-status" role="status">\{guideCoverageLabel\}/);
   assert.match(source,/dw-guide-outline-count/);
-  assert.match(source,/if\(question\)startRepositoryGuide\(question,turn\.id\)/);
-  assert.match(source,/function startRepositoryGuide\(question:string,parentTurn\?:string\)/);
   assert.match(source,/appendRepositoryGuide\(projectId,snapshotId,question,parentTurn\)/);
-  assert.match(store,/appendQuestion\(project,snapshot,question,\[\],'guide',parentTurn\)/);
+  assert.doesNotMatch(source,/repositoryGuideContinuationQuestion/);
+  assert.doesNotMatch(source,/repositoryGuideOmissionQuestion/);
+  assert.match(store,/resume \? 'resume_repository_guide' : 'start_repository_guide'/);
 });
 
 test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{

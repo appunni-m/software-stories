@@ -35,12 +35,14 @@ pub(super) fn record(f: &Fixture) -> Record {
                     question: "How does the name enter the greeting?".into(),
                     prerequisites: vec![],
                     starting_ranges: vec![range.clone()],
+                    continuation_topic: None,
                 },
                 plan::UnitPlan {
                     key: "output".into(),
                     question: "How does the greeting become output?".into(),
                     prerequisites: vec!["input".into()],
                     starting_ranges: vec![range],
+                    continuation_topic: None,
                 },
             ],
             omissions: vec!["No runtime execution was captured.".into()],
@@ -134,6 +136,87 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
     fresh.units = previous.units;
     fresh.status = Status::Building;
     fresh
+}
+
+#[test]
+fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let opening_run_id = record.opening.as_ref().unwrap().run_id.clone();
+    let opening_question = opening::LEARNING_QUESTION.to_owned();
+    let mut opening = attempt(&record, Outcome::Complete);
+    let opening_owner = opening_run_id.clone();
+    opening.run_id = opening_run_id.clone();
+    opening.question = opening_question.clone();
+    let summary = opening.summary.as_mut().unwrap();
+    summary.run_id = opening_run_id;
+    summary.question = opening_question;
+    summary.sections[0].run_id = opening_owner;
+    record.opening = Some(opening);
+    record.opening_context_sha256 = Some(opening::context_sha256(&record).unwrap());
+    let completed_units = record
+        .plan
+        .as_ref()
+        .unwrap()
+        .units
+        .iter()
+        .map(|unit| {
+            let mut completed = attempt(&record, Outcome::Complete);
+            completed.question = unit.question.clone();
+            completed.summary.as_mut().unwrap().question = unit.question.clone();
+            completed
+        })
+        .collect::<Vec<_>>();
+    for (unit, completed) in record.units.iter_mut().zip(completed_units) {
+        unit.attempts.push(completed);
+    }
+    record.status = Status::Ready;
+    assert!(plan_extension_eligible(&record));
+    assert!(guide_summary(&record, &f.manifest, Vec::new()).can_extend);
+    store::create(&f.storage, &record).unwrap();
+
+    let resumed = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
+    assert_eq!(resumed.id, record.id);
+    assert_eq!(resumed.plan, record.plan);
+    assert_eq!(
+        resumed.units[..2]
+            .iter()
+            .map(|unit| unit.attempts[0].run_id.as_str())
+            .collect::<Vec<_>>(),
+        record.units[..2]
+            .iter()
+            .map(|unit| unit.attempts[0].run_id.as_str())
+            .collect::<Vec<_>>()
+    );
+
+    let extended = append_omission_units(&f.storage, &resumed).unwrap();
+
+    let plan = extended.plan.as_ref().unwrap();
+    assert_eq!(plan.units.len(), 3);
+    assert_eq!(extended.units.len(), 3);
+    assert_eq!(plan.omissions, Vec::<String>::new());
+    assert!(
+        plan.units[..2]
+            .iter()
+            .all(|unit| unit.continuation_topic.is_none())
+    );
+    assert!(extended.units[..2].iter().all(unit_complete));
+    assert_eq!(
+        plan.units[2].continuation_topic.as_deref(),
+        Some("No runtime execution was captured.")
+    );
+    assert_eq!(plan.units[2].starting_ranges.len(), 0);
+    assert!(extended.units[2].attempts.is_empty());
+    assert!(!plan_extension_eligible(&extended));
+    assert!(!guide_summary(&extended, &f.manifest, Vec::new()).can_extend);
+    let reopened = store::read(&f.storage, &record.id).unwrap();
+    assert_eq!(reopened.plan.as_ref(), Some(plan));
+    for index in 0..2 {
+        assert_eq!(
+            reopened.units[index].attempts[0].run_id,
+            extended.units[index].attempts[0].run_id
+        );
+    }
 }
 
 #[test]
@@ -247,6 +330,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
                 vec![format!("unit-{}", i - 1)]
             },
             starting_ranges: vec![range.clone()],
+            continuation_topic: None,
         })
         .collect();
     r.units = r

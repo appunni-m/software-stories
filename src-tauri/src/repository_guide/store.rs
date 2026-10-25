@@ -313,7 +313,7 @@ fn validate(record: &Record) -> Result<(), String> {
             .manifest_sha256
             .bytes()
             .all(|b| b.is_ascii_hexdigit())
-        || record.units.len() > MAX_UNITS
+        || record.units.len() > MAX_TOTAL_UNITS
         || record.active_run_id.as_ref().is_some_and(|id| !uuid(id))
     {
         return Err("The saved repository guide has an incompatible contract.".into());
@@ -363,7 +363,15 @@ fn validate(record: &Record) -> Result<(), String> {
         validate_summary(record, attempt)?;
     }
     if let Some(plan) = &record.plan {
-        if !(2..=MAX_UNITS).contains(&plan.units.len())
+        let original_units = plan
+            .units
+            .iter()
+            .position(|unit| unit.continuation_topic.is_some())
+            .unwrap_or(plan.units.len());
+        let continuation_units = plan.units.len().saturating_sub(original_units);
+        if !(2..=MAX_UNITS).contains(&original_units)
+            || plan.units.len() > MAX_TOTAL_UNITS
+            || continuation_units > MAX_CONTINUATION_UNITS
             || record.units.len() != plan.units.len()
             || !text(&plan.title, 8, 120)
             || (!plan.opening_ranges.is_empty() && !(1..=4).contains(&plan.opening_ranges.len()))
@@ -373,10 +381,41 @@ fn validate(record: &Record) -> Result<(), String> {
             return Err("The saved guide outline is invalid.".into());
         }
         let mut keys = std::collections::HashSet::new();
+        let mut continuation_topics = std::collections::HashSet::new();
+        let mut continuation_seen = false;
         for (unit, progress) in plan.units.iter().zip(&record.units) {
+            if unit.continuation_topic.is_some() {
+                continuation_seen = true;
+            }
+            let valid_starting_ranges = if unit.continuation_topic.is_some() {
+                unit.starting_ranges.len() <= 4
+            } else {
+                (1..=4).contains(&unit.starting_ranges.len())
+            };
+            let valid_continuation_topic = unit.continuation_topic.as_deref().is_none_or(|topic| {
+                let normalized = topic
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .to_lowercase();
+                text(topic, 1, 240)
+                    && unit.question == super::extension_question(topic)
+                    && unit.prerequisites.is_empty()
+                    && continuation_topics.insert(normalized.clone())
+                    && !plan.omissions.iter().any(|omission| {
+                        omission
+                            .split_whitespace()
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                            .to_lowercase()
+                            == normalized
+                    })
+            });
             if !key(&unit.key)
                 || keys.contains(&unit.key)
                 || unit.key != progress.key
+                || (continuation_seen && unit.continuation_topic.is_none())
+                || !valid_continuation_topic
                 || !text(&unit.question, 16, 800)
                 || !unit.question.ends_with('?')
                 || unit.prerequisites.iter().any(|k| !keys.contains(k))
@@ -387,7 +426,7 @@ fn validate(record: &Record) -> Result<(), String> {
                     .collect::<std::collections::HashSet<_>>()
                     .len()
                     != unit.prerequisites.len()
-                || !(1..=4).contains(&unit.starting_ranges.len())
+                || !valid_starting_ranges
                 || progress
                     .attempts
                     .iter()
@@ -502,7 +541,9 @@ pub(in crate::repository_guide) fn prepare_continuation(
         if current.revision != revision || current.active_run_id.is_some() {
             return Err("The guide changed while continuation was being prepared. Inspect its saved progress before continuing.".into());
         }
-        if opening_continuation::remaining_operations(current) == 0 {
+        if opening_continuation::remaining_operations(current) == 0
+            && !super::plan_extension_eligible(current)
+        {
             return Err("This guide has no remaining investigations. Its saved sections and unfinished boundaries remain available.".into());
         }
         current.status = Status::Building;

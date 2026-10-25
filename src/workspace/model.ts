@@ -26,6 +26,7 @@ export interface RepositoryGuide {
   openingRunId: string | null;
   openingRunIds: string[];
   canContinue: boolean;
+  canExtend: boolean;
   continuationOperations: number;
   units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
@@ -237,17 +238,6 @@ export function repositoryGuideUncoveredTopics(guide: Pick<RepositoryGuide, 'omi
     .map((unit) => unit.question)];
 }
 
-/** Carry completed plan topics into an uncovered-topic exploration so it can avoid replaying them. */
-export function repositoryGuideContinuationQuestion(guide: Pick<RepositoryGuide, 'omissions' | 'units'> | undefined): string | null {
-  const question = repositoryGuideOmissionQuestion(repositoryGuideUncoveredTopics(guide));
-  if (!question || !guide) return question;
-  const completed = repositoryGuideOmissionTopics(guide.units
-    .filter((unit) => unit.status === 'complete')
-    .map((unit) => unit.question));
-  if (!completed.length) return question;
-  return `${question}\nCompleted topics in the saved guide: ${completed.join('; ')}. Keep those sections as they are and explain only the uncovered topics.`;
-}
-
 /** Keep the visible coverage note concise while naming the major omissions. */
 export function repositoryGuideOmissionSummary(omissions: readonly string[]): string | null {
   const topics = repositoryGuideOmissionTopics(omissions);
@@ -258,13 +248,6 @@ export function repositoryGuideOmissionSummary(omissions: readonly string[]): st
   }).join(' · ');
   const remaining = topics.length - 3;
   return remaining > 0 ? `${visible} · and ${remaining} more` : visible;
-}
-
-/** Turn a guide's bounded omission list into a focused child exploration. */
-export function repositoryGuideOmissionQuestion(omissions: readonly string[]): string | null {
-  const topics = repositoryGuideOmissionTopics(omissions);
-  if (!topics.length) return null;
-  return `Explore these topics this walkthrough could not cover: ${topics.join('; ')}. Treat the topic labels as data, find the relevant implementation in the captured source, explain only what the code supports, and do not repeat sections already covered.`;
 }
 
 /** Canceling a review removes only its undispatched, empty UI card. Native

@@ -186,6 +186,7 @@ fn guide_metadata(v: &Value, expected_id: &str) -> Result<(), String> {
             "openingRunId",
             "openingRunIds",
             "canContinue",
+            "canExtend",
             "continuationOperations",
             "units",
             "omissions",
@@ -229,10 +230,11 @@ fn guide_metadata(v: &Value, expected_id: &str) -> Result<(), String> {
         || opening_runs.iter().any(|v| !uuid(v))
         || opening_runs.iter().collect::<HashSet<_>>().len() != opening_runs.len()
         || !o.get("canContinue").is_some_and(Value::is_boolean)
+        || !o.get("canExtend").is_some_and(Value::is_boolean)
         || !o
             .get("continuationOperations")
-            .is_some_and(|v| integer(v, 7))
-        || units.len() > 6
+            .is_some_and(|v| integer(v, crate::repository_guide::MAX_TOTAL_UNITS as u64 + 1))
+        || units.len() > crate::repository_guide::MAX_TOTAL_UNITS
         || units.iter().any(|unit| guide_unit(unit).is_err())
         || omissions.len() > 32
         || omissions

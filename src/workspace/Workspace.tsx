@@ -17,7 +17,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideContinuationQuestion, repositoryGuideCoverageLabel, repositoryGuideOmissionQuestion, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideTimeoutRecovery, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
@@ -375,8 +375,9 @@ export function DeveloperWorkspace(props:Props) {
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
   function exploreGuideOmissions(turn:Turn){
-    const question=repositoryGuideContinuationQuestion(turn.guide);
-    if(question)startRepositoryGuide(question,turn.id);
+    if(conversationUnavailable||!turn.guideId||!turn.guide?.canExtend||!requireCodexConnection())return;
+    if(state.grantId)void runRepositoryGuide(projectId,snapshotId,turn.id,state.grantId,true);
+    else {setGuideConsent({id:turn.id,resume:true});setConsentError(null);}
   }
   useEffect(()=>{
     const find=()=>{setActivity('search');setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
@@ -514,10 +515,9 @@ function Answer(props:AnswerProps){
   const timeoutRecovery=repositoryGuideTimeoutRecovery(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide);
   const uncoveredGuideTopics=repositoryGuideUncoveredTopics(turn.guide);
-  const omissionQuestion=turn.guideId&&turn.guide&&!canContinueRepositoryGuide(turn.guide)
-    &&(turn.status==='ready'||turn.status==='partial')&&selectedGuideSlide>=0
-    ?repositoryGuideOmissionQuestion(uncoveredGuideTopics):null;
-  const omissionSummary=omissionQuestion?repositoryGuideOmissionSummary(uncoveredGuideTopics):null;
+  const canExtendOmissions=!!(turn.guideId&&turn.guide?.canExtend===true&&!canContinueRepositoryGuide(turn.guide)
+    &&(turn.status==='ready'||turn.status==='partial')&&guideSlideItemIndex===lastAvailableItemIndex);
+  const omissionSummary=canExtendOmissions?repositoryGuideOmissionSummary(uncoveredGuideTopics):null;
   const guideCoverageSummary=guideCoverageLabel==='Partial coverage'
     ?omissionSummary??'Some planned topics were not completed.'
     :null;
@@ -533,9 +533,9 @@ function Answer(props:AnswerProps){
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}
-      branchLabel={omissionQuestion?'Explore uncovered topics':undefined}
+      branchLabel={canExtendOmissions?'Explore uncovered topics':undefined}
       coverageSummary={guideCoverageSummary??undefined}
-      onBranch={omissionQuestion?()=>props.onExploreOmissions(turn):props.onBranch}/>}
+      onBranch={canExtendOmissions?()=>props.onExploreOmissions(turn):props.onBranch}/>}
     {!turn.guideId&&progressiveAnswerSequence&&sectionItems.some((item)=>item.kind==='unavailable')&&<details className="dw-unavailable-group"><summary>{sectionItems.filter((item)=>item.kind==='unavailable').reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0)} saved answer part(s) unavailable</summary><p>These parts could not be reopened. Re-explain this question to build them again.</p><Button size="1" variant="soft" onClick={props.onRetry}>Explain this question again</Button></details>}
     {!turn.guideId&&!progressiveAnswerSequence&&sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion
       loading={props.loading} revision={chapters?.find((r)=>r.revisionId===item.section.revisionId)}

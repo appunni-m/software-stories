@@ -63,6 +63,9 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
     let mut guide = fresh_record(&f);
     guide.grant_id = grant.clone();
     let plan = guide.plan.as_mut().unwrap();
+    plan.omissions = (0..8)
+        .map(|index| format!("Additional implementation route {index}"))
+        .collect();
     let starting_ranges = plan.units[0].starting_ranges.clone();
     for index in 2..MAX_UNITS {
         let key = format!("stage-{index}");
@@ -71,6 +74,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
             question: format!("How does implementation stage {index} transform the input?"),
             prerequisites: vec![],
             starting_ranges: starting_ranges.clone(),
+            continuation_topic: None,
         });
         guide.units.push(Unit {
             key,
@@ -118,12 +122,19 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
         .chain(guide.units.iter().flat_map(|unit| &unit.attempts))
         .map(|attempt| attempt.run_id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(runs.len(), MAX_GUIDE_ANSWER_RECORDS);
+    assert_eq!(
+        runs.len(),
+        1 + MAX_OPENING_CONTINUATIONS + MAX_UNITS * MAX_ATTEMPTS
+    );
+    assert_eq!(
+        answer_reservation(&guide).reserved_records,
+        MAX_GUIDE_ANSWER_RECORDS
+    );
     for run in &runs {
         retain(&f, run, &runtime, &grant).unwrap();
     }
     let after = answer_bytes(&f);
-    assert_eq!(after.len(), 7 + MAX_GUIDE_ANSWER_RECORDS);
+    assert_eq!(after.len(), 7 + runs.len());
     for (path, bytes) in prior {
         assert_eq!(after.get(&path), Some(&bytes));
     }
@@ -172,6 +183,9 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
     let mut next = fresh_record(&f);
     next.grant_id = grant;
     let plan = next.plan.as_mut().unwrap();
+    plan.omissions = (0..8)
+        .map(|index| format!("Additional implementation route {index}"))
+        .collect();
     let starting_ranges = plan.units[0].starting_ranges.clone();
     for index in next.units.len()..MAX_UNITS {
         let key = format!("stage-{index}");
@@ -180,6 +194,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
             question: format!("How does implementation stage {index} transform the input?"),
             prerequisites: vec![],
             starting_ranges: starting_ranges.clone(),
+            continuation_topic: None,
         });
         next.units.push(Unit {
             key,
