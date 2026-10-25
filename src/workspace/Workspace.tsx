@@ -9,6 +9,7 @@ import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
+import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -323,7 +324,7 @@ export function DeveloperWorkspace(props:Props) {
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
-  function explain(context:Context){const selected={...context,sha256:context.sha256??(source?.path===context.path?source.sha256:undefined)};openFile(selected);ask(`Explain what ${label(selected)} does and how it works.`,current.view==='flow'?'flow':'guide',[selected]);}
+  function explain(context:Context){const selected=bindSelectionToDisplayedSource(context,source);openFile(selected);ask(`Explain what ${label(selected)} does and how it works.`,current.view==='flow'?'flow':'guide',[selected]);}
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId

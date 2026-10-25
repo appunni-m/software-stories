@@ -8,6 +8,7 @@ import { javascript } from '@codemirror/lang-javascript';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import type { Context as CodeContext } from '../workspace/model';
+import { codeSelectionContext } from '../lib/codeSelection';
 
 const sourceLanguage = (path: string) => ({rs:'Rust',ts:'TypeScript',tsx:'TSX',mts:'TypeScript',cts:'TypeScript',js:'JavaScript',jsx:'JSX',mjs:'JavaScript',cjs:'JavaScript',py:'Python',go:'Go',swift:'Swift',java:'Java',c:'C',h:'C/C++',cpp:'C++',cs:'C#',rb:'Ruby',php:'PHP',sh:'Shell',json:'JSON',toml:'TOML',yaml:'YAML',yml:'YAML',md:'Markdown',mdx:'MDX',html:'HTML',css:'CSS'}[path.split('.').at(-1)?.toLowerCase() ?? ''] ?? 'Plain text');
 
@@ -36,11 +37,11 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
         ...(/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(path) ? [javascript({ typescript: /\.(?:[cm]?ts|tsx)$/i.test(path), jsx: /\.[jt]sx$/i.test(path) })] : []), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}` }),
-        keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (r.empty) return false; callback.current({ path, sha256, from: v.state.doc.lineAt(r.from).number, to: v.state.doc.lineAt(Math.max(r.from,r.to-1)).number }); return true; } }, ...defaultKeymap]),
+        keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (r.empty) return false; callback.current(codeSelectionContext(path, sha256, v.state.doc.lineAt(r.from).number, v.state.doc.lineAt(Math.max(r.from,r.to-1)).number)); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
           if (!update.selectionSet) return;
           const range = update.state.selection.main;
-          setSelection(range.empty ? null : { path, sha256, from: update.state.doc.lineAt(range.from).number, to: update.state.doc.lineAt(Math.max(range.from,range.to-1)).number });
+          setSelection(range.empty ? null : codeSelectionContext(path, sha256, update.state.doc.lineAt(range.from).number, update.state.doc.lineAt(Math.max(range.from,range.to-1)).number));
         }),
       ],
     }) });
