@@ -1,6 +1,12 @@
 /* Neutral editor surfaces and a blue action color; tokens apply across the app. */
 :root {
   color-scheme: dark;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
   --canvas: #181b20; --surface: #20242b; --surface-raised: #272d36; --surface-hover: #303846;
   --border: #3a4452; --border-strong: #526174;
   --text: #eef2f7; --muted: #bcc7d5; --dim: #a8b6c8;
