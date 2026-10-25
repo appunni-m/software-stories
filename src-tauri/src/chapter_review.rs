@@ -810,6 +810,7 @@ mod tests {
                 &"a".repeat(64),
                 &"b".repeat(64),
                 vec![range],
+                None,
                 &sources,
                 &revision,
             )

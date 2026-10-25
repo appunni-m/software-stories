@@ -1409,7 +1409,9 @@ impl ActiveAnswer {
                                                         context::digest(&encode(&checkpoint)?);
                                                     revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
                                                         &self.value.binding.operation_id, &self.value.request_sha256,
-                                                        &checkpoint_sha256, record_ranges(&checkpoint), &sources, &revision,
+                                                        &checkpoint_sha256, record_ranges(&checkpoint),
+                                                        syntax.as_ref(),
+                                                        &sources, &revision,
                                                     )?);
                                                     revision.validation_status =
                                                         chapters::ValidationStatus::Valid;
@@ -1927,7 +1929,7 @@ fn replay_answer_value(
             .ok_or("The section lacks its native origin.")?;
         let origin_json =
             serde_json::to_value(origin).map_err(|_| "The section origin is unavailable.")?;
-        if origin.schema_version != 5
+        if origin.schema_version != 6
             || origin.contract_version != PROGRESSIVE_CONTRACT
             || !origin.matches_content(&section.preview.revision)
             || origin.request_id != operation

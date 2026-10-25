@@ -43,6 +43,17 @@ pub struct RecordedRetrievalEvidence {
     policy: String,
     ledger_sha256: String,
     ranges: Vec<crate::repository_context::CodeRange>,
+    index_identity: RecordedIndexIdentity,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase", deny_unknown_fields)]
+pub enum RecordedIndexIdentity {
+    Available {
+        schema_version: u32,
+        indexer_version: String,
+    },
+    Unavailable,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -75,6 +86,16 @@ impl ChapterGenerationOrigin {
         self.retrieval
             .as_ref()
             .map(|retrieval| retrieval.ranges.as_slice())
+    }
+
+    pub(crate) fn retrieval_index_identity(&self) -> Option<String> {
+        match &self.retrieval.as_ref()?.index_identity {
+            RecordedIndexIdentity::Available {
+                schema_version,
+                indexer_version,
+            } => Some(format!("{schema_version}:{indexer_version}")),
+            RecordedIndexIdentity::Unavailable => None,
+        }
     }
 
     pub(crate) fn from_agent_review(
@@ -116,7 +137,7 @@ impl ChapterGenerationOrigin {
             .map(|_| provider::planned_chapter_review_scope(review).map_err(|error| error.message))
             .transpose()?;
         let origin = Self {
-            schema_version: 5,
+            schema_version: 6,
             project_id: review.project_id.clone(),
             snapshot_id: review.snapshot_id.clone(),
             target_path: review.target_path.clone(),
@@ -161,15 +182,22 @@ impl ChapterGenerationOrigin {
         request_sha256: &str,
         ledger_sha256: &str,
         ranges: Vec<crate::repository_context::CodeRange>,
+        index: Option<&crate::index::SnapshotIndex>,
         sources: &[crate::snapshot::SnapshotSource],
         revision: &ChapterRevision,
     ) -> Result<Self, String> {
+        let index_identity = index.map_or(RecordedIndexIdentity::Unavailable, |index| {
+            RecordedIndexIdentity::Available {
+                schema_version: index.schema_version,
+                indexer_version: index.indexer_version.clone(),
+            }
+        });
         let fingerprint = crate::repository_context::digest(
-            &serde_json::to_vec(&(request_sha256, ledger_sha256))
+            &serde_json::to_vec(&(request_sha256, ledger_sha256, &index_identity))
                 .map_err(|_| "The retrieval origin could not be encoded.")?,
         );
         let origin = Self {
-            schema_version: 5,
+            schema_version: 6,
             project_id: revision.project_id.clone(),
             snapshot_id: revision.snapshot_id.clone(),
             target_path: None,
@@ -197,6 +225,7 @@ impl ChapterGenerationOrigin {
                 policy: crate::evidence_ledger::POLICY.into(),
                 ledger_sha256: ledger_sha256.into(),
                 ranges,
+                index_identity,
             }),
             content_sha256: content_digest(revision)?,
         };
@@ -254,7 +283,7 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            self.schema_version == 5
+            self.schema_version == 6
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -267,8 +296,19 @@ impl ChapterGenerationOrigin {
                         approval_policy: "never".into(),
                     }
                 && retrieval.policy == crate::evidence_ledger::POLICY
+                && match &retrieval.index_identity {
+                    RecordedIndexIdentity::Available {
+                        schema_version,
+                        indexer_version,
+                    } => *schema_version > 0 && text(indexer_version, 128),
+                    RecordedIndexIdentity::Unavailable => true,
+                }
                 && digest(&retrieval.ledger_sha256)
-                && serde_json::to_vec(&(&self.request_body_sha256, &retrieval.ledger_sha256))
+                && serde_json::to_vec(&(
+                    &self.request_body_sha256,
+                    &retrieval.ledger_sha256,
+                    &retrieval.index_identity,
+                ))
                     .is_ok_and(|bytes| {
                         crate::repository_context::digest(&bytes) == self.request_fingerprint
                     })
@@ -304,7 +344,7 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            self.schema_version == 5
+            self.schema_version == 6
         };
         let expected_contract = if self.retrieval.is_some() {
             crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned()
@@ -315,7 +355,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if self.schema_version != 5
+        if self.schema_version != 6
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id
@@ -515,7 +555,7 @@ mod tests {
         .unwrap()
         .review;
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
-        assert_eq!(origin.schema_version, 5);
+        assert_eq!(origin.schema_version, 6);
         assert_eq!(
             serde_json::from_slice::<ChapterGenerationOrigin>(
                 &serde_json::to_vec(&origin).unwrap()
@@ -523,7 +563,7 @@ mod tests {
             .unwrap(),
             origin
         );
-        for version in [0, 1, 2, 3, 4, 6] {
+        for version in [0, 1, 2, 3, 4, 5] {
             let mut unsupported = origin.clone();
             unsupported.schema_version = version;
             assert!(unsupported.validate(&revision).is_err());
@@ -553,11 +593,12 @@ mod tests {
             &"a".repeat(64),
             &"b".repeat(64),
             vec![range],
+            None,
             &sources,
             &revision,
         )
         .unwrap();
-        assert_eq!(origin.schema_version, 5);
+        assert_eq!(origin.schema_version, 6);
         assert_eq!(
             origin.contract_version,
             crate::evidence_ledger::PROGRESSIVE_CONTRACT

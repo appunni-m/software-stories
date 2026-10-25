@@ -4,9 +4,22 @@ import type { PlannedChapterScope, PlannedChapterTarget } from './plannedChapter
 export type RecordedAgentSettings = { backend: 'codex'; modelId: string; effort: string; approvalPolicy: 'never' }
   | { backend: 'claude-agent'; modelId: string; effort: string | null; approvalPolicy: 'dontAsk'; maxTurns: number };
 
+type ParserVersion = {
+  engine: string; engineVersion: string; engineLanguageAbi: number;
+  grammar: string; grammarVersion: string; grammarAbi: number;
+};
+
+type SymbolContext = {
+  symbolId: string; name: string; qualifiedName: string; startByte: number; endByte: number;
+};
+
+type RecordedIndexIdentity =
+  | { status: 'available'; schemaVersion: number; indexerVersion: string }
+  | { status: 'unavailable' };
+
 /** Local dispatch lineage. This is not a cryptographic account attestation. */
 export interface ChapterGenerationOrigin {
-  schemaVersion: 5;
+  schemaVersion: 6;
   projectId: string;
   snapshotId: string;
   targetPath: string | null;
@@ -19,9 +32,10 @@ export interface ChapterGenerationOrigin {
   sourceFiles: { path: string; sha256: string; sizeBytes: number }[];
   sectionUpdate: SectionUpdateReviewTarget | null;
   plannedChapter: PlannedChapterScope | null;
-  retrieval?: { policy: string; ledgerSha256: string; ranges: {
+  retrieval?: { policy: string; ledgerSha256: string; indexIdentity: RecordedIndexIdentity; ranges: {
     snapshotId: string; path: string; sourceSha256: string; startByte: number; endByte: number;
-    startLine: number; endLine: number; chunkSha256: string;
+    startLine: number; endLine: number; chunkSha256: string; enclosing: SymbolContext | null;
+    parent: SymbolContext | null; parser: ParserVersion | null;
   }[] };
   contentSha256: string;
 }

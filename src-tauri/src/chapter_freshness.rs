@@ -240,6 +240,10 @@ pub fn classify_chapter_freshness(
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges);
+    let retrieval_index_identity = revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_index_identity);
 
     let sections = revision
         .sections
@@ -253,6 +257,7 @@ pub fn classify_chapter_freshness(
                 to_index,
                 section,
                 retrieval_ranges,
+                retrieval_index_identity.as_deref(),
             );
             assessment.finish(section)
         })
@@ -313,6 +318,7 @@ fn assess_section(
     to_index: Option<&SnapshotIndex>,
     section: &ChapterSection,
     retrieval_ranges: Option<&[crate::repository_context::CodeRange]>,
+    retrieval_index_identity: Option<&str>,
 ) -> SectionAssessment {
     let mut result = SectionAssessment::default();
     let mut anchors = HashMap::<String, &ChapterSourceAnchor>::new();
@@ -363,6 +369,17 @@ fn assess_section(
             to_manifest,
             path,
             source_sha256,
+            &mut result,
+        );
+    }
+    if let Some(ranges) = retrieval_ranges {
+        assess_retrieval_index_context(
+            from_manifest,
+            from_index,
+            to_manifest,
+            to_index,
+            ranges,
+            retrieval_index_identity,
             &mut result,
         );
     }
@@ -784,6 +801,220 @@ fn assess_file_dependency(
             }),
         }),
     );
+}
+
+fn assess_retrieval_index_context(
+    from_manifest: &SnapshotManifest,
+    from_index: Option<&SnapshotIndex>,
+    to_manifest: &SnapshotManifest,
+    to_index: Option<&SnapshotIndex>,
+    ranges: &[crate::repository_context::CodeRange],
+    recorded_index_identity: Option<&str>,
+    result: &mut SectionAssessment,
+) {
+    let mut parsers = BTreeMap::<String, Vec<crate::index::ParserVersion>>::new();
+    let mut symbols = BTreeMap::<String, BTreeSet<String>>::new();
+    for range in ranges {
+        let path = &range.path;
+        if let Some(parser) = &range.parser {
+            let expected = parsers.entry(path.clone()).or_default();
+            if !expected.contains(parser) {
+                expected.push(parser.clone());
+            }
+        }
+        for context in [&range.enclosing, &range.parent].into_iter().flatten() {
+            symbols
+                .entry(path.clone())
+                .or_default()
+                .insert(context.symbol_id.clone());
+        }
+    }
+    let paths = parsers
+        .keys()
+        .chain(symbols.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if paths.is_empty() {
+        return;
+    }
+
+    let example_path = paths.iter().next().map(String::as_str);
+    let (Some(from_index), Some(to_index)) = (from_index, to_index) else {
+        result.unknown(
+            "retrievalIndexUnavailable",
+            "The indexes needed to compare this section's retrieved code context are unavailable.",
+            example_path,
+        );
+        return;
+    };
+    let Some(recorded_index_identity) = recorded_index_identity else {
+        result.unknown(
+            "retrievalIndexIdentityUnavailable",
+            "This section did not record the local index identity used during generation.",
+            example_path,
+        );
+        return;
+    };
+    let from_identity = format!("{}:{}", from_index.schema_version, from_index.indexer_version);
+    let to_identity = format!("{}:{}", to_index.schema_version, to_index.indexer_version);
+    if from_identity != recorded_index_identity || to_identity != recorded_index_identity {
+        result.unknown(
+            "retrievalIndexVersionChanged",
+            "The local code index changed versions since this section was generated; review its retrieved context.",
+            example_path,
+        );
+        return;
+    }
+    if from_index.status != SnapshotIndexStatus::Complete
+        || to_index.status != SnapshotIndexStatus::Complete
+    {
+        result.unknown(
+            "retrievalIndexIncomplete",
+            "A complete local code index is needed to confirm the retrieved symbol and relationship context.",
+            example_path,
+        );
+        return;
+    }
+
+    let mut changed_relationship_paths = BTreeSet::new();
+    for path in paths {
+        let expected_parsers = parsers.get(&path).cloned().unwrap_or_default();
+        if expected_parsers.len() > 1 {
+            result.unknown(
+                "retrievalIndexConflict",
+                "The section's recorded retrieval ranges disagree about a file's parser identity.",
+                Some(&path),
+            );
+            continue;
+        }
+        let Some(old_file) = from_index.files.iter().find(|file| file.path == path) else {
+            result.unknown(
+                "retrievalIndexUnavailable",
+                "The source index has no record for a file used by this section.",
+                Some(&path),
+            );
+            continue;
+        };
+        let Some(new_file) = to_index.files.iter().find(|file| file.path == path) else {
+            result.unknown(
+                "retrievalIndexUnavailable",
+                "The target index has no record for a file used by this section.",
+                Some(&path),
+            );
+            continue;
+        };
+        let old_hash = from_manifest
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .map(|file| file.sha256.as_str());
+        let new_hash = to_manifest
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .map(|file| file.sha256.as_str());
+        if old_hash != Some(old_file.source_sha256.as_str())
+            || new_hash != Some(new_file.source_sha256.as_str())
+        {
+            result.unknown(
+                "retrievalIndexSourceMismatch",
+                "The index entry for a retrieved file does not match its captured source.",
+                Some(&path),
+            );
+            continue;
+        }
+        if old_file.status != new_file.status
+            || old_file.parser != new_file.parser
+            || expected_parsers
+                .iter()
+                .any(|parser| old_file.parser.as_ref() != Some(parser))
+        {
+            result.unknown(
+                "retrievalParserChanged",
+                "The parser or indexing status for a retrieved file changed; review the section's source context.",
+                Some(&path),
+            );
+            continue;
+        }
+        if old_file.status != IndexFileStatus::Indexed {
+            result.unknown(
+                "retrievalIndexIncomplete",
+                "The retrieved file does not have a complete structural index in both snapshots.",
+                Some(&path),
+            );
+            continue;
+        }
+
+        let relevant_symbols = symbols.get(&path).cloned().unwrap_or_default();
+        let mut symbol_changed = false;
+        for symbol_id in &relevant_symbols {
+            let old_symbol = from_index
+                .symbols
+                .iter()
+                .find(|symbol| symbol.symbol_id == *symbol_id && symbol.path == path);
+            let new_symbol = to_index
+                .symbols
+                .iter()
+                .find(|symbol| symbol.symbol_id == *symbol_id && symbol.path == path);
+            if old_symbol.is_none() || new_symbol.is_none() || old_symbol != new_symbol {
+                symbol_changed = true;
+                break;
+            }
+        }
+        if symbol_changed {
+            result.unknown(
+                "retrievalSymbolChanged",
+                "A symbol surrounding retrieved code changed in the target index; review the section.",
+                Some(&path),
+            );
+        }
+        if !relevant_symbols.is_empty() {
+            let old_relationships = retrieval_relationships(from_index, &relevant_symbols);
+            let new_relationships = retrieval_relationships(to_index, &relevant_symbols);
+            for (_, evidence_path) in old_relationships
+                .symmetric_difference(&new_relationships)
+            {
+                changed_relationship_paths.insert(evidence_path.clone());
+            }
+        }
+    }
+    for path in changed_relationship_paths {
+        result.unknown(
+            "retrievalRelationshipsChanged",
+            "Indexed calls or imports touching a retrieved symbol changed; review the section's context.",
+            Some(&path),
+        );
+    }
+}
+
+fn retrieval_relationships(
+    index: &SnapshotIndex,
+    symbol_ids: &BTreeSet<String>,
+) -> BTreeSet<(String, String)> {
+    index
+        .relationships
+        .iter()
+        .filter(|relationship| {
+            symbol_ids.contains(&relationship.source_id)
+                || relationship
+                    .target_id
+                    .as_ref()
+                    .is_some_and(|target| symbol_ids.contains(target))
+        })
+        .map(|relationship| {
+            (
+                format!(
+                    "{}|{}|{}-{}|{}",
+                    relationship_descriptor(index, relationship),
+                    relationship.evidence.path,
+                    relationship.evidence.start_byte,
+                    relationship.evidence.end_byte,
+                    relationship.evidence.source_sha256,
+                ),
+                relationship.evidence.path.clone(),
+            )
+        })
+        .collect()
 }
 
 fn assess_symbol_dependency(
