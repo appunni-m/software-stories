@@ -946,6 +946,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
         "Let observed behavior choose the visual mode independently for each claim scene"
     ));
     assert!(instructions.contains("uses transform, with the actual operation in the middle"));
+    assert!(instructions.contains("pointFlow takes precedence and keeps a symbolic point visible on both sides of the operation"));
     assert!(instructions.contains("Do not choose by file type or a favorite template."));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
