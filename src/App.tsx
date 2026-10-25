@@ -1274,7 +1274,9 @@ function App() {
       });
       return;
     }
-    if (!currentSnapshots.some((snapshot) => snapshot.snapshotId === targetSnapshotId)) {
+    if (snapshotHistoryLoad?.projectId === currentProject.projectId
+      && snapshotHistoryLoad.status === 'ready'
+      && !currentSnapshots.some((snapshot) => snapshot.snapshotId === targetSnapshotId)) {
       setNotice({
         title: 'This source snapshot is unavailable',
         message: 'The citation does not belong to a snapshot in the selected repository. Choose the repository and snapshot that contain this source, then reopen the citation.',
