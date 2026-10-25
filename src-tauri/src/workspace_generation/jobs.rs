@@ -17,7 +17,6 @@ use std::{
 };
 use uuid::Uuid;
 
-const STORE_SCHEMA_VERSIONS: [u32; 3] = [1, 2, 3];
 const STORE_SCHEMA_VERSION: u32 = 3;
 const MAX_STORE_BYTES: usize = 1024 * 1024;
 const MAX_JOB_COUNT: usize = 512;
@@ -62,27 +61,19 @@ impl JobState {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct JobRecord {
     pub(crate) job_id: String,
-    #[serde(default)]
     pub(crate) kind: Option<JobKind>,
-    #[serde(default)]
     pub(crate) conversation_turn_id: Option<String>,
     /// Ephemeral WebView owner for a queued renderer operation. A new renderer
     /// session can recover it as Interrupted without replaying its request.
-    #[serde(default)]
     pub(crate) renderer_session_id: Option<String>,
     pub(crate) project_id: String,
     pub(crate) snapshot_id: String,
-    #[serde(default)]
     pub(crate) model_id: Option<String>,
-    #[serde(default)]
     pub(crate) reasoning_effort: Option<String>,
     /// Hashes bind the exact captured source, reviewed request and observed
     /// Codex account/runtime without retaining source, prompts, paths or email.
-    #[serde(default)]
     pub(crate) source_fingerprint_sha256: Option<String>,
-    #[serde(default)]
     pub(crate) request_fingerprint_sha256: Option<String>,
-    #[serde(default)]
     pub(crate) runtime_identity_sha256: Option<String>,
     pub(crate) state: JobState,
     pub(crate) worker_registered: bool,
@@ -90,7 +81,6 @@ pub(crate) struct JobRecord {
     pub(crate) provider_turn_ids: Vec<String>,
     /// Fixed, source-free stage measurements for failures before provider
     /// dispatch. Successful runs keep these checkpoints in the timing trace.
-    #[serde(default)]
     pub(crate) preparation_stages: Vec<crate::generation_timing::PreparationStage>,
     pub(crate) created_at_unix_ms: u64,
     pub(crate) updated_at_unix_ms: u64,
@@ -908,16 +898,50 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
             return Err("Workspace generation job data exceeds its local storage limit.".into());
         }
     };
-    let mut store: StoreFile = serde_json::from_slice(&bytes)
+    let value = crate::strict_json::from_slice(&bytes)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
-    if !STORE_SCHEMA_VERSIONS.contains(&store.schema_version) || store.jobs.len() > MAX_JOB_COUNT {
+    if value.get("schemaVersion").and_then(serde_json::Value::as_u64)
+        != Some(u64::from(STORE_SCHEMA_VERSION))
+    {
+        return Err("Workspace generation job data uses an unsupported format.".into());
+    }
+    const REQUIRED_JOB_FIELDS: &[&str] = &[
+        "jobId",
+        "kind",
+        "conversationTurnId",
+        "rendererSessionId",
+        "projectId",
+        "snapshotId",
+        "modelId",
+        "reasoningEffort",
+        "sourceFingerprintSha256",
+        "requestFingerprintSha256",
+        "runtimeIdentitySha256",
+        "state",
+        "workerRegistered",
+        "providerThreadId",
+        "providerTurnIds",
+        "preparationStages",
+        "createdAtUnixMs",
+        "updatedAtUnixMs",
+    ];
+    let Some(jobs) = value.get("jobs").and_then(serde_json::Value::as_array) else {
+        return Err("Workspace generation job data is invalid.".into());
+    };
+    if jobs.iter().any(|job| {
+        !REQUIRED_JOB_FIELDS
+            .iter()
+            .all(|field| job.get(*field).is_some())
+    }) {
+        return Err("Workspace generation job data is incomplete.".into());
+    }
+    let store: StoreFile = serde_json::from_value(value)
+        .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
+    if store.jobs.len() > MAX_JOB_COUNT {
         return Err(
             "Workspace generation job data uses an unsupported or oversized format.".into(),
         );
     }
-    // Older envelopes retain their saved job state; the next successful write
-    // upgrades the envelope without reissuing work.
-    store.schema_version = STORE_SCHEMA_VERSION;
     let mut ids = HashSet::new();
     for job in &store.jobs {
         validate_job(job)?;
@@ -1109,7 +1133,7 @@ mod tests {
     }
 
     #[test]
-    fn version_one_records_migrate_on_write_without_reissuing_or_losing_state() {
+    fn version_one_records_are_rejected_without_rewriting() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
         let legacy = serde_json::json!({"schemaVersion":1,"jobs":[{"jobId":job_id,
@@ -1121,29 +1145,14 @@ mod tests {
             serde_json::to_vec(&legacy).unwrap(),
         )
         .unwrap();
+        let original = fs::read(store_path(&directory.0)).unwrap();
 
-        let loaded = get(&directory.0, &legacy["jobs"][0]["jobId"].as_str().unwrap()).unwrap();
-        assert_eq!(loaded.state, JobState::Running);
-        assert_eq!(loaded.conversation_turn_id, None);
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(
-                &fs::read(store_path(&directory.0)).unwrap()
-            )
-            .unwrap()["schemaVersion"],
-            1
-        );
-        finish(&directory.0, &loaded.job_id, JobState::Interrupted).unwrap();
-        let migrated: serde_json::Value =
-            serde_json::from_slice(&fs::read(store_path(&directory.0)).unwrap()).unwrap();
-        assert_eq!(migrated["schemaVersion"], STORE_SCHEMA_VERSION);
-        let retained = get(&directory.0, &loaded.job_id).unwrap();
-        assert_eq!(retained.provider_thread_id.as_deref(), Some("thread-a"));
-        assert_eq!(retained.provider_turn_ids, vec!["turn-a"]);
-        assert_eq!(retained.state, JobState::Interrupted);
+        assert!(get(&directory.0, legacy["jobs"][0]["jobId"].as_str().unwrap()).is_err());
+        assert_eq!(fs::read(store_path(&directory.0)).unwrap(), original);
     }
 
     #[test]
-    fn version_two_records_migrate_with_renderer_identity_defaulted() {
+    fn version_two_records_are_rejected_without_rewriting() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
         let turn_id = Uuid::new_v4().to_string();
@@ -1159,26 +1168,10 @@ mod tests {
             serde_json::to_vec(&legacy).unwrap(),
         )
         .unwrap();
+        let original = fs::read(store_path(&directory.0)).unwrap();
 
-        let loaded = get(&directory.0, &job_id).unwrap();
-        assert_eq!(
-            loaded.conversation_turn_id.as_deref(),
-            Some(turn_id.as_str())
-        );
-        assert_eq!(loaded.renderer_session_id, None);
-        assert_eq!(loaded.state, JobState::Running);
-        finish(&directory.0, &job_id, JobState::Interrupted).unwrap();
-        let migrated: serde_json::Value =
-            serde_json::from_slice(&fs::read(store_path(&directory.0)).unwrap()).unwrap();
-        assert_eq!(migrated["schemaVersion"], STORE_SCHEMA_VERSION);
-        assert_eq!(
-            migrated["jobs"][0]["rendererSessionId"],
-            serde_json::Value::Null
-        );
-        assert_eq!(
-            get(&directory.0, &job_id).unwrap().state,
-            JobState::Interrupted
-        );
+        assert!(get(&directory.0, &job_id).is_err());
+        assert_eq!(fs::read(store_path(&directory.0)).unwrap(), original);
     }
 
     #[test]

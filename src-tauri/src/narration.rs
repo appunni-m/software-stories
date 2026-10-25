@@ -1406,16 +1406,6 @@ fn read_cached_audio(storage_dir: &Path, fingerprint: &str, model_id: &str) -> O
             return Some(bytes);
         }
     }
-
-    // Earlier builds stored both backends under the Gemini-named directory.
-    // Pocket keys already include the provider/model contract, so checking the
-    // old location preserves existing local audio without cross-backend reuse.
-    if model_id == crate::pocket_tts::MODEL_ID {
-        let legacy = cache_path_for_version(storage_dir, fingerprint, CACHE_VERSION);
-        let file = fs::File::open(legacy).ok()?;
-        return read_cached_audio_from(file);
-    }
-
     None
 }
 
@@ -1957,7 +1947,7 @@ mod tests {
     }
 
     #[test]
-    fn pocket_audio_uses_its_cache_directory_and_reuses_the_previous_shared_directory() {
+    fn pocket_audio_uses_only_its_current_cache_directory() {
         let storage = TestStorage::new();
         let reviews = PendingNarrationReviews::default();
         let input = BuildNarrationReviewInput {
@@ -1978,17 +1968,14 @@ mod tests {
             Some(std::ffi::OsStr::new(POCKET_CACHE_VERSION))
         );
 
-        // Older builds wrote Pocket and Gemini audio under the Gemini-named
-        // directory. A matching Pocket fingerprint must remain reusable.
+        // Older builds wrote Pocket audio under the Gemini-named directory.
+        // The current format does not read that app-owned cache layout.
         let previous_audio = valid_test_wav(31);
         let old_path = cache_path_for_version(&storage.0, &pocket.cache_key, CACHE_VERSION);
         fs::create_dir_all(old_path.parent().expect("cache path has a parent"))
             .expect("old cache folder should be creatable");
         fs::write(&old_path, &previous_audio).expect("old cached audio should be retained");
-        assert_eq!(
-            read_cached_audio(&storage.0, &pocket.cache_key, &pocket.model_id),
-            Some(previous_audio)
-        );
+        assert!(read_cached_audio(&storage.0, &pocket.cache_key, &pocket.model_id).is_none());
 
         let new_audio = valid_test_wav(37);
         write_cached_audio(&storage.0, &pocket.cache_key, &pocket.model_id, &new_audio)

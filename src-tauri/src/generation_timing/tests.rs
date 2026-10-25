@@ -157,7 +157,7 @@ fn application_outcome_is_correlated_after_provider_return_and_is_idempotent() {
 }
 
 #[test]
-fn reconciled_application_outcome_upgrades_legacy_trace_without_inventing_time() {
+fn unsupported_timing_schema_is_rejected_without_rewriting() {
     let f = Fixture::new();
     let id = run();
     let trace = f.trace(&id, Instant::now());
@@ -165,15 +165,13 @@ fn reconciled_application_outcome_upgrades_legacy_trace_without_inventing_time()
     drop(trace);
     let file = path(&f.0, &id).unwrap();
     let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
-    old["schemaVersion"] = json!(PREVIOUS_SCHEMA_VERSION);
+    old["schemaVersion"] = json!(2);
     old.as_object_mut().unwrap().remove("applicationResult");
     fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
-    assert_eq!(
-        inspect(&f.0, &id).unwrap().unwrap().schema_version,
-        PREVIOUS_SCHEMA_VERSION
-    );
+    let original = fs::read(&file).unwrap();
 
-    record_application_result(
+    assert!(inspect(&f.0, &id).is_err());
+    assert!(record_application_result(
         &f.0,
         &id,
         ApplicationResult {
@@ -184,13 +182,8 @@ fn reconciled_application_outcome_upgrades_legacy_trace_without_inventing_time()
             first_useful_elapsed_ms: Some(0),
         },
     )
-    .unwrap();
-    let saved = inspect(&f.0, &id).unwrap().unwrap();
-    assert_eq!(saved.schema_version, SCHEMA_VERSION);
-    assert_eq!(
-        saved.application_result.unwrap().observation,
-        ApplicationObservation::Reconciled
-    );
+    .is_err());
+    assert_eq!(fs::read(&file).unwrap(), original);
 }
 
 #[test]
@@ -398,17 +391,17 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         .collect::<Vec<_>>();
     assert!(validate_preparation_stages(&over_limit).is_err());
 
-    // Version-2 records written before these optional checkpoints remain readable.
+    // Current records must contain the complete v3 envelope, including fields
+    // introduced when preparation and renderer wait measurements became part
+    // of the diagnostic contract.
     let file = path(&f.0, &id).unwrap();
-    let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
-    old["schemaVersion"] = json!(PREVIOUS_SCHEMA_VERSION);
-    old.as_object_mut().unwrap().remove("preparationStages");
-    old.as_object_mut().unwrap().remove("rendererQueueWaitMs");
-    old.as_object_mut().unwrap().remove("applicationResult");
-    fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
-    let old_record = inspect(&f.0, &id).unwrap().unwrap();
-    assert!(old_record.preparation_stages.is_empty());
-    assert_eq!(old_record.renderer_queue_wait_ms, None);
+    let mut incomplete: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    incomplete.as_object_mut().unwrap().remove("preparationStages");
+    incomplete.as_object_mut().unwrap().remove("rendererQueueWaitMs");
+    fs::write(&file, serde_json::to_vec(&incomplete).unwrap()).unwrap();
+    let original = fs::read(&file).unwrap();
+    assert!(inspect(&f.0, &id).is_err());
+    assert_eq!(fs::read(&file).unwrap(), original);
 }
 
 #[test]

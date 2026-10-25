@@ -22,7 +22,6 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const PREVIOUS_SCHEMA_VERSION: u32 = 2;
 const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -274,9 +273,7 @@ pub(crate) struct Record {
     events: Vec<Event>,
     /// Renderer queue duration from WebView performance.now(); independent of
     /// this record's native monotonic clock and never combined with offsets.
-    #[serde(default)]
     renderer_queue_wait_ms: Option<u64>,
-    #[serde(default)]
     preparation_stages: Vec<PreparationStage>,
     context: Option<ContextTiming>,
     output_bytes: Option<usize>,
@@ -285,7 +282,6 @@ pub(crate) struct Record {
     token_usage: Option<ReportedUsage>,
     runtime_turns: Vec<RuntimeTurn>,
     terminal: Option<End>,
-    #[serde(default)]
     application_result: Option<ApplicationResult>,
     write_failures: u32,
     truncated: bool,
@@ -349,6 +345,37 @@ fn read(path: &Path) -> Result<Record, String> {
         .map_err(|_| "Timing diagnostics exceed their limit.")?;
     let value =
         crate::strict_json::from_slice(&bytes).map_err(|_| "Timing diagnostics are damaged.")?;
+    if value.get("schemaVersion").and_then(serde_json::Value::as_u64)
+        != Some(u64::from(SCHEMA_VERSION))
+    {
+        return Err("Timing diagnostics use an unsupported format.".into());
+    }
+    // `Option<T>` fields deserialize as `None` when absent, even without a
+    // serde default. Require the complete current envelope so an incomplete
+    // older record cannot be mistaken for a current diagnostic.
+    const REQUIRED_FIELDS: &[&str] = &[
+        "schemaVersion",
+        "clock",
+        "runId",
+        "requestFingerprint",
+        "modelId",
+        "reasoningEffort",
+        "runtimeIdentitySha256",
+        "events",
+        "rendererQueueWaitMs",
+        "preparationStages",
+        "context",
+        "outputBytes",
+        "tokenUsage",
+        "runtimeTurns",
+        "terminal",
+        "applicationResult",
+        "writeFailures",
+        "truncated",
+    ];
+    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some()) {
+        return Err("Timing diagnostics are damaged.".into());
+    }
     let record: Record =
         serde_json::from_value(value).map_err(|_| "Timing diagnostics are damaged.")?;
     validate(&record)?;
@@ -357,10 +384,8 @@ fn read(path: &Path) -> Result<Record, String> {
 
 fn validate(record: &Record) -> Result<(), String> {
     let invalid = || "Timing diagnostics are invalid.".to_owned();
-    if !matches!(
-        record.schema_version,
-        PREVIOUS_SCHEMA_VERSION | SCHEMA_VERSION
-    ) || record.clock != "nativeCodexAdmissionV1"
+    if record.schema_version != SCHEMA_VERSION
+        || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
         || !safe_model_id(&record.model_id)
         || record.reasoning_effort.trim().is_empty()
@@ -380,9 +405,6 @@ fn validate(record: &Record) -> Result<(), String> {
             .first()
             .is_none_or(|e| e.kind != EventKind::ManagerEntered)
     {
-        return Err(invalid());
-    }
-    if record.schema_version == PREVIOUS_SCHEMA_VERSION && record.application_result.is_some() {
         return Err(invalid());
     }
     runtime::validate(record)?;
