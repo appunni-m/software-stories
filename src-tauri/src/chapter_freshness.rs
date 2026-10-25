@@ -272,7 +272,11 @@ pub fn classify_chapter_freshness(
             to: index_summary(to_index, to_manifest),
         },
         sections,
-        reverse_dependencies: build_reverse_dependencies(revision),
+        reverse_dependencies: build_reverse_dependencies(
+            revision,
+            Some(from_manifest),
+            from_index,
+        ),
     })
 }
 
@@ -1875,7 +1879,11 @@ fn push_unique_change(changes: &mut Vec<FreshnessSourceChange>, change: Freshnes
     }
 }
 
-fn build_reverse_dependencies(revision: &ChapterRevision) -> Vec<ReverseDependency> {
+fn build_reverse_dependencies(
+    revision: &ChapterRevision,
+    source_manifest: Option<&SnapshotManifest>,
+    source_index: Option<&SnapshotIndex>,
+) -> Vec<ReverseDependency> {
     type DependencyMap = BTreeMap<String, (String, BTreeSet<String>, BTreeSet<String>)>;
     let mut dependencies = DependencyMap::new();
     let anchors_by_id: HashMap<String, &ChapterSourceAnchor> = revision
@@ -1975,12 +1983,15 @@ fn build_reverse_dependencies(revision: &ChapterRevision) -> Vec<ReverseDependen
         } else {
             Vec::new()
         };
+        let retrieval_relationship_dependencies =
+            retrieved_relationship_dependencies(revision, source_manifest, source_index);
 
         for dependency in section
             .dependencies
             .iter()
             .chain(section.claims.iter().flat_map(|claim| &claim.dependencies))
             .chain(retrieval_dependencies.iter())
+            .chain(retrieval_relationship_dependencies.iter())
         {
             let (key, path) = match dependency {
                 SectionDependency::SourceFile {
@@ -2023,9 +2034,94 @@ fn build_reverse_dependencies(revision: &ChapterRevision) -> Vec<ReverseDependen
         .collect()
 }
 
+fn retrieved_relationship_dependencies(
+    revision: &ChapterRevision,
+    source_manifest: Option<&SnapshotManifest>,
+    source_index: Option<&SnapshotIndex>,
+) -> Vec<SectionDependency> {
+    if revision.sections.len() != 1 {
+        return Vec::new();
+    }
+    let Some(source_manifest) = source_manifest else {
+        return Vec::new();
+    };
+    let Some(source_index) = source_index else {
+        return Vec::new();
+    };
+    if source_index.status != SnapshotIndexStatus::Complete {
+        return Vec::new();
+    }
+    let Some(recorded_identity) = revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_index_identity)
+    else {
+        return Vec::new();
+    };
+    if recorded_identity
+        != format!("{}:{}", source_index.schema_version, source_index.indexer_version)
+    {
+        return Vec::new();
+    }
+    let symbol_ids = revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
+        .into_iter()
+        .flatten()
+        .flat_map(|range| [&range.enclosing, &range.parent])
+        .flatten()
+        .map(|context| context.symbol_id.clone())
+        .collect::<BTreeSet<_>>();
+    if symbol_ids.is_empty() {
+        return Vec::new();
+    }
+
+    let mut dependencies = BTreeMap::new();
+    for relationship in &source_index.relationships {
+        if !symbol_ids.contains(&relationship.source_id)
+            && !relationship
+                .target_id
+                .as_ref()
+                .is_some_and(|target| symbol_ids.contains(target))
+        {
+            continue;
+        }
+        let evidence = &relationship.evidence;
+        let index_file = source_index
+            .files
+            .iter()
+            .find(|file| file.path == evidence.path);
+        let manifest_file = source_manifest
+            .files
+            .iter()
+            .find(|file| file.path == evidence.path);
+        if !index_file.is_some_and(|file| {
+            file.status == IndexFileStatus::Indexed
+                && file.source_sha256 == evidence.source_sha256
+        }) || !manifest_file.is_some_and(|file| file.sha256 == evidence.source_sha256)
+        {
+            continue;
+        }
+        dependencies.insert(
+            (
+                evidence.path.clone(),
+                relationship.relationship_id.clone(),
+                evidence.source_sha256.clone(),
+            ),
+            SectionDependency::Relationship {
+                path: evidence.path.clone(),
+                source_sha256: evidence.source_sha256.clone(),
+                relationship_id: relationship.relationship_id.clone(),
+            },
+        );
+    }
+    dependencies.into_values().collect()
+}
+
 #[cfg(test)]
 pub(crate) fn asset_ids_for_revision(revision: &ChapterRevision) -> Vec<String> {
-    let mut ids = build_reverse_dependencies(revision)
+    let mut ids = build_reverse_dependencies(revision, None, None)
         .into_iter()
         .flat_map(|dependency| dependency.asset_ids)
         .collect::<Vec<_>>();
@@ -2698,7 +2794,7 @@ mod tests {
         };
         let revision = revision(vec![section]);
         let visual_id = visual_asset_id(&revision, "visual-section");
-        let dependencies = build_reverse_dependencies(&revision);
+        let dependencies = build_reverse_dependencies(&revision, None, None);
         let linked_anchor = &revision.sections[0].claims[0].anchors[0];
         let linked = dependencies
             .iter()
@@ -2723,7 +2819,7 @@ mod tests {
 
         let mut no_visual = revision.clone();
         no_visual.sections[0].visual = None;
-        assert!(build_reverse_dependencies(&no_visual).iter().all(|item| {
+        assert!(build_reverse_dependencies(&no_visual, None, None).iter().all(|item| {
             item.asset_ids
                 .iter()
                 .all(|asset| !asset.starts_with("visual:"))
