@@ -614,7 +614,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v28:"));
+    assert!(instructions.contains("Teaching policy v29:"));
     assert!(instructions.contains(
         "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
     ));
@@ -647,6 +647,13 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains(
         "Use a graph only when those forms cannot show a genuinely non-linear relationship"
     ));
+    assert!(instructions.contains(
+        "Before proposing another section for the same answer, compare its behavior, guard, consequence and visual focus"
+    ));
+    assert!(
+        instructions
+            .contains("a new title or a second rendering of the same decision is not new coverage")
+    );
 
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(
@@ -715,7 +722,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v28");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v29");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no visual helps the section, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
@@ -738,9 +745,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Visual design method v45:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v45"));
-    assert!(system_instructions().contains("Visual composition pass v45"));
+    assert!(system_instructions().contains("Visual design method v46:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v46"));
+    assert!(system_instructions().contains("Visual composition pass v46"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")

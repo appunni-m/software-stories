@@ -956,3 +956,23 @@ three-card transform, so it does not qualify the newer form or show that the
 scene is sufficiently visual. Audio was not played. No fresh generation,
 human comprehension, 200% reflow, keyboard, VoiceOver, reduced-motion,
 offline-export or whole-guide quality check was performed. Keep `j53m` open.
+
+## Cross-section coverage prompt — 25 October 2026
+
+The current shared authoring prompt is `ai-html-compositions-v46` with teaching
+policy `meaning-first-v29`. Before proposing another section for one answer, it
+asks the model to compare the behavior, guard, consequence and visual focus
+against already published sections. A new title or another rendering of the
+same decision is not new coverage. Related outcomes should stay together when
+one semantic scene can show the complete guard and result; an uncovered topic
+must be named rather than replaced by a neighboring repeat. The app still uses
+its bounded, inert composition renderer; arbitrary generated JavaScript and
+Three.js remain unsupported.
+
+One user-authorized packaged Code Lens request completed before this prompt
+change. It published three one-scene sections with ready narration, then ended
+partial and named point-attachment success/invalid-index outcomes as uncovered.
+The source links opened captured code. This is a useful baseline for the
+coverage problem, not qualification of v46: no new provider request or audio
+playback was made after the prompt edit. Fresh visual-quality, listening,
+accessibility, export and comprehension acceptance remain open.

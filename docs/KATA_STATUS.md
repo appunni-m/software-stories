@@ -468,3 +468,16 @@ No fresh Guide or provider request was started, so rendered visual quality
 remains unqualified. See [visual scene behavior and
 limits](VISUAL_SCENES.md) and [the open generated-visuals acceptance
 gates](kata-tasks/37-generated-visuals.md).
+
+## 25 October cross-section visual coverage prompt
+
+The current chapter/progressive scene policies are now
+`ai-html-compositions-v46` and `meaning-first-v29`. The shared visual review
+asks the generator to compare each proposed section with already published
+sections and add distinct source-backed behavior rather than re-title or
+restage an earlier decision. The reader remains on its bounded typed renderer;
+generated JavaScript and Three.js are unsupported. A pre-change, authorized
+Fontdone Code Lens run published three scenes with ready narration but ended
+partial, naming point-attachment success and invalid-index behavior as
+uncovered. That result is recorded in the generated-visuals task and does not
+qualify the v46 prompt. No follow-up generation was made.

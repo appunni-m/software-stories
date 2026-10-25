@@ -61,7 +61,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v45` and teaching policy `meaning-first-v28`. It starts
+`ai-html-compositions-v46` and teaching policy `meaning-first-v29`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
@@ -69,7 +69,12 @@ guards become separate scenes; first-match candidate dispatch uses a selector;
 a source-backed state change uses a transform with its operation visible, and
 `beforeAfter` is reserved for comparing states when this claim does not cover
 the operation. Verified order uses a timeline, and independent actors use lanes. A graph is for relationships those forms cannot
-show clearly; a sequence of calls alone does not justify one.
+show clearly; a sequence of calls alone does not justify one. Before proposing
+another section for the same answer, the generator compares its behavior and
+visual focus with sections already published; a new title or repeated rendering
+of the same decision is not new coverage. If one requested behavior cannot fit,
+the answer names the uncovered behavior instead of repeating a neighboring
+section.
 
 Graph edges must name the operation that actually establishes the relationship.
 A caller that looks up an item and then invokes a loader establishes call order;
