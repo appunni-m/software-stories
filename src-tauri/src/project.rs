@@ -16,7 +16,7 @@ const MAX_RECENT_PROJECTS_BYTES: usize = 16 * 1024 * 1024;
 const MAX_RECENT_PROJECTS_COUNT: usize = 10_000;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RecentProject {
     pub project_id: String,
     pub display_name: String,
@@ -627,7 +627,9 @@ fn load_recent_projects(storage_dir: &Path) -> Result<Vec<RecentProject>, String
             return Err(format!("Recent projects could not be read: {error}"));
         }
     };
-    let mut projects: Vec<RecentProject> = serde_json::from_slice(&bytes)
+    let value = crate::strict_json::from_slice(&bytes)
+        .map_err(|error| format!("Recent projects data is invalid: {error}"))?;
+    let mut projects: Vec<RecentProject> = serde_json::from_value(value)
         .map_err(|error| format!("Recent projects data is invalid: {error}"))?;
     if projects.len() > MAX_RECENT_PROJECTS_COUNT {
         return Err(format!(
