@@ -24,7 +24,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   persistSuccessfulResult?: boolean;
 }) {
   const [review, setReview] = useState<SourceDiscoveryReview | null>(null);
-  const [phase, setPhase] = useState('Reading the saved code index…');
+  const [phase, setPhase] = useState('Preparing your repository…');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -73,7 +73,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         if (!current) return;
         indexReady = existing !== null;
         if (!existing) {
-          setPhase('Finding names and connections in the code…');
+          setPhase('Organizing the code for search…');
           const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
           while (current) {
             const progress = await getSnapshotIndexProgress(job.jobId);
@@ -90,7 +90,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         // the immutable captured file inventory when it is absent or unreadable.
       }
       if (!current) return;
-      setPhase(indexReady ? 'Preparing code discovery…' : 'Preparing discovery from the captured code…');
+      setPhase(indexReady ? 'Almost ready…' : 'Preparing your question…');
       const selection = readCodexSelection();
       const value = await prepareSourceDiscovery({ ...scope, ...selection });
       if (!current) { void discardSourceDiscovery(value.reviewId).catch(() => {}); return; }
@@ -129,13 +129,13 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     <header className="provider-dialog-header"><div><div className="step-pill"><FileSearch size={15} /> AI FINDS THE CODE</div><h2 id="discovery-title">Start with your question</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">
       {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
-        <p>Codex will search <strong>{review.candidateCount.toLocaleString()} captured code files</strong> and use the available names and connections to choose what matters. You do not need to select references.</p>
-        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This discovery shares your question, captured code paths, code-map coverage, available symbol names and static links with OpenAI through Codex. Account quota applies. File contents are reviewed separately before chapter generation.</p>
-        {review.indexStatus === 'partial' && <p className="source-warning">The local code map is incomplete. Discovery can still use captured files and the symbols and connections that were found; some may be missing.</p>}
-        {review.indexStatus === 'cancelled' && <p className="source-warning">Building the local code map was cancelled. Discovery can use captured files and any saved partial map; some connections may be missing.</p>}
-        {review.indexStatus === 'missing' && <p className="source-warning">No local code map is available. Discovery will use captured file paths only; code relationships are unknown.</p>}
-        {review.indexStatus === 'unreadable' && <p className="source-warning">The saved local code map could not be read. Discovery will use captured file paths only; code relationships are unknown.</p>}
-        {review.omittedCount > 0 && <p className="source-warning">{review.omittedCount.toLocaleString()} code paths do not fit this discovery window. The result will show this scope limit.</p>}
+        <p>Code Atlas will search the repository for code related to your question and choose the files. You do not need to select references.</p>
+        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This step shares your question and repository metadata (file paths, code names, relationships and coverage notes) with OpenAI through Codex, not file contents. Those are reviewed separately before an explanation is generated. Account quota applies.</p>
+        {review.indexStatus === 'partial' && <p className="source-warning">Some code relationships are missing, so file selection may be incomplete.</p>}
+        {review.indexStatus === 'cancelled' && <p className="source-warning">The repository map is incomplete, so file selection may be incomplete.</p>}
+        {review.indexStatus === 'missing' && <p className="source-warning">Code relationships are unavailable. Codex can still search file paths, but may miss related code.</p>}
+        {review.indexStatus === 'unreadable' && <p className="source-warning">Code relationships could not be read, so file selection may be incomplete.</p>}
+        {review.omittedCount > 0 && <p className="source-warning">{review.omittedCount.toLocaleString()} paths are outside this search, so the result may miss relevant code.</p>}
         {review.coverageGaps.length > 0 && (
           <details>
             <summary>Coverage notes · {review.coverageGaps.reduce((total, gap) => total + gap.count, 0).toLocaleString()} code paths</summary>
@@ -148,7 +148,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
             ))}</ul>
           </details>
         )}
-        <details><summary>What Codex will inspect</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
+        <details><summary>Exact discovery context</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}
       </>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
