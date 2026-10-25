@@ -2200,7 +2200,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .connections-voice details .secondary-button { display: block; margin-top: 12px; }
 .connections-voice form input { width: 100%; }
 
-.connection-header-value { color: var(--muted); font-size: 11px; padding-left: 7px; border-left: 1px solid var(--border); }
+.connection-header-value { min-width: 0; color: var(--muted); font-size: 11px; }
 .app-close-status {
   position: fixed;
   z-index: 10000;
@@ -2219,8 +2219,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 @media(max-width:800px){
   .topbar .connection-header {flex-shrink:0;}
   .topbar .connection-header svg {flex-shrink:0;}
-  .topbar .connection-header-label {display:none;}
-  .topbar .connection-header-value {padding-left:0;border-left:0;}
+  .topbar .connection-header-value {flex:1;}
 }
 /* Native webview zoom does not reduce CSS viewport units. Reflow the header
    from the explicit zoom signal so its fixed project and account controls do
@@ -2275,8 +2274,7 @@ html[data-app-zoom-compact="true"] .topbar .topbar-actions {
   margin-left:0;
 }
 html[data-app-zoom-compact="true"] .topbar .connection-header {max-width:none;flex-shrink:0;}
-html[data-app-zoom-compact="true"] .topbar .connection-header-label {display:none;}
-html[data-app-zoom-compact="true"] .topbar .connection-header-value {padding-left:0;border-left:0;}
+html[data-app-zoom-compact="true"] .topbar .connection-header-value {flex:1;}
 html[data-app-zoom-compact="true"] .topbar .search-control {
   width:30px;
   min-width:30px;

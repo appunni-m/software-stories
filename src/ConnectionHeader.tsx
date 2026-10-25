@@ -23,19 +23,23 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const providerName = apiSelection.providerId === 'gemini' ? 'Gemini'
     : apiSelection.providerId === 'openai' ? 'OpenAI'
       : apiSelection.providerId === 'anthropic' ? 'Anthropic' : apiSelection.providerId;
-  const label = backend === 'api' ? providerName ? `API · ${providerName}` : 'Direct API'
+  const selectedModel = connection.models.find((model) => model.modelId === connection.selection.modelId);
+  const codexModel = selectedModel?.displayName ?? connection.selection.modelId;
+  const label = backend === 'api'
+    ? `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? 'Manual agent'
-        : connection.checking ? 'Connecting…' : ready ? 'Codex' : 'Connect Codex';
+        : connection.checking ? 'Connecting to Codex…'
+          : ready ? `Codex · ${codexModel} · ${connection.selection.effort}` : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
     : codexSelected && connection.error ? CircleAlert : PlugZap;
   const details = backend === 'codex'
-    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}` : 'Set up your Codex connection once'
+    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.` : 'Set up your Codex connection once'
     : backend === 'api' ? `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
         : 'Manual agent handoff selected. Open Connections to manage it.';
   return <button className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
-    aria-label={`${label}. Open Connections`} title={`${details}. Voice settings are also in Connections.`}>
-    <Icon size={15} /><span className="connection-header-label">Connections</span><span className="connection-header-value">{label}</span>
+    aria-label={`${label}. ${details} Open Connections.`} title={`${details} Voice settings are also in Connections.`}>
+    <Icon size={15} /><span className="connection-header-value">{label}</span>
   </button>;
 }

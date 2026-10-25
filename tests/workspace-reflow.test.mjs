@@ -33,13 +33,13 @@ test('search commands reveal the sidebar and narrow navigation has a direct retu
   matches(css,/@media\(max-width:680px\)\{\.developer-workspace \.dw-sidebar-back\{display:inline-flex;\}/);
 });
 
-test('enlarged headers keep the provider name instead of truncating two labels',()=>{
+test('connection header shows the selected provider model and reasoning in one compact label',()=>{
   const header=readFileSync(new URL('../src/ConnectionHeader.tsx',import.meta.url),'utf8');
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
-  matches(header,/<span className="connection-header-label">Connections<\/span><span className="connection-header-value">\{label\}<\/span>/);
+  matches(header,/<span className="connection-header-value">\{label\}<\/span>/);
+  matches(header,/ready \? `Codex · \$\{codexModel\} · \$\{connection\.selection\.effort\}`/);
   matches(shell,/@media\(max-width:800px\)\{\s*\.topbar \.connection-header \{flex-shrink:0;\}/);
-  matches(shell,/\.topbar \.connection-header-label \{display:none;\}/);
-  matches(shell,/\.topbar \.connection-header-value \{padding-left:0;border-left:0;\}/);
+  matches(shell,/\.topbar \.connection-header-value \{flex:1;\}/);
 });
 
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
@@ -47,6 +47,6 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/html\[data-app-zoom-compact="true"\] \.app-window > \.topbar\s*\{[^}]*display:grid;[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-rows:auto auto;[^}]*flex:0 0 auto;/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls\s*\{[^}]*grid-row:1;[^}]*flex-wrap:wrap;/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*grid-row:2;[^}]*flex-wrap:wrap;/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{padding-left:0;border-left:0;\}/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.search-control > span,[\s\S]*?\.topbar \.search-control kbd \{display:none;\}/);
 });

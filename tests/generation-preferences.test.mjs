@@ -74,7 +74,7 @@ describe('generation backend preference', () => {
     assert.match(app, /backend === 'codex'\) return <ConnectionsDialog/);
     assert.match(connections, /Change AI connection/);
     assert.match(header, /code-atlas:connection-changed/);
-    assert.match(header, /backend === 'api' \? providerName/);
+    assert.match(header, /backend === 'api'\s*\? `API · \$\{providerName/);
     assert.match(prGuide, /window\.addEventListener\('code-atlas:connection-changed'/);
     assert.match(header, /code-atlas:direct-api-selection-changed/);
     assert.match(app, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);
