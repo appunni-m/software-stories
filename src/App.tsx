@@ -4791,7 +4791,13 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   };
   const restoreSelectedRevision = async () => {
     if (!selectedRevision || !selectedTarget?.latestCurrent || isLatestCurrent
-      || selectedRevision.revisionNumber >= selectedTarget.latestCurrent.revisionNumber || editing || busy) return;
+      || selectedRevision.revisionNumber >= selectedTarget.latestCurrent.revisionNumber || editing || busy
+      || historyAvailability !== 'ready') {
+      if (historyAvailability !== 'ready') {
+        setFeedback({ message: 'Saved revision history is still loading or unavailable. Refresh it before restoring an older revision.', tone: 'info' });
+      }
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
@@ -4822,7 +4828,13 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     }
   };
   const accept = async () => {
-    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy) return;
+    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy
+      || historyAvailability !== 'ready') {
+      if (historyAvailability !== 'ready') {
+        setFeedback({ message: 'Saved revision history is still loading or unavailable. Refresh it before accepting this draft.', tone: 'info' });
+      }
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
@@ -4841,7 +4853,13 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   };
   const reject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy) return;
+    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy
+      || historyAvailability !== 'ready') {
+      if (historyAvailability !== 'ready') {
+        setFeedback({ message: 'Saved revision history is still loading or unavailable. Refresh it before rejecting this draft.', tone: 'info' });
+      }
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
@@ -5008,11 +5026,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {freshnessKey && isNativeRuntime() && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
                               {selectedFreshness?.loading ? 'Assessing…' : selectedFreshness?.report ? 'Reassess freshness' : 'Assess freshness'}
                             </button>}
-                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title="Create a new draft from this earlier content and revalidate it against the current snapshot."><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
+                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before restoring an older revision.' : 'Create a new draft from this earlier content and revalidate it against the current snapshot.'}><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
                             {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft) || Boolean(preservedDraftReason)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
-                              <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>
-                              <button className="secondary-button button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft)}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
+                              <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid' || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before accepting this draft.' : undefined}><Check size={14} /> Accept</button>
+                              <button className="secondary-button button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
                             </>}
                           </div>
                         </>}
@@ -5044,8 +5062,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       />}
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form id="chapter-rejection-form" className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
-                        <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
-                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || !rejectReason.trim()}>Record rejection</button></div>
+                        <label><span>Why is this draft rejected?</span><textarea disabled={busy || historyAvailability !== 'ready'} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
+                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || historyAvailability !== 'ready' || !rejectReason.trim()} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}>Record rejection</button></div>
                       </form>}
 
                       {selectedFreshness?.loading && <p className="chapter-review-feedback tone-info" role="status">Comparing this accepted revision with snapshot {snapshotId.slice(-12)}…</p>}
