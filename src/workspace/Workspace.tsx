@@ -23,7 +23,7 @@ import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
@@ -429,8 +429,7 @@ function Answer(props:AnswerProps){
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
-  const progressiveAnswerSequence=!turn.guideId&&Boolean(turn.runIds?.length)&&sections.length>0
-    &&(sections.length>1||turn.status==='queued'||turn.status==='working'||turn.status==='waiting');
+  const progressiveAnswerSequence=shouldSequencePublishedAnswer(turn);
   const sectionSequence=Boolean(turn.guideId||progressiveAnswerSequence);
   const guideSlides=sectionSequence&&!props.loading?sectionItems.flatMap((item)=>item.kind==='section'?[item.section]:[]):[];
   const selectedGuideSlide=sectionSequence?guideSlideIndex(guideSlides,turn.reading?.guide?.revisionId):-1;

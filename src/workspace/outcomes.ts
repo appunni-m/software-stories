@@ -145,6 +145,14 @@ export function guideSlideIndex(sections: readonly PublishedSection[], selectedR
   return sections.length ? 0 : -1;
 }
 
+/** Keep a multi-part ordinary answer navigable without changing one-section
+ * answers or the repository guide's separate slide controls. */
+export function shouldSequencePublishedAnswer(turn: Pick<Turn, 'guideId' | 'runIds' | 'publishedSections' | 'status'>): boolean {
+  if (turn.guideId || !turn.runIds?.length) return false;
+  const count = turn.publishedSections?.length ?? 0;
+  return count > 1 || (count > 0 && active(turn));
+}
+
 /** A bounded UI dedupe token, not a source/evidence identity. Include every
  * publication so a revised earlier section also produces a new outcome. */
 export function questionOutcomeKey(turn: Turn): string | null {

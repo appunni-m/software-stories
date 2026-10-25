@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -135,9 +135,30 @@ test('progressive guide keeps its selected slide while later slides enter the re
   assert.equal(guideSlideIndex(slides, 'missing'), 0, 'a stale cursor falls back to the first available slide');
   assert.equal(guideSlideIndex([], undefined), -1, 'the sequence is empty before the first slide is validated');
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(workspace, /aria-label="Guide slides"/);
-  assert.match(workspace, /Next slide/);
-  assert.match(workspace, /Building next slide/);
+  assert.match(workspace, /aria-label=\{turn\.guideId\?'Guide slides':'Answer sections'\}/);
+  assert.match(workspace, /Next \$\{turn\.guideId\?'slide':'section'\}/);
+  assert.match(workspace, /Building next \$\{turn\.guideId\?'slide':'section'\}/);
+});
+
+test('ordinary multi-section answers use one focused section without changing one-section answers or guide slides', () => {
+  const section = (revisionId) => ({ runId: 'run', key: revisionId, order: 0, generationId: `generation-${revisionId}`, revisionId,
+    supersedes: null, contextElapsedMs: 0, runElapsedMs: null });
+  assert.equal(shouldSequencePublishedAnswer(turn('code-lens', 'ready', {
+    runIds: ['run'], publishedSections: [section('one'), section('two')],
+  })), true, 'completed Code Lens answers keep Previous/Next navigation');
+  assert.equal(shouldSequencePublishedAnswer(turn('building', 'working', {
+    runIds: ['run'], publishedSections: [section('one')],
+  })), true, 'an in-progress answer can receive its next section without changing presentation mode');
+  assert.equal(shouldSequencePublishedAnswer(turn('single', 'ready', {
+    runIds: ['run'], publishedSections: [section('one')],
+  })), false, 'a completed one-section answer stays simple');
+  assert.equal(shouldSequencePublishedAnswer(turn('guide', 'working', {
+    guideId: 'guide', runIds: ['run'], publishedSections: [section('one'), section('two')],
+  })), false, 'repository guides retain their independent slide controls');
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const progressiveAnswerSequence=shouldSequencePublishedAnswer\(turn\)/);
+  assert.match(source, /aria-label=\{turn\.guideId\?'Guide slides':'Answer sections'\}/);
+  assert.match(source, /\{selectedGuideSlide\+1\} of \{guideSlides\.length\}/);
 });
 
 test('question-owned branches stay attached to the last available part before unavailable newer parts', () => {
