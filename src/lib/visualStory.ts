@@ -15,9 +15,9 @@ export interface StoryLayoutResult {
   nodes: { id: string; position: { x: number; y: number } }[];
 }
 
-/** A full graph is an authored view only when the section has no composition contract or includes a graph scene. */
+/** A full graph is an authored view only when a current presentation includes a graph scene. */
 export function supportsStoryFullMap(visual: EvidenceLinkedVisualSpec | undefined): boolean {
-  return Boolean(visual && (!visual.presentation || visual.presentation.scenes.some((scene) => scene.mode === 'graph')));
+  return Boolean(visual?.presentation.scenes.some((scene) => scene.mode === 'graph'));
 }
 
 export const STORY_NODE_WIDTH = 195;
@@ -195,7 +195,7 @@ export function sourceEvidenceAnchorForVisualEdge(
  */
 export function sourceValuesByVisualNode(visual: EvidenceLinkedVisualSpec): Map<string, string> {
   const values = new Map<string, Set<string>>();
-  for (const scene of visual.presentation?.scenes ?? []) {
+  for (const scene of visual.presentation.scenes) {
     if (scene.mode !== 'composition') continue;
     for (const element of scene.elements) {
       if (element.valueOrigin !== 'source' || element.nodeIndex === null) continue;
@@ -230,7 +230,7 @@ function sentences(text: string): string[] {
 export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisualSpec, savedScript?: string): StoryScene[] {
   // Export and audio scheduling call without a visual argument. Read the same
   // validated presentation, so they never fall back to technical claim prose.
-  const candidate = visual ?? (section.visual?.schemaVersion === 2 ? section.visual : undefined);
+  const candidate = visual ?? (section.visual?.schemaVersion === 3 ? section.visual : undefined);
   const presentation = candidate?.presentation;
   if (presentation?.schemaVersion === 3 && Array.isArray(candidate?.nodes)
     && validStoredScenePresentation(presentation, candidate.nodes, section.claims)) {

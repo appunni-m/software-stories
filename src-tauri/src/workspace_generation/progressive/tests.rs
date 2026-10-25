@@ -537,7 +537,7 @@ fn codex_progressive_account_probe() {
                     .visual
                     .as_ref()
                     .and_then(chapters::ChapterVisualPayload::typed_visual)
-                    .and_then(|visual| visual.presentation.as_ref())
+                    .map(|visual| &visual.presentation)
                     .is_some_and(|presentation| presentation.scenes.iter().any(|scene| scene
                         .mode
                         == crate::scene_presentation::SceneMode::Composition))))
@@ -783,7 +783,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     ));
     assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
     assert!(system_instructions().contains(
-        "visualField names the exact visual field to repair; for visual.kind:none use title:\"\", direction:\"auto\", nodes:[], edges:[] and no presentation"
+        "visualField names the exact visual field to repair; when no visual helps, set section.visual:null and keep the complete narration in section.spokenText"
     ));
     assert!(system_instructions().contains(
         "Use a selector root only for first-match dispatch among competing ordered candidates"

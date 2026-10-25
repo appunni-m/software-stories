@@ -238,7 +238,7 @@ function compareVisual(
   beforeClaims: ChapterClaim[],
   afterClaims: ChapterClaim[],
 ): void {
-  const presentation=(visual:VisualSpec|null|undefined)=>visual&&'presentation' in visual?visual.presentation??null:null;
+  const presentation=(visual:VisualSpec|null|undefined)=>visual?.presentation??null;
   // A scene indexes visual nodes, so an unchanged presentation can render a
   // different label/evidence after the node array moves. Compare both together.
   comparePresentation(presentation(before),presentation(after),`${path}/presentation`,changes,beforeClaims,afterClaims,before?.nodes??[],after?.nodes??[]);

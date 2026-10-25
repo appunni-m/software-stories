@@ -2923,8 +2923,12 @@ mod tests {
             },
         ];
         section.visual = Some(ChapterVisualPayload::Typed(VisualSpec {
-            presentation: None,
-            schema_version: 2,
+            presentation: serde_json::from_value(serde_json::json!({
+                "schemaVersion":3,"scenes":[{"claimIndex":0,"title":"The entry point calls its worker",
+                    "narration":"The entry point calls the worker and then returns to its caller.",
+                    "mode":"graph","elements":[]}]
+            })).unwrap(),
+            schema_version: 3,
             kind: VisualKind::DataFlow,
             title: "Worker flow".to_owned(),
             layout_hint: Some(VisualLayoutHint {

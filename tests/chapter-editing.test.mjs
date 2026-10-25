@@ -67,7 +67,7 @@ test('repairing one citation does not rewrite another claim’s still-required d
 });
 
 test('unavailable malformed visual payloads remain reviewable instead of crashing claim removal',()=>{
-  for(const visual of [true,{schemaVersion:2,nodes:null,edges:[]},{schemaVersion:2,nodes:[null],edges:[]},{schemaVersion:2,nodes:[{}],edges:[]},{schemaVersion:2,nodes:[],edges:[],presentation:{scenes:[null]}}]){
+  for(const visual of [true,{schemaVersion:2,nodes:null,edges:[]},{schemaVersion:2,nodes:[null],edges:[]},{schemaVersion:2,nodes:[{}],edges:[]},{schemaVersion:2,nodes:[],edges:[],presentation:{scenes:[null]}},{schemaVersion:3,nodes:[],edges:[]},{schemaVersion:3,nodes:[],edges:[],presentation:{schemaVersion:3,scenes:[null]}}]){
     const s=section();s.visual=visual;const next=removeClaimAndReferences(s,'claim:entry');
     assert.equal(next.claims.length,1);assert.equal(next.visual,visual,'unavailable payload remains for native validation');
   }

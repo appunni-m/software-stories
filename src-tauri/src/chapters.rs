@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 pub const CHAPTER_SCHEMA_VERSION: u32 = 5;
-pub(crate) const VISUAL_SCHEMA_VERSION: u32 = 2;
+pub(crate) const VISUAL_SCHEMA_VERSION: u32 = 3;
 pub const VISUAL_RENDERER_CONTRACT_VERSION: u32 = 2;
 const MAX_CHAPTER_JSON_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ANCHOR_JSON_BYTES: usize = 128 * 1024;
@@ -420,15 +420,10 @@ pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
                 == Some(section.spoken_text.as_str()))
 }
 
-/// Schema 5 permits complete authored speech without decorative visuals.
+/// Schema 5 permits complete authored speech without a visual.
 /// This checks bounds and visible inference labels, not semantic equivalence.
 fn section_has_standalone_narration(section: &ChapterSection) -> bool {
-    let no_presentation = section
-        .visual
-        .as_ref()
-        .and_then(|v| v.typed_visual())
-        .is_none_or(|visual| visual.presentation.is_none());
-    no_presentation
+    section.visual.is_none()
         && (20..=4_000).contains(&section.spoken_text.trim().len())
         && section.claims.iter().all(|claim| match &claim.category {
             ClaimCategory::Inference { visible_label, .. } => section
@@ -445,7 +440,7 @@ pub(crate) fn authored_section_narration(
         .visual
         .as_ref()
         .and_then(|v| v.typed_visual())
-        .and_then(|v| v.presentation.as_ref())
+        .map(|v| &v.presentation)
     else {
         return Ok(None);
     };
@@ -625,8 +620,7 @@ pub enum HotspotDestination {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct VisualSpec {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub presentation: Option<crate::scene_presentation::ScenePresentation>,
+    pub presentation: crate::scene_presentation::ScenePresentation,
     pub schema_version: u32,
     pub kind: VisualKind,
     pub title: String,
@@ -1884,46 +1878,35 @@ impl Validator<'_> {
         revision_ids: &mut HashSet<String>,
         section_id: Option<&str>,
     ) {
-        if let Some(presentation) = &visual.presentation {
-            if visual.schema_version != VISUAL_SCHEMA_VERSION {
-                self.visual_issue(
-                    ChapterIssueCode::InvalidVisual,
-                    "HTML compositions require the current evidence-linked visual schema.",
-                    section_id,
-                    None,
-                    None,
-                );
-            }
-            if let Err(error) =
-                crate::scene_presentation::validate(presentation, &visual.nodes, claims)
-            {
-                self.visual_issue(
-                    ChapterIssueCode::InvalidVisual,
-                    &error,
-                    section_id,
-                    None,
-                    None,
-                );
-            }
-            if let Err(error) = crate::scene_presentation::validate_graph_density(
-                presentation,
-                &visual.nodes,
-                &visual.edges,
-                claims,
-            ) {
-                self.visual_issue(
-                    ChapterIssueCode::InvalidVisual,
-                    &error,
-                    section_id,
-                    None,
-                    None,
-                );
-            }
+        if let Err(error) =
+            crate::scene_presentation::validate(&visual.presentation, &visual.nodes, claims)
+        {
+            self.visual_issue(
+                ChapterIssueCode::InvalidVisual,
+                &error,
+                section_id,
+                None,
+                None,
+            );
+        }
+        if let Err(error) = crate::scene_presentation::validate_graph_density(
+            &visual.presentation,
+            &visual.nodes,
+            &visual.edges,
+            claims,
+        ) {
+            self.visual_issue(
+                ChapterIssueCode::InvalidVisual,
+                &error,
+                section_id,
+                None,
+                None,
+            );
         }
         if visual.schema_version != VISUAL_SCHEMA_VERSION {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
-                "A diagram must use the current visual schema version 2.",
+                "A diagram must use the current visual schema version 3.",
                 section_id,
                 None,
                 None,
@@ -3008,7 +2991,11 @@ mod tests {
                         },
                     ],
                     visual: Some(ChapterVisualPayload::Typed(VisualSpec {
-                        presentation: None,
+                        presentation: serde_json::from_value(serde_json::json!({
+                            "schemaVersion":3,"scenes":[{"claimIndex":0,"title":"The caller reaches the worker",
+                                "narration":"The caller reaches the worker and then receives control back.",
+                                "mode":"graph","elements":[]}]
+                        })).unwrap(),
                         schema_version: VISUAL_SCHEMA_VERSION,
                         kind: VisualKind::DataFlow,
                         title: "Call path".to_owned(),
@@ -3388,7 +3375,7 @@ mod tests {
             assert!(
                 report.issues.iter().any(|issue| {
                     issue.code == ChapterIssueCode::InvalidVisual
-                        && issue.message.contains("schema version 2")
+                        && issue.message.contains("schema version 3")
                 }),
                 "{report:#?}"
             );

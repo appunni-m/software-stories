@@ -510,13 +510,13 @@ export interface LinkedVisualEdge {
 }
 
 export interface EvidenceLinkedVisualSpec {
-  schemaVersion: 2;
+  schemaVersion: 3;
   kind: 'dataFlow' | 'sequence' | 'hierarchy';
   title: string;
   layoutHint: VisualLayoutHint;
   nodes: LinkedVisualNode[];
   edges: LinkedVisualEdge[];
-  presentation?: import('./scenePresentation').ScenePresentation;
+  presentation: import('./scenePresentation').ScenePresentation;
 }
 
 export type VisualSpec = EvidenceLinkedVisualSpec;

@@ -8,9 +8,13 @@ const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
 const section = { sectionId: 'section:one', title: 'Follow a request', claims, spokenText: claims.map((item) => item.prose).join(' ') };
 const visual = {
-  schemaVersion: 2, kind: 'dataFlow', title: 'Follow a request', layoutHint: { direction: 'topToBottom' },
+  schemaVersion: 3, kind: 'dataFlow', title: 'Follow a request', layoutHint: { direction: 'topToBottom' },
   nodes: ['entry', 'check', 'error', 'result'].map((id) => ({ nodeId: id, label: id, evidenceAnchorIds: [id === 'entry' ? 'a:entry' : 'a:check'] })),
   edges: [ ['entry', 'check'], ['check', 'error'], ['check', 'result'] ].map(([fromNodeId, toNodeId], i) => ({ edgeId: `e:${i}`, fromNodeId, toNodeId, label: 'branch' })),
+  presentation: { schemaVersion: 3, scenes: [
+    { claimIndex: 0, title: 'A request reaches the handler', narration: 'A request reaches handleRequest. The bytes are still untrusted.', mode: 'graph', elements: [] },
+    { claimIndex: 1, title: 'Validation chooses the outcome', narration: 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.', mode: 'graph', elements: [] },
+  ] },
 };
 
 describe('visual story scenes', () => {
@@ -28,7 +32,8 @@ describe('visual story scenes', () => {
       ...composed.presentation.scenes.slice(0, 1),
       { ...composed.presentation.scenes[1], mode: 'graph' },
     ] } }), true);
-    assert.equal(supportsStoryFullMap(visual), true, 'legacy graph-only sections retain their map');
+    assert.equal(supportsStoryFullMap(visual), true, 'an explicit graph scene retains its map');
+    assert.equal(supportsStoryFullMap({ ...visual, presentation: undefined }), false);
   });
 
   it('hides Full map when a section has only composed scenes', () => {

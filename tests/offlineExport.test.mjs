@@ -26,7 +26,7 @@ const sourceAnchor = (anchorId = 'anchor:entry', path = 'src/main.ts', excerpt =
 });
 
 const typedVisual = () => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   kind: 'dataFlow',
   title: 'Request path',
   layoutHint: { direction: 'leftToRight' },
@@ -35,6 +35,9 @@ const typedVisual = () => ({
     { nodeId: 'node:worker', label: 'runWorker', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:entry'] },
   ],
   edges: [{ edgeId: 'edge:call', fromNodeId: 'node:entry', toNodeId: 'node:worker', label: 'calls', evidenceAnchorIds: ['anchor:entry'] }],
+  presentation: { schemaVersion: 3, scenes: [
+    { claimIndex: 0, title: 'The handler calls the worker', narration: 'The handler receives the request and calls the worker.', mode: 'graph', elements: [] },
+  ] },
 });
 
 const section = ({ visual = typedVisual(), anchors = [sourceAnchor()], sectionId = 'section:request', order = 0 } = {}) => ({

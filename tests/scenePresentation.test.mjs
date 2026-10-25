@@ -239,7 +239,7 @@ describe('AI-authored HTML scene contract', () => {
     oldComposition.scenes[0].title = 'First match, then fallback';
     oldComposition.scenes[0].narration = narration;
     const visual = {
-      schemaVersion: 2, kind: 'sequence', title: 'Ordered dispatch and fallback',
+      schemaVersion: 3, kind: 'sequence', title: 'Ordered dispatch and fallback',
       layoutHint: { direction: 'topToBottom' }, nodes: dispatchNodes, edges: [], presentation: oldComposition,
     };
     const section = { sectionId: 'section:dispatch', title: 'Choose a parser', claims: [claim], spokenText: narration, visual, hotspots: [] };
@@ -323,15 +323,15 @@ describe('AI-authored HTML scene contract', () => {
       ['code', 'é'.repeat(513), 'illustration'],
     ]) assert.equal(validScenePresentation(presentation([element(kind, value, origin)]), nodes, claims), false);
   });
-  it('validates at the visual boundary and preserves existing diagrams without presentations', () => {
-    const visual = { schemaVersion: 2, kind: 'dataFlow', title: 'An HTML transformation', layoutHint: { direction: 'auto' }, nodes, edges: [], presentation: presentation() };
+  it('requires a current presentation at the visual boundary', () => {
+    const visual = { schemaVersion: 3, kind: 'dataFlow', title: 'An HTML transformation', layoutHint: { direction: 'auto' }, nodes, edges: [], presentation: presentation() };
     const section = { claims, hotspots: [], visual };
     const revision = { sections: [section] };
     assert.equal(inspectInteractiveVisual(revision, section).status, 'available');
     visual.presentation.scenes[0].elements[0].nodeIndex = 9;
     assert.equal(inspectInteractiveVisual(revision, section).status, 'unavailable');
     delete visual.presentation;
-    assert.equal(inspectInteractiveVisual(revision, section).status, 'available');
+    assert.equal(inspectInteractiveVisual(revision, section).status, 'unavailable');
   });
 });
 

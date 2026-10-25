@@ -43,15 +43,18 @@ export const baseRevision = () => ({
       { kind: 'relationship', path: 'src/routes.ts', sourceSha256: 'e'.repeat(64), relationshipId: 'relationship:dispatch' },
     ],
     visual: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       kind: 'dataFlow',
       title: 'Request flow',
       layoutHint: { direction: 'leftToRight' },
       nodes: [
         { nodeId: 'node:request', label: 'Request', detail: 'Incoming HTTP request', hotspotId: 'hotspot:route', evidenceAnchorIds: ['anchor:route'] },
-        { nodeId: 'node:handler', label: 'Handler', detail: null, hotspotId: null, evidenceAnchorIds: [] },
+        { nodeId: 'node:handler', label: 'Handler', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:route'] },
       ],
       edges: [{ edgeId: 'edge:request-handler', fromNodeId: 'node:request', toNodeId: 'node:handler', label: 'dispatches', evidenceAnchorIds: ['anchor:route'] }],
+      presentation: { schemaVersion: 3, scenes: [
+        { claimIndex: 0, title: 'The route dispatches the request', narration: 'The route dispatches the request to its handler.', mode: 'graph', elements: [] },
+      ] },
     },
     hotspots: [{
       hotspotId: 'hotspot:route',

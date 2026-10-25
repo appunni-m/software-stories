@@ -8,8 +8,11 @@ const nodes = Array.from({length: 6}, (_, index) => ({
 }));
 const edge = (from, to, label = '') => ({edgeId: `edge-${from}-${to}`, fromNodeId: `node-${from}`, toNodeId: `node-${to}`, label, evidenceAnchorIds: ['anchor-0']});
 const visual = (overrides = {}) => ({
-  schemaVersion: 2, kind: 'sequence', title: 'A source-backed path', layoutHint: {direction: 'leftToRight'},
+  schemaVersion: 3, kind: 'sequence', title: 'A source-backed path', layoutHint: {direction: 'leftToRight'},
   nodes, edges: nodes.slice(0, -1).map((node, index) => edge(index, index + 1)), ...overrides,
+  presentation: { schemaVersion: 3, scenes: [
+    { claimIndex: 0, title: 'Follow the source-backed path', narration: 'The operation follows the supported sequence of steps.', mode: 'graph', elements: [] },
+  ] },
 });
 
 test('long linear evidence paths become ordered, source-linked reading steps', () => {

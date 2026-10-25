@@ -41,7 +41,7 @@ const section: ChapterSection = {
   })),
   dependencies: [],
   visual: {
-    schemaVersion: 5, kind: 'dataFlow', title: 'Request to worker', layoutHint: { direction: 'leftToRight' },
+    schemaVersion: 3, kind: 'dataFlow', title: 'Request to worker', layoutHint: { direction: 'leftToRight' },
     nodes: [
       { nodeId: 'node:handler', label: 'handleRequest', detail: 'HTTP entry point', hotspotId: 'hotspot:handler', evidenceAnchorIds: ['anchor:handler'] },
       { nodeId: 'node:parser', label: 'parseInput', detail: 'Validates and normalizes the body', hotspotId: 'hotspot:parser', evidenceAnchorIds: ['anchor:parser'] },
@@ -51,6 +51,11 @@ const section: ChapterSection = {
       { edgeId: 'edge:parse', fromNodeId: 'node:handler', toNodeId: 'node:parser', label: 'parses body', evidenceAnchorIds: ['anchor:handler'] },
       { edgeId: 'edge:execute', fromNodeId: 'node:parser', toNodeId: 'node:worker', label: 'awaits worker', evidenceAnchorIds: ['anchor:worker'] },
     ],
+    presentation: { schemaVersion: 3, scenes: [
+      { claimIndex: 0, title: 'The handler receives a request', narration: 'The handler parses and normalizes the request body.', mode: 'graph', elements: [] },
+      { claimIndex: 1, title: 'The parser validates the body', narration: 'The parser checks and normalizes the request body.', mode: 'graph', elements: [] },
+      { claimIndex: 2, title: 'The worker executes the request', narration: 'The worker executes the request and saves the result.', mode: 'graph', elements: [] },
+    ] },
   },
   hotspots,
 };

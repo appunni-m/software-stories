@@ -468,7 +468,7 @@ impl Drop for StagedPreview {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, simple_proposal};
+    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, simple_proposal_text};
     use std::collections::HashSet;
 
     fn temporary_storage() -> PathBuf {
@@ -480,7 +480,7 @@ mod tests {
 
     fn preview() -> ChapterDraftPreview {
         let fixture = Fixture::new();
-        let proposal = serde_json::to_string(&simple_proposal()).unwrap();
+        let proposal = simple_proposal_text();
         let mut revision = crate::chapter_generation::canonicalize_file_chapter(
             &fixture.manifest.summary.project_id,
             &fixture.manifest,

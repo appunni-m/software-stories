@@ -126,8 +126,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const [autoPlay, setAutoPlay] = useState(false);
   const [manualVisit, setManualVisit] = useState(0);
   const sectionCompletionSent = useRef(false);
-  const canShowFullMap = Boolean(visual && supportsStoryFullMap(visual)
-    && (visual.edges.length > 0 || !visual.presentation));
+  const canShowFullMap = Boolean(visual && supportsStoryFullMap(visual) && visual.edges.length > 0);
   const [fullMap, setFullMap] = useState(savedPosition.fullMap && canShowFullMap);
   const canvasViewport = useRef<FlowViewport|undefined>(savedPosition.viewport);
   const mapView = useRef(fullMap);
@@ -136,7 +135,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const [focusedEdge, setFocusedEdge] = useState<string | null>(restoredFocus.edgeId);
   const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
-  const authoredScenes = visual?.presentation?.scenes.filter((item) => scenes.length === 1
+  const authoredScenes = visual?.presentation.scenes.filter((item) => scenes.length === 1
     || section.claims[item.claimIndex]?.claimId === scene.id) ?? [];
   const htmlScenes = !fullMap && authoredScenes.length > 0 && authoredScenes.every((item) => item.mode === 'composition') ? authoredScenes : [];
   const anchors = section.claims.flatMap((claim) => claim.anchors);

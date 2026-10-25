@@ -507,7 +507,7 @@ fn digest(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal};
+    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal_text};
 
     fn chapter(f: &Fixture) -> ChapterRevision {
         crate::chapter_generation::canonicalize_file_chapter(
@@ -517,7 +517,7 @@ mod tests {
             SIMPLE_PATH,
             &f.sources(&[SIMPLE_PATH]),
             &std::collections::HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap(),
+            &simple_proposal_text(),
         )
         .unwrap()
     }

@@ -32,7 +32,7 @@ export function inspectInteractiveVisual(
   const raw: unknown = section.visual;
   if (raw == null) return { status: 'none' };
   if (!isRecord(raw)) return { status: 'unavailable', reason: 'malformed' };
-  if (raw.schemaVersion !== 2 || !isCurrentVisual(raw)) {
+  if (raw.schemaVersion !== 3 || !isCurrentVisual(raw)) {
     return { status: 'unavailable', reason: 'malformed' };
   }
 
@@ -100,14 +100,14 @@ export function inspectInteractiveVisual(
     }
   }
 
-  if (raw.presentation !== undefined && !validStoredScenePresentation(raw.presentation, raw.nodes, section.claims)) {
+  if (!validStoredScenePresentation(raw.presentation, raw.nodes, section.claims)) {
     return { status: 'unavailable', reason: 'malformed' };
   }
   return { status: 'available', visual: raw, anchorsById, hotspotsById };
 }
 
 function isCurrentVisual(value: Record<string, unknown>): value is Record<string, unknown> & EvidenceLinkedVisualSpec {
-  if (!hasExactKeys(value, ['schemaVersion', 'kind', 'title', 'layoutHint', 'nodes', 'edges', ...(Object.hasOwn(value, 'presentation') ? ['presentation'] : [])])
+  if (!hasExactKeys(value, ['schemaVersion', 'kind', 'title', 'layoutHint', 'nodes', 'edges', 'presentation'])
     || !['dataFlow', 'sequence', 'hierarchy'].includes(String(value.kind))
     || !hasBoundedText(value.title, MAX_TITLE_BYTES)
     || !isRecord(value.layoutHint)

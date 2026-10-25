@@ -37,9 +37,9 @@ fn take_visual_proposal(
     let object = section
         .as_object_mut()
         .ok_or_else(|| "A generated section must be a JSON object.".to_owned())?;
-    let Some(value) = object.remove("visual") else {
-        return Ok(no_visual_proposal());
-    };
+    let value = object
+        .remove("visual")
+        .ok_or_else(|| "A generated section must include its visual choice.".to_owned())?;
     if value.is_null() {
         return Ok(no_visual_proposal());
     }
@@ -81,10 +81,10 @@ fn canonicalize_visual_proposal(
         || proposed.title.len() > 160
         || !(2..=12).contains(&proposed.nodes.len())
         || proposed.edges.len() > 20
-        || (proposed.edges.is_empty() && proposed.presentation.is_none())
+        || proposed.presentation.is_none()
     {
         return Err(
-            "A generated visual needs a specific title, two to twelve nodes, and one to twenty edges."
+            "A generated visual needs a specific title, two to twelve nodes, and the current scene presentation."
                 .to_owned(),
         );
     }
@@ -139,10 +139,12 @@ fn canonicalize_visual_proposal(
         });
     }
 
-    if let Some(presentation) = &proposed.presentation {
-        crate::scene_presentation::validate(presentation, &nodes, claims)?;
-        crate::scene_presentation::validate_graph_density(presentation, &nodes, &edges, claims)?;
-    }
+    let presentation = proposed
+        .presentation
+        .as_ref()
+        .ok_or_else(|| "A visual diagram needs the current scene presentation.".to_owned())?;
+    crate::scene_presentation::validate(presentation, &nodes, claims)?;
+    crate::scene_presentation::validate_graph_density(presentation, &nodes, &edges, claims)?;
     let kind = match proposed.kind {
         GeneratedVisualKind::None => unreachable!("none visuals returned before conversion"),
         GeneratedVisualKind::DataFlow => chapters::VisualKind::DataFlow,
@@ -150,7 +152,7 @@ fn canonicalize_visual_proposal(
         GeneratedVisualKind::Hierarchy => chapters::VisualKind::Hierarchy,
     };
     Ok(Some(chapters::VisualSpec {
-        presentation: proposed.presentation.clone(),
+        presentation: presentation.clone(),
         schema_version: chapters::VISUAL_SCHEMA_VERSION,
         kind,
         title: proposed.title.trim().to_owned(),
@@ -231,8 +233,17 @@ struct GeneratedVisualProposal {
     direction: chapters::VisualLayoutDirection,
     nodes: Vec<GeneratedVisualNode>,
     edges: Vec<GeneratedVisualEdge>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable_presentation")]
     presentation: Option<crate::scene_presentation::ScenePresentation>,
+}
+
+fn required_nullable_presentation<'de, D>(
+    deserializer: D,
+) -> Result<Option<crate::scene_presentation::ScenePresentation>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    serde::Deserialize::deserialize(deserializer)
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -1932,6 +1943,18 @@ pub(crate) mod tests {
         "function greeting(name: string): string {\n    return `Hello, ${name}`;\n}";
     pub(crate) const SIMPLE_SOURCE: &str = "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n";
 
+    pub(crate) fn simple_proposal_value() -> serde_json::Value {
+        let mut value = serde_json::to_value(simple_proposal()).unwrap();
+        for section in value["sections"].as_array_mut().unwrap() {
+            section["visual"] = serde_json::Value::Null;
+        }
+        value
+    }
+
+    pub(crate) fn simple_proposal_text() -> String {
+        simple_proposal_value().to_string()
+    }
+
     #[test]
     fn exact_quote_check_rejects_the_fontdone_comment_reflow_instead_of_normalizing_it() {
         let captured = "// Its unknown-format result is\n// the final face-open error.\nmatch Self::winfnt_face(data) {";
@@ -1961,7 +1984,7 @@ pub(crate) mod tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap(),
+            &simple_proposal_text(),
         )
         .unwrap();
         let proposed: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
@@ -1971,7 +1994,10 @@ pub(crate) mod tests {
                 {"label":"Greeting output", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}]}
             ],
             "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"Formats the name",
-                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "presentation":{"schemaVersion":3,"scenes":[{"claimIndex":0,"title":"Name becomes a greeting",
+                "narration":"The template places the supplied name in the greeting returned to its caller.",
+                "mode":"graph","elements":[]}]}
         })).unwrap();
         let section = &mut revision.sections[0];
         let anchor = section.claims[0].anchors[0].anchor_id.clone();
@@ -2004,7 +2030,7 @@ pub(crate) mod tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap(),
+            &simple_proposal_text(),
         )
         .unwrap();
         let section = &mut revision.sections[0];
@@ -2020,7 +2046,10 @@ pub(crate) mod tests {
                  "evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],
             "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
-                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "presentation":{"schemaVersion":3,"scenes":[{"claimIndex":0,"title":"Name becomes a greeting",
+                "narration":"The template places the supplied name in the greeting returned to its caller.",
+                "mode":"graph","elements":[]}]}
         })).unwrap();
         {
             let section = &mut revision.sections[0];
@@ -2052,7 +2081,10 @@ pub(crate) mod tests {
                 {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],
             "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
-                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "presentation":{"schemaVersion":3,"scenes":[{"claimIndex":0,"title":"Name becomes a greeting",
+                "narration":"The template places the supplied name in the greeting returned to its caller.",
+                "mode":"graph","elements":[]}]}
         })).unwrap();
         let section = &mut revision.sections[0];
         assert!(
@@ -2068,7 +2100,10 @@ pub(crate) mod tests {
                 {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],
             "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
-                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "presentation":{"schemaVersion":3,"scenes":[{"claimIndex":0,"title":"Name becomes a greeting",
+                "narration":"The template places the supplied name in the greeting returned to its caller.",
+                "mode":"graph","elements":[]}]}
         })).unwrap();
         assert!(
             canonicalize_visual_proposal(&uncited, &section.claims, &mut section.hotspots).is_err()
@@ -2078,7 +2113,7 @@ pub(crate) mod tests {
     #[test]
     fn generated_html_compositions_are_validated_stored_and_selectively_compared() {
         let fixture = Fixture::new();
-        let mut proposal = serde_json::to_value(simple_proposal()).unwrap();
+        let mut proposal = simple_proposal_value();
         proposal["sections"][0]["visual"] = serde_json::json!({
             "kind":"dataFlow","title":"A name becomes a greeting","direction":"auto",
             "nodes":[
@@ -2156,7 +2191,7 @@ pub(crate) mod tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap(),
+            &simple_proposal_text(),
         )
         .unwrap();
         let claims = &revision.sections[0].claims;
@@ -2187,7 +2222,7 @@ pub(crate) mod tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap(),
+            &simple_proposal_text(),
         )
         .unwrap();
         let claims = &revision.sections[0].claims;
@@ -2214,23 +2249,34 @@ pub(crate) mod tests {
         "[release]\nchannel = \"stable\"\nretry_limit = 3\nartifact_name = \"atlas-desktop\"\n";
 
     #[test]
-    fn recorded_luna_chapter_validates_without_an_index_and_rejects_invented_quotes() {
-        let mut fixture = Fixture::new();
+    fn obsolete_benchmark_visual_choices_are_rejected_and_current_narration_still_validates() {
+        let fixture = Fixture::new();
         fixture.recapture_with_source(
             "cart.ts",
             include_str!("../../benchmarks/codex-account-smoke/cart.ts"),
         );
-        let response =
-            include_str!("../../benchmarks/codex-account-smoke/2026-10-16-native-proposal.json");
-        let sources = fixture.sources(&["cart.ts"]);
-        let revision = canonicalize_file_chapter(
+        let obsolete = include_str!("../../benchmarks/codex-account-smoke/2026-10-16-native-proposal.json");
+        assert!(canonicalize_file_chapter(
             &fixture.manifest.summary.project_id,
             &fixture.manifest,
             None,
             "cart.ts",
+            &fixture.sources(&["cart.ts"]),
+            &HashSet::new(),
+            obsolete,
+        )
+        .is_err());
+
+        let response = simple_proposal_value();
+        let sources = fixture.sources(&[SIMPLE_PATH]);
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            None,
+            SIMPLE_PATH,
             &sources,
             &HashSet::new(),
-            response,
+            &response.to_string(),
         )
         .unwrap();
         let report = chapters::validate_chapter_revision(
@@ -2240,8 +2286,8 @@ pub(crate) mod tests {
             &revision,
         );
         assert_eq!(report.status, chapters::ValidationReportStatus::Valid);
-        assert_eq!(revision.sections.len(), 3);
-        let mut changed: serde_json::Value = serde_json::from_str(response).unwrap();
+        assert_eq!(revision.sections.len(), 1);
+        let mut changed = response.clone();
         changed["sections"][0]["claims"][0]["evidence"][0]["quote"] =
             serde_json::json!("invented source that does not occur");
         assert!(
@@ -2249,7 +2295,7 @@ pub(crate) mod tests {
                 &fixture.manifest.summary.project_id,
                 &fixture.manifest,
                 None,
-                "cart.ts",
+                SIMPLE_PATH,
                 &sources,
                 &HashSet::new(),
                 &changed.to_string()
@@ -3043,11 +3089,11 @@ pub(crate) mod tests {
             )
             .map_err(|error| error.message)?
             .review;
-            let mut initial = serde_json::to_value(simple_proposal()).unwrap();
+            let mut initial = simple_proposal_value();
             initial["sections"][0]["claims"][0]["prose"] =
                 serde_json::json!("The helper accepts a value and returns a formatted message.");
             initial["sections"][0]["visual"] = serde_json::json!({
-                "kind":"none", "title":"", "direction":"auto", "nodes":[], "edges":[]});
+                "kind":"none", "title":"", "direction":"auto", "nodes":[], "edges":[], "presentation":null});
             let corrections = AtomicUsize::new(0);
             let response = manager.run(&fixture.storage, CodexRunInput {
                 run_id: format!("synthetic-identifier-correction-{}", Uuid::new_v4()),
@@ -3463,7 +3509,7 @@ pub(crate) mod tests {
     #[test]
     fn supplied_bytes_size_snapshot_and_index_must_match_the_immutable_manifest() {
         let fixture = Fixture::new();
-        let text = serde_json::to_string(&simple_proposal()).unwrap();
+        let text = simple_proposal_text();
         let canonicalize =
             |manifest: &SnapshotManifest, index: &SnapshotIndex, sources: &[SnapshotSource]| {
                 canonicalize_file_chapter(

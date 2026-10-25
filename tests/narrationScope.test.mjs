@@ -63,7 +63,7 @@ it('natural scene scripts use identical scopes in player and export and retain p
   const current = section();
   const scripts = ['A prefix check decides which reader should handle these bytes.', 'The chosen reader gets the original input, including its remaining bytes.'];
   current.spokenText = scripts.join(' ');
-  current.visual = { schemaVersion: 2, nodes: [{ nodeId: 'n1', evidenceAnchorIds: ['anchor:one'] }, { nodeId: 'n2', evidenceAnchorIds: ['anchor:two'] }],
+  current.visual = { schemaVersion: 3, nodes: [{ nodeId: 'n1', evidenceAnchorIds: ['anchor:one'] }, { nodeId: 'n2', evidenceAnchorIds: ['anchor:two'] }],
     presentation: { schemaVersion: 3, scenes: scripts.map((narration, claimIndex) => ({ claimIndex, title: 'Read the input', narration, mode: 'graph', elements: [] })) } };
   const scopes = sectionNarrationScopes(revision, current, read({}));
   assert.deepEqual(scopes.map(s => s.sceneId), ['claim:prefix', 'claim:call']);

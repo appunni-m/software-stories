@@ -18,7 +18,7 @@ const anchor = (anchorId = 'anchor:call', path = 'src/main.ts') => ({
 });
 
 const visual = () => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   kind: 'dataFlow',
   title: 'Request path',
   layoutHint: { direction: 'leftToRight' },
@@ -29,6 +29,9 @@ const visual = () => ({
   edges: [
     { edgeId: 'edge:call', fromNodeId: 'node:entry', toNodeId: 'node:worker', label: 'calls', evidenceAnchorIds: ['anchor:call'] },
   ],
+  presentation: { schemaVersion: 3, scenes: [
+    { claimIndex: 0, title: 'The handler calls the worker', narration: 'The handler receives the request and calls the worker.', mode: 'graph', elements: [] },
+  ] },
 });
 
 const chapter = (diagram = visual(), { anchors = [anchor()], hotspots = [{
@@ -65,7 +68,7 @@ const chapter = (diagram = visual(), { anchors = [anchor()], hotspots = [{
 };
 
 describe('interactive diagram safety', () => {
-  it('accepts a bounded v2 diagram with exact same-section evidence and valid hotspot route', () => {
+  it('accepts a bounded v3 diagram with exact same-section evidence, a scene, and a valid hotspot route', () => {
     const revision = chapter();
     const result = inspectInteractiveVisual(revision, revision.sections[0]);
     assert.equal(result.status, 'available');
@@ -73,11 +76,20 @@ describe('interactive diagram safety', () => {
     assert.equal(result.status === 'available' && result.hotspotsById.get('hotspot:code').destination.kind, 'codeLens');
   });
 
+  it('rejects graph-only visuals from the prior schema while keeping a missing visual distinct', () => {
+    const revision = chapter();
+    const section = revision.sections[0];
+    delete section.visual.presentation;
+    assert.deepEqual(inspectInteractiveVisual(revision, section), { status: 'unavailable', reason: 'malformed' });
+    section.visual = null;
+    assert.deepEqual(inspectInteractiveVisual(revision, section), { status: 'none' });
+  });
+
   it('keeps absent and unsupported diagrams out of the interactive renderer', () => {
     const revisionWithoutVisual = chapter(null);
     revisionWithoutVisual.sections[0].visual = null;
     assert.deepEqual(inspectInteractiveVisual(revisionWithoutVisual, revisionWithoutVisual.sections[0]), { status: 'none' });
-    const old = chapter({ schemaVersion: 1, kind: 'dataFlow', title: 'Old', nodes: [], edges: [] });
+    const old = chapter({ schemaVersion: 2, kind: 'dataFlow', title: 'Old', layoutHint: { direction: 'auto' }, nodes: [], edges: [] });
     assert.deepEqual(inspectInteractiveVisual(old, old.sections[0]), { status: 'unavailable', reason: 'malformed' });
   });
 

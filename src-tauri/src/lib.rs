@@ -2214,7 +2214,9 @@ pub fn run() {
 #[cfg(test)]
 mod chapter_pipeline_tests {
     use super::*;
-    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, simple_proposal};
+    use crate::chapter_generation::tests::{
+        Fixture, SIMPLE_PATH, simple_proposal, simple_proposal_text, simple_proposal_value,
+    };
 
     #[test]
     fn fresh_narration_without_visuals_survives_file_direct_overview_and_codex_question_paths() {
@@ -2515,7 +2517,7 @@ mod chapter_pipeline_tests {
                 .visual
                 .as_ref()
                 .and_then(|v| v.typed_visual())
-                .and_then(|v| v.presentation.as_ref())
+                .map(|v| &v.presentation)
                 .is_some()),
             "A scene-free answer does not qualify AI visual generation; retain the original result."
         );
@@ -2717,8 +2719,12 @@ mod chapter_pipeline_tests {
             "The overlapping constant keeps this sample's repeated literal.".to_owned();
         base.sections[1].visual =
             Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
-                presentation: None,
-                schema_version: 2,
+                presentation: serde_json::from_value(serde_json::json!({
+                    "schemaVersion":3,"scenes":[{"claimIndex":0,"title":"The module retains its literal",
+                        "narration":"The module keeps the declared literal available to its references.",
+                        "mode":"graph","elements":[]}]
+                })).unwrap(),
+                schema_version: 3,
                 kind: chapters::VisualKind::DataFlow,
                 title: "The repeated literal".to_owned(),
                 layout_hint: Some(chapters::VisualLayoutHint {
@@ -3186,7 +3192,7 @@ mod chapter_pipeline_tests {
         let preview = prepare_chapter_draft_preview(
             &fixture.storage,
             &review,
-            response(&review, serde_json::to_string(&simple_proposal()).unwrap()),
+            response(&review, simple_proposal_text()),
             &pending,
         )
         .unwrap();
@@ -3269,7 +3275,7 @@ mod chapter_pipeline_tests {
         .unwrap()
         .review;
         assert_eq!(review.purpose, "repositoryOverview");
-        let mut proposal = serde_json::to_value(simple_proposal()).unwrap();
+        let mut proposal = simple_proposal_value();
         proposal.as_object_mut().unwrap().remove("evidenceLimits");
         proposal["title"] = serde_json::json!("Greeting behavior across selected modules");
         proposal["sections"][0]["claims"][0]["category"] = serde_json::json!("inference");
@@ -3324,7 +3330,7 @@ mod chapter_pipeline_tests {
             &file_review,
             response(
                 &file_review,
-                serde_json::to_string(&simple_proposal()).unwrap(),
+                simple_proposal_text(),
             ),
             &file_pending,
         )
@@ -3374,7 +3380,7 @@ mod chapter_pipeline_tests {
         )
         .unwrap()
         .review;
-        let mut proposal = serde_json::to_value(simple_proposal()).unwrap();
+        let mut proposal = simple_proposal_value();
         proposal.as_object_mut().unwrap().remove("evidenceLimits");
         proposal["title"] = serde_json::json!("Greeting behavior across selected modules");
         proposal["sections"][0]["claims"][0]["category"] = serde_json::json!("inference");
@@ -3444,7 +3450,7 @@ mod chapter_pipeline_tests {
         let fixture = Fixture::new();
         let review = review(&fixture);
         let pending = chapters::PendingChapterDrafts::default();
-        let proposal = serde_json::to_string(&simple_proposal()).unwrap();
+        let proposal = simple_proposal_text();
         let preview = prepare_chapter_draft_preview(
             &fixture.storage,
             &review,
@@ -3547,7 +3553,7 @@ mod chapter_pipeline_tests {
         let failure = prepare_chapter_draft_preview(
             &fixture.storage,
             &review,
-            response(&review, serde_json::to_string(&simple_proposal()).unwrap()),
+            response(&review, simple_proposal_text()),
             &pending,
         )
         .unwrap_err();

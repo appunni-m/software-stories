@@ -1137,8 +1137,12 @@ mod tests {
             .clone();
         with_visual.sections[0].visual =
             Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
-                presentation: None,
-                schema_version: 2,
+                presentation: serde_json::from_value(serde_json::json!({
+                    "schemaVersion":3,"scenes":[{"claimIndex":0,"title":"The function returns its greeting",
+                        "narration":"The function returns its formatted greeting to the caller.",
+                        "mode":"graph","elements":[]}]
+                })).unwrap(),
+                schema_version: 3,
                 kind: chapters::VisualKind::DataFlow,
                 title: "Greeting return flow".to_owned(),
                 layout_hint: Some(chapters::VisualLayoutHint {

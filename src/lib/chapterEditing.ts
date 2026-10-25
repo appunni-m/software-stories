@@ -22,13 +22,14 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
   const hotspots = section.hotspots.filter(h => h.destination.kind !== 'codeLens' || anchors.has(h.destination.anchorId));
   const hotspotIds = new Set(hotspots.map(h => h.hotspotId));
   let visual = section.visual;
+  const currentPresentation = visual?.presentation;
   const editable = visual && Array.isArray(visual.nodes) && Array.isArray(visual.edges)
-    && visual.schemaVersion === 2
+    && visual.schemaVersion === 3
     && visual.nodes.every(n => n && typeof n === 'object' && 'evidenceAnchorIds' in n && Array.isArray(n.evidenceAnchorIds))
     && visual.edges.every(e => e && typeof e === 'object' && 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds))
-    && (!visual.presentation || visual.presentation.schemaVersion === 3 && Array.isArray(visual.presentation.scenes)
-      && visual.presentation.scenes.every(s => s && Array.isArray(s.elements) && s.elements.every(e => e && typeof e === 'object')));
-  if (editable && visual) {
+    && currentPresentation?.schemaVersion === 3 && Array.isArray(currentPresentation.scenes)
+    && currentPresentation.scenes.every(s => s && Array.isArray(s.elements) && s.elements.every(e => e && typeof e === 'object'));
+  if (editable && visual && currentPresentation) {
     const nodeIndices = new Map<number,number>();
     const nodes = visual.nodes.flatMap((node,index) => {
       const evidenceAnchorIds = node.evidenceAnchorIds.filter(id => anchors.has(id));
@@ -41,10 +42,10 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
       const evidenceAnchorIds = edge.evidenceAnchorIds.filter(id => anchors.has(id));
       return nodeIds.has(edge.fromNodeId) && nodeIds.has(edge.toNodeId) && evidenceAnchorIds.length ? [{...edge,evidenceAnchorIds}] : [];
     });
-    const presentation = visual.presentation ? {...visual.presentation,scenes:visual.presentation.scenes
+    const presentation = {...currentPresentation,scenes:currentPresentation.scenes
       .filter(scene => scene.claimIndex !== removed).map(scene => ({...scene,claimIndex:scene.claimIndex > removed ? scene.claimIndex - 1 : scene.claimIndex,
-        elements:scene.elements.map(element => ({...element,nodeIndex:element.nodeIndex === null ? null : nodeIndices.get(element.nodeIndex) ?? -1}))}))} : undefined;
-    visual = nodes.length ? {...visual,nodes,edges,...(presentation ? {presentation} : {})} : null;
+        elements:scene.elements.map(element => ({...element,nodeIndex:element.nodeIndex === null ? null : nodeIndices.get(element.nodeIndex) ?? -1}))}))};
+    visual = nodes.length ? {...visual,nodes,edges,presentation} : null;
   }
   return {...section,claims,dependencies,hotspots,visual};
 }

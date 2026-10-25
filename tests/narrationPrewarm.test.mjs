@@ -16,7 +16,7 @@ const revision = {
       { claimId: 'claim:call', prose: 'That reader receives the original bytes.', category: { kind: 'codeBehavior' }, anchors: [{ anchorId: 'anchor:two' }] },
     ],
     visual: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       nodes: [{ nodeId: 'node:prefix', evidenceAnchorIds: ['anchor:one'] }, { nodeId: 'node:call', evidenceAnchorIds: ['anchor:two'] }],
       presentation: { schemaVersion: 3, scenes: [
         { claimIndex: 0, title: 'Choose a reader', mode: 'graph', elements: [], narration: 'The prefix chooses a reader.' },

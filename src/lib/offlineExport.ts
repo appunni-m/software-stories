@@ -533,7 +533,7 @@ function createSafeChapter(
         sceneNarration,
         visualSourceValuesOmitted: !includeExcerpts && inspection.status === 'available'
           && Boolean(inspection.visual.nodes.some(node => node.sourceValue)
-            || inspection.visual.presentation?.scenes.some(scene => scene.elements.some(element => element.valueOrigin === 'source'))),
+            || inspection.visual.presentation.scenes.some(scene => scene.elements.some(element => element.valueOrigin === 'source'))),
       };
     });
   const references = uniqueReferences(sections.flatMap((section) => section.references));
