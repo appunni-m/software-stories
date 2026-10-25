@@ -764,7 +764,7 @@ pub(crate) fn timing_report(
     } else {
         None
     };
-    let trace = crate::generation_timing::inspect(storage, run)?;
+    let mut trace = crate::generation_timing::inspect(storage, run)?;
     let job = if trace.is_none() {
         super::jobs::get(storage, run).ok()
     } else {
