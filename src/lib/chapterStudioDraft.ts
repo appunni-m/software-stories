@@ -1,5 +1,8 @@
 import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
-import type { ChapterRevision } from './commands.ts';
+import { inspectInteractiveVisual } from './visuals.ts';
+import type { ChapterRevision, ChapterSection } from './commands.ts';
+
+const MAX_CHAPTER_STUDIO_CHECKPOINT_BYTES = 4 * 1024 * 1024;
 
 export interface ChapterStudioDraftRouteIdentity {
   baseRevisionId: string;
@@ -25,10 +28,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function hasExactKeys(value: unknown, required: readonly string[], optional: readonly string[] = []): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  const allowed = [...required, ...optional];
+  const keys = Object.keys(value);
+  return required.every((key) => Object.hasOwn(value, key)) && keys.every((key) => allowed.includes(key));
+}
+
 function isAnchor(value: unknown): boolean {
-  return isRecord(value)
+  return hasExactKeys(value, ['anchorId','path','symbolId','snapshotId','sourceSha256','startByte','endByteInclusive','startLine','endLine','startColumn','endColumn','excerpt'])
     && typeof value.anchorId === 'string'
     && typeof value.path === 'string'
+    && (value.symbolId === null || typeof value.symbolId === 'string')
     && typeof value.snapshotId === 'string'
     && typeof value.sourceSha256 === 'string'
     && typeof value.excerpt === 'string'
@@ -39,48 +50,78 @@ function isAnchor(value: unknown): boolean {
 }
 
 function isDependency(value: unknown): boolean {
-  return isRecord(value)
-    && ['sourceFile', 'symbol', 'relationship'].includes(String(value.kind))
-    && typeof value.path === 'string'
-    && typeof value.sourceSha256 === 'string'
-    && (value.kind === 'sourceFile'
-      || value.kind === 'symbol' && typeof value.symbolId === 'string'
-      || value.kind === 'relationship' && typeof value.relationshipId === 'string');
+  if (!isRecord(value)) return false;
+  const common = { path: typeof value.path === 'string', hash: typeof value.sourceSha256 === 'string' };
+  if (value.kind === 'sourceFile') return hasExactKeys(value, ['kind','path','sourceSha256']) && common.path && common.hash;
+  if (value.kind === 'symbol') return hasExactKeys(value, ['kind','path','sourceSha256','symbolId'])
+    && common.path && common.hash && typeof value.symbolId === 'string';
+  if (value.kind === 'relationship') return hasExactKeys(value, ['kind','path','sourceSha256','relationshipId'])
+    && common.path && common.hash && typeof value.relationshipId === 'string';
+  return false;
+}
+
+function isTargetScope(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.kind === 'overview') return hasExactKeys(value, ['kind']);
+  if (value.kind === 'file') return hasExactKeys(value, ['kind','path']) && typeof value.path === 'string';
+  return value.kind === 'group' && hasExactKeys(value, ['kind','paths'])
+    && Array.isArray(value.paths) && value.paths.every((path) => typeof path === 'string');
+}
+
+function isHotspot(value: unknown): boolean {
+  if (!hasExactKeys(value, ['hotspotId','label','destination']) || !isRecord(value.destination)) return false;
+  const destination = value.destination;
+  if (typeof value.hotspotId !== 'string' || typeof value.label !== 'string') return false;
+  if (destination.kind === 'section') return hasExactKeys(destination, ['kind','sectionId']) && typeof destination.sectionId === 'string';
+  if (destination.kind === 'codeLens') return hasExactKeys(destination, ['kind','anchorId']) && typeof destination.anchorId === 'string';
+  if (destination.kind === 'atlasFile') return hasExactKeys(destination, ['kind','path']) && typeof destination.path === 'string';
+  if (destination.kind === 'atlasSymbol') return hasExactKeys(destination, ['kind','path','symbolId'])
+    && typeof destination.path === 'string' && typeof destination.symbolId === 'string';
+  return destination.kind === 'relationship' && hasExactKeys(destination, ['kind','relationshipId'])
+    && typeof destination.relationshipId === 'string';
+}
+
+function isClaim(value: unknown): boolean {
+  if (!hasExactKeys(value, ['claimId','category','prose','anchors','dependencies']) || !isRecord(value.category)) return false;
+  const category = value.category;
+  const categoryValid = category.kind === 'inference'
+    ? hasExactKeys(category, ['kind','visibleLabel','basis']) && typeof category.visibleLabel === 'string' && typeof category.basis === 'string'
+    : (category.kind === 'codeBehavior' || category.kind === 'repositoryContext') && hasExactKeys(category, ['kind']);
+  return typeof value.claimId === 'string' && typeof value.prose === 'string' && categoryValid
+    && Array.isArray(value.anchors) && value.anchors.every(isAnchor)
+    && Array.isArray(value.dependencies) && value.dependencies.every(isDependency);
+}
+
+function isSection(value: unknown): value is ChapterSection {
+  return hasExactKeys(value, ['sectionId','sectionRevisionId','order','title','prose','spokenText','claims','dependencies','visual','hotspots'])
+    && typeof value.sectionId === 'string' && typeof value.sectionRevisionId === 'string'
+    && Number.isSafeInteger(value.order) && Number(value.order) >= 0
+    && typeof value.title === 'string' && typeof value.prose === 'string' && typeof value.spokenText === 'string'
+    && Array.isArray(value.claims) && value.claims.every(isClaim)
+    && Array.isArray(value.dependencies) && value.dependencies.every(isDependency)
+    && (value.visual === null || isRecord(value.visual))
+    && Array.isArray(value.hotspots) && value.hotspots.every(isHotspot);
 }
 
 function isRestorableCandidate(value: unknown, projectId: string, snapshotId: string): value is ChapterRevision {
-  if (!isRecord(value) || value.schemaVersion !== CHAPTER_SCHEMA_VERSION
+  const required = ['schemaVersion','chapterId','revisionId','revisionNumber','projectId','snapshotId','target','title','lifecycle','validationStatus','createdAtUnixMs','sections'];
+  const optional = ['basedOnRevisionId','decisionNote','generationOrigin'];
+  if (!hasExactKeys(value, required, optional) || value.schemaVersion !== CHAPTER_SCHEMA_VERSION
     || value.projectId !== projectId || value.snapshotId !== snapshotId
     || typeof value.chapterId !== 'string' || typeof value.revisionId !== 'string'
-    || typeof value.title !== 'string' || !isRecord(value.target)
-    || typeof value.target.targetId !== 'string' || !isRecord(value.target.scope)
-    || !['overview', 'file', 'group'].includes(String(value.target.scope.kind))
-    || !Array.isArray(value.sections) || value.sections.length === 0) return false;
-  return value.sections.every((section) => isRecord(section)
-    && typeof section.sectionId === 'string'
-    && typeof section.title === 'string'
-    && typeof section.prose === 'string'
-    && typeof section.spokenText === 'string'
-    && Array.isArray(section.claims)
-    && section.claims.every((claim) => isRecord(claim)
-      && typeof claim.claimId === 'string'
-      && typeof claim.prose === 'string'
-      && isRecord(claim.category)
-      && ['codeBehavior', 'repositoryContext', 'inference'].includes(String(claim.category.kind))
-      && (claim.category.kind !== 'inference'
-        || typeof claim.category.visibleLabel === 'string' && typeof claim.category.basis === 'string')
-      && Array.isArray(claim.anchors)
-      && claim.anchors.every(isAnchor)
-      && Array.isArray(claim.dependencies)
-      && claim.dependencies.every(isDependency))
-    && Array.isArray(section.dependencies)
-    && section.dependencies.every(isDependency)
-    && Array.isArray(section.hotspots)
-    && section.hotspots.every((hotspot) => isRecord(hotspot)
-      && typeof hotspot.hotspotId === 'string'
-      && typeof hotspot.label === 'string'
-      && isRecord(hotspot.destination)
-      && typeof hotspot.destination.kind === 'string'));
+    || !Number.isSafeInteger(value.revisionNumber) || Number(value.revisionNumber) < 1
+    || typeof value.title !== 'string' || !hasExactKeys(value.target, ['targetId','scope'])
+    || typeof value.target.targetId !== 'string' || !isTargetScope(value.target.scope)
+    || !['draft','accepted','rejected'].includes(String(value.lifecycle))
+    || !['unvalidated','valid','invalid'].includes(String(value.validationStatus))
+    || !Number.isSafeInteger(value.createdAtUnixMs) || Number(value.createdAtUnixMs) <= 0
+    || Object.hasOwn(value, 'basedOnRevisionId') && value.basedOnRevisionId !== null && typeof value.basedOnRevisionId !== 'string'
+    || Object.hasOwn(value, 'decisionNote') && value.decisionNote !== null && typeof value.decisionNote !== 'string'
+    || Object.hasOwn(value, 'generationOrigin') && (!isRecord(value.generationOrigin) || value.generationOrigin.schemaVersion !== 6)
+    || !Array.isArray(value.sections) || value.sections.length === 0 || !value.sections.every(isSection)) return false;
+  const candidate = value as unknown as ChapterRevision;
+  return candidate.sections.every((section) => section.visual === null
+    || inspectInteractiveVisual(candidate, section).status === 'available');
 }
 
 /** Read only the current checkpoint shape. Unsupported/corrupt bytes stay in session storage. */
@@ -92,6 +133,9 @@ export function readChapterStudioDraft(
   routeRevisionId: string | null,
 ): ChapterStudioDraftLoad {
   if (serialized === null) return { status: 'empty' };
+  if (new TextEncoder().encode(serialized).byteLength > MAX_CHAPTER_STUDIO_CHECKPOINT_BYTES) {
+    return { status: 'preserved', reason: 'invalid' };
+  }
   let value: unknown;
   try { value = JSON.parse(serialized); }
   catch { return { status: 'preserved', reason: 'unreadable' }; }
@@ -99,6 +143,11 @@ export function readChapterStudioDraft(
   if (value.version !== 1) return { status: 'preserved', reason: 'unsupported' };
   if (isRecord(value.candidate) && value.candidate.schemaVersion !== CHAPTER_SCHEMA_VERSION) {
     return { status: 'preserved', reason: 'unsupported' };
+  }
+  if (isRecord(value.candidate) && isRecord(value.candidate.generationOrigin)
+    && value.candidate.generationOrigin.schemaVersion !== 6) return { status: 'preserved', reason: 'unsupported' };
+  if (!hasExactKeys(value, ['version','projectId','snapshotId','targetKey','baseRevisionId','candidate'])) {
+    return { status: 'preserved', reason: 'invalid' };
   }
   if (value.projectId !== projectId || value.snapshotId !== snapshotId
     || typeof value.targetKey !== 'string' || !value.targetKey
