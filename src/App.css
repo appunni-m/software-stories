@@ -980,6 +980,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-rebase-heading strong { color: var(--text); font-size: 10px; }
 .chapter-rebase-heading p, .chapter-rebase-clear { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.55; }
 .chapter-rebase-clear { padding: 8px; border-radius: 5px; background: var(--surface-raised); color: var(--accent); }
+.chapter-rebase-bulk-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.chapter-rebase-bulk-actions > span { color: var(--muted); font-size: 8px; }
 .chapter-rebase-conflicts { display: grid; gap: 8px; }
 .chapter-rebase-conflict { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--border); border-radius: 5px; }
 .chapter-rebase-conflict legend { padding: 0 4px; color: var(--text); font-size: 8px; font-weight: 650; }

@@ -8,6 +8,11 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
 }){
   const [choices,setChoices]=useState<ChapterRebaseChoices>({});
   const result=useMemo(()=>rebaseChapterDraft(base,latest,draft,choices),[base,latest,draft,choices]);
+  const applyChoiceToAll=(choice:'draft'|'latest')=>{
+    const next:ChapterRebaseChoices={};
+    for(const conflict of result.conflicts)next[conflict.id]=choice;
+    setChoices(next);
+  };
   return <section className="chapter-rebase-panel" aria-labelledby="chapter-rebase-title">
     <div className="chapter-rebase-heading">
       <div><strong id="chapter-rebase-title">Rebase your draft onto r{latest.revisionNumber}</strong>
@@ -17,7 +22,17 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
     </div>
     {result.conflicts.length===0
       ? <p className="chapter-rebase-clear" role="status">No overlapping edits. Your changes can be carried onto r{latest.revisionNumber}.</p>
-      : <div className="chapter-rebase-conflicts" role="group" aria-label="Resolve overlapping edits">
+      : <>
+        {result.conflicts.length>1&&<div className="chapter-rebase-bulk-actions" role="group" aria-label="Apply one choice to every conflict">
+          <span>For all {result.conflicts.length} conflicts:</span>
+          <button className="text-button" type="button" onClick={()=>applyChoiceToAll('draft')}>
+            Use your draft for all
+          </button>
+          <button className="text-button" type="button" onClick={()=>applyChoiceToAll('latest')}>
+            Use r{latest.revisionNumber} for all
+          </button>
+        </div>}
+        <div className="chapter-rebase-conflicts" role="group" aria-label="Resolve overlapping edits">
         {result.conflicts.map(conflict=><fieldset key={conflict.id} className="chapter-rebase-conflict">
           <legend>{conflict.label}</legend>
           <div className="chapter-rebase-options">
@@ -38,7 +53,8 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
             })}
           </div>
         </fieldset>)}
-      </div>}
+        </div>
+      </>}
     <div className="chapter-rebase-actions">
       {result.unresolved.length>0&&<span role="status">Choose a version for {result.unresolved.length} overlapping field{result.unresolved.length===1?'':'s'}.</span>}
       <button className="primary-button" type="button" disabled={result.unresolved.length>0}
