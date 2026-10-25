@@ -10,6 +10,10 @@ export interface NarrationPreferencesSnapshot {
 
 export const DEFAULT_NARRATION_VOICE = 'alba';
 export const DEFAULT_NARRATION_STYLE = '';
+const MAX_SAVED_NARRATION_BYTES = 64_000;
+const MAX_LEXICON_NAME_BYTES = 480;
+const MAX_LEXICON_SPOKEN_BYTES = 640;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 
 /** Pronounce names in the default script without changing its sentences.
  * Saved user edits and explicit pronunciation entries remain authoritative.
@@ -46,6 +50,9 @@ export function parseNarrationPreferences(
     lexicon: [],
   };
   if (serialized === null) return fallback;
+  if (new TextEncoder().encode(serialized).byteLength > MAX_SAVED_NARRATION_BYTES) {
+    throw new Error('Saved narration preferences are too large. The accepted transcript remains available.');
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(serialized);
@@ -153,5 +160,8 @@ function isPronunciationEntry(value: unknown): value is NarrationPreferencesSnap
   const entry = value as Record<string, unknown>;
   return Object.keys(entry).length === 3 && Object.hasOwn(entry, 'name') && Object.hasOwn(entry, 'sayAs')
     && Object.hasOwn(entry, 'include') && typeof entry.name === 'string' && typeof entry.sayAs === 'string'
+    && new TextEncoder().encode(entry.name).byteLength <= MAX_LEXICON_NAME_BYTES
+    && new TextEncoder().encode(entry.sayAs).byteLength <= MAX_LEXICON_SPOKEN_BYTES
+    && !CONTROL_CHARACTERS.test(entry.name) && !CONTROL_CHARACTERS.test(entry.sayAs)
     && typeof entry.include === 'boolean';
 }

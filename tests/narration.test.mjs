@@ -86,10 +86,13 @@ describe('narration cache request snapshots', () => {
       lexicon: [{ name: 'foo', sayAs: 'f oo', include: true }],
     });
     assert.throws(() => parseNarrationPreferences('{broken', 'Chapter script'), /malformed/);
+    assert.throws(() => parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'x'.repeat(64_001), voice: 'alba', style: '', lexicon: [] }), 'Chapter script'), /too large/);
     assert.throws(() => parseNarrationPreferences('{"spokenText":"Old script","voice":"Puck","style":"Gentle","lexicon":[]}', 'Chapter script'), /unsupported format/);
     assert.throws(() => parseNarrationPreferences('{"googleVoice":"Puck","googleStyle":"Gentle","spokenText":"Old script","voice":"Puck","style":"Gentle","lexicon":[]}', 'Chapter script'), /unsupported format/);
     assert.throws(() => parseNarrationPreferences('{"backend":"future-backend","spokenText":"Script","voice":"alba","style":"","lexicon":[]}', 'Chapter script'), /unsupported voice engine/);
     assert.throws(() => parseNarrationPreferences('{"backend":"pocket-tts","spokenText":"Script","voice":"alba","style":"","lexicon":[null]}', 'Chapter script'), /malformed/);
+    assert.throws(() => parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'Script', voice: 'alba', style: '', lexicon: [{ name: 'n'.repeat(481), sayAs: 'name', include: false }] }), 'Chapter script'), /malformed/);
+    assert.throws(() => parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'Script', voice: 'alba', style: '', lexicon: [{ name: 'name', sayAs: 's'.repeat(641), include: false }] }), 'Chapter script'), /malformed/);
     assert.deepEqual(parseNarrationPreferences(null, 'Chapter script'), {
       backend: 'pocket-tts',
       spokenText: 'Chapter script',
