@@ -11,7 +11,7 @@ import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConne
 import type { NoticeTarget } from '../lib/noticeHistory';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -98,6 +98,19 @@ function reportUnsavedConversation(project:string,snapshot:string,native=false,f
     message:failureMessage??(native?'Some conversation changes could not be saved. Existing explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.'),
     projectId:project,snapshotId:snapshot,occurrenceId,...(target?{target}:native?{target:{kind:'retryConversation'}}:{})}}));
 }
+function saveBrowserPreview(project:string,snapshot:string,state:WorkspaceState){
+  let serialized:string|null;
+  try{serialized=serializeWorkspace(state);}
+  catch{reportUnsavedConversation(project,snapshot);return;}
+  if(serialized===null){
+    reportUnsavedConversation(project,snapshot,false,'The browser preview cannot save this conversation because it exceeds the 8 MiB limit. This update stays on screen but may be lost if you reload; the earlier saved version is intact.');
+    return;
+  }
+  try{
+    localStorage.setItem(browserPreviewKey(project,snapshot),serialized);
+    resolveUnsavedConversation(project,snapshot);
+  }catch{reportUnsavedConversation(project,snapshot);}
+}
 export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{
   if(closingWorkspace)return new Promise((resolve,reject)=>{deferredCloseUpdates.push(()=>{void prepareWorkspaceConversation(project,snapshot).then(resolve,reject);});});
   return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();
@@ -149,10 +162,7 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
   }
   else if (browserPreviewWriteBlocked.has(id)) {
     reportUnsavedConversation(project,snapshot,false,'Saved browser workspace data could not be opened. Its original bytes were preserved. Discard it to start fresh; changes in this preview cannot be saved.',{kind:'discardBrowserPreview'});
-  } else try {
-    localStorage.setItem(browserPreviewKey(project,snapshot), JSON.stringify(next));
-    resolveUnsavedConversation(project,snapshot);
-  } catch {reportUnsavedConversation(project,snapshot);}
+  } else saveBrowserPreview(project,snapshot,next);
   listeners.forEach((notify) => notify());
 }
 /** Draft edits update the reader immediately and save after typing pauses. */
@@ -187,10 +197,7 @@ function persistWorkspaceDraftState(project:string,snapshot:string){
     reportUnsavedConversation(project,snapshot,false,'Saved browser workspace data could not be opened. Its original bytes were preserved. Discard it to start fresh; changes in this preview cannot be saved.',{kind:'discardBrowserPreview'});
     return;
   }
-  try{
-    localStorage.setItem(browserPreviewKey(project,snapshot),JSON.stringify(state));
-    resolveUnsavedConversation(project,snapshot);
-  }catch{reportUnsavedConversation(project,snapshot);}
+  saveBrowserPreview(project,snapshot,state);
 }
 function scheduleWorkspaceDraftWrite(project:string,snapshot:string){
   const id=key(project,snapshot);

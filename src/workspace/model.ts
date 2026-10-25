@@ -310,6 +310,12 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
   } catch { return fallback(); }
 }
 
+/** Keep browser-preview writes within the same byte limit used during restore. */
+export function serializeWorkspace(state: WorkspaceState): string | null {
+  const serialized = JSON.stringify(state);
+  return exceedsUtf8ByteLimit(serialized, MAX_WORKSPACE_STATE_BYTES) ? null : serialized;
+}
+
 /** A guide is one conversation card, even across independent native runs and
  * a lost local-storage write. Never change the reader's view or section. */
 export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGuide): WorkspaceState {
