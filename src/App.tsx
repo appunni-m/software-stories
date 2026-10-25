@@ -3291,6 +3291,7 @@ function AtlasDestinationCard({ refElement, manifest, selection, onOpenFile }: {
 }
 
 interface AtlasWorkbenchViewState {
+  schemaVersion: 1;
   treeQuery: string;
   mapQuery: string;
   kind: 'all' | RelationshipKind;
@@ -3308,18 +3309,66 @@ interface AtlasWorkbenchViewState {
 const ATLAS_TREE_ROW_HEIGHT = 29;
 const ATLAS_TREE_OVERSCAN = 10;
 const ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT = 510;
+const MAX_ATLAS_VIEW_BYTES = 512_000;
 
 function emptyAtlasWorkbenchState(): AtlasWorkbenchViewState {
-  return { treeQuery: '', mapQuery: '', kind: 'all', language: 'all', collapsed: [], selectedPath: null, selectedFolder: null, selectedRelationship: null, selectedSymbol: null, treeTop: 0, canvasTop: 0, viewport: { x: 0, y: 0, scale: 1 } };
+  return { schemaVersion: 1, treeQuery: '', mapQuery: '', kind: 'all', language: 'all', collapsed: [], selectedPath: null, selectedFolder: null, selectedRelationship: null, selectedSymbol: null, treeTop: 0, canvasTop: 0, viewport: { x: 0, y: 0, scale: 1 } };
 }
 
-function loadAtlasWorkbenchState(key: string): AtlasWorkbenchViewState {
+function isAtlasViewText(value: unknown, max: number, allowEmpty = false): value is string {
+  return typeof value === 'string' && value.length <= max && (allowEmpty || value.length > 0)
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
+function isAtlasViewPath(value: unknown): value is string {
+  if (value === '.') return true;
+  return isAtlasViewText(value, 4096) && !value.startsWith('/') && !value.includes('\\')
+    && value.split('/').every((part) => part.length > 0 && part !== '.' && part !== '..');
+}
+
+function isAtlasWorkbenchViewState(value: unknown): value is AtlasWorkbenchViewState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = ['schemaVersion', 'treeQuery', 'mapQuery', 'kind', 'language', 'collapsed', 'selectedPath', 'selectedFolder', 'selectedRelationship', 'selectedSymbol', 'treeTop', 'canvasTop', 'viewport'];
+  const viewport = record.viewport;
+  if (Object.keys(record).length !== keys.length || !keys.every((key) => Object.hasOwn(record, key))
+    || record.schemaVersion !== 1
+    || !isAtlasViewText(record.treeQuery, 4096, true) || !isAtlasViewText(record.mapQuery, 4096, true)
+    || !(record.kind === 'all' || ['defines', 'exports', 'imports', 'calls', 'testReference'].includes(String(record.kind)))
+    || !isAtlasViewText(record.language, 128)
+    || !Array.isArray(record.collapsed) || record.collapsed.length > 20_000
+    || !record.collapsed.every(isAtlasViewPath) || new Set(record.collapsed).size !== record.collapsed.length
+    || !(record.selectedPath === null || isAtlasViewPath(record.selectedPath))
+    || !(record.selectedFolder === null || isAtlasViewPath(record.selectedFolder))
+    || !(record.selectedRelationship === null || isAtlasViewText(record.selectedRelationship, 512))
+    || !(record.selectedSymbol === null || isAtlasViewText(record.selectedSymbol, 512))
+    || ![record.treeTop, record.canvasTop].every((number) => typeof number === 'number' && Number.isFinite(number) && number >= 0 && number <= 100_000_000)
+    || !viewport || typeof viewport !== 'object' || Array.isArray(viewport)) return false;
+  const point = viewport as Record<string, unknown>;
+  return Object.keys(point).length === 3 && ['x', 'y', 'scale'].every((key) => Object.hasOwn(point, key))
+    && typeof point.x === 'number' && Number.isFinite(point.x) && Math.abs(point.x) <= 10_000_000
+    && typeof point.y === 'number' && Number.isFinite(point.y) && Math.abs(point.y) <= 10_000_000
+    && typeof point.scale === 'number' && Number.isFinite(point.scale)
+    && point.scale >= ATLAS_MIN_ZOOM && point.scale <= ATLAS_MAX_ZOOM;
+}
+
+function loadAtlasWorkbenchState(key: string): { state: AtlasWorkbenchViewState; writable: boolean } {
   try {
     const value = sessionStorage.getItem(key);
-    if (!value) return emptyAtlasWorkbenchState();
-    const parsed = JSON.parse(value);
-    return { ...emptyAtlasWorkbenchState(), ...parsed, viewport: normalizeAtlasViewport(parsed?.viewport) };
-  } catch { return emptyAtlasWorkbenchState(); }
+    if (value === null) return { state: emptyAtlasWorkbenchState(), writable: true };
+    if (new TextEncoder().encode(value).byteLength > MAX_ATLAS_VIEW_BYTES) return { state: emptyAtlasWorkbenchState(), writable: false };
+    const parsed: unknown = JSON.parse(value);
+    return isAtlasWorkbenchViewState(parsed)
+      ? { state: parsed, writable: true }
+      : { state: emptyAtlasWorkbenchState(), writable: false };
+  } catch { return { state: emptyAtlasWorkbenchState(), writable: false }; }
+}
+
+function saveAtlasWorkbenchState(key: string, state: AtlasWorkbenchViewState): boolean {
+  const serialized = JSON.stringify(state);
+  if (new TextEncoder().encode(serialized).byteLength > MAX_ATLAS_VIEW_BYTES) return false;
+  sessionStorage.setItem(key, serialized);
+  return true;
 }
 
 function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeViewport, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onAtlasSelection, onViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
@@ -3344,10 +3393,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const snapshotId = manifest.summary.snapshotId;
   const projectId = manifest.summary.projectId;
   const storageKey = `atlas-view:${projectId}:${snapshotId}`;
-  const [view, setView] = useState(() => {
-    const restored = loadAtlasWorkbenchState(storageKey);
-    return routeViewport ? { ...restored, viewport: normalizeAtlasViewport(routeViewport) } : restored;
-  });
+  const [restored] = useState(() => loadAtlasWorkbenchState(storageKey));
+  const [view, setView] = useState(() => routeViewport ? { ...restored.state, viewport: normalizeAtlasViewport(routeViewport) } : restored.state);
+  const [viewStorageWritable, setViewStorageWritable] = useState(restored.writable);
+  const [viewResetError, setViewResetError] = useState(false);
   const [treeViewport, setTreeViewport] = useState(() => ({
     scrollTop: view.treeTop,
     height: ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT,
@@ -3371,8 +3420,21 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const routeKey = routeSelection ? JSON.stringify(routeSelection) : '';
 
   useEffect(() => {
-    try { sessionStorage.setItem(storageKey, JSON.stringify(view)); } catch { /* Session view persistence is optional. */ }
-  }, [storageKey, view]);
+    if (!viewStorageWritable) return;
+    try { if (!saveAtlasWorkbenchState(storageKey, view)) setViewStorageWritable(false); }
+    catch { setViewStorageWritable(false); }
+  }, [storageKey, view, viewStorageWritable]);
+
+  const discardUnavailableAtlasView = () => {
+    try {
+      sessionStorage.removeItem(storageKey);
+      const fresh = emptyAtlasWorkbenchState();
+      if (routeViewport) fresh.viewport = normalizeAtlasViewport(routeViewport);
+      setView(fresh);
+      setViewStorageWritable(true);
+      setViewResetError(false);
+    } catch { setViewResetError(true); }
+  };
   useEffect(() => {
     const tree = treeRef.current;
     if (!tree) return;
@@ -3548,7 +3610,8 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
     }
     const nextView = { ...view, selectedPath: row.path, selectedFolder: folder, selectedSymbol: null, selectedRelationship: null, treeTop: treeTopRef.current };
     setView(nextView);
-    try { sessionStorage.setItem(storageKey, JSON.stringify(nextView)); } catch { /* Session view persistence is optional. */ }
+    if (viewStorageWritable) try { if (!saveAtlasWorkbenchState(storageKey, nextView)) setViewStorageWritable(false); }
+    catch { setViewStorageWritable(false); }
     onAtlasSelection(row.kind === 'directory' ? undefined : { kind: 'file', path: row.path }, row.path, view.viewport);
   };
   const focusTreeRow = (rowIndex: number) => {
@@ -3669,6 +3732,11 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   };
 
   return <section className="atlas-workbench" aria-label="Repository files and relationships">
+    {!viewStorageWritable && <div className="atlas-view-warning" role="status">
+      <span><strong>Saved Files layout needs attention.</strong> The current view remains available; saved data is left untouched.</span>
+      <button type="button" onClick={discardUnavailableAtlasView}>Discard saved layout and start fresh</button>
+      {viewResetError && <span role="alert">The saved layout could not be discarded. It remains untouched.</span>}
+    </div>}
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
         <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
