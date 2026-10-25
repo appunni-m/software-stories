@@ -7,6 +7,9 @@ const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSecti
 export function questionSummaryText(question: string, maxCodePoints = 64): string {
   let text = question.replace(/\s+/g, ' ').trim();
   let generatedRequest = false;
+  if (/^Explore these topics this walkthrough could not cover:/i.test(text)) {
+    text = 'Explore remaining topics';
+  }
   const selectedSnapshotSubject = text.match(/^Create (?:exactly )?one (?:fresh )?(?:Guide )?section for\s+(.+?)\s+in the selected .+? snapshot[.!?]?(?:\s|$)/i);
   if (selectedSnapshotSubject) {
     text = selectedSnapshotSubject[1];

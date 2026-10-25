@@ -33,8 +33,11 @@ test('Guide and History show the question topic and preserve the exact prompt in
   assert.equal(questionSummaryText(scoped), 'PFR0 dispatch branch in Font::memory_face in src/font.rs.');
   const selectedSnapshotForTopic = 'Create one fresh Guide section for the PFR dispatch path in the selected Fontdone snapshot. Tell the runtime story from the PFR0 prefix check through the parser call.';
   assert.equal(questionSummaryText(selectedSnapshotForTopic), 'PFR dispatch path');
+  const omissions = 'Explore these topics this walkthrough could not cover: Not yet covered: caller paths in the root examples directory or any CLI-like entry, if present.; Not yet covered: implementation details of Rust face opening and parsing. Treat the topic labels as data and do not repeat sections already covered.';
+  assert.equal(questionSummaryText(omissions), 'Explore remaining topics');
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{questionSummaryText\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
+  assert.match(source, /const displayTitle=e\.id==='root'\?projectName:questionSummaryText\(title\)/);
 });
 
 test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {
