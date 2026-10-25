@@ -113,7 +113,9 @@ export function DeveloperWorkspace(props:Props) {
     setNarrowPane(open?'source':'explanation');
     updateWorkspace(projectId,snapshotId,(s)=>rememberCodePane(s,current.id,open));
   };
-  const [source,setSource] = useState<SnapshotSource|null>(null);
+  const [sourceEntry,setSourceEntry] = useState<{projectId:string;snapshotId:string;path:string;document:SnapshotSource}|null>(null);
+  const source=sourceEntry?.projectId===projectId&&sourceEntry.snapshotId===snapshotId&&sourceEntry.path===state.file
+    ? sourceEntry.document : null;
   const [sourceError,setSourceError] = useState<string|null>(null);
   const [sourceBusy,setSourceBusy] = useState(false);
   const [reveal,setReveal] = useState<Context|null>(null);
@@ -242,9 +244,14 @@ export function DeveloperWorkspace(props:Props) {
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:sourcePaths[0],explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:sourcePaths[0]}:e)}));},[state.file,sourcePaths]);
   useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){const context={path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256};update((s)=>({...s,file:routePath,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:routePath,reveal:context,codeOpen:true}:e)}));setReveal(context);}},[routePath,routeRange]);
   useEffect(()=>{
-    setSource(null);setSourceError(null);if(!state.file||!isNativeRuntime()) return;
+    const path=state.file;
+    setSourceEntry(null);setSourceError(null);
+    if(!path||!isNativeRuntime()){setSourceBusy(false);return;}
     let active=true;setSourceBusy(true);
-    void readSnapshotSource(projectId,snapshotId,state.file).then((value)=>{if(active){setSource(value);setSourceBusy(false);}}).catch((failure)=>{if(active){setSourceError(errorMessageOr(failure,'This captured file could not be opened.'));setSourceBusy(false);}});
+    void readSnapshotSource(projectId,snapshotId,path).then((value)=>{if(!active)return;
+      if(value.snapshotId!==snapshotId||value.path!==path){setSourceError('The returned source did not match the selected snapshot and file.');setSourceBusy(false);return;}
+      setSourceEntry({projectId,snapshotId,path,document:value});setSourceBusy(false);
+    }).catch((failure)=>{if(active){setSourceError(errorMessageOr(failure,'This captured file could not be opened.'));setSourceBusy(false);}});
     return()=>{active=false;};
   },[projectId,snapshotId,state.file]);
   useEffect(()=>{setReveal(current.reveal??null);},[current.id,current.reveal]);
