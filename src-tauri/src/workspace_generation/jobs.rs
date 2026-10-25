@@ -1395,7 +1395,7 @@ mod tests {
         let job = start_job(&directory);
         let stages = vec![
             crate::generation_timing::PreparationStage {
-                kind: crate::generation_timing::PreparationKind::SnapshotLoad,
+                kind: crate::generation_timing::PreparationKind::SyntaxIndexLoad,
                 started_ms: 0,
                 finished_ms: 5,
                 outcome: crate::generation_timing::PreparationOutcome::Complete,
@@ -1439,7 +1439,7 @@ mod tests {
         let directory = TestDirectory::new();
         let job = start_job(&directory);
         let stages = vec![crate::generation_timing::PreparationStage {
-            kind: crate::generation_timing::PreparationKind::SnapshotLoad,
+            kind: crate::generation_timing::PreparationKind::SyntaxIndexLoad,
             started_ms: 0,
             finished_ms: 4,
             outcome: crate::generation_timing::PreparationOutcome::Complete,

@@ -207,7 +207,21 @@ struct Pending {
     received_at: Instant,
 }
 
+#[cfg(unix)]
+fn load_syntax_index(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+) -> Option<index::SnapshotIndex> {
+    index::load_snapshot_index(
+        storage,
+        &manifest.summary.project_id,
+        &manifest.summary.snapshot_id,
+    )
+    .unwrap_or(None)
+}
+
 impl Session {
+    #[cfg(test)]
     #[cfg(unix)]
     pub(crate) fn new_progressive(
         storage: &Path,
@@ -222,6 +236,40 @@ impl Session {
         effort: &str,
         run_deadline: RunDeadline,
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
+    ) -> Result<Self, String> {
+        let syntax = load_syntax_index(storage, &manifest);
+        Self::new_progressive_with_syntax(
+            storage,
+            operation_id,
+            manifest,
+            runtime,
+            grant,
+            jobs,
+            question,
+            request_sha256,
+            model,
+            effort,
+            run_deadline,
+            notify,
+            syntax,
+        )
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn new_progressive_with_syntax(
+        storage: &Path,
+        operation_id: &str,
+        manifest: snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        grant: &str,
+        jobs: RepositoryContextJobs,
+        question: &str,
+        request_sha256: &str,
+        model: &str,
+        effort: &str,
+        run_deadline: RunDeadline,
+        notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
+        syntax: Option<index::SnapshotIndex>,
     ) -> Result<Self, String> {
         Self::build(
             storage,
@@ -239,9 +287,11 @@ impl Session {
             None,
             run_deadline,
             None,
+            syntax,
         )
     }
 
+    #[cfg(test)]
     #[cfg(unix)]
     pub(crate) fn new_guide_progressive(
         storage: &Path,
@@ -256,6 +306,40 @@ impl Session {
         effort: &str,
         run_deadline: RunDeadline,
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
+    ) -> Result<Self, String> {
+        let syntax = load_syntax_index(storage, &manifest);
+        Self::new_guide_progressive_with_syntax(
+            storage,
+            operation_id,
+            manifest,
+            runtime,
+            grant,
+            jobs,
+            question,
+            request_sha256,
+            model,
+            effort,
+            run_deadline,
+            notify,
+            syntax,
+        )
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn new_guide_progressive_with_syntax(
+        storage: &Path,
+        operation_id: &str,
+        manifest: snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        grant: &str,
+        jobs: RepositoryContextJobs,
+        question: &str,
+        request_sha256: &str,
+        model: &str,
+        effort: &str,
+        run_deadline: RunDeadline,
+        notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
+        syntax: Option<index::SnapshotIndex>,
     ) -> Result<Self, String> {
         Self::build(
             storage,
@@ -273,6 +357,7 @@ impl Session {
             Some(1),
             run_deadline,
             Some(crate::evidence_ledger::REPOSITORY_GUIDE_SLIDE_CALL_LIMIT),
+            syntax,
         )
     }
 
@@ -289,6 +374,7 @@ impl Session {
         effort: &str,
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
     ) -> Result<Self, String> {
+        let syntax = load_syntax_index(storage, &manifest);
         Self::build(
             storage,
             operation_id,
@@ -305,6 +391,7 @@ impl Session {
             None,
             RunDeadline::UserControlled,
             Some(crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT),
+            syntax,
         )
     }
 
@@ -325,6 +412,7 @@ impl Session {
         section_limit: Option<usize>,
         run_deadline: RunDeadline,
         call_limit: Option<usize>,
+        syntax: Option<index::SnapshotIndex>,
     ) -> Result<Self, String> {
         let ledger = if let Some(call_limit) = call_limit {
             Ledger::new_progressive_with_limits(
@@ -361,12 +449,6 @@ impl Session {
                 )
             })
             .transpose()?;
-        let syntax = index::load_snapshot_index(
-            storage,
-            &manifest.summary.project_id,
-            &manifest.summary.snapshot_id,
-        )
-        .unwrap_or(None);
         // macOS Unix socket paths have a short limit. A fresh private directory
         // is created atomically; no shared listener or TCP port is introduced.
         let directory = Path::new("/tmp").join(format!("ca-context-{}", Uuid::new_v4()));

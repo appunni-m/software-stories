@@ -369,11 +369,24 @@ pub(crate) fn run_with_starting_ranges(
                 )
             },
         )?;
+        // Syntax metadata is optional: unavailable or damaged indexes fall
+        // back to bounded text search. Keep that load separate from ledger and
+        // tool-session setup so diagnostics identify local index delay.
+        let syntax = preparation.run_optional_stage(
+            crate::generation_timing::PreparationKind::SyntaxIndexLoad,
+            || {
+                crate::index::load_snapshot_index(
+                    storage,
+                    &manifest.summary.project_id,
+                    &manifest.summary.snapshot_id,
+                )
+            },
+        );
         let session = preparation.run_stage(
             crate::generation_timing::PreparationKind::RetrievalSession,
             || {
                 let session = if guide_intent.is_some() {
-                    agent_context::Session::new_guide_progressive(
+                    agent_context::Session::new_guide_progressive_with_syntax(
                         storage,
                         &input.run_id,
                         manifest.clone(),
@@ -386,9 +399,10 @@ pub(crate) fn run_with_starting_ranges(
                         &input.effort,
                         run_deadline,
                         notify,
+                        syntax.clone(),
                     )?
                 } else {
-                    agent_context::Session::new_progressive(
+                    agent_context::Session::new_progressive_with_syntax(
                         storage,
                         &input.run_id,
                         manifest.clone(),
@@ -401,6 +415,7 @@ pub(crate) fn run_with_starting_ranges(
                         &input.effort,
                         run_deadline,
                         notify,
+                        syntax.clone(),
                     )?
                 };
                 Ok(Arc::new(Mutex::new(session)))

@@ -50,6 +50,7 @@ pub(crate) enum PreparationKind {
     RuntimeReview,
     JobIdentityBinding,
     RetrievalGrant,
+    SyntaxIndexLoad,
     RetrievalSession,
     OperationJournal,
 }
@@ -99,19 +100,40 @@ impl Preparation {
         operation: impl FnOnce() -> Result<T, String>,
     ) -> Result<T, String> {
         let result = operation();
+        self.record_stage(
+            kind,
+            if result.is_ok() {
+                PreparationOutcome::Complete
+            } else {
+                PreparationOutcome::Failed
+            },
+        );
+        result
+    }
+
+    /// Measure an optional local capability read whose failure is intentionally
+    /// handled by a fallback. Completion means the read attempt finished and
+    /// the caller can continue; a missing capability is returned as `None`.
+    /// Diagnostics never retain the error text or source data.
+    pub(crate) fn run_optional_stage<T>(
+        &mut self,
+        kind: PreparationKind,
+        operation: impl FnOnce() -> Result<Option<T>, String>,
+    ) -> Option<T> {
+        let result = operation();
+        self.record_stage(kind, PreparationOutcome::Complete);
+        result.ok().flatten()
+    }
+
+    fn record_stage(&mut self, kind: PreparationKind, outcome: PreparationOutcome) {
         let now = Instant::now();
         self.stages.push(PreparationStage {
             kind,
             started_ms: offset_ms(self.origin, self.stage_started),
             finished_ms: offset_ms(self.origin, now),
-            outcome: if result.is_ok() {
-                PreparationOutcome::Complete
-            } else {
-                PreparationOutcome::Failed
-            },
+            outcome,
         });
         self.stage_started = now;
-        result
     }
 
     pub(crate) fn mark_last_stopped(&mut self) {

@@ -131,6 +131,54 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
 }
 
 #[test]
+fn progressive_session_uses_the_syntax_index_loaded_by_timed_preparation() {
+    let f = Fixture::new();
+    let runtime = CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 0,
+    };
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    let syntax = index::SnapshotIndex {
+        schema_version: 1,
+        indexer_version: "timed-index-fixture".into(),
+        project_id: f.manifest.summary.project_id.clone(),
+        snapshot_id: f.manifest.summary.snapshot_id.clone(),
+        status: index::SnapshotIndexStatus::Complete,
+        parsers: vec![],
+        files: vec![],
+        symbols: vec![],
+        relationships: vec![],
+    };
+    let session = Session::new_progressive_with_syntax(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+        "How does a requested name become the greeting?",
+        &"d".repeat(64),
+        "gpt-6-luna",
+        "max",
+        crate::codex_agent::RunDeadline::UserControlled,
+        Arc::new(|_| {}),
+        Some(syntax.clone()),
+    )
+    .unwrap();
+
+    assert_eq!(session.syntax, Some(syntax));
+}
+
+#[test]
 fn repository_plans_and_slides_use_separate_scoped_sessions() {
     let f = Fixture::new();
     let runtime = CodexReviewRuntime {

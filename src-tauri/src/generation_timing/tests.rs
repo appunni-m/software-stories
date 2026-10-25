@@ -328,6 +328,7 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         PreparationKind::RuntimeReview,
         PreparationKind::JobIdentityBinding,
         PreparationKind::RetrievalGrant,
+        PreparationKind::SyntaxIndexLoad,
         PreparationKind::RetrievalSession,
         PreparationKind::OperationJournal,
     ];
@@ -355,7 +356,7 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     trace.finish(Ok(()));
     let record = inspect(&f.0, &id).unwrap().unwrap();
     assert_eq!(record.renderer_queue_wait_ms, Some(17));
-    assert_eq!(record.preparation_stages.len(), 9);
+    assert_eq!(record.preparation_stages.len(), 10);
     assert_eq!(
         record.preparation_stages[0].kind,
         PreparationKind::WorkerRegistration
@@ -365,10 +366,18 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         PreparationKind::JobRegistration
     );
     assert_eq!(
-        record.preparation_stages[8].kind,
+        record.preparation_stages[7].kind,
+        PreparationKind::SyntaxIndexLoad
+    );
+    assert_eq!(
+        record.preparation_stages[7].outcome,
+        PreparationOutcome::Complete
+    );
+    assert_eq!(
+        record.preparation_stages[9].kind,
         PreparationKind::OperationJournal
     );
-    assert!(record.preparation_stages[8].finished_ms <= record.events[0].elapsed_ms);
+    assert!(record.preparation_stages[9].finished_ms <= record.events[0].elapsed_ms);
     let at_limit = (0..MAX_PREPARATION_STAGES)
         .map(|index| PreparationStage {
             kind: PreparationKind::RetrievalSession,
@@ -418,6 +427,31 @@ fn preparation_records_only_fixed_stage_and_outcome_on_failure() {
     let encoded = serde_json::to_string(&stages).unwrap();
     assert!(!encoded.contains("private source"));
     assert!(!encoded.contains("local path"));
+}
+
+#[test]
+fn optional_syntax_index_load_records_duration_when_generation_uses_the_text_fallback() {
+    let mut preparation = Preparation::new(Instant::now());
+    let index = preparation.run_optional_stage(PreparationKind::SyntaxIndexLoad, || {
+        Ok::<_, String>(Some("available"))
+    });
+    assert_eq!(index, Some("available"));
+    let absent = preparation.run_optional_stage(PreparationKind::SyntaxIndexLoad, || {
+        Ok::<Option<()>, String>(None)
+    });
+    assert_eq!(absent, None);
+    let failed = preparation.run_optional_stage(PreparationKind::SyntaxIndexLoad, || {
+        Err::<Option<()>, _>("private index path".into())
+    });
+    assert_eq!(failed, None);
+
+    let stages = preparation.into_stages();
+    assert_eq!(stages.len(), 3);
+    assert_eq!(stages[0].outcome, PreparationOutcome::Complete);
+    assert_eq!(stages[1].outcome, PreparationOutcome::Complete);
+    assert_eq!(stages[2].outcome, PreparationOutcome::Complete);
+    let encoded = serde_json::to_string(&stages).unwrap();
+    assert!(!encoded.contains("private index path"));
 }
 
 #[test]
