@@ -63,17 +63,12 @@ pub(crate) enum PreparationOutcome {
     Stopped,
 }
 
-fn completed_preparation() -> PreparationOutcome {
-    PreparationOutcome::Complete
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PreparationStage {
     pub(crate) kind: PreparationKind,
     pub(crate) started_ms: u64,
     pub(crate) finished_ms: u64,
-    #[serde(default = "completed_preparation")]
     pub(crate) outcome: PreparationOutcome,
 }
 
@@ -215,7 +210,6 @@ pub(crate) struct ContextCall {
     pub(crate) source_bytes: usize,
     pub(crate) metadata_bytes: usize,
     pub(crate) wire_bytes: usize,
-    #[serde(default)]
     pub(crate) stages: Vec<ContextStage>,
 }
 

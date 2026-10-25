@@ -1133,7 +1133,7 @@ mod tests {
     }
 
     #[test]
-    fn version_one_records_are_rejected_without_rewriting() {
+    fn greenfield_current_format_rejects_version_one_jobs_without_rewriting() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
         let legacy = serde_json::json!({"schemaVersion":1,"jobs":[{"jobId":job_id,
@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn version_two_records_are_rejected_without_rewriting() {
+    fn greenfield_current_format_rejects_version_two_jobs_without_rewriting() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
         let turn_id = Uuid::new_v4().to_string();

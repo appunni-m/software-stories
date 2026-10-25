@@ -1947,7 +1947,7 @@ mod tests {
     }
 
     #[test]
-    fn pocket_audio_uses_only_its_current_cache_directory() {
+    fn greenfield_current_format_uses_only_the_current_pocket_cache_directory() {
         let storage = TestStorage::new();
         let reviews = PendingNarrationReviews::default();
         let input = BuildNarrationReviewInput {

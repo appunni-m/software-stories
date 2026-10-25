@@ -157,7 +157,7 @@ fn application_outcome_is_correlated_after_provider_return_and_is_idempotent() {
 }
 
 #[test]
-fn unsupported_timing_schema_is_rejected_without_rewriting() {
+fn greenfield_current_format_rejects_legacy_timing_schema_without_rewriting() {
     let f = Fixture::new();
     let id = run();
     let trace = f.trace(&id, Instant::now());
@@ -506,17 +506,6 @@ fn optional_syntax_index_load_records_duration_when_generation_uses_the_text_fal
 }
 
 #[test]
-fn older_preparation_stages_default_to_success_when_read() {
-    let value = json!({
-        "kind": "snapshotLoad",
-        "startedMs": 0,
-        "finishedMs": 4
-    });
-    let stage: PreparationStage = serde_json::from_value(value).unwrap();
-    assert_eq!(stage.outcome, PreparationOutcome::Complete);
-}
-
-#[test]
 fn abandoned_and_failed_runs_are_retained_without_inference_or_success_claims() {
     let f = Fixture::new();
     let id = run();
@@ -688,7 +677,7 @@ fn malformed_event_order_and_context_states_are_not_exported() {
 }
 
 #[test]
-fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
+fn greenfield_current_format_requires_stage_outcomes_and_valid_bounds() {
     let f = Fixture::new();
     let id = run();
     let started = Instant::now() - Duration::from_millis(30);
@@ -728,6 +717,34 @@ fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
         fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
         assert!(inspect(&f.0, &id).is_err());
     }
+    let mut missing_outcome = original.clone();
+    missing_outcome["preparationStages"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("outcome");
+    fs::write(&file, serde_json::to_vec(&missing_outcome).unwrap()).unwrap();
+    assert!(inspect(&f.0, &id).is_err());
+}
+
+#[test]
+fn greenfield_current_format_requires_context_stages() {
+    let call = ContextCall {
+        tool: crate::evidence_ledger::Tool::Read,
+        state: crate::evidence_ledger::CallState::Delivered,
+        started_ms: Some(1),
+        prepared_ms: Some(2),
+        finished_ms: Some(3),
+        source_bytes: 4,
+        metadata_bytes: 5,
+        wire_bytes: 9,
+        stages: Vec::new(),
+    };
+    let mut value = serde_json::to_value(call).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .remove("stages");
+    assert!(serde_json::from_value::<ContextCall>(value).is_err());
 }
 
 #[test]

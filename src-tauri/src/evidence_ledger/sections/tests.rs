@@ -411,7 +411,7 @@ fn progressive_scene_feedback_requires_an_origin_for_nonempty_element_values() {
 }
 
 #[test]
-fn current_answer_publication_replays_schema_5_with_authored_narration() {
+fn greenfield_current_format_answer_requires_update_notes() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
     let reference = read(&mut ledger, &f, &runtime, &cancel);
@@ -441,6 +441,13 @@ fn current_answer_publication_replays_schema_5_with_authored_narration() {
         proposal["section"]["claims"][0]["scene"]["narration"]
     );
     assert_eq!(saved.attempts[0].arguments, proposal.to_string());
+
+    let mut missing_update_notes = serde_json::to_value(&saved).unwrap();
+    missing_update_notes["sections"][0]["preview"]
+        .as_object_mut()
+        .unwrap()
+        .remove("updateNotes");
+    assert!(decode_answer(&serde_json::to_vec(&missing_update_notes).unwrap()).is_err());
 }
 
 #[test]
