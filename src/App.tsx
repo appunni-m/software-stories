@@ -2538,9 +2538,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
       <section ref={providerDialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div>
-            <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
-            <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
-            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Uses the saved direct API connection. Inspect the exact snapshot context before sending.') : 'Local browsing works without a model API. Set up an optional provider once here; its key stays in macOS Keychain.'}</p>
+            <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'CONNECTION'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
+            <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'Connections'}</h2>
+            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Uses the saved direct API connection. Inspect the exact snapshot context before sending.') : 'Choose a provider and model once. API keys stay in macOS Keychain.'}</p>
           </div>
           <button className="icon-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
@@ -2573,7 +2573,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
             {disclosure && !reviewMode && <details className="provider-key-card" open={!hasApiKey}>
               <summary>{disclosure.displayName} API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
               <div className="provider-key-content">
-                <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open provider setup.'}</p>
+                <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open Connections.'}</p>
                 <form className="provider-key-form" onSubmit={(event) => { void handleSaveKey(event); }}>
                   <label htmlFor="provider-api-key">Your {disclosure.displayName} API key</label>
                   <input
