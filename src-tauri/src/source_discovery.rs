@@ -487,10 +487,11 @@ fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<Doc
             !file.secret_like
                 && file.size_bytes <= 250_000
                 && matches!(file.content_kind, CapturedContentKind::Text)
-                && matches!(
-                    file.path.rsplit('.').next(),
-                    Some("md" | "rst" | "adoc" | "txt")
-                )
+                && file.path.rsplit('.').next().is_some_and(|extension| {
+                    ["md", "rst", "adoc", "txt"]
+                        .iter()
+                        .any(|supported| extension.eq_ignore_ascii_case(supported))
+                })
         })
         .take(20)
         .map(|file| {
