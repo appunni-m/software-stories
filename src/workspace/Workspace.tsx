@@ -191,8 +191,10 @@ export function DeveloperWorkspace(props:Props) {
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const requireCodexConnection=()=>{
     if(generationBackend!=='codex'){
-      const selected=generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Code';
-      setConnectionNotice(`Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
+      const selected=generationBackend===null?'saved AI connection':generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Code';
+      setConnectionNotice(generationBackend===null
+        ? `The ${selected} could not be read. Choose a connection in Connections to continue. Your question stays here.`
+        : `Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
       return false;
     }
     if(!connection.status?.authenticated){
@@ -394,7 +396,9 @@ export function DeveloperWorkspace(props:Props) {
     if(conversationUnavailable||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
       ||handledLargeFileExplanation.current===pending.id)return;
     if(generationBackend!=='codex'){
-      setConnectionNotice('This file explanation needs Codex. Switch the saved connection once in Connections to continue.');
+      setConnectionNotice(generationBackend===null
+        ? 'The saved AI connection could not be read. Choose a connection in Connections to explain this file.'
+        : 'This file explanation needs Codex. Switch the saved connection once in Connections to continue.');
       return;
     }
     if(!connection.status?.authenticated){

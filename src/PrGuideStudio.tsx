@@ -40,9 +40,9 @@ const NO_CONSENT: ProviderConsent = {
   adultSupportedRegionAcknowledged: false,
 };
 
-function readPrGuideBackend(): 'codex' | 'claude-agent' | 'api' | 'handoff' {
+function readPrGuideBackend(): 'codex' | 'claude-agent' | 'api' | 'handoff' | null {
   const saved = readGenerationBackend();
-  return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : saved;
+  return saved === null ? null : saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : saved;
 }
 
 interface PrGuideStudioProps {
@@ -81,7 +81,7 @@ export function PrGuideStudio({
   operationFenceRef.current.setScope(operationScope);
   const sendOperationRef = useRef<PrGuideOperationToken | null>(null);
   const cancelOperationRef = useRef<PrGuideOperationToken | null>(null);
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api' | 'handoff'>(() => readPrGuideBackend());
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api' | 'handoff' | null>(() => readPrGuideBackend());
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
   const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
@@ -542,6 +542,7 @@ export function PrGuideStudio({
       </div>
       <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Files with complete, bounded source changes are included automatically; review the diff before sharing it.':'Select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
       {backend === 'handoff' && <p className="pr-guide-notice" role="status">Manual agent handoff is not available for PR Guides yet. Change the AI connection in the header to use a supported option.</p>}
+      {backend === null && <p className="pr-guide-notice" role="alert">The saved AI connection could not be read. Choose a connection in the header before preparing a PR explanation. No request has been sent.</p>}
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
         <h3 id="recovered-git-title">Review interrupted {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'} work</h3>
         <p>{matchingRecovery.mode.kind === 'pr-guide'

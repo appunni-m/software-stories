@@ -2057,7 +2057,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
     if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
-    return readGenerationBackend();
+    return readGenerationBackend() ?? 'choose';
   });
   const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>(() => { try { return localStorage.getItem('code-atlas:handoff-agent') === 'antigravity' ? 'antigravity' : 'claude-code'; } catch { return 'claude-code'; } });
   useEffect(() => { try { localStorage.setItem('code-atlas:handoff-agent', handoffAgent); } catch { /* Optional. */ } }, [handoffAgent]);

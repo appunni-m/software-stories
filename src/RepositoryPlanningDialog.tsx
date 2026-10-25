@@ -59,8 +59,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   }
   const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
   const savedBackend = readGenerationBackend();
-  const unsupportedSavedConnection = !scope.recoveryOperationId && (savedBackend === 'api' || savedBackend === 'handoff');
-  const savedConnectionName = savedBackend === 'api' ? 'Direct API' : 'Claude Code handoff';
+  const unsupportedSavedConnection = !scope.recoveryOperationId && (savedBackend === null || savedBackend === 'api' || savedBackend === 'handoff');
+  const savedConnectionName = savedBackend === null ? 'The saved AI connection'
+    : savedBackend === 'api' ? 'Direct API' : 'Claude Code handoff';
   const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
   const planned = scope.kind === 'planned-chapter' ? scope.plannedChapter : null;
   const mode = planned ? { kind: 'review' as const, projectId: scope.projectId, snapshotId: scope.snapshotId,

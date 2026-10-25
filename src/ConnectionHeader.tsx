@@ -5,7 +5,7 @@ import { readDirectApiSelection, readGenerationBackend, type GenerationBackend, 
 
 export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const connection = useConnectionState();
-  const [backend, setBackend] = useState<GenerationBackend>(() => readGenerationBackend());
+  const [backend, setBackend] = useState<GenerationBackend | null>(() => readGenerationBackend());
   const [apiSelection, setApiSelection] = useState<DirectApiSelection>(() => readDirectApiSelection());
   useEffect(() => {
     initializeConnection();
@@ -25,15 +25,17 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
       : apiSelection.providerId === 'anthropic' ? 'Anthropic' : apiSelection.providerId;
   const selectedModel = connection.models.find((model) => model.modelId === connection.selection.modelId);
   const codexModel = selectedModel?.displayName ?? connection.selection.modelId;
-  const label = backend === 'api'
+  const label = backend === null ? 'Choose connection'
+    : backend === 'api'
     ? `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? 'Manual agent'
         : connection.checking ? 'Connecting to Codex…'
           : ready ? `Codex · ${codexModel} · ${connection.selection.effort}` : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
-    : codexSelected && connection.error ? CircleAlert : PlugZap;
-  const details = backend === 'codex'
+    : backend === null || codexSelected && connection.error ? CircleAlert : PlugZap;
+  const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
+    : backend === 'codex'
     ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.` : 'Set up your Codex connection once'
     : backend === 'api' ? `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'

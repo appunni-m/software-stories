@@ -33,12 +33,13 @@ export function rememberDirectApiSelection(selection: DirectApiSelection): void 
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:direct-api-selection-changed'));
 }
 
-export function readGenerationBackend(): GenerationBackend {
+export function readGenerationBackend(): GenerationBackend | null {
   try {
     const saved = localStorage.getItem(key);
+    if (saved === null) return 'codex';
     if (saved === 'codex' || saved === 'claude-setup' || saved === 'handoff' || saved === 'api') return saved;
-  } catch { /* Storage is optional. */ }
-  return 'codex';
+  } catch { /* An unreadable saved selection must not silently choose another backend. */ }
+  return null;
 }
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
@@ -48,7 +49,7 @@ export function rememberGenerationBackend(backend: GenerationBackend): void {
 
 /** Repository plans can only use the connected coding agents. Never silently
  * turn a saved API or manual-handoff preference into a Codex request. */
-export function repositoryPlanningBackend(backend: GenerationBackend | RepositoryPlanningBackend | undefined): RepositoryPlanningBackend | null {
+export function repositoryPlanningBackend(backend: GenerationBackend | RepositoryPlanningBackend | null | undefined): RepositoryPlanningBackend | null {
   if (backend === 'codex') return 'codex';
   if (backend === 'claude-setup' || backend === 'claude-agent') return 'claude-agent';
   return null;
