@@ -284,8 +284,18 @@ pub struct ChapterSection {
     pub spoken_text: String,
     pub claims: Vec<ChapterClaim>,
     pub dependencies: Vec<SectionDependency>,
+    #[serde(deserialize_with = "required_nullable_chapter_visual")]
     pub visual: Option<ChapterVisualPayload>,
     pub hotspots: Vec<ChapterHotspot>,
+}
+
+fn required_nullable_chapter_visual<'de, D>(
+    deserializer: D,
+) -> Result<Option<ChapterVisualPayload>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<ChapterVisualPayload>::deserialize(deserializer)
 }
 
 /// Keeps malformed diagrams attached to an otherwise readable chapter. The
@@ -3539,6 +3549,36 @@ mod tests {
             &encode_chapter_revision(&revision).unwrap(),
         )
         .unwrap();
+        let mut missing_visual_choice = current.clone();
+        missing_visual_choice["sections"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("visual");
+        assert!(decode_chapter_revision(&serde_json::to_vec(&missing_visual_choice).unwrap())
+            .is_err());
+
+        let mut missing_presentation = current.clone();
+        missing_presentation["sections"][0]["visual"]
+            .as_object_mut()
+            .unwrap()
+            .remove("presentation");
+        let unavailable_visual = decode_chapter_revision(
+            &serde_json::to_vec(&missing_presentation).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            unavailable_visual.sections[0].visual.as_ref(),
+            Some(ChapterVisualPayload::Unavailable(_))
+        ));
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(
+                &encode_chapter_revision(&unavailable_visual).unwrap(),
+            )
+            .unwrap(),
+            missing_presentation,
+            "a graph-only visual stays byte-equivalent as unavailable data"
+        );
+
         for unsupported in [1, 2, 3, 4, 6] {
             let mut value = current.clone();
             value["schemaVersion"] = serde_json::json!(unsupported);

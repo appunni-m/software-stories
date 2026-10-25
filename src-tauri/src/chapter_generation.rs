@@ -1956,6 +1956,23 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn generated_visual_choices_and_presentations_are_required() {
+        let mut missing_visual = simple_proposal_value();
+        missing_visual["sections"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("visual");
+        assert!(take_section_visual_proposals(&mut missing_visual).is_err());
+
+        let mut missing_presentation = simple_proposal_value();
+        missing_presentation["sections"][0]["visual"] = serde_json::json!({
+            "kind":"dataFlow","title":"Name to greeting","direction":"auto",
+            "nodes":[],"edges":[]
+        });
+        assert!(take_section_visual_proposals(&mut missing_presentation).is_err());
+    }
+
+    #[test]
     fn exact_quote_check_rejects_the_fontdone_comment_reflow_instead_of_normalizing_it() {
         let captured = "// Its unknown-format result is\n// the final face-open error.\nmatch Self::winfnt_face(data) {";
         let reflowed = "// Its unknown-format result\n// is the final face-open error.\nmatch Self::winfnt_face(data) {";
