@@ -27,7 +27,7 @@ mod contracts;
 use contracts::RequestContract;
 
 // Immutable evidence/context serialization for the current planning request.
-const PROMPT_VERSION: &str = "grounded-repository-plan-v2";
+pub(crate) const PROMPT_VERSION: &str = "grounded-repository-plan-v2";
 const MAX_STEPS: usize = 24;
 const MAX_RESPONSE_BYTES: usize = 1_000_000;
 const INVALID: &str = "The repository plan does not match the reviewed source, evidence or planning contract. No plan or chapter was saved.";

@@ -33,10 +33,10 @@ const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
 const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
-const PROMPT_VERSION: &str = "structured-file-chapter-v11";
+const PROMPT_VERSION: &str = "structured-file-chapter-v12";
 pub(crate) const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
-const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v11";
-const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v9";
+const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v12";
+const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v10";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";
 const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
 const REPOSITORY_PLAN_PURPOSE: &str = "repositoryPlan";
@@ -44,8 +44,9 @@ const SECTION_UPDATE_PURPOSE: &str = "sectionUpdate";
 const PR_GUIDE_PURPOSE: &str = "prGuide";
 const PR_CHANGE_EXPLANATION_PURPOSE: &str = "prChangeExplanation";
 const CODE_LENS_EXPLANATION_PURPOSE: &str = "codeLensExplanation";
-const CODE_LENS_PROMPT_VERSION: &str = "structured-code-lens-range-v1";
-const PR_CHANGE_EXPLANATION_PROMPT_VERSION: &str = "structured-pr-change-hunk-v1";
+const PR_GUIDE_PROMPT_VERSION: &str = "structured-pr-guide-v2";
+const CODE_LENS_PROMPT_VERSION: &str = "structured-code-lens-range-v2";
+const PR_CHANGE_EXPLANATION_PROMPT_VERSION: &str = "structured-pr-change-hunk-v2";
 const MAX_CONTEXT_BYTES: usize = 250_000;
 const MAX_CODE_LENS_RANGE_BYTES: usize = 32_000;
 const MAX_CODE_LENS_CLAIMS: usize = 12;
@@ -5825,7 +5826,9 @@ fn request_fingerprint_for_provider(
         prompt_version: match purpose {
             FILE_CHAPTER_PURPOSE => FILE_PROMPT_VERSION,
             REPOSITORY_OVERVIEW_PURPOSE => OVERVIEW_PROMPT_VERSION,
+            REPOSITORY_PLAN_PURPOSE => crate::repository_plan::PROMPT_VERSION,
             SECTION_UPDATE_PURPOSE => SECTION_UPDATE_PROMPT_VERSION,
+            PR_GUIDE_PURPOSE => PR_GUIDE_PROMPT_VERSION,
             PR_CHANGE_EXPLANATION_PURPOSE => PR_CHANGE_EXPLANATION_PROMPT_VERSION,
             CODE_LENS_EXPLANATION_PURPOSE => CODE_LENS_PROMPT_VERSION,
             _ => FILE_PROMPT_VERSION,
