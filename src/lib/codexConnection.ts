@@ -7,6 +7,14 @@ interface ConnectionCommands {
   onStatus?: (status: CodexAgentStatus) => void;
 }
 
+export function codexSelectionIsSupported(
+  models: readonly CodexModel[],
+  selection: { modelId: string; effort: string },
+): boolean {
+  return models.some((model) => model.modelId === selection.modelId
+    && model.supportedReasoningEfforts.includes(selection.effort));
+}
+
 /** Reuse Codex's saved account. Sign-in is deliberately not part of this path. */
 export async function restoreCodexConnection(commands: ConnectionCommands) {
   let status = await commands.status();

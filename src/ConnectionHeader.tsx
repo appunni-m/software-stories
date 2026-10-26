@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, LoaderCircle, PlugZap } from 'lucide-react';
 import { initializeConnection, useConnectionState } from './lib/connectionStore';
+import { codexSelectionIsSupported } from './lib/codexConnection';
 import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, type GenerationBackend, type DirectApiSelection, type DirectApiSelectionIssue } from './lib/generationPreferences';
 
 export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
@@ -35,7 +36,7 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const codexModel = selectedModel?.displayName ?? connection.selection.modelId;
   const handoffAgentName = handoffAgent === 'claude-code' ? 'Claude Code'
     : handoffAgent === 'codex' ? 'Codex' : handoffAgent === 'antigravity' ? 'Antigravity' : 'Another agent';
-  const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(connection.selection.effort));
+  const modelReady = codexSelectionIsSupported(connection.models, connection.selection);
   const ready = Boolean(codexRuntimeReady && modelReady);
   const label = backend === null ? 'Choose connection'
     : backend === 'api'

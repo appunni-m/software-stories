@@ -24,6 +24,7 @@ import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId }
 import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, resolveWorkspaceConversationConflict, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, useWorkspaceConversationConflict, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
+import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
@@ -242,10 +243,20 @@ export function DeveloperWorkspace(props:Props) {
       setConnectionNotice(generationBackend===null
         ? `The ${selected} could not be read. Choose a connection in Connections to continue. Your question stays here.`
         : `Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
+      onSettings();
       return false;
     }
-    if(!connection.status?.authenticated){
+    if(connection.checking){
+      setConnectionNotice('Codex is reconnecting. Your question stays here.');
+      return false;
+    }
+    if(!connection.status?.authenticated||!connection.status.runtimeRunning){
       setConnectionNotice('Connect Codex in Connections to continue. Your question stays here.');
+      onSettings();
+      return false;
+    }
+    if(!codexSelectionIsSupported(connection.models,connection.selection)){
+      setConnectionNotice('Choose a supported Codex model and reasoning level in Connections. Your question stays here.');
       onSettings();
       return false;
     }
