@@ -106,7 +106,7 @@ export function notificationAvailability(input: {
   return input.unavailable || input.answers === 'unavailable' || input.notices === 'unavailable' ? 'unavailable' : 'ready';
 }
 
-export function notificationSummary(items: readonly { read?: boolean }[], availability: NotificationAvailability, issue?: 'full'|null) {
+export function notificationSummary(items: readonly { id?: string; groupKey?: string; read?: boolean }[], availability: NotificationAvailability, issue?: 'full'|null) {
   if (availability === 'loading') return {
     label: 'Notifications, loading updates', badge: null, announcement: '', status: 'Loading updates…',
   };
@@ -115,7 +115,13 @@ export function notificationSummary(items: readonly { read?: boolean }[], availa
     announcement: issue==='full'?'Notification history is full. Dismiss an older notification to make room.':'Some updates could not be loaded. Open Notifications to try again.',
     status: issue==='full'?'New notifications are waiting to save. Dismiss an older notification to make room.':'Some updates could not be loaded. You can try again below.',
   };
-  const unread = items.filter((item) => !item.read).length;
+  const unreadItems = items.filter((item) => !item.read);
+  // The panel presents repeated outcomes as one expandable topic. Keep the
+  // bell badge and accessible name aligned with those visible groups instead
+  // of announcing every historical attempt as a separate update.
+  const unread = items.every((item) => typeof item.id === 'string' && item.id.length > 0)
+    ? new Set(unreadItems.map((item) => item.groupKey ? `group:${item.groupKey}` : `item:${item.id}`)).size
+    : unreadItems.length;
   const count = `${unread} unread update${unread === 1 ? '' : 's'}`;
   return {
     label: `Notifications, ${unread ? count : 'no unread updates'}`,
