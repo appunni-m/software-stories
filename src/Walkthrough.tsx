@@ -79,6 +79,18 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const [refreshKey, setRefreshKey] = useState(0);
   const [progressRefreshKey, setProgressRefreshKey] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const chapterSelectionToken = useRef(0);
+  const readerRouteIdentity = [route.workspace, route.projectId, route.snapshotId, route.chapterId, route.chapterRevisionId, route.sectionId].join('\u0000');
+  const latestReaderRouteIdentity = useRef(readerRouteIdentity);
+  latestReaderRouteIdentity.current = readerRouteIdentity;
+  const readerMounted = useRef(true);
+  useEffect(() => {
+    readerMounted.current = true;
+    return () => {
+      readerMounted.current = false;
+      chapterSelectionToken.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -259,6 +271,8 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   };
 
   const selectChapter = async (revision: ChapterRevision) => {
+    const selectionToken = ++chapterSelectionToken.current;
+    const originRouteIdentity = readerRouteIdentity;
     let storedProgress: ReturnType<typeof readRememberedProgress> = { status: 'missing' };
     let nativeSectionId: string | null = null;
     if (isNativeRuntime()) {
@@ -269,6 +283,8 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
         nativeSectionId = null;
       }
     }
+    if (!readerMounted.current || selectionToken !== chapterSelectionToken.current
+      || latestReaderRouteIdentity.current !== originRouteIdentity) return;
     if (!isNativeRuntime()) {
       try {
         storedProgress = readRememberedProgress(
