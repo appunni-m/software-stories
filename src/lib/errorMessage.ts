@@ -25,7 +25,7 @@ export function providerFailureMessage(failure: ProviderFailure): string {
     reviewExpired: 'This review expired. Build a fresh request and confirm it again.',
     reviewChanged: 'The request changed after review. Build a fresh review before sending.',
     reviewUnavailable: 'This review is no longer available. Build a fresh request.',
-    contextTooLarge: 'There is too much code to review in one request, so nothing was sent. Ask Guide about one behavior so Code Atlas can focus the source selection, or remove supporting files.',
+    contextTooLarge: 'There is too much code for one request, so nothing was sent. Ask about one behavior and Code Atlas will find a smaller relevant code slice.',
     secretLikeContext: 'The selected context contains a blocked secret-like path. Remove it before reviewing again.',
     unavailableModel: 'The selected model or reasoning setting is unavailable. Refresh the model list and choose again.',
     billingRequired: 'The provider requires a billing-enabled account for this request. No other provider was selected.',
