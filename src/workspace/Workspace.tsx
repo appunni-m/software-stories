@@ -5,6 +5,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, MarkerType, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
+import { CodeDetail } from '../design/CodeDetail';
 import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
@@ -58,6 +59,7 @@ interface Props {
 }
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 const MAX_CONTEXT_REFERENCES = 12;
+const contextsFromAnchors = (anchors:readonly ChapterSourceAnchor[]):Context[]=>anchors.slice(0,MAX_CONTEXT_REFERENCES).map((anchor)=>({path:anchor.path,sha256:anchor.sourceSha256,from:anchor.startLine,to:anchor.endLine}));
 interface CodeRequestReview { context:Context; question:string; snapshotId:string; sourceSha256:string; sourceExcerpt:string; excerptTruncated:boolean }
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
@@ -710,7 +712,7 @@ export function DeveloperWorkspace(props:Props) {
               <Tabs.Content value="guide">
                 {featuredTurn?renderAnswer(featuredTurn):<section className="dw-welcome"><BookOpen size={25}/><h1>Get to know {projectName}</h1><p>{conversationUnavailable?'This session is read-only. Browse a file or search the captured source.':'Ask a question, or use Guide me through the codebase. Open a file to follow its source.'}</p>{!generationPaused&&source&&<button className="dw-text-action" onClick={()=>explain({path:source.path,sha256:source.sha256})}>Explain {source.path.split('/').at(-1)}</button>}</section>}
               </Tabs.Content>
-              <Tabs.Content value="flow">{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><select id="answer-flow-section" value={latestRevision?.revisionId??''} onChange={(event)=>{const revision=flowRevisions.find((r)=>r.revisionId===event.target.value);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}>{flowRevisions.map((revision)=><option key={revision.revisionId} value={revision.revisionId}>{plainInlineCodeText(revision.sections[0]?.title??revision.title)}</option>)}</select></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
+              <Tabs.Content value="flow">{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><select id="answer-flow-section" value={latestRevision?.revisionId??''} onChange={(event)=>{const revision=flowRevisions.find((r)=>r.revisionId===event.target.value);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}>{flowRevisions.map((revision)=><option key={revision.revisionId} value={revision.revisionId}>{plainInlineCodeText(revision.sections[0]?.title??revision.title)}</option>)}</select></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
               <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=>{const entry=historyEntry(turn,new Set(chapters.map((r)=>r.revisionId)));const isCurrent=e.id===current.id&&turn.id===historyTurnId;return <article key={turn.id} className={isCurrent?'is-current':''}><details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details><p><InlineCodeText text={entry.text}/></p><button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,e.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>{turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}</article>;})}</section>)}{!path.some((e)=>e.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}{chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((r)=><button key={r.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,r.revisionId,r.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={r.title}/></span><small>{r.lifecycle}</small></button>)}</details>}</div>{chapters.some((revision)=>revision.lifecycle==='accepted'&&revision.sections.length>0)&&<div className="dw-history-export"><OfflineExport projectId={projectId} revisions={chapters}/></div>}</Tabs.Content>
             </div>
           </Tabs.Root></Panel>
@@ -906,6 +908,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
           onProgressChange={onStoryProgress}
           onSettings={onSettings}
           onOpenAnchor={onOpen}
+          onExploreDetail={(title, anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors))}
           // Start the next guide slide while this narration plays. Completion
           // also fires for the same slide, so it must not enqueue a second run.
           onSectionPlaybackStarted={turn.guideId
@@ -933,7 +936,8 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
     ) : <p>This saved explanation has no sections.</p>}
   </div></article>;
 }
-function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void}){
+function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,theme,onOpen}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void}){
+  const [focusSelection,setFocusSelection]=useState<{sectionRevisionId:string;nodeId:string}|null>(null);
   const diagrams=revision.sections.map((s)=>inspectInteractiveVisual(revision,s));
   const availableDiagramCount=diagrams.filter((diagram)=>diagram.status==='available').length;
   const remembered=sectionPosition(revision.revisionId,revision.sections,saved);
@@ -946,23 +950,28 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const viewport=progress?.find(p=>sameSection(p,identity))?.viewport;
   const {visual,anchorsById}=result;
   const sourceValues=sourceValuesByVisualNode(visual);
-  const openNodeSource=(node:typeof visual.nodes[number],anchor:ChapterSourceAnchor)=>onOpen(sourceAnchorForVisualNode(anchor,node,node.sourceValue??sourceValues.get(node.nodeId)));
+  const section=revision.sections[selected];
+  if(!section)return null;
+  const selectedNode=focusSelection?.sectionRevisionId===identity.sectionRevisionId?visual.nodes.find((node)=>node.nodeId===focusSelection.nodeId):undefined;
+  const selectedAnchors=selectedNode?selectedNode.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];
+  const selectedAnchorIds=new Set(selectedNode?.evidenceAnchorIds??[]);
+  const selectedClaims=section.claims.filter((claim)=>claim.anchors.some((anchor)=>selectedAnchorIds.has(anchor.anchorId))).map((claim)=>claim.prose);
+  const selectNode=(nodeId:string)=>setFocusSelection({sectionRevisionId:identity.sectionRevisionId,nodeId});
   const linearSteps=linearFlowSteps(visual);
   const unlinkedNodes=unlinkedFlowNodes(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
   const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
-    const anchor=(n.sourceAnchorId&&n.evidenceAnchorIds.includes(n.sourceAnchorId)?anchorsById.get(n.sourceAnchorId):undefined)??(n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined);
     const label=<><strong><InlineCodeText text={n.label}/></strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
-      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${plainInlineCodeText(n.label)}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
+      data:{label:<button type="button" className="dw-flow-select nodrag nopan" aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</button>},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:e.label??undefined,
     data:{labelPosition:labelPositions.get(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
     markerEnd:{type:MarkerType.ArrowClosed}}));
   return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{plainInlineCodeText(revision.sections[i].title)}</option>:null)}</select>}</div>
     {linearSteps ? <>
-      <p>Follow the steps in order. Select a step to open its source.</p>
+      <p>Choose a step to see what the cited code does.</p>
       <ol className="dw-linear-flow" aria-label={`Steps in ${plainInlineCodeText(visual.title)}`}>
         {linearSteps.map(({node, next}, index) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
@@ -971,18 +980,18 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
           if (!anchor) return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
           return <li className="dw-linear-flow-item" key={node.nodeId}>
-            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${plainInlineCodeText(node.label)}. Open source ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: show code detail for ${plainInlineCodeText(node.label)}. Cited source ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
               <span className="dw-linear-flow-index">Step {index+1}</span>
               <strong><InlineCodeText text={node.label}/></strong>
               {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
-              <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
+              <span className="dw-linear-flow-source"><Code2 size={13}/>Cited source · {sourceLabel}</span>
             </button>
             {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span><InlineCodeText text={next.label||'Then'}/></span></div>}
           </li>;
         })}
       </ol>
     </> : unlinkedNodes ? <>
-      <p>The evidence for this explanation does not define a path between these points. Select one to inspect its code.</p>
+      <p>The evidence does not define a path between these points. Choose one to inspect its cited implementation.</p>
       <ul className="dw-unlinked-flow" aria-label={`Source points in ${plainInlineCodeText(visual.title)}`}>
         {unlinkedNodes.map((node) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
@@ -990,17 +999,18 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
           const anchor=evidenceAnchor?sourceAnchorForVisualNode(evidenceAnchor,node,node.sourceValue??sourceValues.get(node.nodeId)):undefined;
           if(!anchor)return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
-          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Open source for ${plainInlineCodeText(node.label)} at ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Show code detail for ${plainInlineCodeText(node.label)} at ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
             <strong><InlineCodeText text={node.label}/></strong>
             {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
-            <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
+            <span className="dw-linear-flow-source"><Code2 size={13}/>Cited source · {sourceLabel}</span>
           </button></li>;
         })}
       </ul>
     </> : <>
-      <p>Select a step to open its source.</p>
+      <p>Choose a point to see what the cited code does.</p>
       <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
+    {selectedNode&&<CodeDetail title={selectedNode.label} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
   </section>;
 }
 

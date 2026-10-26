@@ -158,6 +158,10 @@
 .dw-tool-content .empty-workspace {min-height:0;margin:0;padding:var(--space-3) 0;border:0;max-width:none;}
 .dw-return {margin-bottom:var(--space-2);}
 .dw-flow-panel h2,.dw-flow-empty h2 {font-size:17px;line-height:1.5;}
+.dw-flow-panel > .code-detail {max-width:880px;margin:var(--space-3) auto;}
+.dw-flow-select {display:grid;gap:var(--space-1);width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:center;white-space:normal;font:inherit;cursor:pointer;}
+.dw-flow-select:hover,.dw-flow-select[aria-pressed="true"] {color:var(--accent);}
+.dw-flow-select:focus-visible {outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
 .dw-flow-heading {display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;}
 .dw-flow-heading select {max-width:100%;background:var(--surface);color:var(--text);padding:var(--space-2);border:1px solid var(--border);border-radius:5px;font-size:12px;}
 .dw-flow-panel > p,.dw-flow-empty p {font-size:13px;line-height:1.7;color:var(--muted);}
@@ -166,18 +170,16 @@
 .dw-flow-canvas .react-flow__node strong {display:block;font-size:13px;line-height:1.5;}
 .dw-flow-canvas .react-flow__node small {display:block;font-size:11px;line-height:1.6;color:var(--muted);margin-top:var(--space-1);}
 .dw-flow-canvas .dw-flow-edge-label {position:absolute;pointer-events:none;width:max-content;max-width:190px;overflow-wrap:anywhere;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);padding:var(--space-1) var(--space-2);color:var(--text);font-size:11px;font-weight:600;line-height:14px;text-align:center;box-shadow:0 1px 4px #0003;}
-.dw-flow-source {display:block;width:100%;min-height:32px;padding:var(--space-1);border:0;background:transparent;color:inherit;font:inherit;text-align:inherit;cursor:pointer;}
-.dw-flow-source:focus-visible {outline:2px solid var(--accent);outline-offset:5px;border-radius:3px;}
 .dw-linear-flow {list-style:none;max-width:760px;margin:var(--space-4) auto var(--space-6);padding:0;}
 .dw-linear-flow-item {display:grid;justify-items:center;}
 .dw-linear-flow-step {display:grid;gap:var(--space-2);width:min(100%,680px);min-width:0;padding:var(--space-3) var(--space-4);border:1px solid var(--border-strong);border-radius:9px;background:var(--surface-raised);color:var(--text);text-align:left;cursor:pointer;}
 .dw-linear-flow-step:hover {border-color:var(--accent);background:var(--surface-hover);}
+.dw-linear-flow-step[aria-pressed="true"],.dw-unlinked-flow-point[aria-pressed="true"] {border-color:var(--accent);background:var(--surface-hover);box-shadow:0 0 0 2px var(--accent-soft);}
 .dw-linear-flow-step:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
 .dw-linear-flow-index {color:var(--accent);font:11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.04em;}
 .dw-linear-flow-step strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
 .dw-linear-flow-step small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
 .dw-linear-flow-source {display:flex;align-items:center;gap:var(--space-2);min-width:0;margin-top:var(--space-1);color:var(--accent);font:11px/1.5 var(--mono);overflow-wrap:anywhere;}
-.dw-linear-flow-source svg:last-child {margin-left:auto;flex:0 0 auto;}
 .dw-linear-flow-edge {display:flex;align-items:center;gap:var(--space-2);max-width:100%;padding:var(--space-2) var(--space-3);color:var(--muted);font-size:12px;line-height:1.5;}
 .dw-linear-flow-edge svg {flex:0 0 auto;color:var(--accent);}
 .dw-linear-flow-edge span {overflow-wrap:anywhere;}

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
+import { CodeDetail } from './design/CodeDetail';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
@@ -20,6 +21,7 @@ interface Props {
   revision: ChapterRevision;
   section: ChapterSection;
   onOpenAnchor: (anchor: ChapterSourceAnchor, focusTarget?: string) => void;
+  onExploreDetail?: (title: string, anchors: readonly ChapterSourceAnchor[]) => void;
   onFollowHotspot?: (hotspot: ChapterHotspot, focusTarget?: string) => void;
   activeFocusTarget?: string;
   onSettings: () => void;
@@ -67,7 +69,7 @@ const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 /** One narrated, evidence-backed scene at a time. Audio completion, not guessed
  * elapsed-time percentages, advances the story. Sections always advance manually.
  */
-export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, onSettings, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
+export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, onFollowHotspot, onSettings, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const baseKey = narrationStorageKey(revision.projectId,revision.chapterId,revision.revisionId,section.sectionId);
@@ -135,6 +137,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const restoredFocus = restoreStoryFocus(visual, savedPosition.focusedNodeId, savedPosition.focusedEdgeId);
   const [focusedNode, setFocusedNode] = useState<string | null>(restoredFocus.nodeId);
   const [focusedEdge, setFocusedEdge] = useState<string | null>(restoredFocus.edgeId);
+  const [sceneDetailsOpen, setSceneDetailsOpen] = useState(false);
   const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
   const authoredScenes = visual?.presentation.scenes.filter((item) => scenes.length === 1
@@ -153,6 +156,10 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const focusSourceAnchor = focus && focusAnchor
     ? sourceAnchorForVisualNode(focusAnchor, focus, focusSourceValue)
     : focusAnchor;
+  const detailAnchorIds = new Set([...(focus?.evidenceAnchorIds ?? []), ...(focusSourceAnchor ? [focusSourceAnchor.anchorId] : [])]);
+  const detailAnchors = [...new Map(section.claims.flatMap((claim) => claim.anchors)
+    .filter((item) => detailAnchorIds.has(item.anchorId)).map((item) => [item.anchorId, item])).values()];
+  const detailClaims = section.claims.filter((claim) => claim.anchors.some((item) => detailAnchorIds.has(item.anchorId))).map((claim) => claim.prose);
   const hotspot = inspection.status === 'available' && focus?.hotspotId ? inspection.hotspotsById.get(focus.hotspotId) : undefined;
   const savePosition = (sceneId: string, position?: number, focusSelection?: {nodeId:string|null;edgeId:string|null}, replaceUnavailable = false) => {
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
@@ -186,18 +193,14 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     if (next < 0 || next >= scenes.length) return;
     activeScene.current=scenes[next].id;
     if(next!==index)canvasViewport.current=undefined;
-    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId);
+    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId); setSceneDetailsOpen(Boolean(nodeId));
     if (!playing) { setManualVisit((visit) => visit + 1); requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'start', behavior: 'instant' })); }
     if (playing) positions.current.set(scenes[next].id, 0);
     savePosition(scenes[next].id, undefined, {nodeId,edgeId}, true);
   };
-  const chooseNode = (id: string, sourceValue?: string) => {
+  const chooseNode = (id: string) => {
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
     select(next < 0 ? index : next, false, id);
-    const node = visual?.nodes.find((item) => item.nodeId === id);
-    const exactValue = node?.sourceValue ?? sourceValue;
-    const source = node ? sourceEvidenceAnchorForVisualNode(anchors, node, exactValue) : undefined;
-    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node, exactValue), `reader-visual-citation:${id}:${source.anchorId}`);
   };
   const chooseEdge = (edgeId: string) => {
     const edge = visual?.edges.find((item) => item.edgeId === edgeId);
@@ -222,7 +225,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const detail = data.detail ? plainInlineCodeText(data.detail) : '';
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
         <span className="story-node-title"><InlineCodeText text={data.label}/></span>
         {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
       </button> },
@@ -430,7 +433,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     {!visual && <div className="story-focus-bar"><span><InlineCodeText text={focus?.label ?? (anchor ? 'Captured code' : section.title)}/></span>
       {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
     </div>}
-    <details className="story-details"><summary>Scene details & source</summary>
+    <details className="story-details" open={sceneDetailsOpen} onToggle={(event) => setSceneDetailsOpen(event.currentTarget.open)}><summary>Scene details & source</summary>
+      {(focus || focusSourceAnchor) && <CodeDetail title={focus?.label ?? section.title} claims={detailClaims} anchors={detailAnchors} onOpen={(item) => onOpenAnchor(item, focus ? `reader-visual-citation:${focus.nodeId}:${focusSourceAnchor?.anchorId ?? focus.evidenceAnchorIds[0]}` : undefined)} onExplore={onExploreDetail}/>}
       {focus?.detail && <p><InlineCodeText text={focus.detail}/></p>}
       {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}><InlineCodeText text={hotspot.label}/><ArrowRight size={13}/></button>}
       {sourceLinkedEdges.length > 0 && <div className="story-details-connections">

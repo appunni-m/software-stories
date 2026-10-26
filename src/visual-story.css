@@ -63,6 +63,8 @@
 .walkthrough-narration-editor-content { display: contents; }
 .walkthrough-narration-script summary, .story-details summary, .dw-flow-narration summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 6px 0; }
 .story-details { margin: 0 12px; padding: 0 0 8px; }
+.story-details > .code-detail { margin:10px 0; }
+.story-details .code-detail-claims p { font-size:12px; line-height:1.65; }
 .story-details p { font-size: 13px; line-height: 1.7; color: var(--muted); }
 .story-details-connections { margin: 8px 0; }
 .story-details-connections h3 { margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 600; }
