@@ -1,5 +1,5 @@
 import type { ChapterRevision } from '../lib/commands';
-import { answerReadingPosition, rememberAnswerVersion } from './answerVersions';
+import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion } from './answerVersions';
 import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
@@ -308,11 +308,23 @@ export function openWorkspaceRevision(
   title: string,
   chapters: readonly ChapterRevision[] = [],
 ): WorkspaceState {
+  const ownsRevision = (turn: Turn) => {
+    if (turn.revisionId === revisionId
+      || turn.publishedSections?.some((section) => section.revisionId === revisionId)
+      || turn.answerVersions?.some((version) => version.revisionId === revisionId)) return true;
+    const originalIds = [...new Set([
+      turn.revisionId,
+      ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+    ].filter((id): id is string => Boolean(id)))];
+    return originalIds.some((originalRevisionId) => {
+      const original = chapters.find((chapter) => chapter.revisionId === originalRevisionId);
+      return original !== undefined
+        && answerRevisionOptions(original, chapters).some((chapter) => chapter.revisionId === revisionId);
+    });
+  };
   const existing = state.explorations.flatMap((exploration) =>
     exploration.turns.map((turn) => ({ exploration, turn })))
-    .find(({ turn }) => turn.revisionId === revisionId
-      || turn.publishedSections?.some((section) => section.revisionId === revisionId)
-      || turn.answerVersions?.some((version) => version.revisionId === revisionId));
+    .find(({ turn }) => ownsRevision(turn));
   if (existing) {
     const selectedChapter = chapters.find((chapter) => chapter.revisionId === revisionId);
     let next = state;
