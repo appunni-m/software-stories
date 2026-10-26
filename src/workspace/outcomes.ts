@@ -3,7 +3,7 @@ import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion } f
 import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
-const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
+const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length || turn.answerVersions?.length);
 
 /** Show the subject of generated requests while keeping the exact prompt available on demand. */
 export function questionSummaryText(question: string, maxCodePoints = 64): string {
@@ -58,9 +58,9 @@ export function visibleConversationTurns(
 ): Turn[] {
   const branchOwners = new Set(state.explorations.filter((e) => e.parentId === exploration.id).map((e) => e.originTurnId));
   return exploration.turns.filter((turn) => {
-    const answerRevisionIds = turn.publishedSections?.length
-      ? turn.publishedSections.map((section) => section.revisionId)
-      : [turn.revisionId, ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
+    const answerRevisionIds = [turn.revisionId,
+      ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+      ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
     const answerAvailable = historyLoading || !availableRevisionIds
       || answerRevisionIds.some((revisionId) => revisionId && availableRevisionIds.has(revisionId));
     return active(turn) || (hasAnswer(turn) && answerAvailable)
