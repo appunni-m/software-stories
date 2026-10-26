@@ -210,7 +210,7 @@ mod tests {
             .map(|index| {
                 let claim_index = if index < active { 0 } else { 1 };
                 json!({"label":format!("private-node-label-{index}"),"detail":"",
-                    "evidence":[{"claimIndex":claim_index,"evidenceIndex":0}]})
+                    "evidence":[{"claimIndex":claim_index,"evidenceIndex":0}],"source":null})
             })
             .collect::<Vec<_>>();
         let edges = (active..active + adjacent)
@@ -252,7 +252,7 @@ mod tests {
         let nodes = (0..9)
             .map(|index| {
                 json!({"label":format!("private-node-label-{index}"),
-                "detail":"secret detail","evidence":[{"claimIndex":0,"evidenceIndex":0}]})
+                "detail":"secret detail","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null})
             })
             .collect::<Vec<_>>();
         proposal["sections"][0]["visual"]["nodes"] = json!(nodes);
@@ -410,11 +410,11 @@ mod tests {
     fn selector_miss_is_not_duplicated_as_another_branch_outcome() {
         let mut proposal = composed_proposal(3);
         proposal["sections"][0]["visual"]["nodes"] = json!([
-            {"label":"First guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-            {"label":"First result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-            {"label":"Second guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-            {"label":"Second result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-            {"label":"Second result path","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+            {"label":"First guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"First result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"Second guard","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"Second result","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+            {"label":"Second result path","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
         ]);
         proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([
             {"kind":"selector","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},

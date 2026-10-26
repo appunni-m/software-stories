@@ -252,8 +252,17 @@ struct GeneratedVisualNode {
     label: String,
     detail: String,
     evidence: Vec<GeneratedVisualEvidence>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable_generated_source")]
     source: Option<GeneratedVisualSource>,
+}
+
+fn required_nullable_generated_source<'de, D>(
+    deserializer: D,
+) -> Result<Option<GeneratedVisualSource>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    serde::Deserialize::deserialize(deserializer)
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -1973,6 +1982,25 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn generated_visual_nodes_require_an_explicit_source_choice() {
+        let missing: Result<GeneratedVisualNode, _> = serde_json::from_value(serde_json::json!({
+            "label":"Returned greeting",
+            "detail":"The formatted string reaches the caller.",
+            "evidence":[{"claimIndex":0,"evidenceIndex":0}]
+        }));
+        assert!(missing.is_err());
+
+        let explicit_none: GeneratedVisualNode = serde_json::from_value(serde_json::json!({
+            "label":"Returned greeting",
+            "detail":"The formatted string reaches the caller.",
+            "evidence":[{"claimIndex":0,"evidenceIndex":0}],
+            "source":null
+        }))
+        .unwrap();
+        assert!(explicit_none.source.is_none());
+    }
+
+    #[test]
     fn exact_quote_check_rejects_the_fontdone_comment_reflow_instead_of_normalizing_it() {
         let captured = "// Its unknown-format result is\n// the final face-open error.\nmatch Self::winfnt_face(data) {";
         let reflowed = "// Its unknown-format result\n// is the final face-open error.\nmatch Self::winfnt_face(data) {";
@@ -2007,8 +2035,8 @@ pub(crate) mod tests {
         let proposed: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
             "kind":"dataFlow", "title":"Name to greeting", "direction":"leftToRight",
             "nodes":[
-                {"label":"Name input", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-                {"label":"Greeting output", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+                {"label":"Name input", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+                {"label":"Greeting output", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],
             "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"Formats the name",
                 "evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
@@ -2134,8 +2162,8 @@ pub(crate) mod tests {
         proposal["sections"][0]["visual"] = serde_json::json!({
             "kind":"dataFlow","title":"A name becomes a greeting","direction":"auto",
             "nodes":[
-                {"label":"Template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-                {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+                {"label":"Template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+                {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],"edges":[],"presentation":{"schemaVersion":3,"scenes":[{
                 "claimIndex":0,"title":"Put the name into the greeting","narration":"The template formats the supplied name and returns the resulting greeting.","mode":"composition","elements":[
                     {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
