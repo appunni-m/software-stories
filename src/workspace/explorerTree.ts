@@ -44,7 +44,8 @@ export function buildExplorerTree(paths: readonly string[]): ExplorerTree {
     }
   }
   const compare = (a: ExplorerEntry, b: ExplorerEntry) => Number(b.folder) - Number(a.folder)
-    || a.name.localeCompare(b.name) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   roots.sort(compare);
   for (const entry of byPath.values()) entry.children.sort(compare);
   return { roots, byPath };

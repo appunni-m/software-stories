@@ -656,10 +656,27 @@ export function presentationOwner(exploration:Exploration,revisionId:string):Tur
   const owns=(t:Turn)=>ownsAnswerRevision(t,revisionId);
   return exploration.turns.find(t=>t.id===exploration.focusedTurnId&&owns(t))??exploration.turns.slice().reverse().find(owns);
 }
+const commonEntryPointNames = new Set([
+  'main', 'lib', 'index', 'app', 'server', 'program', '__main__', 'entrypoint', 'cli', 'run',
+]);
+const commonEntryPointExtensions = new Set([
+  'rs', 'ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs', 'py', 'pyw', 'pyi', 'go', 'swift',
+  'c', 'h', 'cc', 'cpp', 'cxx', 'c++', 'hpp', 'hh', 'hxx', 'h++', 'ipp', 'inl', 'ixx', 'cppm',
+  'ccm', 'cxxm', 'cs', 'csx', 'java', 'kt', 'kts', 'm', 'mm', 'rb', 'php', 'scala', 'sc', 'ex',
+  'exs', 'erl', 'hrl', 'hs', 'lhs', 'ml', 'mli', 'fs', 'fsx', 'clj', 'cljs', 'cljc', 'lua', 'zig',
+  'dart', 'vue', 'svelte', 'nim', 'd', 'f', 'f90', 'f95', 'f03', 'cob', 'cbl', 'jl', 'pl', 'pm', 'r',
+  'sol', 'purs', 'res', 'resi', 'coffee', 'odin', 'gleam', 'elm', 'sh', 'bash', 'zsh', 'ps1', 'psm1',
+  'psd1', 'bat', 'cmd',
+]);
+
 export function rankSourcePaths(paths: string[]): string[] {
   const score = (path: string) => {
     const p = path.toLowerCase();
-    return (/(^|\/)(main|lib|index|app|server|program|__main__|entrypoint|cli|run)\.(rs|tsx?|jsx?|mjs|cjs|py|go|swift|c|cc|cpp|cxx|c\+\+|cppm|ccm|cxxm|cs|csx|java|kt|kts|m|mm|rb|php|scala|sc|ex|exs|erl|hs|ml|fs|clj|cljs|lua|zig|dart|vue|svelte|sh|bash|zsh|ps1|bat|cmd)$/i.test(p) ? 100 : 0)
+    const fileName = p.split('/').at(-1) ?? '';
+    const extensionStart = fileName.lastIndexOf('.');
+    const name = extensionStart > 0 ? fileName.slice(0, extensionStart) : '';
+    const extension = extensionStart > 0 ? fileName.slice(extensionStart + 1) : '';
+    return (commonEntryPointNames.has(name) && commonEntryPointExtensions.has(extension) ? 100 : 0)
       + (/^(src|app|lib|sources|cmd|bin)\//.test(p) ? 40 : 0)
       + (/(^|\/)src\/bin\/[^/]+\.rs$/.test(p) ? 60 : 0)
       - (/(^|\/)(\.[^/]+|tests?|docs?|examples?|skills|agents|deprecated)(\/|$)/.test(p) ? 90 : 0)
