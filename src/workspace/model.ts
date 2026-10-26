@@ -659,14 +659,14 @@ export function presentationOwner(exploration:Exploration,revisionId:string):Tur
 export function rankSourcePaths(paths: string[]): string[] {
   const score = (path: string) => {
     const p = path.toLowerCase();
-    return (/(^|\/)(main|lib|index|app|server|program|__main__)\.(rs|tsx?|jsx?|mjs|cjs|py|go|swift|c|cc|cpp|cxx|c\+\+|cppm|ccm|cxxm|cs|csx|java|kt|kts|m|mm|rb|php|scala|sc|ex|exs|erl|hs|ml|fs|clj|cljs|lua|zig|dart|vue|svelte)$/i.test(p) ? 100 : 0)
-      + (/^(src|app|lib|sources|cmd)\//.test(p) ? 40 : 0)
+    return (/(^|\/)(main|lib|index|app|server|program|__main__|entrypoint|cli|run)\.(rs|tsx?|jsx?|mjs|cjs|py|go|swift|c|cc|cpp|cxx|c\+\+|cppm|ccm|cxxm|cs|csx|java|kt|kts|m|mm|rb|php|scala|sc|ex|exs|erl|hs|ml|fs|clj|cljs|lua|zig|dart|vue|svelte|sh|bash|zsh|ps1|bat|cmd)$/i.test(p) ? 100 : 0)
+      + (/^(src|app|lib|sources|cmd|bin)\//.test(p) ? 40 : 0)
       + (/(^|\/)src\/bin\/[^/]+\.rs$/.test(p) ? 60 : 0)
       - (/(^|\/)(\.[^/]+|tests?|docs?|examples?|skills|agents|deprecated)(\/|$)/.test(p) ? 90 : 0)
       - (/\.(json|ya?ml|toml|md|txt|lock)$/.test(p) ? 50 : 0);
   };
   return paths.map((path) => ({ path, score: score(path) }))
-    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
+    .sort((a, b) => b.score - a.score || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
     .map(({ path }) => path);
 }
 /** Only an explicit branch action creates an exploration; ordinary messages stay here. */

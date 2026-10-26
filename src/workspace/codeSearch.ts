@@ -10,6 +10,10 @@ function searchableParts(value:string):string[]{
   return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 }
 
+function stableTextCompare(left:string,right:string):number{
+  return left<right?-1:left>right?1:0;
+}
+
 /** Extract useful identifiers from a natural-language query without treating
  * its stop words as required code tokens. */
 function localQueryTerms(query:string):string[]{
@@ -147,9 +151,9 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
     const symbolMatches=topMatches(symbols,symbol=>scoreLocal(`${symbol.name} ${symbol.path}`),
-      (left,right)=>left.name.localeCompare(right.name)||left.path.localeCompare(right.path),8);
+      (left,right)=>stableTextCompare(left.name,right.name)||stableTextCompare(left.path,right.path),8);
     local.push(...symbolMatches.map((symbol)=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
-    const fileMatches=topMatches(files,file=>scoreLocal(file.path),(left,right)=>left.path.localeCompare(right.path),8);
+    const fileMatches=topMatches(files,file=>scoreLocal(file.path),(left,right)=>stableTextCompare(left.path,right.path),8);
     local.push(...fileMatches.map((file)=>({path:file.path,text:file.path})));
   }
   // Keep native ranked source hits first. Local symbol/path hints supplement
