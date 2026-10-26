@@ -228,10 +228,10 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-full-outline-v7",
+        "operationPolicy":"repository-guide-plan-full-outline-v8",
         "readerLanguagePolicy":crate::provider::visual_scenes::READER_LANGUAGE_POLICY_VERSION,
         "model":job.model_id,"effort":job.reasoning_effort,
-        "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"firstBufferSlides":5,
+        "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"maxResearchCalls":crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT,"firstBufferSlides":5,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
         "runDeadlinePolicy":"user-controlled-stop-v1",
         "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::RESEARCH_BASE_INSTRUCTIONS});

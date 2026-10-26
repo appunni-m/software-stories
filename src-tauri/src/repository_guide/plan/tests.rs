@@ -351,6 +351,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
             .contains("name remaining work as not yet covered")
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("twenty-unit limit"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("complete, navigable outline"));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
     );
@@ -364,7 +365,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
     ));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Use at most twelve code-tool calls, matching the native planner budget")
+            .contains("Use at most twenty-four code-tool calls, matching the native planner budget")
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
