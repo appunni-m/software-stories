@@ -85,6 +85,15 @@ export function parseNarrationPreferences(
     voice: value.voice, style: value.style, lexicon: value.lexicon as NarrationPreferencesSnapshot['lexicon'] };
 }
 
+/** Serialize only values that the current reader will accept on the next open. */
+export function serializeNarrationPreferences(value: NarrationPreferencesSnapshot): string | null {
+  try {
+    const serialized = JSON.stringify(value);
+    parseNarrationPreferences(serialized, '');
+    return serialized;
+  } catch { return null; }
+}
+
 /** Apply the enabled, whole-identifier pronunciation substitutions used by TTS. */
 export function applyPronunciationLexicon(
   spokenText: string,

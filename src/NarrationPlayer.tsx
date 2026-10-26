@@ -37,6 +37,7 @@ import {
   narrationAvailabilityLabel,
   narrationDurationLabel,
   narrationPreferencesMatch,
+  serializeNarrationPreferences,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
@@ -280,14 +281,18 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }, draft));
 
   const updateDraft = (update: (value: NarrationPreferences) => NarrationPreferences) => {
-    setDraft((value) => {
-      const next = update(value);
+    const next = update(draftRef.current);
+    draftRef.current = next;
+    setDraft(next);
+    const serialized = serializeNarrationPreferences(next);
+    if (serialized === null) {
+      setPreferenceWarning('This narration edit exceeds the saved format limits. The previous saved script remains unchanged.');
+    } else {
       try {
-        window.localStorage.setItem(storageKey, JSON.stringify(next));
+        window.localStorage.setItem(storageKey, serialized);
+        setPreferenceWarning(null);
       } catch { /* Speech editing still works without storage. */ }
-      setPreferenceWarning(null);
-      return next;
-    });
+    }
     if (review) void discardNarrationRequestReview(review.reviewId).catch(() => {});
     setReview(null);
     setConsent(false);

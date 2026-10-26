@@ -11,6 +11,7 @@ import {
   narrationDurationLabel,
   narrationPreferencesMatch,
   parseNarrationPreferences,
+  serializeNarrationPreferences,
 } from '../src/lib/narration.ts';
 
 const preferences = (overrides = {}) => ({
@@ -100,6 +101,17 @@ describe('narration cache request snapshots', () => {
       style: DEFAULT_NARRATION_STYLE,
       lexicon: [],
     });
+  });
+
+  it('refuses to persist edits that its current reader will reject on reopening', () => {
+    const current = preferences();
+    const serialized = serializeNarrationPreferences(current);
+    assert.equal(typeof serialized, 'string');
+    assert.deepEqual(parseNarrationPreferences(serialized, ''), current);
+    assert.equal(serializeNarrationPreferences(preferences({ spokenText: 'x'.repeat(16_001) })), null);
+    assert.equal(serializeNarrationPreferences(preferences({
+      lexicon: [{ name: 'n'.repeat(481), sayAs: 'name', include: false }],
+    })), null);
   });
 
   it('accepts cached audio only while the transcript and speech settings still match', () => {
