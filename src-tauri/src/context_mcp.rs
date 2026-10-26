@@ -79,7 +79,7 @@ fn read_tools() -> Vec<Tool> {
         ),
         (
             "list_modules",
-            "List immediate captured folders/files at the root or a captured scope, with text/code/syntax counts and a few public names. Order is inventory order, not architectural importance. Use this to orient or discover paths, then search and read implementation.",
+            "List immediate captured folders/files within a concrete scope when a specific inventory or coverage question remains. Do not use this as a mandatory first call for ordinary behavior questions; start with focused search_code instead. Scope to the relevant directory, treat counts and names as discovery hints, then search and read implementation.",
             json!({"scope":scope,"limit":limit,"offset":offset}),
         ),
     ];

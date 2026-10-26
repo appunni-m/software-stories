@@ -227,7 +227,7 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-incremental-v3",
+        "operationPolicy":"repository-guide-plan-focused-discovery-v4",
         "model":job.model_id,"effort":job.reasoning_effort,
         "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"firstBufferSlides":5,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
