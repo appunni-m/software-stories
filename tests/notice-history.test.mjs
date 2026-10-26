@@ -213,6 +213,34 @@ test('group dismissal during close is deferred and then flushed once',async()=>{
   assert.deepEqual(f.saved().dismissed,ids);assert.equal(f.history.getSnapshot().items.length,0);
 });
 
+test('group read persists exact IDs in one native update and leaves dismissals unchanged',async()=>{
+  const f=fixture();
+  for(let n=0;n<26;n++)await f.history.publish({...input,occurrenceId:'read-group-'+n});
+  await f.history.flush();const ids=f.history.getSnapshot().items.map(item=>item.id);
+  const dismissedNotice={...input,projectId:'dismissed-project',snapshotId:'dismissed-snapshot',occurrenceId:'dismissed'};
+  await f.history.publish(dismissedNotice);await f.history.flush();
+  const dismissedItem=f.history.getSnapshot().items.find(item=>item.input.projectId==='dismissed-project');assert.ok(dismissedItem);
+  f.history.dismiss(dismissedItem.id);await f.history.flush();
+  const unrelated={...input,projectId:'another-project',snapshotId:'another-snapshot',occurrenceId:'other'};
+  await f.history.publish(unrelated);await f.history.flush();
+  const dismissedBefore=[...f.saved().dismissed];f.calls.length=0;
+  f.history.readMany(ids);await f.history.flush();
+  assert.equal(f.calls.length,1);assert.deepEqual(f.calls[0],{kind:'readMany',ids});
+  assert.ok(ids.every(id=>f.saved().items.find(item=>item.id===id)?.read));
+  assert.equal(f.saved().items.find(item=>item.input.projectId==='another-project')?.read,false);
+  assert.deepEqual(f.saved().dismissed,dismissedBefore);assert.equal(f.history.getSnapshot().items.length,27);
+});
+
+test('group read during close is deferred and then flushed once',async()=>{
+  const f=fixture();
+  for(let n=0;n<3;n++)await f.history.publish({...input,occurrenceId:'read-close-'+n});
+  await f.history.flush();const ids=f.history.getSnapshot().items.map(item=>item.id);f.calls.length=0;
+  const resume=f.history.beginClose();f.history.readMany(ids);await f.history.flush();
+  assert.deepEqual(f.calls,[]);assert.ok(f.history.getSnapshot().items.every(item=>!item.read));
+  resume();await f.history.flush();assert.equal(f.calls.length,1);assert.equal(f.calls[0].kind,'readMany');
+  assert.ok(f.history.getSnapshot().items.every(item=>item.read));
+});
+
 test('new background notices notify subscribers without executing navigation or reopening a panel',async()=>{
   const f=fixture();let changes=0;const stop=f.history.subscribe(()=>changes++);await f.history.publish(input);await settled(f.history);assert.ok(changes>0);
   const count=changes;stop();await f.history.publish({...input,message:'After unsubscribe'});await settled(f.history);assert.equal(changes,count);
@@ -249,9 +277,11 @@ test('production uses typed persisted targets, scoped outcomes and explicit loca
   const [app,hook,native,lib]=await Promise.all(['../src/App.tsx','../src/lib/useNoticeHistory.ts','../src-tauri/src/app_notices.rs','../src-tauri/src/lib.rs'].map(path=>readFile(new URL(path,import.meta.url),'utf8')));
   assert.match(app,/useNoticeHistory\(\)/);assert.doesNotMatch(app,/useState<Notice>|id: 'workspace-notice'|setNotice\(null\)|title: 'Repository selected'/);
   assert.match(app,/notices:noticeHistoryState.availability/);assert.match(app,/noticeHistory\.read\(item.id\);openNoticeTarget\(item\)/);assert.match(app,/run:\(\)=>noticeHistory.retry\(\)/);
+  assert.match(app,/noticeHistory\.readMany\(unreadGroupedNotices\.map/);
   assert.match(app,/getWorkspace\(projectId,snapshotId\)\.explorations\.some/);assert.match(app,/projectId:currentCapture.projectId,snapshotId:currentCapture.snapshotId/);
   assert.match(app,/pickLocalRepository\('notifications'\)/);assert.match(app,/focusTarget:'workspace-composer'/);
   assert.match(hook,/invoke<NoticeHistoryData>\('list_app_notices'\)/);assert.match(hook,/invoke<NoticeHistoryData>\('update_app_notices',\{operation\}\)/);
   assert.match(lib,/app_notices::list_app_notices/);assert.match(lib,/app_notices::update_app_notices/);
+  assert.match(native,/ReadMany \{ ids: Vec<String> \}/);
   assert.doesNotMatch(native,/start_repository_guide|start_workspace|review_runtime|reqwest|executable|api_key/);
 });

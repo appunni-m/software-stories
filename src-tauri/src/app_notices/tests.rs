@@ -174,6 +174,60 @@ fn group_dismissal_rejects_invalid_batches_and_acknowledgment_overflow_without_m
 }
 
 #[test]
+fn group_read_is_atomic_idempotent_and_preserves_other_notices_and_dismissals() {
+    let f = Fixture::new();
+    let one = publish(&f, input("One"));
+    let first = one.items[0].id.clone();
+    let two = publish(&f, input("Two"));
+    let second = two.items[1].id.clone();
+    publish(&f, input("Three"));
+    let before = list(&f.0).unwrap();
+
+    let read = apply(
+        &f.0,
+        Operation::ReadMany {
+            ids: vec![first.clone(), second.clone()],
+        },
+    )
+    .unwrap();
+    assert_eq!(read.items.len(), 3);
+    assert!(read.items[0].read);
+    assert!(read.items[1].read);
+    assert!(!read.items[2].read);
+    assert!(read.dismissed.is_empty());
+    let bytes = fs::read(f.path()).unwrap();
+    assert_eq!(
+        apply(
+            &f.0,
+            Operation::ReadMany {
+                ids: vec![first, second],
+            }
+        )
+        .unwrap(),
+        read
+    );
+    assert_eq!(fs::read(f.path()).unwrap(), bytes);
+    assert_eq!(before.items.iter().filter(|item| item.read).count(), 0);
+}
+
+#[test]
+fn group_read_rejects_invalid_batches_without_mutation() {
+    let f = Fixture::new();
+    let notice = publish(&f, input("Keep me"));
+    let id = notice.items[0].id.clone();
+    let before = fs::read(f.path()).unwrap();
+    for ids in [
+        vec![],
+        vec!["bad".to_owned()],
+        vec![id.clone(), id.clone()],
+        vec!["a".repeat(64); MAX_DISMISSED + 1],
+    ] {
+        assert!(apply(&f.0, Operation::ReadMany { ids }).is_err());
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+}
+
+#[test]
 fn scope_and_action_changes_are_distinct_without_confusing_repository_paths() {
     let f = Fixture::new();
     let mut first = input("Same message");

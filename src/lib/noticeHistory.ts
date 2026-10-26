@@ -10,7 +10,7 @@ export interface SavedNoticeInput {
 }
 export interface AppNotice {id:string;input:SavedNoticeInput;createdAtUnixMs:number;read:boolean}
 export interface NoticeHistoryData {schemaVersion:1;items:AppNotice[];dismissed:string[]}
-export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string} | {kind:'dismissMany';ids:string[]};
+export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string} | {kind:'readMany'|'dismissMany';ids:string[]};
 type Pending = {kind:'load'} | {operation:NoticeOperation;item?:AppNotice};
 const MAX_BATCH_DISMISSALS=2048;
 const isDismissOperation=(operation:NoticeOperation) => operation.kind==='dismiss'||operation.kind==='dismissMany';
@@ -61,6 +61,7 @@ export function projectNotices(base:NoticeHistoryData,pending:readonly Pending[]
     if(op.kind==='publish') {
       if(entry.item && !dismissed.has(entry.item.id) && !items.some(item=>item.id===entry.item!.id)) items.push(entry.item);
     } else if(op.kind==='read') items=items.map(item=>item.id===op.id?{...item,read:true}:item);
+    else if(op.kind==='readMany') {const ids=new Set(op.ids);items=items.map(item=>ids.has(item.id)?{...item,read:true}:item);}
     else if(op.kind==='dismiss') {items=items.filter(item=>item.id!==op.id);dismissed.add(op.id);}
     else if(op.kind==='dismissMany') {const ids=new Set(op.ids);items=items.filter(item=>!ids.has(item.id));for(const id of ids)dismissed.add(id);}
   }
@@ -121,6 +122,12 @@ export class NoticeHistory {
     for(const item of projectNotices(this.base,this.pending).items)if(matches(item.input))this.enqueueNow({kind:'dismiss',id:item.id});
   }
   read(id:string) {this.enqueue({kind:'read',id});}
+  readMany(ids:readonly string[]) {
+    const requested=[...new Set(ids)];
+    if(this.closing){this.deferred.push(()=>this.readMany(requested));return;}
+    if(!requested.length||requested.length>MAX_BATCH_DISMISSALS)return;
+    this.enqueueNow({kind:'readMany',ids:requested});
+  }
   dismiss(id:string) {
     if(this.closing){this.deferred.push(()=>this.dismiss(id));return;}
     if(this.blocked==='full') {

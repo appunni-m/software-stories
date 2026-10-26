@@ -1559,16 +1559,20 @@ function App() {
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>{
       const groupKey=notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null));
       const groupedNotices=noticeHistoryState.items.filter(candidate=>notificationGroupKey('saved-notice',candidate.input.projectId??'global',candidate.input.snapshotId??'',candidate.input.title,candidate.input.message,JSON.stringify(candidate.input.target??null))===groupKey);
+      const unreadGroupedNotices=groupedNotices.filter(candidate=>!candidate.read);
       return {
         id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
         groupKey,
-        groupActions:groupedNotices.length>1?[{label:`Dismiss all ${groupedNotices.length} notices`,run:()=>noticeHistory.dismissMany(groupedNotices.map(notice=>notice.id))}]:undefined,
+        groupActions:groupedNotices.length>1?[
+          ...(unreadGroupedNotices.length?[{label:`Mark all ${unreadGroupedNotices.length} read`,disabled:noticeHistoryState.availability==='unavailable',run:()=>noticeHistory.readMany(unreadGroupedNotices.map(notice=>notice.id))}]:[]),
+          {label:`Dismiss all ${groupedNotices.length} notices`,run:()=>noticeHistory.dismissMany(groupedNotices.map(notice=>notice.id))},
+        ]:undefined,
         bucket:item.read?'updates':'attention',countLabel:'notices',
         message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
         actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':item.input.target.kind==='discardBrowserPreview'?'Discard saved preview':'Open explanation',
           movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
           run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
-          ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),
+          ...(groupedNotices.length===1&&!item.read?[{label:'Mark read',disabled:noticeHistoryState.availability==='unavailable',run:()=>noticeHistory.read(item.id)}]:[]),
           {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
       };
     }),

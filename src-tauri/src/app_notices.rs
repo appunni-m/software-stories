@@ -71,6 +71,7 @@ pub(crate) struct History {
 pub(crate) enum Operation {
     Publish { input: Input },
     Read { id: String },
+    ReadMany { ids: Vec<String> },
     Dismiss { id: String },
     DismissMany { ids: Vec<String> },
 }
@@ -240,6 +241,27 @@ fn apply(storage: &Path, operation: Operation) -> Result<History, String> {
                 return Ok(history);
             }
             item.read = true;
+        }
+        Operation::ReadMany { ids } => {
+            if ids.is_empty() || ids.len() > MAX_DISMISSED {
+                return Err(UNAVAILABLE.into());
+            }
+            let mut selected = HashSet::with_capacity(ids.len());
+            for id in ids {
+                if !valid_key(&id) || !selected.insert(id) {
+                    return Err(UNAVAILABLE.into());
+                }
+            }
+            let mut changed = false;
+            for item in &mut history.items {
+                if selected.contains(&item.id) && !item.read {
+                    item.read = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                return Ok(history);
+            }
         }
         Operation::Dismiss { id } => {
             if !valid_key(&id) {
