@@ -291,7 +291,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       try {
         window.localStorage.setItem(storageKey, serialized);
         setPreferenceWarning(null);
-      } catch { /* Speech editing still works without storage. */ }
+      } catch {
+        setPreferenceWarning('This narration edit is available for this session, but could not be saved on this Mac. The previously saved script remains unchanged.');
+      }
     }
     if (review) void discardNarrationRequestReview(review.reviewId).catch(() => {});
     setReview(null);
