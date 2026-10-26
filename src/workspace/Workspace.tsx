@@ -43,7 +43,7 @@ import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
 import { isEditableKeyboardTarget } from '../lib/keyboardShortcuts';
 import { plainInlineCodeText } from '../lib/inlineCode';
-import { readExpandedExplorerFolders, rememberExpandedExplorerFolders } from '../lib/workspacePreferences';
+import { readExpandedExplorerFolders, readWorkspacePanelLayout, rememberExpandedExplorerFolders, rememberWorkspacePanelLayout } from '../lib/workspacePreferences';
 import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import { readRepositorySearchContext, rememberRepositorySearchContext } from './searchContext';
@@ -182,8 +182,25 @@ export function DeveloperWorkspace(props:Props) {
     setOpenFoldersState(next);
     rememberExpandedExplorerFolders(projectId,snapshotId,[...next]);
   };
+  const [panelLayout,setPanelLayout] = useState(()=>readWorkspacePanelLayout(projectId,snapshotId));
+  const rememberSidebarSize=(layout:Record<string,number>,meta:{isUserInteraction:boolean;requestedLayout?:Record<string,number>})=>{
+    if(!meta.isUserInteraction)return;
+    const sidebar=(meta.requestedLayout??layout)['repository-sidebar'];
+    if(typeof sidebar!=='number')return;
+    const next={...panelLayout,sidebar};
+    if(rememberWorkspacePanelLayout(projectId,snapshotId,next))setPanelLayout(next);
+  };
+  const rememberSourceSize=(layout:Record<string,number>,meta:{isUserInteraction:boolean;requestedLayout?:Record<string,number>})=>{
+    if(!meta.isUserInteraction)return;
+    const source=(meta.requestedLayout??layout).source;
+    if(typeof source!=='number')return;
+    const next={...panelLayout,source};
+    if(rememberWorkspacePanelLayout(projectId,snapshotId,next))setPanelLayout(next);
+  };
   const [narrowPane,setNarrowPane] = useState<'explanation'|'source'|'explorer'>('explanation');
   const codeOpen = current.codeOpen ?? true;
+  const outerDefaultLayout=panelLayout.sidebar===undefined?undefined:{'repository-sidebar':panelLayout.sidebar,'reading-workspace':100-panelLayout.sidebar};
+  const readingDefaultLayout=!codeOpen||panelLayout.source===undefined?undefined:{source:panelLayout.source,explanations:100-panelLayout.source};
   const setCodeOpen = (open:boolean) => {
     setNarrowPane(open?'source':'explanation');
     updateWorkspace(projectId,snapshotId,(s)=>rememberCodePane(s,current.id,open));
@@ -788,7 +805,7 @@ export function DeveloperWorkspace(props:Props) {
     section:(revisionId)=>{const owner=presentationOwner(current,revisionId);return owner?{sectionId:answerReadingPosition(owner,'guide',revisionId)?.sectionId,onSectionChange:(sectionId)=>{if(chapters.some(r=>r.revisionId===revisionId&&r.sections.some(s=>s.sectionId===sectionId)))saveSection(owner.id,'guide',revisionId,sectionId);}}:undefined;},
   }}><Theme accentColor="blue" grayColor="slate" radius="medium" className={`developer-workspace dw-narrow-${narrowPane}`}>
     <nav className="dw-activity" aria-label="Repository tools">{activityButtons.map(({id,label:caption,icon:Icon})=>{const active=workspace==='changes'?id==='changes':activity===id;return <Tooltip content={caption} key={id}><IconButton type="button" size="2" variant="ghost" color="gray" className={active?'active':''} aria-label={caption} aria-pressed={active} onClick={()=>{setActivity(id);setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');if(id==='changes')onWorkspace('changes');else onWorkspace('guide-plan');if(id==='search')requestAnimationFrame(()=>search.current?.focus());}}><Icon size={21}/></IconButton></Tooltip>;})}</nav>
-    <Group orientation="horizontal" className="dw-panels">
+    <Group orientation="horizontal" className="dw-panels" defaultLayout={outerDefaultLayout} onLayoutChanged={rememberSidebarSize}>
       <Panel id="repository-sidebar" defaultSize="220px" minSize="160px" maxSize="400px">
         <aside className="dw-sidebar" aria-label="Repository sidebar">
           <header><strong>{showChanges?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong><div className="dw-sidebar-header-actions"><Tooltip content="Repository sharing"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label="Repository sharing" onClick={()=>setSharingOpen(true)}><ShieldCheck size={15}/></IconButton></Tooltip>{tool&&<Button className="dw-sidebar-back" size="1" variant="ghost" color="gray" aria-label="Back to explanation" onClick={()=>returnToGuide('explanation')}><ArrowLeft size={13}/>Back</Button>}</div></header>
@@ -816,10 +833,10 @@ export function DeveloperWorkspace(props:Props) {
           {draftNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{draftNotice}</p><Button size="1" variant="ghost" onClick={()=>setDraftNotice(null)}>Dismiss</Button></div>}
           {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?'Searching…':currentSourceSearch.error?'Search unavailable':results.length?'In your code':'No matching code in this search'}</small>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
         </div>
-        {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading">
+        {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
           <Panel id="explanations" minSize="280px"><div className="dw-tool-content"><Button className="dw-return" size="1" variant="ghost" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</Button><GitHistoryEmptyContext.Provider value={commitHistoryEmpty}>{children}</GitHistoryEmptyContext.Provider></div></Panel>
-        </Group>:<Group orientation="horizontal" className="dw-reading">
+        </Group>:<Group orientation="horizontal" className="dw-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
           <Panel id="explanations" minSize="280px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13}/>Guide</Tabs.Trigger><Tabs.Trigger value="flow"><Network size={13}/>Flow</Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13}/>Chat history</Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>{setCodeOpen(true);setNarrowPane('source');}}><Code2 size={15}/></IconButton>}</div>
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>

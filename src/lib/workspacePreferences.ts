@@ -7,6 +7,7 @@ export type SavedFileLocationRead =
 const MAX_FILE_LOCATION_BYTES = 8_192;
 const MAX_EXPLORER_FOLDERS = 1_000;
 const MAX_EXPLORER_STATE_BYTES = 64 * 1_024;
+const MAX_PANEL_LAYOUT_BYTES = 8_192;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 
 function isRelativeCapturedPath(value: unknown): value is string {
@@ -85,5 +86,52 @@ export function rememberExpandedExplorerFolders(projectId: string, snapshotId: s
     localStorage.setItem(`code-atlas:explorer-folders:${projectId}:${snapshotId}`, serialized);
     return true;
   } catch { /* Optional Explorer state never blocks browsing. */ }
+  return false;
+}
+
+export interface WorkspacePanelLayout {
+  sidebar?: number;
+  source?: number;
+}
+
+function isPanelSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 5 && value <= 95;
+}
+
+/** Split-pane proportions are optional, project/snapshot-local UI preferences. */
+export function readWorkspacePanelLayout(projectId: string, snapshotId: string): WorkspacePanelLayout {
+  if (!isSnapshotId(projectId) || !isSnapshotId(snapshotId)) return {};
+  try {
+    const serialized = localStorage.getItem(`code-atlas:workspace-panels:${projectId}:${snapshotId}`);
+    if (serialized === null || new TextEncoder().encode(serialized).byteLength > MAX_PANEL_LAYOUT_BYTES) return {};
+    const value: unknown = JSON.parse(serialized);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const record = value as Record<string, unknown>;
+    if (Object.keys(record).some((key) => !['version', 'sidebar', 'source'].includes(key)) || record.version !== 1) return {};
+    return {
+      ...(isPanelSize(record.sidebar) ? { sidebar: record.sidebar } : {}),
+      ...(isPanelSize(record.source) ? { source: record.source } : {}),
+    };
+  } catch { /* Optional UI state never blocks repository browsing. */ }
+  return {};
+}
+
+export function rememberWorkspacePanelLayout(
+  projectId: string,
+  snapshotId: string,
+  layout: WorkspacePanelLayout,
+): boolean {
+  if (!isSnapshotId(projectId) || !isSnapshotId(snapshotId)) return false;
+  const saved = readWorkspacePanelLayout(projectId, snapshotId);
+  const next = {
+    ...(isPanelSize(layout.sidebar) ? { sidebar: layout.sidebar } : saved.sidebar !== undefined ? { sidebar: saved.sidebar } : {}),
+    ...(isPanelSize(layout.source) ? { source: layout.source } : saved.source !== undefined ? { source: saved.source } : {}),
+  };
+  try {
+    const serialized = JSON.stringify({ version: 1, ...next });
+    if (new TextEncoder().encode(serialized).byteLength > MAX_PANEL_LAYOUT_BYTES) return false;
+    localStorage.setItem(`code-atlas:workspace-panels:${projectId}:${snapshotId}`, serialized);
+    return true;
+  } catch { /* Optional UI state never blocks repository browsing. */ }
   return false;
 }
