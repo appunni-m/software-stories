@@ -104,10 +104,37 @@ export function capturedSourceLineCount(contents: string): number {
   return count + (last === '\r' || last === '\n' ? 0 : 1);
 }
 
+export interface CapturedSourceLineIndex {
+  contents: string;
+  lineCount: number;
+  checkpoints: { line: number; offset: number }[];
+}
+
+/** Build one sparse line index so later Code Lens pages don't rescan from the file start. */
+export function capturedSourceLineIndex(contents: string): CapturedSourceLineIndex {
+  const checkpoints = contents.length > 0 ? [{ line: 1, offset: 0 }] : [];
+  if (contents.length === 0) return { contents, lineCount: 0, checkpoints };
+
+  let line = 1;
+  let offset = 0;
+  let breaks = 0;
+  for (let index = 0; index < contents.length; index += 1) {
+    if (contents[index] !== '\r' && contents[index] !== '\n') continue;
+    if (contents[index] === '\r' && contents[index + 1] === '\n') index += 1;
+    breaks += 1;
+    line += 1;
+    offset = index + 1;
+    if (offset < contents.length && (line - 1) % 512 === 0) checkpoints.push({ line, offset });
+  }
+  const last = contents.at(-1);
+  return { contents, lineCount: breaks + (last === '\r' || last === '\n' ? 0 : 1), checkpoints };
+}
+
 /** Read a bounded line window and preserve the visible text's original UTF-16 offsets. */
 export function capturedSourceLineWindow(contents: string, firstLine: number, lastLine: number, options: {
   maxLineCharacters?: number;
   focusRange?: SourceTextRange;
+  lineIndex?: CapturedSourceLineIndex;
 } = {}): {
   lines: string[];
   ranges: SourceTextRange[];
@@ -163,9 +190,21 @@ export function capturedSourceLineWindow(contents: string, firstLine: number, la
     omittedAfter.push(visibleEnd < lineEnd);
   };
 
-  let line = 1;
-  let start = 0;
-  for (let index = 0; index < contents.length;) {
+  const indexRecord = options.lineIndex?.contents === contents ? options.lineIndex : undefined;
+  let checkpoint = indexRecord?.checkpoints[0];
+  if (indexRecord && indexRecord.checkpoints.length > 1) {
+    let low = 0;
+    let high = indexRecord.checkpoints.length - 1;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const candidate = indexRecord.checkpoints[middle];
+      if (candidate.line <= first) { checkpoint = candidate; low = middle + 1; }
+      else high = middle - 1;
+    }
+  }
+  let line = checkpoint?.line ?? 1;
+  let start = checkpoint?.offset ?? 0;
+  for (let index = start; index < contents.length;) {
     const character = contents[index];
     if (character !== '\r' && character !== '\n') {
       index += 1;

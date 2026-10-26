@@ -167,7 +167,7 @@ import {
   type InventoryRow,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
-import { capturedSourceLineCount, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, splitSourceTextAtRange } from './lib/codeLens';
+import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
@@ -4967,7 +4967,8 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const citedLineRef = useRef<HTMLSpanElement>(null);
-  const sourceLineCount = useMemo(() => source ? capturedSourceLineCount(source.contents) : 0, [source?.contents]);
+  const sourceLineIndex = useMemo(() => source ? capturedSourceLineIndex(source.contents) : null, [source?.contents]);
+  const sourceLineCount = sourceLineIndex?.lineCount ?? 0;
   const citation = useMemo(() => resolveCodeLensCitation(
     sourceRange ?? undefined, sourceRangeIssue ?? undefined, source?.sha256, sourceLineCount, source?.contents,
   ), [sourceRange, sourceRangeIssue, source?.sha256, sourceLineCount, source?.contents]);
@@ -5043,8 +5044,9 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
     () => source ? capturedSourceLineWindow(source.contents, firstDisplayedLine, lastDisplayedLine, {
       maxLineCharacters: CODE_LENS_SOURCE_LINE_CHARACTERS,
       focusRange: citation.status === 'verified' ? citation.textRange : undefined,
+      lineIndex: sourceLineIndex ?? undefined,
     }) : { lines: [], ranges: [], omittedBefore: [], omittedAfter: [] },
-    [source?.contents, firstDisplayedLine, lastDisplayedLine, citation],
+    [source?.contents, sourceLineIndex, firstDisplayedLine, lastDisplayedLine, citation],
   );
   const displayedLines = displayedWindow.lines;
   const highlightedLines = useMemo(
