@@ -1,4 +1,4 @@
-import { errorMessageOr } from './lib/errorMessage';
+import { errorMessageOr, providerFailureMessage } from './lib/errorMessage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
@@ -17,7 +17,7 @@ import {
   getCodexAgentStatus, resumeCodexConnection, listChapterRevisions, listCodexModels, loadSnapshotManifest,
   logoutCodexAgent, pickAgentInstallationFile, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, sendCodexPrGuideRequest, sendCodexPrChangeRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
-  type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
+  type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
   type CodeLensExplanationTarget, type CodeLensExplanationPreview, type CodeLensExplanationCitation,
   type PrChangeExplanationTarget, type PrChangeExplanationPreview, type PrChangeExplanationCitation,
   type PrGuidePreview, type SelectedGitChangeIdentity,
@@ -82,31 +82,6 @@ export interface CodexChapterDialogProps {
 type Busy = 'status' | 'choose-file' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
 const preferences = readCodexSelection;
 const remember = rememberCodexSelection;
-
-function safeFailure(failure: ProviderFailure): string {
-  // Do not surface raw agent output, JSON-RPC errors, source text, or tokens.
-  // This adapter's rejected-request messages are authored by the native app.
-  // They include actionable runtime upgrade and configuration instructions.
-  if (failure.kind === 'providerRejectedRequest' && failure.message.trim()) return failure.message;
-  const messages: Partial<Record<ProviderFailure['kind'], string>> = {
-    consentRequired: 'Confirm the exact request and account quota disclosure before generating.',
-    reviewExpired: 'This review expired. Build a new review and confirm it again.',
-    reviewChanged: 'The reviewed context or settings changed. Build a new review before sending.',
-    reviewUnavailable: 'This review is no longer available. Build a new review.',
-    contextTooLarge: 'This request is too large to review, so nothing was sent. Ask Guide about one behavior to let it find the relevant code, or remove supporting files.',
-    secretLikeContext: 'The selected context contains a blocked secret-like path or pattern. Remove it before reviewing again.',
-    unavailableModel: 'The selected model or reasoning setting is unavailable. Refresh the model catalog and choose again.',
-    quotaExceeded: 'The Codex account quota is unavailable or exhausted. Check the account before trying again.',
-    requestCancelled: 'Generation was cancelled. No response was accepted.',
-    requestTimedOut: 'Codex did not finish in time. No draft was accepted; a new attempt needs a new review.',
-    networkUnavailable: 'Codex could not complete the request. Check the connection and account, then build a new review.',
-    malformedProviderResponse: 'The response did not pass the explanation format or source evidence checks. No response was accepted.',
-    providerResponseTooLarge: 'The response exceeded the local size limit. Try a smaller source selection.',
-    localStorageUnavailable: 'Local storage is unavailable. Existing chapter revisions were preserved.',
-    invalidReview: 'The local request could not be validated. Check the snapshot selection and Codex setup.',
-  };
-  return messages[failure.kind] ?? 'Codex could not complete this request. Check the executable, account and supported model settings, then build a new review.';
-}
 
 function loginHref(value: string): string | null {
   try {
@@ -467,7 +442,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' })
         : await buildCodexChapterReview({ projectId, snapshotId: snapshotId!, targetPath, selectedPaths: paths,
           modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
-      if (value.status === 'error') { if (lifetime.current === epoch) setError(safeFailure(value.error)); return; }
+      if (value.status === 'error') { if (lifetime.current === epoch) setError(providerFailureMessage(value.error)); return; }
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
       if (planning) {
         const checked = value.data;
@@ -528,7 +503,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         const result = await sendCodexRepositoryPlanRequest(review.reviewId, review.fingerprint, true);
         if (lifetime.current !== epoch) return;
         if (result.status === 'error') setError(result.error.kind === 'localStorageUnavailable'
-          ? 'The plan or its local storage state could not be confirmed. Check Learning plans and recovery before generating again; a saved draft may already exist.' : safeFailure(result.error));
+          ? 'The plan or its local storage state could not be confirmed. Check Learning plans and recovery before generating again; a saved draft may already exist.' : providerFailureMessage(result.error));
         else if (!result.data.savedLocally || result.data.reviewId !== review.reviewId || result.data.recoveryOperationId !== review.reviewId || result.data.fingerprint !== review.fingerprint
           || result.data.providerId !== 'codex' || result.data.plan.question !== planning.question
           || result.data.plan.projectId !== projectId || result.data.plan.snapshotId !== snapshotId || result.data.modelId !== review.modelId) {
@@ -545,7 +520,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         if (lifetime.current !== epoch) return;
         if (result.status === 'error') setError(result.error.kind === 'localStorageUnavailable'
           ? 'The PR Guide result or its recovery state could not be confirmed. Check PR Guide history before generating again.'
-          : safeFailure(result.error));
+          : providerFailureMessage(result.error));
         else {
           // Native validation saves a PR draft independently of this dialog.
           // A late cancellation cannot erase or silently accept that revision.
@@ -562,7 +537,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           if (lifetime.current === epoch) setNote('Generation was cancelled. The transient hunk explanation was discarded. Account quota may already have been used.');
           return;
         }
-        if (result.status === 'error') setError(safeFailure(result.error));
+        if (result.status === 'error') setError(providerFailureMessage(result.error));
         else { setPrChangeResult(result.data); finishRecovery(); }
         return;
       }
@@ -572,7 +547,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           if (lifetime.current === epoch) setNote('Generation was cancelled. The transient explanation was discarded. Account quota may already have been used.');
           return;
         }
-        if (result.status === 'error') setError(safeFailure(result.error));
+        if (result.status === 'error') setError(providerFailureMessage(result.error));
         else { setCodeLensResult(result.data); finishRecovery(); }
         return;
       }
@@ -580,7 +555,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       if (result.status === 'error') {
         if (lifetime.current === epoch) {
           if (cancelRequested.current) setNote('Generation was cancelled. No response was accepted. Source may already have been shared and account quota used.');
-          else setError(safeFailure(result.error));
+          else setError(providerFailureMessage(result.error));
         }
         return;
       }

@@ -1,4 +1,5 @@
 import type { ExplanationFailureCode } from '../workspace/model.ts';
+import type { ProviderFailure } from './commands';
 
 /** Read a useful message from native command rejections and ordinary JS errors. */
 export function errorMessageOr(error: unknown, fallback: string): string {
@@ -9,6 +10,36 @@ export function errorMessageOr(error: unknown, fallback: string): string {
     if (typeof message === 'string' && message.trim()) return message;
   }
   return fallback;
+}
+
+/** Keep provider request failures actionable and consistent across workflows. */
+export function providerFailureMessage(failure: ProviderFailure): string {
+  // Only native-authored rejection instructions are safe to display verbatim.
+  if (failure.kind === 'providerRejectedRequest' && failure.message.trim()) return failure.message;
+  const messages: Partial<Record<ProviderFailure['kind'], string>> = {
+    keychainUnavailable: 'Secure credential storage is unavailable on this Mac.',
+    keychainOperationFailed: 'The saved provider credential could not be accessed. Check Connections and try again.',
+    missingApiKey: 'Add the selected provider key in Connections before generating.',
+    invalidApiKey: 'The selected provider key was rejected. Check it in Connections.',
+    consentRequired: 'Review and confirm this request before generating.',
+    reviewExpired: 'This review expired. Build a fresh request and confirm it again.',
+    reviewChanged: 'The request changed after review. Build a fresh review before sending.',
+    reviewUnavailable: 'This review is no longer available. Build a fresh request.',
+    contextTooLarge: 'There is too much code to review in one request, so nothing was sent. Ask Guide about one behavior so Code Atlas can focus the source selection, or remove supporting files.',
+    secretLikeContext: 'The selected context contains a blocked secret-like path. Remove it before reviewing again.',
+    unavailableModel: 'The selected model or reasoning setting is unavailable. Refresh the model list and choose again.',
+    billingRequired: 'The provider requires a billing-enabled account for this request. No other provider was selected.',
+    quotaExceeded: 'The connected account quota is unavailable or exhausted. Check the account before trying again.',
+    regionUnavailable: 'This provider is unavailable in the current region. Choose another connection explicitly.',
+    requestCancelled: 'Generation was cancelled. No response was accepted.',
+    requestTimedOut: 'The provider did not finish this request. No draft was accepted; build a fresh review before retrying.',
+    networkUnavailable: 'The provider could not complete this request. Check the connection, then build a fresh review.',
+    malformedProviderResponse: 'The response did not pass format or source checks. No response was accepted.',
+    providerResponseTooLarge: 'The response was too large to save. Try a more focused question.',
+    localStorageUnavailable: 'Local storage is unavailable. Existing saved work was preserved.',
+    invalidReview: 'The local request could not be validated. Check the selected snapshot and connection.',
+  };
+  return messages[failure.kind] ?? 'The selected AI connection could not complete this request. Check its setup and try again.';
 }
 
 /** Keep current source-validation identifiers out of the reading workspace. */

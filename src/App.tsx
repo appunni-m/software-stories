@@ -114,7 +114,7 @@ import {
 } from './lib/commands';
 import type { ReaderRouteContext } from './Walkthrough';
 import { scrollBehaviorForMotionPreference } from './lib/motion';
-import { errorMessageOr } from './lib/errorMessage';
+import { errorMessageOr, providerFailureMessage } from './lib/errorMessage';
 const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
@@ -2713,7 +2713,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                   {requestReview && <span className="provider-expiry">Expires {new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(requestReview.expiresAtUnixMs))}</span>}
                 </div>
                 {requestBuilding && <div className="provider-loading" role="status"><HardDrive size={16} /> Building a local preview from the selected snapshot. No model request is sent.</div>}
-                {requestBuildError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{requestBuildError.message}</span></div>}
+                {requestBuildError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{providerFailureMessage(requestBuildError)}</span></div>}
                 {cancelConfirmation && sending && (
                   <div className="provider-cancel-confirm" role="group" aria-labelledby="provider-cancel-title" aria-describedby="provider-cancel-description">
                     <strong id="provider-cancel-title">Cancel this request?</strong>
@@ -2795,7 +2795,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     <div className="provider-fingerprint"><span>Consent applies to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>Provider, model, endpoint, exact encoded body hash, prompt purpose, source paths and hashes, prompt version, disclosure version, and generation settings are included.</small></div>
                   </>
                 )}
-                {requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{requestError.message}</span></div></div>}
+                {requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{providerFailureMessage(requestError)}</span></div></div>}
                 {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
@@ -3000,7 +3000,7 @@ function providerFailureTitle(kind: ProviderFailure['kind']): string {
     reviewUnavailable: 'Request review unavailable',
     localStorageUnavailable: 'Local storage unavailable',
     invalidReview: 'Request could not be validated',
-    contextTooLarge: 'Selected context is too large',
+    contextTooLarge: 'Request needs a smaller focus',
     secretLikeContext: 'Secret-like path blocked',
     unavailableModel: 'Model unavailable',
     billingRequired: 'Provider requires billing for this key',
