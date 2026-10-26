@@ -1466,13 +1466,29 @@ function App() {
     }
   };
 
+  const questionOutcomesByGroupKey = new Map<string, (typeof visibleQuestionUpdates)[number][]>();
+  if (currentProject?.projectId && selectedSnapshot?.snapshotId) {
+    for (const outcome of visibleQuestionUpdates) {
+      const key = notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question);
+      const group = questionOutcomesByGroupKey.get(key);
+      if (group) group.push(outcome);
+      else questionOutcomesByGroupKey.set(key, [outcome]);
+    }
+  }
+  const noticesByGroupKey = new Map<string, (typeof noticeHistoryState.items)[number][]>();
+  for (const notice of noticeHistoryState.items) {
+    const key = notificationGroupKey('saved-notice', notice.input.projectId ?? 'global', notice.input.snapshotId ?? '', notice.input.title, notice.input.message, JSON.stringify(notice.input.target ?? null));
+    const group = noticesByGroupKey.get(key);
+    if (group) group.push(notice);
+    else noticesByGroupKey.set(key, [notice]);
+  }
+
   const workspaceNotifications: WorkspaceNotification[] = [
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => {
       const projectId=currentProject?.projectId;
       const snapshotId=selectedSnapshot?.snapshotId;
       const groupKey=projectId&&snapshotId?notificationGroupKey('question',projectId,snapshotId,outcome.question):undefined;
-      const groupedOutcomes=groupKey?visibleQuestionUpdates.filter(candidate=>
-        notificationGroupKey('question',projectId!,snapshotId!,candidate.question)===groupKey):[];
+      const groupedOutcomes=groupKey?questionOutcomesByGroupKey.get(groupKey)??[]:[];
       const unreadGroupedOutcomes=groupedOutcomes.filter(candidate=>!candidate.read);
       return {
         id: `question:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
@@ -1520,7 +1536,7 @@ function App() {
       actions:noticeHistoryState.issue==='full'?[]:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>{
       const groupKey=notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null));
-      const groupedNotices=noticeHistoryState.items.filter(candidate=>notificationGroupKey('saved-notice',candidate.input.projectId??'global',candidate.input.snapshotId??'',candidate.input.title,candidate.input.message,JSON.stringify(candidate.input.target??null))===groupKey);
+      const groupedNotices=noticesByGroupKey.get(groupKey)??[];
       const unreadGroupedNotices=groupedNotices.filter(candidate=>!candidate.read);
       return {
         id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
