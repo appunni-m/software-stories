@@ -869,12 +869,25 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   const readableError=turn.error?explanationErrorMessage(turn.error):undefined;
   const knownEvidenceError=!!turn.error&&readableError!==turn.error;
   const failureMessage=explanationFailureMessage(turn.failureCode);
+  const terminalStatus=turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped';
+  const terminalMessage=turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':failureMessage??(knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.');
+  const terminalNotice=terminalStatus&&<><p className="dw-error" role="status">{terminalMessage}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>;
   const progressText=questionProgressText(turn);
   const contexts=section?.claims.flatMap((c)=>c.anchors).slice(0,3).map((a)=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine}))??turn.context;
   return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} data-focus-key={!hideQuestion?`workspace-answer:${turn.id}`:undefined} tabIndex={hideQuestion?undefined:-1} aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     <div className={`dw-answer-card${unavailable?' dw-answer-card-unavailable':''}`}>
-    {progressText?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':failureMessage??(knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.')}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?availability==='loading'?<p role="status">Loading saved explanation…</p>:<><p className="dw-unavailable-status" role="status">The answer for this question could not be reopened. Your question is saved; explain it again to create a new answer.</p><Button size="1" variant="soft" onClick={onRetry}>Explain again</Button></>:section?<>
+    {!revision && progressText ? (
+      <div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>
+    ) : !revision && terminalStatus ? terminalNotice : !revision ? (
+      availability === 'loading' ? <p role="status">Loading saved explanation…</p> : <>
+        <p className="dw-unavailable-status" role="status">The answer for this question could not be reopened. Your question is saved; explain it again to create a new answer.</p>
+        <Button size="1" variant="soft" onClick={onRetry}>Explain again</Button>
+      </>
+    ) : section ? (
+      <>
+      {progressText&&<div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>}
+      {terminalStatus&&terminalNotice}
       <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(revision.title)}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip></div></div>
       {versions.length>1&&original&&<label className="dw-answer-version">Version<select aria-label={`Answer version for ${plainInlineCodeText(original.title)}`} value={revision.revisionId} onChange={event=>onVersion(original.revisionId,event.target.value)}>{versions.map((r,index)=><option key={r.revisionId} value={r.revisionId}>{index===0?'Original':'Accepted'} · r{r.revisionNumber}{index===versions.length-1?' · latest accepted':''}</option>)}</select>{revision.revisionId!==versions.at(-1)?.revisionId&&<span>Updated version available</span>}</label>}
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
@@ -915,7 +928,8 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
       </> : <details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details>}
       {coverageSummary&&<div className="dw-guide-coverage" role="status"><strong>Partial guide</strong><span>Still uncovered: {coverageSummary}</span></div>}
       <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}<ExplorationBranchLinks branches={branches} onGo={onGo}/></footer>
-    </>:<p>This saved explanation has no sections.</p>}
+      </>
+    ) : <p>This saved explanation has no sections.</p>}
   </div></article>;
 }
 function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void}){
