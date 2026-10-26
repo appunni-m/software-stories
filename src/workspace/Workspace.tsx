@@ -635,6 +635,10 @@ export function DeveloperWorkspace(props:Props) {
     }
     const roots=childrenByParent.get(parent)??[];
     const currentPathIds=new Set(path.map((exploration)=>exploration.id));
+    const siblingPositions=new Map<string,{position:number;size:number}>();
+    for(const siblings of childrenByParent.values()){
+      siblings.forEach((exploration,index)=>siblingPositions.set(exploration.id,{position:index+1,size:siblings.length}));
+    }
     const rendered=new Map<string,ReactNode>();
     const visited=new Set<string>();
     const stack=roots.slice().reverse().map((exploration)=>({exploration,depth:0,expanded:false}));
@@ -645,6 +649,7 @@ export function DeveloperWorkspace(props:Props) {
         const title=e.id==='root'?projectName:e.title;
         const displayTitle=e.id==='root'?projectName:questionSummaryText(title);
         const counts=explorationCounts.get(e.id)!;
+        const siblingPosition=siblingPositions.get(e.id);
         const expanded=expandedExplorations.has(e.id)||currentPathIds.has(e.id);
         const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
         const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
@@ -656,8 +661,7 @@ export function DeveloperWorkspace(props:Props) {
               aria-label={`${plainInlineCodeText(displayTitle)}, ${questionCount}, ${childCount}`}
               aria-current={e.id===current.id?'page':undefined} aria-selected={e.id===current.id}
               aria-expanded={counts.children>0?expanded:undefined} aria-level={depth+1}
-              aria-posinset={depth===0?(childrenByParent.get(parent)??[]).indexOf(e)+1:(childrenByParent.get(e.parentId)??[]).indexOf(e)+1}
-              aria-setsize={(depth===0?childrenByParent.get(parent):childrenByParent.get(e.parentId))?.length}
+              aria-posinset={siblingPosition?.position} aria-setsize={siblingPosition?.size}
               tabIndex={e.id===focusedExplorationId?0:-1} className={e.id===current.id?'active':''}
               onFocus={()=>setFocusedExplorationId(e.id)} onClick={()=>go(e.id)}
               onKeyDown={(event)=>{
