@@ -114,7 +114,9 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
     return { text: `${state}${readyNote}`, action: 'Open explanation' };
   }
   const text: Record<Turn['status'], string> = {
-    queued: 'Waiting to start…', working: 'Working on this question…',
+    queued: 'Waiting to start…', working: turn.guideId
+      ? (turn.publishedSections?.length ? 'Preparing the next guide slide…' : 'Preparing the first guide slides…')
+      : 'Working on this question…',
     waiting: 'More slides will be ready as you read or listen.',
     partial: 'This question is incomplete. No saved section is available.',
     failed: 'This question could not be completed.',
