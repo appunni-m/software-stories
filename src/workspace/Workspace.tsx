@@ -841,7 +841,9 @@ function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
   const compact=Boolean(props.compact);
   const [guideOutlineState,setGuideOutlineState]=useState<{compact:boolean;open:boolean}|null>(null);
-  const guideOutlineOpen=guideOutlineState?.compact===compact?guideOutlineState.open:!compact;
+  // Keep the reader on the explanation. The plan remains one click away in
+  // its summary, while its topic list should not displace the Guide content.
+  const guideOutlineOpen=guideOutlineState?.compact===compact?guideOutlineState.open:false;
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
