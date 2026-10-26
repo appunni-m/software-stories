@@ -4,7 +4,7 @@ import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { finishQueuedWorkspaceGenerationJob, getLocalNarrationPreparationStatus, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, prewarmLocalNarration, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
-import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
+import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
@@ -84,7 +84,15 @@ function savedConversation(project:string,snapshot:string):ConversationPersisten
   if(!entry){entry=new ConversationPersistence({projectId:project,snapshotId:snapshot,
     load:()=>invoke<ConversationRecord|null>('load_workspace_conversation',{projectId:project,snapshotId:snapshot}),
     save:(expectedRevision,state)=>invoke<ConversationRecord>('save_workspace_conversation',{projectId:project,snapshotId:snapshot,expectedRevision,state}),
-    restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
+    restore:state=>{
+      const current=states.get(id);
+      const drafts=new Map<string,ComposerDraft>();
+      for(const exploration of current?.explorations??[])if(exploration.draft)drafts.set(exploration.id,exploration.draft);
+      const restored=drafts.size?{...state,explorations:state.explorations.map(exploration=>{
+        const draft=drafts.get(exploration.id);return draft?{...exploration,draft}:exploration;
+      })}:state;
+      states.set(id,restored);listeners.forEach(notify=>notify());
+    },
     availability:()=>listeners.forEach(notify=>notify()),
     failed:message=>reportUnsavedConversation(project,snapshot,true,message),saved:()=>resolveUnsavedConversation(project,snapshot),
   });conversations.set(id,entry);}return entry;
@@ -120,8 +128,15 @@ export function prepareWorkspaceConversation(project:string,snapshot:string):Pro
 export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{flushPendingWorkspaceDraftWrite(project,snapshot);return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
 export function flushWorkspaceConversationBeforeGeneration(project:string,snapshot:string):Promise<void>{flushPendingWorkspaceDraftWrite(project,snapshot);return isNativeRuntime()?savedConversation(project,snapshot).flushForGeneration():Promise.resolve();}
 export function retryWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).retry():Promise.resolve();}
+export function resolveWorkspaceConversationConflict(project:string,snapshot:string,choice:ConversationConflictChoice):Promise<void>{
+  return isNativeRuntime()?savedConversation(project,snapshot).resolveConflict(choice):Promise.resolve();
+}
 export function useConversationAvailability(project:string,snapshot:string){
   return useSyncExternalStore(notify=>{listeners.add(notify);return()=>{listeners.delete(notify);};},()=>isNativeRuntime()?savedConversation(project,snapshot).availability:'ready');
+}
+export function useWorkspaceConversationConflict(project:string,snapshot:string):ConversationConflictSummary|null{
+  return useSyncExternalStore(notify=>{listeners.add(notify);return()=>{listeners.delete(notify);};},()=>
+    isNativeRuntime()?savedConversation(project,snapshot).conflictSummary():null);
 }
 export function getWorkspace(project: string, snapshot: string): WorkspaceState {
   const id = key(project, snapshot);

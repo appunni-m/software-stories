@@ -4,6 +4,14 @@ import {cleanAnswerVersions} from './answerVersions';
 
 export interface ConversationRecord {schemaVersion:1;revision:number;state:WorkspaceState}
 export type ConversationAvailability='loading'|'ready'|'unavailable';
+export type ConversationConflictChoice='current'|'saved';
+export interface ConversationConflictSummary {overlappingChanges:number}
+interface ConversationConflictState {
+  base:WorkspaceState;
+  current:WorkspaceState;
+  overlappingChanges:number;
+  summary:ConversationConflictSummary;
+}
 interface IO {
   projectId:string;snapshotId:string;
   load:()=>Promise<ConversationRecord|null>;
@@ -15,7 +23,7 @@ interface IO {
 }
 const unavailable=()=>new Error('Your conversation could not be saved. Existing explanations have been preserved.');
 const genericSaveFailure='Some conversation changes could not be saved. Existing explanations are preserved.';
-const overlapSaveFailure='This conversation changed in another window. Your edits are still here; retry to merge separate changes. If the same item changed in both windows, choose which version to keep, then retry.';
+const overlapSaveFailure='This conversation changed in another window. Your edits and the saved copy are preserved. Choose how to resolve overlapping changes before continuing.';
 const nativeRevisionConflict='Another window saved this conversation. Your unsaved changes have been preserved in this window.';
 const isConversationRevisionConflict=(failure:unknown):boolean=>{
   const message=typeof failure==='string'?failure:failure instanceof Error?failure.message:
@@ -70,7 +78,8 @@ const currentWindowFields=new Set(['currentId','file','view','focusedTurnId','re
 /** Merge two native windows' snapshots against their last shared saved state.
  * Stable record collections keep independent additions; a same-field edit is
  * reported as a conflict instead of silently overwriting either window. */
-export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState,remote:WorkspaceState):{state:WorkspaceState|null;conflictCount:number} {
+export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState,remote:WorkspaceState,
+  choice?:ConversationConflictChoice):{state:WorkspaceState|null;conflictCount:number} {
   if(base.projectId!==local.projectId||base.projectId!==remote.projectId||base.snapshotId!==local.snapshotId||base.snapshotId!==remote.snapshotId)
     return {state:null,conflictCount:1};
   const conflicts:string[]=[];
@@ -99,7 +108,7 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
         return map;
       };
       const oldMap=index(oldArray),ourMap=index(ours),theirMap=index(theirs);
-      if(!oldMap||!ourMap||!theirMap){conflicts.push(path.join('.'));return copy(theirs);}
+      if(!oldMap||!ourMap||!theirMap){conflicts.push(path.join('.'));return copy(choice==='current'?ours:theirs);}
       const keys=[...theirMap.keys(),...[...ourMap.keys()].filter(key=>!theirMap.has(key))];
       const result:unknown[]=[];
       for(const key of keys){
@@ -111,10 +120,10 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
     }
     if(currentWindowFields.has(path.at(-1)??''))return copy(ours);
     conflicts.push(path.join('.'));
-    return copy(theirs);
+    return copy(choice==='current'?ours:theirs);
   };
   const value=merge(base,local,remote,[]);
-  if(value===MISSING||!isObject(value)||conflicts.length)return {state:null,conflictCount:conflicts.length||1};
+  if(value===MISSING||!isObject(value)||(conflicts.length&&!choice))return {state:null,conflictCount:conflicts.length||1};
   return {state:value as unknown as WorkspaceState,conflictCount:0};
 }
 
@@ -151,6 +160,8 @@ export class ConversationPersistence {
   private blocked=false;
   private failure=genericSaveFailure;
   private retrying:Promise<void>|null=null;
+  private resolvingConflict:Promise<void>|null=null;
+  private conflict:ConversationConflictState|null=null;
   constructor(private readonly io:IO){}
   private record(value:ConversationRecord):WorkspaceState {
     if(value?.schemaVersion!==1||!Number.isSafeInteger(value.revision)||value.revision<1)throw unavailable();
@@ -173,10 +184,21 @@ export class ConversationPersistence {
     }
     if(!this.persisted)throw new Error(overlapSaveFailure);
     const merged=mergeConversationStates(this.persisted,local,remote);
-    if(!merged.state)throw new Error(overlapSaveFailure);
+    if(!merged.state){
+      this.rememberConflict(this.persisted,local,merged.conflictCount);
+      throw new Error(overlapSaveFailure);
+    }
     const safeMerged=this.record({schemaVersion:1,revision:latest.revision,state:merged.state});
     this.revision=latest.revision;this.persisted=remote;this.attempt={revision:latest.revision,state:safeMerged};this.pending=null;
+    this.conflict=null;
     this.io.restore(safeMerged);
+  }
+  private rememberConflict(base:WorkspaceState,current:WorkspaceState,overlappingChanges:number):void {
+    this.conflict={base,current,overlappingChanges,summary:{overlappingChanges}};
+    this.io.availability();
+  }
+  conflictSummary():ConversationConflictSummary|null {
+    return this.conflict?.summary??null;
   }
   start():Promise<void> {
     if(this.availability==='ready')return Promise.resolve();
@@ -211,6 +233,7 @@ export class ConversationPersistence {
         const saved=this.record(record);
         if(record.revision<(this.revision??0))throw unavailable();
         this.revision=record.revision;this.persisted=saved;this.attempt=null;
+        if(this.conflict){this.conflict=null;this.io.availability();}
       }
       this.io.saved();
     })().catch(failure=>{this.blocked=true;this.failure=safeSaveFailure(failure);this.io.failed(this.failure);throw new Error(this.failure);}).finally(()=>{
@@ -254,26 +277,55 @@ export class ConversationPersistence {
     const failedAttempt=this.attempt;
     const local=this.pending??failedAttempt?.state;
     if(!local){
-      this.revision=latest.revision;this.persisted=remote;this.blocked=false;this.failure=genericSaveFailure;this.io.restore(remote);this.io.saved();return;
+      this.revision=latest.revision;this.persisted=remote;this.blocked=false;this.failure=genericSaveFailure;this.conflict=null;this.io.restore(remote);this.io.saved();return;
     }
     // A save can reach disk and then lose its acknowledgment. Treat the exact
     // attempted snapshot as committed, then save any newer local edits once.
     if(failedAttempt&&equal(remote,failedAttempt.state)){
       this.revision=latest.revision;this.persisted=remote;this.attempt=null;
       this.io.restore(this.pending??remote);this.blocked=false;this.failure=genericSaveFailure;
+      if(this.conflict){this.conflict=null;this.io.availability();}
       if(!this.pending){this.io.saved();return;}
       await this.flush();return;
     }
     if(!this.persisted){this.io.failed(this.failure);throw new Error(this.failure);}
     const merged=mergeConversationStates(this.persisted,local,remote);
     if(!merged.state){
+      this.rememberConflict(this.persisted,local,merged.conflictCount);
       this.failure=overlapSaveFailure;this.blocked=true;this.io.failed(this.failure);throw new Error(this.failure);
     }
     let safeMerged:WorkspaceState;
     try{safeMerged=this.record({schemaVersion:1,revision:latest.revision,state:merged.state});}
     catch{this.failure=overlapSaveFailure;this.blocked=true;this.io.failed(this.failure);throw new Error(this.failure);}
     this.revision=latest.revision;this.persisted=remote;this.attempt={revision:latest.revision,state:safeMerged};this.pending=null;
-    this.io.restore(safeMerged);this.blocked=false;this.failure=genericSaveFailure;
+    this.io.restore(safeMerged);this.blocked=false;this.failure=genericSaveFailure;this.conflict=null;
+    await this.flush();
+  }
+  resolveConflict(choice:ConversationConflictChoice):Promise<void> {
+    if(this.resolvingConflict)return this.resolvingConflict;
+    const pending=this.resolveConflictOnce(choice).finally(()=>{this.resolvingConflict=null;});
+    this.resolvingConflict=pending;
+    return pending;
+  }
+  private async resolveConflictOnce(choice:ConversationConflictChoice):Promise<void> {
+    const pending=this.conflict;
+    if(!pending)throw new Error('There is no overlapping conversation change to resolve.');
+    await this.start();
+    if(this.active)try{await this.active;}catch{/* The preserved snapshots below remain the resolution source. */}
+    const latest=await this.io.load();
+    if(!latest)throw new Error(overlapSaveFailure);
+    const remote=this.record(latest);
+    const current=this.pending??pending.current;
+    const merged=mergeConversationStates(pending.base,current,remote,choice);
+    if(!merged.state)throw new Error(overlapSaveFailure);
+    const safeMerged=this.record({schemaVersion:1,revision:latest.revision,state:merged.state});
+    this.revision=latest.revision;
+    this.persisted=remote;
+    this.attempt={revision:latest.revision,state:safeMerged};
+    this.pending=null;
+    this.blocked=false;
+    this.failure=genericSaveFailure;
+    this.io.restore(safeMerged);
     await this.flush();
   }
 }
