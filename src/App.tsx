@@ -1097,7 +1097,7 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (shortcutsOpen) return;
+      if (shortcutsOpen || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (event.key === 'Escape') {
         if (providerDialog || planningDialog) {
           event.preventDefault();
