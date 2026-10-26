@@ -224,11 +224,55 @@ pub(crate) fn is_code_path(path: &str) -> bool {
 }
 
 fn query_term_matches(value: &str, words: &[String]) -> usize {
+    if words.is_empty() {
+        return 0;
+    }
     let lower = value.to_lowercase();
+    let terms = identifier_terms(value);
     words
         .iter()
-        .filter(|word| lower.contains(word.as_str()))
-        .count()
+        .map(|word| {
+            if terms.split_whitespace().any(|term| term == word) {
+                2
+            } else if lower.contains(word.as_str()) {
+                1
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+
+/// Split indexed names into exact searchable components before applying the
+/// substring fallback. This keeps `memory_face` and `memoryFace` ahead of a
+/// fuzzy hit such as `memoryfacebuffer` when the metadata window is bounded.
+fn identifier_terms(value: &str) -> String {
+    let mut terms = String::with_capacity(value.len());
+    let mut characters = value.chars().peekable();
+    let mut previous: Option<char> = None;
+    for character in characters.by_ref() {
+        if !character.is_alphanumeric() {
+            if !terms.is_empty() && !terms.ends_with(' ') {
+                terms.push(' ');
+            }
+            previous = None;
+            continue;
+        }
+
+        let camel_boundary = character.is_uppercase()
+            && previous.is_some_and(|previous| {
+                previous.is_lowercase() || previous.is_ascii_digit()
+            });
+        let acronym_boundary = character.is_uppercase()
+            && previous.is_some_and(|previous| previous.is_uppercase())
+            && characters.peek().is_some_and(|next| next.is_lowercase());
+        if (camel_boundary || acronym_boundary) && !terms.is_empty() && !terms.ends_with(' ') {
+            terms.push(' ');
+        }
+        terms.extend(character.to_lowercase());
+        previous = Some(character);
+    }
+    terms
 }
 
 fn metadata(
@@ -265,13 +309,16 @@ fn metadata(
     };
     let mut candidates: Vec<_> = manifest.files.iter().filter(eligible).collect();
     let total = candidates.len();
-    let mut words: Vec<_> = input
-        .question
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|word| word.len() > 2)
-        .map(str::to_lowercase)
-        .filter(|word| !QUERY_STOPWORDS.contains(&word.as_str()))
-        .collect();
+    let mut words = Vec::new();
+    for part in input.question.split(|c: char| !c.is_alphanumeric()) {
+        let normalized = identifier_terms(part);
+        words.extend(
+            normalized
+                .split_whitespace()
+                .filter(|word| word.len() > 2 && !QUERY_STOPWORDS.contains(word))
+                .map(str::to_owned),
+        );
+    }
     words.sort_unstable();
     words.dedup();
     if input.target_path.as_ref().is_some_and(|target| {
