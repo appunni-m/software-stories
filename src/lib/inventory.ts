@@ -73,6 +73,7 @@ const languageByExtension: Record<string, string> = {
   html: 'HTML', htm: 'HTML', css: 'CSS', scss: 'SCSS', less: 'Less',
   sql: 'SQL', sh: 'Shell', bash: 'Shell', zsh: 'Shell', fish: 'Shell',
   properties: 'Java properties', diff: 'Diff', patch: 'Diff',
+  ini: 'INI',
   xml: 'XML', svg: 'SVG', graphql: 'GraphQL', gql: 'GraphQL',
   dockerfile: 'Dockerfile', makefile: 'Makefile', lock: 'Lockfile',
 };
