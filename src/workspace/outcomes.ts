@@ -189,11 +189,12 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
       read: turn.outcomeNotice?.read === key,
       title: turn.status === 'ready' && hasAnswer(turn) && turn.guideId && repositoryGuideCoverageLabel(turn.guide) === 'Partial coverage' ? 'Guide partly covered'
         : turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
+        : hasAnswer(turn) ? 'Explanation partly complete'
         : turn.status === 'stopped' ? 'Question stopped'
         : turn.status === 'interrupted' ? 'Question interrupted'
-        : turn.status === 'partial' && hasAnswer(turn) ? 'Explanation partly complete' : 'Question needs attention',
+        : 'Question needs attention',
       tone: turn.status === 'ready' && hasAnswer(turn) && (!turn.guideId || repositoryGuideCoverageLabel(turn.guide) !== 'Partial coverage') ? 'info'
-        : turn.status === 'failed' ? 'error' : 'warning',
+        : turn.status === 'failed' && !hasAnswer(turn) ? 'error' : 'warning',
     }));
 }
 
