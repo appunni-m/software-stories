@@ -573,6 +573,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         if (planning) setError('The plan reply could not be confirmed. Check Learning plans and recovery before generating again; an unaccepted plan may already be saved.');
         else if (gitGuide) setError('The PR Guide result could not be confirmed. Check PR Guide history before generating again; a validated response may already be saved as an unaccepted draft.');
         else if (cancelRequested.current) setNote('Cancellation was requested. No returned response was accepted. Source may already have been shared and account quota used.');
+        else if (codeLensTarget) setError('Code Lens could not confirm a usable explanation. The selected source may already have been shared. Try one behavior or a smaller range, then review the request again.');
         else setError('The Codex run did not return a usable result. Source may already have been shared. Review a new request before retrying.');
       }
     }
