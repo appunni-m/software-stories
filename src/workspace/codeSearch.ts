@@ -139,10 +139,24 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   // them for natural-language queries; regex mode remains exact and native-only.
   const all=mode==='regex'?code:[...code,...local];
   if(mode==='code'&&source){
-    let line=0,count=0;
-    for(const text of source.contents.split(/\r\n|\r|\n/)){
-      line++;if(!localMatchScore(text,query,terms))continue;
-      all.push({path:source.path,text:searchSnippet(text,terms.length?terms:[term]),from:line,to:line});if(++count===32)break;
+    // Avoid allocating an array containing every line of a large open file on
+    // each query update. Search only slices as we reach them and stop once the
+    // bounded fallback has enough hits.
+    const contents=source.contents;
+    let start=0,line=0,count=0;
+    while(start<=contents.length){
+      const lf=contents.indexOf('\n',start);
+      const cr=contents.indexOf('\r',start);
+      const nextBreak=lf<0?cr:cr<0?lf:Math.min(lf,cr);
+      const end=nextBreak<0?contents.length:nextBreak;
+      const text=contents.slice(start,end);
+      line++;
+      if(localMatchScore(text,query,terms)){
+        all.push({path:source.path,text:searchSnippet(text,terms.length?terms:[term]),from:line,to:line});
+        if(++count===32)break;
+      }
+      if(nextBreak<0)break;
+      start=contents[nextBreak]==='\r'&&contents[nextBreak+1]==='\n'?nextBreak+2:nextBreak+1;
     }
   }
   const seenFiles=new Set<string>();
