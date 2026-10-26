@@ -4112,7 +4112,7 @@ pub(crate) fn build_agent_handoff_review(
             "Choose an agent for the manual handoff.",
         ));
     }
-    let context = build_chapter_context(
+    let mut context = build_chapter_context(
         storage_dir,
         &BuildProviderReviewInput {
             project_id: input.project_id.clone(),
@@ -4140,22 +4140,39 @@ pub(crate) fn build_agent_handoff_review(
         "execution": "user-operated outside Code Atlas", "runtimeSettingsVerified": false,
         "outputSchema": schema,
     });
-    let body = json!({
+    let mut user_prompt = context.user_prompt.clone();
+    let mut body = json!({
         "instructions": AGENT_HANDOFF_INSTRUCTIONS,
         "responseEnvelope": "handoffId, fingerprint, chapter object matching outputSchema",
-        "systemInstruction": context.system_instruction, "userPrompt": context.user_prompt,
+        "systemInstruction": context.system_instruction, "userPrompt": user_prompt,
         "settings": settings,
     });
-    let encoded = serde_json::to_vec(&body).map_err(|_| {
+    let mut encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
             "The handoff could not be encoded.",
         )
     })?;
+    if encoded.len() > MAX_REQUEST_BODY_BYTES && compact_agent_index_evidence(&mut user_prompt) {
+        // Preserve every selected source byte. The local index is optional
+        // context; mark it incomplete when it is the part that prevents a
+        // bounded handoff from fitting the reviewed operation.
+        context.selected_symbols.clear();
+        context.selected_relationships.clear();
+        context.index_evidence_truncated = true;
+        context.user_prompt = user_prompt;
+        body["userPrompt"] = Value::String(context.user_prompt.clone());
+        encoded = serde_json::to_vec(&body).map_err(|_| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The compact handoff could not be encoded.",
+            )
+        })?;
+    }
     if encoded.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The handoff exceeds 512 KB. Select fewer source files.",
+            "This handoff is still too large after optional index details were removed. Ask about one behavior or use a focused code range. No agent received source.",
         ));
     }
     let request_body_sha256 = format!("{:x}", Sha256::digest(&encoded));
@@ -4256,16 +4273,29 @@ pub(crate) fn agent_handoff_text(
         "chapterSchema": review.generation_config["outputSchema"],
         "systemInstruction": review.system_instruction, "userPrompt": review.user_prompt,
     });
-    let text = serde_json::to_string_pretty(&task).map_err(|_| {
+    let pretty = serde_json::to_string_pretty(&task).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
             "The handoff text could not be encoded.",
         )
     })?;
+    let text = if pretty.len() > MAX_REQUEST_BODY_BYTES {
+        // Large source blocks can make formatting whitespace exceed the
+        // transport budget even though the exact JSON values fit. Keep the
+        // usual handoff readable and use compact JSON only near that limit.
+        serde_json::to_string(&task).map_err(|_| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The compact handoff text could not be encoded.",
+            )
+        })?
+    } else {
+        pretty
+    };
     if text.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The formatted handoff exceeds 512 KB. Select fewer source files.",
+            "This handoff still exceeds the 512 KB limit. Ask about one behavior or use a focused code range. No agent received source.",
         ));
     }
     Ok(text)
