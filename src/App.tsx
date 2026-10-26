@@ -2105,7 +2105,7 @@ function ProviderDialog(props: ProviderDialogProps) {
   return <div className="provider-overlay">
     <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
       <header className="provider-dialog-header">
-        <div><div className="step-pill"><span>GENERATION</span> YOUR CHOICE</div>
+        <div>
           <h2 id="backend-choice-title">Choose your AI connection</h2>
           <p>Choose once. You can change it from the header whenever you need.</p></div>
         <button className="icon-button" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></button>
@@ -2114,7 +2114,7 @@ function ProviderDialog(props: ProviderDialogProps) {
         <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
           <p>Use the Codex account already signed in on this Mac. Your model and reasoning preference are remembered; no API key is needed.</p>
           <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
-          {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
+          {!agentOperation && <p role="status">Codex isn’t available for this kind of explanation yet.</p>}
         </section>
         <details className="provider-alternatives">
           <summary>More AI options</summary>
@@ -2124,7 +2124,7 @@ function ProviderDialog(props: ProviderDialogProps) {
               <button className="secondary-button" onClick={() => choose('api')}>Choose a direct API</button>
             </section>
             <section className="provider-review-card"><h3>Claude Code</h3>
-              <p>Prepare a reviewed task for Claude Code and bring its answer back for source validation. Automatic Claude Agent generation is still in progress.</p>
+              <p>Copy a reviewed task into Claude Code, then bring its answer back here to check it against the source.</p>
               <div className="provider-alternative-actions">
                 <button className="secondary-button" onClick={() => choose('claude-setup')}>Set up Claude Agent</button>
                 <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
@@ -2135,7 +2135,7 @@ function ProviderDialog(props: ProviderDialogProps) {
               <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Use Antigravity handoff</button>
               <p className="provider-small-note"><a href="https://www.antigravity.google/docs/faq" target="_blank" rel="noreferrer">Google Antigravity account rules</a></p>
             </section>
-            {!handoffOperation && <p role="status">Manual agent handoffs currently cover file chapters and selected-source overviews.</p>}
+            {!handoffOperation && <p role="status">Agent handoff is available for file chapters and repository overviews.</p>}
           </div>
         </details>
       </div>
