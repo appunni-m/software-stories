@@ -23,3 +23,8 @@ export function useReaderSection(revisionId:string|undefined) {
   const access=useContext(ReaderProgressContext);
   return revisionId?access?.section(revisionId):undefined;
 }
+
+/** Read a saved section for a revision selected outside the current reader route. */
+export function useReaderSectionAccessor() {
+  return useContext(ReaderProgressContext)?.section;
+}

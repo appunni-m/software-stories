@@ -23,7 +23,7 @@ import { orderedSections, readerSelection, readRememberedProgress, saveRemembere
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
 import { InlineCodeText } from './InlineCodeText';
-import { useReaderSection } from './lib/ReaderProgressContext';
+import { useReaderSection, useReaderSectionAccessor } from './lib/ReaderProgressContext';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
 
@@ -101,6 +101,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   }, [projectId, progressRefreshKey, selectedRevision?.chapterId, selectedRevision?.revisionId]);
   const rememberedProgress = rememberedRead.status === 'available' ? rememberedRead.progress : null;
   const ownedSection = useReaderSection(selectedRevision?.revisionId);
+  const readSectionForRevision = useReaderSectionAccessor();
   const selectedSectionId = selectedRevision
     ? chooseSectionId(sections, route.sectionId, ownedSection?.sectionId ?? rememberedProgress?.sectionId)
     : null;
@@ -232,7 +233,9 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
         );
       } catch { storedProgress = { status: 'unavailable' }; }
     }
-    const rememberedSectionId = storedProgress.status === 'available' ? storedProgress.progress.sectionId : null;
+    const rememberedSectionId = storedProgress.status === 'available'
+      ? storedProgress.progress.sectionId
+      : readSectionForRevision?.(revision.revisionId)?.sectionId ?? null;
     const sectionId = chooseSectionId(orderedSections(revision), null, rememberedSectionId);
     if (!sectionId) return;
     const playbackPosition = storedProgress.status === 'available' && storedProgress.progress.sectionId === sectionId ? storedProgress.progress.playbackPosition : 0;
