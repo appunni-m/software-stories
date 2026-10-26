@@ -406,6 +406,31 @@ fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
 }
 
 #[test]
+fn broad_file_discovery_does_not_fall_back_to_question_scaffolding() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "src/render.rs", "fn render_font_bytes() {}\n");
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_files_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "How does it work",
+        None,
+        8,
+        0,
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+
+    assert!(result.matches.is_empty());
+    assert!(result.next_offset.is_none());
+}
+
+#[test]
 fn broad_file_discovery_prefers_distinct_query_coverage_over_one_rare_term() {
     let mut fixture = Fixture::new();
     add_source(

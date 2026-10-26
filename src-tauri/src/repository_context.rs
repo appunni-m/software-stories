@@ -1975,12 +1975,21 @@ pub(crate) fn search_files_with_mode_page(
     }
     let query_words = validate_search_mode(query, path, limit, mode)?;
     let relevant_words = coverage_terms(query, path, &query_words);
-    let words = if relevant_words.is_empty() {
-        query_words
-    } else {
-        relevant_words
-    };
     let page_end = validate_search_page(limit, offset)?;
+    if relevant_words.is_empty() {
+        let matches = Vec::new();
+        return Ok(SearchResult {
+            result_bytes: json(&matches)?.len(),
+            matches,
+            limited: false,
+            next_offset: None,
+            coverage: prepared.metadata.coverage.clone(),
+            reused_generation: prepared.reused_generation,
+            build: prepared.metadata.build.clone(),
+            elapsed_ms: started.elapsed().as_millis() as u64,
+        });
+    }
+    let words = relevant_words;
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
     let mut term_groups = Vec::with_capacity(words.len());
