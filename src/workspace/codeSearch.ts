@@ -4,7 +4,7 @@ export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
 
-const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works']);
+const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works','explain','find','help','show','tell']);
 
 function searchableParts(value:string):string[]{
   return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -14,14 +14,25 @@ function searchableParts(value:string):string[]{
  * its stop words as required code tokens. */
 function localQueryTerms(query:string):string[]{
   const parts=searchableParts(query);
-  const useful=parts.filter(part=>!SEARCH_STOP_WORDS.has(part));
+  const useful=[...new Set(parts.filter(part=>!SEARCH_STOP_WORDS.has(part)))];
   return useful.length?useful:parts.length?[query.toLowerCase()]:[];
 }
 
-function locallyMatches(value:string,query:string,terms:readonly string[]):boolean{
-  if(!terms.length)return value.toLowerCase().includes(query.toLowerCase());
-  const searchable=value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase();
-  return terms.every(term=>searchable.includes(term));
+/** Rank a local path, symbol or line by the useful words it contains. Requiring
+ * every word makes natural questions such as “how does a font become pixels?”
+ * miss the `Font` entry point entirely. Prefix matches cover common inflections
+ * while token boundaries avoid matching `font` inside `confront`.
+ */
+function localMatchScore(value:string,query:string,terms:readonly string[]):number{
+  const parts=searchableParts(value);
+  if(!parts.length)return 0;
+  const matched=terms.filter(term=>parts.some(part=>part===term
+    ||(Math.min(part.length,term.length)>=3&&(part.startsWith(term)||term.startsWith(part)))));
+  if(!matched.length)return 0;
+  const phrase=searchableParts(query).join(' ');
+  const normalized=parts.join(' ');
+  const exactPhrase=phrase&&normalized.includes(phrase)?1_000:0;
+  return exactPhrase+matched.length*100+matched.reduce((score,term)=>score+Math.min(term.length,12),0);
 }
 
 /** Offer AI when a settled search has no hits or did not complete. The visible
@@ -110,18 +121,21 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const terms=localQueryTerms(query);
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
-    const symbolMatches=symbols.filter(symbol=>locallyMatches(symbol.name,query,terms)).slice().sort((left,right)=>{
-      const rank=(name:string)=>name.toLowerCase()===term?0:name.toLowerCase().startsWith(term)?1:2;
-      return rank(left.name)-rank(right.name)||left.name.localeCompare(right.name)||left.path.localeCompare(right.path);
-    });
-    local.push(...symbolMatches.slice(0,8).map(symbol=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
-    local.push(...files.filter(file=>locallyMatches(file.path,query,terms)).slice(0,8).map(file=>({path:file.path,text:file.path})));
+    const symbolMatches=symbols.map(symbol=>({symbol,score:localMatchScore(`${symbol.name} ${symbol.path}`,query,terms)}))
+      .filter(item=>item.score>0).sort((left,right)=>right.score-left.score
+        ||left.symbol.name.localeCompare(right.symbol.name)||left.symbol.path.localeCompare(right.symbol.path));
+    local.push(...symbolMatches.slice(0,8).map(({symbol})=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
+    const fileMatches=files.map(file=>({file,score:localMatchScore(file.path,query,terms)}))
+      .filter(item=>item.score>0).sort((left,right)=>right.score-left.score||left.file.path.localeCompare(right.file.path));
+    local.push(...fileMatches.slice(0,8).map(({file})=>({path:file.path,text:file.path})));
   }
-  const all=mode==='regex'?code:[...local,...code];
+  // Keep native ranked source hits first. Local symbol/path hints supplement
+  // them for natural-language queries; regex mode remains exact and native-only.
+  const all=mode==='regex'?code:[...code,...local];
   if(mode==='code'&&source){
     let line=0,count=0;
     for(const text of source.contents.split('\n')){
-      line++;if(!locallyMatches(text,query,terms))continue;
+      line++;if(!localMatchScore(text,query,terms))continue;
       all.push({path:source.path,text:searchSnippet(text,terms[0]??term),from:line,to:line});if(++count===32)break;
     }
   }
