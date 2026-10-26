@@ -463,6 +463,19 @@ fn terms(text: &str) -> Vec<String> {
     output.into_iter().collect()
 }
 
+/// Keep broad natural-language relevance focused on repository terms instead
+/// of question scaffolding. Exact search still uses every original term.
+fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<String> {
+    if !should_discover_files(query, scope) {
+        return words.to_vec();
+    }
+    words
+        .iter()
+        .filter(|word| !crate::source_discovery::QUERY_STOPWORDS.contains(&word.as_str()))
+        .cloned()
+        .collect()
+}
+
 fn line_starts(text: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(
@@ -1960,7 +1973,13 @@ pub(crate) fn search_files_with_mode_page(
     if mode != SearchMode::Code {
         return Err("File discovery supports ranked code search only.".to_owned());
     }
-    let words = validate_search_mode(query, path, limit, mode)?;
+    let query_words = validate_search_mode(query, path, limit, mode)?;
+    let relevant_words = coverage_terms(query, path, &query_words);
+    let words = if relevant_words.is_empty() {
+        query_words
+    } else {
+        relevant_words
+    };
     let page_end = validate_search_page(limit, offset)?;
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
@@ -2237,11 +2256,13 @@ fn search_ranked(
     // Only multiword natural-language searches need this second relevance
     // signal. Keep paths and identifier lookups on their established ranking,
     // and cap query terms so coverage work stays bounded.
+    let coverage_words = coverage_terms(query, path, &words);
     let natural_query_coverage = identifier_key.is_none()
         && !query.contains('/')
         && !query.contains('\\')
         && query.split_whitespace().count() > 1
-        && (3..=12).contains(&words.len());
+        && (3..=12).contains(&words.len())
+        && !coverage_words.is_empty();
     let include_path_terms = query.split_whitespace().count() <= 2
         || query.contains('/')
         || query.contains('\\')
@@ -2376,7 +2397,7 @@ fn search_ranked(
         let body_field = field(&prepared.index, "body")?;
         let body_stem_field = field(&prepared.index, "body_stem")?;
         let symbol_field = field(&prepared.index, "symbol")?;
-        for (term_index, word) in words.iter().enumerate() {
+        for (term_index, word) in coverage_words.iter().enumerate() {
             budget.check()?;
             let mut clauses = vec![
                 (Occur::Should, term_query(body_field, word)),
@@ -2572,7 +2593,7 @@ fn search_ranked(
                         .copied()
                         .unwrap_or_default();
                     QueryCoverage {
-                        matched_terms: words
+                        matched_terms: coverage_words
                             .iter()
                             .enumerate()
                             .filter_map(|(term_index, word)| {
@@ -2580,7 +2601,7 @@ fn search_ranked(
                                     .then(|| word.clone())
                             })
                             .collect(),
-                        total_terms: words.len(),
+                        total_terms: coverage_words.len(),
                     }
                 }),
             });

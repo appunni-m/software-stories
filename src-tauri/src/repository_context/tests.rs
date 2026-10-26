@@ -285,6 +285,55 @@ fn natural_range_search_exposes_verified_query_coverage() {
 }
 
 #[test]
+fn broad_question_coverage_ignores_prompt_scaffolding() {
+    let query = "How does the font get from bytes into bitmap";
+    let words = terms(query);
+    assert_eq!(
+        coverage_terms(query, None, &words),
+        ["bitmap", "bytes", "font", "get"]
+    );
+    assert!(coverage_terms("How does it work", None, &terms("How does it work")).is_empty());
+
+    let code_query = "Font::memory_face";
+    assert_eq!(
+        coverage_terms(code_query, None, &terms(code_query)),
+        terms(code_query),
+        "identifier-focused searches retain every exact term"
+    );
+}
+
+#[test]
+fn broad_range_search_reports_content_terms_not_question_scaffolding() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/render.rs",
+        "fn render_font_bytes_to_bitmap() { parse_glyph_outline(); rasterize(); }\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "How does the font get from bytes into bitmap",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    let hit = result
+        .matches
+        .iter()
+        .find(|hit| hit.range.path == "src/render.rs")
+        .expect("the code range should remain searchable with the full question");
+    let coverage = hit.query_coverage.as_ref().unwrap();
+    assert_eq!(coverage.total_terms, 4);
+    assert_eq!(coverage.matched_terms, ["bitmap", "bytes", "font"]);
+}
+
+#[test]
 fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     let mut fixture = Fixture::new();
     add_source(

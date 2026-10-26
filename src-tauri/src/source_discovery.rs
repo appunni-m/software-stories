@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 const MAX_METADATA: usize = 96_000;
 const TTL: Duration = Duration::from_secs(300);
-const QUERY_STOPWORDS: &[&str] = &[
+pub(crate) const QUERY_STOPWORDS: &[&str] = &[
     "about", "after", "again", "also", "any", "are", "because", "before", "being",
     "between", "can", "could", "does", "each", "explain", "file", "for", "from",
     "have", "help", "how", "into", "its", "just", "make", "me", "more", "most",
