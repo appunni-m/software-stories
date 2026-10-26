@@ -100,7 +100,7 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
     const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide) : null;
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
       : turn.status === 'working' ? 'Adding more detail.'
-      : turn.status === 'waiting' ? 'Building the next slide as you listen.'
+      : turn.status === 'waiting' ? 'Building the next slide as you read or listen.'
       : turn.status === 'partial' ? 'Partially completed.'
       : turn.status === 'stopped' ? 'Stopped.'
       : turn.status === 'interrupted' ? 'Interrupted.'
@@ -113,7 +113,7 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   }
   const text: Record<Turn['status'], string> = {
     queued: 'Waiting to start…', working: 'Working on this question…',
-    waiting: 'More slides will be ready as you listen.',
+    waiting: 'More slides will be ready as you read or listen.',
     partial: 'This question is incomplete. No saved section is available.',
     failed: 'This question could not be completed.',
     stopped: 'Stopped before an explanation was saved.',
