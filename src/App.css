@@ -219,7 +219,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-reader-breadcrumb strong { overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .walkthrough-revision-labels { display: flex; flex-wrap: wrap; gap: 5px; }
 .walkthrough-revision-badge { padding: 4px 6px; border: 1px solid var(--warning-border); border-radius: 4px; background: var(--surface-raised); color: var(--warning); font: 6px var(--mono); letter-spacing: .07em; }
-.walkthrough-reader-grid { display: grid; grid-template-columns: minmax(0, 1fr) 168px; align-items: start; gap: clamp(14px, 2vw, 27px); padding-top: 19px; }
+.walkthrough-reader-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; padding-top: 19px; }
 .walkthrough-section-content { min-width: 0; }
 .walkthrough-section-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font: 7px var(--mono); letter-spacing: .08em; }
 .walkthrough-section-meta span:first-child { color: var(--accent); }
@@ -335,19 +335,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-section-actions .primary-button, .walkthrough-section-actions .secondary-button { min-height: 35px; margin: 0; font-size: 9px; }
 .walkthrough-section-actions .secondary-button { border-color: var(--border-strong); background: var(--surface-raised); color: var(--muted); }
 .walkthrough-section-actions .primary-button { padding: 0 13px; }
-.walkthrough-side-notes { display: grid; align-content: start; gap: 9px; }
-.walkthrough-progress-card, .walkthrough-side-card { padding: 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
-.walkthrough-progress-value { margin-top: 7px; color: var(--accent); font: 23px var(--mono); letter-spacing: -.07em; }
-.walkthrough-progress-value span { color: var(--muted); font-size: 10px; letter-spacing: 0; }
-.walkthrough-progress-track { height: 3px; overflow: hidden; margin-top: 8px; border-radius: 3px; background: var(--surface-hover); }
-.walkthrough-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent)); transition: width 160ms ease; }
-.walkthrough-progress-card > p, .walkthrough-side-card > p { margin: 7px 0 0; color: var(--muted); font-size: 7px; line-height: 1.55; }
-.walkthrough-side-card { position: relative; padding-left: 35px; }
-.walkthrough-side-icon { position: absolute; left: 10px; top: 11px; color: var(--accent); }
-.walkthrough-side-card > strong { color: var(--muted); font-size: 8px; font-weight: 600; }
-.walkthrough-key-hint { display: flex; align-items: center; gap: 4px; padding: 6px 4px; color: var(--muted); font-size: 7px; }
-.walkthrough-key-hint kbd { min-width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-raised); color: var(--muted); font: 8px var(--mono); }
-.walkthrough-key-hint span { margin-left: 3px; }
 .walkthrough-narration-audio { display: none; }
 .walkthrough-caption { min-height: 100%; }
 .walkthrough-caption > span, .walkthrough-narration-exact-text > span { color: var(--accent); font: 7px var(--mono); letter-spacing: .08em; }
@@ -453,58 +440,54 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .inventory-row.is-atlas-target .inventory-path-button { color: var(--accent); }
 
 /* Reader text keeps evidence, references, and navigation comfortable to inspect. */
+.walkthrough-kicker { font-size: 10px; }
+.walkthrough-count { font-size: 10px; }
 .walkthrough-chapter-copy strong { font-size: 10px; }
-.walkthrough-chapter-copy small { font-size: 8px; }
-.walkthrough-section-index { font-size: 8px; }
-.walkthrough-section-link > span:last-child { font-size: 9px; }
-.walkthrough-reader-breadcrumb { font-size: 9px; }
-.walkthrough-revision-badge { font-size: 8px; }
-.walkthrough-section-meta { font-size: 8px; }
+.walkthrough-chapter-copy small { font-size: 10px; }
+.walkthrough-section-index { font-size: 10px; }
+.walkthrough-section-link { min-height: 36px; }
+.walkthrough-section-link > span:last-child { font-size: 11px; }
+.walkthrough-rail-footer { font-size: 10px; }
+.walkthrough-reader-breadcrumb { font-size: 10px; }
+.walkthrough-revision-badge { font-size: 9px; }
+.walkthrough-section-meta { font-size: 10px; }
 .walkthrough-section-prose { font-size: 14px; }
 .walkthrough-boundary { font-size: 10px; }
 .walkthrough-panel-heading h3 { font-size: 13px; }
 .walkthrough-evidence-count { font-size: 10px; }
-.walkthrough-claim-label span { font-size: 9px; }
+.walkthrough-claim-label span { font-size: 10px; }
 .walkthrough-claim > p { font-size: 13px; line-height: 1.65; }
 .walkthrough-claim > .walkthrough-inference-basis { font-size: 11px; }
 .walkthrough-citation-heading code { font-size: 11px; }
 .walkthrough-source-citation pre { font-size: 11px; line-height: 1.6; }
 .walkthrough-citation-link { font-size: 11px; }
-.walkthrough-no-anchor, .walkthrough-muted { font-size: 10px !important; }
-.walkthrough-no-visual { font-size: 9px; }
-.walkthrough-diagram-node strong { font-size: 10px; }
-.walkthrough-diagram-node small { font-size: 8px; }
-.walkthrough-diagram-action, .walkthrough-diagram-edge { font-size: 8px; }
-.walkthrough-visual-footnote { font-size: 8px; }
-.walkthrough-transcript-state, .walkthrough-transcript-citations button code { font-size: 10px; }
+.walkthrough-no-anchor, .walkthrough-muted { font-size: 11px !important; }
+.walkthrough-no-visual { font-size: 10px; }
+.walkthrough-diagram-node strong { font-size: 12px; }
+.walkthrough-diagram-node small { font-size: 10px; }
+.walkthrough-diagram-action, .walkthrough-diagram-edge { font-size: 10px; }
+.walkthrough-visual-footnote { font-size: 10px; }
+.walkthrough-transcript-state, .walkthrough-transcript-citations button code { font-size: 11px; }
 .walkthrough-transcript-scroll p { font-size: 14px; line-height: 1.7; }
-.walkthrough-transcript-citations > span { font-size: 9px; line-height: 1.45; }
-.walkthrough-audio-unavailable { font-size: 10px; }
-.walkthrough-reader-footer { font-size: 8px; }
-.walkthrough-audio-controls button { font-size: 9px; }
-.walkthrough-progress-card > p, .walkthrough-side-card > p { font-size: 8px; }
-.walkthrough-side-card > strong { font-size: 9px; }
-.walkthrough-key-hint { font-size: 8px; }
+.walkthrough-transcript-citations > span { font-size: 10px; line-height: 1.45; }
+.walkthrough-audio-unavailable { font-size: 11px; }
+.walkthrough-reader-footer { font-size: 10px; }
+.walkthrough-audio-controls button { font-size: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .walkthrough-chapter > svg, .walkthrough-progress-track span { transition: none; }
+  .walkthrough-chapter > svg { transition: none; }
 }
 @media (max-width: 1200px) {
-  .walkthrough-reader-grid { grid-template-columns: minmax(0, 1fr) 145px; gap: 14px; }
-  .walkthrough-side-notes { gap: 7px; }
+  .walkthrough-reader-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
   .walkthrough-screen { grid-template-columns: 190px minmax(0, 1fr); gap: 8px; }
   .walkthrough-reader-grid { grid-template-columns: minmax(0, 1fr); }
-  .walkthrough-side-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .walkthrough-progress-card { grid-row: span 2; }
-  .walkthrough-key-hint { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
   .walkthrough-screen { grid-template-columns: 1fr; }
   .walkthrough-rail { max-height: 235px; }
   .walkthrough-reader { max-height: none; }
-  .walkthrough-side-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .walkthrough-home-facts { display: grid; }
   .walkthrough-reader-footer { align-items: flex-start; flex-direction: column; }
 }
