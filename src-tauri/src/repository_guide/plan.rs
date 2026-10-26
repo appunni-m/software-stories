@@ -222,12 +222,13 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
     let instructions = format!(
-        "{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Stop the initial plan once the opening lead, two to four core-path questions, and explicit pending omission topics are source-grounded; later units will investigate the omitted topics independently. Native source and call limits still apply."
+        "{PLAN_INSTRUCTIONS}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Stop the initial plan once the opening lead, two to four core-path questions, and explicit pending omission topics are source-grounded; later units will investigate the omitted topics independently. Native source and call limits still apply.",
+        crate::provider::visual_scenes::READER_LANGUAGE_POLICY
     );
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-focused-discovery-v4",
+        "operationPolicy":"repository-guide-plan-focused-discovery-v5",
         "model":job.model_id,"effort":job.reasoning_effort,
         "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"firstBufferSlides":5,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
