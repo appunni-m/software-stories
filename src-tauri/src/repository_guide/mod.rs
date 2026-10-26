@@ -48,9 +48,11 @@ const MAX_OMISSIONS: usize = 64;
 const MAX_OMISSION_BYTES: usize = 240;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
-/// Initial builds and explicit resumes fill at most five slides; playback
-/// refills use a single slide. Every worker entry point requires a limit.
+/// Keep the number of ready, unconsumed guide slides bounded.
 const GUIDE_SLIDE_BUFFER: usize = 5;
+/// Each start/resume/refill call publishes at most one new slide. Playback
+/// admits the next operation while preserving the five-slide capacity bound.
+const GUIDE_SLIDES_PER_OPERATION: usize = 1;
 const MAX_OPENING_CONTINUATIONS: usize = 2;
 pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize =
     1 + MAX_OPENING_CONTINUATIONS + MAX_TOTAL_UNITS * MAX_ATTEMPTS;
@@ -1574,7 +1576,7 @@ pub(crate) async fn start_repository_guide(
         id,
         lease,
         false,
-        GUIDE_SLIDE_BUFFER,
+        GUIDE_SLIDES_PER_OPERATION,
         None,
         renderer_queue_wait_ms,
         operation_started_at,
@@ -1689,7 +1691,7 @@ pub(crate) async fn resume_repository_guide(
             id,
             lease,
             false,
-            GUIDE_SLIDE_BUFFER,
+            GUIDE_SLIDES_PER_OPERATION,
             None,
             renderer_queue_wait_ms,
             operation_started_at,
@@ -1703,7 +1705,7 @@ pub(crate) async fn resume_repository_guide(
         id,
         lease,
         true,
-        GUIDE_SLIDE_BUFFER,
+        GUIDE_SLIDES_PER_OPERATION,
         None,
         renderer_queue_wait_ms,
         operation_started_at,

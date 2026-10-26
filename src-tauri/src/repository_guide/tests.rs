@@ -950,7 +950,7 @@ fn fontdone_repository_guide_account_probe() {
             &manager,
             RepositoryContextJobs::default(),
             &recovery::InterruptionJournal::default(),
-            if first_build { GUIDE_SLIDE_BUFFER } else { 1 },
+            GUIDE_SLIDES_PER_OPERATION,
             None,
             None,
             &progress,
