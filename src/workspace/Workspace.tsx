@@ -158,6 +158,7 @@ export function DeveloperWorkspace(props:Props) {
   const [searchFocused,setSearchFocused] = useState(false);
   const handledLargeFileExplanation = useRef<string|null>(null);
   const requestedConnectionForLargeFileExplanation = useRef<string|null>(null);
+  const autoOpenedInitialFile = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const explorer = useRef<HTMLDivElement>(null);
@@ -522,6 +523,14 @@ export function DeveloperWorkspace(props:Props) {
     }
   }
   useEffect(()=>{if(routeSelection)openDestination(routeSelection.kind==='file'?{kind:'atlasFile',path:routeSelection.path}:routeSelection.kind==='symbol'?{kind:'atlasSymbol',path:routeSelection.path,symbolId:routeSelection.symbolId}:routeSelection);},[routeSelection,index,graph]);
+  useEffect(()=>{
+    if(autoOpenedInitialFile.current||!sourcePaths.length||state.file||routePath||routeRange||routeSelection
+      ||workspace!=='guide-plan'||current.id!=='root'||current.turns.length||current.draft||!codeOpen)return;
+    // A new workspace should open on useful captured code, not an empty source
+    // pane. Persisted work and explicit navigation always take precedence.
+    autoOpenedInitialFile.current=true;
+    openFile({path:sourcePaths[0]});
+  },[sourcePaths,state.file,routePath,routeRange,routeSelection,workspace,current.id,current.turns.length,current.draft,codeOpen,openFile]);
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   const selectedTurn=featuredTurn;
   const flowOriginals=selectedTurn?.publishedSections?.length?selectedTurn.publishedSections.map(s=>chapters.find(r=>r.revisionId===s.revisionId)).filter((r):r is ChapterRevision=>!!r):chapters.filter(r=>r.revisionId===selectedTurn?.revisionId);
