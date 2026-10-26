@@ -149,11 +149,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .workspace-footer { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--blue-border); color: var(--muted); font: 9px var(--mono); }
 
 /* Shared visual scene and narration styles */
-.walkthrough-kicker { color: var(--muted); font: 8px var(--mono); letter-spacing: .13em; }
+.walkthrough-kicker { color: var(--muted); font: 12px var(--mono); letter-spacing: .13em; }
 .walkthrough-panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--border); }
 .walkthrough-panel-heading h3 { margin: 5px 0 0; color: var(--text); font-size: 12px; letter-spacing: -.015em; }
 .walkthrough-transcript { margin-top: 15px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.walkthrough-evidence-count { flex: 0 0 auto; color: var(--muted); font: 7px var(--mono); }
+.walkthrough-evidence-count { flex: 0 0 auto; color: var(--muted); font: 12px var(--mono); }
 .visual-demo-shell { max-width: 1080px; min-height: 100vh; margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px); color: var(--text); background: radial-gradient(ellipse at 15% 0%, var(--accent-soft) 0, var(--surface) 52%); }
 .visual-demo-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--accent-border); }
 .visual-demo-heading h1 { margin: 7px 0 0; color: var(--text); font-size: clamp(20px, 3vw, 30px); font-weight: 600; }
@@ -166,50 +166,50 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .visual-demo-toggle { margin: 0 0 8px; min-height: 30px; padding: 5px 9px; font-size: 9px; }
 .visual-demo-reader .walkthrough-visual-slot { max-width: none; padding: 13px; border: 1px solid var(--accent-border); border-radius: 6px; background: var(--surface); }
 .visual-demo-reader .walkthrough-panel-heading h3 { font-size: 13px; }
-.visual-demo-reader .walkthrough-kicker, .visual-demo-reader .walkthrough-evidence-count { font-size: 9px; }
+.visual-demo-reader .walkthrough-kicker, .visual-demo-reader .walkthrough-evidence-count { font-size: 12px; }
 .visual-demo-reader .walkthrough-diagram { gap: 12px; }
 .visual-demo-reader .walkthrough-diagram-step { min-width: 0; }
 .visual-demo-reader .walkthrough-diagram.is-left-to-right .walkthrough-diagram-step { flex-basis: 240px; width: 240px; }
 .visual-demo-reader .walkthrough-diagram-node { min-height: 132px; gap: 8px; padding: 12px; }
-.visual-demo-reader .walkthrough-diagram-node-number { font-size: 9px; }
+.visual-demo-reader .walkthrough-diagram-node-number { font-size: 12px; }
 .visual-demo-reader .walkthrough-diagram-node strong { font-size: 12px; }
-.visual-demo-reader .walkthrough-diagram-node small { font-size: 10px; }
-.visual-demo-reader .walkthrough-diagram-action { min-height: 31px; font-size: 9px; }
-.visual-demo-reader .walkthrough-diagram-edge { gap: 7px; padding: 8px; font-size: 9px; }
+.visual-demo-reader .walkthrough-diagram-node small { font-size: 12px; }
+.visual-demo-reader .walkthrough-diagram-action { min-height: 31px; font-size: 12px; }
+.visual-demo-reader .walkthrough-diagram-edge { gap: 7px; padding: 8px; font-size: 12px; }
 .visual-demo-reader .walkthrough-visual-evidence button { min-height: 28px; gap: 6px; padding: 5px 7px; }
-.visual-demo-reader .walkthrough-visual-evidence button code { font-size: 9px; }
-.visual-demo-reader .walkthrough-visual-footnote { font-size: 9px; }
+.visual-demo-reader .walkthrough-visual-evidence button code { font-size: 12px; }
+.visual-demo-reader .walkthrough-visual-footnote { font-size: 12px; }
 .visual-demo-context { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .visual-demo-context code { color: var(--accent); }
 .visual-demo-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 17px; }
 .visual-demo-actions button, .visual-demo-destination > button { min-height: 36px; font-size: 10px; }
 .visual-demo-rotate { transform: rotate(180deg); }
 .visual-demo-destination { max-width: 760px; }
-.visual-demo-destination > .walkthrough-kicker { color: var(--accent); font: 9px var(--mono); letter-spacing: .08em; }
+.visual-demo-destination > .walkthrough-kicker { color: var(--accent); font: 12px var(--mono); letter-spacing: .08em; }
 .visual-demo-destination pre { overflow: auto; margin: 18px 0; padding: 14px; border: 1px solid var(--accent-border); border-radius: 5px; background: var(--canvas); color: var(--accent); font: 11px/1.65 var(--mono); white-space: pre-wrap; }
 .visual-demo-destination p { max-width: 590px; margin: 0 0 18px; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .visual-demo-footer { display: flex; align-items: center; gap: 7px; margin-top: 14px; color: var(--muted); font: 9px var(--mono); }
 .visual-demo-footer svg { color: var(--accent); }
 .walkthrough-transcript { background: linear-gradient(140deg, var(--surface), var(--surface)); }
-.walkthrough-transcript-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 10px/1.35 system-ui, sans-serif; }
+.walkthrough-transcript-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 12px/1.35 system-ui, sans-serif; }
 .walkthrough-transcript-scroll { max-height: 190px; overflow: auto; margin-top: 8px; padding: 3px 4px; scrollbar-color: var(--muted) transparent; }
-.walkthrough-transcript-scroll p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
+.walkthrough-transcript-scroll p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
 .walkthrough-duration { color: var(--muted); }
 .walkthrough-narration-audio { display: none; }
 .walkthrough-caption { min-height: 100%; }
-.walkthrough-caption > span, .walkthrough-narration-exact-text > span { color: var(--accent); font: 7px var(--mono); letter-spacing: .08em; }
-.walkthrough-caption > p { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
-.walkthrough-caption > p em { color: var(--muted); font-size: 8px; }
+.walkthrough-caption > span, .walkthrough-narration-exact-text > span { color: var(--accent); font: 12px var(--mono); letter-spacing: .08em; }
+.walkthrough-caption > p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
+.walkthrough-caption > p em { color: var(--muted); font-size: 12px; }
 .walkthrough-transcript-state.is-playing, .walkthrough-transcript-state.is-preparing, .walkthrough-transcript-state.is-ready { color: var(--accent); }
 .walkthrough-transcript-state.is-unavailable { color: var(--warning); }
 .walkthrough-narration-editor { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
-.walkthrough-narration-editor > summary { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 9px; font-weight: 600; cursor: pointer; list-style: none; }
+.walkthrough-narration-editor > summary { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; list-style: none; }
 .walkthrough-narration-editor > summary::-webkit-details-marker { display: none; }
 .walkthrough-narration-editor[open] > summary svg { transform: rotate(180deg); }
-.walkthrough-narration-editor > p, .walkthrough-pronunciation > p { margin: 6px 0 8px; color: var(--muted); font-size: 8px; line-height: 1.5; }
-.walkthrough-narration-field { min-width: 0; display: grid; gap: 4px; color: var(--muted); font-size: 8px; }
-.walkthrough-narration-field small { color: var(--muted); font-size: 7px; line-height: 1.45; }
-.walkthrough-narration-field textarea, .walkthrough-narration-field input, .walkthrough-narration-field select, .walkthrough-pronunciation-row input { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 9px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.walkthrough-narration-editor > p, .walkthrough-pronunciation > p { margin: 6px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.walkthrough-narration-field { min-width: 0; display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.walkthrough-narration-field small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.walkthrough-narration-field textarea, .walkthrough-narration-field input, .walkthrough-narration-field select, .walkthrough-pronunciation-row input { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .walkthrough-narration-field textarea { min-height: 72px; resize: vertical; }
 .walkthrough-narration-field select { cursor: pointer; }
 .connections-voice .walkthrough-narration-field { gap: 6px; color: var(--text); font-size: 13px; }
@@ -220,56 +220,56 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .connections-voice > details > summary { color: var(--text); font-size: 13px; cursor: pointer; }
 .connections-voice > details > p, .connections-voice > p { font-size: 12px; line-height: 1.6; }
 .walkthrough-pronunciation { margin-top: 9px; padding: 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }
-.walkthrough-pronunciation > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 8px; cursor: pointer; }
-.walkthrough-pronunciation > summary span { color: var(--muted); font: 7px var(--mono); }
+.walkthrough-pronunciation > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.walkthrough-pronunciation > summary span { color: var(--muted); font: 12px var(--mono); }
 .walkthrough-pronunciation-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto 23px; align-items: end; gap: 5px; margin-top: 7px; }
-.walkthrough-pronunciation-row > label { min-width: 0; display: grid; gap: 3px; color: var(--muted); font-size: 7px; }
-.walkthrough-pronunciation-row input[type="text"], .walkthrough-pronunciation-row input:not([type]) { min-height: 25px; padding: 4px 5px; font-size: 8px; }
+.walkthrough-pronunciation-row > label { min-width: 0; display: grid; gap: 3px; color: var(--muted); font-size: 12px; }
+.walkthrough-pronunciation-row input[type="text"], .walkthrough-pronunciation-row input:not([type]) { min-height: 25px; padding: 4px 5px; font-size: 12px; }
 .walkthrough-pronunciation-row .walkthrough-pronunciation-include { display: flex; align-items: center; gap: 4px; padding-bottom: 6px; color: var(--accent); white-space: nowrap; }
 .walkthrough-pronunciation-include input { width: 12px; height: 12px; accent-color: var(--accent); }
 .walkthrough-pronunciation-remove, .walkthrough-add-pronunciation { min-height: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-raised); color: var(--muted); cursor: pointer; }
-.walkthrough-add-pronunciation { margin-top: 8px; color: var(--accent); font-size: 8px; }
+.walkthrough-add-pronunciation { margin-top: 8px; color: var(--accent); font-size: 12px; }
 .walkthrough-playback { display: grid; gap: 5px; margin-top: 10px; }
-.walkthrough-playback-buttons { display: flex; align-items: center; gap: 5px; }
-.walkthrough-playback-buttons button { min-height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--muted); font-size: 8px; cursor: pointer; }
+.walkthrough-playback-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.walkthrough-playback-buttons button { min-height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--muted); font-size: 12px; cursor: pointer; }
 .walkthrough-playback-buttons .walkthrough-play-control { min-width: 66px; border-color: var(--border-strong); color: var(--accent); }
 .walkthrough-playback-buttons button:disabled { opacity: .45; cursor: not-allowed; }
-.walkthrough-duration { margin-left: auto; color: var(--muted); font: 8px var(--mono); }
-.walkthrough-seek-label { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--muted); font-size: 7px; }
+.walkthrough-duration { margin-left: auto; color: var(--muted); font: 12px var(--mono); }
+.walkthrough-seek-label { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .walkthrough-seek-label input { width: 100%; height: 16px; accent-color: var(--accent); cursor: pointer; }
-.walkthrough-narration-prior-audio, .walkthrough-narration-note, .walkthrough-narration-key-status { margin: 7px 0 0; color: var(--warning); font-size: 8px; line-height: 1.5; }
+.walkthrough-narration-prior-audio, .walkthrough-narration-note, .walkthrough-narration-key-status { margin: 7px 0 0; color: var(--warning); font-size: 12px; line-height: 1.5; }
 .walkthrough-narration-review-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--border); }
-.walkthrough-narration-review-actions .secondary-button, .walkthrough-narration-review .primary-button { min-height: 29px; margin: 0; padding: 0 9px; font-size: 8px; }
-.walkthrough-narration-fingerprint { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font: 7px var(--mono); }
+.walkthrough-narration-review-actions .secondary-button, .walkthrough-narration-review .primary-button { min-height: 29px; margin: 0; padding: 0 9px; font-size: 12px; }
+.walkthrough-narration-fingerprint { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font: 12px var(--mono); }
 .walkthrough-narration-review { display: grid; gap: 8px; margin-top: 9px; padding: 9px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); }
 .walkthrough-narration-review-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
 .walkthrough-narration-review-title > div { display: grid; gap: 4px; }
-.walkthrough-narration-review-title > div > span, .walkthrough-narration-review-title > span { color: var(--accent); font: 7px var(--mono); letter-spacing: .07em; }
-.walkthrough-narration-review-title strong { color: var(--accent); font-size: 10px; }
+.walkthrough-narration-review-title > div > span, .walkthrough-narration-review-title > span { color: var(--accent); font: 12px var(--mono); letter-spacing: .07em; }
+.walkthrough-narration-review-title strong { color: var(--accent); font-size: 12px; }
 .walkthrough-narration-review dl { display: grid; gap: 5px; margin: 0; }
-.walkthrough-narration-review dl > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 7px; font-size: 8px; line-height: 1.45; }
+.walkthrough-narration-review dl > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 7px; font-size: 12px; line-height: 1.45; }
 .walkthrough-narration-review dt { color: var(--muted); }
 .walkthrough-narration-review dd { min-width: 0; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
-.walkthrough-narration-review dd code { color: var(--accent); font: 7px var(--mono); }
+.walkthrough-narration-review dd code { color: var(--accent); font: 12px var(--mono); }
 .walkthrough-narration-exact-text { padding: 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--canvas); }
-.walkthrough-narration-exact-text > p { margin: 5px 0 0; color: var(--text); font-size: 9px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.walkthrough-narration-exact-text > p { margin: 5px 0 0; color: var(--text); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .walkthrough-narration-segments { padding: 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); }
-.walkthrough-narration-segments > summary { color: var(--accent); font-size: 8px; cursor: pointer; }
+.walkthrough-narration-segments > summary { color: var(--accent); font-size: 12px; cursor: pointer; }
 .walkthrough-narration-segments ol { display: grid; gap: 7px; margin: 8px 0 0; padding-left: 20px; }
-.walkthrough-narration-segments li { padding-left: 2px; color: var(--muted); font: 7px var(--mono); }
+.walkthrough-narration-segments li { padding-left: 2px; color: var(--muted); font: 12px var(--mono); }
 .walkthrough-narration-segments li > span { color: var(--accent); }
-.walkthrough-narration-segments li > p { margin: 4px 0 0; color: var(--muted); font: 8px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
-.walkthrough-narration-disclosure { display: grid; gap: 5px; color: var(--muted); font-size: 7px; line-height: 1.55; }
+.walkthrough-narration-segments li > p { margin: 4px 0 0; color: var(--muted); font: 12px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.walkthrough-narration-disclosure { display: grid; gap: 5px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .walkthrough-narration-disclosure p { margin: 0; }
 .walkthrough-narration-disclosure strong { color: var(--accent); font-weight: 600; }
 .walkthrough-narration-disclosure nav { display: flex; flex-wrap: wrap; gap: 11px; }
 .walkthrough-narration-disclosure a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.walkthrough-narration-consent { display: flex; align-items: flex-start; gap: 6px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.walkthrough-narration-consent { display: flex; align-items: flex-start; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .walkthrough-narration-consent input { flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--accent); }
 .walkthrough-narration-cancel { display: grid; justify-items: start; gap: 6px; }
-.walkthrough-narration-cancel > .secondary-button { min-height: 27px; padding: 0 8px; font-size: 8px; }
-.walkthrough-narration-cancel > p { margin: 0; color: var(--warning); font-size: 8px; line-height: 1.5; }
-.walkthrough-narration-error { display: flex; align-items: flex-start; gap: 5px; margin: 8px 0 0; color: var(--danger); font-size: 8px; line-height: 1.5; }
+.walkthrough-narration-cancel > .secondary-button { min-height: 27px; padding: 0 8px; font-size: 12px; }
+.walkthrough-narration-cancel > p { margin: 0; color: var(--warning); font-size: 12px; line-height: 1.5; }
+.walkthrough-narration-error { display: flex; align-items: flex-start; gap: 5px; margin: 8px 0 0; color: var(--danger); font-size: 12px; line-height: 1.5; }
 .walkthrough-narration-error svg { flex: 0 0 auto; margin-top: 1px; }
 .walkthrough-transcript-scroll:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 2px; }
 
@@ -288,10 +288,10 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-destination-open:hover { border-color: var(--accent-border); background: var(--accent-soft); }
 
 /* Reader text keeps evidence, references, and navigation comfortable to inspect. */
-.walkthrough-kicker { font-size: 10px; }
+.walkthrough-kicker { font-size: 12px; }
 .walkthrough-panel-heading h3 { font-size: 13px; }
-.walkthrough-evidence-count { font-size: 10px; }
-.walkthrough-transcript-state { font-size: 11px; }
+.walkthrough-evidence-count { font-size: 12px; }
+.walkthrough-transcript-state { font-size: 12px; }
 .walkthrough-transcript-scroll p { font-size: 14px; line-height: 1.7; }
 
 
