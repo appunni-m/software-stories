@@ -542,7 +542,7 @@ export function DeveloperWorkspace(props:Props) {
   const term=(composerSearchActive?query:activity==='search'?repositorySearch:query).trim();
   const searchMode:CodeSearchMode=!composerSearchActive&&activity==='search'&&repositoryRegex?'regex':'code';
   function exploreSearch(searchQuery:string,matches:CodeSearchHit[]){
-    const intent=searchExploration(searchQuery,searchMode,matches);
+    const intent=searchExploration(searchQuery.trim(),searchMode,matches);
     const references=new Map<string,Context>();
     for(const reference of [...intent.context,...attachments]){
       const key=JSON.stringify([reference.path,reference.from??null,reference.to??null]);

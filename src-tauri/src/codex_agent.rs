@@ -103,8 +103,8 @@ pub(crate) struct CodexRunInput {
     pub expected_runtime: CodexReviewRuntime,
     pub model: String,
     pub effort: String,
-    /// Guide investigations run until complete or explicitly stopped. Other
-    /// one-shot operations keep the normal wall-clock guard.
+    /// Interactive, user-started operations run until complete or explicitly
+    /// stopped. Keep wall-clock deadlines for bounded probes only.
     pub run_deadline: RunDeadline,
     pub approval_policy: String,
     pub system_instruction: String,

@@ -4,8 +4,8 @@ export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
 
-/** Offer AI when a settled search has no hits, or code search itself is unavailable.
- * A failed regular expression stays a local search error because its intent is ambiguous. */
+/** Offer AI when a settled search has no hits or did not complete. The visible
+ * search error remains, while the user can still ask AI to interpret the query. */
 export function shouldOfferExploreWithAI(
   query:string,
   mode:CodeSearchMode,
@@ -14,7 +14,7 @@ export function shouldOfferExploreWithAI(
   resultCount:number,
 ):boolean {
   const length=[...query.trim()].length;
-  const hasFallback=error?mode==='code':resultCount===0;
+  const hasFallback=Boolean(error)||resultCount===0;
   return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&hasFallback;
 }
 
