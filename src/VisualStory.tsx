@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
-import { InlineCodeText } from './InlineCodeText';
+import { InlineCodeText, plainInlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
@@ -45,16 +45,17 @@ function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosit
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const labelPosition = storyEdgeLabelPosition(sourceX, targetX, labelX, labelY, data?.vertical ?? false, data?.labelSide ?? 1);
   const label = data?.label ?? '';
+  const accessibleLabel = plainInlineCodeText(label);
   const focused = data?.focused ?? false;
   const onOpenSource = data?.onOpenSource;
   return <>
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
     <EdgeLabelRenderer>
-      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={label}
+      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={accessibleLabel}
         style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelPosition.x}px,${labelPosition.y}px)`, pointerEvents: 'all' }}
-        aria-label={`${label}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
+        aria-label={`${accessibleLabel}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
         onClick={(event) => { event.stopPropagation(); onOpenSource?.(); }}>
-        <span className="story-edge-label-text">{visibleStoryEdgeLabel(label)}</span><Code2 size={11} aria-hidden="true" />
+        <span className="story-edge-label-text"><InlineCodeText text={visibleStoryEdgeLabel(label)}/></span><Code2 size={11} aria-hidden="true" />
       </button>
     </EdgeLabelRenderer>
   </>;
@@ -216,11 +217,13 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const graphLayout = visual ? storyLayoutWithDirection(visual, visibleIds) : undefined;
   const nodes = visual ? graphLayout!.nodes.map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
+    const label = plainInlineCodeText(data.label);
+    const detail = data.detail ? plainInlineCodeText(data.detail) : '';
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
-        <span className="story-node-title">{data.label}</span>
-        {data.detail && <small className="story-node-detail">{data.detail}</small>}
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Open cited source code`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
+        <span className="story-node-title"><InlineCodeText text={data.label}/></span>
+        {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
       </button> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
   }) : [];
@@ -352,20 +355,20 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     };
   }, [scene.id, fullMap, visibleNodeKey, revision.revisionId, section.sectionRevisionId]);
 
-  return <section ref={root} className="visual-story" aria-label={`Visual story: ${section.title}`}>
+  return <section ref={root} className="visual-story" aria-label={`Visual story: ${plainInlineCodeText(section.title)}`}>
     <div className="story-sticky-controls">
       <div className="story-toolbar">
-        <span className="story-scene-title" title={scene.title}>{scene.title}</span>
+        <span className="story-scene-title" title={plainInlineCodeText(scene.title)}><InlineCodeText text={scene.title}/></span>
         <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
-        <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${item.title}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
+        <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
         {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
       </div>
     </div>
-    {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
+    {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
-    </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={visual.title}>
+    </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
-        aria-label={`Read-only visual explanation: ${visual.title}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
+        aria-label={`Read-only visual explanation: ${plainInlineCodeText(visual.title)}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
         onInit={(instance) => {
           flowInstance.current = instance;
           // Reapply the controlled arrays after React Flow initializes. On a
@@ -423,19 +426,19 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         onOpenProviderSettings={onSettings} onPlaybackStarted={onSectionPlaybackStarted} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
       <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
     </div>
-    {!visual && <div className="story-focus-bar"><span>{focus?.label ?? (anchor ? 'Captured code' : section.title)}</span>
+    {!visual && <div className="story-focus-bar"><span><InlineCodeText text={focus?.label ?? (anchor ? 'Captured code' : section.title)}/></span>
       {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
     </div>}
     <details className="story-details"><summary>Scene details & source</summary>
       {focus?.detail && <p><InlineCodeText text={focus.detail}/></p>}
-      {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}>{hotspot.label}<ArrowRight size={13}/></button>}
+      {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}><InlineCodeText text={hotspot.label}/><ArrowRight size={13}/></button>}
       {sourceLinkedEdges.length > 0 && <div className="story-details-connections">
         <h3>Connections</h3>
         <ul>{sourceLinkedEdges.map(({ edge, source, from, to }) => <li key={edge.edgeId}>
           <button data-focus-key={`reader-visual-edge:${edge.edgeId}:${source.anchorId}`} aria-pressed={focusedEdge === edge.edgeId}
-            aria-label={`${from.label} — ${edge.label} — ${to.label}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}
+            aria-label={`${plainInlineCodeText(from.label)} — ${plainInlineCodeText(edge.label)} — ${plainInlineCodeText(to.label)}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}
             onClick={() => chooseEdge(edge.edgeId)}>
-            <span>{from.label}</span><span aria-hidden="true">→</span><span>{edge.label}</span><span aria-hidden="true">→</span><span>{to.label}</span>
+            <span><InlineCodeText text={from.label}/></span><span aria-hidden="true">→</span><span><InlineCodeText text={edge.label}/></span><span aria-hidden="true">→</span><span><InlineCodeText text={to.label}/></span>
             <small>{source.path}:{source.startLine}–{source.endLine}</small>
           </button>
         </li>)}</ul>

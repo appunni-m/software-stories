@@ -6,7 +6,7 @@ import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, M
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
-import { InlineCodeText } from '../InlineCodeText';
+import { InlineCodeText, plainInlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
@@ -859,17 +859,17 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
     const anchor=(n.sourceAnchorId&&n.evidenceAnchorIds.includes(n.sourceAnchorId)?anchorsById.get(n.sourceAnchorId):undefined)??(n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined);
-    const label=<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>;
+    const label=<><strong><InlineCodeText text={n.label}/></strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
-      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
+      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${plainInlineCodeText(n.label)}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:e.label??undefined,
     data:{labelPosition:labelPositions.get(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
     markerEnd:{type:MarkerType.ArrowClosed}}));
-  return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div>
+  return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{plainInlineCodeText(revision.sections[i].title)}</option>:null)}</select>}</div>
     {linearSteps ? <>
       <p>Follow the steps in order. Select a step to open its source.</p>
-      <ol className="dw-linear-flow" aria-label={`Steps in ${visual.title}`}>
+      <ol className="dw-linear-flow" aria-label={`Steps in ${plainInlineCodeText(visual.title)}`}>
         {linearSteps.map(({node, next}, index) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
           const evidenceAnchor=anchorsById.get(sourceAnchorId);
@@ -877,28 +877,28 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
           if (!anchor) return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
           return <li className="dw-linear-flow-item" key={node.nodeId}>
-            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${node.label}. Open source ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${plainInlineCodeText(node.label)}. Open source ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
               <span className="dw-linear-flow-index">Step {index+1}</span>
-              <strong>{node.label}</strong>
-              {node.detail&&<small>{node.detail}</small>}
+              <strong><InlineCodeText text={node.label}/></strong>
+              {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
               <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
             </button>
-            {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span>{next.label||'Then'}</span></div>}
+            {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span><InlineCodeText text={next.label||'Then'}/></span></div>}
           </li>;
         })}
       </ol>
     </> : unlinkedNodes ? <>
       <p>The evidence for this explanation does not define a path between these points. Select one to inspect its code.</p>
-      <ul className="dw-unlinked-flow" aria-label={`Source points in ${visual.title}`}>
+      <ul className="dw-unlinked-flow" aria-label={`Source points in ${plainInlineCodeText(visual.title)}`}>
         {unlinkedNodes.map((node) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
           const evidenceAnchor=anchorsById.get(sourceAnchorId);
           const anchor=evidenceAnchor?sourceAnchorForVisualNode(evidenceAnchor,node,node.sourceValue??sourceValues.get(node.nodeId)):undefined;
           if(!anchor)return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
-          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Open source for ${node.label} at ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
-            <strong>{node.label}</strong>
-            {node.detail&&<small>{node.detail}</small>}
+          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Open source for ${plainInlineCodeText(node.label)} at ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+            <strong><InlineCodeText text={node.label}/></strong>
+            {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
             <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
           </button></li>;
         })}
