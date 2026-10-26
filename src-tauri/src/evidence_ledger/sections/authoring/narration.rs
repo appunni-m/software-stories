@@ -56,7 +56,7 @@ pub(crate) fn schema() -> Value {
         "required":["title","narration","mode","nodes","edges","elements"],
         "properties":{
             "title":{"type":"string","minLength":1,"maxLength":120},
-            "narration":{"type":"string","minLength":20,"maxLength":320},
+            "narration":{"type":"string","minLength":20,"maxLength":crate::scene_presentation::MAX_SCENE_NARRATION_BYTES},
             "mode":{"type":"string","enum":["narration"]},
             "nodes":{"type":"array","maxItems":0},
             "edges":{"type":"array","maxItems":0},

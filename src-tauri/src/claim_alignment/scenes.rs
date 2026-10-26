@@ -282,7 +282,7 @@ mod tests {
     fn long_scene_narration_gets_a_private_positional_repair() {
         let long_sentence = "a".repeat(crate::scene_presentation::MAX_SCENE_NARRATION_BYTES + 1);
         for narration in [
-            "First outcome. Second outcome. Third outcome.",
+            "First outcome. Second outcome. Third outcome. Final result.",
             long_sentence.as_str(),
         ] {
             let mut proposal = composed_proposal(3);
@@ -302,7 +302,7 @@ mod tests {
             assert!(!serialized.contains(narration));
             let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
             assert!(prompt.contains("narrationConciseness finding"));
-            assert!(prompt.contains("two short sentences or 320 UTF-8 bytes"));
+            assert!(prompt.contains("three short sentences or 520 UTF-8 bytes"));
             assert!(!prompt.contains(narration));
         }
     }

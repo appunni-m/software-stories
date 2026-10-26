@@ -7,14 +7,15 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
-pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 320;
+pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 520;
 
-/// A short audio scene must stay listenable even when a generator ignores its
-/// prompt. This is a duration guard, not semantic or language-quality proof.
+/// One audio scene must stay listenable even when a generator ignores its
+/// prompt. The limit leaves room to explain a real decision and its outcome;
+/// it does not prove that the narration is useful or accurately paced.
 pub(crate) fn scene_narration_is_concise(text: &str) -> bool {
     !text.trim().is_empty()
         && text.len() <= MAX_SCENE_NARRATION_BYTES
-        && sentence_ending_count(text) <= 2
+        && sentence_ending_count(text) <= 3
 }
 
 fn sentence_ending_count(text: &str) -> usize {
@@ -215,7 +216,7 @@ pub(crate) fn narration(
             || claim.anchors.is_empty()
             || !scene_narration_is_concise(text)
         {
-            return Err("Each scene needs at most two short natural sentences, no longer than 320 UTF-8 bytes, and its own consecutive anchored claim.".into());
+            return Err("Each scene needs at most three short natural sentences, no longer than 520 UTF-8 bytes, and its own consecutive anchored claim.".into());
         }
         if has_compact_spoken_code_token(text) {
             return Err(
@@ -541,7 +542,7 @@ pub(crate) fn proposal_schema() -> Value {
             "type":"object","additionalProperties":false,"required":["claimIndex","title","narration","mode","elements"],"properties":{
                 "claimIndex":{"type":"integer","minimum":0,"maximum":19},
                 "title":{"type":"string","minLength":1,"maxLength":120},
-                "narration":{"type":"string","minLength":1,"maxLength":320},
+                "narration":{"type":"string","minLength":1,"maxLength":520},
                 "mode":{"type":"string","enum":["composition","graph"]},
                 "elements":{"type":"array","maxItems":48,"items":{
                     "type":"object","additionalProperties":false,
@@ -946,7 +947,7 @@ mod tests {
     }
 
     #[test]
-    fn scene_narration_enforces_short_speech_without_splitting_decimals_or_cjk_sentences() {
+    fn scene_narration_allows_a_story_beat_without_splitting_decimals_or_cjk_sentences() {
         assert!(scene_narration_is_concise(
             "A point enters the transform. Its outline position is preserved."
         ));
@@ -955,7 +956,7 @@ mod tests {
         ));
         assert!(scene_narration_is_concise("点进入变换。轮廓标记保持不变！"));
         assert!(!scene_narration_is_concise(
-            "First outcome. Second outcome. Third outcome."
+            "First outcome. Second outcome. Third outcome. Final result."
         ));
         assert!(!scene_narration_is_concise(
             &"a".repeat(MAX_SCENE_NARRATION_BYTES + 1)
