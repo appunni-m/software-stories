@@ -2201,6 +2201,20 @@ pub(crate) fn search_files_with_mode_page(
     })
 }
 
+fn merge_query_term_candidate(
+    candidates: &mut HashMap<usize, (bool, bool, f32)>,
+    term_coverage: &mut HashMap<usize, u32>,
+    range_id: usize,
+    score: f32,
+    term_bit: u32,
+) {
+    let candidate = candidates
+        .entry(range_id)
+        .or_insert((false, false, score));
+    candidate.2 = candidate.2.max(score);
+    *term_coverage.entry(range_id).or_default() |= term_bit;
+}
+
 fn search_ranked(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,
@@ -2356,12 +2370,13 @@ fn search_ranked(
             })
             .or_insert((exact, declaration, score));
     }
-    let mut term_coverage = HashMap::new();
+    let mut term_coverage = HashMap::<usize, u32>::new();
+    let mut coverage_limited = false;
     if natural_query_coverage {
         let body_field = field(&prepared.index, "body")?;
         let body_stem_field = field(&prepared.index, "body_stem")?;
         let symbol_field = field(&prepared.index, "symbol")?;
-        for word in &words {
+        for (term_index, word) in words.iter().enumerate() {
             budget.check()?;
             let mut clauses = vec![
                 (Occur::Should, term_query(body_field, word)),
@@ -2381,22 +2396,49 @@ fn search_ranked(
                 }
             }
             let term = scoped(Box::new(BooleanQuery::new(clauses)), &prepared.index, path)?;
-            let (hits, _) = ranking::candidates_with_limit(&searcher, &term, ranking_limit)
+            let (hits, count) = ranking::candidates_with_limit(&searcher, &term, ranking_limit)
                 .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
-            for (index, (_, address)) in hits.into_iter().enumerate() {
+            coverage_limited |= count > ranking_limit;
+            let term_bit = 1u32 << term_index;
+            for (index, (score, address)) in hits.into_iter().enumerate() {
                 if index % 128 == 0 {
                     budget.check()?;
                 }
-                if let Some(range_id) = candidate_address_ids.get(&address) {
-                    *term_coverage.entry(*range_id).or_insert(0usize) += 1;
-                }
+                let range_id = if let Some(range_id) = candidate_address_ids.get(&address) {
+                    *range_id
+                } else {
+                    let doc = searcher
+                        .doc::<TantivyDocument>(address)
+                        .map_err(|_| "A code search result is unavailable.".to_owned())?;
+                    let id = doc
+                        .get_first(range_key)
+                        .and_then(|value| value.as_str())
+                        .and_then(|key| prepared.ranges_by_key.get(key).copied())
+                        .ok_or("The code search index is invalid.")?;
+                    if id >= prepared.metadata.ranges.len() {
+                        return Err("The code search index is invalid.".to_owned());
+                    }
+                    candidate_address_ids.insert(address, id);
+                    id
+                };
+                merge_query_term_candidate(
+                    &mut candidates,
+                    &mut term_coverage,
+                    range_id,
+                    score,
+                    term_bit,
+                );
             }
         }
     }
     let mut ranked = candidates
         .into_iter()
         .map(|(id, (exact, declaration, score))| {
-            let coverage = term_coverage.get(&id).copied().unwrap_or(0);
+            let coverage = term_coverage
+                .get(&id)
+                .copied()
+                .unwrap_or_default()
+                .count_ones() as usize;
             (id, (exact, declaration, coverage, score))
         })
         .collect::<Vec<_>>();
@@ -2445,7 +2487,7 @@ fn search_ranked(
             .chain(diversify_by_path_limited(other, &path_for, path_limit))
             .collect();
     }
-    let limited = exact_limited || total > limit || ranked.len() > limit;
+    let limited = exact_limited || coverage_limited || total > limit || ranked.len() > limit;
     let exact_terms = vec![query.rsplit("::").next().unwrap_or(query).to_owned()];
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(true)
@@ -2524,7 +2566,23 @@ fn search_ranked(
                 exact_identifier,
                 declaration_match,
                 score,
-                query_coverage: None,
+                query_coverage: natural_query_coverage.then(|| {
+                    let matched_terms = term_coverage
+                        .get(&id)
+                        .copied()
+                        .unwrap_or_default();
+                    QueryCoverage {
+                        matched_terms: words
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(term_index, word)| {
+                                (matched_terms & (1u32 << term_index) != 0)
+                                    .then(|| word.clone())
+                            })
+                            .collect(),
+                        total_terms: words.len(),
+                    }
+                }),
             });
         }
     }

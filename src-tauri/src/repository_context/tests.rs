@@ -235,6 +235,56 @@ fn broad_natural_search_does_not_match_only_a_filename_but_explicit_paths_do() {
 }
 
 #[test]
+fn natural_range_search_admits_and_reports_bounded_per_term_candidates() {
+    let mut candidates = HashMap::new();
+    let mut coverage = HashMap::new();
+    merge_query_term_candidate(&mut candidates, &mut coverage, 17, 0.25, 1 << 0);
+    merge_query_term_candidate(&mut candidates, &mut coverage, 23, 0.5, 1 << 1);
+    merge_query_term_candidate(&mut candidates, &mut coverage, 17, 0.75, 1 << 2);
+
+    assert_eq!(candidates.len(), 2, "term-only hits join the candidate set");
+    assert_eq!(candidates[&17], (false, false, 0.75));
+    assert_eq!(coverage[&17].count_ones(), 2);
+    assert_eq!(coverage[&23].count_ones(), 1);
+}
+
+#[test]
+fn natural_range_search_exposes_verified_query_coverage() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/render.rs",
+        "fn render_font_bytes_to_bitmap() { parse_glyph_outline(); apply_hinting(); rasterize(); }\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    let hit = result
+        .matches
+        .iter()
+        .find(|hit| hit.range.path == "src/render.rs")
+        .expect("the implementation should be returned from its source body");
+    let coverage = hit
+        .query_coverage
+        .as_ref()
+        .expect("natural-language range search should disclose lexical coverage");
+    assert_eq!(coverage.total_terms, 10);
+    assert!(coverage.matched_terms.contains(&"font".to_owned()));
+    assert!(coverage.matched_terms.contains(&"bytes".to_owned()));
+    assert!(coverage.matched_terms.contains(&"bitmap".to_owned()));
+}
+
+#[test]
 fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     let mut fixture = Fixture::new();
     add_source(
