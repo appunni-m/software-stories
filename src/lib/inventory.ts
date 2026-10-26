@@ -52,6 +52,20 @@ const languageByExtension: Record<string, string> = {
   c: 'C', h: 'C', cc: 'C++', cpp: 'C++', cxx: 'C++', hpp: 'C++',
   cs: 'C#', swift: 'Swift', kt: 'Kotlin', kts: 'Kotlin',
   rb: 'Ruby', php: 'PHP', scala: 'Scala', sc: 'Scala',
+  ex: 'Elixir', exs: 'Elixir', erl: 'Erlang', hrl: 'Erlang',
+  hs: 'Haskell', lhs: 'Haskell', ml: 'OCaml', mli: 'OCaml',
+  fs: 'F#', fsx: 'F#', clj: 'Clojure', cljs: 'Clojure', cljc: 'Clojure',
+  lua: 'Lua', zig: 'Zig', dart: 'Dart', vue: 'Vue', svelte: 'Svelte',
+  jl: 'Julia', pl: 'Perl', pm: 'Perl', r: 'R',
+  asm: 'Assembly', s: 'Assembly', v: 'Verilog', sv: 'SystemVerilog',
+  vhd: 'VHDL', vhdl: 'VHDL', sol: 'Solidity', proto: 'Protocol Buffers',
+  purs: 'PureScript', res: 'ReScript', resi: 'ReScript', coffee: 'CoffeeScript',
+  odin: 'Odin', gleam: 'Gleam', elm: 'Elm',
+  f: 'Fortran', f90: 'Fortran', f95: 'Fortran', f03: 'Fortran',
+  cob: 'COBOL', cbl: 'COBOL', nix: 'Nix', tf: 'Terraform',
+  cmake: 'CMake', prisma: 'Prisma', gradle: 'Gradle',
+  ps1: 'PowerShell', bat: 'Batch', cmd: 'Batch',
+  m: 'Objective-C', mm: 'Objective-C++',
   json: 'JSON', jsonc: 'JSON with comments', yaml: 'YAML', yml: 'YAML', toml: 'TOML',
   md: 'Markdown', mdx: 'MDX', rst: 'reStructuredText', txt: 'Text',
   html: 'HTML', htm: 'HTML', css: 'CSS', scss: 'SCSS', less: 'Less',
@@ -73,6 +87,7 @@ export function languageForPath(path: string): string {
   const name = path.split('/').at(-1)?.toLowerCase() ?? '';
   if (name === 'dockerfile') return 'Dockerfile';
   if (name === 'makefile' || name === 'gnumakefile') return 'Makefile';
+  if (name === 'cmakelists.txt') return 'CMake';
   const extension = name.includes('.') ? name.split('.').at(-1) ?? '' : '';
   return languageByExtension[extension] ?? (extension ? `.${extension}` : 'No extension');
 }

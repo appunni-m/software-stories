@@ -9,8 +9,12 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import type { Context as CodeContext } from '../workspace/model';
 import { codeSelectionContext } from '../lib/codeSelection';
+import { languageForPath } from '../lib/inventory';
 
-const sourceLanguage = (path: string) => ({rs:'Rust',ts:'TypeScript',tsx:'TSX',mts:'TypeScript',cts:'TypeScript',js:'JavaScript',jsx:'JSX',mjs:'JavaScript',cjs:'JavaScript',py:'Python',go:'Go',swift:'Swift',java:'Java',c:'C',h:'C/C++',cpp:'C++',cs:'C#',rb:'Ruby',php:'PHP',sh:'Shell',json:'JSON',toml:'TOML',yaml:'YAML',yml:'YAML',md:'Markdown',mdx:'MDX',html:'HTML',css:'CSS'}[path.split('.').at(-1)?.toLowerCase() ?? ''] ?? 'Plain text');
+const sourceLanguage = (path: string) => {
+  const language = languageForPath(path);
+  return language.startsWith('.') || language === 'No extension' ? 'Plain text' : language;
+};
 
 const colors = HighlightStyle.define([
   { tag: tags.keyword, color: 'var(--code-keyword)' },

@@ -215,7 +215,7 @@ pub(crate) fn is_code_path(path: &str) -> bool {
 }
 
 fn query_term_matches(value: &str, words: &[String]) -> usize {
-    let lower = value.to_ascii_lowercase();
+    let lower = value.to_lowercase();
     words
         .iter()
         .filter(|word| lower.contains(word.as_str()))
@@ -260,7 +260,7 @@ fn metadata(
         .question
         .split(|c: char| !c.is_alphanumeric())
         .filter(|word| word.len() > 2)
-        .map(str::to_ascii_lowercase)
+        .map(str::to_lowercase)
         .collect();
     words.sort_unstable();
     words.dedup();
