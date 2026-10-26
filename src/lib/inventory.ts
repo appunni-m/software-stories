@@ -45,6 +45,8 @@ const partialStructuralParserLanguages = new Set([
   'TypeScript', 'JavaScript', 'Rust', 'Python', 'Go',
 ]);
 
+const documentationExtensions = new Set(['md', 'markdown', 'mdx', 'rst', 'adoc', 'asciidoc', 'txt']);
+
 const languageByExtension: Record<string, string> = {
   ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript',
   js: 'JavaScript', jsx: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript',
@@ -108,6 +110,12 @@ export function languageForPath(path: string): string {
 function isDockerfileName(name: string): boolean {
   return name === 'dockerfile' || name === 'containerfile'
     || name.startsWith('dockerfile.') || name.startsWith('containerfile.');
+}
+
+export function isDocumentationPath(path: string): boolean {
+  const filename = path.split('/').at(-1)?.toLowerCase() ?? '';
+  const extension = filename.includes('.') ? filename.split('.').at(-1) ?? '' : '';
+  return documentationExtensions.has(extension);
 }
 
 function categoriesForPath(path: string, secretLike: boolean): InventoryCategory[] {

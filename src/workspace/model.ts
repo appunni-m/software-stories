@@ -1,6 +1,7 @@
 import { cleanReaderProgress, cleanStoryProgress, cleanDiagramProgress, sameSection, withReaderProgress, type StoryProgress, type DiagramProgress, type ReaderProgress } from '../lib/readerProgress.ts';
 import { cleanAnswerVersions, ownsAnswerRevision, type AnswerVersion } from './answerVersions.ts';
 import type { ChapterRevisionLifecycle } from '../lib/commands.ts';
+import { isDocumentationPath } from '../lib/inventory.ts';
 
 // Match workspace_conversation::MAX_BYTES before either parsing or persisting.
 const MAX_WORKSPACE_STATE_BYTES = 8 * 1024 * 1024;
@@ -713,7 +714,7 @@ export function learningQuestion(state: WorkspaceState, explorationId: string, t
 
 /** Route an AI-selected single code file through the file explanation contract. */
 export function chapterTarget(context: Context[], selectedPaths: string[]): string | null {
-  const isCode = (path: string) => !/\.(md|mdx|rst|txt|adoc)$/i.test(path);
+  const isCode = (path: string) => !isDocumentationPath(path);
   const explicit = context.find((item) => selectedPaths.includes(item.path) && isCode(item.path));
   return explicit?.path ?? (selectedPaths.length === 1 && isCode(selectedPaths[0]) ? selectedPaths[0] : null);
 }
