@@ -367,9 +367,11 @@ export function DeveloperWorkspace(props:Props) {
       &&review.context.sha256===review.sourceSha256;
   }
   function explain(context:Context){
+    if(conversationUnavailable)return;
     const selected=bindSelectionToDisplayedSource(context,source);
+    const question=`Explain what ${label(selected)} does and how it works.`;
     const reject=(message:string)=>{
-      setCodeRequestReview({context:selected,question:`Explain what ${label(selected)} does and how it works.`,snapshotId,
+      setCodeRequestReview({context:selected,question,snapshotId,
         sourceSha256:source?.sha256??selected.sha256??'',sourceExcerpt:'',excerptTruncated:false});
       setCodeRequestReviewError(message);
     };
@@ -387,10 +389,13 @@ export function DeveloperWorkspace(props:Props) {
       reject('The selected source range could not be verified. Close this review, reopen the file, and select its code again.');
       return;
     }
-    const excerpt=hasRange?lines.slice((selected.from??1)-1,selected.to??lines.length):lines;
-    setConnectionNotice(null);setCodeRequestReviewError(null);
-    setCodeRequestReview({context:selected,question:`Explain what ${label(selected)} does and how it works.`,snapshotId,
-      sourceSha256:source.sha256,sourceExcerpt:excerpt.slice(0,40).join('\n'),excerptTruncated:excerpt.length>40});
+    if(!requireCodexConnection()){
+      updateWorkspaceDraft(projectId,snapshotId,current.id,{question,context:[selected]});
+      setCodeRequestReview(null);setCodeRequestReviewError(null);
+      return;
+    }
+    setConnectionNotice(null);setCodeRequestReview(null);setCodeRequestReviewError(null);
+    ask(question,current.view==='flow'?'flow':'guide',[selected]);
   }
   function acceptCodeRequestReview(){
     const review=codeRequestReview;
