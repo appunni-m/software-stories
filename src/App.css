@@ -136,6 +136,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .simple-empty .step-pill { margin-top: 14px; }
 .simple-empty h2 { max-width: 560px; margin-top: 12px; }
 .simple-empty p { max-width: 560px; }
+.workflow-empty-actions { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; margin-top:18px; }
 .empty-state-icon { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 16px; background: linear-gradient(145deg, var(--surface-hover), var(--surface-raised)); color: var(--accent); box-shadow: 0 10px 35px color-mix(in srgb, var(--shadow) 20%, transparent); }
 .code-icon { color: var(--blue); border-color: var(--blue-border); background: linear-gradient(145deg, var(--blue-soft), var(--surface-raised)); }
 .play-icon { color: var(--accent); border-color: var(--border-strong); }

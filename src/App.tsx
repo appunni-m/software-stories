@@ -692,10 +692,10 @@ function App() {
         ? { ...state, current: { ...state.current, focusTarget: returnFocus } }
         : state;
       return navigateToRoute(stateWithOriginFocus, {
-        workspace: 'atlas',
+        workspace: 'guide-plan',
         projectId: project.projectId,
         snapshotId: null,
-        focusTarget: 'heading:atlas',
+        focusTarget: 'heading:guide-plan',
       });
     });
     setProjectMenuOpen(false);
@@ -1837,8 +1837,14 @@ function App() {
               />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Guide Plan…</span></div>
+            ) : currentWorkspace === 'guide-plan' && currentCapture?.status === 'running' ? (
+              <SnapshotCaptureState progress={currentCapture} onCancel={() => { void stopSnapshot(); }} />
+            ) : currentWorkspace === 'guide-plan' && (currentCapture?.status === 'failed' || currentCapture?.status === 'inconsistent' || currentCapture?.status === 'cancelled') ? (
+              <SnapshotCaptureResult progress={currentCapture} onRetry={() => { void createSnapshot(); }} />
             ) : currentWorkspace === 'guide-plan' ? (
-              <WorkflowEmptyState kind="plan" onGoAtlas={() => chooseWorkspace('atlas')} />
+              <WorkflowEmptyState kind="plan" onGoAtlas={() => chooseWorkspace('atlas')}
+                onCreateSnapshot={currentProject ? () => { void createSnapshot(); } : undefined}
+                onOpenRepository={() => { void openLocalRepository(); }} captureBusy={snapshotBusy} />
             ) : currentWorkspace === 'chapter-studio' && currentProject && selectedSnapshot && snapshotManifest ? (
               <ChapterStudioScreen
                 key={`${currentProject.projectId}:${selectedSnapshot.snapshotId}`}
@@ -5229,17 +5235,28 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
   );
 }
 
-function WorkflowEmptyState({ kind, onGoAtlas, onGoPlan }: { kind: 'plan' | 'studio'; onGoAtlas?: () => void; onGoPlan?: () => void }) {
+function WorkflowEmptyState({ kind, onGoAtlas, onGoPlan, onCreateSnapshot, onOpenRepository, captureBusy = false }: {
+  kind: 'plan' | 'studio'; onGoAtlas?: () => void; onGoPlan?: () => void;
+  onCreateSnapshot?: () => void; onOpenRepository?: () => void; captureBusy?: boolean;
+}) {
   const isPlan = kind === 'plan';
   const Icon = isPlan ? ListChecks : BookOpen;
   return (
     <div className="empty-workspace simple-empty workflow-empty">
       <div className={`empty-state-icon ${isPlan ? 'plan-icon' : 'studio-icon'}`}><Icon size={23} /></div>
       <div className="step-pill"><span>{isPlan ? 'GUIDE' : 'EDIT'}</span> {isPlan ? 'GET STARTED' : 'REVIEW'}</div>
-      <h2>{isPlan ? 'Capture a repository to start a guide.' : 'Choose an explanation to review.'}</h2>
-      <p>{isPlan ? 'Open a local repository and capture its files. The Guide will show what needs an explanation and what is ready to read.' : 'Open the Guide and choose a draft or accepted explanation. You can check its claims beside the source.'}</p>
-      <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={isPlan ? onGoAtlas : onGoPlan}>{isPlan ? 'Open Files' : 'Open Guide'} <ArrowRight size={15} /></button>
-      <div className="state-note"><HardDrive size={14} /> {isPlan ? 'Source is read only when you choose to capture a snapshot.' : 'Nothing is sent to an AI provider until you review a request.'}</div>
+      <h2>{isPlan ? 'Start exploring this repository.' : 'Choose an explanation to review.'}</h2>
+      <p>{isPlan ? 'Capture a local snapshot to open the code explorer and ask questions in Guide. Your live files stay untouched.' : 'Open the Guide and choose a draft or accepted explanation. You can check its claims beside the source.'}</p>
+      <div className="workflow-empty-actions">
+        {isPlan && onCreateSnapshot ? <button className="primary-button" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={captureBusy}>
+          <HardDrive size={16} /> {captureBusy ? 'Starting capture…' : 'Capture repository'} <span>LOCAL</span>
+        </button> : isPlan && onOpenRepository ? <button className="primary-button" data-focus-key="action:pick-repository" onClick={onOpenRepository}>
+          <FolderOpen size={16} /> Choose a local repository
+        </button> : null}
+        {isPlan && onGoAtlas && <button className="secondary-button" data-focus-key="cta:plan-files" onClick={onGoAtlas}>Open Files <ArrowRight size={15} /></button>}
+        {!isPlan && <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={onGoPlan}>Open Guide <ArrowRight size={15} /></button>}
+      </div>
+      <div className="state-note"><HardDrive size={14} /> {isPlan ? 'Source is read only after you choose Capture repository.' : 'Nothing is sent to an AI provider until you review a request.'}</div>
     </div>
   );
 }
