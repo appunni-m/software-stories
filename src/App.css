@@ -975,6 +975,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .provider-dialog-header p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 .provider-dialog-header > .icon-button { flex: 0 0 auto; }
 .provider-dialog-content { display: grid; gap: 13px; padding: 16px 24px 22px; overflow-y: auto; overscroll-behavior: contain; }
+.provider-alternatives { min-width: 0; padding-top: 12px; border-top: 1px solid var(--border); }
+.provider-alternatives > summary { width: fit-content; color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; }
+.provider-alternatives-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; margin-top: 12px; }
+.provider-alternatives-grid > [role="status"] { grid-column: 1 / -1; margin: 0; }
+.provider-alternative-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .provider-dialog .primary-button, .provider-dialog .secondary-button { margin-top: 0; box-shadow: none; }
 .provider-key-card, .provider-disclosure-card, .provider-review-card { min-width: 0; border: 1px solid var(--blue-border); border-radius: 9px; background: var(--surface-raised); }
 .provider-key-card > summary { padding: 12px 14px; color: var(--text); font-size: 11px; font-weight: 650; cursor: pointer; }
