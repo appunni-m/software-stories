@@ -37,33 +37,21 @@ test('native zero and scene selection restore without autoplay or unscoped fallb
   assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
 });
 
-test('focused graph progress migrates one previous layout without restoring its viewport',()=>{
+test('focused graph progress keeps its current layout and exact section position',()=>{
   const scenes=[{id:'claim:second'}];
-  const oldFocused={...story,fullMap:false};
-  assert.deepEqual(readSectionStoryProgress(oldFocused,identity,scenes),{
+  const focused={...story,fullMap:false};
+  assert.deepEqual(readSectionStoryProgress(focused,identity,scenes),{
     index:0,positions:[['claim:second',3.2]],fullMap:false,viewport:story.viewport,
   });
   assert.deepEqual(readSectionStoryProgress(story,identity,scenes),{
     index:0,positions:[['claim:second',3.2]],fullMap:true,viewport:story.viewport,
   });
-  const browserProgress=readStoryProgress(JSON.stringify(oldFocused),identity,scenes);
+  const browserProgress=readStoryProgress(JSON.stringify(focused),identity,scenes);
   assert.equal(browserProgress.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
   assert.deepEqual(browserProgress.viewport,story.viewport);
-  assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(oldFocused)),undefined);
-  const previousLayout={...oldFocused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-1};
-  assert.deepEqual(cleanStoryProgress(previousLayout),{
-    revisionId:identity.revisionId,sectionId:identity.sectionId,sectionRevisionId:identity.sectionRevisionId,
-    sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:false,
-    focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
-  });
-  assert.deepEqual(readSectionStoryProgress(previousLayout,identity,scenes),{
-    index:0,positions:[['claim:second',3.2]],fullMap:false,viewport:undefined,
-  });
-  const migrated=readStoryProgress(JSON.stringify(previousLayout),identity,scenes);
-  assert.equal(migrated.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
-  assert.equal(migrated.viewport,undefined,'stale coordinates are dropped while section/audio progress survives');
-  assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-2}),undefined);
-  assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:1}),undefined);
+  assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(focused)),undefined);
+  assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-2}),undefined);
+  assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:1}),undefined);
 });
 
 test('Flow viewport restoration accepts only the current layout version',()=>{
