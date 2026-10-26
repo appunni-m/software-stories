@@ -39,6 +39,7 @@ import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLay
 import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
 import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
+import { isEditableKeyboardTarget } from '../lib/keyboardShortcuts';
 import { plainInlineCodeText } from '../lib/inlineCode';
 import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
@@ -567,6 +568,7 @@ export function DeveloperWorkspace(props:Props) {
     const quickOpen=()=>{setActivity('files');setFileFilter('');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>{search.current?.focus();search.current?.select();});};
     const listener=(event:KeyboardEvent)=>{
       if(document.querySelector('[role="dialog"][aria-modal="true"]'))return;
+      if(event.isComposing||isEditableKeyboardTarget(event.target))return;
       const mod=event.metaKey||event.ctrlKey; const k=event.key.toLowerCase();
       if(mod&&event.shiftKey&&k==='f'){event.preventDefault();event.stopImmediatePropagation();findInRepository();}
       else if(mod&&(k==='p'||k==='k')){event.preventDefault();event.stopImmediatePropagation();quickOpen();}

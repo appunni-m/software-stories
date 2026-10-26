@@ -7,6 +7,7 @@ import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
+import { isEditableKeyboardTarget } from './lib/keyboardShortcuts';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
@@ -1091,6 +1092,7 @@ function App() {
         return;
       }
 
+      if (event.isComposing || isEditableKeyboardTarget(event.target)) return;
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
       if (key === '1') {
