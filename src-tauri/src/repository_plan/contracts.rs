@@ -7,8 +7,11 @@ pub(super) enum RequestContract {
 }
 impl RequestContract {
     pub(super) const CURRENT: Self = Self::ExplicitEvidence;
-    pub(super) fn system_instruction(self) -> &'static str {
-        SYSTEM_CODE_FIRST
+    pub(super) fn system_instruction(self) -> String {
+        format!(
+            "{SYSTEM_CODE_FIRST}\n\n{}",
+            crate::provider::visual_scenes::READER_LANGUAGE_POLICY
+        )
     }
     pub(super) fn user_prompt(
         self,

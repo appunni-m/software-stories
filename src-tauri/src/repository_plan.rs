@@ -27,7 +27,7 @@ mod contracts;
 use contracts::RequestContract;
 
 // Immutable evidence/context serialization for the current planning request.
-const PROMPT_VERSION: &str = "grounded-repository-plan-v1";
+const PROMPT_VERSION: &str = "grounded-repository-plan-v2";
 const MAX_STEPS: usize = 24;
 const MAX_RESPONSE_BYTES: usize = 1_000_000;
 const INVALID: &str = "The repository plan does not match the reviewed source, evidence or planning contract. No plan or chapter was saved.";
@@ -132,7 +132,7 @@ pub(crate) struct PreparedRepositoryPlanContext {
     index_status: &'static str,
     index_evidence_truncated: bool,
     source_bytes: usize,
-    system_instruction: &'static str,
+    system_instruction: String,
     user_prompt: String,
     output_schema: Value,
     request_body_bytes: usize,
@@ -167,7 +167,7 @@ impl PreparedRepositoryPlanContext {
             selected_relationships: self.selected_relationships,
             index_evidence_truncated: self.index_evidence_truncated,
             source_bytes: self.source_bytes,
-            system_instruction: self.system_instruction.to_owned(),
+            system_instruction: self.system_instruction,
             user_prompt: self.user_prompt,
             output_schema: self.output_schema,
         }
