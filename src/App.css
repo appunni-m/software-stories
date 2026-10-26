@@ -1383,6 +1383,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .provider-key-actions a:hover, .provider-source-links a:hover { color: var(--accent); }
 .provider-small-note, .provider-status-note { color: var(--muted) !important; font-size: 9px !important; line-height: 1.55 !important; }
 .provider-status-note { color: var(--accent) !important; }
+.provider-preference-warning { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--danger-border); border-radius: 7px; background: var(--danger-soft); color: var(--danger); font-size: 12px; line-height: 1.5; }
 .provider-error-text { color: var(--danger) !important; font-size: 10px !important; }
 .provider-disclosure-card, .provider-review-card { padding: 14px; }
 .provider-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

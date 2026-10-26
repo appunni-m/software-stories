@@ -29,18 +29,32 @@ function isSelection(value: unknown): value is Selection {
     && record.maxTurns >= 1 && record.maxTurns <= 8;
 }
 
-function preferences(): Selection {
-  try {
-    const text = localStorage.getItem(preferenceKey) ?? '';
-    const value: unknown = text.length <= 1024 ? JSON.parse(text) : null;
-    if (isSelection(value)) return { modelId: value.modelId, effort: value.effort, maxTurns: value.maxTurns };
-  } catch { /* Optional defaults contain no account data or consent. */ }
-  return { modelId: '', effort: null, maxTurns: 4 };
+interface SavedPreferences {
+  selection: Selection;
+  unavailable: boolean;
 }
 
-function remember(value: Selection) {
-  if (!isSelection(value)) return;
-  try { localStorage.setItem(preferenceKey, JSON.stringify(value)); } catch { /* Optional. */ }
+function preferences(): SavedPreferences {
+  let text: string | null;
+  try {
+    text = localStorage.getItem(preferenceKey);
+  } catch {
+    return { selection: { modelId: '', effort: null, maxTurns: 4 }, unavailable: true };
+  }
+  if (text === null) return { selection: { modelId: '', effort: null, maxTurns: 4 }, unavailable: false };
+  if (text.length > 1024) return { selection: { modelId: '', effort: null, maxTurns: 4 }, unavailable: true };
+  try {
+    const value: unknown = JSON.parse(text);
+    if (isSelection(value)) {
+      return { selection: { modelId: value.modelId, effort: value.effort, maxTurns: value.maxTurns }, unavailable: false };
+    }
+  } catch { /* Keep unreadable saved settings untouched until the user replaces them. */ }
+  return { selection: { modelId: '', effort: null, maxTurns: 4 }, unavailable: true };
+}
+
+function remember(value: Selection): boolean {
+  if (!isSelection(value)) return false;
+  try { localStorage.setItem(preferenceKey, JSON.stringify(value)); return true; } catch { return false; }
 }
 
 function reviewError(error: ProviderFailure): string {
@@ -84,7 +98,8 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   const connection = discovery.reviewConnection;
   const connectionId = connection?.connectionId ?? '';
   const connectionExpiry = connection?.expiresAtUnixMs ?? 0;
-  const [selection, setSelection] = useState(preferences);
+  const [savedPreferences, setSavedPreferences] = useState(preferences);
+  const selection = savedPreferences.selection;
   // Preserve the full requested scope. Oversized selections must be corrected
   // explicitly; in particular, never truncate a frozen section-repair scope.
   const [paths, setPaths] = useState<string[]>(() => [...new Set([
@@ -190,9 +205,12 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     if (native && id) void discardProviderRequestReview(id).catch(() => {});
     setReview(null); setError(null);
   };
-  const changeSettings = (next: Selection) => {
+  const changeSettings = (next: Selection, selectedModel = false) => {
     if (locked || resources.current.generationHeld || resources.current.active !== null) return;
-    releaseReview(); setSelection(next); remember(next);
+    releaseReview();
+    const replacingUnavailable = savedPreferences.unavailable && selectedModel && next.modelId.length > 0;
+    const saved = savedPreferences.unavailable ? replacingUnavailable && remember(next) : remember(next);
+    setSavedPreferences({ selection: next, unavailable: savedPreferences.unavailable && !saved });
   };
   const changePath = (path: string, checked: boolean) => {
     if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || planningScope || plannedChapter || path === targetPath) return;
@@ -251,8 +269,9 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   return <section className="provider-review-card" aria-labelledby="claude-review-title">
     <h3 id="claude-review-title">{scope ? 'Review a Claude request' : 'Claude defaults'}</h3>
     <p>Choose supported settings and review the exact source locally. Generation needs an admitted native runtime and your explicit confirmation.</p>
+    {savedPreferences.unavailable && <p className="provider-preference-warning" role="status">Saved Claude settings could not be read. They are unchanged; choose a model to replace them.</p>}
     <label className="provider-model-select">Model
-      <select value={selectedModel ? selection.modelId : ''} disabled={locked} onChange={(event) => changeSettings({ ...selection, modelId: event.target.value, effort: null })}>
+      <select value={selectedModel ? selection.modelId : ''} disabled={locked} onChange={(event) => changeSettings({ ...selection, modelId: event.target.value, effort: null }, event.target.value.length > 0)}>
         <option value="">Choose from this catalog…</option>
         {discovery.catalog.models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}
       </select>
