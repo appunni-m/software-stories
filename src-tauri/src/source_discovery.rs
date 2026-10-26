@@ -145,7 +145,7 @@ pub(crate) fn is_code_path(path: &str) -> bool {
             | "nix" | "tf" | "tfvars" | "hcl" | "cmake" | "prisma" | "ps1" | "psm1"
             | "psd1" | "bat" | "cmd" | "f" | "f90" | "f95" | "f03" | "cob" | "cbl"
             | "purs" | "res" | "resi" | "coffee" | "odin" | "gleam" | "elm" | "nim"
-            | "bzl"
+            | "bzl" | "svg" | "diff" | "patch" | "lock"
     )
 }
 

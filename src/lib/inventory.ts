@@ -76,7 +76,7 @@ const languageByExtension: Record<string, string> = {
   html: 'HTML', htm: 'HTML', css: 'CSS', scss: 'SCSS', less: 'Less',
   sql: 'SQL', sh: 'Shell', bash: 'Shell', zsh: 'Shell', fish: 'Shell',
   properties: 'Java properties', diff: 'Diff', patch: 'Diff',
-  ini: 'INI',
+  ini: 'INI', cfg: 'Configuration', conf: 'Configuration',
   xml: 'XML', svg: 'SVG', xsd: 'XML schema', xsl: 'XSLT', graphql: 'GraphQL', gql: 'GraphQL',
   dockerfile: 'Dockerfile', makefile: 'Makefile', lock: 'Lockfile',
 };
@@ -128,7 +128,7 @@ function categoriesForPath(path: string, secretLike: boolean): InventoryCategory
     || name.startsWith('.')
     || /(^|[-.])(config|configuration)([-.]|$)/.test(name)
     || ['makefile', 'dockerfile', 'package.json', 'cargo.toml', 'go.mod', 'pyproject.toml'].includes(name)
-    || ['json', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'conf'].includes(name.split('.').at(-1) ?? '')
+    || ['json', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf'].includes(name.split('.').at(-1) ?? '')
   ) categories.push('config');
   if (
     ['test', 'tests', '__tests__', 'spec', 'specs'].some((part) => segments.includes(part))
