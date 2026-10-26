@@ -22,8 +22,8 @@ export interface WorkspaceNotification {
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
-export function NotificationCenter({ items, availability = 'ready', issue, currentProjectId, currentSnapshotId, open: controlledOpen, onOpenChange, onMarkAllRead }: {
-  items: WorkspaceNotification[]; availability?: NotificationAvailability; issue?: 'full'|null; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void; onMarkAllRead?: () => void;
+export function NotificationCenter({ items, availability = 'ready', issue, currentProjectId, currentSnapshotId, open: controlledOpen, onOpenChange, onMarkAllRead, onDismissRead }: {
+  items: WorkspaceNotification[]; availability?: NotificationAvailability; issue?: 'full'|null; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void; onMarkAllRead?: () => void; onDismissRead?: () => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -101,6 +101,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
         onCloseAutoFocus={(event) => { if (actionOpened.current) event.preventDefault(); }}>
         <header className="notification-panel-header"><strong>Notifications</strong><div className="notification-panel-header-actions">
           {onMarkAllRead && <button type="button" className="notification-mark-all" onClick={onMarkAllRead}>Mark all read</button>}
+          {issue === 'full' && onDismissRead && <button type="button" className="notification-mark-all" aria-label="Dismiss read notifications to make room" title="Saved explanations and drafts stay on this Mac" onClick={onDismissRead}>Dismiss read</button>}
           <Popover.Close asChild><button type="button" className="notification-close" aria-label="Close notifications"><X size={16} /></button></Popover.Close>
         </div></header>
         {summary.status && <p className="notification-empty">{summary.status}</p>}

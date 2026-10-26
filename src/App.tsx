@@ -1552,7 +1552,7 @@ function App() {
       bucket: 'attention' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
     ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:noticeHistoryState.issue==='full'?'Notification history is full':'Saved updates are unavailable',
-      message:noticeHistoryState.issue==='full'?'Dismiss an older update to make room. The new update will save automatically.':'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
+      message:noticeHistoryState.issue==='full'?'Dismiss an update to make room. This removes only its notification; saved explanations and drafts stay on this Mac. The new update will save automatically.':'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
       actions:noticeHistoryState.issue==='full'?[]:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>{
       const groupKey=notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null));
@@ -1724,7 +1724,10 @@ function App() {
             issue={noticeHistoryState.issue==='full'?'full':null}
             availability={notificationsAvailability}
             open={notificationsOpen} onOpenChange={setNotificationsOpen}
-            onMarkAllRead={hasUnreadNotifications ? markAllNotificationsRead : undefined} />
+            onMarkAllRead={hasUnreadNotifications ? markAllNotificationsRead : undefined}
+            onDismissRead={noticeHistoryState.issue === 'full' && noticeHistoryState.items.some(item => item.read)
+              ? () => noticeHistory.dismissMany(noticeHistoryState.items.filter(item => item.read).map(item => item.id))
+              : undefined} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
