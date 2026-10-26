@@ -1,7 +1,8 @@
 import {Button,Dialog,Flex,Table} from '@radix-ui/themes';
 
 const shortcuts=[
-  ['Quick open a file','⌘P'],['Search the repository','⌘⇧F'],['Focus the question','⌘L'],
+  ['Quick open a file','⌘P'],['Open the relationship map','⌘K'],['Focus the Explorer','⌘⇧E'],
+  ['Search the repository','⌘⇧F'],['Focus the question','⌘L'],
   ['Guide / Flow / Chat history','⌘1 / ⌘2 / ⌘3'],['Explain selected code','⌘I'],
   ['Open a repository','⌘O'],['Back / forward','⌘[ / ⌘]'],['Back one exploration','⌥←'],
 ];

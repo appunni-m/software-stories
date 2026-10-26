@@ -193,10 +193,10 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     const language = new Compartment();
     const view = new EditorView({ parent: host.current, state: EditorState.create({
       doc: contents, extensions: [
-        EditorState.readOnly.of(true), lineNumbers(), drawSelection(), highlightActiveLine(),
+        EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), drawSelection(), highlightActiveLine(),
         language.of([]), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
-        EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}` }),
+        EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}`, 'aria-readonly': 'true' }),
         keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (!canExplainNow.current || r.empty) return false; callback.current(codeSelectionContext(path, sha256, v.state.doc.lineAt(r.from).number, v.state.doc.lineAt(Math.max(r.from,r.to-1)).number)); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
           if (!update.selectionSet) return;

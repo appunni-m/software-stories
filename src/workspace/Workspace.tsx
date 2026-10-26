@@ -625,7 +625,7 @@ export function DeveloperWorkspace(props:Props) {
       if(event.isComposing||isEditableKeyboardTarget(event.target))return;
       const mod=event.metaKey||event.ctrlKey; const k=event.key.toLowerCase();
       if(mod&&event.shiftKey&&k==='f'){event.preventDefault();event.stopImmediatePropagation();findInRepository();}
-      else if(mod&&(k==='p'||k==='k')){event.preventDefault();event.stopImmediatePropagation();quickOpen();}
+      else if(mod&&k==='p'){event.preventDefault();event.stopImmediatePropagation();quickOpen();}
       if(mod&&event.shiftKey&&k==='e'){event.preventDefault();event.stopImmediatePropagation();setActivity('files');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>explorer.current?.focus());}
       if(mod&&k==='l'){event.preventDefault();event.stopImmediatePropagation();focusComposer();}
       if(mod&&['1','2','3'].includes(k)){event.preventDefault();event.stopImmediatePropagation();setView((['guide','flow','history'] as const)[Number(k)-1]);onWorkspace('guide-plan');}
