@@ -1121,7 +1121,7 @@ fn review_index_evidence(
 /// Keep optional index metadata small enough that exact source files fit in
 /// the reviewed operation. Items are already ordered with the target and
 /// earlier source positions first, so truncation removes the tail.
-fn bound_review_index_evidence(
+pub(crate) fn bound_review_index_evidence(
     status: &str,
     available: bool,
     symbols: &mut Vec<ProviderSymbolEvidence>,
@@ -1162,7 +1162,7 @@ fn bound_review_index_evidence(
 /// prompt. The outer reviewed-operation JSON then escapes source only once.
 /// A digest-based delimiter is advanced if it appears as a complete line in
 /// the source, so code cannot accidentally terminate its own block.
-fn format_selected_source_blocks(
+pub(crate) fn format_selected_source_blocks(
     files: &[ProviderRequestFile],
 ) -> Result<String, serde_json::Error> {
     let mut output = String::new();

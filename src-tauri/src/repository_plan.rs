@@ -234,7 +234,14 @@ pub(crate) fn prepare(
     if !valid_learning_question(&input.question) {
         return Err("Describe the learning question in 8–300 characters without leading/trailing whitespace or control characters.".to_owned());
     }
-    let evidence = load_evidence(storage, &input)?;
+    let mut evidence = load_evidence(storage, &input)?;
+    provider::bound_review_index_evidence(
+        evidence.index_status,
+        evidence.snapshot_index.is_some(),
+        &mut evidence.selected_symbols,
+        &mut evidence.selected_relationships,
+        &mut evidence.index_evidence_truncated,
+    );
     let inventory_sha256 = inventory_digest(&evidence.manifest)?;
     let eligible = evidence
         .manifest
@@ -268,6 +275,8 @@ pub(crate) fn prepare(
             .collect::<BTreeSet<_>>()
             .len(),
     };
+    // Hash the complete source and index evidence, but present source in
+    // delimiter-safe blocks so the request does not JSON-escape code twice.
     let data = json!({
         "promptVersion": PROMPT_VERSION,
         "projectId": input.project_id, "snapshotId": input.snapshot_id,
@@ -279,12 +288,24 @@ pub(crate) fn prepare(
     });
     let context_sha256 = digest_json(&data)?;
     let system_instruction = contract.system_instruction();
-    let user_prompt = contract.user_prompt(&context_sha256, &data);
+    let prompt_data = json!({
+        "promptVersion": PROMPT_VERSION,
+        "projectId": input.project_id, "snapshotId": input.snapshot_id,
+        "captureStatus": evidence.manifest.summary.status,
+        "question": input.question, "inventorySha256": inventory_sha256,
+        "coverage": coverage,
+        "selectedFiles": evidence.selected_files.iter().map(|file| &file.path).collect::<Vec<_>>(),
+        "index": {"status": evidence.index_status, "truncated": evidence.index_evidence_truncated,
+            "symbols": evidence.selected_symbols, "relationships": evidence.selected_relationships},
+    });
+    let source_blocks = provider::format_selected_source_blocks(&evidence.selected_files)
+        .map_err(|_| INVALID.to_owned())?;
+    let user_prompt = contract.user_prompt(&context_sha256, &prompt_data, &source_blocks);
     let output_schema = contract.output_schema();
     let request = json!({"systemInstruction": system_instruction, "userPrompt": user_prompt, "outputSchema": output_schema});
     let encoded = serde_json::to_vec(&request).map_err(|_| INVALID.to_owned())?;
     if encoded.len() > provider::MAX_REQUEST_BODY_BYTES {
-        return Err("The encoded planning context exceeds 512 KB. Select fewer source files before reviewing an agent request.".to_owned());
+        return Err("The selected source and code map exceed the single-request limit. Narrow the question or its source scope, then prepare a fresh review.".to_owned());
     }
     Ok(PreparedRepositoryPlanContext {
         project_id: input.project_id.clone(),
@@ -492,7 +513,14 @@ fn canonicalize_with_identity(
     {
         return Err(INVALID.to_owned());
     }
-    let evidence = load_evidence(storage, &context.input)?;
+    let mut evidence = load_evidence(storage, &context.input)?;
+    provider::bound_review_index_evidence(
+        evidence.index_status,
+        evidence.snapshot_index.is_some(),
+        &mut evidence.selected_symbols,
+        &mut evidence.selected_relationships,
+        &mut evidence.index_evidence_truncated,
+    );
     // Retain the same index observation used to validate relationship IDs.
     if inventory_digest(&evidence.manifest)? != fresh.inventory_sha256
         || serde_json::to_value(&evidence.selected_relationships).map_err(|_| INVALID.to_owned())?
