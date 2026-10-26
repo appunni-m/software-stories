@@ -279,7 +279,7 @@ export function DeveloperWorkspace(props:Props) {
       // opened. `revealTurnId` is a one-shot History navigation request that
       // may also move keyboard focus; after restart, restore reading without
       // taking focus away from the user's current control.
-      const restoreTurnId=current.revealTurnId??current.focusedTurnId;
+      const restoreTurnId=current.revealTurnId??current.focusedTurnId??featuredTurnId;
       const target = current.view === 'guide' && restoreTurnId
         ? Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]') ?? []).find((node)=>node.dataset.questionId===restoreTurnId) : null;
       if (target) {
@@ -296,7 +296,7 @@ export function DeveloperWorkspace(props:Props) {
       release=requestAnimationFrame(()=>{restoringScroll.current=false;});
     });
     return()=>{cancelAnimationFrame(restore);cancelAnimationFrame(release);};
-  },[current.id,current.view,current.revealTurnId,current.focusedTurnId,chaptersLoading,tool]);
+  },[current.id,current.view,current.revealTurnId,current.focusedTurnId,featuredTurnId,chaptersLoading,tool]);
   useEffect(()=>{
     if(!isNativeRuntime()||!showChanges)return;
     let active=true;const controller=new AbortController();gitRequest.current=controller;
