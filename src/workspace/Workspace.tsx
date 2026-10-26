@@ -196,7 +196,7 @@ export function DeveloperWorkspace(props:Props) {
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const requireCodexConnection=()=>{
     if(generationBackend!=='codex'){
-      const selected=generationBackend===null?'saved AI connection':generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Code';
+      const selected=generationBackend===null?'saved AI connection':generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Agent';
       setConnectionNotice(generationBackend===null
         ? `The ${selected} could not be read. Choose a connection in Connections to continue. Your question stays here.`
         : `Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
