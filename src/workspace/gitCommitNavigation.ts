@@ -1,5 +1,13 @@
 import type { GitCommit } from '../lib/gitHistory';
 
+const commitDateFormatter = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+/** Keep commit dates readable in the narrow Changes rail without changing the stored ISO instant. */
+export function commitDateLabel(timestamp: string): string | null {
+  const date = new Date(timestamp);
+  return Number.isFinite(date.getTime()) ? commitDateFormatter.format(date) : null;
+}
+
 /** Move inside the commit list without adding every history row to Tab order. */
 export function nextFocusableCommitIndex(
   commits: readonly Pick<GitCommit, 'parents'>[],
