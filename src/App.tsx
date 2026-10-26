@@ -1189,13 +1189,19 @@ function App() {
       setNotice({ title: 'This source range is no longer available', message: 'Open the cited code in the selected snapshot again before requesting an explanation.' });
       return;
     }
-    const resolvedRange = resolveCodeLensCitation(
-      range,
-      undefined,
-      sourceDocument.sha256,
-      capturedSourceLineCount(sourceDocument.contents),
-      sourceDocument.contents,
-    );
+    let resolvedRange: ReturnType<typeof resolveCodeLensCitation>;
+    try {
+      resolvedRange = resolveCodeLensCitation(
+        range,
+        undefined,
+        sourceDocument.sha256,
+        capturedSourceLineCount(sourceDocument.contents),
+        sourceDocument.contents,
+      );
+    } catch {
+      setNotice({ title: 'This code range could not be checked', message: 'Reopen the captured file and select its code again. No source was sent to an AI provider.' });
+      return;
+    }
     if (resolvedRange.status !== 'verified') {
       setNotice({ title: 'This source range could not be verified', message: 'Reopen the captured file and select its code again before requesting an explanation.' });
       return;
