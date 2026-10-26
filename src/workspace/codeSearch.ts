@@ -23,16 +23,34 @@ function localQueryTerms(query:string):string[]{
  * miss the `Font` entry point entirely. Prefix matches cover common inflections
  * while token boundaries avoid matching `font` inside `confront`.
  */
-function localMatchScore(value:string,query:string,terms:readonly string[]):number{
-  const parts=searchableParts(value);
-  if(!parts.length)return 0;
-  const matched=terms.filter(term=>parts.some(part=>part===term
-    ||(Math.min(part.length,term.length)>=3&&(part.startsWith(term)||term.startsWith(part)))));
-  if(!matched.length)return 0;
+function localMatcher(query:string,terms:readonly string[]):(value:string)=>number{
   const phrase=searchableParts(query).join(' ');
-  const normalized=parts.join(' ');
-  const exactPhrase=phrase&&normalized.includes(phrase)?1_000:0;
-  return exactPhrase+matched.length*100+matched.reduce((score,term)=>score+Math.min(term.length,12),0);
+  return (value:string)=>{
+    const parts=searchableParts(value);
+    if(!parts.length)return 0;
+    const matched=terms.filter(term=>parts.some(part=>part===term
+      ||(Math.min(part.length,term.length)>=3&&(part.startsWith(term)||term.startsWith(part)))));
+    if(!matched.length)return 0;
+    const normalized=parts.join(' ');
+    const exactPhrase=phrase&&normalized.includes(phrase)?1_000:0;
+    return exactPhrase+matched.length*100+matched.reduce((score,term)=>score+Math.min(term.length,12),0);
+  };
+}
+
+/** Keep only the best few local hits while scanning a large index. */
+function topMatches<T>(items:readonly T[],scoreOf:(item:T)=>number,compare:(left:T,right:T)=>number,limit:number):T[]{
+  const best:{item:T;score:number}[]=[];
+  for(const item of items){
+    const score=scoreOf(item);
+    if(score<=0)continue;
+    let index=0;
+    while(index<best.length&&(best[index].score>score
+      ||(best[index].score===score&&compare(best[index].item,item)<=0)))index++;
+    if(index===best.length&&best.length===limit)continue;
+    best.splice(index,0,{item,score});
+    if(best.length>limit)best.pop();
+  }
+  return best.map(({item})=>item);
 }
 
 /** Offer AI when a settled search has no hits or did not complete. The visible
@@ -125,15 +143,14 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const code=captured.map(hit=>({path:hit.path,text:hit.text,from:hit.line,to:hit.line}));
   const term=query.toLowerCase();
   const terms=localQueryTerms(query);
+  const scoreLocal=localMatcher(query,terms);
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
-    const symbolMatches=symbols.map(symbol=>({symbol,score:localMatchScore(`${symbol.name} ${symbol.path}`,query,terms)}))
-      .filter(item=>item.score>0).sort((left,right)=>right.score-left.score
-        ||left.symbol.name.localeCompare(right.symbol.name)||left.symbol.path.localeCompare(right.symbol.path));
-    local.push(...symbolMatches.slice(0,8).map(({symbol})=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
-    const fileMatches=files.map(file=>({file,score:localMatchScore(file.path,query,terms)}))
-      .filter(item=>item.score>0).sort((left,right)=>right.score-left.score||left.file.path.localeCompare(right.file.path));
-    local.push(...fileMatches.slice(0,8).map(({file})=>({path:file.path,text:file.path})));
+    const symbolMatches=topMatches(symbols,symbol=>scoreLocal(`${symbol.name} ${symbol.path}`),
+      (left,right)=>left.name.localeCompare(right.name)||left.path.localeCompare(right.path),8);
+    local.push(...symbolMatches.map((symbol)=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
+    const fileMatches=topMatches(files,file=>scoreLocal(file.path),(left,right)=>left.path.localeCompare(right.path),8);
+    local.push(...fileMatches.map((file)=>({path:file.path,text:file.path})));
   }
   // Keep native ranked source hits first. Local symbol/path hints supplement
   // them for natural-language queries; regex mode remains exact and native-only.
@@ -151,7 +168,7 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
       const end=nextBreak<0?contents.length:nextBreak;
       const text=contents.slice(start,end);
       line++;
-      if(localMatchScore(text,query,terms)){
+      if(scoreLocal(text)){
         all.push({path:source.path,text:searchSnippet(text,terms.length?terms:[term]),from:line,to:line});
         if(++count===32)break;
       }
