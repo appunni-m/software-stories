@@ -6,7 +6,7 @@ import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, M
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
-import { InlineCodeText, plainInlineCodeText } from '../InlineCodeText';
+import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
@@ -35,6 +35,7 @@ import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLay
 import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
 import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
+import { plainInlineCodeText } from '../lib/inlineCode';
 import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';

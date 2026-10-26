@@ -10,6 +10,7 @@ import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
 import { inspectInteractiveVisual } from './visuals.ts';
 import { storyScenes } from './visualStory.ts';
 import { OFFLINE_SCENE_CSS, renderOfflineScene } from './offlineScene.ts';
+import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
 
 export const OFFLINE_PACKAGE_SCHEMA_VERSION = 4;
 export const MAX_OFFLINE_HTML_BYTES = 25 * 1024 * 1024;
@@ -796,7 +797,7 @@ function renderPackage(
 
   const contents = chapters.map((chapter, chapterIndex) => {
     const chapterId = chapterIds[chapterIndex];
-    return `<li><a href="#${chapterId}">${escapeHtml(chapter.title)}</a><span>${escapeHtml(chapter.targetLabel)}</span><ol>${chapter.sections.map((section, sectionIndex) => `<li><a href="#section-${chapterIndex + 1}-${sectionIndex + 1}">${escapeHtml(section.title)}</a></li>`).join('')}</ol></li>`;
+    return `<li><a href="#${chapterId}">${inlineCodeHtml(chapter.title)}</a><span>${escapeHtml(chapter.targetLabel)}</span><ol>${chapter.sections.map((section, sectionIndex) => `<li><a href="#section-${chapterIndex + 1}-${sectionIndex + 1}">${inlineCodeHtml(section.title)}</a></li>`).join('')}</ol></li>`;
   }).join('');
 
   const renderedChapters = chapters.map((chapter, chapterIndex) => {
@@ -816,8 +817,8 @@ function renderPackage(
               : '';
           }).join('')}</ul>`
           : '<p class="muted">No exportable source reference is included for this claim.</p>';
-        const basis = claim.inferenceBasis ? `<p class="inference"><strong>Inference basis:</strong> ${escapeHtml(claim.inferenceBasis)}</p>` : '';
-        return `<article class="claim"><p class="eyebrow">${escapeHtml(category)}</p><p>${escapeHtml(claim.prose)}</p>${basis}${citations}</article>`;
+        const basis = claim.inferenceBasis ? `<p class="inference"><strong>Inference basis:</strong> ${inlineCodeHtml(claim.inferenceBasis)}</p>` : '';
+        return `<article class="claim"><p class="eyebrow">${escapeHtml(category)}</p><p>${inlineCodeHtml(claim.prose)}</p>${basis}${citations}</article>`;
       }).join('');
       const visual = renderVisual(
         chapter.revision,
@@ -826,26 +827,26 @@ function renderPackage(
         evidenceIds,
       );
       const previousLink = previous
-        ? `<a class="secondary" href="#${previous.id}">Previous: ${escapeHtml(previous.section.title)}</a>`
+        ? `<a class="secondary" href="#${previous.id}">Previous: ${inlineCodeHtml(previous.section.title)}</a>`
         : `<a class="secondary" href="#${chapterId}">Chapter contents</a>`;
       const nextLink = next
-        ? `<a class="primary" href="#${next.id}">Continue: ${escapeHtml(next.section.title)}</a>`
+        ? `<a class="primary" href="#${next.id}">Continue: ${inlineCodeHtml(next.section.title)}</a>`
         : '<span class="muted">End of guide</span>';
       const narration = section.narrationAudio
-        ? `<section class="narration-audio" aria-label="Cached narration"><h4>Cached narration</h4><audio controls preload="none" aria-label="Narration for ${escapeHtml(section.title)}" src="data:audio/wav;base64,${section.narrationAudio.audioBase64}">This browser cannot play the bundled narration audio.</audio></section>`
+        ? `<section class="narration-audio" aria-label="Cached narration"><h4>Cached narration</h4><audio controls preload="none" aria-label="Narration for ${escapeHtml(plainInlineCodeText(section.title))}" src="data:audio/wav;base64,${section.narrationAudio.audioBase64}">This browser cannot play the bundled narration audio.</audio></section>`
         : '';
       const transcriptText = (section.narrationAudio ? section.narrationTranscript : section.spokenText) ?? '';
       const transcript = transcriptText.trim()
-        ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${escapeHtml(transcriptText)}</p></details>`
+        ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${inlineCodeHtml(transcriptText)}</p></details>`
         : '<p class="muted">No narration transcript was saved for this section.</p>';
       const sceneTracks = !section.visual?.presentation && section.sceneNarration.length > 0
         ? `<section aria-label="Scene narration">${section.sceneNarration.map(scene => renderSceneNarration(scene)).join('')}</section>` : '';
-      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3>${narration}${visual}${sceneTracks}<details class="section-notes"><summary>Read section notes</summary><p class="prose">${escapeHtml(section.prose)}</p>${transcript}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}</details>${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
+      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${inlineCodeHtml(section.title)}</h3>${narration}${visual}${sceneTracks}<details class="section-notes"><summary>Read section notes</summary><p class="prose">${inlineCodeHtml(section.prose)}</p>${transcript}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}</details>${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
     }).join('');
     const omitted = chapter.hiddenReferencesOmitted > 0
       ? `<p class="notice">${chapter.hiddenReferencesOmitted} source reference${chapter.hiddenReferencesOmitted === 1 ? '' : 's'} to hidden or sensitive paths were omitted. Some claims may have less bundled evidence.</p>`
       : '';
-    return `<article class="chapter" id="${chapterId}"><header><p class="eyebrow">ACCEPTED REVISION ${chapter.revision.revisionNumber} · SNAPSHOT ${escapeHtml(chapter.revision.snapshotId)}</p><h2>${escapeHtml(chapter.title)}</h2><p class="muted">${escapeHtml(chapter.targetLabel)}</p></header>${omitted}${renderedSections}</article>`;
+    return `<article class="chapter" id="${chapterId}"><header><p class="eyebrow">ACCEPTED REVISION ${chapter.revision.revisionNumber} · SNAPSHOT ${escapeHtml(chapter.revision.snapshotId)}</p><h2>${inlineCodeHtml(chapter.title)}</h2><p class="muted">${escapeHtml(chapter.targetLabel)}</p></header>${omitted}${renderedSections}</article>`;
   }).join('');
 
   const manifestText = escapeHtml(JSON.stringify(manifest, null, 2));
@@ -900,11 +901,11 @@ function renderVisual(
         return anchorId ? `#${evidenceIds.get(`${revision.revisionId}:${anchorId}`)}` : undefined;
       };
       const representation = scene.mode === 'composition' ? renderOfflineScene(scene, visual, href)
-        : `<p class="muted">${escapeHtml(scene.title)} · Graph relationships are available in the source outline below.</p>`;
+        : `<p class="muted">${inlineCodeHtml(scene.title)} · Graph relationships are available in the source outline below.</p>`;
       const narration = section.sceneNarration.find(track => track.sceneId === section.section.claims[scene.claimIndex]?.claimId);
       const previous = index > 0 ? `<a href="#${prefix}-scene-${index}">Previous scene</a>` : '<span></span>';
       const next = index + 1 < scenes.length ? `<a href="#${prefix}-scene-${index + 2}">Next scene</a>` : '<span>End of section</span>';
-      return `<section class="offline-story-scene" id="${prefix}-scene-${index + 1}" aria-label="Scene ${index + 1}: ${escapeHtml(scene.title)}"><nav class="scene-nav" aria-label="Scene navigation">${previous}<span>Scene ${index + 1} of ${scenes.length}</span>${next}</nav>${narration ? renderSceneNarration(narration) : ''}${representation}</section>`;
+      return `<section class="offline-story-scene" id="${prefix}-scene-${index + 1}" aria-label="Scene ${index + 1}: ${escapeHtml(plainInlineCodeText(scene.title))}"><nav class="scene-nav" aria-label="Scene navigation">${previous}<span>Scene ${index + 1} of ${scenes.length}</span>${next}</nav>${narration ? renderSceneNarration(narration) : ''}${representation}</section>`;
     }).join('');
     const omitted = section.visualSourceValuesOmitted ? '<p class="notice">Source-backed visual values were omitted with the source excerpts. Their labels and citations remain.</p>' : '';
     return `${omitted}${frames}<details class="visual-source"><summary>Source outline and diagram data</summary>${renderVisualOutline(revision, section, sectionIds, evidenceIds)}</details>`;
@@ -913,9 +914,9 @@ function renderVisual(
 }
 
 function renderSceneNarration(scene: SafeSection['sceneNarration'][number]): string {
-  const audio = scene.audio ? `<audio controls preload="none" aria-label="Narration for ${escapeHtml(scene.label)}" src="data:audio/wav;base64,${scene.audio.audioBase64}">This browser cannot play the bundled narration audio.</audio>`
+  const audio = scene.audio ? `<audio controls preload="none" aria-label="Narration for ${escapeHtml(plainInlineCodeText(scene.label))}" src="data:audio/wav;base64,${scene.audio.audioBase64}">This browser cannot play the bundled narration audio.</audio>`
     : '<p class="muted">No cached audio is included for this scene.</p>';
-  return `<div class="narration-audio"><h4>${escapeHtml(scene.label)}</h4>${audio}<details class="scene-transcript"><summary>Read narration</summary><p>${escapeHtml(scene.transcript)}</p></details></div>`;
+  return `<div class="narration-audio"><h4>${inlineCodeHtml(scene.label)}</h4>${audio}<details class="scene-transcript"><summary>Read narration</summary><p>${inlineCodeHtml(scene.transcript)}</p></details></div>`;
 }
 
 function renderVisualOutline(
@@ -948,13 +949,13 @@ function renderVisualOutline(
     const hotspotMarkup = hotspot ? renderOfflineHotspot(hotspot, revision, sectionIds, evidenceIds) : '';
     const outgoing = typedVisual.edges.filter((edge) => edge.fromNodeId === node.nodeId).map((edge) => {
       const target = typedVisual.nodes.find((candidate) => candidate.nodeId === edge.toNodeId);
-      return `<div class="diagram-edge"><strong>${escapeHtml(edge.label)}</strong> → ${escapeHtml(target?.label ?? 'Unavailable target')} ${anchorsFor(edge.evidenceAnchorIds) ? `<ul class="diagram-links"><li>${anchorsFor(edge.evidenceAnchorIds)}</li></ul>` : ''}</div>`;
+      return `<div class="diagram-edge"><strong>${inlineCodeHtml(edge.label)}</strong> → ${inlineCodeHtml(target?.label ?? 'Unavailable target')} ${anchorsFor(edge.evidenceAnchorIds) ? `<ul class="diagram-links"><li>${anchorsFor(edge.evidenceAnchorIds)}</li></ul>` : ''}</div>`;
     }).join('');
-    return `<li class="diagram-node"><p class="eyebrow">STEP ${nodeIndex + 1}</p><strong>${escapeHtml(node.label)}</strong>${node.detail ? `<small>${escapeHtml(node.detail)}</small>` : ''}${references ? `<p class="reference-meta">Evidence: ${references}</p>` : '<p class="reference-meta">Evidence omitted.</p>'}${hotspotMarkup}${outgoing}</li>`;
+    return `<li class="diagram-node"><p class="eyebrow">STEP ${nodeIndex + 1}</p><strong>${inlineCodeHtml(node.label)}</strong>${node.detail ? `<small>${inlineCodeHtml(node.detail)}</small>` : ''}${references ? `<p class="reference-meta">Evidence: ${references}</p>` : '<p class="reference-meta">Evidence omitted.</p>'}${hotspotMarkup}${outgoing}</li>`;
   }).join('');
   const type = typedVisual.kind === 'dataFlow' ? 'Data flow' : typedVisual.kind === 'sequence' ? 'Sequence' : 'Hierarchy';
   const visualData = section.visualAssetText ? `<details class="visual-source"><summary>Typed diagram data · JSON</summary><pre>${escapeHtml(section.visualAssetText)}</pre></details>` : '';
-  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${escapeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p></figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
+  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${inlineCodeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p></figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
 }
 
 function renderVisualWithDom(
@@ -1077,16 +1078,16 @@ function renderOfflineHotspot(
   let destinationMarkup = '';
   if (destination.kind === 'section') {
     const sectionId = sectionIds.get(`${revision.revisionId}:${destination.sectionId}`);
-    destinationMarkup = sectionId ? `<a class="hotspot" href="#${sectionId}">${escapeHtml(hotspot.label)}</a>` : '';
+    destinationMarkup = sectionId ? `<a class="hotspot" href="#${sectionId}">${inlineCodeHtml(hotspot.label)}</a>` : '';
   } else if (destination.kind === 'codeLens') {
     const target = evidenceIds.get(`${revision.revisionId}:${destination.anchorId}`);
     destinationMarkup = target
-      ? `<a class="hotspot" href="#${target}">${escapeHtml(hotspot.label)} · bundled evidence</a>`
-      : `<span class="hotspot muted">${escapeHtml(hotspot.label)} · source path omitted</span>`;
+      ? `<a class="hotspot" href="#${target}">${inlineCodeHtml(hotspot.label)} · bundled evidence</a>`
+      : `<span class="hotspot muted">${inlineCodeHtml(hotspot.label)} · source path omitted</span>`;
   } else if (destination.kind === 'atlasFile' || destination.kind === 'atlasSymbol') {
-    destinationMarkup = `<span class="hotspot muted">${escapeHtml(hotspot.label)} · Atlas destination unavailable offline</span>`;
+    destinationMarkup = `<span class="hotspot muted">${inlineCodeHtml(hotspot.label)} · Atlas destination unavailable offline</span>`;
   } else {
-    destinationMarkup = `<span class="hotspot muted">${escapeHtml(hotspot.label)} · Atlas relationship unavailable offline</span>`;
+    destinationMarkup = `<span class="hotspot muted">${inlineCodeHtml(hotspot.label)} · Atlas relationship unavailable offline</span>`;
   }
   return destinationMarkup;
 }

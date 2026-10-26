@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { ArrowDown, ArrowRight, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
 import { containerKinds, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
-import { InlineCodeText, plainInlineCodeText } from './InlineCodeText';
+import { InlineCodeText } from './InlineCodeText';
+import { plainInlineCodeText } from './lib/inlineCode';
 import './html-scene.css';
 
 /** The AI composes HTML from bounded layout/data primitives. React owns every

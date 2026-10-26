@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
-import { InlineCodeText, plainInlineCodeText } from './InlineCodeText';
+import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
@@ -12,6 +12,7 @@ import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
+import { plainInlineCodeText } from './lib/inlineCode';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
 

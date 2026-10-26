@@ -319,7 +319,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                   <div className="offline-export-preview-list">
                     {preview.chapters.map((chapter) => (
                       <article className="offline-export-preview-chapter" key={chapter.revisionId}>
-                        <h4>{chapter.title}</h4>
+                        <h4><InlineCodeText text={chapter.title}/></h4>
                         <p className="offline-export-target">{chapter.targetLabel} · snapshot {chapter.snapshotId}</p>
                         {chapter.sections.map((section) => {
                           const transcript = section.narrationTranscript ?? section.spokenText;

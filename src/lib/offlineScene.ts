@@ -1,5 +1,6 @@
 import type { EvidenceLinkedVisualSpec } from './commands';
 import { containerKinds, sceneChildIndices, type PresentationScene } from './scenePresentation.ts';
+import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
 
 export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -45,7 +46,9 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     if (element.kind === 'arrow') return `<span class="${cls}" aria-hidden="true">↓</span>`;
     if (element.kind === 'divider') return `<hr class="${cls}">`;
     const node = visual.nodes[element.nodeIndex!];
-    const value = escapeSceneText(element.value);
+    const value = element.valueOrigin === 'source' || element.kind === 'code'
+      ? escapeSceneText(element.value)
+      : inlineCodeHtml(element.value);
     let body = value ? `<span class="scene-value">${value}</span>` : '';
     if (element.kind === 'code' && value) body = `<pre><code>${value}</code></pre>`;
     if (element.kind === 'bytes') {
@@ -65,15 +68,15 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     }
     const originLabel = element.valueOrigin === 'source' ? 'Source value' : element.valueOrigin === 'illustration' ? 'Illustrative example' : '';
     const origin = originLabel ? `<small class="scene-origin">${originLabel}</small>` : '';
-    const content = `<span class="scene-label">${escapeSceneText(node.label)}</span>${body}${origin}`;
+    const content = `<span class="scene-label">${inlineCodeHtml(node.label)}</span>${body}${origin}`;
     const href = evidenceHref(element.nodeIndex!);
     // Even a programming error in the destination callback cannot introduce an
     // external/local URL, attribute or executable link into the package.
     return href && /^#[a-zA-Z0-9-]+$/u.test(href)
-      ? `<a class="${cls} scene-content" href="${href}" aria-label="${escapeSceneText(node.label)}. Open supporting code">${content}</a>`
+      ? `<a class="${cls} scene-content" href="${href}" aria-label="${escapeSceneText(plainInlineCodeText(node.label))}. Open supporting code">${content}</a>`
       : `<div class="${cls} scene-content">${content}<small>Supporting source omitted.</small></div>`;
   };
-  return `<div class="offline-scene" role="group" aria-label="${escapeSceneText(scene.title)}"><h4>${escapeSceneText(scene.title)}</h4>${draw(0)}</div>`;
+  return `<div class="offline-scene" role="group" aria-label="${escapeSceneText(plainInlineCodeText(scene.title))}"><h4>${inlineCodeHtml(scene.title)}</h4>${draw(0)}</div>`;
 }
 
 /** The offline reader has a separate paper palette and no animated transitions.

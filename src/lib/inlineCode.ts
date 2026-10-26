@@ -50,3 +50,18 @@ export function inlineCodeParts(value: string): InlineCodePart[] {
   if (plainStart < value.length) parts.push({ kind: 'text', text: value.slice(plainStart) });
   return parts.length ? parts : [{ kind: 'text', text: value }];
 }
+
+/** Plain text form for titles and accessibility attributes. */
+export function plainInlineCodeText(value: string): string {
+  return inlineCodeParts(value).map((part) => part.text).join('');
+}
+
+/** Safe HTML form for the static offline reader. Model text stays escaped. */
+export function inlineCodeHtml(value: string): string {
+  const escape = (text: string) => text.replace(/[&<>"']/gu, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!);
+  return inlineCodeParts(value).map((part) => part.kind === 'code'
+    ? `<code>${escape(part.text)}</code>`
+    : escape(part.text)).join('');
+}

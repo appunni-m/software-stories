@@ -22,6 +22,7 @@ import {
 import { orderedSections, readerSelection, readRememberedProgress, saveRememberedProgress, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
+import { plainInlineCodeText } from './lib/inlineCode';
 import { InlineCodeText } from './InlineCodeText';
 import { ReaderProgressContext } from './lib/ReaderProgressContext';
 import { sameSection, type SectionIdentity, type StoryProgress } from './lib/readerProgress';
@@ -576,11 +577,11 @@ function SectionFileLinks({
             className={activeFocusTarget === focusTarget ? 'is-return-focus' : undefined}
             key={hotspot.hotspotId}
             data-focus-key={focusTarget}
-            aria-label={hotspot.label}
+            aria-label={plainInlineCodeText(hotspot.label)}
             onClick={() => onFollowHotspot(hotspot, focusTarget)}
           >
             <FileCode2 size={12} />
-            <code>{hotspot.label}</code>
+            <InlineCodeText text={hotspot.label}/>
             <ArrowRight size={11} />
           </button>
         );
