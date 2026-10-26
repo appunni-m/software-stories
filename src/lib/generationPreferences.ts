@@ -1,8 +1,11 @@
+import type { HandoffAgent } from './commands';
+
 /** Workspace preferences contain no credentials, source, or consent. */
 export type GenerationBackend = 'codex' | 'claude-setup' | 'handoff' | 'api';
 export type RepositoryPlanningBackend = 'codex' | 'claude-agent';
 const key = 'code-atlas:generation-backend';
 const directApiSelectionKey = 'code-atlas:direct-api-selection';
+const handoffAgentKey = 'code-atlas:handoff-agent';
 const MAX_DIRECT_API_SELECTION_BYTES = 8_192;
 
 export interface DirectApiSelection {
@@ -73,6 +76,20 @@ export function readGenerationBackend(): GenerationBackend | null {
 export function rememberGenerationBackend(backend: GenerationBackend): void {
   try { localStorage.setItem(key, backend); } catch { /* The current session still works. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
+}
+
+export function readHandoffAgent(): HandoffAgent {
+  try {
+    const saved = localStorage.getItem(handoffAgentKey);
+    return saved === 'claude-code' || saved === 'codex' || saved === 'antigravity' || saved === 'other'
+      ? saved : 'claude-code';
+  } catch { return 'claude-code'; }
+}
+
+export function rememberHandoffAgent(agent: HandoffAgent): void {
+  if (agent !== 'claude-code' && agent !== 'codex' && agent !== 'antigravity' && agent !== 'other') return;
+  try { localStorage.setItem(handoffAgentKey, agent); } catch { /* The current session still works. */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:handoff-agent-changed'));
 }
 
 /** Repository plans can only use the connected coding agents. Never silently

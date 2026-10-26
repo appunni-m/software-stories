@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, LoaderCircle, PlugZap } from 'lucide-react';
 import { initializeConnection, useConnectionState } from './lib/connectionStore';
-import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, type GenerationBackend, type DirectApiSelection, type DirectApiSelectionIssue } from './lib/generationPreferences';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, type GenerationBackend, type DirectApiSelection, type DirectApiSelectionIssue } from './lib/generationPreferences';
 
 export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const connection = useConnectionState();
   const [backend, setBackend] = useState<GenerationBackend | null>(() => readGenerationBackend());
   const [apiSelection, setApiSelection] = useState<DirectApiSelection>(() => readDirectApiSelection());
   const [apiSelectionIssue, setApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
+  const [handoffAgent, setHandoffAgent] = useState(readHandoffAgent);
   useEffect(() => {
     initializeConnection();
     const refreshBackend = () => setBackend(readGenerationBackend());
@@ -15,11 +16,14 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
       setApiSelection(readDirectApiSelection());
       setApiSelectionIssue(readDirectApiSelectionIssue());
     };
+    const refreshHandoffAgent = () => setHandoffAgent(readHandoffAgent());
     window.addEventListener('code-atlas:connection-changed', refreshBackend);
     window.addEventListener('code-atlas:direct-api-selection-changed', refreshApiSelection);
+    window.addEventListener('code-atlas:handoff-agent-changed', refreshHandoffAgent);
     return () => {
       window.removeEventListener('code-atlas:connection-changed', refreshBackend);
       window.removeEventListener('code-atlas:direct-api-selection-changed', refreshApiSelection);
+      window.removeEventListener('code-atlas:handoff-agent-changed', refreshHandoffAgent);
     };
   }, []);
   const codexSelected = backend === 'codex';
@@ -29,13 +33,15 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
       : apiSelection.providerId === 'anthropic' ? 'Anthropic' : apiSelection.providerId;
   const selectedModel = connection.models.find((model) => model.modelId === connection.selection.modelId);
   const codexModel = selectedModel?.displayName ?? connection.selection.modelId;
+  const handoffAgentName = handoffAgent === 'claude-code' ? 'Claude Code'
+    : handoffAgent === 'codex' ? 'Codex' : handoffAgent === 'antigravity' ? 'Antigravity' : 'Another agent';
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(connection.selection.effort));
   const ready = Boolean(codexRuntimeReady && modelReady);
   const label = backend === null ? 'Choose connection'
     : backend === 'api'
     ? apiSelectionIssue ? 'API · Saved selection unavailable' : `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
-      : backend === 'handoff' ? 'Manual agent'
+      : backend === 'handoff' ? `${handoffAgentName} handoff`
         : connection.checking ? 'Connecting to Codex…'
           : ready ? `Codex · ${codexModel} · ${connection.selection.effort}`
             : codexRuntimeReady ? 'Choose Codex model' : 'Connect Codex';
@@ -48,7 +54,7 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     : backend === 'api' ? apiSelectionIssue ? `The saved direct API selection could not be read (${apiSelectionIssue}). Choose a provider in Connections to replace it.`
       : `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
-        : 'Manual agent handoff selected. Open Connections to manage it.';
+        : `${handoffAgentName} handoff selected. Agent setup and model settings stay in that app.`;
   return <button className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
     aria-label={`${label}. ${details} Open Connections.`} title={`${details} Voice settings are also in Connections.`}>
     <Icon size={15} /><span className="connection-header-value">{label}</span>

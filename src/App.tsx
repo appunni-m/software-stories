@@ -20,7 +20,7 @@ import { readFileLocation, rememberFileLocation } from './lib/workspacePreferenc
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { FileFlow } from './FileFlow';
-import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, rememberDirectApiSelection, rememberGenerationBackend, rememberHandoffAgent, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -2047,15 +2047,10 @@ function ProviderDialog(props: ProviderDialogProps) {
     if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
     return readGenerationBackend() ?? 'choose';
   });
-  const [handoffAgent, setHandoffAgent] = useState<HandoffAgent>(() => {
-    try {
-      const saved = localStorage.getItem('code-atlas:handoff-agent');
-      return saved === 'claude-code' || saved === 'codex' || saved === 'antigravity' || saved === 'other' ? saved : 'claude-code';
-    } catch { return 'claude-code'; }
-  });
+  const [handoffAgent, setHandoffAgent] = useState<HandoffAgent>(() => readHandoffAgent());
   const chooseHandoffAgent = (agent: HandoffAgent) => {
     setHandoffAgent(agent);
-    try { localStorage.setItem('code-atlas:handoff-agent', agent); } catch { /* Optional. */ }
+    rememberHandoffAgent(agent);
   };
   const selectedConnectionSupportsOperation = backend === 'api' || backend === 'claude-setup'
     || backend === 'codex' && agentOperation || backend === 'handoff' && handoffOperation;
