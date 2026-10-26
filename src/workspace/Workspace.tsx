@@ -874,7 +874,18 @@ function Answer(props:AnswerProps){
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds as you read or listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}<span className="dw-guide-outline-count">{turn.guide.units.length} topics · {guideSlides.length} slides ready</span></summary>
-      <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';return <li key={unit.key}><span><InlineCodeText text={unit.question}/></span><small>{status}</small>{unit.canRetry&&props.onRetryGuideUnit&&<Button size="1" variant="soft" aria-label={`Retry slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>Retry slide</Button>}</li>;})}</ol>
+      <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
+        const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
+        const slideIndex=guideSlides.findIndex((slide)=>unit.runIds.includes(slide.runId));
+        return <li key={unit.key}>
+          {slideIndex>=0
+            ? <Button size="1" variant="ghost" color="gray" className="dw-guide-topic-link" aria-current={slideIndex===selectedGuideSlide?'step':undefined}
+                aria-label={`Open ready slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectGuideSlide(slideIndex)}><InlineCodeText text={unit.question}/></Button>
+            : <span><InlineCodeText text={unit.question}/></span>}
+          <small>{status}</small>
+          {unit.canRetry&&props.onRetryGuideUnit&&<Button size="1" variant="soft" aria-label={`Retry slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>Retry slide</Button>}
+        </li>;
+      })}</ol>
       <p>Follow these parts in order, or open another file to explore a different part of the code.</p>
       {turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}
     </details>}
