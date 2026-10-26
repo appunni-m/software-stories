@@ -167,7 +167,7 @@ import {
   type InventoryRow,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
-import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
+import { capturedSourceLineCount, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
@@ -1193,7 +1193,7 @@ function App() {
       range,
       undefined,
       sourceDocument.sha256,
-      splitCapturedSourceLines(sourceDocument.contents).length,
+      capturedSourceLineCount(sourceDocument.contents),
       sourceDocument.contents,
     );
     if (resolvedRange.status !== 'verified') {
@@ -4934,6 +4934,8 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
   );
 }
 
+const CODE_LENS_SOURCE_WINDOW_LINES = 200;
+
 function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
   projectId: string | null;
   snapshotId: string | null;
@@ -4952,14 +4954,16 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   inline?: boolean;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
+  const [sourceWindowStart, setSourceWindowStart] = useState<number | null>(null);
   const [showAllRelationships, setShowAllRelationships] = useState(false);
   const [snapshotIndex, setSnapshotIndex] = useState<SnapshotIndex | null>(null);
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const citedLineRef = useRef<HTMLSpanElement>(null);
-  const sourceLines = source ? splitCapturedSourceLines(source.contents) : [];
-  const highlightedLines = source ? highlightSourceLines(source.path, sourceLines) : null;
-  const citation = resolveCodeLensCitation(sourceRange ?? undefined, sourceRangeIssue ?? undefined, source?.sha256, sourceLines.length, source?.contents);
+  const sourceLineCount = useMemo(() => source ? capturedSourceLineCount(source.contents) : 0, [source?.contents]);
+  const citation = useMemo(() => resolveCodeLensCitation(
+    sourceRange ?? undefined, sourceRangeIssue ?? undefined, source?.sha256, sourceLineCount, source?.contents,
+  ), [sourceRange, sourceRangeIssue, source?.sha256, sourceLineCount, source?.contents]);
   const citationHashMismatch = citation.status === 'stale';
   const invalidAnchorReason = citation.status === 'unavailable'
     ? citation.reason === 'invalid-anchor'
@@ -4972,10 +4976,9 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
             ? 'This line range has no source SHA-256, so it cannot be verified as a citation.'
           : citation.reason === 'invalid-byte-range'
             ? 'The saved citation byte range is invalid, does not align to UTF-8 characters, or does not match its line range.'
-            : `The citation requests lines ${sourceRange?.startLine}–${sourceRange?.endLine}, but the captured file has ${sourceLines.length} lines.`
+            : `The citation requests lines ${sourceRange?.startLine}–${sourceRange?.endLine}, but the captured file has ${sourceLineCount} lines.`
     : null;
   const visibleSourceRange = citation.status === 'verified' ? citation.range : null;
-  const sourceTextRanges = source ? sourceLineTextRanges(source.contents) : [];
   useEffect(() => {
     if (!projectId || !snapshotId || !selectedPath) {
       setSnapshotIndex(null);
@@ -5023,12 +5026,26 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   const rangeEnd = visibleSourceRange?.endLine ?? null;
   const contextBefore = 24;
   const contextAfter = 24;
-  const firstDisplayedLine = rangeStart === null || showCompleteSource ? 1 : Math.max(1, rangeStart - contextBefore);
-  const lastDisplayedLine = rangeEnd === null || showCompleteSource ? sourceLines.length : Math.min(sourceLines.length, rangeEnd + contextAfter);
-  const displayedLines = sourceLines.slice(firstDisplayedLine - 1, lastDisplayedLine);
+  const defaultWindowStart = rangeStart === null || showCompleteSource ? 1 : Math.max(1, rangeStart - contextBefore);
+  const firstDisplayedLine = sourceLineCount > 0
+    ? Math.max(1, Math.min(sourceLineCount, sourceWindowStart ?? defaultWindowStart)) : 1;
+  const defaultWindowEnd = rangeEnd === null || showCompleteSource ? sourceLineCount : Math.min(sourceLineCount, rangeEnd + contextAfter);
+  const lastDisplayedLine = Math.min(sourceLineCount, firstDisplayedLine + CODE_LENS_SOURCE_WINDOW_LINES - 1,
+    sourceWindowStart === null && !showCompleteSource ? defaultWindowEnd : sourceLineCount);
+  const displayedWindow = useMemo(
+    () => source ? capturedSourceLineWindow(source.contents, firstDisplayedLine, lastDisplayedLine) : { lines: [], ranges: [] },
+    [source?.contents, firstDisplayedLine, lastDisplayedLine],
+  );
+  const displayedLines = displayedWindow.lines;
+  const highlightedLines = useMemo(
+    () => source && displayedLines.length <= CODE_LENS_SOURCE_WINDOW_LINES && displayedLines.every((line) => line.length <= 16_000)
+      ? highlightSourceLines(source.path, displayedLines) : null,
+    [source?.path, displayedWindow],
+  );
 
   useEffect(() => {
     setShowCompleteSource(false);
+    setSourceWindowStart(null);
     setShowAllRelationships(false);
   }, [selectedPath, source?.snapshotId, source?.path, sourceRange?.startLine, sourceRange?.endLine, sourceRange?.sourceSha256]);
 
@@ -5060,7 +5077,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
       behavior: scrollBehaviorForMotionPreference(window.matchMedia('(prefers-reduced-motion: reduce)').matches),
     }));
     return () => cancelAnimationFrame(frame);
-  }, [source?.snapshotId, source?.path, visibleSourceRange?.startLine, visibleSourceRange?.endLine, showCompleteSource]);
+  }, [source?.snapshotId, source?.path, visibleSourceRange?.startLine, visibleSourceRange?.endLine, showCompleteSource, firstDisplayedLine]);
 
   if (selectedPath && !isNativeRuntime()) {
     return (
@@ -5128,7 +5145,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           </div>
         </div>
         <div className="source-provenance">
-          <span>{highlightedLines ? `${languageForPath(source.path)} source` : 'Plain text source'} · {sourceLines.length.toLocaleString()} lines</span>
+          <span>{highlightedLines ? `${languageForPath(source.path)} source` : 'Plain text source'} · {sourceLineCount.toLocaleString()} lines · showing {sourceLineCount === 0 ? 'no lines' : `${firstDisplayedLine}–${lastDisplayedLine}`}</span>
           {visibleSourceRange && <strong>Citation verified · lines {visibleSourceRange.startLine}–{visibleSourceRange.endLine}</strong>}
           {citationHashMismatch && <strong className="is-stale">Citation stale</strong>}
           {invalidAnchorReason && <strong className="is-stale">Anchor unavailable</strong>}
@@ -5141,7 +5158,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           <span><strong>Invalid or unavailable anchor</strong><small>{invalidAnchorReason} No lines are highlighted; the captured source remains available for inspection.</small></span>
         </div>}
         {!inline && !sourceRange && !sourceRangeIssue && <div className="source-range-focus is-unanchored" role="status">
-          <span><strong>No citation anchor</strong><small>No source range was supplied. Showing the complete captured file with its original line numbers.</small></span>
+          <span><strong>No citation anchor</strong><small>No source range was supplied. Browse the captured file in bounded windows with its original line numbers.</small></span>
         </div>}
         {visibleSourceRange && <div className="source-range-focus" role="status">
           <span><strong>Citation focus</strong><code>{source.path}:{visibleSourceRange.startLine}-{visibleSourceRange.endLine}</code>
@@ -5149,19 +5166,22 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
               ? `Highlighted exact UTF-8 bytes [${visibleSourceRange.startByte}, ${visibleSourceRange.endByteExclusive}); showing nearby context from the exact snapshot.`
               : 'Showing the cited lines with nearby context from the exact snapshot.'}</small>
           </span>
-          <button className="text-button" onClick={() => setShowCompleteSource((value) => !value)}>{showCompleteSource ? 'Show cited context' : 'Show complete file'}</button>
+          <button className="text-button" onClick={() => {
+            if (showCompleteSource) { setShowCompleteSource(false); setSourceWindowStart(null); }
+            else { setShowCompleteSource(true); setSourceWindowStart(1); }
+          }}>{showCompleteSource ? 'Show cited context' : 'Browse full file'}</button>
         </div>}
         <pre className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
           ? `Read-only source from snapshot ${source.snapshotId}, citation lines ${visibleSourceRange.startLine} to ${visibleSourceRange.endLine}`
           : `Read-only source from snapshot ${source.snapshotId}`}>
           <code>
-            {visibleSourceRange && !showCompleteSource && firstDisplayedLine > 1 && <span className="snapshot-source-omission">… {firstDisplayedLine - 1} earlier lines …</span>}
-            {sourceLines.length === 0 && <span className="snapshot-source-empty">Empty file · 0 source lines.</span>}
+            {firstDisplayedLine > 1 && <span className="snapshot-source-omission">… {firstDisplayedLine - 1} earlier lines …</span>}
+            {sourceLineCount === 0 && <span className="snapshot-source-empty">Empty file · 0 source lines.</span>}
             {displayedLines.map((line, offset) => {
               const lineNumber = firstDisplayedLine + offset;
               const isCited = Boolean(visibleSourceRange && lineNumber >= visibleSourceRange.startLine && lineNumber <= visibleSourceRange.endLine);
-              const tokens = highlightedLines?.[lineNumber - 1];
-              const lineTextRange = sourceTextRanges[lineNumber - 1];
+              const tokens = highlightedLines?.[offset];
+              const lineTextRange = displayedWindow.ranges[offset];
               const exactRange = citation.status === 'verified' ? citation.textRange : undefined;
               const localStart = exactRange && lineTextRange ? Math.max(0, exactRange.start - lineTextRange.start) : 0;
               const localEnd = exactRange && lineTextRange ? Math.max(0, Math.min(lineTextRange.end - lineTextRange.start, exactRange.end - lineTextRange.start)) : 0;
@@ -5188,9 +5208,14 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
                 id={`snapshot-source-line-${lineNumber}`}
               ><span className="snapshot-source-line-number" aria-hidden="true">{lineNumber}</span><span>{renderedText}</span></span>;
             })}
-            {visibleSourceRange && !showCompleteSource && lastDisplayedLine < sourceLines.length && <span className="snapshot-source-omission">… {sourceLines.length - lastDisplayedLine} later lines …</span>}
+            {lastDisplayedLine < sourceLineCount && <span className="snapshot-source-omission">… {sourceLineCount - lastDisplayedLine} later lines …</span>}
           </code>
         </pre>
+        {sourceLineCount > 0 && (firstDisplayedLine > 1 || lastDisplayedLine < sourceLineCount) && <nav className="source-window-controls" aria-label="Captured source pages">
+          <button className="text-button" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - CODE_LENS_SOURCE_WINDOW_LINES))}>Previous lines</button>
+          <span>Lines {firstDisplayedLine}–{lastDisplayedLine} of {sourceLineCount}</span>
+          <button className="text-button" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</button>
+        </nav>}
         {!inline && <p className="source-safety-note"><HardDrive size={13} /> Loaded from immutable local snapshot storage and checked against the manifest hash. The live working tree was not read.</p>}
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
           <details>

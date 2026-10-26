@@ -90,6 +90,55 @@ export function sourceLineTextRanges(contents: string): SourceTextRange[] {
   return ranges;
 }
 
+/** Count source lines without allocating a string or range for every line. */
+export function capturedSourceLineCount(contents: string): number {
+  if (contents.length === 0) return 0;
+  let count = 0;
+  for (let index = 0; index < contents.length; index += 1) {
+    if (contents[index] === '\r') {
+      count += 1;
+      if (contents[index + 1] === '\n') index += 1;
+    } else if (contents[index] === '\n') count += 1;
+  }
+  const last = contents.at(-1);
+  return count + (last === '\r' || last === '\n' ? 0 : 1);
+}
+
+/** Read only a bounded source-line window and its original UTF-16 text offsets. */
+export function capturedSourceLineWindow(contents: string, firstLine: number, lastLine: number): {
+  lines: string[];
+  ranges: SourceTextRange[];
+} {
+  const first = Number.isSafeInteger(firstLine) ? Math.max(1, firstLine) : 1;
+  const last = Number.isSafeInteger(lastLine) ? Math.max(first, lastLine) : Number.MAX_SAFE_INTEGER;
+  const lines: string[] = [];
+  const ranges: SourceTextRange[] = [];
+  if (contents.length === 0) return { lines, ranges };
+
+  let line = 1;
+  let start = 0;
+  for (let index = 0; index < contents.length;) {
+    const character = contents[index];
+    if (character !== '\r' && character !== '\n') {
+      index += 1;
+      continue;
+    }
+    if (line >= first && line <= last) {
+      lines.push(contents.slice(start, index));
+      ranges.push({ start, end: index });
+    }
+    index += character === '\r' && contents[index + 1] === '\n' ? 2 : 1;
+    line += 1;
+    start = index;
+    if (line > last) break;
+  }
+  if (start < contents.length && line >= first && line <= last) {
+    lines.push(contents.slice(start));
+    ranges.push({ start, end: contents.length });
+  }
+  return { lines, ranges };
+}
+
 /** Return the 1-based source line at a UTF-16 offset, counting CRLF as one terminator. */
 function sourceLineNumberAtOffset(contents: string, offset: number): number {
   let line = 1;
