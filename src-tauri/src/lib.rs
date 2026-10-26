@@ -2067,7 +2067,6 @@ pub fn run() {
             repository_context_commands::cancel_repository_context,
             repository_structure_commands::inspect_repository_structure,
             source_discovery::prepare_source_discovery,
-            source_discovery::get_documentation_notices,
             source_discovery::discard_source_discovery,
             source_discovery::send_source_discovery,
             codex_commands::get_codex_agent_status,

@@ -15,5 +15,3 @@ export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: 
 export const sendSourceDiscovery = (review: SourceDiscoveryReview) =>
   invoke<SourceDiscoveryResult>('send_source_discovery', { input: { reviewId: review.reviewId, fingerprint: review.fingerprint, consent: true } });
 export const discardSourceDiscovery = (reviewId: string) => invoke<void>('discard_source_discovery', { reviewId });
-export const getDocumentationNotices = (projectId: string, snapshotId: string) =>
-  invoke<DocumentationNotice[]>('get_documentation_notices', { projectId, snapshotId });

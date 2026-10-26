@@ -1596,11 +1596,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar-actions .search-control { padding: 0 9px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 1150px) { .connection-header { max-width: 185px; } .topbar-actions { gap: 2px; } .theme-control { padding: 0; } }
-
-
-.documentation-notices { margin: 12px 0; border-left: 3px solid var(--accent-border); padding: 10px 14px; background: var(--surface-raised); }
-.documentation-notices summary { color: var(--muted); cursor: pointer; font-size: 12px; }
-.documentation-notices p, .documentation-notices li { font-size: 12px; line-height: 1.7; color: var(--muted); }
 @media (max-width: 600px) { .connection-header { max-width: 230px; } }
 
 

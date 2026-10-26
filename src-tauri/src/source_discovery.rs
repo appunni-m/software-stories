@@ -590,20 +590,6 @@ fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<Doc
         .collect()
 }
 
-/// Local labels only; age is never inferred from timestamps or missing evidence.
-#[tauri::command]
-pub(crate) fn get_documentation_notices(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    project_id: String,
-    snapshot_id: String,
-) -> Result<Vec<DocumentationNotice>, String> {
-    sessions.get(&project_id)?;
-    let storage = app_data_directory(&app)?;
-    let manifest = snapshot::load_snapshot_manifest(&storage, &project_id, &snapshot_id)?;
-    Ok(documentation_notices(&storage, &manifest))
-}
-
 fn fingerprint(
     input: &DiscoveryInput,
     metadata: &str,
