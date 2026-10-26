@@ -586,6 +586,12 @@ function Answer(props:AnswerProps){
     const firstSection=revision?.sections[0];
     if(revision&&firstSection)props.onFocus(revision.revisionId,firstSection.sectionId);
   };
+  const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
+  const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));
+  const nextGuideSlideLabel=hasNextGuideSlide?`Next ${turn.guideId?'slide':'section'}`
+    :canBuildNextGuideSlide?'Build next slide'
+    :turn.status==='working'?`Another ${turn.guideId?'slide':'section'} is being prepared`
+    :turn.guideId?'Guide complete':'Answer complete';
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const failureMessage=explanationFailureMessage(turn.failureCode);
@@ -611,7 +617,7 @@ function Answer(props:AnswerProps){
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
     {sectionSequence&&props.loading&&sections.length>0&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
-    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span>{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={selectedGuideSlide>=guideSlides.length-1&&(!turn.guideId||!canContinueRepositoryGuide(turn.guide))} onClick={()=>{if(selectedGuideSlide<guideSlides.length-1){if(turn.guideId)props.onGuideSlideConsumed?.(guideSlide.revisionId);selectGuideSlide(selectedGuideSlide+1);}else if(turn.guideId&&canContinueRepositoryGuide(turn.guide))props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{selectedGuideSlide>=guideSlides.length-1&&progressText?`Building next ${turn.guideId?'slide':'section'}…`:selectedGuideSlide>=guideSlides.length-1&&turn.guideId&&turn.status==='waiting'?'Build next slide':`Next ${turn.guideId?'slide':'section'}`}<ArrowRight size={13}/></Button></nav>}
+    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span role="status" aria-live="polite" aria-atomic="true">{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={!hasNextGuideSlide&&!canBuildNextGuideSlide} aria-label={nextGuideSlideLabel} onClick={()=>{if(hasNextGuideSlide){if(turn.guideId)props.onGuideSlideConsumed?.(guideSlide.revisionId);selectGuideSlide(selectedGuideSlide+1);}else if(canBuildNextGuideSlide)props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{nextGuideSlideLabel}<ArrowRight size={13}/></Button></nav>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}
