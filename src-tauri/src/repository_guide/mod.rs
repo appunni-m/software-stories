@@ -36,9 +36,12 @@ const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
+// Keep the previous stored-outline bound so existing guides remain readable.
 const MAX_UNITS: usize = 12;
-const MAX_CONTINUATION_UNITS: usize = 8;
-pub(crate) const MAX_TOTAL_UNITS: usize = MAX_UNITS + MAX_CONTINUATION_UNITS;
+const MAX_INITIAL_UNITS: usize = 4;
+// Preserve the existing total guide ceiling while reallocating later slots.
+const MAX_LEGACY_CONTINUATION_UNITS: usize = 8;
+pub(crate) const MAX_TOTAL_UNITS: usize = MAX_UNITS + MAX_LEGACY_CONTINUATION_UNITS;
 pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_TOTAL_UNITS + 1;
 const MAX_OMISSIONS: usize = 64;
 const MAX_OMISSION_BYTES: usize = 240;
@@ -338,14 +341,7 @@ fn unit_retryable(record: &Record, index: usize) -> bool {
 /// Distinct omitted topics that can still be appended to the saved outline.
 /// The labels come from the validated local plan, never from the renderer.
 fn pending_extension_topics(plan: &Plan) -> Vec<String> {
-    let continuation_count = plan
-        .units
-        .iter()
-        .filter(|unit| unit.continuation_topic.is_some())
-        .count();
-    let available = MAX_CONTINUATION_UNITS
-        .saturating_sub(continuation_count)
-        .min(MAX_TOTAL_UNITS.saturating_sub(plan.units.len()));
+    let available = MAX_TOTAL_UNITS.saturating_sub(plan.units.len());
     let mut seen = std::collections::HashSet::new();
     plan.omissions
         .iter()

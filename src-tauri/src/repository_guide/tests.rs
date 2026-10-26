@@ -170,6 +170,14 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
     for (unit, completed) in record.units.iter_mut().zip(completed_units) {
         unit.attempts.push(completed);
     }
+    let omitted_topic_count = MAX_TOTAL_UNITS.saturating_sub(record.units.len());
+    record.plan.as_mut().unwrap().omissions =
+        std::iter::once("No runtime execution was captured.".to_owned())
+            .chain(
+                (1..omitted_topic_count)
+                    .map(|index| format!("Additional public route {index} remains unexplored.")),
+            )
+            .collect();
     record.status = Status::Ready;
     assert!(plan_extension_eligible(&record));
     assert!(guide_summary(&record, &f.manifest, Vec::new()).can_extend);
@@ -192,8 +200,8 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
     let extended = append_omission_units(&f.storage, &resumed).unwrap();
 
     let plan = extended.plan.as_ref().unwrap();
-    assert_eq!(plan.units.len(), 3);
-    assert_eq!(extended.units.len(), 3);
+    assert_eq!(plan.units.len(), MAX_TOTAL_UNITS);
+    assert_eq!(extended.units.len(), MAX_TOTAL_UNITS);
     assert_eq!(plan.omissions, Vec::<String>::new());
     assert!(
         plan.units[..2]
@@ -205,8 +213,16 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
         plan.units[2].continuation_topic.as_deref(),
         Some("No runtime execution was captured.")
     );
-    assert_eq!(plan.units[2].starting_ranges.len(), 0);
-    assert!(extended.units[2].attempts.is_empty());
+    assert!(
+        plan.units[2..]
+            .iter()
+            .all(|unit| { unit.continuation_topic.is_some() && unit.starting_ranges.is_empty() })
+    );
+    assert!(
+        extended.units[2..]
+            .iter()
+            .all(|unit| unit.attempts.is_empty())
+    );
     assert!(!plan_extension_eligible(&extended));
     assert!(!guide_summary(&extended, &f.manifest, Vec::new()).can_extend);
     let reopened = store::read(&f.storage, &record.id).unwrap();

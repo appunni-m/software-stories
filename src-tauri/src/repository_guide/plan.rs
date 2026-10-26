@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use std::time::Instant;
 
 const PLAN_INSTRUCTIONS: &str = r#"
-Create the guide's cited research outline only. The saved-guide schema permits two to twelve focused behavior questions that cover the user's requested scope across the complete guide. For this first outline, target two to four follow-on questions that establish the core path for the first useful buffer; the separate app-authored opening makes a buffer of up to five slides. Do not delay that first buffer to map every caller, language, binding, or side feature. Put every requested or observed route outside the initial path in `omissions` as a distinct, concrete topic. These topics are explicitly not yet covered; they can be appended as later units when capacity allows, and they must remain visible as uncovered if they cannot be represented. Return an opening-range lead followed by two to twelve focused behavior questions that cover the user's requested scope. The opening lead must use key `opening`, exactly match the app-provided `openingQuestion`, have no prerequisites, and contain one claim citing one to four delivered code references for the real outermost input boundary. The app authors this opening as a separate slide.
+Create the guide's cited research outline only. The fresh-outline schema allows two to four focused behavior questions for the initial core path; the separate app-authored opening makes the first buffer at most five slides. Do not delay that first buffer to map every caller, language, binding, or side feature. Put every requested or observed route outside the initial path in `omissions` as a distinct, concrete topic. These topics are explicitly not yet covered; later units can be appended up to the saved guide's existing total-unit limit, and any route that cannot be represented must remain visible as uncovered. The completed guide, not this initial outline, must cover the user's requested scope. Return an opening-range lead followed by two to four focused behavior questions for the first useful path. The opening lead must use key `opening`, exactly match the app-provided `openingQuestion`, have no prerequisites, and contain one claim citing one to four delivered code references for the real outermost input boundary. The app authors this opening as a separate slide.
 
 For repository-wide requests, do not mistake an internal helper that receives an already constructed object or completed state for the repository entry point. If source shows a central engine, reserve at least two follow-on units for its primary path: caller input into the central domain representation, then the main operation through useful results and important failures. Ground these units in engine implementation, not only wrappers.
 
@@ -81,7 +81,7 @@ pub(super) fn schema() -> Value {
         "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
-      "sections":{"type":"array","minItems":3,"maxItems":MAX_UNITS + 1,"description":"Item zero is the opening range lead; the remaining two to twelve items are follow-on slides.","items":{
+      "sections":{"type":"array","minItems":3,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Item zero is the opening range lead; the remaining two to four items establish the initial core path.","items":{
           "type":"object","additionalProperties":false,"required":["key","question","prerequisites","claims"],"properties":{
             "key":{"type":"string","maxLength":80},"question":{"type":"string","minLength":16,"maxLength":800},
             "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
@@ -123,7 +123,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
         .map_err(|_| "The guide outline has an invalid structure.")?;
     if proposal.plan_version != "repositoryGuidePlanV1"
         || !text(&proposal.title, 8, 120)
-        || !(3..=MAX_UNITS + 1).contains(&proposal.sections.len())
+        || !(3..=MAX_INITIAL_UNITS + 1).contains(&proposal.sections.len())
         || !valid_omissions(&proposal.omissions)
     {
         return Err("The guide outline exceeds its fixed limits.".into());
@@ -144,9 +144,9 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     }
     let opening_ranges = starting_ranges(resolved, 0, &opening.claims[0])?;
     let follow_on_sections: Vec<_> = proposed_sections.collect();
-    if !(2..=MAX_UNITS).contains(&follow_on_sections.len()) {
+    if !(2..=MAX_INITIAL_UNITS).contains(&follow_on_sections.len()) {
         return Err(
-            "The guide needs two to twelve follow-on sections after its opening lead.".into(),
+            "The initial guide outline needs two to four follow-on sections after its opening lead.".into(),
         );
     }
     let mut units = Vec::new();
@@ -222,14 +222,14 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
     let instructions = format!(
-        "{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. For the initial plan, stop once the opening lead, two to four core-path questions, and explicit pending omission topics are source-grounded; later units will investigate the omitted topics independently. Native source and call limits still apply."
+        "{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Stop the initial plan once the opening lead, two to four core-path questions, and explicit pending omission topics are source-grounded; later units will investigate the omitted topics independently. Native source and call limits still apply."
     );
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-incremental-v2",
-        "model":job.model_id,"effort":job.reasoning_effort,"maxUnits":MAX_UNITS,
-        "preferredInitialFollowOnUnits":4,"firstBufferSlides":5,
+        "operationPolicy":"repository-guide-plan-incremental-v3",
+        "model":job.model_id,"effort":job.reasoning_effort,
+        "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"firstBufferSlides":5,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
         "runDeadlinePolicy":"user-controlled-stop-v1",
         "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::RESEARCH_BASE_INSTRUCTIONS});

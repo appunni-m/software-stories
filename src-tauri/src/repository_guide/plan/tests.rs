@@ -56,7 +56,10 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
     assert!(!encoded.contains("quote"));
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
-    assert_eq!(schema["properties"]["sections"]["maxItems"], MAX_UNITS + 1);
+    assert_eq!(
+        schema["properties"]["sections"]["maxItems"],
+        MAX_INITIAL_UNITS + 1
+    );
     assert_eq!(schema["properties"]["sections"]["minItems"], 3);
     assert!(
         schema["properties"]["sections"]["description"]
@@ -68,9 +71,9 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
 }
 
 #[test]
-fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
+fn initial_outline_accepts_four_follow_on_slots_and_rejects_a_fifth() {
     let mut full = proposal();
-    for index in 2..MAX_UNITS {
+    for index in 2..MAX_INITIAL_UNITS {
         full["sections"].as_array_mut().unwrap().push(json!({
             "key": format!("surface-{index}"),
             "question": format!("How does caller surface {index} transform its input?"),
@@ -78,10 +81,13 @@ fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
             "claims": [{"evidence":[{"referenceId":"code:2"}]}]
         }));
     }
-    assert_eq!(full["sections"].as_array().unwrap().len(), MAX_UNITS + 1);
+    assert_eq!(
+        full["sections"].as_array().unwrap().len(),
+        MAX_INITIAL_UNITS + 1
+    );
     assert_eq!(
         canonicalize(&resolve(full.clone())).unwrap().units.len(),
-        MAX_UNITS
+        MAX_INITIAL_UNITS
     );
 
     full["sections"].as_array_mut().unwrap().push(json!({
@@ -90,12 +96,7 @@ fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
         "prerequisites": [],
         "claims": [{"evidence":[{"referenceId":"code:2"}]}]
     }));
-    assert!(matches!(
-        native_citations::resolve(&full.to_string(), |_| {
-            panic!("section count is rejected before citation lookup")
-        }),
-        native_citations::Resolution::Invalid(_)
-    ));
+    assert!(canonicalize(&resolve(full)).is_err());
 }
 
 #[test]
@@ -264,7 +265,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
         r.question
     );
     assert!(prompt.len() < 128 * 1024);
-    assert_eq!(MAX_UNITS + 1, 13);
+    assert_eq!(MAX_INITIAL_UNITS + 1, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -273,7 +274,9 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("two to twelve focused behavior questions"));
+    assert!(instructions.contains("two to four focused behavior questions"));
+    assert!(instructions.contains("two to four core-path questions"));
+    assert!(instructions.contains("explicit pending omission topics"));
     assert!(instructions.contains("cover the user's requested scope"));
     assert!(instructions.contains("Return an opening-range lead followed"));
     assert!(instructions.contains("key `opening`"));
@@ -357,7 +360,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
-    assert_eq!(MAX_UNITS + 1, 13);
+    assert_eq!(MAX_INITIAL_UNITS + 1, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -394,7 +397,7 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     assert_eq!(request(&r).unwrap().2, fingerprint);
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);
-    assert_eq!(MAX_UNITS + 1, 13);
+    assert_eq!(MAX_INITIAL_UNITS + 1, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 

@@ -379,7 +379,7 @@ fn validate(record: &Record) -> Result<(), String> {
         let continuation_units = plan.units.len().saturating_sub(original_units);
         if !(2..=MAX_UNITS).contains(&original_units)
             || plan.units.len() > MAX_TOTAL_UNITS
-            || continuation_units > MAX_CONTINUATION_UNITS
+            || continuation_units > MAX_TOTAL_UNITS.saturating_sub(original_units)
             || record.units.len() != plan.units.len()
             || !text(&plan.title, 8, 120)
             || !(1..=4).contains(&plan.opening_ranges.len())
