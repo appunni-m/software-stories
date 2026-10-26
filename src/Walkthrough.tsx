@@ -23,7 +23,11 @@ import { orderedSections, readerSelection, readRememberedProgress, saveRemembere
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
 import { InlineCodeText } from './InlineCodeText';
-import { useReaderSection, useReaderSectionAccessor } from './lib/ReaderProgressContext';
+import { ReaderProgressContext } from './lib/ReaderProgressContext';
+import { sameSection, type SectionIdentity, type StoryProgress } from './lib/readerProgress';
+import { answerReadingPosition } from './workspace/answerVersions';
+import { presentationOwner, rememberPresentation, rememberSection, type WorkspaceState } from './workspace/model';
+import { getWorkspace, prepareWorkspaceConversation, updateWorkspace, useConversationAvailability, useWorkspace } from './workspace/store';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
 
@@ -36,6 +40,24 @@ export interface ReaderRouteContext {
   playbackPosition: number;
   transcriptPosition: number;
   focusTarget: string;
+}
+
+function readerTurnForRevision(state: WorkspaceState, revisionId: string) {
+  const current = state.explorations.find((exploration) => exploration.id === state.currentId);
+  const explorations = [
+    ...(current ? [current] : []),
+    ...state.explorations.filter((exploration) => exploration.id !== state.currentId).reverse(),
+  ];
+  for (const exploration of explorations) {
+    const turn = presentationOwner(exploration, revisionId);
+    if (turn) return { exploration, turn };
+  }
+  return null;
+}
+
+function savedGuideSection(state: WorkspaceState, revisionId: string): string | null {
+  const owner = readerTurnForRevision(state, revisionId);
+  return owner ? answerReadingPosition(owner.turn, 'guide', revisionId)?.sectionId ?? null : null;
 }
 
 interface WalkthroughProps {
@@ -84,6 +106,14 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     () => readerSelection(revisions,route.chapterId,route.chapterRevisionId),
     [revisions,route.chapterId,route.chapterRevisionId],
   );
+  const readerSnapshotId = selectedRevision?.snapshotId ?? route.snapshotId ?? selectedSnapshotId ?? '';
+  const readerWorkspace = useWorkspace(projectId, readerSnapshotId);
+  const readerConversationAvailability = useConversationAvailability(projectId, readerSnapshotId);
+  useEffect(() => {
+    if (!isNativeRuntime() || !readerSnapshotId) return;
+    void prepareWorkspaceConversation(projectId, readerSnapshotId).catch(() => {});
+  }, [projectId, readerSnapshotId]);
+  const nativeReaderPositionReady = !isNativeRuntime() || !readerSnapshotId || readerConversationAvailability !== 'loading';
   const sections = selectedRevision ? orderedSections(selectedRevision) : [];
 
   const rememberedRead = useMemo(() => {
@@ -100,14 +130,21 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     }
   }, [projectId, progressRefreshKey, selectedRevision?.chapterId, selectedRevision?.revisionId]);
   const rememberedProgress = rememberedRead.status === 'available' ? rememberedRead.progress : null;
-  const ownedSection = useReaderSection(selectedRevision?.revisionId);
-  const readSectionForRevision = useReaderSectionAccessor();
+  const nativeSectionId = selectedRevision ? savedGuideSection(readerWorkspace, selectedRevision.revisionId) : null;
   const selectedSectionId = selectedRevision
-    ? chooseSectionId(sections, route.sectionId, ownedSection?.sectionId ?? rememberedProgress?.sectionId)
+    ? chooseSectionId(sections, route.sectionId, nativeSectionId ?? rememberedProgress?.sectionId)
     : null;
-  useEffect(()=>{
-    if(selectedSectionId)ownedSection?.onSectionChange(selectedSectionId);
-  },[selectedRevision?.revisionId,selectedSectionId]);
+  useEffect(() => {
+    if (!isNativeRuntime() || !nativeReaderPositionReady || !selectedRevision || !selectedSectionId) return;
+    const owner = readerTurnForRevision(readerWorkspace, selectedRevision.revisionId);
+    if (owner) updateWorkspace(projectId, selectedRevision.snapshotId, (state) => {
+      const current = readerTurnForRevision(state, selectedRevision.revisionId);
+      return current ? rememberSection(state, current.exploration.id, current.turn.id, 'guide', {
+        revisionId: selectedRevision.revisionId,
+        sectionId: selectedSectionId,
+      }) : state;
+    });
+  }, [projectId, nativeReaderPositionReady, readerWorkspace, selectedRevision?.snapshotId, selectedRevision?.revisionId, selectedSectionId]);
   const selectedSectionIndex = selectedSectionId ? sections.findIndex((section) => section.sectionId === selectedSectionId) : -1;
   const selectedSection = selectedSectionIndex >= 0 ? sections[selectedSectionIndex] : null;
   const latestRevision = selectedRevision ? acceptedLibrary.find((revision) => revision.chapterId === selectedRevision.chapterId) : null;
@@ -116,7 +153,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const isOlderSnapshot = Boolean(selectedRevision && snapshotBaselineId && selectedRevision.snapshotId !== snapshotBaselineId);
 
   useEffect(() => {
-    if (!selectedRevision || !selectedSectionId) return;
+    if (!nativeReaderPositionReady || !selectedRevision || !selectedSectionId) return;
     const routeMatches = route.chapterId === selectedRevision.chapterId
       && route.chapterRevisionId === selectedRevision.revisionId
       && route.sectionId === selectedSectionId
@@ -139,7 +176,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
         : finitePosition(route.transcriptPosition),
       focusTarget: route.focusTarget ?? `reader-section-heading:${selectedSectionId}`,
     });
-  }, [projectId, route, rememberedProgress, selectedRevision?.chapterId, selectedRevision?.revisionId, selectedSectionId]);
+  }, [projectId, route, rememberedProgress, nativeReaderPositionReady, selectedRevision?.chapterId, selectedRevision?.revisionId, selectedSectionId]);
 
   useEffect(() => {
     if (!selectedSectionId || !selectedRevision) return;
@@ -221,8 +258,17 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     } else onReplaceRoute(next);
   };
 
-  const selectChapter = (revision: ChapterRevision) => {
+  const selectChapter = async (revision: ChapterRevision) => {
     let storedProgress: ReturnType<typeof readRememberedProgress> = { status: 'missing' };
+    let nativeSectionId: string | null = null;
+    if (isNativeRuntime()) {
+      try {
+        await prepareWorkspaceConversation(projectId, revision.snapshotId);
+        nativeSectionId = savedGuideSection(getWorkspace(projectId, revision.snapshotId), revision.revisionId);
+      } catch {
+        nativeSectionId = null;
+      }
+    }
     if (!isNativeRuntime()) {
       try {
         storedProgress = readRememberedProgress(
@@ -235,7 +281,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     }
     const rememberedSectionId = storedProgress.status === 'available'
       ? storedProgress.progress.sectionId
-      : readSectionForRevision?.(revision.revisionId)?.sectionId ?? null;
+      : nativeSectionId;
     const sectionId = chooseSectionId(orderedSections(revision), null, rememberedSectionId);
     if (!sectionId) return;
     const playbackPosition = storedProgress.status === 'available' && storedProgress.progress.sectionId === sectionId ? storedProgress.progress.playbackPosition : 0;
@@ -315,7 +361,37 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     }
   };
 
-  if (loading) return <div className="empty-workspace snapshot-loading" role="status"><Layers3 size={18} /><span>Loading saved explanations…</span></div>;
+  const readerProgressAccess = useMemo(() => ({
+    story: (identity: SectionIdentity) => {
+      const owner = readerTurnForRevision(readerWorkspace, identity.revisionId);
+      if (!owner) return undefined;
+      return {
+        progress: owner.turn.presentation?.stories.find((progress) => sameSection(progress, identity)),
+        onProgressChange: (progress: StoryProgress) => updateWorkspace(projectId, readerSnapshotId, (state) => {
+          const current = readerTurnForRevision(state, identity.revisionId);
+          return current ? rememberPresentation(state, current.exploration.id, current.turn.id, 'stories', progress) : state;
+        }),
+      };
+    },
+    section: (revisionId: string) => {
+      const revision = revisions.find((candidate) => candidate.revisionId === revisionId);
+      if (!revision) return undefined;
+      const owner = readerTurnForRevision(readerWorkspace, revisionId);
+      if (!owner) return undefined;
+      return {
+        sectionId: answerReadingPosition(owner.turn, 'guide', revisionId)?.sectionId,
+        onSectionChange: (sectionId: string) => {
+          if (!revision.sections.some((section) => section.sectionId === sectionId)) return;
+          updateWorkspace(projectId, readerSnapshotId, (state) => {
+            const current = readerTurnForRevision(state, revisionId);
+            return current ? rememberSection(state, current.exploration.id, current.turn.id, 'guide', { revisionId, sectionId }) : state;
+          });
+        },
+      };
+    },
+  }), [projectId, readerSnapshotId, readerWorkspace, revisions]);
+
+  if (loading || (isNativeRuntime() && readerSnapshotId && readerConversationAvailability === 'loading')) return <div className="empty-workspace snapshot-loading" role="status"><Layers3 size={18} /><span>Loading saved explanations…</span></div>;
   if (loadError) return (
     <div className="empty-workspace simple-empty walkthrough-empty" role="alert">
       <div className="empty-state-icon play-icon"><BookOpen size={22} /></div>
@@ -337,6 +413,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   );
 
   return (
+    <ReaderProgressContext.Provider value={readerProgressAccess}>
     <div className="walkthrough-screen">
       <aside className="walkthrough-rail" aria-label="Explanation and section navigation">
         <div className="walkthrough-rail-heading">
@@ -431,6 +508,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
         </main>
       )}
     </div>
+    </ReaderProgressContext.Provider>
   );
 }
 
