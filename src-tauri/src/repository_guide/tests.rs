@@ -936,6 +936,7 @@ fn fontdone_repository_guide_account_probe() {
             &recovery::InterruptionJournal::default(),
             if first_build { GUIDE_SLIDE_BUFFER } else { 1 },
             None,
+            None,
             &progress,
             Arc::clone(&notify),
             &adopt,

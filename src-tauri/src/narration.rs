@@ -1018,13 +1018,6 @@ fn audio_result(
     }
 }
 
-#[cfg(test)]
-fn validate_input(
-    input: BuildNarrationReviewInput,
-) -> Result<BuildNarrationReviewInput, ProviderFailure> {
-    validate_input_for_backend(input, false)
-}
-
 fn validate_input_for_backend(
     mut input: BuildNarrationReviewInput,
     local: bool,

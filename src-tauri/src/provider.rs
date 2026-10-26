@@ -4478,24 +4478,6 @@ pub(crate) fn rebuild_active_codex_review(
     Ok(rebuilt)
 }
 
-/// Rebuild the exact offline Claude contract from native-owned runtime identity
-/// and immutable source. This does not authorize account use or execution.
-pub(crate) fn revalidate_claude_chapter_review(
-    storage_dir: &Path,
-    review: &ProviderRequestReview,
-    runtime: &crate::claude_agent::ClaudeReviewRuntime,
-) -> Result<(), ProviderFailure> {
-    if claude_review_operation(review)? != ClaudeOperation::Chapter {
-        return Err(failure(
-            ProviderFailureKind::InvalidReview,
-            "A range or Git-change review cannot dispatch a Claude chapter operation.",
-        ));
-    }
-    // The chapter branch never reads repository state; Git requests use the
-    // generic rebuilder with the native session's actual repository root.
-    rebuild_claude_request_review(storage_dir, Path::new(""), review, runtime).map(|_| ())
-}
-
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum ClaudeOperation {
     Chapter,

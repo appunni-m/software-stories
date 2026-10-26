@@ -603,10 +603,6 @@ impl ProjectOpenResult {
     pub fn storage_error(message: String) -> Self {
         Self::failure(ProjectOpenStatus::StorageError, None, message)
     }
-
-    pub fn invalid_selected_path(message: String) -> Self {
-        Self::failure(ProjectOpenStatus::InvalidDirectory, None, message)
-    }
 }
 
 fn recent_projects_path(storage_dir: &Path) -> PathBuf {

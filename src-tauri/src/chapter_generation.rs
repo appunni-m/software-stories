@@ -2204,8 +2204,6 @@ pub(crate) mod tests {
             .typed_visual_mut()
             .unwrap()
             .presentation
-            .as_mut()
-            .unwrap()
             .scenes[0]
             .elements[3]
             .value = "Hello, Bob".into();
@@ -2295,7 +2293,7 @@ pub(crate) mod tests {
 
     #[test]
     fn obsolete_benchmark_visual_choices_are_rejected_and_current_narration_still_validates() {
-        let fixture = Fixture::new();
+        let mut fixture = Fixture::new();
         fixture.recapture_with_source(
             "cart.ts",
             include_str!("../../benchmarks/codex-account-smoke/cart.ts"),

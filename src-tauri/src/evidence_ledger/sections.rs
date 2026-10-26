@@ -1186,10 +1186,6 @@ impl ActiveAnswer {
         )
     }
 
-    pub(crate) fn identity(&self) -> (&str, &str) {
-        (&self.value.binding.operation_id, &self.value.request_sha256)
-    }
-
     pub(crate) fn remaining_attempts(&self) -> usize {
         MAX_ATTEMPTS.saturating_sub(self.value.attempts.len())
     }

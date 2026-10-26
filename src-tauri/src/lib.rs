@@ -2363,15 +2363,13 @@ mod chapter_pipeline_tests {
                     .unwrap()
             );
             assert_eq!(prepared.revision.sections[0].prose, full);
-            let presentation = prepared.revision.sections[0]
+            let presentation = &prepared.revision.sections[0]
                 .visual
                 .as_ref()
                 .unwrap()
                 .typed_visual()
                 .unwrap()
-                .presentation
-                .as_ref()
-                .unwrap();
+                .presentation;
             assert_eq!(presentation.schema_version, 3);
             assert_eq!(presentation.scenes.len(), 1);
             assert!(
