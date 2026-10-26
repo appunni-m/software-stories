@@ -44,7 +44,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
     actionOpened.current = Boolean(action.opensDialog || action.movesFocus);
     setOpen(false);
     action.run();
-  }}>{action.label}</button>)}</div> : null;
+  }}><InlineCodeText text={action.label}/></button>)}</div> : null;
   const renderAttempt = (item: WorkspaceNotification) => <li key={item.id} className={`notification-attempt tone-${item.tone ?? 'info'}`}>
     <div className="notification-item-title"><strong><InlineCodeText text={item.title}/></strong>{item.read !== undefined && <span className={`notification-read ${item.read ? 'is-read' : 'is-new'}`}>{item.read ? 'Read' : 'New'}</span>}</div>
     <p><InlineCodeText text={item.message}/></p>
