@@ -4062,11 +4062,10 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<{ lines: DiffLine[]; oldTruncated: boolean; newTruncated: boolean } | null>(null);
-  const started = useRef(false);
   useEffect(() => {
-    if (!open || diff || started.current) return;
-    started.current = true;
+    if (!open || diff) return;
     let active = true;
+    setError(null);
     setLoading(true);
     const readRange = (range: ChapterFreshnessSourceChange['oldRange']) => range
       ? readSnapshotSource(projectId, range.snapshotId, range.path).then((source) => changedRangeLines(source, range))
