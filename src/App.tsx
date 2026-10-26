@@ -1504,8 +1504,11 @@ function App() {
     }
   };
 
-  const hasUnreadNotifications = visibleQuestionUpdates.some((outcome) => !outcome.read)
-    || (noticeHistoryState.availability === 'ready' && noticeHistoryState.items.some((item) => !item.read));
+  const notificationsAvailability = notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
+    answers: answerAvailability, notices: noticeHistoryState.availability,
+    refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable });
+  const hasUnreadNotifications = notificationsAvailability === 'ready'
+    && (visibleQuestionUpdates.some((outcome) => !outcome.read) || noticeHistoryState.items.some((item) => !item.read));
   const markAllNotificationsRead = () => {
     const unreadQuestions = visibleQuestionUpdates.filter((outcome) => !outcome.read);
     const projectId = currentProject?.projectId;
@@ -1739,9 +1742,7 @@ function App() {
             currentProjectId={currentProject?.projectId}
             currentSnapshotId={selectedSnapshot?.snapshotId}
             issue={noticeHistoryState.issue==='full'?'full':null}
-            availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
-              answers: answerAvailability, notices:noticeHistoryState.availability,
-              refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
+            availability={notificationsAvailability}
             open={notificationsOpen} onOpenChange={setNotificationsOpen}
             onMarkAllRead={hasUnreadNotifications ? markAllNotificationsRead : undefined} />
           <button
