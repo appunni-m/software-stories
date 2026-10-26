@@ -1318,6 +1318,7 @@ function App() {
   const openGuideRevision = async (revision: ChapterRevision) => {
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
     const navigationAtStart = navigationRef.current;
+    let chapterHistory: ChapterRevision[] = [revision];
     try {
       await prepareWorkspaceConversation(revision.projectId, revision.snapshotId);
     } catch {
@@ -1329,10 +1330,19 @@ function App() {
       });
       return;
     }
+    try {
+      chapterHistory = await listChapterRevisions(revision.projectId, revision.snapshotId);
+      if (!chapterHistory.some((saved) => saved.revisionId === revision.revisionId)) {
+        chapterHistory = [...chapterHistory, revision];
+      }
+    } catch {
+      // Opening the saved revision remains local. Without its full ancestry,
+      // answer-version selection safely stays at the existing reader state.
+    }
     if (navigationAtStart !== navigationRef.current) return;
 
     updateWorkspace(revision.projectId, revision.snapshotId, (state) =>
-      openWorkspaceRevision(state, revision.revisionId, revision.title));
+      openWorkspaceRevision(state, revision.revisionId, revision.title, chapterHistory));
     const openedWorkspace = getWorkspace(revision.projectId, revision.snapshotId);
     const focusedTurnId = openedWorkspace.explorations
       .find((exploration) => exploration.id === openedWorkspace.currentId)?.focusedTurnId;

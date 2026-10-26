@@ -1,4 +1,6 @@
-import { repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
+import type { ChapterRevision } from '../lib/commands';
+import { answerReadingPosition, rememberAnswerVersion } from './answerVersions';
+import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
@@ -300,12 +302,65 @@ export function openWorkspaceQuestion(
 
 /** Open a saved revision in its existing question, or attach it to the current
  * exploration so every saved explanation has the same Guide reader. */
-export function openWorkspaceRevision(state: WorkspaceState, revisionId: string, title: string): WorkspaceState {
+export function openWorkspaceRevision(
+  state: WorkspaceState,
+  revisionId: string,
+  title: string,
+  chapters: readonly ChapterRevision[] = [],
+): WorkspaceState {
   const existing = state.explorations.flatMap((exploration) =>
     exploration.turns.map((turn) => ({ exploration, turn })))
     .find(({ turn }) => turn.revisionId === revisionId
-      || turn.publishedSections?.some((section) => section.revisionId === revisionId));
-  if (existing) return openWorkspaceQuestion(state, existing.exploration.id, existing.turn.id);
+      || turn.publishedSections?.some((section) => section.revisionId === revisionId)
+      || turn.answerVersions?.some((version) => version.revisionId === revisionId));
+  if (existing) {
+    const selectedChapter = chapters.find((chapter) => chapter.revisionId === revisionId);
+    let next = state;
+    if (selectedChapter) {
+      const originalIds = [...new Set([
+        existing.turn.revisionId,
+        ...(existing.turn.publishedSections ?? []).map((section) => section.revisionId),
+      ].filter((id): id is string => Boolean(id)))];
+      let canFocusRevision = originalIds.includes(revisionId)
+        || existing.turn.answerVersions?.some((version) => version.revisionId === revisionId && version.selected) === true;
+      for (const originalRevisionId of originalIds) {
+        const original = chapters.find((chapter) => chapter.revisionId === originalRevisionId);
+        if (!original) continue;
+        const selected = rememberAnswerVersion(
+          next,
+          existing.exploration.id,
+          existing.turn.id,
+          originalRevisionId,
+          revisionId,
+          chapters,
+        );
+        if (selected !== next) {
+          next = selected;
+          canFocusRevision = true;
+          break;
+        }
+      }
+
+      if (canFocusRevision) {
+        const selectedTurn = next.explorations
+          .find((exploration) => exploration.id === existing.exploration.id)?.turns
+          .find((turn) => turn.id === existing.turn.id);
+        const saved = selectedTurn
+          ? answerReadingPosition(selectedTurn, 'guide', revisionId)
+          : undefined;
+        const sectionId = selectedChapter.sections.some((section) => section.sectionId === saved?.sectionId)
+          ? saved!.sectionId
+          : selectedChapter.sections[0]?.sectionId;
+        if (sectionId) {
+          next = rememberSection(next, existing.exploration.id, existing.turn.id, 'guide', {
+            revisionId,
+            sectionId,
+          });
+        }
+      }
+    }
+    return openWorkspaceQuestion(next, existing.exploration.id, existing.turn.id);
+  }
 
   const owner = state.explorations.find((exploration) => exploration.id === state.currentId)
     ?? state.explorations[0];
