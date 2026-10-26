@@ -18,7 +18,7 @@ import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLe
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
-import { buildInventory } from '../lib/inventory';
+import { buildInventory, recommendedEntryPoint } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
@@ -128,7 +128,11 @@ export function DeveloperWorkspace(props:Props) {
   }
   const path = ancestors(state);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
-  const sourcePaths = useMemo(()=>rankSourcePaths(rows.map((r)=>r.path)),[rows]);
+  const sourcePaths = useMemo(()=>{
+    const ranked=rankSourcePaths(rows.map((r)=>r.path));
+    const entry=recommendedEntryPoint(rows);
+    return entry&&ranked.includes(entry)?[entry,...ranked.filter((candidate)=>candidate!==entry)]:ranked;
+  },[rows]);
   const initialSearchContext=useMemo(()=>{
     if(props.routeSearchQuery!==undefined||props.routeSearchMode!==undefined||props.routeSidebarActivity!==undefined){
       const activity=props.routeSidebarActivity??(props.routeSearchQuery!==undefined?'search':'files');
