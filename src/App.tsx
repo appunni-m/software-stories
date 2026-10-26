@@ -1298,7 +1298,9 @@ function App() {
       const origin = returnFocusTarget
         ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocusTarget })
         : state;
-      const openBesideWorkspace = origin.current.workspace === 'guide-plan' || origin.current.workspace === 'changes';
+      const openBesideWorkspace = origin.current.workspace === 'guide-plan'
+        || origin.current.workspace === 'changes'
+        || origin.current.workspace === 'code-lens';
       const destination: WorkspaceRoute = {
         ...origin.current,
         workspace: openBesideWorkspace ? origin.current.workspace : 'atlas',
