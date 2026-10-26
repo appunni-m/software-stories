@@ -585,7 +585,10 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     patchTurn(project,snapshot,id,{status:'working',error:undefined});
     await flushWorkspaceConversationBeforeGeneration(project,snapshot);
     if(closingWorkspace)throw new Error(closingMessage);
-    await ensureCodexConnection(true);
+    // Reuse the connection already initialized by the header/first request.
+    // Guide slide refills happen in the background and must not reconnect the
+    // selected agent for every slide.
+    await ensureCodexConnection();
     if (job.cancelled) return;
     if(closingWorkspace)throw new Error(closingMessage);
     const selection = readCodexSelection();
@@ -628,7 +631,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     patchTurn(project,snapshot,turnId,{status:'working',error:undefined});
     await flushWorkspaceConversationBeforeGeneration(project,snapshot);
     if(job.cancelled||closingWorkspace)return;
-    await ensureCodexConnection(true);
+    await ensureCodexConnection();
     if(job.cancelled||closingWorkspace)return;
     job.runId=current.guideId;
     const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,rendererQueueWaitMs});
@@ -671,7 +674,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     release=await enterQuestionQueue();
     const queueWaitMs = Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-queueWaitStarted)));
     check(); patchTurn(project,snapshot,id,{status:'working',error:undefined});
-    await ensureCodexConnection(true); check();
+    await ensureCodexConnection(); check();
     // Subscribe before dispatch. Events carry identities only; the native save
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {
