@@ -155,6 +155,8 @@ struct FileCoverage {
 pub(crate) struct Coverage {
     pub(crate) files_indexed: usize,
     pub(crate) files_unavailable: usize,
+    #[serde(default)]
+    pub(crate) source_byte_limited_files: usize,
     pub(crate) bytes_indexed: u64,
     pub(crate) chunks: usize,
     pub(crate) snapshot_paths_skipped: usize,
@@ -802,7 +804,14 @@ fn prepare_cached(
         },
     };
     let mut files = manifest.files.iter().collect::<Vec<_>>();
-    files.sort_by_key(|f| &f.path);
+    // Keep implementation searchable first when the bounded local index cannot
+    // admit every captured text file. Path order remains deterministic inside
+    // each group.
+    files.sort_by(|left, right| {
+        is_code_path(&right.path)
+            .cmp(&is_code_path(&left.path))
+            .then_with(|| left.path.cmp(&right.path))
+    });
     let mut symbols_by_path: HashMap<&str, Vec<&index::IndexedSymbol>> = HashMap::new();
     if let Some(syntax) = syntax {
         for symbol in &syntax.symbols {
@@ -839,23 +848,36 @@ fn prepare_cached(
             metadata.files.push(coverage);
             continue;
         }
-        admitted_bytes = admitted_bytes.saturating_add(file.size_bytes);
-        if admitted_bytes > MAX_SOURCE_BYTES {
-            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        let next_admitted_bytes = admitted_bytes.saturating_add(file.size_bytes);
+        if next_admitted_bytes > MAX_SOURCE_BYTES {
+            coverage.reason = Some("localSourceByteLimit".to_owned());
+            metadata.coverage.source_byte_limited_files += 1;
+            metadata.files.push(coverage);
+            continue;
         }
+        admitted_bytes = next_admitted_bytes;
         let source = match source_with_budget(storage, manifest, &file.path, budget) {
             Ok(source) => source,
             Err(_) => {
                 budget.check()?;
+                admitted_bytes = admitted_bytes.saturating_sub(file.size_bytes);
                 coverage.reason = Some("unavailableOrFilteredText".to_owned());
                 metadata.files.push(coverage);
                 continue;
             }
         };
-        metadata.build.source_bytes_verified += source.size_bytes;
-        if metadata.build.source_bytes_verified > MAX_SOURCE_BYTES {
-            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        let next_verified_bytes = metadata
+            .build
+            .source_bytes_verified
+            .saturating_add(source.size_bytes);
+        if next_verified_bytes > MAX_SOURCE_BYTES {
+            admitted_bytes = admitted_bytes.saturating_sub(file.size_bytes);
+            coverage.reason = Some("localSourceByteLimit".to_owned());
+            metadata.coverage.source_byte_limited_files += 1;
+            metadata.files.push(coverage);
+            continue;
         }
+        metadata.build.source_bytes_verified = next_verified_bytes;
         let symbols = symbols_by_path
             .get(file.path.as_str())
             .map(Vec::as_slice)
