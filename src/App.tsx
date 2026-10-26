@@ -1504,6 +1504,21 @@ function App() {
     }
   };
 
+  const hasUnreadNotifications = visibleQuestionUpdates.some((outcome) => !outcome.read)
+    || (noticeHistoryState.availability === 'ready' && noticeHistoryState.items.some((item) => !item.read));
+  const markAllNotificationsRead = () => {
+    const unreadQuestions = visibleQuestionUpdates.filter((outcome) => !outcome.read);
+    const projectId = currentProject?.projectId;
+    const snapshotId = selectedSnapshot?.snapshotId;
+    if (projectId && snapshotId && unreadQuestions.length) {
+      updateWorkspace(projectId, snapshotId, (state) => markQuestionOutcomes(state, unreadQuestions.map(({ explorationId, turnId, key }) => ({ explorationId, turnId, key })), 'read'));
+    }
+    const unreadNotices = noticeHistoryState.items.filter((item) => !item.read);
+    if (noticeHistoryState.availability === 'ready' && unreadNotices.length) {
+      void noticeHistory.readMany(unreadNotices.map((item) => item.id));
+    }
+  };
+
   const workspaceNotifications: WorkspaceNotification[] = [
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => {
       const projectId=currentProject?.projectId;
@@ -1727,7 +1742,8 @@ function App() {
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
               answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
-            open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+            open={notificationsOpen} onOpenChange={setNotificationsOpen}
+            onMarkAllRead={hasUnreadNotifications ? markAllNotificationsRead : undefined} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
