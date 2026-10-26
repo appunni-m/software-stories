@@ -882,12 +882,37 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
       <h3>{compact?<button type="button" className="dw-answer-expand" aria-label={`Open ${plainInlineCodeText(section.title)} in Guide`} onClick={()=>onFocus(revision.revisionId,section.sectionId)}><InlineCodeText text={section.title}/><ChevronRight size={16}/></button>:<InlineCodeText text={section.title}/>}</h3>
       {!compact ? <>
-        <VisualStory key={`${revision.revisionId}:${section.sectionRevisionId}`} revision={revision} section={section} progress={turn.presentation?.stories.find((p)=>sameSection(p,{revisionId:revision.revisionId,sectionId:section.sectionId,sectionRevisionId:section.sectionRevisionId}))} onProgressChange={onStoryProgress} onSettings={onSettings} onOpenAnchor={onOpen} onSectionPlaybackStarted={turn.guideId?()=>onGuideSlideConsumed?.(revision.revisionId):undefined} onSectionPlaybackComplete={turn.guideId?()=>onGuideSlideConsumed?.(revision.revisionId):undefined} onFollowHotspot={(hotspot)=>{
-          const destination=hotspot.destination;
-          if(destination.kind==='section')selectSection(revision.sections.findIndex((s)=>s.sectionId===destination.sectionId));
-          else if(destination.kind==='codeLens'){const anchor=revision.sections.flatMap((s)=>s.claims.flatMap((c)=>c.anchors)).find((a)=>a.anchorId===destination.anchorId);if(anchor)onOpen(anchor);}
-          else onDestination(destination);
-        }}/>
+        <VisualStory
+          key={`${revision.revisionId}:${section.sectionRevisionId}`}
+          revision={revision}
+          section={section}
+          progress={turn.presentation?.stories.find((p) => sameSection(p, {
+            revisionId: revision.revisionId,
+            sectionId: section.sectionId,
+            sectionRevisionId: section.sectionRevisionId,
+          }))}
+          onProgressChange={onStoryProgress}
+          onSettings={onSettings}
+          onOpenAnchor={onOpen}
+          // Start the next guide slide while this narration plays. Completion
+          // also fires for the same slide, so it must not enqueue a second run.
+          onSectionPlaybackStarted={turn.guideId
+            ? () => onGuideSlideConsumed?.(revision.revisionId)
+            : undefined}
+          onFollowHotspot={(hotspot) => {
+            const destination = hotspot.destination;
+            if (destination.kind === 'section') {
+              selectSection(revision.sections.findIndex((candidate) => candidate.sectionId === destination.sectionId));
+            } else if (destination.kind === 'codeLens') {
+              const anchor = revision.sections
+                .flatMap((candidate) => candidate.claims.flatMap((claim) => claim.anchors))
+                .find((candidate) => candidate.anchorId === destination.anchorId);
+              if (anchor) onOpen(anchor);
+            } else {
+              onDestination(destination);
+            }
+          }}
+        />
         <div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{position+1} / {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>
       </> : <details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details>}
       {coverageSummary&&<div className="dw-guide-coverage" role="status"><strong>Partial guide</strong><span>Still uncovered: {coverageSummary}</span></div>}
