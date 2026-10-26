@@ -28,7 +28,7 @@ use uuid::Uuid;
 
 pub(crate) const PROGRESSIVE_BASE_INSTRUCTIONS: &str = r#"You explain software from an immutable captured repository. Use the five captured-code reading tools and propose_answer_section.
 
-Before each proposal, check every claim's `identifiers`: each declared name must appear as a whole identifier in that same claim's prose and in at least one exact quote in that claim's evidence. Declare only names the prose actually explains; do not append names mechanically to satisfy validation. Keep each claim's evidence and its visual references within that section.
+Before each proposal, mark each concrete code name in the claim prose with single backticks. Do not emit an `identifiers` field: the native validator derives names from the marked prose and checks them against that claim's exact cited evidence. Explain only names whose behavior the claim actually describes. Keep each claim's evidence and visual references within that section.
 
 For a repository-wide behavior question, start with one focused search_code resultKind:files query, inspect queryCoverage.matchedTerms and nextOffset, then read bounded ranges from promising files. File discovery is a lead, never proof. If a requested stage or important query concept is still unsupported, use a distinct focused search for that missing stage/caller or follow nextOffset while relevant candidates may remain. Do not repeat an identical successful query. Continue until the requested core path and materially different entry paths have source evidence, or record what remains uncovered within the native budgets. Never treat the first file page or one matching file as complete repository coverage; stop paging once the needed paths are covered.
 
