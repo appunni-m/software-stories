@@ -3978,6 +3978,120 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
   </aside>;
 }
 
+interface ChapterStudioTarget {
+  key: string;
+  targetId: string | null;
+  paths: string[];
+  overview?: boolean;
+  revisions: ChapterRevision[];
+  latestCurrent: ChapterRevision | null;
+  latestAny: ChapterRevision | null;
+  missing: boolean;
+}
+
+interface ChapterFreshnessState {
+  key: string;
+  report: ChapterFreshnessReport | null;
+  error: string | null;
+  loading: boolean;
+}
+
+interface RangedDiffLine {
+  line: number;
+  text: string;
+}
+
+interface DiffLine {
+  kind: 'same' | 'removed' | 'added';
+  oldLine?: number;
+  newLine?: number;
+  text: string;
+}
+
+function changedRangeLines(source: SnapshotSource, range: { startLine: number; endLine: number }): { lines: RangedDiffLine[]; truncated: boolean } {
+  const allLines = source.contents.split(/\r?\n/);
+  const start = Math.max(0, range.startLine - 1);
+  const stop = Math.min(allLines.length, Math.max(start, range.endLine));
+  const selected = allLines.slice(start, stop);
+  const lines: RangedDiffLine[] = [];
+  let bytes = 0;
+  for (let index = 0; index < selected.length; index += 1) {
+    const original = selected[index];
+    const text = original.slice(0, 1_000);
+    bytes += text.length;
+    if (lines.length >= 120 || bytes > 16_000) return { lines, truncated: true };
+    lines.push({ line: start + index + 1, text });
+  }
+  return { lines, truncated: stop < range.endLine || selected.some((line) => line.length > 1_000) };
+}
+
+function compareRangeLines(oldLines: RangedDiffLine[], newLines: RangedDiffLine[]): DiffLine[] {
+  const oldCount = oldLines.length;
+  const newCount = newLines.length;
+  const stride = newCount + 1;
+  const lcs = new Uint16Array((oldCount + 1) * (newCount + 1));
+  for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex -= 1) {
+    for (let newIndex = newCount - 1; newIndex >= 0; newIndex -= 1) {
+      const cell = oldIndex * stride + newIndex;
+      lcs[cell] = oldLines[oldIndex].text === newLines[newIndex].text
+        ? lcs[(oldIndex + 1) * stride + newIndex + 1] + 1
+        : Math.max(lcs[(oldIndex + 1) * stride + newIndex], lcs[oldIndex * stride + newIndex + 1]);
+    }
+  }
+  const diff: DiffLine[] = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+  while (oldIndex < oldCount || newIndex < newCount) {
+    if (oldIndex < oldCount && newIndex < newCount && oldLines[oldIndex].text === newLines[newIndex].text) {
+      diff.push({ kind: 'same', oldLine: oldLines[oldIndex].line, newLine: newLines[newIndex].line, text: oldLines[oldIndex].text });
+      oldIndex += 1;
+      newIndex += 1;
+    } else if (oldIndex < oldCount && (newIndex >= newCount || lcs[(oldIndex + 1) * stride + newIndex] >= lcs[oldIndex * stride + newIndex + 1])) {
+      diff.push({ kind: 'removed', oldLine: oldLines[oldIndex].line, text: oldLines[oldIndex].text });
+      oldIndex += 1;
+    } else {
+      diff.push({ kind: 'added', newLine: newLines[newIndex].line, text: newLines[newIndex].text });
+      newIndex += 1;
+    }
+  }
+  return diff;
+}
+
+function ChapterSourceDiff({ projectId, change }: { projectId: string; change: ChapterFreshnessSourceChange }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [diff, setDiff] = useState<{ lines: DiffLine[]; oldTruncated: boolean; newTruncated: boolean } | null>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    if (!open || diff || started.current) return;
+    started.current = true;
+    let active = true;
+    setLoading(true);
+    const readRange = (range: ChapterFreshnessSourceChange['oldRange']) => range
+      ? readSnapshotSource(projectId, range.snapshotId, range.path).then((source) => changedRangeLines(source, range))
+      : Promise.resolve({ lines: [] as RangedDiffLine[], truncated: false });
+    void Promise.all([readRange(change.oldRange), readRange(change.newRange)])
+      .then(([oldSide, newSide]) => { if (active) setDiff({ lines: compareRangeLines(oldSide.lines, newSide.lines), oldTruncated: oldSide.truncated, newTruncated: newSide.truncated }); })
+      .catch(() => { if (active) setError('The saved source ranges could not be loaded for a local diff.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [change, diff, open, projectId]);
+  return <details className="chapter-source-diff" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <summary>Show exact source diff</summary>
+    {loading && <p role="status">Loading both captured source ranges locally…</p>}
+    {error && <p role="alert">{error}</p>}
+    {diff && <>
+      <div className="chapter-source-diff-labels">
+        <span>Old {change.oldRange ? `${change.oldRange.path}:${change.oldRange.startLine}–${change.oldRange.endLine}` : 'source removed'}</span>
+        <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
+      </div>
+      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Files for full source.</p>}
+      <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
+    </>}
+  </details>;
+}
+
 function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {
   projectId: string;
   manifest: SnapshotManifest;

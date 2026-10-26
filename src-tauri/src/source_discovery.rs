@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Mutex,
     time::{Duration, Instant},
 };
@@ -790,6 +790,7 @@ fn validate_selection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     #[test]
     fn parser_supported_implementation_paths_are_discoverable() {
         for path in [

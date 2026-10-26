@@ -57,7 +57,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         try {
           const manifest=await loadSnapshotManifest(scope.projectId,scope.snapshotId);
           if (!current) return;
-          const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&file.disposition==='captured'&&!file.secretLike).map((file)=>file.path);
+          const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&!file.secretLike).map((file)=>file.path);
           const saved=readSourceDiscoveryResult(scope,availablePaths);
           if (saved.status === 'available') { onReady(saved.result); return; }
           if (saved.status === 'unavailable') {
