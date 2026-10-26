@@ -2,6 +2,7 @@ import type { CapturedFile } from './commands';
 
 /** Whole-file generation sends source verbatim and shares the native 250 KB request cap. */
 export const WHOLE_FILE_EXPLANATION_LIMIT = 250_000;
+export const MAX_RANGE_INDEXED_EXPLANATION_BYTES = 1024 * 1024;
 
 export interface PendingLargeFileExplanation {
   id: string;
@@ -20,6 +21,11 @@ export function requiresBoundedFileExplanation(file: Pick<CapturedFile, 'kind' |
     && file.contentKind === 'text'
     && !file.secretLike
     && file.sizeBytes > WHOLE_FILE_EXPLANATION_LIMIT;
+}
+
+/** Beyond the local parser limit, a whole-file request cannot discover bounded ranges. */
+export function requiresExplicitCodeRange(file: Pick<CapturedFile, 'kind' | 'contentKind' | 'secretLike' | 'sizeBytes'> | undefined): boolean {
+  return requiresBoundedFileExplanation(file) && file.sizeBytes > MAX_RANGE_INDEXED_EXPLANATION_BYTES;
 }
 
 /** Build the handoff into workspace range retrieval without copying file contents. */

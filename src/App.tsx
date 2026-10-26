@@ -15,7 +15,7 @@ import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad
 import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
-import { createLargeFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
+import { createLargeFileExplanation, requiresExplicitCodeRange, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
@@ -1146,6 +1146,23 @@ function App() {
       return;
     }
     const sourceManifest = snapshotManifest?.summary.snapshotId === selectedSnapshot.snapshotId ? snapshotManifest : null;
+    const targetFile = sourceManifest?.files.find((file) => file.path === targetPath);
+    if (isNativeRuntime() && sourceManifest && requiresExplicitCodeRange(targetFile)) {
+      setNotice({
+        title: 'Choose the part to explain',
+        message: 'This file is too large to explain all at once. Select the lines you want to understand, then choose Explain selection.',
+      });
+      setNavigation((state) => navigateToRoute(state, {
+        workspace: 'atlas',
+        projectId: currentProject.projectId,
+        snapshotId: selectedSnapshot.snapshotId,
+        relativePath: targetPath,
+        atlasSelection: { kind: 'file', path: targetPath },
+        treeSelection: targetPath,
+        focusTarget: 'heading:atlas',
+      }));
+      return;
+    }
     const largeFileRequest = isNativeRuntime() && sourceManifest ? createLargeFileExplanation({
       id: crypto.randomUUID(),
       projectId: currentProject.projectId,
