@@ -5109,7 +5109,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3>{selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}</h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
                   {chapterStudioCanGenerate(historyAvailability, status) && !pendingDraft ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
-                    {selectedTarget.overview
+                    {selectedTarget.overview && !selectedTarget.latestCurrent
                       ? <button className="primary-button" onClick={onGenerateOverview} disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined}><Sparkles size={14} /> Generate current overview</button>
                       : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
                         && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
