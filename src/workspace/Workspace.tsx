@@ -10,7 +10,7 @@ import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
-import { capturedSourceLineCount, capturedSourceLineWindow } from '../lib/codeLens';
+import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -167,6 +167,7 @@ export function DeveloperWorkspace(props:Props) {
   const [sourceEntry,setSourceEntry] = useState<{projectId:string;snapshotId:string;path:string;document:SnapshotSource}|null>(null);
   const source=sourceEntry?.projectId===projectId&&sourceEntry.snapshotId===snapshotId&&sourceEntry.path===state.file
     ? sourceEntry.document : null;
+  const sourceLineIndex=useMemo(()=>source?capturedSourceLineIndex(source.contents):null,[source?.contents]);
   const [sourceError,setSourceError] = useState<string|null>(null);
   const [sourceBusy,setSourceBusy] = useState(false);
   const [reveal,setReveal] = useState<Context|null>(null);
@@ -407,7 +408,7 @@ export function DeveloperWorkspace(props:Props) {
     const from=review.context.from,to=review.context.to;
     if(from===undefined&&to===undefined)return review.context.sha256===review.sourceSha256;
     if(typeof from!=='number'||typeof to!=='number')return false;
-    const lineCount=capturedSourceLineCount(source.contents);
+    const lineCount=sourceLineIndex?.lineCount??0;
     return Number.isInteger(from)&&Number.isInteger(to)&&from>0&&to>=from&&to<=lineCount
       &&review.context.sha256===review.sourceSha256;
   }
@@ -426,7 +427,7 @@ export function DeveloperWorkspace(props:Props) {
       reject('This selection is no longer available in the captured snapshot. Close this review, reopen the file, and select its code again.');
       return;
     }
-    const lineCount=capturedSourceLineCount(source.contents);
+    const lineCount=sourceLineIndex?.lineCount??0;
     const hasRange=selected.from!==undefined||selected.to!==undefined;
     const rangeValid=!hasRange||(typeof selected.from==='number'&&typeof selected.to==='number'
       &&Number.isInteger(selected.from)&&Number.isInteger(selected.to)&&selected.from>=1
@@ -438,7 +439,7 @@ export function DeveloperWorkspace(props:Props) {
     const excerptStart=hasRange?selected.from!:1;
     const excerptEnd=hasRange?selected.to!:lineCount;
     const previewEnd=Math.min(excerptEnd,excerptStart+39);
-    const preview=capturedSourceLineWindow(source.contents,excerptStart,previewEnd,{maxLineCharacters:4_000});
+    const preview=capturedSourceLineWindow(source.contents,excerptStart,previewEnd,{maxLineCharacters:4_000,lineIndex:sourceLineIndex??undefined});
     const previewParts:string[]=[];
     let previewCodePoints=0;
     let previewTextTruncated=false;
