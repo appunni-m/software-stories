@@ -31,6 +31,7 @@
 .dw-explorations .dw-exploration-row > button:first-child > span {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-explorations .dw-exploration-row > button:first-child > svg {flex-shrink:0;}
 .dw-explorations .dw-exploration-row > button:first-child.active,.dw-explorations .dw-exploration-row > button:first-child:hover {color:var(--text);background:var(--surface-hover);}
+.dw-explorations .dw-exploration-row > button:first-child:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;color:var(--text);background:var(--surface-hover);}
 .dw-exploration-toggle {flex:0 0 24px;width:24px!important;height:auto!important;min-height:28px;color:var(--dim)!important;}
 .dw-exploration-toggle:hover {color:var(--text)!important;background:var(--surface-hover)!important;}
 .dw-explorations small {font-size:10px;color:var(--dim);}
