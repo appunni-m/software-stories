@@ -1481,6 +1481,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .dw-tool-content .walkthrough-kicker {font-size:12px;line-height:1.65;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(label,p,textarea,input,select) {font-size:13px;line-height:1.7;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(h2,h3) {font-size:18px;line-height:1.5;color:var(--text);}
+.dw-tool-content .chapter-studio-card :is(code,small) {font-size:12px;line-height:1.6;}
+.dw-tool-content .chapter-studio-card :is(.chapter-studio-target-status,.chapter-review-status,.chapter-studio-snapshot) {font-size:11px;line-height:1.5;}
+.dw-tool-content .chapter-studio-card .step-pill {font-size:12px;}
+.dw-tool-content .chapter-studio-card .chapter-freshness-index-summary,
+.dw-tool-content .chapter-studio-card .chapter-source-diff-labels {font:12px/1.5 var(--mono);}
+.dw-tool-content .chapter-studio-card .chapter-source-diff-lines {font:12px/1.6 var(--mono);}
 .dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
 .dw-tool-content :is(.git-ref-card,.git-comparison-result) {border-radius:8px;}
 
