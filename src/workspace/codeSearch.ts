@@ -4,6 +4,26 @@ export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
 
+const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works']);
+
+function searchableParts(value:string):string[]{
+  return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+
+/** Extract useful identifiers from a natural-language query without treating
+ * its stop words as required code tokens. */
+function localQueryTerms(query:string):string[]{
+  const parts=searchableParts(query);
+  const useful=parts.filter(part=>!SEARCH_STOP_WORDS.has(part));
+  return useful.length?useful:parts.length?[query.toLowerCase()]:[];
+}
+
+function locallyMatches(value:string,query:string,terms:readonly string[]):boolean{
+  if(!terms.length)return value.toLowerCase().includes(query.toLowerCase());
+  const searchable=value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase();
+  return terms.every(term=>searchable.includes(term));
+}
+
 /** Offer AI when a settled search has no hits or did not complete. The visible
  * search error remains, while the user can still ask AI to interpret the query. */
 export function shouldOfferExploreWithAI(
@@ -87,21 +107,22 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   if(!query)return[];
   const code=captured.map(hit=>({path:hit.path,text:hit.text,from:hit.line,to:hit.line}));
   const term=query.toLowerCase();
+  const terms=localQueryTerms(query);
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
-    const symbolMatches=symbols.filter(symbol=>symbol.name.toLowerCase().includes(term)).slice().sort((left,right)=>{
+    const symbolMatches=symbols.filter(symbol=>locallyMatches(symbol.name,query,terms)).slice().sort((left,right)=>{
       const rank=(name:string)=>name.toLowerCase()===term?0:name.toLowerCase().startsWith(term)?1:2;
       return rank(left.name)-rank(right.name)||left.name.localeCompare(right.name)||left.path.localeCompare(right.path);
     });
     local.push(...symbolMatches.slice(0,8).map(symbol=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
-    local.push(...files.filter(file=>file.path.toLowerCase().includes(term)).slice(0,8).map(file=>({path:file.path,text:file.path})));
+    local.push(...files.filter(file=>locallyMatches(file.path,query,terms)).slice(0,8).map(file=>({path:file.path,text:file.path})));
   }
   const all=mode==='regex'?code:[...local,...code];
   if(mode==='code'&&source){
     let line=0,count=0;
     for(const text of source.contents.split('\n')){
-      line++;if(!text.toLowerCase().includes(term))continue;
-      all.push({path:source.path,text:searchSnippet(text,term),from:line,to:line});if(++count===32)break;
+      line++;if(!locallyMatches(text,query,terms))continue;
+      all.push({path:source.path,text:searchSnippet(text,terms[0]??term),from:line,to:line});if(++count===32)break;
     }
   }
   const seenFiles=new Set<string>();
