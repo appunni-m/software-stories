@@ -93,9 +93,18 @@ export function workspaceAnswerLifecycleBadge(lifecycle: ChapterRevisionLifecycl
 
 /** History describes an available result only when its exact revision loaded.
  * A stopped question and an unavailable revision are still useful history. */
-export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>): { text: string; action: string } {
-  const saved = !!turn.revisionId && availableRevisions.has(turn.revisionId)
-    || !!turn.publishedSections?.some((section) => availableRevisions.has(section.revisionId));
+export function historyEntry(
+  turn: Turn,
+  availableRevisions: ReadonlySet<string>,
+  historyLoading = false,
+): { text: string; action: string } {
+  const answerRevisionIds = [turn.revisionId,
+    ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+    ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
+  const saved = answerRevisionIds.some((revisionId) => revisionId && availableRevisions.has(revisionId));
+  if (!saved && historyLoading && (answerRevisionIds.some(Boolean) || turn.status === 'ready')) {
+    return { text: 'Checking saved explanation…', action: 'Open question' };
+  }
   if (saved) {
     const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide) : null;
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
