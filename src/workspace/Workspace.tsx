@@ -155,7 +155,7 @@ export function DeveloperWorkspace(props:Props) {
       props.onRememberSearch?.(repositorySearch,repositoryRegex?'regex':'code','files');
     }
   },[workspace,activity,repositorySearch,repositoryRegex,props.onRememberSearch]);
-  const [sourceHits,setSourceHits] = useState<{path:string;line:number;text:string}[]>([]);
+  const [sourceHits,setSourceHits] = useState<{key:string;hits:{path:string;line:number;text:string}[]}>({key:'',hits:[]});
   const [searchLimited,setSearchLimited] = useState(false);
   const [searchNextOffset,setSearchNextOffset] = useState<number|null>(null);
   const [searchOffset,setSearchOffset] = useState(0);
@@ -573,6 +573,7 @@ export function DeveloperWorkspace(props:Props) {
   const composerSearchActive=searchFocused&&[...query.trim()].length>=2;
   const term=(composerSearchActive?query:activity==='search'?repositorySearch:query).trim();
   const searchMode:CodeSearchMode=!composerSearchActive&&activity==='search'&&repositoryRegex?'regex':'code';
+  const sourceSearchKey=JSON.stringify([projectId,snapshotId,term,searchMode]);
   function exploreSearch(searchQuery:string,matches:CodeSearchHit[]){
     const intent=searchExploration(searchQuery.trim(),searchMode,matches);
     const references=new Map<string,Context>();
@@ -584,11 +585,13 @@ export function DeveloperWorkspace(props:Props) {
   }
   useEffect(()=>searchCapturedSource({projectId,snapshotId,query:term,mode:searchMode,native:isNativeRuntime(),offset:searchOffset},
     {hits:(hits,append)=>setSourceHits((previous)=>{
-      if(!append)return hits;
-      const seen=new Set(previous.map((hit)=>JSON.stringify([hit.path,hit.line,hit.text])));
-      return [...previous,...hits.filter((hit)=>{const key=JSON.stringify([hit.path,hit.line,hit.text]);if(seen.has(key))return false;seen.add(key);return true;})];
-    }),limited:setSearchLimited,nextOffset:setSearchNextOffset,error:setSearchError,busy:setSearchBusy},{invoke}),[term,searchMode,projectId,snapshotId,searchOffset]);
-  const results=useMemo(()=>workspaceSearchResults({query:term,mode:searchMode,files:rows,symbols:index?.symbols??[],source,captured:sourceHits}),[term,searchMode,rows,index,source,sourceHits]);
+      const current=previous.key===sourceSearchKey?previous.hits:[];
+      if(!append)return {key:sourceSearchKey,hits};
+      const seen=new Set(current.map((hit)=>JSON.stringify([hit.path,hit.line,hit.text])));
+      return {key:sourceSearchKey,hits:[...current,...hits.filter((hit)=>{const key=JSON.stringify([hit.path,hit.line,hit.text]);if(seen.has(key))return false;seen.add(key);return true;})]};
+    }),limited:setSearchLimited,nextOffset:setSearchNextOffset,error:setSearchError,busy:setSearchBusy},{invoke}),[term,searchMode,projectId,snapshotId,searchOffset,sourceSearchKey]);
+  const currentSourceHits=sourceHits.key===sourceSearchKey?sourceHits.hits:[];
+  const results=useMemo(()=>workspaceSearchResults({query:term,mode:searchMode,files:rows,symbols:index?.symbols??[],source,captured:currentSourceHits}),[term,searchMode,rows,index,source,currentSourceHits]);
   const graph=useMemo(()=>index?projectProvenRelationshipGraph(index,manifest,new Set(rows.map((r)=>r.path))):null,[index,manifest,rows]);
   const featuredTurn=visibleTurns.find((turn)=>turn.id===featuredTurnId);
   const historyTurnId=current.focusedTurnId??featuredTurnId;
