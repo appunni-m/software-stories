@@ -213,6 +213,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-rail-footer svg { color: var(--accent); }
 .walkthrough-reader { min-height: 580px; max-height: min(780px, calc(100vh - 270px)); overflow: auto; padding: 18px clamp(16px, 2.1vw, 28px) 17px; }
 .walkthrough-reader-topline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.walkthrough-progress-warning { display: flex; align-items: center; gap: 9px; margin: 0 28px; padding: 10px 12px; border: 1px solid var(--warning-border); border-radius: 8px; background: var(--warning-soft); color: var(--text); font-size: 13px; line-height: 1.45; }
+.walkthrough-progress-warning svg { flex: 0 0 auto; color: var(--warning, #b77b36); }
 .walkthrough-reader-breadcrumb { min-width: 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font: 8px var(--mono); }
 .walkthrough-reader-breadcrumb strong { overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .walkthrough-revision-labels { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -2077,6 +2079,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .walkthrough-rail { flex: 0 0 160px; }
   .walkthrough-reader { flex: 1; }
   .walkthrough-reader-grid { padding: 20px; }
+  .walkthrough-progress-warning { margin: 0 14px; }
   .walkthrough-section-actions { padding: 10px 14px; }
 }
 

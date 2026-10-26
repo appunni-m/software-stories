@@ -7,7 +7,9 @@ import {
   orderedSections,
   parseRememberedProgress,
   parseRememberedSection,
+  readRememberedProgress,
   rememberedSectionRecord,
+  saveRememberedProgress,
   resumeStorageKey,
 } from '../src/lib/walkthrough.ts';
 
@@ -65,6 +67,25 @@ describe('walkthrough resume record', () => {
     assert.equal(parseRememberedSection('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s"}', 'p', 'c', 'r'), null);
     assert.equal(parseRememberedProgress('{"version":2,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s","playbackPosition":-1,"transcriptPosition":0}', 'p', 'c', 'r'), null);
     assert.equal(parseRememberedProgress('{"version":2,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s","playbackPosition":0,"transcriptPosition":0,"autoPlay":true}', 'p', 'c', 'r'), null);
+  });
+
+  it('preserves unsupported progress during passive writes and replaces it after an explicit choice', () => {
+    const key = resumeStorageKey('p', 'c', 'r');
+    const unsupported = '{"version":1,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"old"}';
+    const values = new Map([[key, unsupported]]);
+    const storage = {
+      getItem: (storageKey) => values.get(storageKey) ?? null,
+      setItem: (storageKey, value) => values.set(storageKey, value),
+    };
+
+    assert.deepEqual(readRememberedProgress(storage.getItem(key), 'p', 'c', 'r'), { status: 'unavailable' });
+    assert.equal(saveRememberedProgress(storage, 'p', 'c', 'r', { sectionId: 'next', playbackPosition: 8, transcriptPosition: 120 }), false);
+    assert.equal(values.get(key), unsupported);
+
+    assert.equal(saveRememberedProgress(storage, 'p', 'c', 'r', { sectionId: 'next', playbackPosition: 0, transcriptPosition: 0 }, true), true);
+    assert.deepEqual(readRememberedProgress(values.get(key), 'p', 'c', 'r'), {
+      status: 'available', progress: { sectionId: 'next', playbackPosition: 0, transcriptPosition: 0 },
+    });
   });
 });
 

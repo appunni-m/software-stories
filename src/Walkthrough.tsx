@@ -19,7 +19,7 @@ import {
   type ChapterHotspot,
   type HotspotDestination,
 } from './lib/commands';
-import { orderedSections, readerSelection, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
+import { orderedSections, readerSelection, readRememberedProgress, saveRememberedProgress, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
 import { InlineCodeText } from './InlineCodeText';
@@ -55,6 +55,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [progressRefreshKey, setProgressRefreshKey] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -85,19 +86,20 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   );
   const sections = selectedRevision ? orderedSections(selectedRevision) : [];
 
-  const rememberedProgress = useMemo(() => {
-    if (!selectedRevision || isNativeRuntime()) return null;
+  const rememberedRead = useMemo(() => {
+    if (!selectedRevision || isNativeRuntime()) return { status: 'missing' } as const;
     try {
-      return parseRememberedProgress(
+      return readRememberedProgress(
         window.localStorage.getItem(resumeStorageKey(projectId, selectedRevision.chapterId, selectedRevision.revisionId)),
         projectId,
         selectedRevision.chapterId,
         selectedRevision.revisionId,
       );
     } catch {
-      return null;
+      return { status: 'unavailable' } as const;
     }
-  }, [projectId, selectedRevision?.chapterId, selectedRevision?.revisionId]);
+  }, [projectId, progressRefreshKey, selectedRevision?.chapterId, selectedRevision?.revisionId]);
+  const rememberedProgress = rememberedRead.status === 'available' ? rememberedRead.progress : null;
   const ownedSection = useReaderSection(selectedRevision?.revisionId);
   const selectedSectionId = selectedRevision
     ? chooseSectionId(sections, route.sectionId, ownedSection?.sectionId ?? rememberedProgress?.sectionId)
@@ -146,15 +148,23 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     (focusable ?? headingRef.current)?.focus({ preventScroll: focusTarget.startsWith('reader-citation:') || focusTarget.startsWith('reader-visual-citation:') || focusTarget.startsWith('reader-hotspot:') });
   }, [selectedRevision?.revisionId, selectedSectionId, route.focusTarget]);
 
-  const rememberSection = (revision: ChapterRevision, sectionId: string, playbackPosition = 0, transcriptPosition = 0) => {
-    if (isNativeRuntime()) return;
+  const rememberSection = (revision: ChapterRevision, sectionId: string, playbackPosition = 0, transcriptPosition = 0, replaceUnavailable = false) => {
+    if (isNativeRuntime()) return false;
     try {
-      window.localStorage.setItem(
-        resumeStorageKey(projectId, revision.chapterId, revision.revisionId),
-        rememberedSectionRecord(projectId, revision.chapterId, revision.revisionId, sectionId, playbackPosition, transcriptPosition),
+      const saved = saveRememberedProgress(
+        window.localStorage,
+        projectId,
+        revision.chapterId,
+        revision.revisionId,
+        { sectionId, playbackPosition, transcriptPosition },
+        replaceUnavailable,
       );
+      if (replaceUnavailable) setProgressRefreshKey((value) => value + 1);
+      return saved;
     } catch {
       // Reader navigation and route history still work when storage is unavailable.
+      if (replaceUnavailable) setProgressRefreshKey((value) => value + 1);
+      return false;
     }
   };
 
@@ -190,7 +200,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const setSection = (revision: ChapterRevision, sectionId: string, pushHistory = false, originFocusTarget?: string) => {
     const section = orderedSections(revision).find((item) => item.sectionId === sectionId);
     if (!section) return;
-    rememberSection(revision, sectionId);
+    rememberSection(revision, sectionId, 0, 0, true);
     const next: WorkspaceRoute = {
       ...route,
       workspace: 'walkthrough',
@@ -211,22 +221,23 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   };
 
   const selectChapter = (revision: ChapterRevision) => {
-    let storedProgress: ReturnType<typeof parseRememberedProgress> = null;
+    let storedProgress: ReturnType<typeof readRememberedProgress> = { status: 'missing' };
     if (!isNativeRuntime()) {
       try {
-        storedProgress = parseRememberedProgress(
+        storedProgress = readRememberedProgress(
           window.localStorage.getItem(resumeStorageKey(projectId, revision.chapterId, revision.revisionId)),
           projectId,
           revision.chapterId,
           revision.revisionId,
         );
-      } catch { /* Browser preview progress is optional; start at the first section. */ }
+      } catch { storedProgress = { status: 'unavailable' }; }
     }
-    const sectionId = chooseSectionId(orderedSections(revision), null, storedProgress?.sectionId);
+    const rememberedSectionId = storedProgress.status === 'available' ? storedProgress.progress.sectionId : null;
+    const sectionId = chooseSectionId(orderedSections(revision), null, rememberedSectionId);
     if (!sectionId) return;
-    const playbackPosition = storedProgress?.sectionId === sectionId ? storedProgress.playbackPosition : 0;
-    const transcriptPosition = storedProgress?.sectionId === sectionId ? storedProgress.transcriptPosition : 0;
-    rememberSection(revision, sectionId, playbackPosition, transcriptPosition);
+    const playbackPosition = storedProgress.status === 'available' && storedProgress.progress.sectionId === sectionId ? storedProgress.progress.playbackPosition : 0;
+    const transcriptPosition = storedProgress.status === 'available' && storedProgress.progress.sectionId === sectionId ? storedProgress.progress.transcriptPosition : 0;
+    rememberSection(revision, sectionId, playbackPosition, transcriptPosition, true);
     onNavigateRoute({
       ...route,
       workspace: 'walkthrough',
@@ -244,7 +255,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
 
   const finishChapter = () => {
     if (selectedRevision && selectedSectionId) {
-      rememberSection(selectedRevision, selectedSectionId, finitePosition(route.playbackPosition), finitePosition(route.transcriptPosition));
+      rememberSection(selectedRevision, selectedSectionId, finitePosition(route.playbackPosition), finitePosition(route.transcriptPosition), true);
     }
     onNavigateRoute({
       ...route,
@@ -386,6 +397,12 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
               {isOlderSnapshot && <span className="walkthrough-revision-badge">PINNED TO EARLIER SNAPSHOT</span>}
             </div>
           </div>
+          {!isNativeRuntime() && rememberedRead.status === 'unavailable' && (
+            <div className="walkthrough-progress-warning" role="status">
+              <FileCode2 size={15} aria-hidden="true" />
+              <span>Saved reading position is unreadable. Your explanation is intact; choose a section to continue.</span>
+            </div>
+          )}
           <div className="walkthrough-reader-grid">
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>

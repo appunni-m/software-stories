@@ -70,6 +70,22 @@ export interface RememberedWalkthroughProgress {
   transcriptPosition: number;
 }
 
+export type RememberedWalkthroughProgressRead =
+  | { status: 'missing' }
+  | { status: 'available'; progress: RememberedWalkthroughProgress }
+  | { status: 'unavailable' };
+
+export function readRememberedProgress(
+  serialized: string | null,
+  projectId: string,
+  chapterId: string,
+  revisionId: string,
+): RememberedWalkthroughProgressRead {
+  if (serialized === null) return { status: 'missing' };
+  const progress = parseRememberedProgress(serialized, projectId, chapterId, revisionId);
+  return progress ? { status: 'available', progress } : { status: 'unavailable' };
+}
+
 export function parseRememberedProgress(
   serialized: string | null,
   projectId: string,
@@ -122,4 +138,30 @@ export function rememberedSectionRecord(
   transcriptPosition = 0,
 ): string {
   return JSON.stringify({ version: 2, projectId, chapterId, revisionId, sectionId, playbackPosition, transcriptPosition });
+}
+
+/** Preserve unsupported reader bytes during passive playback/scroll writes.
+ * An explicit section or chapter selection may start a fresh current record. */
+export function saveRememberedProgress(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  projectId: string,
+  chapterId: string,
+  revisionId: string,
+  progress: RememberedWalkthroughProgress,
+  replaceUnavailable = false,
+): boolean {
+  let key: string;
+  try { key = resumeStorageKey(projectId, chapterId, revisionId); }
+  catch { return false; }
+  const serialized = rememberedSectionRecord(
+    projectId, chapterId, revisionId, progress.sectionId, progress.playbackPosition, progress.transcriptPosition,
+  );
+  if (readRememberedProgress(serialized, projectId, chapterId, revisionId).status !== 'available') return false;
+  let previous: string | null;
+  try { previous = storage.getItem(key); }
+  catch { return false; }
+  if (previous !== null && readRememberedProgress(previous, projectId, chapterId, revisionId).status === 'unavailable'
+    && !replaceUnavailable) return false;
+  try { storage.setItem(key, serialized); return true; }
+  catch { return false; }
 }
