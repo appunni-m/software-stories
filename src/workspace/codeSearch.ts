@@ -28,6 +28,18 @@ export function searchResultsMessage(resultCount:number,moreAvailable:boolean):s
   return `${count}${moreAvailable?'; more matches available':''}.`;
 }
 
+/** Keep a minified or generated source line from expanding the explorer UI. */
+function searchSnippet(text:string,query:string,maxLength=360):string {
+  const value=text.trim();
+  if(value.length<=maxLength)return value;
+  const match=value.toLowerCase().indexOf(query.toLowerCase());
+  let start=Math.max(0,Math.min(value.length-maxLength,match<0?0:match-Math.floor((maxLength-query.length)/2)));
+  if(start>0&&value.charCodeAt(start)>=0xdc00&&value.charCodeAt(start)<=0xdfff)start++;
+  let end=Math.min(value.length,start+maxLength);
+  if(end<value.length&&value.charCodeAt(end)>=0xdc00&&value.charCodeAt(end)<=0xdfff)end--;
+  return `${start>0?'…':''}${value.slice(start,end)}${end<value.length?'…':''}`;
+}
+
 interface SearchUpdates {
   hits:(hits:SourceMatch[],append:boolean)=>void; limited:(limited:boolean)=>void;
   nextOffset:(nextOffset:number|null)=>void;
@@ -87,7 +99,7 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
     let line=0,count=0;
     for(const text of source.contents.split('\n')){
       line++;if(!text.toLowerCase().includes(term))continue;
-      all.push({path:source.path,text:text.trim(),from:line,to:line});if(++count===32)break;
+      all.push({path:source.path,text:searchSnippet(text,term),from:line,to:line});if(++count===32)break;
     }
   }
   const seenFiles=new Set<string>();
