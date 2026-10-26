@@ -429,9 +429,9 @@ export function contextualGuideAction(query: string, context: readonly Context[]
   return { kind: 'ask', intent: contextualGuideIntent(query, context, nested) };
 }
 
-/** Route repository-wide asks through the durable slide planner instead of the
- * ordinary single-answer job with its ten-minute deadline. Topic-scoped code
- * questions remain ordinary investigations, regardless of the current view. */
+/** Route repository-wide asks through the durable slide planner instead of a
+ * one-shot answer. Topic-scoped code questions remain ordinary investigations,
+ * with a user-controlled run policy, regardless of the current view. */
 export function isRepositoryGuideIntent(question: string): boolean {
   const query = question.trim().toLowerCase();
   if (!query) return false;
@@ -451,12 +451,12 @@ export function isRepositoryGuideIntent(question: string): boolean {
   const completeScope = /\b(?:whole|entire|full|all|every|each|complete|comprehensive|end[ -]to[ -]end)\b/i;
   if (oneUnit.test(query) && !completeScope.test(affirmativeQuery)) return false;
   // Treat completeness language as a guide request even when the user does not
-  // say "guide". Otherwise natural prompts such as "generate it for the
-  // Fontdone project entirely" fall through to the one-shot ten-minute path.
+  // say "guide". This preserves the outline-and-slide experience for natural
+  // requests such as "generate it for the Fontdone project entirely".
   const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire(?:ly)?|full|all|every|each|complete|comprehensive|overall|end[ -]to[ -]end)\b`, 'i');
   // Explicitly asking for a project guide always uses the durable, incremental
   // guide pipeline, even from a nested exploration. Otherwise the same broad
-  // request can fall back to a one-shot answer with a ten-minute deadline.
+  // request could fall back to a single section without the guide outline.
   if (explicitGuide.test(affirmativeQuery)) return true;
   const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
   const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;

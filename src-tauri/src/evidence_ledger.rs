@@ -445,6 +445,9 @@ impl Ledger {
         model: &str,
         effort: &str,
     ) -> Result<Self, String> {
+        // Ordinary user-started investigations stop explicitly or at the
+        // ledger's fixed call/source/storage limits; do not discard a useful
+        // result merely because a wall-clock budget elapsed.
         Self::new_progressive_with_deadline(
             storage,
             operation_id,
@@ -453,7 +456,7 @@ impl Ledger {
             runtime,
             model,
             effort,
-            codex_agent::RunDeadline::TenMinutes,
+            codex_agent::RunDeadline::UserControlled,
         )
     }
 
