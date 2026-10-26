@@ -4,16 +4,15 @@ export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
 
-/** Offer AI only after a valid search settles without any local or captured matches. */
+/** Offer AI after a valid search settles, whether local search found code or not. */
 export function shouldOfferExploreWithAI(
   query:string,
   mode:CodeSearchMode,
   busy:boolean,
   error:string|null,
-  resultCount:number,
 ):boolean {
   const length=[...query.trim()].length;
-  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&!error&&resultCount===0;
+  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&!error;
 }
 
 /** Tell readers how much of a capped result set is currently visible. */
@@ -129,9 +128,16 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
 }
 
 /** Search matches are starting points for investigation, not proof of an answer. */
-export function searchExploration(query:string,mode:CodeSearchMode,captured:SourceMatch[]){
+export function searchExploration(query:string,mode:CodeSearchMode,matches:CodeSearchHit[]){
   const question=mode==='regex'?`Explain the code matching this regular expression: ${query}`:query.length<8?`Explain ${query}`:query;
-  const context:{path:string;from:number;to:number}[]=[];
-  if(mode==='regex')for(const hit of captured){if(context.some(item=>item.path===hit.path))continue;context.push({path:hit.path,from:hit.line,to:hit.line});if(context.length===4)break;}
+  const context:{path:string;from?:number;to?:number}[]=[];
+  const seen=new Set<string>();
+  for(const hit of matches){
+    const reference={path:hit.path,...(hit.from!==undefined?{from:hit.from,to:hit.to??hit.from}:{})};
+    const key=JSON.stringify(reference);
+    if(seen.has(key))continue;
+    seen.add(key);context.push(reference);
+    if(context.length===8)break;
+  }
   return {question,context};
 }
