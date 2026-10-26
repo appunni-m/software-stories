@@ -145,7 +145,8 @@ export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'gu
     const ready = turn.publishedSections?.length ?? 0;
     return ready ? `${ready} slide${ready === 1 ? '' : 's'} ready · more on the way` : 'Your first slide is taking shape…';
   }
-  return turn.publishedSections?.length ? 'Adding more detail…' : 'Building your explanation…';
+  const ready = turn.publishedSections?.length ?? 0;
+  return ready ? `${ready} section${ready === 1 ? '' : 's'} ready · more on the way` : 'Your first section is taking shape…';
 }
 
 export function createWorkspace(projectId: string, snapshotId: string): WorkspaceState {
