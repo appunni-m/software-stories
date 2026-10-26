@@ -229,7 +229,7 @@ function App() {
   const preserveUnavailableFileLocation = useCallback((projectId: string) => {
     if (unavailableFileLocationsRef.current.has(projectId)) return;
     unavailableFileLocationsRef.current.add(projectId);
-    setNotice({ projectId, title: 'Saved file position is unavailable', message: 'Its stored browser position is malformed, unreadable or unsupported and was left unchanged. Open a file or choose a snapshot in Files to save a new position.', tone: 'warning' });
+    setNotice({ projectId, title: 'Saved file position is unavailable', message: 'Its stored browser position is malformed, unreadable or unsupported and was left unchanged. Open a file in Explorer or choose a snapshot from the header to save a new position.', tone: 'warning' });
   }, [setNotice]);
   useEffect(() => {
     const notify = (event: Event) => {
@@ -669,7 +669,7 @@ function App() {
           selectedPaths: request.selectedPaths, recoveryOperationId: operation.operationId, recoveryBackend });
       } else {
         setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId, title: 'Select the original evidence again', message: request.purpose === 'codeLensExplanation'
-          ? 'This was a source-range explanation. Select its exact range in Files and review a fresh request; a whole-file request was not opened.'
+          ? 'This was a source-range explanation. Select its exact range in the source pane and review a fresh request; a whole-file request was not opened.'
           : 'This was a Git change explanation. Reopen the original local comparison and selected files or hunk before reviewing a fresh request. No chapter request was opened.', tone: 'warning' });
       }
     } catch (error) {
@@ -1735,7 +1735,7 @@ function App() {
       <div className="app-body">
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
-            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' || currentWorkspace === 'code-lens' ? 'Files' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' || currentWorkspace === 'code-lens' ? 'Explorer' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
             <div className="toolbar-right">
               <button className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />
@@ -3711,13 +3711,13 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
 
   return <section className="atlas-workbench" aria-label="Repository files and relationships">
     {!viewStorageWritable && <div className="atlas-view-warning" role="status">
-      <span><strong>Saved Files layout needs attention.</strong> The current view remains available; saved data is left untouched.</span>
+      <span><strong>Saved Explorer layout needs attention.</strong> The current view remains available; saved data is left untouched.</span>
       <button type="button" onClick={discardUnavailableAtlasView}>Discard saved layout and start fresh</button>
       {viewResetError && <span role="alert">The saved layout could not be discarded. It remains untouched.</span>}
     </div>}
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
-        <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
+        <header><div><strong id="atlas-tree-title">Explorer</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
         <label className="atlas-filter-search"><Search size={13} /><input data-focus-key="atlas-tree-search" aria-label="Search repository files and paths" placeholder="Find a file or folder" value={view.treeQuery} onChange={(event) => {
           const query = event.target.value;
           treeTopRef.current = 0;
@@ -4080,7 +4080,7 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
         <span>Old {change.oldRange ? `${change.oldRange.path}:${change.oldRange.startLine}–${change.oldRange.endLine}` : 'source removed'}</span>
         <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
       </div>
-      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Files for full source.</p>}
+      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in the source pane for full code.</p>}
       <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
     </>}
   </details>;
@@ -5269,7 +5269,7 @@ function WorkflowEmptyState({ kind, onGoAtlas, onGoPlan, onCreateSnapshot, onOpe
         </button> : isPlan && onOpenRepository ? <button className="primary-button" data-focus-key="action:pick-repository" onClick={onOpenRepository}>
           <FolderOpen size={16} /> Choose a local repository
         </button> : null}
-        {isPlan && onGoAtlas && <button className="secondary-button" data-focus-key="cta:plan-files" onClick={onGoAtlas}>Open Files <ArrowRight size={15} /></button>}
+        {isPlan && onGoAtlas && <button className="secondary-button" data-focus-key="cta:plan-explorer" onClick={onGoAtlas}>Open Explorer <ArrowRight size={15} /></button>}
         {!isPlan && <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={onGoPlan}>Open Guide <ArrowRight size={15} /></button>}
       </div>
       <div className="state-note"><HardDrive size={14} /> {isPlan ? 'Source is read only after you choose Capture repository.' : 'Nothing is sent to an AI provider until you review a request.'}</div>
