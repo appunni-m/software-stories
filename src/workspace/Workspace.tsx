@@ -189,6 +189,15 @@ export function DeveloperWorkspace(props:Props) {
   const availableRevisionIds = useMemo(()=>new Set(chapters.map((chapter)=>chapter.revisionId)),[chapters]);
   const visibleTurns = visibleConversationTurns(state, current, availableRevisionIds, chaptersLoading);
   const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, availableRevisionIds);
+  const branchesByTurn = useMemo(()=>{
+    const grouped=new Map<string,Exploration[]>();
+    for(const exploration of state.explorations){
+      if(exploration.parentId!==current.id||!exploration.originTurnId)continue;
+      const branches=grouped.get(exploration.originTurnId)??[];
+      branches.push(exploration);grouped.set(exploration.originTurnId,branches);
+    }
+    return grouped;
+  },[state.explorations,current.id]);
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
@@ -651,7 +660,7 @@ export function DeveloperWorkspace(props:Props) {
   const renderAnswer=(turn:Turn)=><Answer
     key={turn.id} chapters={chapters} turn={turn} loading={chaptersLoading} compact={turn.id!==featuredTurnId}
     revision={chapters.find((revision)=>revision.revisionId===turn.revisionId)}
-    branches={state.explorations.filter((exploration)=>exploration.parentId===current.id&&exploration.originTurnId===turn.id)}
+    branches={branchesByTurn.get(turn.id)??[]}
     onGo={go} onOpen={(anchor)=>openFile(fromAnchor(anchor))} onDestination={openDestination}
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)} onRetryGuideUnit={retryGuideUnit}
