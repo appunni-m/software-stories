@@ -707,7 +707,7 @@ function Answer(props:AnswerProps){
     {lastAvailableItemIndex<0&&(branches.length>0||sectionItems.some((item)=>item.kind==='unavailable'))&&<footer className="dw-branches">
       <Button size="1" variant="ghost" onClick={()=>props.onBranch(`Explore ${turn.question} in more detail.`,turn.context)}><Network size={13}/>Explore further</Button>
       {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}
-      {branches.map((exploration)=><button className="dw-branch-link" key={exploration.id} onClick={()=>props.onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span>{exploration.title}</span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>)}
+      <ExplorationBranchLinks branches={branches} onGo={props.onGo}/>
     </footer>}
     {sections.length===0&&!progressText&&<p className="dw-empty-answer">No section was published for this attempt. Earlier saved explanations are still in the library.</p>}
   </section>;
@@ -740,6 +740,12 @@ function AnswerStorage(){
     }catch(failure){setError(errorMessageOr(failure,'This saved answer could not be cleared. Its sections are preserved.'));}finally{setBusy(null);}
   };
   return <Dialog.Root open={open} onOpenChange={setOpen}><Dialog.Trigger><Button size="1" variant="soft">Manage saved answers</Button></Dialog.Trigger><Dialog.Content maxWidth="560px"><Dialog.Title>Free local answer storage</Dialog.Title><Dialog.Description size="2">Keep your explanations and source links in the library while clearing an older investigation record. This removes its detailed generation receipt. It does not send code or ask AI again.</Dialog.Description>{unavailableCount>0&&<p role="status">{unavailableCount} older or unverifiable record{unavailableCount===1?' is':'s are'} still saved on this Mac and were left untouched.</p>}<div className="dw-saved-answers">{answers.map((answer)=><section key={answer.runId}><p>{answer.question}</p><small>{answer.sections.length} saved section{answer.sections.length===1?'':'s'} · {answer.outcome}</small><Button size="1" variant="soft" disabled={!!busy||answer.outcome==='working'} onClick={()=>void release(answer)}>{busy===answer.runId?'Saving sections…':'Keep explanations and free space'}</Button></section>)}{answers.length===0&&<p>{unavailableCount>0?'No verified answer records are available to clear.':'No saved answers need cleanup.'}</p>}</div>{error&&<p role="alert">{error}</p>}<Flex justify="end" mt="4"><Dialog.Close><Button variant="soft" color="gray">Done</Button></Dialog.Close></Flex></Dialog.Content></Dialog.Root>;
+}
+function ExplorationBranchLinks({branches,onGo}:{branches:Exploration[];onGo:(id:string)=>void}){
+  const recent=branches.slice(-5).reverse();
+  const earlier=branches.slice(0,-5).reverse();
+  const renderLink=(exploration:Exploration)=><button className="dw-branch-link" key={exploration.id} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={exploration.title}/></span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>;
+  return <>{recent.map(renderLink)}{earlier.length>0&&<details className="dw-branch-archive"><summary>Show {earlier.length} earlier explorations</summary><div>{earlier.map(renderLink)}</div></details>}</>;
 }
 function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onRead,onSettings,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
   const versions=original?answerRevisionOptions(original,chapters):[];
@@ -775,7 +781,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
         <div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{position+1} / {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>
       </> : <details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details>}
       {coverageSummary&&<div className="dw-guide-coverage" role="status"><strong>Partial guide</strong><span>Still uncovered: {coverageSummary}</span></div>}
-      <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}{branches.map((e)=><button className="dw-branch-link" key={e.id} onClick={()=>onGo(e.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={e.title}/></span><small>{e.turns.length} question{e.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>)}</footer>
+      <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}<ExplorationBranchLinks branches={branches} onGo={onGo}/></footer>
     </>:<p>This saved explanation has no sections.</p>}
   </div></article>;
 }

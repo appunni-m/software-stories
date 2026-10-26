@@ -113,6 +113,9 @@
 .dw-branch-link > span:nth-child(2) {flex:1;}
 .dw-branch-link small {font-size:10px;color:var(--dim);white-space:nowrap;}
 .dw-branch-connector {color:var(--accent);}
+.dw-branch-archive {flex-basis:100%;}
+.dw-branch-archive > summary {padding:var(--space-2);color:var(--muted);font-size:12px;cursor:pointer;}
+.dw-branch-archive > div {display:grid;gap:var(--space-1);margin-top:var(--space-1);}
 .dw-working {display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--muted);}
 .dw-working .rt-Button {margin-left:auto;}
 .dw-error {font-size:13px;line-height:1.7;color:var(--danger);overflow-wrap:anywhere;}
