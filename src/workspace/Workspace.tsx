@@ -255,7 +255,7 @@ export function DeveloperWorkspace(props:Props) {
   },[projectId,snapshotId,onAnswerRestoration]);
   useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:sourcePaths[0],explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:sourcePaths[0]}:e)}));},[state.file,sourcePaths]);
-  useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){const context={path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256};update((s)=>({...s,file:routePath,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:routePath,reveal:context,codeOpen:true}:e)}));setReveal(context);}},[routePath,routeRange]);
+  useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){const context={path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256};update((s)=>({...s,file:routePath,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:routePath,reveal:context,codeOpen:true}:e)}));setReveal(context);setNarrowPane('source');setSearchFocused(false);}},[routePath,routeRange]);
   useEffect(()=>{
     const path=state.file;
     setSourceEntry(null);setSourceError(null);
