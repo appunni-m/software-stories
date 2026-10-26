@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
+import { providerFailureMessage } from './lib/errorMessage';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { readVoiceConnectionIssue, saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
@@ -53,7 +54,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
         const [info, stored] = await Promise.all([getNarrationDisclosure('gemini'), getProviderCredentialStatus('gemini')]);
         if (!active) return;
         setDisclosure(info);
-        if (stored.status === 'ok') setCredential(stored.data); else setError(stored.error.message);
+        if (stored.status === 'ok') setCredential(stored.data); else setError(providerFailureMessage(stored.error));
       }
     })().catch(() => { if (active) setError('Could not read voice connection status. Close and reopen Connections to retry.'); });
     return () => { active = false; };
@@ -80,7 +81,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       const result = remove ? await removeProviderApiKey('gemini') : await storeProviderApiKey('gemini', key.trim());
       if (!alive.current) return;
       if (result.status === 'ok') { setCredential(result.data); setKey(''); setMessage(remove ? 'Google key removed.' : 'Google key saved in macOS Keychain.'); }
-      else setError(result.error.message);
+      else setError(providerFailureMessage(result.error));
     } catch { if (alive.current) setError('Could not update the key in macOS Keychain.'); }
     finally { if (alive.current) setBusy(false); }
   };
