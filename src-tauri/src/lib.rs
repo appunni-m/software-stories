@@ -2533,7 +2533,7 @@ mod chapter_pipeline_tests {
                 .user_prompt
                 .contains("sentences copied verbatim from that section's anchored claims")
         );
-        assert!(review.system_instruction.contains("Teaching policy v29:"));
+        assert!(review.system_instruction.contains("Teaching policy v30:"));
         assert!(
             review
                 .system_instruction
