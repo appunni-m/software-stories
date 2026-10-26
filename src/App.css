@@ -139,7 +139,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .workflow-empty-actions { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; margin-top:18px; }
 .empty-state-icon { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 16px; background: linear-gradient(145deg, var(--surface-hover), var(--surface-raised)); color: var(--accent); box-shadow: 0 10px 35px color-mix(in srgb, var(--shadow) 20%, transparent); }
 .code-icon { color: var(--blue); border-color: var(--blue-border); background: linear-gradient(145deg, var(--blue-soft), var(--surface-raised)); }
-.play-icon { color: var(--accent); border-color: var(--border-strong); }
 .plan-icon { color: var(--accent); border-color: var(--accent-border); }
 .studio-icon { color: var(--blue); border-color: var(--blue-border); }
 .secondary-button { margin-top: 18px; border-color: var(--blue-border); background: var(--surface-hover); color: var(--text); box-shadow: none; }
@@ -471,19 +470,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-detail-empty span { color: var(--muted); font-size: 8px; line-height: 1.5; }
 @media (max-width: 1250px) { .atlas-columns { grid-template-columns: minmax(210px, .85fr) minmax(310px, 1.15fr); } .atlas-details-panel { grid-column: 1 / -1; border-top: 1px solid var(--border); } .atlas-details-panel .atlas-detail-content { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); align-items: start; } }
 @media (max-width: 900px) { .atlas-columns { grid-template-columns: minmax(0, 1fr); } .atlas-tree-panel, .atlas-map-panel { border-right: 0; border-bottom: 1px solid var(--border); } .atlas-tree-scroll, .atlas-relationship-canvas { max-height: 330px; } .atlas-details-panel { grid-column: auto; } .atlas-details-panel .atlas-detail-content { grid-template-columns: minmax(0, 1fr); } }
-.inventory-search { height: 29px; display: flex !important; align-items: center; gap: 6px !important; padding: 0 7px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised); color: var(--muted); }
-.inventory-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 9px; }
-.inventory-search input::placeholder { color: var(--muted); }
-.inventory-clear { min-height: 29px; padding: 0 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised); color: var(--muted); font-size: 9px; cursor: pointer; }
-.inventory-clear:disabled { opacity: .42; cursor: default; }
-.guide-plan-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 13px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
-.guide-plan-actions > div:first-child { display: grid; gap: 4px; }
-.guide-plan-actions strong { color: var(--muted); font-size: 9px; }
-.guide-plan-actions span { color: var(--muted); font-size: 8px; }
-.guide-plan-action-buttons { display: flex; align-items: center; gap: 8px; }
-.guide-plan-action-buttons > span { color: var(--muted); font: 8px var(--mono); }
-.guide-plan-action-buttons .secondary-button { min-height: 29px; margin: 0; padding: 0 9px; border-color: var(--accent-border); background: var(--surface-hover); color: var(--accent); box-shadow: none; font-size: 8px; }
-.guide-plan-action-buttons .secondary-button:disabled { opacity: .45; cursor: not-allowed; }
 .chapter-studio-screen { min-height: 560px; align-items: stretch; padding-top: 4px; }
 .chapter-studio-card { min-width: 0; min-height: 560px; flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(180deg, var(--surface), var(--surface) 55%); box-shadow: 0 18px 42px color-mix(in srgb, var(--shadow) 13%, transparent); }
 .chapter-studio-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -757,9 +743,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 /* Progressive disclosure for the simpler Guide / Files / Changes shell. */
-.snapshot-partial-warning { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 9px 11px; border: 1px solid var(--warning-border); border-radius: 7px; background: var(--surface); color: var(--warning); font-size: 9px; line-height: 1.5; }
-.snapshot-partial-warning svg { flex: 0 0 auto; margin-top: 1px; color: var(--warning); }
-.snapshot-partial-warning strong { color: var(--warning); }
 .snapshot-technical-details { margin-top: 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
 .snapshot-technical-details > summary { padding: 9px 11px; color: var(--muted); font-size: 9px; cursor: pointer; }
 .snapshot-technical-details[open] > summary { border-bottom: 1px solid var(--border); }
@@ -1188,9 +1171,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .pr-guide-unavailable-item small { color: var(--muted); font-size: 8px; line-height: 1.5; }
 .pr-guide-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
 .pr-guide-actions > .primary-button, .pr-guide-actions > .secondary-button { margin: 0; }
-.pr-guide-model { display: grid; gap: 5px; min-width: min(250px, 100%); color: var(--muted); font-size: 8px; font-weight: 600; }
-.pr-guide-model select { height: 34px; padding: 0 9px; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text); background: var(--canvas); font-size: 9px; }
-.pr-guide-model select:focus-visible, .pr-guide-panel button:focus-visible, .pr-guide-consent input:focus-visible, .pr-guide-file-picker input:focus-visible, .pr-guide-claim-select input:focus-visible, .pr-guide-rejection-reason textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pr-guide-panel button:focus-visible, .pr-guide-consent input:focus-visible, .pr-guide-file-picker input:focus-visible, .pr-guide-claim-select input:focus-visible, .pr-guide-rejection-reason textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pr-guide-subheading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pr-guide-subheading > svg { color: var(--accent); }
 .pr-guide-request-review, .pr-guide-draft-review, .pr-guide-history { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
@@ -1505,12 +1486,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .developer-workspace .file-flow > p {color:var(--muted);font-size:13px;}
 @media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size:11px;max-width:150px;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
 /* Secondary tools inherit the same readable control scale as the workspace. */
-.dw-tool-content :is(.chapter-studio-card,.chapter-studio-section,.git-file-change) {border-radius:8px;}
+.dw-tool-content :is(.chapter-studio-card,.chapter-studio-section) {border-radius:8px;}
 .dw-tool-content .walkthrough-kicker {font-size:12px;line-height:1.65;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(label,p,textarea,input,select) {font-size:13px;line-height:1.7;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(h2,h3) {font-size:18px;line-height:1.5;color:var(--text);}
 .dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
-.dw-tool-content :is(.git-ref-card,.git-changes-list,.git-comparison-result) {border-radius:8px;}
+.dw-tool-content :is(.git-ref-card,.git-comparison-result) {border-radius:8px;}
 
 /* The packaged Changes workspace keeps file navigation beside the selected diff. */
 .git-compact-comparison {display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0;}
