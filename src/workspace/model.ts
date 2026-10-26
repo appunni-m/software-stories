@@ -229,6 +229,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
     if (value.grantId !== undefined && !validRunId(value.grantId)) return fallback();
     const ids = new Set(value.explorations.map((e) => e.id));
     if (ids.size !== value.explorations.length || !ids.has('root') || !ids.has(value.currentId)) return fallback();
+    const turnOwners = new Map<string,string>();
     for (const e of value.explorations) {
       if (!hasOnlyKeys(e, EXPLORATION_KEYS)) return fallback();
       if (typeof e.id !== 'string' || typeof e.title !== 'string' || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
@@ -253,9 +254,10 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) return fallback();
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
-        if (!validRunId(t.id) || typeof t.question !== 'string' || !Array.isArray(t.context) || t.context.length > 32
+        if (!validRunId(t.id) || turnOwners.has(t.id) || typeof t.question !== 'string' || !Array.isArray(t.context) || t.context.length > 32
           || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || !t.context.every(isWorkspaceContext)) return fallback();
+        turnOwners.set(t.id,e.id);
         if ((t.revisionId !== undefined && (typeof t.revisionId !== 'string' || !t.revisionId || t.revisionId.length > 256))
           || (t.generationId !== undefined && !validGenerationId(t.generationId))
           || (t.error !== undefined && (typeof t.error !== 'string' || t.error.length > 4096))) return fallback();
@@ -306,6 +308,9 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         }
       }
       if (ancestors(value, e.id)[0]?.id !== 'root') return fallback();
+    }
+    for (const e of value.explorations) {
+      if (e.id !== 'root' && (!e.parentId || !e.originTurnId || turnOwners.get(e.originTurnId) !== e.parentId)) return fallback();
     }
     return value;
   } catch { return fallback(); }
