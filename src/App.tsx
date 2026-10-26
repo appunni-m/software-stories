@@ -20,7 +20,7 @@ import { readFileLocation, rememberFileLocation } from './lib/workspacePreferenc
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { FileFlow } from './FileFlow';
-import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -2190,6 +2190,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
   const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
+  const [directApiSelectionIssue, setDirectApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
@@ -2223,7 +2224,8 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
   const reviewMode = mode.kind !== 'settings';
   const selectedModel = disclosure?.models.find((model) => model.modelId === modelId) ?? null;
-  const connectionProblem = !providerId ? 'Choose an AI provider in Connections.'
+  const connectionProblem = directApiSelectionIssue ? 'The saved API provider selection could not be read. Choose a provider in Connections to replace it.'
+    : !providerId ? 'Choose an AI provider in Connections.'
     : !disclosure ? 'The saved provider is unavailable. Choose another provider in Connections.'
       : !selectedModel ? 'Choose a model in Connections.'
         : credentialError ? 'Code Atlas could not check the saved API key. Open Connections to review it.'
@@ -2303,6 +2305,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
       const saved = readDirectApiSelection();
       setProviderId(saved.providerId);
       setModelId(saved.modelId);
+      setDirectApiSelectionIssue(readDirectApiSelectionIssue());
     };
     window.addEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
     return () => window.removeEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
@@ -2666,6 +2669,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
               </select>
             </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
+            {!reviewMode && directApiSelectionIssue && <p className="coverage-storage-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
             {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
               <p>{connectionProblem}</p><button className="primary-button" onClick={openConnections}>Open Connections</button>
             </section>}

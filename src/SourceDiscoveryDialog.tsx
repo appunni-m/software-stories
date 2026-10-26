@@ -70,7 +70,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
             setSavedSelectionNotice(`${issue} The stored bytes were left untouched; you can find code again below.`);
           }
         } catch {
-          setSavedSelectionNotice('The saved code selection could not be checked against this snapshot. The stored bytes were left untouched; you can find code again below.');
+          if (current) setSavedSelectionNotice('The saved code selection could not be checked against this snapshot. The stored bytes were left untouched; you can find code again below.');
         }
       }
       const connection = await ensureCodexConnection(retry > 0);

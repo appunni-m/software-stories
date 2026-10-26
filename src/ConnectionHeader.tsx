@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, LoaderCircle, PlugZap } from 'lucide-react';
 import { initializeConnection, useConnectionState } from './lib/connectionStore';
-import { readDirectApiSelection, readGenerationBackend, type GenerationBackend, type DirectApiSelection } from './lib/generationPreferences';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, type GenerationBackend, type DirectApiSelection, type DirectApiSelectionIssue } from './lib/generationPreferences';
 
 export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const connection = useConnectionState();
   const [backend, setBackend] = useState<GenerationBackend | null>(() => readGenerationBackend());
   const [apiSelection, setApiSelection] = useState<DirectApiSelection>(() => readDirectApiSelection());
+  const [apiSelectionIssue, setApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
   useEffect(() => {
     initializeConnection();
     const refreshBackend = () => setBackend(readGenerationBackend());
-    const refreshApiSelection = () => setApiSelection(readDirectApiSelection());
+    const refreshApiSelection = () => {
+      setApiSelection(readDirectApiSelection());
+      setApiSelectionIssue(readDirectApiSelectionIssue());
+    };
     window.addEventListener('code-atlas:connection-changed', refreshBackend);
     window.addEventListener('code-atlas:direct-api-selection-changed', refreshApiSelection);
     return () => {
@@ -29,19 +33,20 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const ready = Boolean(codexRuntimeReady && modelReady);
   const label = backend === null ? 'Choose connection'
     : backend === 'api'
-    ? `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
+    ? apiSelectionIssue ? 'API · Saved selection unavailable' : `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? 'Manual agent'
         : connection.checking ? 'Connecting to Codex…'
           : ready ? `Codex · ${codexModel} · ${connection.selection.effort}`
             : codexRuntimeReady ? 'Choose Codex model' : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
-    : backend === null || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
+    : backend === null || backend === 'api' && Boolean(apiSelectionIssue) || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
   const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
     : backend === 'codex'
     ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.`
       : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
-    : backend === 'api' ? `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
+    : backend === 'api' ? apiSelectionIssue ? `The saved direct API selection could not be read (${apiSelectionIssue}). Choose a provider in Connections to replace it.`
+      : `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
         : 'Manual agent handoff selected. Open Connections to manage it.';
   return <button className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}

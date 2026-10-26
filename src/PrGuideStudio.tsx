@@ -1,4 +1,4 @@
-import { readDirectApiSelection, readGenerationBackend } from './lib/generationPreferences';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, type DirectApiSelectionIssue } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
@@ -92,6 +92,7 @@ export function PrGuideStudio({
   const [informationLoading, setInformationLoading] = useState(isNativeRuntime());
   const [informationError, setInformationError] = useState<string | null>(null);
   const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
+  const [directApiSelectionIssue, setDirectApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
   const [selectedKeys, setSelectedKeys] = useState<string[]>(()=>accountOnly?comparison.changes.filter(isGuideEligible).slice(0,12).map(changeKey):[]);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const requestReviewRef = useRef<ProviderRequestReview | null>(null);
@@ -136,6 +137,7 @@ export function PrGuideStudio({
       const saved = readDirectApiSelection();
       setProviderId(saved.providerId);
       setModelId(saved.modelId);
+      setDirectApiSelectionIssue(readDirectApiSelectionIssue());
     };
     window.addEventListener('code-atlas:connection-changed', refreshBackend);
     window.addEventListener('code-atlas:direct-api-selection-changed', refreshDirectApiSelection);
@@ -620,6 +622,7 @@ export function PrGuideStudio({
         </button>
       </div>
       {!hasApiKey && hasApiSelection && <p className="pr-guide-muted" role="status">Add this provider’s API key in Connections before sending. Keys stay in macOS Keychain.</p>}
+      {directApiSelectionIssue && <p className="pr-guide-muted" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : 'unavailable'} and was left untouched. Choose a provider in Connections to replace it.</p>}
       {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider in Connections.</p>}
       {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model in Connections.</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}

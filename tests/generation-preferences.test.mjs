@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, repositoryPlanningBackend } from '../src/lib/generationPreferences.ts';
+import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, repositoryPlanningBackend } from '../src/lib/generationPreferences.ts';
 
 describe('generation backend preference', () => {
   const withStorage = (storage, run) => {
@@ -28,10 +28,11 @@ describe('generation backend preference', () => {
     });
   });
 
-  it('handles unavailable storage and unknown preferences', () => {
-    withStorage({ getItem: () => 'unknown' }, () => assert.equal(readGenerationBackend(), 'codex'));
+  it('defaults to Codex only when the backend is unset and surfaces unsupported or unreadable values', () => {
+    withStorage({ getItem: () => null }, () => assert.equal(readGenerationBackend(), 'codex'));
+    withStorage({ getItem: () => 'unknown' }, () => assert.equal(readGenerationBackend(), null));
     withStorage({ getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }, () => {
-      assert.equal(readGenerationBackend(), 'codex');
+      assert.equal(readGenerationBackend(), null);
       assert.doesNotThrow(() => rememberGenerationBackend('api'));
     });
   });
@@ -51,8 +52,21 @@ describe('generation backend preference', () => {
       assert.deepEqual(readDirectApiSelection(), { providerId: '', modelId: '' });
       rememberDirectApiSelection({ providerId: 'gemini', modelId: 'gemini-2.5-pro' });
       assert.deepEqual(readDirectApiSelection(), { providerId: 'gemini', modelId: 'gemini-2.5-pro' });
+      assert.equal(readDirectApiSelectionIssue(), null);
       assert.deepEqual([...saved.keys()], ['code-atlas:direct-api-selection']);
       assert.doesNotMatch([...saved.values()].join(' '), /api.?key|credential|secret/i);
+    });
+  });
+
+  it('keeps malformed direct API settings visible and leaves them until an explicit replacement', () => {
+    const saved = new Map([['code-atlas:direct-api-selection', '{']]);
+    withStorage({ getItem: (key) => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) }, () => {
+      assert.deepEqual(readDirectApiSelection(), { providerId: '', modelId: '' });
+      assert.equal(readDirectApiSelectionIssue(), 'invalid');
+      assert.equal(saved.get('code-atlas:direct-api-selection'), '{');
+      rememberDirectApiSelection({ providerId: 'gemini', modelId: '' });
+      assert.deepEqual(readDirectApiSelection(), { providerId: 'gemini', modelId: '' });
+      assert.equal(readDirectApiSelectionIssue(), null);
     });
   });
 
@@ -74,7 +88,9 @@ describe('generation backend preference', () => {
     assert.match(app, /backend === 'codex'\) return <ConnectionsDialog/);
     assert.match(connections, /Change AI connection/);
     assert.match(header, /code-atlas:connection-changed/);
-    assert.match(header, /backend === 'api'\s*\? `API · \$\{providerName/);
+    assert.match(header, /backend === 'api'\s*\? apiSelectionIssue \? 'API · Saved selection unavailable'/);
+    assert.match(app, /The saved direct API selection is \{directApiSelectionIssue === 'invalid'/);
+    assert.match(prGuide, /The saved direct API selection is \{directApiSelectionIssue === 'invalid'/);
     assert.match(prGuide, /window\.addEventListener\('code-atlas:connection-changed'/);
     assert.match(header, /code-atlas:direct-api-selection-changed/);
     assert.match(app, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);
