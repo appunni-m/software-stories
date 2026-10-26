@@ -1511,20 +1511,27 @@ function App() {
       const groupKey=projectId&&snapshotId?notificationGroupKey('question',projectId,snapshotId,outcome.question):undefined;
       const groupedOutcomes=groupKey?visibleQuestionUpdates.filter(candidate=>
         notificationGroupKey('question',projectId!,snapshotId!,candidate.question)===groupKey):[];
+      const unreadGroupedOutcomes=groupedOutcomes.filter(candidate=>!candidate.read);
       return {
         id: `question:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
         message: `${currentProject?.displayName ?? 'Repository'} · ${questionNotificationText(outcome.question, 140)}`,
         groupKey,
         bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
         read: outcome.read, tone: outcome.tone,
-        groupActions: groupedOutcomes.length>1?[{label:`Dismiss all ${groupedOutcomes.length} attempts`,run:()=>{
-          if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,groupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'dismissed'));
-        }}]:undefined,
+        groupActions: groupedOutcomes.length>1?[
+          ...(unreadGroupedOutcomes.length?[{label:`Mark all ${unreadGroupedOutcomes.length} read`,run:()=>{
+            if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,unreadGroupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'read'));
+          }}]:[]),
+          {label:`Dismiss all ${groupedOutcomes.length} attempts`,run:()=>{
+            if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,groupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'dismissed'));
+          }}]:undefined,
         actions: [{ label: 'Open question', movesFocus: true, run: () => {
           if (!projectId || !snapshotId) return;
           updateWorkspace(projectId,snapshotId,(s)=>openWorkspaceQuestion(s,outcome.explorationId,outcome.turnId));
           setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId,snapshotId}));
-        } }, { label: 'Dismiss', run: () => {
+        } }, ...(groupedOutcomes.length===1&&!outcome.read?[{label:'Mark read',run:()=>{
+          if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'read'));
+        }}]:[]), { label: 'Dismiss', run: () => {
           if (projectId && snapshotId) updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
         } }],
       };
