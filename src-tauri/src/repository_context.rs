@@ -1155,12 +1155,24 @@ pub(crate) fn range_from_source(
     if start_byte >= end_byte || end_byte.saturating_sub(start_byte) > MAX_RANGE_BYTES {
         return Err("Read a nonempty code range of at most 32,768 bytes.".to_owned());
     }
+    let starts = line_starts(&source.contents);
+    range_from_source_at_lines(source, start_byte, end_byte, &starts)
+}
+
+fn range_from_source_at_lines(
+    source: &snapshot::SnapshotSource,
+    start_byte: usize,
+    end_byte: usize,
+    starts: &[usize],
+) -> Result<RangeRead, String> {
+    if start_byte >= end_byte || end_byte.saturating_sub(start_byte) > MAX_RANGE_BYTES {
+        return Err("Read a nonempty code range of at most 32,768 bytes.".to_owned());
+    }
     let contents = source
         .contents
         .get(start_byte..end_byte)
         .ok_or("The code range must lie on UTF-8 boundaries inside this file.")?
         .to_owned();
-    let starts = line_starts(&source.contents);
     Ok(RangeRead {
         range: CodeRange {
             snapshot_id: source.snapshot_id.clone(),
@@ -2547,6 +2559,9 @@ fn search_ranked(
     for (path, positions) in positions_by_path {
         budget.check()?;
         let captured = source_with_budget(storage, manifest, &path, budget)?;
+        // A result page can contain many chunks from one large file. Reuse its
+        // line index instead of rescanning the complete source for every hit.
+        let starts = line_starts(&captured.contents);
         for position in positions {
             budget.check()?;
             let (id, (exact_identifier, declaration_match, _, score)) = selected[position];
@@ -2557,7 +2572,12 @@ fn search_ranked(
             if captured.sha256 != range.source_sha256 {
                 return Err("A code result belongs to a different source version.".to_owned());
             }
-            let read = range_from_source(&captured, range.start_byte, range.end_byte)?;
+            let read = range_from_source_at_lines(
+                &captured,
+                range.start_byte,
+                range.end_byte,
+                &starts,
+            )?;
             if read.range.chunk_sha256 != range.chunk_sha256
                 || read.range.start_line != range.start_line
                 || read.range.end_line != range.end_line

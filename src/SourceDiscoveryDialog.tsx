@@ -48,7 +48,16 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     mounted.current = true;
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const wait = () => new Promise<void>((resolve) => { timer = setTimeout(resolve, 250); });
+    let finishWait: (() => void) | null = null;
+    let pollDelayMs = 200;
+    const wait = () => new Promise<void>((resolve) => {
+      finishWait = resolve;
+      timer = setTimeout(() => {
+        timer = undefined;
+        finishWait = null;
+        resolve();
+      }, pollDelayMs);
+    });
     dialog.current?.focus();
     setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true); preparing.current = true;
     void (async () => {
@@ -86,12 +95,14 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
           const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
           while (current) {
             const progress = await getSnapshotIndexProgress(job.jobId);
+            if (!current) return;
             if (!progress) break;
             if (progress.status !== 'running') {
               indexReady = progress.status === 'complete' || progress.status === 'partial';
               break;
             }
             await wait();
+            pollDelayMs = Math.min(1000, Math.ceil(pollDelayMs * 1.5));
           }
         }
       } catch {
@@ -108,7 +119,13 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
     return () => {
       current = false; mounted.current = false;
-      if (timer) clearTimeout(timer);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+        const resolve = finishWait;
+        finishWait = null;
+        resolve?.();
+      }
       if (active.current) void cancelCodexChapterRequest(active.current).catch(() => {});
       if (prepared.current) void discardSourceDiscovery(prepared.current).catch(() => {});
     };
