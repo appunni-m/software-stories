@@ -195,28 +195,38 @@ test('a guide update warms only new revisions already adopted by the native read
   stop();
 });
 
-test('local narration warming is deduplicated and admitted one native job at a time', async () => {
+test('local narration warms a bounded native runway and deduplicates identical clips', async () => {
   const first = { spokenText: 'first scene', voice: 'alba', style: '', lexicon: [] };
   const second = { spokenText: 'second scene', voice: 'alba', style: '', lexicon: [] };
+  const third = { spokenText: 'third scene', voice: 'alba', style: '', lexicon: [] };
   const events = [];
+  let nativePending = 0;
+  let maximumNativePending = 0;
   const queue = createNarrationPrewarmQueue({
     maxPending: 4,
+    maxConcurrent: 2,
     wait: async () => {},
     prepare: async input => {
       events.push(`prepare:${input.spokenText}`);
+      nativePending += 1;
+      maximumNativePending = Math.max(maximumNativePending, nativePending);
       return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
     },
     status: async input => {
       events.push(`ready:${input.spokenText}`);
+      nativePending -= 1;
       return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
     },
   });
 
-  assert.equal(queue.enqueue([first, second, first]), 2);
+  assert.equal(queue.enqueue([first, second, third, first]), 3);
   await queue.flush();
-  assert.deepEqual(events, [
-    'prepare:first scene', 'ready:first scene',
-    'prepare:second scene', 'ready:second scene',
+  assert.equal(maximumNativePending, 2);
+  assert.deepEqual(events.filter(event => event.startsWith('prepare:')).sort(), [
+    'prepare:first scene', 'prepare:second scene', 'prepare:third scene',
+  ]);
+  assert.deepEqual(events.filter(event => event.startsWith('ready:')).sort(), [
+    'ready:first scene', 'ready:second scene', 'ready:third scene',
   ]);
 });
 

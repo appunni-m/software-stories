@@ -13,13 +13,18 @@ export function createNarrationPrewarmQueue(options: {
   wait?: (milliseconds: number) => Promise<void>;
   pollMilliseconds?: number;
   maxPending?: number;
+  maxConcurrent?: number;
 }): NarrationPrewarmQueue {
   const pending: NarrationSynthesisInput[] = [];
   const keys = new Set<string>();
+  const active = new Set<Promise<void>>();
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
   const maxPending = options.maxPending ?? 512;
-  let active: Promise<void> | null = null;
+  // Native synthesis is single-worker, but it can hold a small queue and let
+  // playback promote the clip the reader just selected. Keep that runway
+  // populated without consuming the native queue's full capacity.
+  const maxConcurrent = Math.max(1, Math.min(8, options.maxConcurrent ?? 8));
 
   const keyOf = (input: NarrationSynthesisInput) => JSON.stringify([
     input.spokenText, input.voice, input.style, input.lexicon,
@@ -33,21 +38,20 @@ export function createNarrationPrewarmQueue(options: {
     }
   };
 
-  const drain = (): Promise<void> => {
-    if (active) return active;
-    active = (async () => {
-      while (pending.length) {
-        const input = pending.shift()!;
-        const key = keyOf(input);
-        try { await prepareOne(input); }
-        catch { /* Narration is optional; a failed clip must not block later clips. */ }
-        finally { keys.delete(key); }
-      }
-    })().finally(() => {
-      active = null;
-      if (pending.length) void drain().catch(() => {});
-    });
-    return active;
+  const pump = () => {
+    while (pending.length && active.size < maxConcurrent) {
+      const input = pending.shift()!;
+      const key = keyOf(input);
+      let task: Promise<void>;
+      task = prepareOne(input).catch(() => {
+        // Narration is optional; a failed clip must not block later clips.
+      }).finally(() => {
+        active.delete(task);
+        keys.delete(key);
+        pump();
+      });
+      active.add(task);
+    }
   };
 
   return {
@@ -61,11 +65,14 @@ export function createNarrationPrewarmQueue(options: {
         pending.push(input);
         accepted += 1;
       }
-      if (accepted) void drain().catch(() => {});
+      if (accepted) pump();
       return accepted;
     },
     async flush() {
-      while (active || pending.length) await (active ?? drain());
+      while (active.size || pending.length) {
+        if (!active.size) { pump(); continue; }
+        await Promise.all([...active]);
+      }
     },
   };
 }
