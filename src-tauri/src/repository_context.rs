@@ -1374,6 +1374,10 @@ fn function_declaration_at(source: &str, start: usize, end: usize) -> bool {
         || prefix.starts_with("//")
         || prefix.starts_with("/*")
         || prefix.starts_with('*')
+        || (prefix.starts_with('#') && !prefix.starts_with("#["))
+        || prefix.starts_with("--")
+        || prefix.starts_with("<!--")
+        || prefix.starts_with("(*")
         || prefix.contains("::")
         || prefix
             .chars()
