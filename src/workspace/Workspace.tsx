@@ -439,10 +439,23 @@ export function DeveloperWorkspace(props:Props) {
     const excerptEnd=hasRange?selected.to!:lineCount;
     const previewEnd=Math.min(excerptEnd,excerptStart+39);
     const preview=capturedSourceLineWindow(source.contents,excerptStart,previewEnd,{maxLineCharacters:4_000});
-    const previewText=preview.lines.join('\n');
-    const previewCharacters=Array.from(previewText);
-    const sourceExcerpt=previewCharacters.slice(0,4_000).join('');
-    const excerptTruncated=excerptEnd>previewEnd||preview.omittedBefore.some(Boolean)||preview.omittedAfter.some(Boolean)||previewCharacters.length>4_000;
+    const previewParts:string[]=[];
+    let previewCodePoints=0;
+    let previewTextTruncated=false;
+    for(const [index,line]of preview.lines.entries()){
+      const text=index===0?line:`\n${line}`;
+      const characters=Array.from(text);
+      const remaining=4_000-previewCodePoints;
+      if(characters.length>remaining){
+        if(remaining>0)previewParts.push(characters.slice(0,remaining).join(''));
+        previewTextTruncated=true;
+        break;
+      }
+      previewParts.push(text);
+      previewCodePoints+=characters.length;
+    }
+    const sourceExcerpt=previewParts.join('');
+    const excerptTruncated=excerptEnd>previewEnd||preview.omittedBefore.some(Boolean)||preview.omittedAfter.some(Boolean)||previewTextTruncated;
     if(!requireCodexConnection()){
       setCodeRequestReview({context:selected,question,snapshotId,sourceSha256:source.sha256,
         sourceExcerpt,excerptTruncated});
