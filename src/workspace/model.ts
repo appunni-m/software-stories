@@ -210,7 +210,7 @@ function strictReaderProgress(value: unknown, ownsRevision: (revisionId: string)
   if (!hasOnlyKeys(value, ['stories','diagrams']) || !Array.isArray(value.stories) || value.stories.length > 256
     || !Array.isArray(value.diagrams) || value.diagrams.length > 256) return null;
   const storyKeys = ['revisionId','sectionId','sectionRevisionId','sceneId','positions','fullMap','viewport','focusedNodeId','focusedEdgeId','focusLayoutVersion'];
-  const diagramKeys = ['revisionId','sectionId','sectionRevisionId','viewport','layoutVersion'];
+  const diagramKeys = ['revisionId','sectionId','sectionRevisionId','viewport','focusedNodeId','layoutVersion'];
   for (const story of value.stories) {
     if (!hasOnlyKeys(story, storyKeys) || (story.viewport !== undefined && !hasOnlyKeys(story.viewport, ['x','y','zoom']))
       || (story.focusedNodeId !== undefined && (typeof story.focusedNodeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(story.focusedNodeId)))
@@ -219,6 +219,7 @@ function strictReaderProgress(value: unknown, ownsRevision: (revisionId: string)
   }
   for (const diagram of value.diagrams) {
     if (!hasOnlyKeys(diagram, diagramKeys) || (diagram.viewport !== undefined && !hasOnlyKeys(diagram.viewport, ['x','y','zoom']))
+      || (diagram.focusedNodeId !== undefined && (typeof diagram.focusedNodeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(diagram.focusedNodeId)))
       || typeof diagram.revisionId !== 'string' || !ownsRevision(diagram.revisionId)) return null;
   }
   const clean = cleanReaderProgress(value);

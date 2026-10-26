@@ -937,7 +937,6 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   </div></article>;
 }
 function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,theme,onOpen}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void}){
-  const [focusSelection,setFocusSelection]=useState<{sectionRevisionId:string;nodeId:string}|null>(null);
   const diagrams=revision.sections.map((s)=>inspectInteractiveVisual(revision,s));
   const availableDiagramCount=diagrams.filter((diagram)=>diagram.status==='available').length;
   const remembered=sectionPosition(revision.revisionId,revision.sections,saved);
@@ -947,16 +946,17 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   if(!available)return <div className="dw-flow-empty"><Network size={23}/><h2>No evidenced diagram in this explanation</h2><p>Use the source links in Guide to inspect the implementation. A graph is shown only when it has verified evidence.</p></div>;
   if(result?.status!=='available')return null;
   const identity={revisionId:revision.revisionId,sectionId:revision.sections[selected].sectionId,sectionRevisionId:revision.sections[selected].sectionRevisionId};
-  const viewport=progress?.find(p=>sameSection(p,identity))?.viewport;
+  const savedProgress=progress?.find(p=>sameSection(p,identity));
+  const viewport=savedProgress?.viewport;
   const {visual,anchorsById}=result;
   const sourceValues=sourceValuesByVisualNode(visual);
   const section=revision.sections[selected];
   if(!section)return null;
-  const selectedNode=focusSelection?.sectionRevisionId===identity.sectionRevisionId?visual.nodes.find((node)=>node.nodeId===focusSelection.nodeId):undefined;
+  const selectedNode=savedProgress?.focusedNodeId?visual.nodes.find((node)=>node.nodeId===savedProgress.focusedNodeId):undefined;
   const selectedAnchors=selectedNode?selectedNode.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];
   const selectedAnchorIds=new Set(selectedNode?.evidenceAnchorIds??[]);
   const selectedClaims=section.claims.filter((claim)=>claim.anchors.some((anchor)=>selectedAnchorIds.has(anchor.anchorId))).map((claim)=>claim.prose);
-  const selectNode=(nodeId:string)=>setFocusSelection({sectionRevisionId:identity.sectionRevisionId,nodeId});
+  const selectNode=(nodeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedNodeId:nodeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
   const linearSteps=linearFlowSteps(visual);
   const unlinkedNodes=unlinkedFlowNodes(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
@@ -1008,7 +1008,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
       </ul>
     </> : <>
       <p>Choose a point to see what the cited code does.</p>
-      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
+      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
     {selectedNode&&<CodeDetail title={selectedNode.label} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
   </section>;
