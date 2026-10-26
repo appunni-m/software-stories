@@ -10,7 +10,7 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const [apiSelectionIssue, setApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
   const [handoffAgent, setHandoffAgent] = useState(readHandoffAgent);
   useEffect(() => {
-    initializeConnection();
+    if (backend === 'codex') initializeConnection();
     const refreshBackend = () => setBackend(readGenerationBackend());
     const refreshApiSelection = () => {
       setApiSelection(readDirectApiSelection());
@@ -25,7 +25,7 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
       window.removeEventListener('code-atlas:direct-api-selection-changed', refreshApiSelection);
       window.removeEventListener('code-atlas:handoff-agent-changed', refreshHandoffAgent);
     };
-  }, []);
+  }, [backend]);
   const codexSelected = backend === 'codex';
   const codexRuntimeReady = codexSelected && connection.status?.authenticated && connection.status.runtimeRunning;
   const providerName = apiSelection.providerId === 'gemini' ? 'Gemini'
