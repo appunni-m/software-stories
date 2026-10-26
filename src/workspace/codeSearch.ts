@@ -140,7 +140,7 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const all=mode==='regex'?code:[...code,...local];
   if(mode==='code'&&source){
     let line=0,count=0;
-    for(const text of source.contents.split('\n')){
+    for(const text of source.contents.split(/\r\n|\r|\n/)){
       line++;if(!localMatchScore(text,query,terms))continue;
       all.push({path:source.path,text:searchSnippet(text,terms.length?terms:[term]),from:line,to:line});if(++count===32)break;
     }
