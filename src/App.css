@@ -23,7 +23,6 @@
 
   :where(
     :focus-visible,
-    .walkthrough-section-content > h2:focus,
     .atlas-destination-body:focus,
     .chapter-studio-section:focus,
     .provider-dialog:focus
@@ -148,66 +147,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .state-note svg { color: var(--muted); }
 .workspace-footer { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--blue-border); color: var(--muted); font: 9px var(--mono); }
 
-/* Accepted chapter walkthrough reader */
-.walkthrough-screen { min-height: 580px; flex: 1; display: grid; grid-template-columns: minmax(205px, 23%) minmax(0, 1fr); gap: 13px; margin: 17px 0 16px; }
-.walkthrough-rail, .walkthrough-reader { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(180deg, var(--surface), var(--surface) 60%); box-shadow: 0 14px 35px color-mix(in srgb, var(--shadow) 13%, transparent); }
-.walkthrough-rail { display: flex; flex-direction: column; max-height: min(780px, calc(100vh - 270px)); overflow: hidden; }
-.walkthrough-rail-heading { display: flex; align-items: center; justify-content: space-between; padding: 16px 14px 12px; border-bottom: 1px solid var(--border); }
+/* Shared visual scene and narration styles */
 .walkthrough-kicker { color: var(--muted); font: 8px var(--mono); letter-spacing: .13em; }
-.walkthrough-rail-heading h2 { margin: 5px 0 0; color: var(--text); font-size: 15px; letter-spacing: -.02em; }
-.walkthrough-count { display: grid; place-items: center; min-width: 23px; height: 23px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-raised); color: var(--accent); font: 8px var(--mono); }
-.walkthrough-chapter-list { min-height: 0; flex: 1; overflow: auto; padding: 7px; }
-.walkthrough-chapter-group { margin-bottom: 5px; }
-.walkthrough-chapter { width: 100%; min-height: 51px; display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
-.walkthrough-chapter:hover, .walkthrough-chapter.is-selected { border-color: var(--border-strong); background: var(--surface-raised); color: var(--accent); }
-.walkthrough-chapter-icon { width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--border-strong); border-radius: 7px; color: var(--accent); background: var(--surface-hover); }
-.walkthrough-chapter-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
-.walkthrough-chapter-copy strong { overflow: hidden; color: var(--text); font-size: 9px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.walkthrough-chapter-copy small { overflow: hidden; color: var(--muted); font: 7px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
-.walkthrough-chapter > svg { color: var(--muted); transition: transform 130ms ease; }
-.walkthrough-chapter > svg.is-collapsed { transform: rotate(-90deg); }
-.walkthrough-section-list { display: grid; gap: 2px; list-style: none; margin: 4px 0 7px 15px; padding: 0 0 0 10px; border-left: 1px solid var(--border-strong); }
-.walkthrough-section-list li { min-width: 0; }
-.walkthrough-section-link { width: 100%; min-height: 31px; display: grid; grid-template-columns: 23px minmax(0, 1fr); align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
-.walkthrough-section-link:hover, .walkthrough-section-link.is-current { border-color: var(--border-strong); background: var(--surface-hover); color: var(--accent); }
-.walkthrough-section-index { color: var(--muted); font: 7px var(--mono); }
-.walkthrough-section-link.is-current .walkthrough-section-index { color: var(--accent); }
-.walkthrough-section-link > span:last-child { overflow: hidden; font-size: 8px; line-height: 1.35; text-overflow: ellipsis; }
-.walkthrough-rail-footer { min-height: 38px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-top: 1px solid var(--border); color: var(--muted); font: 7px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
-.walkthrough-rail-footer svg { color: var(--accent); }
-.walkthrough-reader { min-height: 580px; max-height: min(780px, calc(100vh - 270px)); overflow: auto; padding: 18px clamp(16px, 2.1vw, 28px) 17px; }
-.walkthrough-reader-topline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.walkthrough-progress-warning { display: flex; align-items: center; gap: 9px; margin: 0 28px; padding: 10px 12px; border: 1px solid var(--warning-border); border-radius: 8px; background: var(--warning-soft); color: var(--text); font-size: 13px; line-height: 1.45; }
-.walkthrough-progress-warning svg { flex: 0 0 auto; color: var(--warning, #b77b36); }
-.walkthrough-reader-breadcrumb { min-width: 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font: 8px var(--mono); }
-.walkthrough-reader-breadcrumb strong { overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.walkthrough-revision-labels { display: flex; flex-wrap: wrap; gap: 5px; }
-.walkthrough-revision-badge { padding: 4px 6px; border: 1px solid var(--warning-border); border-radius: 4px; background: var(--surface-raised); color: var(--warning); font: 6px var(--mono); letter-spacing: .07em; }
-.walkthrough-reader-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; padding-top: 19px; }
-.walkthrough-section-content { min-width: 0; }
-.walkthrough-section-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font: 7px var(--mono); letter-spacing: .08em; }
-.walkthrough-section-meta span:first-child { color: var(--accent); }
-.walkthrough-section-content > h2 { margin: 11px 0 9px; color: var(--text); font: 600 clamp(22px, 2.15vw, 30px)/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -.045em; }
-.walkthrough-section-content > h2 code,.walkthrough-claim p code { font: .9em var(--mono); color: var(--accent); overflow-wrap: anywhere; }
-.walkthrough-section-content > h2:focus { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
 .walkthrough-panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--border); }
 .walkthrough-panel-heading h3 { margin: 5px 0 0; color: var(--text); font-size: 12px; letter-spacing: -.015em; }
-.walkthrough-evidence, .walkthrough-transcript { margin-top: 15px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.walkthrough-transcript { margin-top: 15px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .walkthrough-evidence-count { flex: 0 0 auto; color: var(--muted); font: 7px var(--mono); }
-.walkthrough-claims { display: grid; gap: 9px; margin-top: 9px; }
-.walkthrough-claim { padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.walkthrough-claim-label { display: flex; align-items: center; gap: 6px; }
-.walkthrough-claim-label span { color: var(--accent); font: 7px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.walkthrough-claim > p { margin: 7px 0; color: var(--muted); font-size: 9px; line-height: 1.6; white-space: pre-wrap; }
-.walkthrough-claim > .walkthrough-inference-basis { color: var(--warning); font-size: 8px; }
-.walkthrough-inference-basis strong { color: var(--warning); }
-.walkthrough-source-citation { overflow: hidden; margin-top: 8px; border: 1px solid var(--accent-border); border-radius: 5px; background: var(--canvas); }
-.walkthrough-citation-heading { display: flex; align-items: center; gap: 7px; padding: 7px 8px; color: var(--accent); }
-.walkthrough-citation-heading code { min-width: 0; color: var(--accent); font: 8px var(--mono); overflow-wrap: anywhere; white-space: normal; }
-.walkthrough-source-citation pre { max-height: 180px; overflow: auto; margin: 0; padding: 8px; border-top: 1px solid var(--accent-border); color: var(--muted); background: var(--canvas); font: 8px/1.55 var(--mono); white-space: pre; }
-.walkthrough-citation-link { min-height: 29px; display: inline-flex; align-items: center; gap: 6px; margin: 5px 7px 7px; padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--accent); font-size: 8px; cursor: pointer; }
-.walkthrough-citation-link:hover { border-color: var(--accent-border); background: var(--surface-hover); }
-.walkthrough-no-anchor, .walkthrough-muted { color: var(--muted) !important; font-size: 8px !important; line-height: 1.55 !important; }
 .visual-demo-shell { max-width: 1080px; min-height: 100vh; margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px); color: var(--text); background: radial-gradient(ellipse at 15% 0%, var(--accent-soft) 0, var(--surface) 52%); }
 .visual-demo-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--accent-border); }
 .visual-demo-heading h1 { margin: 7px 0 0; color: var(--text); font-size: clamp(20px, 3vw, 30px); font-weight: 600; }
@@ -248,19 +193,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-transcript-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 10px/1.35 system-ui, sans-serif; }
 .walkthrough-transcript-scroll { max-height: 190px; overflow: auto; margin-top: 8px; padding: 3px 4px; scrollbar-color: var(--muted) transparent; }
 .walkthrough-transcript-scroll p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
-.walkthrough-transcript-citations { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--border); }
-.walkthrough-transcript-citations > span { flex: 0 0 100%; color: var(--muted); font: 8px var(--mono); letter-spacing: .08em; }
-.walkthrough-transcript-citations button { max-width: 100%; min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--accent); cursor: pointer; text-align: left; }
-.walkthrough-transcript-citations button code { min-width: 0; color: var(--accent); font: 9px var(--mono); overflow-wrap: anywhere; white-space: normal; }
-.walkthrough-transcript-citations button svg { flex: 0 0 auto; }
-.walkthrough-reader-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 13px; padding: 9px 0; border-top: 1px solid var(--border); color: var(--muted); font: 7px var(--mono); }
-.walkthrough-reader-footer > span { overflow-wrap: anywhere; }
-.walkthrough-reader-footer code { color: var(--muted); }
 .walkthrough-duration { color: var(--muted); }
-.walkthrough-section-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 7px; border-top: 1px solid var(--border); }
-.walkthrough-section-actions .primary-button, .walkthrough-section-actions .secondary-button { min-height: 35px; margin: 0; font-size: 9px; }
-.walkthrough-section-actions .secondary-button { border-color: var(--border-strong); background: var(--surface-raised); color: var(--muted); }
-.walkthrough-section-actions .primary-button { padding: 0 13px; }
 .walkthrough-narration-audio { display: none; }
 .walkthrough-caption { min-height: 100%; }
 .walkthrough-caption > span, .walkthrough-narration-exact-text > span { color: var(--accent); font: 7px var(--mono); letter-spacing: .08em; }
@@ -278,6 +211,13 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-narration-field textarea, .walkthrough-narration-field input, .walkthrough-narration-field select, .walkthrough-pronunciation-row input { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 9px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .walkthrough-narration-field textarea { min-height: 72px; resize: vertical; }
 .walkthrough-narration-field select { cursor: pointer; }
+.connections-voice .walkthrough-narration-field { gap: 6px; color: var(--text); font-size: 13px; }
+.connections-voice .walkthrough-narration-field small { color: var(--muted); font-size: 12px; }
+.connections-voice .walkthrough-narration-field textarea,
+.connections-voice .walkthrough-narration-field input,
+.connections-voice .walkthrough-narration-field select { min-height: 36px; padding: 8px 10px; border-color: var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.connections-voice > details > summary { color: var(--text); font-size: 13px; cursor: pointer; }
+.connections-voice > details > p, .connections-voice > p { font-size: 12px; line-height: 1.6; }
 .walkthrough-pronunciation { margin-top: 9px; padding: 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }
 .walkthrough-pronunciation > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 8px; cursor: pointer; }
 .walkthrough-pronunciation > summary span { color: var(--muted); font: 7px var(--mono); }
@@ -330,21 +270,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-narration-cancel > p { margin: 0; color: var(--warning); font-size: 8px; line-height: 1.5; }
 .walkthrough-narration-error { display: flex; align-items: flex-start; gap: 5px; margin: 8px 0 0; color: var(--danger); font-size: 8px; line-height: 1.5; }
 .walkthrough-narration-error svg { flex: 0 0 auto; margin-top: 1px; }
-.walkthrough-chapter-home { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 28px clamp(25px, 5vw, 68px); }
-.walkthrough-home-art { position: relative; width: min(100%, 360px); height: 175px; display: grid; place-items: center; align-self: center; margin: -5px 0 16px; border: 1px solid var(--border); border-radius: 10px; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent-soft) 47%, transparent), var(--surface) 66%); }
-.walkthrough-home-orbit { width: 68px; height: 68px; display: grid; place-items: center; border: 1px solid var(--accent-border); border-radius: 20px; background: linear-gradient(145deg, var(--accent-soft), var(--surface-raised)); color: var(--accent); box-shadow: 0 0 45px color-mix(in srgb, var(--accent) 12%, transparent); }
-.walkthrough-home-art::before, .walkthrough-home-art::after { position: absolute; width: 220px; height: 92px; border: 1px solid color-mix(in srgb, var(--accent-border) 26%, transparent); border-radius: 50%; content: ''; transform: rotate(-22deg); }
-.walkthrough-home-art::after { transform: rotate(22deg); }
-.orbit-tag { position: absolute; z-index: 1; padding: 4px 6px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 6px var(--mono); letter-spacing: .08em; }
-.tag-source { top: 25px; left: 27px; }.tag-section { top: 33px; right: 28px; }.tag-evidence { bottom: 22px; right: 46px; }
-.walkthrough-chapter-home > .walkthrough-kicker { margin-top: 4px; }
-.walkthrough-chapter-home > h2 { max-width: 650px; margin: 10px 0 8px; color: var(--text); font-size: clamp(23px, 2.5vw, 33px); letter-spacing: -.045em; }
-.walkthrough-chapter-home > p { max-width: 590px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
-.walkthrough-home-facts { display: flex; flex-wrap: wrap; gap: 9px 16px; margin-top: 18px; color: var(--muted); font-size: 8px; }
-.walkthrough-home-facts span { display: inline-flex; align-items: center; gap: 5px; }
-.walkthrough-home-facts svg { color: var(--accent); }
-.walkthrough-chapter-home > .text-button { display: inline-flex; align-items: center; gap: 7px; margin-top: 19px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 9px; cursor: pointer; }
-.walkthrough-screen button:focus-visible, .walkthrough-transcript-scroll:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 2px; }
+.walkthrough-transcript-scroll:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 2px; }
 
 .atlas-destination-card { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; margin: 11px 0; padding: 12px; border: 1px solid var(--accent-border); border-radius: 8px; background: linear-gradient(110deg, var(--surface-hover), var(--surface)); }
 .atlas-destination-header { display: flex; align-items: flex-start; gap: 9px; }
@@ -362,47 +288,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 /* Reader text keeps evidence, references, and navigation comfortable to inspect. */
 .walkthrough-kicker { font-size: 10px; }
-.walkthrough-count { font-size: 10px; }
-.walkthrough-chapter-copy strong { font-size: 10px; }
-.walkthrough-chapter-copy small { font-size: 10px; }
-.walkthrough-section-index { font-size: 10px; }
-.walkthrough-section-link { min-height: 36px; }
-.walkthrough-section-link > span:last-child { font-size: 11px; }
-.walkthrough-rail-footer { font-size: 10px; }
-.walkthrough-reader-breadcrumb { font-size: 10px; }
-.walkthrough-revision-badge { font-size: 9px; }
-.walkthrough-section-meta { font-size: 10px; }
 .walkthrough-panel-heading h3 { font-size: 13px; }
 .walkthrough-evidence-count { font-size: 10px; }
-.walkthrough-claim-label span { font-size: 10px; }
-.walkthrough-claim > p { font-size: 13px; line-height: 1.65; }
-.walkthrough-claim > .walkthrough-inference-basis { font-size: 11px; }
-.walkthrough-citation-heading code { font-size: 11px; }
-.walkthrough-source-citation pre { font-size: 11px; line-height: 1.6; }
-.walkthrough-citation-link { font-size: 11px; }
-.walkthrough-no-anchor, .walkthrough-muted { font-size: 11px !important; }
-.walkthrough-transcript-state, .walkthrough-transcript-citations button code { font-size: 11px; }
+.walkthrough-transcript-state { font-size: 11px; }
 .walkthrough-transcript-scroll p { font-size: 14px; line-height: 1.7; }
-.walkthrough-transcript-citations > span { font-size: 10px; line-height: 1.45; }
-.walkthrough-reader-footer { font-size: 10px; }
 
-@media (prefers-reduced-motion: reduce) {
-  .walkthrough-chapter > svg { transition: none; }
-}
-@media (max-width: 1200px) {
-  .walkthrough-reader-grid { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 900px) {
-  .walkthrough-screen { grid-template-columns: 190px minmax(0, 1fr); gap: 8px; }
-  .walkthrough-reader-grid { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 760px) {
-  .walkthrough-screen { grid-template-columns: 1fr; }
-  .walkthrough-rail { max-height: 235px; }
-  .walkthrough-reader { max-height: none; }
-  .walkthrough-home-facts { display: grid; }
-  .walkthrough-reader-footer { align-items: flex-start; flex-direction: column; }
-}
 
 @media (max-width: 1120px) {
   .topbar { gap: 8px; padding: 0 16px; }
@@ -1126,10 +1016,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .preflight-next-step { flex-wrap: wrap; }
 }
 
-/* Self-contained accepted chapter export */
-.walkthrough-rail-footer { justify-content: space-between; flex-wrap: wrap; }
-.walkthrough-rail-footer > span { display: inline-flex; align-items: center; gap: 7px; }
-.offline-export-trigger { min-height: 27px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--accent); font: 7px var(--mono); cursor: pointer; }
+/* Self-contained accepted guide export */
+.offline-export-trigger { min-height: 32px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface-raised); color: var(--accent); font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; }
 .offline-export-trigger:hover, .offline-export-trigger:focus-visible { border-color: var(--accent-border); color: var(--accent); outline: 2px solid var(--accent-border); outline-offset: 2px; }
 .offline-export-overlay { z-index: 30; }
 .offline-export-dialog { width: min(850px, 100%); }
@@ -1444,8 +1332,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-version-details .git-resolved-refs { margin: 9px; }
 
 /* A code workspace: one explorer, one source editor, one explanation tool pane. */
-.has-snapshot .view-atlas, .has-snapshot .view-walkthrough { padding: 0; overflow: hidden; }
-.has-snapshot :is(.view-atlas, .view-walkthrough) > .workspace-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.has-snapshot .view-atlas { padding: 0; overflow: hidden; }
+.has-snapshot .view-atlas > .workspace-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .workspace-footer { flex: 0 0 26px; min-height: 26px; padding: 0 16px; background: var(--surface); font-size: 9px; }
 .workspace-footer > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-button > span { overflow: hidden; text-overflow: ellipsis; }
@@ -1535,16 +1423,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .file-flow-route code { color: var(--blue); font: 10px var(--mono); overflow-wrap: anywhere; }
 .file-flow-route .file-flow-connector { display: flex; align-items: center; gap: 8px; margin-left: 18px; padding: 10px 0; border: 0; background: transparent; color: var(--blue); font-size: 11px; cursor: pointer; }
 /* Section navigation occupies its own row, outside the scrollable reader. */
-.walkthrough-screen { flex: 1; min-height: 0; margin: 0; gap: 0; grid-template-columns: 260px minmax(0, 1fr); overflow: hidden; }
-.walkthrough-rail { min-height: 0; overflow: auto; border: 0; border-right: 1px solid var(--border); border-radius: 0; background: var(--surface-raised); box-shadow: none; }
-.walkthrough-reader { display: flex; flex-direction: column; min-height: 0; max-height: none; overflow: hidden; padding: 0; border: 0; border-radius: 0; background: var(--blue-soft); box-shadow: none; }
-.walkthrough-reader-topline { flex-shrink: 0; padding: 16px 28px; }
-.walkthrough-reader-grid { flex: 1; min-height: 0; overflow: auto; grid-template-columns: minmax(0, 1fr); padding: 28px clamp(24px, 5vw, 90px); }
-.walkthrough-section-content { width: min(850px, 100%); justify-self: center; }
-.walkthrough-section-actions { flex: 0 0 66px; padding: 12px 28px; background: var(--blue-soft); }
-.walkthrough-section-actions .primary-button, .walkthrough-section-actions .secondary-button { min-height: 38px; font-size: 12px; }
-.walkthrough-step-status { color: var(--blue); font-size: 12px; }
-.walkthrough-evidence > summary { padding: 14px 0; color: var(--blue); font-size: 13px; cursor: pointer; }
 @media (max-width: 1120px) {
   .topbar { padding: 0 12px; gap: 8px; }
   .brand-name { display: none; }
@@ -1567,12 +1445,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .atlas-columns > .atlas-relationship-details { flex-shrink: 0; max-height: 60vh; }
   .files-capture-strip > span { display: none; }
   .workspace-footer > span:last-child { display: none; }
-  .walkthrough-screen { display: flex; flex-direction: column; }
-  .walkthrough-rail { flex: 0 0 160px; }
-  .walkthrough-reader { flex: 1; }
-  .walkthrough-reader-grid { padding: 20px; }
-  .walkthrough-progress-warning { margin: 0 14px; }
-  .walkthrough-section-actions { padding: 10px 14px; }
 }
 
 /* Recorded generation metadata must reflow with long model/step identities. */
@@ -1635,8 +1507,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .developer-workspace .file-flow > p {color:var(--muted);font-size:13px;}
 @media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size:11px;max-width:150px;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
 /* Secondary tools inherit the same readable control scale as the workspace. */
-.dw-tool-content :is(.chapter-studio-card,.chapter-studio-section,.walkthrough-section-content,.git-file-change) {border-radius:8px;}
-.dw-tool-content :is(.walkthrough-kicker,.walkthrough-step-status) {font-size:12px;line-height:1.65;}
+.dw-tool-content :is(.chapter-studio-card,.chapter-studio-section,.git-file-change) {border-radius:8px;}
+.dw-tool-content .walkthrough-kicker {font-size:12px;line-height:1.65;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(label,p,textarea,input,select) {font-size:13px;line-height:1.7;}
 .dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(h2,h3) {font-size:18px;line-height:1.5;color:var(--text);}
 .dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
@@ -1786,5 +1658,3 @@ html[data-app-zoom-compact="true"] .topbar .search-control kbd {display:none;}
 .chapter-revision-full-text > summary {cursor:pointer;overflow-wrap:anywhere;}
 .chapter-revision-full-text > pre {font-family:inherit;}
 @media(max-width:850px){.chapter-revision-diff-row{grid-template-columns:minmax(0,1fr);}}
-
-.walkthrough-transcript-citations button.is-return-focus { outline: 2px solid var(--accent-border); outline-offset: 1px; }

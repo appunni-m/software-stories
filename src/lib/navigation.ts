@@ -1,4 +1,4 @@
-export const WORKSPACES = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'] as const;
+export const WORKSPACES = ['atlas', 'code-lens', 'guide-plan', 'chapter-studio', 'changes'] as const;
 
 export type Workspace = (typeof WORKSPACES)[number];
 

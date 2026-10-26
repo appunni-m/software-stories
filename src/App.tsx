@@ -55,7 +55,6 @@ import {
   MoveUp,
   Network,
   Pencil,
-  Play,
   Search,
   Save,
   Sparkles,
@@ -99,7 +98,6 @@ import {
   type ChapterClaim,
   type ChapterSection,
   type ChapterSourceAnchor,
-  type HotspotDestination,
   type ChapterValidationReport,
   type ChapterFreshnessReport,
   type ChapterFreshnessSourceChange,
@@ -113,10 +111,8 @@ import {
   type GitComparisonResult,
   type HandoffAgent,
 } from './lib/commands';
-import type { ReaderRouteContext } from './Walkthrough';
 import { scrollBehaviorForMotionPreference } from './lib/motion';
 import { errorMessageOr, providerFailureMessage } from './lib/errorMessage';
-const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
   buildCodeLensProviderRequestReview,
@@ -1309,75 +1305,6 @@ function App() {
     });
   };
 
-  const openWalkthroughSource = (anchor: ChapterSourceAnchor, context: ReaderRouteContext) => {
-    setNavigation((state) => {
-      const readerOrigin = {
-        ...state.current,
-        workspace: 'walkthrough' as const,
-        projectId: context.projectId,
-        snapshotId: context.snapshotId,
-        relativePath: undefined,
-        sourceRange: undefined,
-        symbolId: undefined,
-        chapterId: context.chapterId,
-        chapterRevisionId: context.chapterRevisionId,
-        sectionId: context.sectionId,
-        playbackPosition: context.playbackPosition,
-        transcriptPosition: context.transcriptPosition,
-        focusTarget: context.focusTarget,
-      };
-      return navigateToRoute(replaceCurrentRoute(state, readerOrigin), {
-        workspace: 'atlas',
-        projectId: context.projectId,
-        snapshotId: anchor.snapshotId,
-        relativePath: anchor.path,
-        sourceRange: codeLensRangeFromChapterAnchor(anchor),
-        atlasSelection: undefined,
-        treeSelection: anchor.path,
-        focusTarget: 'heading:atlas',
-      });
-    });
-  };
-
-  const openWalkthroughAtlas = (destination: HotspotDestination, context: ReaderRouteContext) => {
-    const atlasSelection = destination.kind === 'atlasFile'
-      ? { kind: 'file' as const, path: destination.path }
-      : destination.kind === 'atlasSymbol'
-        ? { kind: 'symbol' as const, path: destination.path, symbolId: destination.symbolId }
-        : destination.kind === 'relationship'
-          ? { kind: 'relationship' as const, relationshipId: destination.relationshipId }
-          : null;
-    if (!atlasSelection) return;
-    setNavigation((state) => {
-      const readerOrigin = {
-        ...state.current,
-        workspace: 'walkthrough' as const,
-        projectId: context.projectId,
-        snapshotId: context.snapshotId,
-        chapterId: context.chapterId,
-        chapterRevisionId: context.chapterRevisionId,
-        sectionId: context.sectionId,
-        playbackPosition: context.playbackPosition,
-        transcriptPosition: context.transcriptPosition,
-        focusTarget: context.focusTarget,
-      };
-      return navigateToRoute(replaceCurrentRoute(state, readerOrigin), {
-        workspace: 'atlas',
-        projectId: context.projectId,
-        snapshotId: context.snapshotId,
-        atlasSelection,
-        relativePath: atlasSelection.kind === 'file' || atlasSelection.kind === 'symbol' ? atlasSelection.path : undefined,
-        symbolId: atlasSelection.kind === 'symbol' ? atlasSelection.symbolId : undefined,
-        treeSelection: atlasSelection.kind === 'relationship'
-          ? `relationship:${atlasSelection.relationshipId}`
-          : atlasSelection.kind === 'symbol'
-            ? `${atlasSelection.path}#${atlasSelection.symbolId}`
-            : atlasSelection.path,
-        focusTarget: atlasSelection.kind === 'file' ? 'heading:atlas' : 'atlas-destination',
-      });
-    });
-  };
-
   const selectStudioRevision = (revision: ChapterRevision, sectionId?: string) => {
     setNavigation((state) => navigateToRoute(state, {
       ...state.current,
@@ -1388,23 +1315,59 @@ function App() {
     }));
   };
 
-  const openGuideRevision = (revision: ChapterRevision) => {
+  const openGuideRevision = async (revision: ChapterRevision) => {
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    const navigationAtStart = navigationRef.current;
+    try {
+      await prepareWorkspaceConversation(revision.projectId, revision.snapshotId);
+    } catch {
+      setNotice({
+        title: 'Saved explanation could not be opened',
+        message: 'Your explanation remains saved on this Mac. Reopen the repository and try again.',
+        projectId: revision.projectId,
+        snapshotId: revision.snapshotId,
+      });
+      return;
+    }
+    if (navigationAtStart !== navigationRef.current) return;
+
+    updateWorkspace(revision.projectId, revision.snapshotId, (state) => {
+      const existing = state.explorations.flatMap((exploration) =>
+        exploration.turns.map((turn) => ({ exploration, turn })))
+        .find(({ turn }) => turn.revisionId === revision.revisionId
+          || turn.publishedSections?.some((section) => section.revisionId === revision.revisionId));
+      if (existing) return openWorkspaceQuestion(state, existing.exploration.id, existing.turn.id);
+
+      const owner = state.explorations.find((exploration) => exploration.id === state.currentId)
+        ?? state.explorations[0];
+      if (!owner) return state;
+      const turnId = crypto.randomUUID();
+      const next = {
+        ...state,
+        explorations: state.explorations.map((exploration) => exploration.id !== owner.id ? exploration : {
+          ...exploration,
+          turns: [...exploration.turns, {
+            id: turnId,
+            question: revision.title,
+            context: [],
+            status: 'ready' as const,
+            revisionId: revision.revisionId,
+          }],
+        }),
+      };
+      return openWorkspaceQuestion(next, owner.id, turnId);
+    });
+    const openedWorkspace = getWorkspace(revision.projectId, revision.snapshotId);
+    const focusedTurnId = openedWorkspace.explorations
+      .find((exploration) => exploration.id === openedWorkspace.currentId)?.focusedTurnId;
+
     setNavigation((state) => {
       const origin = returnFocus ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocus }) : state;
       return navigateToRoute(origin, {
-        ...origin.current,
-        workspace: 'walkthrough',
+        workspace: 'guide-plan',
         projectId: revision.projectId,
         snapshotId: revision.snapshotId,
-        relativePath: undefined,
-        sourceRange: undefined,
-        chapterId: revision.chapterId,
-        chapterRevisionId: revision.revisionId,
-        sectionId: undefined,
-        playbackPosition: 0,
-        transcriptPosition: 0,
-        focusTarget: 'heading:walkthrough',
+        focusTarget: focusedTurnId ? `workspace-answer:${focusedTurnId}` : 'heading:guide-plan',
       });
     });
   };
@@ -1790,7 +1753,7 @@ function App() {
                 searchMode,
                 sidebarActivity: sidebarActivity === 'changes' ? 'files' : sidebarActivity,
               }))}
-              onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
+              onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision}
               onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
               onCompare={(baseRef,headRef) => {
@@ -1851,7 +1814,6 @@ function App() {
                 snapshotId={navigation.current.snapshotId}
                 manifest={snapshotManifest?.summary.snapshotId === navigation.current.snapshotId ? snapshotManifest : null}
                 onGoAtlas={() => navigation.back.at(-1)?.workspace === 'atlas' ? navigationActions.back() : chooseWorkspace('atlas')}
-                onGoWalkthrough={navigation.back.at(-1)?.workspace === 'walkthrough' ? navigationActions.back : undefined}
                 onOpenFile={openCapturedFile}
                 onRequestExplanation={reviewFileWithProvider}
                 onRequestRangeExplanation={explainCodeLensRangeWithProvider}
@@ -1862,23 +1824,6 @@ function App() {
                 error={sourceError}
                 selectedPath={navigation.current.relativePath ?? null}
               />
-            ) : currentWorkspace === 'walkthrough' ? (
-              <Suspense fallback={<div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Loading Walkthrough…</span></div>}>
-                {currentProject ? (
-                  <WalkthroughScreen
-                    key={currentProject.projectId}
-                    projectId={currentProject.projectId}
-                    selectedSnapshotId={navigation.current.snapshotId}
-                    route={navigation.current}
-                    onReplaceRoute={(route) => setNavigation((state) => replaceCurrentRoute(state, route))}
-                    onNavigateRoute={(route) => setNavigation((state) => navigateToRoute(state, route))}
-                    onOpenSource={openWalkthroughSource}
-                    onOpenAtlas={openWalkthroughAtlas}
-                    onGoPlan={() => chooseWorkspace('guide-plan')}
-                    onOpenProviderSettings={openProviderSettings}
-                  />
-                ) : <WalkthroughEmptyState onGoPlan={() => chooseWorkspace('guide-plan')} />}
-              </Suspense>
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Guide Plan…</span></div>
             ) : currentWorkspace === 'guide-plan' ? (
@@ -3940,7 +3885,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
     <div className="file-tool-tabs" role="group" aria-label="File tools">
       <button aria-pressed={panel === 'explanation'} onClick={() => setPanel('explanation')}><BookOpen size={14} /> Explanation</button>
       <button aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); onEnsureIndex(); }}><Workflow size={14} /> Flow</button>
-      <button disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open the section player' : 'Accept an explanation to open its player'}><Play size={13} /> Player</button>
+      <button disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open this explanation in Guide' : 'Accept an explanation to open it in Guide'}><BookOpen size={13} /> Guide</button>
     </div>
     <div className="file-tool-content">
     <header>
@@ -4955,12 +4900,11 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
 const CODE_LENS_SOURCE_WINDOW_LINES = 200;
 const CODE_LENS_SOURCE_LINE_CHARACTERS = 16_000;
 
-function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
+function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
   onGoAtlas?: () => void;
-  onGoWalkthrough?: () => void;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onRequestExplanation: (path: string) => void;
   onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
@@ -5151,7 +5095,6 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         <div className="step-pill"><span>SNAPSHOT</span> SOURCE UNAVAILABLE</div>
         <h2>{unavailableTitle}</h2>
         <p>{unavailableMessage} Code Atlas did not fall back to the live repository.</p>
-        {!inline && onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
         {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
       </div>
     );
@@ -5162,7 +5105,6 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
-            {!inline && onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
             {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
             {!inline && <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>}
             {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
@@ -5272,19 +5214,6 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
       <p>Source opens from the selected snapshot and is checked against its saved hash. The live working copy is not substituted.</p>
       {!inline && onGoAtlas && <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>}
       <div className="state-note"><HardDrive size={14} /> No source file is selected.</div>
-    </div>
-  );
-}
-
-function WalkthroughEmptyState({ onGoPlan }: { onGoPlan: () => void }) {
-  return (
-    <div className="empty-workspace simple-empty walkthrough-empty">
-      <div className="empty-state-icon play-icon"><Play size={22} /></div>
-      <div className="step-pill"><span>GUIDE</span> READ</div>
-      <h2>Explanations stay connected to code.</h2>
-      <p>Accepted explanations appear one section at a time. Follow a source link, return to the same place, and continue when you are ready.</p>
-      <button className="secondary-button" data-focus-key="cta:walkthrough-plan" onClick={onGoPlan}>Back to Guide <ArrowRight size={15} /></button>
-      <div className="state-note"><BookOpen size={14} /> No accepted explanations in this project.</div>
     </div>
   );
 }

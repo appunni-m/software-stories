@@ -63,9 +63,8 @@
 .dw-viewbar .rt-TabsList {box-shadow:none;}
 .dw-viewbar .rt-TabsTriggerInner {gap:var(--space-1);font-size:12px;}
 .dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:var(--space-4) var(--space-4) var(--space-6);scrollbar-gutter:stable;}
-/* Inline stories live inside the whole chat-history scroller. Sticky playback
-   controls there can pin over unrelated turns and cover the scene itself; the
-   dedicated Walkthrough view keeps its own sticky controls. */
+/* Inline stories live inside chat history, so playback stays in the flow and
+   cannot cover the scene or unrelated turns. */
 .dw-answer-scroll .visual-story > .story-sticky-controls,
 .dw-answer-scroll .visual-story > .story-playbar {position:static;}
 .dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
@@ -130,6 +129,8 @@
 .dw-library > button {display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;width:100%;border:0;background:transparent;text-align:left;color:var(--text);font-size:12px;cursor:pointer;}
 .dw-library > button > span {flex:1;}
 .dw-library small {color:var(--dim);}
+.dw-history-export {border-top:1px solid var(--border);margin-top:var(--space-5);padding-top:var(--space-4);}
+.dw-history-export .offline-export-trigger {min-height:34px;padding:7px 10px;font:500 12px/1.2 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 .dw-source-empty {display:flex;flex-direction:column;justify-content:center;align-items:center;gap:var(--space-2);height:100%;padding:var(--space-5);background:var(--surface);color:var(--dim);font-size:13px;}
 .dw-suggestions {position:absolute;left:var(--space-4);right:var(--space-4);top:calc(100% - 9px);z-index:8;padding:var(--space-2);border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);box-shadow:0 8px 24px color-mix(in srgb,var(--shadow) 20%,transparent);}
 .dw-suggestions > small {padding:var(--space-2);color:var(--muted);font-size:11px;}

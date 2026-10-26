@@ -3,11 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, MarkerType, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
+import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
 import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLens';
@@ -50,7 +51,7 @@ interface Props {
   pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string } | null;
   onPendingLargeFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
-  onReview:(revision:ChapterRevision)=>void; onRead:(revision:ChapterRevision)=>void;
+  onReview:(revision:ChapterRevision)=>void;
   onCompare:(base:string,head:string)=>void; onRememberFile:(path:string)=>void;
   onAnswerRestoration:(state:WorkspaceAnswerRestoration)=>void;
   conversationAvailability?:'ready'|'unavailable';
@@ -78,7 +79,7 @@ function SavedWorkspace(props:Props){
 }
 
 export function DeveloperWorkspace(props:Props) {
-  const {manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}=props;
+  const {manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onCompare,onRememberFile,onAnswerRestoration}=props;
   const {appearance:themeAppearance}=useThemeContext();
   const appearance=themeAppearance==='light'?'light':'dark';
   const {projectId,snapshotId} = manifest.summary;
@@ -209,7 +210,7 @@ export function DeveloperWorkspace(props:Props) {
   const answerScroll = useRef<HTMLDivElement>(null);
   const chapterRefresh = useRef<ChapterHistory|null>(null);
   const restoringScroll = useRef(true);
-  const tool = ['changes','walkthrough','chapter-studio'].includes(workspace);
+  const tool = ['changes','chapter-studio'].includes(workspace);
   const firstFocusableCommitId = commits.find((commit)=>commit.parents.length>0)?.oid ?? null;
   const commitHistoryEmpty = commitHistoryEmptyMessage(commits,{loaded:gitLoaded,loading:gitBusy,stopped:gitStopped,error:gitError});
   const rovingCommitId = commits.some((commit)=>commit.oid===focusedCommitId&&commit.parents.length>0)
@@ -223,7 +224,6 @@ export function DeveloperWorkspace(props:Props) {
     onWorkspace('guide-plan');
   };
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
-  const focusTurn = (turnId:string) => update((s)=>({...s,explorations:s.explorations.map(e=>e.id===current.id?{...e,focusedTurnId:turnId}:e)}));
   const focusAnswer = (turnId:string,revisionId:string,sectionId:string) => {
     update((s)=>focusAnswerSection(s,current.id,turnId,{revisionId,sectionId}));
     requestAnimationFrame(()=>{
@@ -612,7 +612,7 @@ export function DeveloperWorkspace(props:Props) {
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)} onRetryGuideUnit={retryGuideUnit}
     onReview={onReview} onFocus={(revisionId,sectionId)=>focusAnswer(turn.id,revisionId,sectionId)}
-    onRead={(revision)=>{focusTurn(turn.id);onRead(revision);}} onSettings={onSettings}
+    onSettings={onSettings}
     onSection={(revisionId,sectionId)=>saveSection(turn.id,'guide',revisionId,sectionId)}
     onStoryProgress={(progress)=>savePresentation(turn.id,'stories',progress)}
     onVersion={(originalId,revisionId)=>selectVersion(turn.id,originalId,revisionId)}
@@ -708,12 +708,12 @@ export function DeveloperWorkspace(props:Props) {
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>
               {chapterError&&<p className="dw-error" role="alert">{chapterError}<button onClick={()=>{void refreshChapters();}}>Retry</button></p>}
               <Tabs.Content value="guide">
-                {featuredTurn?renderAnswer(featuredTurn):<section className="dw-welcome"><BookOpen size={25}/><h1>Get to know {projectName}</h1><p>{conversationUnavailable?'This session is read-only. Browse a file or search the captured source.':'Ask a question, or use Guide me for a project walkthrough. Open a file to follow its source.'}</p>{!generationPaused&&source&&<button className="dw-text-action" onClick={()=>explain({path:source.path,sha256:source.sha256})}>Explain {source.path.split('/').at(-1)}</button>}</section>}
+                {featuredTurn?renderAnswer(featuredTurn):<section className="dw-welcome"><BookOpen size={25}/><h1>Get to know {projectName}</h1><p>{conversationUnavailable?'This session is read-only. Browse a file or search the captured source.':'Ask a question, or use Guide me through the codebase. Open a file to follow its source.'}</p>{!generationPaused&&source&&<button className="dw-text-action" onClick={()=>explain({path:source.path,sha256:source.sha256})}>Explain {source.path.split('/').at(-1)}</button>}</section>}
               </Tabs.Content>
               <Tabs.Content value="flow">{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><select id="answer-flow-section" value={latestRevision?.revisionId??''} onChange={(event)=>{const revision=flowRevisions.find((r)=>r.revisionId===event.target.value);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}>{flowRevisions.map((revision)=><option key={revision.revisionId} value={revision.revisionId}>{plainInlineCodeText(revision.sections[0]?.title??revision.title)}</option>)}</select></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
               <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=>{const entry=historyEntry(turn,new Set(chapters.map((r)=>r.revisionId)));const isCurrent=e.id===current.id&&turn.id===historyTurnId;return <article key={turn.id} className={isCurrent?'is-current':''}><details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details><p><InlineCodeText text={entry.text}/></p><button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,e.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>{turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}</article>;})}</section>)}{!path.some((e)=>e.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}{chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((r)=><button key={r.revisionId} onClick={()=>{
                   const id=crypto.randomUUID();update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,turns:e.turns.some((t)=>t.revisionId===r.revisionId)?e.turns:[...e.turns,{id,question:r.title,context:[],status:'ready',revisionId:r.revisionId}]}:e)}));
-                }}><BookOpen size={13}/><span><InlineCodeText text={r.title}/></span><small>{r.lifecycle}</small></button>)}</details>}</div></Tabs.Content>
+                }}><BookOpen size={13}/><span><InlineCodeText text={r.title}/></span><small>{r.lifecycle}</small></button>)}</details>}</div>{chapters.some((revision)=>revision.lifecycle==='accepted'&&revision.sections.length>0)&&<div className="dw-history-export"><OfflineExport projectId={projectId} revisions={chapters}/></div>}</Tabs.Content>
             </div>
           </Tabs.Root></Panel>
         </Group>}
@@ -726,7 +726,7 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onRead:(r:ChapterRevision)=>void;onSettings:()=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onSettings:()=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
@@ -857,7 +857,7 @@ function ExplorationBranchLinks({branches,onGo}:{branches:Exploration[];onGo:(id
   const renderLink=(exploration:Exploration)=><button className="dw-branch-link" key={exploration.id} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={exploration.title}/></span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>;
   return <>{recent.map(renderLink)}{earlier.length>0&&<details className="dw-branch-archive"><summary>Show {earlier.length} earlier explorations</summary><div>{earlier.map(renderLink)}</div></details>}</>;
 }
-function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onRead,onSettings,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
+function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onSettings,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
   const versions=original?answerRevisionOptions(original,chapters):[];
   const revision=original?resolveAnswerRevision(original,turn,chapters):undefined;
   const availability=savedAnswerAvailability(Boolean(loading),Boolean(revision));
@@ -873,11 +873,11 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   const failureMessage=explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
   const contexts=section?.claims.flatMap((c)=>c.anchors).slice(0,3).map((a)=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine}))??turn.context;
-  return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} tabIndex={hideQuestion?undefined:-1} aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
+  return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} data-focus-key={!hideQuestion?`workspace-answer:${turn.id}`:undefined} tabIndex={hideQuestion?undefined:-1} aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     <div className={`dw-answer-card${unavailable?' dw-answer-card-unavailable':''}`}>
     {progressText?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':failureMessage??(knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.')}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?availability==='loading'?<p role="status">Loading saved explanation…</p>:<><p className="dw-unavailable-status" role="status">The answer for this question could not be reopened. Your question is saved; explain it again to create a new answer.</p><Button size="1" variant="soft" onClick={onRetry}>Explain again</Button></>:section?<>
-      <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(revision.title)}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip><Tooltip content="Open interactive player"><IconButton size="1" variant="ghost" color="gray" aria-label={`Play ${plainInlineCodeText(revision.title)}`} onClick={()=>onRead(revision)}><Play size={13}/></IconButton></Tooltip></div></div>
+      <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(revision.title)}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip></div></div>
       {versions.length>1&&original&&<label className="dw-answer-version">Version<select aria-label={`Answer version for ${plainInlineCodeText(original.title)}`} value={revision.revisionId} onChange={event=>onVersion(original.revisionId,event.target.value)}>{versions.map((r,index)=><option key={r.revisionId} value={r.revisionId}>{index===0?'Original':'Accepted'} · r{r.revisionNumber}{index===versions.length-1?' · latest accepted':''}</option>)}</select>{revision.revisionId!==versions.at(-1)?.revisionId&&<span>Updated version available</span>}</label>}
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
       <h3>{compact?<button type="button" className="dw-answer-expand" aria-label={`Open ${plainInlineCodeText(section.title)} in Guide`} onClick={()=>onFocus(revision.revisionId,section.sectionId)}><InlineCodeText text={section.title}/><ChevronRight size={16}/></button>:<InlineCodeText text={section.title}/>}</h3>

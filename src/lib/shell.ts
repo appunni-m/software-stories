@@ -2,7 +2,7 @@ import type { ApplicationStatus, CaptureLimits, InterruptedOperation, PendingCha
 import type { Workspace } from './navigation.ts';
 
 export const PRIMARY_WORKSPACES: ReadonlyArray<{ id: Workspace; label: string; activeWorkspaces: readonly Workspace[] }> = [
-  { id: 'guide-plan', label: 'Guide', activeWorkspaces: ['guide-plan', 'walkthrough', 'chapter-studio'] },
+  { id: 'guide-plan', label: 'Guide', activeWorkspaces: ['guide-plan', 'chapter-studio'] },
   { id: 'atlas', label: 'Files', activeWorkspaces: ['atlas', 'code-lens'] },
   { id: 'changes', label: 'Changes', activeWorkspaces: ['changes'] },
 ];
@@ -17,11 +17,6 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
     eyebrow: 'FILES · SOURCE',
     title: 'Read the source behind this explanation.',
     subtitle: 'Open the exact captured lines, inspect the whole file, or create an explanation for it.',
-  },
-  walkthrough: {
-    eyebrow: 'GUIDE · READ',
-    title: 'Follow an explanation at your own pace.',
-    subtitle: 'Move one section at a time. Open any source link, then return to where you were.',
   },
   'guide-plan': {
     eyebrow: 'YOUR REPOSITORY GUIDE',
