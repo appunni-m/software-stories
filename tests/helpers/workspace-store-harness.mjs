@@ -43,6 +43,7 @@ export function workspaceStoreHarness(invoke,options={}) {
         jobId,kind:'workspaceQuestion',conversationTurnId:null,rendererSessionId:null,projectId,snapshotId,
         modelId:null,reasoningEffort:null,state,workerRegistered:false,providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:1,
       })),
+      getLocalNarrationPreparationStatus: options.getLocalNarrationPreparationStatus ?? (async () => ({ status:'ok',data:{state:'ready',cachedAudioAvailable:true} })),
       getSnapshotIndexProgress: unexpected, loadSnapshotIndex: unexpected, startSnapshotIndexing: unexpected,
       prewarmLocalNarration: options.prewarmLocalNarration ?? (async () => ({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } })),
     },
@@ -55,7 +56,7 @@ export function workspaceStoreHarness(invoke,options={}) {
       localNarrationPrewarmInputs: options.localNarrationPrewarmInputs ?? (() => []),
     },
   };
-  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
+  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/narrationQueue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();
   function load(path) {
     if (!allowed.has(path)) throw new Error(`Unexpected store dependency: ${path}`);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { flushLocalReads, workspaceStoreHarness } from './helpers/workspace-store-harness.mjs';
+import { createNarrationPrewarmQueue } from '../src/workspace/narrationQueue.ts';
 
 const input = {
   spokenText: 'The prefix chooses a reader.',
@@ -178,7 +179,7 @@ test('a guide update warms only new revisions already adopted by the native read
   h.store.updateWorkspace('project', 'snapshot', state => ({
     ...state,
     explorations: state.explorations.map(exploration => ({ ...exploration, turns: exploration.turns.map(item => item.id === turnId
-      ? { ...item, guide: { ...updatedGuide, answers: undefined, revision: 1 }, publishedSections: [firstSection] }
+      ? { ...item, guide: { ...updatedGuide, answers: undefined, revision: 1 }, runIds: [firstRunId], publishedSections: [firstSection] }
       : item) })),
   }));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
@@ -192,4 +193,51 @@ test('a guide update warms only new revisions already adopted by the native read
   assert.equal(updatedTurn.guide.title, 'Feature path');
   assert.equal(JSON.stringify(updatedTurn.publishedSections.map(section => section.revisionId)), JSON.stringify(['first-revision', 'next-revision']));
   stop();
+});
+
+test('local narration warming is deduplicated and admitted one native job at a time', async () => {
+  const first = { spokenText: 'first scene', voice: 'alba', style: '', lexicon: [] };
+  const second = { spokenText: 'second scene', voice: 'alba', style: '', lexicon: [] };
+  const events = [];
+  const queue = createNarrationPrewarmQueue({
+    maxPending: 4,
+    wait: async () => {},
+    prepare: async input => {
+      events.push(`prepare:${input.spokenText}`);
+      return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
+    },
+    status: async input => {
+      events.push(`ready:${input.spokenText}`);
+      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+    },
+  });
+
+  assert.equal(queue.enqueue([first, second, first]), 2);
+  await queue.flush();
+  assert.deepEqual(events, [
+    'prepare:first scene', 'ready:first scene',
+    'prepare:second scene', 'ready:second scene',
+  ]);
+});
+
+test('failed local narration does not block later scenes and backlog remains bounded', async () => {
+  const first = { spokenText: 'fails once', voice: 'alba', style: '', lexicon: [] };
+  const second = { spokenText: 'still prepares', voice: 'alba', style: '', lexicon: [] };
+  const prepared = [];
+  const queue = createNarrationPrewarmQueue({
+    maxPending: 1,
+    prepare: async input => {
+      prepared.push(input.spokenText);
+      if (input === first) throw new Error('local worker unavailable');
+      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+    },
+    status: async () => assert.fail('a failed or ready clip should not be polled'),
+  });
+
+  assert.equal(queue.enqueue([first, second]), 1);
+  await queue.flush();
+  assert.deepEqual(prepared, ['fails once']);
+  assert.equal(queue.enqueue([second]), 1);
+  await queue.flush();
+  assert.deepEqual(prepared, ['fails once', 'still prepares']);
 });

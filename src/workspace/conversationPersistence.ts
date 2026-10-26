@@ -120,7 +120,13 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
 
 /** Explicit wire fields exclude transient focus requests and native job copies. */
 export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
-  const current=decodeWorkspace(JSON.stringify(state),state.projectId,state.snapshotId);
+  // A live Guide carries native metadata beside its turn in memory. The
+  // conversation contract stores its ID and section references, not that
+  // duplicate runtime object; remove it before strict record validation.
+  const durableState={...state,explorations:state.explorations.map(exploration=>({...exploration,
+    turns:exploration.turns.map(({guide:_guide,...turn})=>turn),
+  }))};
+  const current=decodeWorkspace(JSON.stringify(durableState),state.projectId,state.snapshotId);
   if(!current)throw unavailable();
   const {version,projectId,snapshotId,currentId,file,grantId}=current;
   const context=({path,sha256,from,to}:WorkspaceState['explorations'][number]['turns'][number]['context'][number])=>({path,sha256,from,to});
