@@ -5,6 +5,8 @@ export type SavedFileLocationRead =
   | { status: 'unavailable' };
 
 const MAX_FILE_LOCATION_BYTES = 8_192;
+const MAX_EXPLORER_FOLDERS = 1_000;
+const MAX_EXPLORER_STATE_BYTES = 64 * 1_024;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 
 function isRelativeCapturedPath(value: unknown): value is string {
@@ -54,5 +56,34 @@ export function rememberFileLocation(projectId: string, location: SavedFileLocat
     localStorage.setItem(`code-atlas:last-file:${projectId}`, serialized);
     return true;
   } catch { /* Optional UI state never blocks repository browsing. */ }
+  return false;
+}
+
+/** Explorer disclosure state is scoped to an immutable snapshot and stays small. */
+export function readExpandedExplorerFolders(projectId: string, snapshotId: string): string[] {
+  if (!isSnapshotId(projectId) || !isSnapshotId(snapshotId)) return [];
+  try {
+    const serialized = localStorage.getItem(`code-atlas:explorer-folders:${projectId}:${snapshotId}`);
+    if (serialized === null || new TextEncoder().encode(serialized).byteLength > MAX_EXPLORER_STATE_BYTES) return [];
+    const value: unknown = JSON.parse(serialized);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const record = value as Record<string, unknown>;
+    if (Object.keys(record).some((key) => !['version', 'folders'].includes(key))
+      || record.version !== 1 || !Array.isArray(record.folders) || record.folders.length > MAX_EXPLORER_FOLDERS
+      || !record.folders.every(isRelativeCapturedPath)) return [];
+    return [...new Set(record.folders)];
+  } catch { /* Optional Explorer state never blocks browsing. */ }
+  return [];
+}
+
+export function rememberExpandedExplorerFolders(projectId: string, snapshotId: string, folders: readonly string[]): boolean {
+  if (!isSnapshotId(projectId) || !isSnapshotId(snapshotId)) return false;
+  const normalized = [...new Set(folders.filter(isRelativeCapturedPath))].slice(-MAX_EXPLORER_FOLDERS);
+  try {
+    const serialized = JSON.stringify({ version: 1, folders: normalized });
+    if (new TextEncoder().encode(serialized).byteLength > MAX_EXPLORER_STATE_BYTES) return false;
+    localStorage.setItem(`code-atlas:explorer-folders:${projectId}:${snapshotId}`, serialized);
+    return true;
+  } catch { /* Optional Explorer state never blocks browsing. */ }
   return false;
 }

@@ -43,6 +43,7 @@ import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
 import { isEditableKeyboardTarget } from '../lib/keyboardShortcuts';
 import { plainInlineCodeText } from '../lib/inlineCode';
+import { readExpandedExplorerFolders, rememberExpandedExplorerFolders } from '../lib/workspacePreferences';
 import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import { readRepositorySearchContext, rememberRepositorySearchContext } from './searchContext';
@@ -175,7 +176,12 @@ export function DeveloperWorkspace(props:Props) {
   },[workspace,activity,repositorySearch,repositoryRegex,props.onRememberSearch]);
   const [sourceSearchState,setSourceSearchState] = useState<CapturedSourceSearchState>({key:'',hits:[],limited:false,nextOffset:null,busy:false,error:null});
   const [searchOffset,setSearchOffset] = useState(0);
-  const [openFolders,setOpenFolders] = useState<Set<string>>(()=>new Set());
+  const [openFolders,setOpenFoldersState] = useState<Set<string>>(()=>new Set(readExpandedExplorerFolders(projectId,snapshotId)));
+  const setOpenFolders=(folders:Set<string>)=>{
+    const next=new Set([...folders].slice(-1_000));
+    setOpenFoldersState(next);
+    rememberExpandedExplorerFolders(projectId,snapshotId,[...next]);
+  };
   const [narrowPane,setNarrowPane] = useState<'explanation'|'source'|'explorer'>('explanation');
   const codeOpen = current.codeOpen ?? true;
   const setCodeOpen = (open:boolean) => {
