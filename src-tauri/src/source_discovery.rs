@@ -541,6 +541,24 @@ fn discovery_coverage_gaps(
         .collect()
 }
 
+fn has_explicit_deprecation_marker(line: &str) -> bool {
+    let normalized = line
+        .trim()
+        .trim_start_matches(|character: char| " >#*_`".contains(character))
+        .to_ascii_lowercase();
+    ["deprecated", "archived", "obsolete", "superseded"]
+        .iter()
+        .any(|marker| {
+            normalized.strip_prefix(marker).is_some_and(|suffix| {
+                let suffix = suffix.trim_start_matches(|character: char| "*_`".contains(character));
+                suffix.is_empty()
+                    || suffix.chars().next().is_some_and(|character| {
+                        character.is_whitespace() || matches!(character, ':' | '-' | '—' | '–')
+                    })
+            })
+        })
+}
+
 fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<DocumentationNotice> {
     manifest
         .files
@@ -550,7 +568,7 @@ fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<Doc
                 && file.size_bytes <= 250_000
                 && matches!(file.content_kind, CapturedContentKind::Text)
                 && file.path.rsplit('.').next().is_some_and(|extension| {
-                    ["md", "rst", "adoc", "txt"]
+                    ["md", "markdown", "mdx", "rst", "adoc", "asciidoc", "txt"]
                         .iter()
                         .any(|supported| extension.eq_ignore_ascii_case(supported))
                 })
@@ -565,15 +583,7 @@ fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<Doc
                             .contents
                             .lines()
                             .take(40)
-                            .find(|line| {
-                                let line = line.to_ascii_lowercase();
-                                line.starts_with("> **deprecated")
-                                    || line.starts_with("# deprecated")
-                                    || line.starts_with("> deprecated")
-                                    || line.starts_with("deprecated:")
-                                    || line.starts_with("# archived")
-                                    || line.starts_with("# obsolete")
-                            })
+                            .find(|line| has_explicit_deprecation_marker(line))
                             .map(|line| line.chars().take(160).collect::<String>())
                     });
             let deprecated_path = file.path.split('/').any(|part| {
