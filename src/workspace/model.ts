@@ -197,6 +197,11 @@ function isWorkspaceContext(value: unknown): value is Context {
   const validHash = !Object.hasOwn(value, 'sha256') || typeof value.sha256 === 'string' && /^[a-f0-9]{64}$/u.test(value.sha256);
   return validPath && validLines && validHash;
 }
+const validRecordIdentifier = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,256}$/u.test(value);
+const validRecordText = (value: unknown, maxUtf8Bytes: number): value is string =>
+  typeof value === 'string' && new TextEncoder().encode(value).byteLength <= maxUtf8Bytes
+    && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(value);
 function strictReaderProgress(value: unknown, ownsRevision: (revisionId: string) => boolean): ReaderProgress | null {
   if (!hasOnlyKeys(value, ['stories','diagrams']) || !Array.isArray(value.stories) || value.stories.length > 256
     || !Array.isArray(value.diagrams) || value.diagrams.length > 256) return null;
@@ -232,7 +237,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
     const turnOwners = new Map<string,string>();
     for (const e of value.explorations) {
       if (!hasOnlyKeys(e, EXPLORATION_KEYS)) return fallback();
-      if (typeof e.id !== 'string' || typeof e.title !== 'string' || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
+      if (typeof e.id !== 'string' || !validRecordText(e.title, 65536) || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
       if ((e.id === 'root' && e.originTurnId !== null)
         || (e.id !== 'root' && (!validRunId(e.id) || !(e.parentId === 'root' || validRunId(e.parentId)) || !validRunId(e.originTurnId)))) return fallback();
@@ -254,13 +259,13 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) return fallback();
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
-        if (!validRunId(t.id) || turnOwners.has(t.id) || typeof t.question !== 'string' || !Array.isArray(t.context) || t.context.length > 32
+        if (!validRunId(t.id) || turnOwners.has(t.id) || !validRecordText(t.question, 65536) || !Array.isArray(t.context) || t.context.length > 32
           || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || !t.context.every(isWorkspaceContext)) return fallback();
         turnOwners.set(t.id,e.id);
-        if ((t.revisionId !== undefined && (typeof t.revisionId !== 'string' || !t.revisionId || t.revisionId.length > 256))
+        if ((t.revisionId !== undefined && !validRecordIdentifier(t.revisionId))
           || (t.generationId !== undefined && !validGenerationId(t.generationId))
-          || (t.error !== undefined && (typeof t.error !== 'string' || t.error.length > 4096))) return fallback();
+          || (t.error !== undefined && !validRecordText(t.error, 4096))) return fallback();
         if (t.reading !== undefined && (!hasOnlyKeys(t.reading, ['guide','flow'])
           || Object.values(t.reading).some((position) => position !== undefined
             && (!hasOnlyKeys(position, ['revisionId','sectionId']) || !cleanReadingPosition(position))))) return fallback();
@@ -482,7 +487,7 @@ export function cleanPublishedSections(value: unknown): PublishedSection[] {
   const seen = new Set<string>();
   return value.filter((s): s is PublishedSection => {
     if (!s || typeof s !== 'object' || !validRunId(s.runId) || !validGenerationId(s.generationId)
-      || typeof s.revisionId !== 'string' || !s.revisionId || s.revisionId.length > 256
+      || !validRecordIdentifier(s.revisionId)
       || !/^[a-z0-9-]{1,80}$/.test(s.key) || !Number.isInteger(s.order) || s.order < 0 || s.order > 5
       || !(s.supersedes === null || validGenerationId(s.supersedes))
       || !Number.isFinite(s.contextElapsedMs) || s.contextElapsedMs < 0
@@ -510,8 +515,8 @@ export function chooseFlowRevision<T extends { revisionId: string }>(revisions: 
 function cleanReadingPosition(value: unknown): ReadingPosition | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const p = value as ReadingPosition;
-  const valid = (id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length <= 256 && !/[\u0000-\u001f\u007f]/.test(id);
-  return valid(p.revisionId) && valid(p.sectionId) ? { revisionId: p.revisionId, sectionId: p.sectionId } : undefined;
+  return validRecordIdentifier(p.revisionId) && validRecordIdentifier(p.sectionId)
+    ? { revisionId: p.revisionId, sectionId: p.sectionId } : undefined;
 }
 const validScroll = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10_000_000;
 /** Stable section IDs survive sorting; positions never carry across revisions. */
