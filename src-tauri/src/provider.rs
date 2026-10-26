@@ -2687,6 +2687,7 @@ fn build_chapter_context(
         REPOSITORY_OVERVIEW_PURPOSE
     };
     let narration_contract = visual_scenes::SECTION_NARRATION_INSTRUCTIONS;
+    let visual_shape_guidance = "The JSON object below is only a schema-shape example. Its kind:none visual is a placeholder, not a content choice. For every concrete, source-backed behavior that has an honest visual form, replace it with a suitable evidence-linked visual and presentation scenes; reserve kind:none for context or evidence boundaries that cannot be represented honestly.";
     let file_user_prompt = format!(
         r#"Generate one substantive file chapter for the target path in this JSON string: {}. Do not write a repository overview and do not explain files that are absent from the selected source file blocks.
 
@@ -2695,6 +2696,8 @@ Answer the learning question through this file's actual behavior. Cover its resp
 Category is `codeBehavior`, `repositoryContext`, or `inference`. Inference claims must provide `inferenceBasis`. Aspect is one of `responsibility`, `execution`, `inputOutput`, `stateEffect`, `failurePath`, `dependency`, or `relationship`. A relationship aspect must include relationship IDs copied exactly from `selectedRelationships`; do not infer a relationship from filenames. Only cite a relationship if its indexed type and confidence are also stated in the claim. An unresolved relationship must stay explicitly unresolved. Do not describe an unselected target as resolved.
 
 Choose the section representation using the VISUAL STORY CONTRACT in the system instruction. Preserve all same-section claim/evidence references and do not claim complete repository coverage from a selected slice.
+
+{visual_shape_guidance}
 
 Provide 1–5 `evidenceLimits` statements explaining what the selected static evidence does not prove. Each must cite an exact quote from the target and identify a concrete code name in both prose and quote. Do not use generic filler such as “this file plays an important role.” Use no Markdown fences. The chapter title must be specific and 8–120 characters. Return 1–12 sections, each with 1–20 claims, a title of at most 120 bytes, prose of 20–4,000 bytes, and non-empty spokenText of 1–1,000 bytes. Claim prose must be 24–2,000 bytes. Evidence-limit prose must be 24–800 bytes and its basis 12–500 bytes. Include a responsibility claim. Use at most eight relationshipIds per claim. Do not return extra properties or a saved revision's app-owned identity, lifecycle, offsets, hashes, diagram IDs, hotspot IDs, or validation status.
 
@@ -2730,6 +2733,8 @@ Category is `codeBehavior`, `repositoryContext`, or `inference`. Aspect is one o
 Choose the section representation using the VISUAL STORY CONTRACT in the system instruction. Preserve all same-section claim/evidence references and do not claim complete repository coverage from a selected slice.
 
 The title must be specific and 8–120 characters. Return 1–12 sections, each with 1–20 claims, a title of at most 120 bytes, prose of 20–4,000 bytes, and non-empty spokenText of 1–1,000 bytes. Claim prose must be 24–2,000 bytes. Write readable inspectable claims retaining the exact identifiers needed for grounding; the separate scene narration explains their meaning without having to pronounce those identifiers. Do not return extra properties or a saved revision's app-owned identity, lifecycle, offsets, hashes, diagram IDs, hotspot IDs, or validation status.
+
+{visual_shape_guidance}
 
 Return exactly this JSON shape, with every property present:
 {{"title":"specific repository subject","sections":[{{"title":"section title","prose":"reader-facing explanation","spokenText":"natural narration supported by the anchored section claims","claims":[{{"category":"repositoryContext","aspect":"responsibility","prose":"specific claim naming actual source identifiers","inferenceBasis":"empty except for inference","identifiers":["exactName"],"evidence":[{{"path":"selected/path","quote":"exact unique source substring"}}],"relationshipIds":[]}}],"visual":{{"kind":"none","title":"","direction":"auto","nodes":[],"edges":[],"presentation":null}}}}]}}
