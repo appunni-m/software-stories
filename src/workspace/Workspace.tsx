@@ -588,15 +588,29 @@ function Answer(props:AnswerProps){
   };
   const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
   const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));
-  const nextGuideSlideLabel=hasNextGuideSlide?`Next ${turn.guideId?'slide':'section'}`
-    :canBuildNextGuideSlide?'Build next slide'
-    :turn.status==='working'?`Another ${turn.guideId?'slide':'section'} is being prepared`
-    :turn.guideId?'Guide complete':'Answer complete';
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const failureMessage=explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide,sections.length>0);
+  const completedSequenceLabel=()=>{
+    if(turn.guideId){
+      if(turn.status==='partial'||guideCoverageLabel==='Partial coverage')return 'Guide partly complete';
+      if(turn.status==='stopped')return 'Guide stopped';
+      if(turn.status==='interrupted')return 'Guide interrupted';
+      if(turn.status==='failed')return 'Guide could not finish';
+      return 'Guide complete';
+    }
+    if(turn.status==='partial')return 'Answer partly complete';
+    if(turn.status==='stopped')return 'Answer stopped';
+    if(turn.status==='interrupted')return 'Answer interrupted';
+    if(turn.status==='failed')return 'Answer could not finish';
+    return 'Answer complete';
+  };
+  const nextGuideSlideLabel=hasNextGuideSlide?`Next ${turn.guideId?'slide':'section'}`
+    :canBuildNextGuideSlide?'Build next slide'
+    :turn.status==='working'?`Another ${turn.guideId?'slide':'section'} is being prepared`
+    :completedSequenceLabel();
   const uncoveredGuideTopics=repositoryGuideUncoveredTopics(turn.guide);
   const canExtendOmissions=!!(turn.guideId&&turn.guide?.canExtend===true&&!canContinueRepositoryGuide(turn.guide)
     &&(turn.status==='ready'||turn.status==='partial')&&guideSlideItemIndex===lastAvailableItemIndex);
