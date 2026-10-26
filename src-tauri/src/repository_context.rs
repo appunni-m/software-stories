@@ -1444,13 +1444,17 @@ fn search_identifier_declarations(
     budget: &Budget<'_>,
 ) -> Result<(Vec<SearchHit>, bool), String> {
     let matcher = pattern_matcher(query, SearchMode::Code)?;
+    // A parser can be recorded for a partial or failed parse. Keep those files
+    // in the bounded exact-text fallback so syntax errors do not hide names.
     let mut files = prepared
         .metadata
         .files
         .iter()
         .filter(|file| {
             file.chunks > 0
-                && file.parser.is_none()
+                && (file.parser.is_none()
+                    || file.status == index::IndexFileStatus::PartialParse
+                    || file.status == index::IndexFileStatus::ParseError)
                 && is_code_path(&file.path)
                 && path.is_none_or(|scope| {
                     file.path == scope
