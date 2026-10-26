@@ -10,6 +10,7 @@ import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
+import { capturedSourceLineCount, capturedSourceLineWindow } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -406,7 +407,7 @@ export function DeveloperWorkspace(props:Props) {
     const from=review.context.from,to=review.context.to;
     if(from===undefined&&to===undefined)return review.context.sha256===review.sourceSha256;
     if(typeof from!=='number'||typeof to!=='number')return false;
-    const lineCount=source.contents.split(/\r\n?|\n/).length;
+    const lineCount=capturedSourceLineCount(source.contents);
     return Number.isInteger(from)&&Number.isInteger(to)&&from>0&&to>=from&&to<=lineCount
       &&review.context.sha256===review.sourceSha256;
   }
@@ -425,19 +426,23 @@ export function DeveloperWorkspace(props:Props) {
       reject('This selection is no longer available in the captured snapshot. Close this review, reopen the file, and select its code again.');
       return;
     }
-    const lines=source.contents.split(/\r\n?|\n/);
+    const lineCount=capturedSourceLineCount(source.contents);
     const hasRange=selected.from!==undefined||selected.to!==undefined;
     const rangeValid=!hasRange||(typeof selected.from==='number'&&typeof selected.to==='number'
       &&Number.isInteger(selected.from)&&Number.isInteger(selected.to)&&selected.from>=1
-      &&selected.to>=selected.from&&selected.to<=lines.length);
+      &&selected.to>=selected.from&&selected.to<=lineCount);
     if(!rangeValid||selected.sha256!==source.sha256){
       reject('The selected source range could not be verified. Close this review, reopen the file, and select its code again.');
       return;
     }
-    const excerpt=hasRange?lines.slice((selected.from??1)-1,selected.to??lines.length):lines;
-    const preview=[...excerpt.slice(0,40).join('\n')];
-    const sourceExcerpt=preview.slice(0,4_000).join('');
-    const excerptTruncated=excerpt.length>40||preview.length>4_000;
+    const excerptStart=hasRange?selected.from!:1;
+    const excerptEnd=hasRange?selected.to!:lineCount;
+    const previewEnd=Math.min(excerptEnd,excerptStart+39);
+    const preview=capturedSourceLineWindow(source.contents,excerptStart,previewEnd,{maxLineCharacters:4_000});
+    const previewText=preview.lines.join('\n');
+    const previewCharacters=Array.from(previewText);
+    const sourceExcerpt=previewCharacters.slice(0,4_000).join('');
+    const excerptTruncated=excerptEnd>previewEnd||preview.omittedBefore.some(Boolean)||preview.omittedAfter.some(Boolean)||previewCharacters.length>4_000;
     if(!requireCodexConnection()){
       setCodeRequestReview({context:selected,question,snapshotId,sourceSha256:source.sha256,
         sourceExcerpt,excerptTruncated});
