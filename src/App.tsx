@@ -1298,9 +1298,11 @@ function App() {
       const origin = returnFocusTarget
         ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocusTarget })
         : state;
-      const openBesideWorkspace = origin.current.workspace === 'guide-plan'
-        || origin.current.workspace === 'changes'
-        || origin.current.workspace === 'code-lens';
+      const openBesideWorkspace = targetSnapshotId === origin.current.snapshotId
+        && (origin.current.workspace === 'guide-plan'
+          || origin.current.workspace === 'changes'
+          || origin.current.workspace === 'code-lens'
+          || origin.current.workspace === 'chapter-studio');
       const destination: WorkspaceRoute = {
         ...origin.current,
         workspace: openBesideWorkspace ? origin.current.workspace : 'atlas',
@@ -1312,12 +1314,12 @@ function App() {
         symbolId: undefined,
         atlasSelection: undefined,
         treeSelection: relativePath,
-        chapterId: undefined,
-        chapterRevisionId: undefined,
-        sectionId: undefined,
-        playbackPosition: undefined,
-        transcriptPosition: undefined,
-        readerSnapshotBaselineId: undefined,
+        chapterId: openBesideWorkspace && origin.current.workspace === 'chapter-studio' ? origin.current.chapterId : undefined,
+        chapterRevisionId: openBesideWorkspace && origin.current.workspace === 'chapter-studio' ? origin.current.chapterRevisionId : undefined,
+        sectionId: openBesideWorkspace && origin.current.workspace === 'chapter-studio' ? origin.current.sectionId : undefined,
+        playbackPosition: openBesideWorkspace && origin.current.workspace === 'guide-plan' ? origin.current.playbackPosition : undefined,
+        transcriptPosition: openBesideWorkspace && origin.current.workspace === 'guide-plan' ? origin.current.transcriptPosition : undefined,
+        readerSnapshotBaselineId: openBesideWorkspace && origin.current.workspace === 'guide-plan' ? origin.current.readerSnapshotBaselineId : undefined,
         focusTarget: openBesideWorkspace ? 'workspace-source' : 'heading:atlas',
       };
       return origin.current.workspace === destination.workspace
