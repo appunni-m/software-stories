@@ -3,13 +3,14 @@ export type GenerationBackend = 'codex' | 'claude-setup' | 'handoff' | 'api';
 export type RepositoryPlanningBackend = 'codex' | 'claude-agent';
 const key = 'code-atlas:generation-backend';
 const directApiSelectionKey = 'code-atlas:direct-api-selection';
+const MAX_DIRECT_API_SELECTION_BYTES = 8_192;
 
 export interface DirectApiSelection {
   providerId: string;
   modelId: string;
 }
 
-export type DirectApiSelectionIssue = 'invalid' | 'unavailable';
+export type DirectApiSelectionIssue = 'invalid' | 'oversized' | 'unavailable';
 let directApiSelectionIssue: DirectApiSelectionIssue | null = null;
 
 function validSelectionId(value: unknown): value is string {
@@ -21,6 +22,10 @@ export function readDirectApiSelection(): DirectApiSelection {
   try {
     const raw = localStorage.getItem(directApiSelectionKey);
     if (raw === null) { directApiSelectionIssue = null; return { providerId: '', modelId: '' }; }
+    if (new TextEncoder().encode(raw).byteLength > MAX_DIRECT_API_SELECTION_BYTES) {
+      directApiSelectionIssue = 'oversized';
+      return { providerId: '', modelId: '' };
+    }
     let saved: unknown;
     try { saved = JSON.parse(raw); }
     catch { directApiSelectionIssue = 'invalid'; return { providerId: '', modelId: '' }; }

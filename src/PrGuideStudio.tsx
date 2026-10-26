@@ -622,7 +622,7 @@ export function PrGuideStudio({
         </button>
       </div>
       {!hasApiKey && hasApiSelection && <p className="pr-guide-muted" role="status">Add this provider’s API key in Connections before sending. Keys stay in macOS Keychain.</p>}
-      {directApiSelectionIssue && <p className="pr-guide-muted" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : 'unavailable'} and was left untouched. Choose a provider in Connections to replace it.</p>}
+      {directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'} and was left untouched. Choose a provider in Connections to replace it.</p>}
       {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider in Connections.</p>}
       {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model in Connections.</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}

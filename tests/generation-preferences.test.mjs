@@ -70,6 +70,18 @@ describe('generation backend preference', () => {
     });
   });
 
+  it('bounds and classifies direct API preference reads before parsing', () => {
+    const oversized = ' '.repeat(8_193);
+    withStorage({ getItem: () => oversized }, () => {
+      assert.deepEqual(readDirectApiSelection(), { providerId: '', modelId: '' });
+      assert.equal(readDirectApiSelectionIssue(), 'oversized');
+    });
+    withStorage({ getItem() { throw Error('blocked'); } }, () => {
+      assert.deepEqual(readDirectApiSelection(), { providerId: '', modelId: '' });
+      assert.equal(readDirectApiSelectionIssue(), 'unavailable');
+    });
+  });
+
   it('reads the same saved preference at file, planning, and PR entry points', async () => {
     for (const file of ['App.tsx', 'RepositoryPlanningDialog.tsx', 'PrGuideStudio.tsx']) {
       const source = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8');
@@ -89,8 +101,8 @@ describe('generation backend preference', () => {
     assert.match(connections, /Change AI connection/);
     assert.match(header, /code-atlas:connection-changed/);
     assert.match(header, /backend === 'api'\s*\? apiSelectionIssue \? 'API · Saved selection unavailable'/);
-    assert.match(app, /The saved direct API selection is \{directApiSelectionIssue === 'invalid'/);
-    assert.match(prGuide, /The saved direct API selection is \{directApiSelectionIssue === 'invalid'/);
+    assert.match(app, /The saved direct API selection is \{directApiSelectionIssue === 'invalid' \? 'invalid' : directApiSelectionIssue === 'oversized' \? 'too large'/);
+    assert.match(prGuide, /The saved direct API selection is \{directApiSelectionIssue === 'invalid' \? 'invalid' : directApiSelectionIssue === 'oversized' \? 'too large'/);
     assert.match(prGuide, /window\.addEventListener\('code-atlas:connection-changed'/);
     assert.match(header, /code-atlas:direct-api-selection-changed/);
     assert.match(app, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);

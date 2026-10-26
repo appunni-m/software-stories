@@ -351,7 +351,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
       </div>}
       <label>What do you want to understand?<input value={question} disabled={Boolean(preservedDraftIssue)} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
       <p>Codex follows the code index and flow to choose relevant implementation files. Documentation is treated as guidance and checked against code.</p>
-      {savedDiscoveryRead.status === 'unavailable' && <div className="coverage-storage-warning" role="status"><span>{sourceDiscoveryIssueText(savedDiscoveryRead.issue)} Stored bytes were left untouched; find code again to create a fresh selection.</span></div>}
+      {savedDiscoveryRead.status === 'unavailable' && <p className="source-warning" role="status">{sourceDiscoveryIssueText(savedDiscoveryRead.issue)} Stored bytes were left untouched; find code again to create a fresh selection.</p>}
       {savedDiscovery && <section className="provider-review-card plan-saved-code-scope" aria-label="Saved code scope">
         <div><strong>Code found for this question</strong><p>This scope matches the current snapshot and question. Source is reviewed again before generation.</p></div>
         <ul>{savedDiscovery.selectedFiles.map((file) => <li key={file.path}><code>{file.path}</code><span>{file.reason}</span></li>)}</ul>

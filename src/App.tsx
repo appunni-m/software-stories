@@ -2669,7 +2669,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
               </select>
             </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
-            {!reviewMode && directApiSelectionIssue && <p className="coverage-storage-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
+            {!reviewMode && directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
             {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
               <p>{connectionProblem}</p><button className="primary-button" onClick={openConnections}>Open Connections</button>
             </section>}
