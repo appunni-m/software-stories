@@ -350,6 +350,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("name remaining work as not yet covered")
     );
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("twenty-unit limit"));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
     );
