@@ -42,6 +42,8 @@ import './workspace.css';
 
 interface Props {
   manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
+  routeSearchQuery?:string; routeSearchMode?:CodeSearchMode; routeSidebarActivity?:'files'|'search'|'changes'|'history';
+  onRememberSearch?:(query:string,mode:CodeSearchMode,activity:'files'|'search'|'changes'|'history')=>void;
   comparisonRefs?: { baseRef?:string; headRef?:string };
   pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string } | null;
   onPendingLargeFileExplanationConsumed?:(id:string)=>void;
@@ -107,13 +109,37 @@ export function DeveloperWorkspace(props:Props) {
   const path = ancestors(state);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
   const sourcePaths = useMemo(()=>rankSourcePaths(rows.map((r)=>r.path)),[rows]);
-  const [activity,setActivity] = useState<'files'|'search'|'changes'|'history'>('files');
-  useEffect(()=>{
-    if(workspace!=='changes'&&activity==='changes')setActivity('files');
-  },[workspace,activity]);
+  const [activity,setActivityState] = useState<'files'|'search'|'changes'|'history'>(props.routeSidebarActivity??'files');
   const [fileFilter,setFileFilter] = useState('');
-  const [repositorySearch,setRepositorySearch] = useState('');
-  const [repositoryRegex,setRepositoryRegex] = useState(false);
+  const [repositorySearch,setRepositorySearchState] = useState(props.routeSearchQuery??'');
+  const [repositoryRegex,setRepositoryRegexState] = useState(props.routeSearchMode==='regex');
+  const searchRouteRef=useRef({activity,query:repositorySearch,regex:repositoryRegex,remember:props.onRememberSearch});
+  searchRouteRef.current={activity,query:repositorySearch,regex:repositoryRegex,remember:props.onRememberSearch};
+  function rememberSearchState(next:{activity?:'files'|'search'|'changes'|'history';query?:string;regex?:boolean}) {
+    const current=searchRouteRef.current;
+    const nextActivity=next.activity??current.activity;
+    const nextQuery=next.query??current.query;
+    const nextRegex=next.regex??current.regex;
+    searchRouteRef.current={...current,activity:nextActivity,query:nextQuery,regex:nextRegex};
+    if(next.activity!==undefined)setActivityState(next.activity);
+    if(next.query!==undefined)setRepositorySearchState(next.query);
+    if(next.regex!==undefined)setRepositoryRegexState(next.regex);
+    current.remember?.(nextQuery,nextRegex?'regex':'code',nextActivity);
+  }
+  const setActivity=(next:'files'|'search'|'changes'|'history')=>rememberSearchState({activity:next});
+  const setRepositorySearch=(next:string)=>rememberSearchState({query:next});
+  const toggleRepositoryRegex=()=>rememberSearchState({regex:!repositoryRegex});
+  useEffect(()=>{
+    setActivityState(props.routeSidebarActivity??'files');
+    setRepositorySearchState(props.routeSearchQuery??'');
+    setRepositoryRegexState(props.routeSearchMode==='regex');
+  },[props.routeSearchQuery,props.routeSearchMode,props.routeSidebarActivity]);
+  useEffect(()=>{
+    if(workspace!=='changes'&&activity==='changes'){
+      setActivityState('files');
+      props.onRememberSearch?.(repositorySearch,repositoryRegex?'regex':'code','files');
+    }
+  },[workspace,activity,repositorySearch,repositoryRegex,props.onRememberSearch]);
   const [sourceHits,setSourceHits] = useState<{path:string;line:number;text:string}[]>([]);
   const [searchLimited,setSearchLimited] = useState(false);
   const [searchNextOffset,setSearchNextOffset] = useState<number|null>(null);
@@ -621,7 +647,7 @@ export function DeveloperWorkspace(props:Props) {
         <aside className="dw-sidebar" aria-label="Repository sidebar">
           <header><strong>{showChanges?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong><Button className="dw-sidebar-back" size="1" variant="ghost" color="gray" aria-label="Back to explanation" onClick={()=>returnToGuide('explanation')}><ArrowLeft size={13}/>Back</Button></header>
           {showChanges?<><div className="dw-sidebar-section">Commit history <span>{commits.length ? `${commits.length} recent`:''}</span><Button size="1" variant="ghost" disabled={gitBusy} onClick={()=>setGitReload((value)=>value+1)}>Refresh</Button></div><div className="dw-commits" role="group" aria-label="Recent commits. Use Up and Down arrows to move between commits.">{gitBusy&&<p role="status">Loading commits… <Button size="1" variant="ghost" onClick={()=>{gitRequest.current?.abort();setGitBusy(false);setGitStopped(true);}}>Stop</Button></p>}{gitStopped&&<p role="status">Loading stopped.{commits.length>0?' Your previous history is still available.':''}</p>}{gitError&&<p role="alert">{gitError}</p>}{commitHistoryEmpty&&<p role="status">{commitHistoryEmpty}</p>}{commits.map((c)=><button key={c.oid} ref={(button)=>{if(button)commitButtons.current.set(c.oid,button);else commitButtons.current.delete(c.oid);}} className="dw-commit" disabled={!c.parents.length} tabIndex={c.oid===rovingCommitId?0:-1} title={c.parents.length?`${c.subject}\n${c.oid}`:`${c.subject} — initial commit; parent comparison unavailable`} onFocus={()=>setFocusedCommitId(c.oid)} onKeyDown={(event)=>{if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;event.preventDefault();const direction=event.key==='ArrowDown'?1:-1;const currentIndex=commits.findIndex((commit)=>commit.oid===c.oid);const nextIndex=nextFocusableCommitIndex(commits,currentIndex,direction);const next=commits[nextIndex];if(next&&nextIndex!==currentIndex)commitButtons.current.get(next.oid)?.focus();}} onClick={()=>{if(!c.parents.length)return;onCompare(c.parents[0],c.oid);setNarrowPane('explanation');onWorkspace('changes');}}><span className={`dw-commit-line ${c.parents.length>1?'merge':''}`}><GitCommitHorizontal size={16}/></span><span><strong>{c.subject||'Untitled commit'}</strong><small>{c.author} · {c.oid.slice(0,7)}{c.parents.length>1?' · merge':!c.parents.length?' · initial commit':''}</small></span></button>)}</div></>:activity==='history'?<ul className="dw-explorations">{renderExplorations(null)}</ul>:<>
-            <div className="dw-sidebar-search"><TextField.Root ref={search} size="1" value={activity==='search'?repositorySearch:fileFilter} placeholder={activity==='search'?(repositoryRegex?'Code pattern…':'Files, symbols, code…'):'Find a file…'} maxLength={activity==='search'?240:4096} aria-label={activity==='search'?'Search repository':'Filter files'} onFocus={()=>{setSearchFocused(false);setSearchOffset(0);}} onChange={(e)=>{if(activity==='search'){setRepositorySearch(e.target.value);setSearchOffset(0);}else setFileFilter(e.target.value);}} onKeyDown={(event)=>{if(activity==='search'&&event.altKey&&event.code==='KeyR'){event.preventDefault();setRepositoryRegex(value=>!value);setSearchOffset(0);return;}if(activity==='files'&&event.key==='Enter'&&openQuickMatch(fileFilter)){event.preventDefault();return;}if(activity==='search'&&event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){if(!searchBusy&&!searchError&&!searchLimited&&searchNextOffset===null&&results.length===1){event.preventDefault();openFile(results[0]);return;}if(!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,searchBusy,searchError,results.length)){event.preventDefault();exploreSearch(repositorySearch,results);}}}}><TextField.Slot><Search size={13}/></TextField.Slot>{activity==='search'&&<TextField.Slot side="right"><Tooltip content="Use regular expression (⌥R)"><IconButton type="button" size="1" variant="ghost" color={repositoryRegex?'blue':'gray'} aria-label="Use regular expression" aria-pressed={repositoryRegex} onClick={()=>{setRepositoryRegex(value=>!value);setSearchOffset(0);}}><span aria-hidden="true">.*</span></IconButton></Tooltip></TextField.Slot>}</TextField.Root></div>
+            <div className="dw-sidebar-search"><TextField.Root ref={search} size="1" value={activity==='search'?repositorySearch:fileFilter} placeholder={activity==='search'?(repositoryRegex?'Code pattern…':'Files, symbols, code…'):'Find a file…'} maxLength={activity==='search'?240:4096} aria-label={activity==='search'?'Search repository':'Filter files'} onFocus={()=>{setSearchFocused(false);setSearchOffset(0);}} onChange={(e)=>{if(activity==='search'){setRepositorySearch(e.target.value);setSearchOffset(0);}else setFileFilter(e.target.value);}} onKeyDown={(event)=>{if(activity==='search'&&event.altKey&&event.code==='KeyR'){event.preventDefault();toggleRepositoryRegex();setSearchOffset(0);return;}if(activity==='files'&&event.key==='Enter'&&openQuickMatch(fileFilter)){event.preventDefault();return;}if(activity==='search'&&event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){if(!searchBusy&&!searchError&&!searchLimited&&searchNextOffset===null&&results.length===1){event.preventDefault();openFile(results[0]);return;}if(!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,searchBusy,searchError,results.length)){event.preventDefault();exploreSearch(repositorySearch,results);}}}}><TextField.Slot><Search size={13}/></TextField.Slot>{activity==='search'&&<TextField.Slot side="right"><Tooltip content="Use regular expression (⌥R)"><IconButton type="button" size="1" variant="ghost" color={repositoryRegex?'blue':'gray'} aria-label="Use regular expression" aria-pressed={repositoryRegex} onClick={()=>{toggleRepositoryRegex();setSearchOffset(0);}}><span aria-hidden="true">.*</span></IconButton></Tooltip></TextField.Slot>}</TextField.Root></div>
             {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small>{searchBusy&&<p role="status">Searching…</p>}{repositorySearch.trim()&&!searchBusy&&!searchError&&results.length>0&&<p className="dw-search-count" role="status">{results.length>=80||(searchLimited&&searchNextOffset===null)?searchLimitMessage(results.length):searchResultsMessage(results.length,searchLimited&&searchNextOffset!==null)}</p>}{searchError&&<p role="status">{searchError}</p>}{repositorySearch&&!searchBusy&&!searchError&&results.length===0&&<p>No matching code in this search.</p>}{results.map((r,i)=><button key={i} onClick={()=>openFile(r)}><FileCode2 size={14}/><span><strong>{r.text}</strong><small>{r.path}{r.from?`:${r.from}`:''}</small></span></button>)}{searchLimited&&searchNextOffset!==null&&results.length<80&&<Button size="1" variant="soft" disabled={searchBusy} onClick={()=>setSearchOffset(searchNextOffset)}>Load more matches</Button>}{!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,searchBusy,searchError,results.length)&&<Button size="1" variant="soft" onClick={()=>exploreSearch(repositorySearch,results)}><MessageSquare size={13}/>Explore with AI</Button>}</>}</div>:<><div className="dw-sidebar-section">{projectName}</div><WorkspaceExplorer paths={sourcePaths} query={fileFilter} selectedPath={state.file} expanded={openFolders} onExpandedChange={setOpenFolders} onOpen={(path)=>openFile({path})} treeRef={explorer}/></>}
           </>}
         </aside>

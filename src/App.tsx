@@ -1783,6 +1783,13 @@ function App() {
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef}}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
+              routeSearchQuery={navigation.current.searchQuery} routeSearchMode={navigation.current.searchMode} routeSidebarActivity={navigation.current.sidebarActivity}
+              onRememberSearch={(searchQuery,searchMode,sidebarActivity) => setNavigation((state) => replaceCurrentRoute(state, {
+                ...state.current,
+                searchQuery: searchQuery || undefined,
+                searchMode,
+                sidebarActivity: sidebarActivity === 'changes' ? 'files' : sidebarActivity,
+              }))}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
               onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}

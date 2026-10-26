@@ -36,6 +36,8 @@ export interface WorkspaceRoute {
   readerSnapshotBaselineId?: string;
   atlasSelection?: AtlasHotspotSelection;
   searchQuery?: string;
+  searchMode?: 'code' | 'regex';
+  sidebarActivity?: 'files' | 'search' | 'changes' | 'history';
   treeSelection?: string;
   mapViewport?: { x: number; y: number; scale: number };
   focusTarget?: string;
