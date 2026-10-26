@@ -12,6 +12,7 @@ export interface RepositorySearchContext {
 
 const STORAGE_KEY='code-atlas:repository-search:v1';
 const MAX_ENTRIES=32;
+const MAX_STORAGE_CHARACTERS=32_768;
 const MAX_QUERY_LENGTH=240;
 const MAX_ID_LENGTH=256;
 
@@ -30,7 +31,7 @@ function cleanEntry(value:unknown):RepositorySearchContext|undefined {
 function readEntries():RepositorySearchContext[] {
   try{
     const raw=localStorage.getItem(STORAGE_KEY);
-    if(!raw||raw.length>32_768)return [];
+    if(!raw||raw.length>MAX_STORAGE_CHARACTERS)return [];
     const decoded:unknown=JSON.parse(raw);
     if(!decoded||typeof decoded!=='object'||Array.isArray(decoded)||(decoded as {version?:unknown}).version!==1
       ||!Array.isArray((decoded as {entries?:unknown}).entries))return [];
@@ -63,5 +64,12 @@ export function rememberRepositorySearchContext(
   const key=`${projectId}\n${snapshotId}`;
   const entries=[entry,...readEntries().filter((candidate)=>`${candidate.projectId}\n${candidate.snapshotId}`!==key)]
     .slice(0,MAX_ENTRIES);
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify({version:1,entries}));}catch{/* Search remains usable when local preferences cannot be written. */}
+  const serialize=()=>JSON.stringify({version:1,entries});
+  let serialized=serialize();
+  while(entries.length>1&&serialized.length>MAX_STORAGE_CHARACTERS){
+    entries.pop();
+    serialized=serialize();
+  }
+  if(serialized.length>MAX_STORAGE_CHARACTERS)return;
+  try{localStorage.setItem(STORAGE_KEY,serialized);}catch{/* Search remains usable when local preferences cannot be written. */}
 }
