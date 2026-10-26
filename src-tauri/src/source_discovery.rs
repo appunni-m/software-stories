@@ -277,6 +277,31 @@ fn metadata(
     if input.target_path.as_ref().is_some_and(|target| {
         !candidates.iter().any(|file| &file.path == target)
     }) {
+        let large_captured_target = input
+            .target_path
+            .as_ref()
+            .and_then(|target| manifest.files.iter().find(|file| &file.path == target))
+            .is_some_and(|file| {
+                file.kind == InventoryPathKind::File
+                    && matches!(
+                        file.content_kind,
+                        CapturedContentKind::Text | CapturedContentKind::Unknown
+                    )
+                    && !file.secret_like
+                    && file.size_bytes > 250_000
+                    && is_code_path(&file.path)
+                    && !file.path.split('/').any(|part| {
+                        matches!(
+                            part,
+                            "vendor" | "node_modules" | ".git" | "deprecated" | "target" | "dist"
+                        )
+                    })
+            });
+        if large_captured_target {
+            return Err(
+                "This captured implementation exceeds the 250 KB single-review limit. Ask a scoped Guide question or choose a smaller source range; the whole file was not sent.".to_owned(),
+            );
+        }
         return Err("This target is not eligible captured implementation code. Choose a code file in the snapshot.".to_owned());
     }
     let (local_index, index_status) =
