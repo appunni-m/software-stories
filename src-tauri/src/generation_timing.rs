@@ -5,6 +5,7 @@ use crate::{bounded_file, codex_agent, repository_context as context};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    future::Future,
     path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant},
@@ -94,7 +95,36 @@ impl Preparation {
         kind: PreparationKind,
         operation: impl FnOnce() -> Result<T, String>,
     ) -> Result<T, String> {
+        self.run_stage_with_error(kind, operation)
+    }
+
+    pub(crate) fn run_stage_with_error<T, E>(
+        &mut self,
+        kind: PreparationKind,
+        operation: impl FnOnce() -> Result<T, E>,
+    ) -> Result<T, E> {
         let result = operation();
+        self.record_stage(
+            kind,
+            if result.is_ok() {
+                PreparationOutcome::Complete
+            } else {
+                PreparationOutcome::Failed
+            },
+        );
+        result
+    }
+
+    pub(crate) async fn run_async_stage<T, E, F, Fut>(
+        &mut self,
+        kind: PreparationKind,
+        operation: F,
+    ) -> Result<T, E>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T, E>>,
+    {
+        let result = operation().await;
         self.record_stage(
             kind,
             if result.is_ok() {

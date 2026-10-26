@@ -6,6 +6,7 @@ use super::{
     provider, publish_chapter_candidate, publish_pr_guide_candidate, recovery,
     validate_chapter_draft_preview, validate_pr_guide_preview,
 };
+use crate::generation_timing::{Preparation, PreparationKind, PreparationStage};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -493,9 +494,16 @@ pub(crate) async fn send_codex_repository_plan_request(
     };
     let runtime = manager.inner().clone();
     let run = tauri::async_runtime::spawn_blocking(move || {
-        let PreparedCodexOperation { storage, review, input, started_at, .. } = prepared;
-        runtime.run_with_result_and_publish(
-            &storage, input, &review.fingerprint, started_at,
+        let PreparedCodexOperation {
+            storage,
+            review,
+            input,
+            started_at,
+            preparation_stages,
+            ..
+        } = prepared;
+        runtime.run_with_result_and_publish_and_preparation(
+            &storage, input, &review.fingerprint, started_at, None, preparation_stages,
             |event| { let _ = app.emit("codex-agent-progress", event); },
             |response, access| {
                 let _ = app.emit("codex-agent-progress", codex_agent::CodexProgress {
@@ -707,6 +715,7 @@ struct PreparedCodexOperation {
     review: provider::ProviderRequestReview,
     input: codex_agent::CodexRunInput,
     started_at: Instant,
+    preparation_stages: Vec<PreparationStage>,
 }
 
 /// Dropping any generation command revokes its queued/running blocking worker.
@@ -756,126 +765,158 @@ async fn prepare_codex_operation(
     operation: CodexOperation,
 ) -> Result<PreparedCodexOperation, provider::ProviderFailure> {
     use provider::ProviderFailureKind as Kind;
-    if !consent {
-        return Err(command_failure(
-            Kind::ConsentRequired,
-            "Review the selected source and confirm sharing it with your Codex account before generating. Plan limits apply.",
-        ));
-    }
-    let pending = reviews.get(review_id)?;
-    if pending.review.provider_id != "codex"
-        || pending.review.fingerprint != fingerprint
-        || !operation.accepts(&pending.review)
-    {
-        return Err(command_failure(
-            Kind::ReviewChanged,
-            "Build a fresh Codex review for this operation with the selected source and settings.",
-        ));
-    }
-    let project = sessions.get(&pending.review.project_id).map_err(|_| {
-        command_failure(
-            Kind::InvalidReview,
-            "Reopen the selected repository before reviewing this Codex operation again.",
-        )
-    })?;
-    let repository = PathBuf::from(project.repository_root);
-    let storage = app_data_directory(app).map_err(|_| {
-        command_failure(
-            Kind::LocalStorageUnavailable,
-            "Local snapshot storage is unavailable. No Codex request was sent.",
-        )
-    })?;
+    let started_at = Instant::now();
+    let mut preparation = Preparation::new(started_at);
+    let (pending, repository, storage) = preparation.run_stage_with_error(
+        PreparationKind::RequestPreparation,
+        || {
+            if !consent {
+                return Err(command_failure(
+                    Kind::ConsentRequired,
+                    "Review the selected source and confirm sharing it with your Codex account before generating. Plan limits apply.",
+                ));
+            }
+            let pending = reviews.get(review_id)?;
+            if pending.review.provider_id != "codex"
+                || pending.review.fingerprint != fingerprint
+                || !operation.accepts(&pending.review)
+            {
+                return Err(command_failure(
+                    Kind::ReviewChanged,
+                    "Build a fresh Codex review for this operation with the selected source and settings.",
+                ));
+            }
+            let project = sessions.get(&pending.review.project_id).map_err(|_| {
+                command_failure(
+                    Kind::InvalidReview,
+                    "Reopen the selected repository before reviewing this Codex operation again.",
+                )
+            })?;
+            let repository = PathBuf::from(project.repository_root);
+            let storage = app_data_directory(app).map_err(|_| {
+                command_failure(
+                    Kind::LocalStorageUnavailable,
+                    "Local snapshot storage is unavailable. No Codex request was sent.",
+                )
+            })?;
+            Ok((pending, repository, storage))
+        },
+    )?;
     let runtime = manager.clone();
     let reviewed = pending.review.clone();
     let storage_for_review = storage.clone();
     let repository_for_review = repository.clone();
-    let validated = tauri::async_runtime::spawn_blocking(move || {
-        let identity = runtime
-            .review_runtime(&storage_for_review)
-            .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
-        match operation {
-            CodexOperation::RepositoryPlan => provider::rebuild_codex_repository_plan_review(
-                &storage_for_review,
-                &reviewed,
-                &identity,
-            )
-            .map(|_| ()),
-            CodexOperation::PrGuide | CodexOperation::PrChange => {
-                provider::revalidate_codex_git_review(&repository_for_review, &reviewed, &identity)
-                    .map(|_| ())
-            }
-            CodexOperation::Chapter | CodexOperation::CodeLens => {
-                provider::revalidate_codex_request_review(&storage_for_review, &reviewed, &identity)
-            }
-        }
-    })
-    .await
-    .map_err(|_| {
-        command_failure(
-            Kind::ReviewUnavailable,
-            "The Codex review could not be revalidated. Build a fresh review.",
-        )
-    })?;
-    if let Err(error) = validated {
+    if let Err(error) = preparation
+        .run_async_stage(PreparationKind::RuntimeReview, || async move {
+            tauri::async_runtime::spawn_blocking(move || {
+                let identity = runtime
+                    .review_runtime(&storage_for_review)
+                    .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
+                match operation {
+                    CodexOperation::RepositoryPlan => {
+                        provider::rebuild_codex_repository_plan_review(
+                            &storage_for_review,
+                            &reviewed,
+                            &identity,
+                        )
+                        .map(|_| ())
+                    }
+                    CodexOperation::PrGuide | CodexOperation::PrChange => {
+                        provider::revalidate_codex_git_review(
+                            &repository_for_review,
+                            &reviewed,
+                            &identity,
+                        )
+                        .map(|_| ())
+                    }
+                    CodexOperation::Chapter | CodexOperation::CodeLens => {
+                        provider::revalidate_codex_request_review(
+                            &storage_for_review,
+                            &reviewed,
+                            &identity,
+                        )
+                    }
+                }
+            })
+            .await
+            .map_err(|_| {
+                command_failure(
+                    Kind::ReviewUnavailable,
+                    "The Codex review could not be revalidated. Build a fresh review.",
+                )
+            })?
+        })
+        .await
+    {
         reviews.remove(review_id);
         return Err(error);
     }
-    let started_at = Instant::now();
-    let pending = reviews.consume(review_id, fingerprint)?;
-    interruptions.record(&storage, recovery::new_reviewed_provider_operation(&pending.review))
-        .map_err(|_| command_failure(Kind::LocalStorageUnavailable,
-            "Local interruption state could not be saved. No Codex request was sent; build a fresh review before retrying."))?;
+    let pending = preparation.run_stage_with_error(PreparationKind::OperationJournal, || {
+        let pending = reviews.consume(review_id, fingerprint)?;
+        interruptions
+            .record(&storage, recovery::new_reviewed_provider_operation(&pending.review))
+            .map_err(|_| {
+                command_failure(
+                    Kind::LocalStorageUnavailable,
+                    "Local interruption state could not be saved. No Codex request was sent; build a fresh review before retrying.",
+                )
+            })?;
+        Ok(pending)
+    })?;
     let review = pending.review;
-    let input = codex_agent::CodexRunInput {
-        run_id: review_id.to_owned(),
-        model: review.model_id.clone(),
-        expected_runtime: provider::codex_runtime_from_review(&review)?,
-        effort: review.generation_config["effort"]
-            .as_str()
-            .unwrap_or("")
-            .to_owned(),
-        run_deadline: operation.run_deadline(),
-        approval_policy: review.generation_config["approvalPolicy"]
-            .as_str()
-            .unwrap_or("")
-            .to_owned(),
-        system_instruction: review.system_instruction.clone(),
-        user_prompt: review.user_prompt.clone(),
-        output_schema: review.generation_config["outputSchema"].clone(),
-        correction_policy: if matches!(operation, CodexOperation::Chapter) {
-            crate::claim_alignment::CorrectionPolicy::from_generation_config(
-                &review.generation_config,
-            )
-        } else {
-            crate::claim_alignment::CorrectionPolicy::Disabled
-        },
-        retrieval: None,
-        sources: review
-            .selected_files
-            .iter()
-            .enumerate()
-            .map(|(index, file)| codex_agent::CodexSourceFile {
-                path: if matches!(
-                    operation,
-                    CodexOperation::PrGuide | CodexOperation::PrChange
-                ) {
-                    provider::agent_diff_source_name(index)
-                } else {
-                    file.path.clone()
-                },
-                // Code Lens stages only the reviewed excerpt. Its integrity digest
-                // differs from the original file identity retained in the review.
-                sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
-                contents: file.contents.clone(),
-            })
-            .collect(),
-    };
+    let input = preparation.run_stage_with_error(PreparationKind::RequestPreparation, || {
+        Ok::<_, provider::ProviderFailure>(codex_agent::CodexRunInput {
+            run_id: review_id.to_owned(),
+            model: review.model_id.clone(),
+            expected_runtime: provider::codex_runtime_from_review(&review)?,
+            effort: review.generation_config["effort"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned(),
+            run_deadline: operation.run_deadline(),
+            approval_policy: review.generation_config["approvalPolicy"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned(),
+            system_instruction: review.system_instruction.clone(),
+            user_prompt: review.user_prompt.clone(),
+            output_schema: review.generation_config["outputSchema"].clone(),
+            correction_policy: if matches!(operation, CodexOperation::Chapter) {
+                crate::claim_alignment::CorrectionPolicy::from_generation_config(
+                    &review.generation_config,
+                )
+            } else {
+                crate::claim_alignment::CorrectionPolicy::Disabled
+            },
+            retrieval: None,
+            sources: review
+                .selected_files
+                .iter()
+                .enumerate()
+                .map(|(index, file)| codex_agent::CodexSourceFile {
+                    path: if matches!(
+                        operation,
+                        CodexOperation::PrGuide | CodexOperation::PrChange
+                    ) {
+                        provider::agent_diff_source_name(index)
+                    } else {
+                        file.path.clone()
+                    },
+                    // Code Lens stages only the reviewed excerpt. Its integrity digest
+                    // differs from the original file identity retained in the review.
+                    sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
+                    contents: file.contents.clone(),
+                })
+                .collect(),
+        })
+    })?;
     Ok(PreparedCodexOperation {
         storage,
         repository,
         review,
         input,
         started_at,
+        preparation_stages: preparation.into_stages(),
     })
 }
 
@@ -929,12 +970,15 @@ async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
             review,
             input,
             started_at,
+            preparation_stages,
         } = prepared;
-        runtime.run_with_result_and_publish(
+        runtime.run_with_result_and_publish_and_preparation(
             &storage,
             input,
             &review.fingerprint,
             started_at,
+            None,
+            preparation_stages,
             |event| {
                 let _ = app.emit("codex-agent-progress", event);
             },
