@@ -303,7 +303,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                     {exportChoices.map(({ revision, preview: choicePreview }) => (
                       <label className="offline-export-option" key={revision.revisionId}>
                         <input type="checkbox" checked={selectedSet.has(revision.revisionId)} onChange={() => toggleRevision(revision.revisionId)} />
-                        <span><strong>{choicePreview?.title ?? 'Untitled chapter'}</strong><small>{choicePreview?.targetLabel ?? 'Source target withheld'} · revision {revision.revisionNumber}</small></span>
+                        <span><strong><InlineCodeText text={choicePreview?.title ?? 'Untitled chapter'}/></strong><small>{choicePreview?.targetLabel ?? 'Source target withheld'} · revision {revision.revisionNumber}</small></span>
                       </label>
                     ))}
                   </div>
@@ -330,7 +330,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                               <p className="offline-export-muted">Typed diagram asset: {section.typedVisual === 'included' ? 'included' : section.typedVisual === 'unavailable' ? 'unsupported diagram omitted with an explanation' : 'none attached'}.</p>
                               {section.visualNote && <p className="offline-export-muted">{section.visualNote}</p>}
                               {section.sceneNarration.map(scene => <details key={scene.sceneId}>
-                                <summary>{scene.label} · {scene.cached ? 'cached audio and matching transcript' : 'transcript only'}</summary>
+                                <summary><InlineCodeText text={scene.label}/> · {scene.cached ? 'cached audio and matching transcript' : 'transcript only'}</summary>
                                 <pre>{scene.transcript}</pre>
                               </details>)}
                               {audioCoverage !== undefined && <p className="offline-export-muted">

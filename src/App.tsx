@@ -4672,7 +4672,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 >
                   <span className={`chapter-studio-target-status status-${rowStatus}`}>{rowStatus}</span>
                   <code title={label}>{label}</code>
-                  <small>{latest ? `${latest.title} · r${latest.revisionNumber}` : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history could not be read' : 'No chapter for this snapshot'}</small>
+                  <small>{latest ? <><InlineCodeText text={latest.title}/> · r{latest.revisionNumber}</> : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history could not be read' : 'No chapter for this snapshot'}</small>
                 </button>;
               })}
               {visibleTargets.length === 0 && <p className="chapter-studio-no-results">No chapter targets match that search.</p>}
@@ -4683,7 +4683,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             {!selectedTarget ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>No captured text files</strong><p>Create a snapshot with readable text files before reviewing chapters.</p></div> : (
               <>
                 <div className="chapter-review-heading">
-                  <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3>{selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}</h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
+                  <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3><InlineCodeText text={selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}/></h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
                   {chapterStudioCanGenerate(historyAvailability, status) && !pendingDraft ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
                     {selectedTarget.overview && !selectedTarget.latestCurrent
@@ -4834,7 +4834,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                                 </div>;
                               })}
                             </div>}
-                            {dependentSections.length > 0 && <p className="chapter-freshness-clear"><strong>Other sections share changed evidence:</strong> {dependentSections.map((id) => activeDocument.sections.find((item) => item.sectionId === id)?.title ?? id).join(', ')}. Each section is reviewed and updated separately.</p>}
+                            {dependentSections.length > 0 && <p className="chapter-freshness-clear"><strong>Other sections share changed evidence:</strong> {dependentSections.map((id, index) => <span key={id}>{index > 0 ? ', ' : ''}<InlineCodeText text={activeDocument.sections.find((item) => item.sectionId === id)?.title ?? id}/></span>)}. Each section is reviewed and updated separately.</p>}
                             <div className="chapter-freshness-assets">
                               <strong>Asset input fingerprints</strong>
                               {assetIds.length > 0 ? <ul>{assetIds.map((assetId) => <li key={assetId}><code>{assetId}</code></li>)}</ul> : <span>No visual or hotspot assets reference this section's changed evidence.</span>}

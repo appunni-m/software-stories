@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, CircleAlert, Info, X } from 'lucide-react';
+import { InlineCodeText } from './InlineCodeText';
 import { groupNotifications, notificationSummary, partitionNotificationGroups, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
 import './NotificationCenter.css';
 
@@ -45,9 +46,9 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
     action.run();
   }}>{action.label}</button>)}</div> : null;
   const renderAttempt = (item: WorkspaceNotification) => <li key={item.id} className={`notification-attempt tone-${item.tone ?? 'info'}`}>
-    <div className="notification-item-title"><strong>{item.title}</strong>{item.read !== undefined && <span className={`notification-read ${item.read ? 'is-read' : 'is-new'}`}>{item.read ? 'Read' : 'New'}</span>}</div>
-    <p>{item.message}</p>
-    {item.detail && <small className="notification-attempt-detail">{item.detail}</small>}
+    <div className="notification-item-title"><strong><InlineCodeText text={item.title}/></strong>{item.read !== undefined && <span className={`notification-read ${item.read ? 'is-read' : 'is-new'}`}>{item.read ? 'Read' : 'New'}</span>}</div>
+    <p><InlineCodeText text={item.message}/></p>
+    {item.detail && <small className="notification-attempt-detail"><InlineCodeText text={item.detail}/></small>}
     {renderActions(item)}
   </li>;
   const renderGroup = (group: typeof groups[number]) => {
@@ -60,13 +61,13 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
     return <li key={group.id} className={`notification-item tone-${latest.tone ?? 'info'}`}>
       <div className="notification-item-title">
         {latest.tone === 'error' || latest.tone === 'warning' ? <CircleAlert size={16} /> : <Info size={16} />}
-        <strong>{latest.title}</strong>
+        <strong><InlineCodeText text={latest.title}/></strong>
         {group.items.length > 1 && <span className="notification-group-count">{group.items.length} {group.countLabel}</span>}
         {group.unreadCount > 0 && <span className="notification-read is-new">{group.unreadCount} new</span>}
         {group.items.length === 1 && <span className={`notification-read ${group.unreadCount > 0 ? 'is-new' : 'is-read'}`}>{group.unreadCount > 0 ? 'New' : 'Read'}</span>}
       </div>
-      <p>{latest.message}</p>
-      {latest.detail && <small className="notification-attempt-detail">{latest.detail}</small>}
+      <p><InlineCodeText text={latest.message}/></p>
+      {latest.detail && <small className="notification-attempt-detail"><InlineCodeText text={latest.detail}/></small>}
       {renderActions(latest, actions)}
       {earlier.length > 0 && <details className="notification-earlier">
         <summary>Show {earlier.length} earlier {group.countLabel}</summary>

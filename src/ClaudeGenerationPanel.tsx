@@ -308,19 +308,19 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         <button className="text-button" disabled={!onOpenCodeLensCitation} onClick={() => onOpenCodeLensCitation?.(claim.citation)}>
           Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>
       </article>)}</>}
-      {result?.kind === 'hunk' && <><h4>{result.value.title}</h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
+      {result?.kind === 'hunk' && <><h4><InlineCodeText text={result.value.title}/></h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
         <span className="chapter-claim-category">{claim.category}</span><p><InlineCodeText text={claim.prose}/></p>{claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}
         <blockquote>{claim.citation.quote}</blockquote>
         <button className="text-button" disabled={!onOpenPrChangeCitation} onClick={() => onOpenPrChangeCitation?.(claim.citation)}>
           Open {claim.citation.side} evidence · hunk {claim.citation.hunkIndex + 1}</button>
       </article>)}</>}
-      {result?.kind === 'guide' && <><h4>{result.value.revision.title}</h4>
+      {result?.kind === 'guide' && <><h4><InlineCodeText text={result.value.revision.title}/></h4>
         <p>Saved in PR Guide history as an unaccepted draft. Close this dialog to review and accept individual claims.</p>
         {result.value.revision.sections.map((section) => <article key={section.sectionId}><h5><InlineCodeText text={section.title}/></h5>
           {section.claims.map((claim) => <div key={claim.claimId}><span className="chapter-claim-category">{claim.category}</span><p><InlineCodeText text={claim.prose}/></p>
             {claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}</div>)}</article>)}
       </>}
-      {result?.kind === 'plan' && <><h4>{result.value.plan.title}</h4>
+      {result?.kind === 'plan' && <><h4><InlineCodeText text={result.value.plan.title}/></h4>
         <p>Saved locally as an unaccepted learning plan with {result.value.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p>
         <p>Files without a planned step: {result.value.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p>
       </>}

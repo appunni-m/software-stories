@@ -67,7 +67,7 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
     {error && <p role="alert">Local result history could not be read. Reload it before preparing another request.</p>}
     {!loading && !error && <>
       {pending.length ? <ul>{pending.map((preview) => <li key={preview.generationId}>
-        <strong>{preview.title || 'Saved preview'}</strong>{preview.unavailableReason && <p>{preview.unavailableReason}</p>}
+        <strong><InlineCodeText text={preview.title || 'Saved preview'}/></strong>{preview.unavailableReason && <p><InlineCodeText text={preview.unavailableReason}/></p>}
         {!preview.unavailableReason && <p>{recordedRecoveryLabel(preview.generationOrigin, requestId, backend, plannedTarget)}{preview.originContentMatches === true ? ' · original content digest matches' : ''}</p>}
         <GenerationRecord origin={preview.generationOrigin} />
         <button className="text-button" disabled={locked || !!preview.unavailableReason || !onOpenPreview}

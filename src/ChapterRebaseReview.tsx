@@ -1,4 +1,5 @@
 import {useMemo,useState} from 'react';
+import {InlineCodeText} from './InlineCodeText';
 import type {ChapterRevision} from './lib/commands';
 import {rebaseChapterDraft,type ChapterRebaseChoices} from './lib/chapterRebase';
 
@@ -34,7 +35,7 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
         </div>}
         <div className="chapter-rebase-conflicts" role="group" aria-label="Resolve overlapping edits">
         {result.conflicts.map(conflict=><fieldset key={conflict.id} className="chapter-rebase-conflict">
-          <legend>{conflict.label}</legend>
+          <legend><InlineCodeText text={conflict.label}/></legend>
           <div className="chapter-rebase-options">
             {(['draft','latest'] as const).map(choice=>{
               const isDraft=choice==='draft';
