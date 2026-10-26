@@ -29,15 +29,11 @@ import { CodexContextDialog } from './CodexContextDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
-import { RepositoryPlans } from './RepositoryPlans';
-import { ChapterBatchDialog } from './ChapterBatchDialog';
-import type { RepositoryPlanRevisionDetail } from './lib/repositoryPlans';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
-import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
   ArrowLeft,
@@ -121,7 +117,6 @@ import { scrollBehaviorForMotionPreference } from './lib/motion';
 import { errorMessageOr } from './lib/errorMessage';
 const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
-const RepositoryJourneys = lazy(() => import('./RepositoryJourneys').then(({ RepositoryJourneys }) => ({ default: RepositoryJourneys })));
 import {
   buildCodeLensProviderRequestReview,
   buildProviderRequestReview,
@@ -163,16 +158,12 @@ import {
 } from './lib/commands';
 import {
   buildInventory,
-  filterInventory,
   inventoryReasonLabel,
   languageSupportLabel,
   languageSupportNote,
   languageSupportTier,
   languageForPath,
-  type CaptureDisposition,
-  type InventoryCategory,
   type InventoryRow,
-  type ParserReadiness,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
@@ -180,25 +171,6 @@ import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
-import {
-  addCoverageGroup,
-  buildCoverageRows,
-  COVERAGE_STATUSES,
-  discardCoveragePlan,
-  emptyCoveragePlan,
-  excludeCoveragePath,
-  filterCoverageRows,
-  paginateCoverage,
-  readCoveragePlan,
-  removeCoverageGroup,
-  restoreCoveragePath,
-  saveCoveragePlan,
-  summarizeCoverage,
-  type CoveragePlan,
-  type CoveragePlanRead,
-  type CoverageRow,
-  type CoverageStatus,
-} from './lib/coverage';
 import {
   canNavigateBack,
   canNavigateForward,
@@ -311,7 +283,6 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
-  const [chapterBatchPlan, setChapterBatchPlan] = useState<RepositoryPlanRevisionDetail | null>(null);
   const [pendingLargeFileExplanation, setPendingLargeFileExplanation] = useState<PendingLargeFileExplanation | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
@@ -323,14 +294,6 @@ function App() {
     planningReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPlanningDialog(scope);
   }, []);
-  const startChapterBatch = useCallback((plan: RepositoryPlanRevisionDetail) => {
-    if (chapterBatchPlan) {
-      setNotice({ title: 'A chapter route is already running', message: 'Its exact reviewed requests continue in the background. Finish or stop that route before starting another.' });
-      return;
-    }
-    setChapterBatchPlan(plan);
-  }, [chapterBatchPlan, setNotice]);
-  const closeChapterBatch = useCallback(() => setChapterBatchPlan(null), []);
   useEffect(() => {
     if (planningDialog && (navigation.current.workspace !== 'guide-plan'
       || navigation.current.projectId !== planningDialog.projectId || navigation.current.snapshotId !== planningDialog.snapshotId)) {
@@ -1899,32 +1862,6 @@ function App() {
                   />
                 ) : <WalkthroughEmptyState onGoPlan={() => chooseWorkspace('guide-plan')} />}
               </Suspense>
-            ) : currentWorkspace === 'guide-plan' && currentProject && selectedSnapshot && snapshotManifest ? (
-              <GuidePlanScreen
-                key={`${currentProject.projectId}:${selectedSnapshot.snapshotId}`}
-                projectId={currentProject.projectId}
-                projectName={currentProject.displayName}
-                manifest={snapshotManifest}
-                rows={buildInventory(snapshotManifest)}
-                returnFocusTarget={navigation.current.focusTarget}
-                onPlan={openPlanningDialog}
-                onGeneratePlannedChapter={(scope) => openPlanningDialog({ kind: 'planned-chapter',
-                  projectId: currentProject.projectId, snapshotId: scope.snapshotId,
-                  question: scope.question, selectedPaths: scope.selectedPaths, plannedChapter: scope })}
-                onStartChapterBatch={startChapterBatch}
-                onGoAtlas={() => chooseWorkspace('atlas')}
-                onGoChanges={() => chooseWorkspace('changes')}
-                onGoStudio={() => chooseWorkspace('chapter-studio')}
-                onGenerateFile={reviewFileWithProvider}
-                onGenerateOverview={() => setProviderDialog({
-                  kind: 'overview',
-                  projectId: currentProject.projectId,
-                  snapshotId: selectedSnapshot.snapshotId,
-                })}
-                onReadRevision={openGuideRevision}
-                onReviewRevision={reviewGuideRevision}
-                onOpenFile={openCapturedFile}
-              />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Guide Plan…</span></div>
             ) : currentWorkspace === 'guide-plan' ? (
@@ -2063,13 +2000,6 @@ function App() {
           onRecoveryChanged={() => { void refreshPendingChapterPreviews(); }}
         />
       )}
-      {chapterBatchPlan && <ChapterBatchDialog
-        projectId={chapterBatchPlan.plan.preview.plan.projectId}
-        plan={chapterBatchPlan}
-        onClose={closeChapterBatch}
-        onReviewChapter={reviewGuideRevision}
-        onOpenPendingPreview={(generationId) => setRecoveredPreviewId(generationId)}
-      />}
     </div>
     </Theme>
   );
@@ -4048,520 +3978,6 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
   </aside>;
 }
 
-function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>): string {
-  return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
-}
-
-function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onGeneratePlannedChapter, onStartChapterBatch, onReadRevision, onReviewRevision, onOpenFile }: {
-  projectId: string;
-  projectName: string;
-  manifest: SnapshotManifest;
-  rows: InventoryRow[];
-  returnFocusTarget?: string;
-  onPlan: (input: RepositoryPlanningScope) => void;
-  onGoAtlas: () => void;
-  onGoChanges: () => void;
-  onGoStudio: () => void;
-  onGenerateOverview: () => void;
-  onGenerateFile: (path: string, selectedPaths: string[]) => void;
-  onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
-  onStartChapterBatch: (plan: RepositoryPlanRevisionDetail) => void;
-  onReadRevision: (revision: ChapterRevision) => void;
-  onReviewRevision: (revision: ChapterRevision) => void;
-  onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
-}) {
-  const snapshotId = manifest.summary.snapshotId;
-  const [planRead, setPlanRead] = useState<CoveragePlanRead>(() => readCoveragePlan(projectId, snapshotId));
-  const plan = planRead.plan;
-  const coveragePlanReady = planRead.status === 'ready';
-  const setPlan = (next: CoveragePlan | ((current: CoveragePlan) => CoveragePlan)) => {
-    setPlanRead((current) => current.status === 'ready'
-      ? { ...current, plan: typeof next === 'function' ? next(current.plan) : next }
-      : current);
-  };
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | CoverageStatus>('all');
-  const [guideView, setGuideView] = useState<'needs-explanation' | 'explained' | 'all'>('needs-explanation');
-  const [languageFilter, setLanguageFilter] = useState('all');
-  const [captureFilter, setCaptureFilter] = useState<'all' | CaptureDisposition>('all');
-  const [parserFilter, setParserFilter] = useState<'all' | ParserReadiness>('all');
-  const [contentFilter, setContentFilter] = useState<'all' | InventoryRow['contentKind']>('all');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | InventoryCategory>('all');
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const [groupFormOpen, setGroupFormOpen] = useState(false);
-  const [groupingOpen, setGroupingOpen] = useState(false);
-  const [groupName, setGroupName] = useState('');
-  const [groupRationale, setGroupRationale] = useState('');
-  const [excludePath, setExcludePath] = useState<string | null>(null);
-  const [excludeReason, setExcludeReason] = useState('');
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [storageAvailable, setStorageAvailable] = useState(true);
-  const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
-  const [revisionsLoading, setRevisionsLoading] = useState(isNativeRuntime());
-  const [revisionsError, setRevisionsError] = useState<string | null>(null);
-  const [revisionRefresh, setRevisionRefresh] = useState(0);
-  const revisionsReady = !revisionsLoading && !revisionsError;
-  const coverageReady = coveragePlanReady && revisionsReady;
-  const coverageRows = useMemo(() => buildCoverageRows(rows, plan, revisions)
-    .map((row) => coverageReady ? row : { ...row, canSelectForGroup: false, canExclude: false }), [rows, plan, revisions, coverageReady]);
-  const totals = useMemo(() => summarizeCoverage(coverageRows), [coverageRows]);
-  const inventoryMatches = useMemo(() => new Set(filterInventory(rows, {
-    query: '',
-    language: languageFilter,
-    disposition: captureFilter,
-    parser: parserFilter,
-    content: contentFilter,
-    category: categoryFilter,
-  }).map(inventoryFilterKey)), [captureFilter, categoryFilter, contentFilter, languageFilter, parserFilter, rows]);
-  const guideRows = useMemo(() => coverageRows.filter((row) => guideView === 'all'
-    || (guideView === 'explained' ? row.status === 'accepted' : ['missing', 'draft', 'rejected', 'stale'].includes(row.status) || (row.status === 'unsupported' && row.canOpenSource))), [coverageRows, guideView]);
-  const filtered = useMemo(() => filterCoverageRows(guideRows, query, statusFilter)
-    .filter((row) => inventoryMatches.has(inventoryFilterKey(row.inventory))), [guideRows, inventoryMatches, query, statusFilter]);
-  const pageData = useMemo(() => paginateCoverage(filtered, page, pageSize), [filtered, page, pageSize]);
-  const languages = useMemo(() => Array.from(new Set(rows.map((row) => row.language))).sort(), [rows]);
-
-  useEffect(() => {
-    if (!coveragePlanReady) return;
-    setStorageAvailable(saveCoveragePlan(plan));
-  }, [plan, coveragePlanReady]);
-
-  useEffect(() => {
-    const refresh = () => setRevisionRefresh((value) => value + 1);
-    window.addEventListener('code-atlas:chapters-changed', refresh);
-    return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
-  }, []);
-
-  useEffect(() => {
-    if (!isNativeRuntime()) return;
-    let active = true;
-    setRevisionsLoading(true);
-    setRevisionsError(null);
-    void listProjectChapterRevisions(projectId)
-      .then((saved) => { if (active) setRevisions(saved); })
-      .catch((error) => { if (active) setRevisionsError(errorMessageOr(error, 'Saved chapter revisions could not be loaded. Coverage counts are incomplete until you retry.')); })
-      .finally(() => { if (active) setRevisionsLoading(false); });
-    return () => { active = false; };
-  }, [projectId, snapshotId, revisionRefresh]);
-
-  const setQueryFilter = (value: string) => { setQuery(value); setPage(0); };
-  const setStatus = (value: 'all' | CoverageStatus) => { setStatusFilter(value); setGuideView('all'); setPage(0); };
-  const chooseGuideView = (value: 'needs-explanation' | 'explained' | 'all') => {
-    setGuideView(value);
-    setStatusFilter('all');
-    setPage(0);
-  };
-  const openRevision = (revisionId: string, action: 'read' | 'review') => {
-    const revision = revisions.find((item) => item.revisionId === revisionId);
-    if (!revision) return;
-    if (action === 'read') onReadRevision(revision);
-    else onReviewRevision(revision);
-  };
-  const visibleEligible = pageData.rows.filter((row) => row.canSelectForGroup).length;
-  const allVisibleSelected = visibleEligible > 0 && pageData.rows
-    .filter((row) => row.canSelectForGroup)
-    .every((row) => selectedPaths.includes(row.inventory.path));
-  const toggleSelected = (path: string) => setSelectedPaths((current) => current.includes(path)
-    ? current.filter((item) => item !== path)
-    : [...current, path]);
-  const toggleVisible = () => {
-    const visible = pageData.rows.filter((row) => row.canSelectForGroup).map((row) => row.inventory.path);
-    setSelectedPaths((current) => allVisibleSelected
-      ? current.filter((path) => !visible.includes(path))
-      : Array.from(new Set([...current, ...visible])));
-  };
-  const startGroup = () => {
-    if (!coveragePlanReady) return;
-    setFeedback(null);
-    setGroupName('');
-    setGroupRationale('');
-    setGroupFormOpen(true);
-  };
-  const submitGroup = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!coverageReady) return;
-    try {
-      const next = addCoverageGroup(plan, {
-        groupId: makeCoverageId(),
-        name: groupName,
-        rationale: groupRationale,
-        paths: selectedPaths,
-        createdAtUnixMs: Date.now(),
-      }, rows, revisions);
-      setPlan(next);
-      setSelectedPaths([]);
-      setGroupFormOpen(false);
-      setFeedback('Group created. Each file remains listed and keeps its own source link.');
-    } catch (error) {
-      setFeedback(errorMessageOr(error, 'The group could not be created.'));
-    }
-  };
-  const submitExclusion = (event: FormEvent<HTMLFormElement>, row: CoverageRow) => {
-    event.preventDefault();
-    if (!coverageReady) return;
-    try {
-      setPlan((current) => excludeCoveragePath(current, row, excludeReason));
-      setSelectedPaths((current) => current.filter((path) => path !== row.inventory.path));
-      setExcludePath(null);
-      setExcludeReason('');
-      setFeedback(`${row.inventory.path} is excluded from this guide plan. You can include it again at any time.`);
-    } catch (error) {
-      setFeedback(errorMessageOr(error, 'The file could not be excluded.'));
-    }
-  };
-  const dissolveGroup = (groupId: string, name: string) => {
-    if (!coverageReady) return;
-    setPlan((current) => removeCoverageGroup(current, groupId));
-    setFeedback(`“${name}” was removed. Its files are independent chapters again.`);
-  };
-  const discardSavedCoveragePlan = () => {
-    try {
-      discardCoveragePlan(projectId, snapshotId);
-      setPlanRead({ status: 'ready', plan: emptyCoveragePlan(projectId, snapshotId) });
-      setFeedback('Saved file groups and exclusions were discarded. Chapter explanations remain unchanged.');
-    } catch {
-      setFeedback('The saved file groups and exclusions could not be removed. Their stored data remains untouched.');
-    }
-  };
-  const statusLabel: Record<CoverageStatus, string> = {
-    missing: 'Needs explanation', draft: 'Draft', rejected: 'Rejected', stale: 'Older snapshot', accepted: 'Accepted',
-    excluded: 'Excluded by you', unsupported: 'Text only', unavailable: 'Source unavailable',
-  };
-  const acceptedOverviews = revisions
-    .filter((revision) => revision.lifecycle === 'accepted' && revision.target.scope.kind === 'overview')
-    .sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber);
-  const acceptedOverview = acceptedOverviews.find((revision) => revision.snapshotId === snapshotId) ?? null;
-  const earlierOverview = acceptedOverviews.find((revision) => revision.snapshotId !== snapshotId) ?? null;
-  const currentOverviewReview = revisions
-    .filter((revision) => revision.snapshotId === snapshotId && revision.target.scope.kind === 'overview')
-    .sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber)
-    .find((revision) => revision.lifecycle !== 'accepted') ?? null;
-  const nextFiles = coverageRows.filter((row) => row.canOpenSource
-    && ['missing', 'draft', 'rejected', 'stale', 'unsupported'].includes(row.status)).slice(0, 3);
-  const explainedFiles = coverageRows.filter((row) => row.status === 'accepted').slice(0, 3);
-  const firstFileToOpen = nextFiles[0] ?? explainedFiles[0] ?? null;
-  const canBuildOverview = rows.some((row) => row.disposition === 'captured' && row.kind === 'file'
-    && (row.contentKind === 'text' || row.contentKind === 'unknown'));
-  const guideEligibleTotal = coverageRows.filter((row) => row.canOpenSource && row.status !== 'excluded').length;
-  const guideProgress = guideEligibleTotal > 0 ? Math.round((totals.accepted / guideEligibleTotal) * 100) : 0;
-
-  return (
-    <div className="empty-workspace guide-plan-screen">
-      <section className="guide-question-panel" aria-label="Ask the code">
-      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter} onStartBatch={onStartChapterBatch}
-        chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
-      </section>
-
-      <section className="guide-home-dashboard" aria-labelledby="guide-home-title">
-        <div className="guide-home-context">
-          <span className="step-pill"><span>YOUR REPOSITORY GUIDE</span> {projectName}</span>
-          <p>{manifest.summary.branch ?? 'Detached HEAD'} · {manifest.summary.filesCaptured.toLocaleString()} captured files · {languages.length} detected languages</p>
-        </div>
-        <div className="guide-home-grid">
-          <section className="guide-tour-card" aria-labelledby="guide-home-title">
-            <div className="guide-tour-icon"><Play size={19} /></div>
-            {acceptedOverview ? <>
-              <div className="guide-tour-copy">
-                <span className="guide-home-kicker">{acceptedOverview.sections.length} SECTION{acceptedOverview.sections.length === 1 ? '' : 'S'} · ACCEPTED REPOSITORY GUIDE</span>
-                <h2 id="guide-home-title"><InlineCodeText text={acceptedOverview.title}/></h2>
-                <p><InlineCodeText text={acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'}/></p>
-                <span className="guide-tour-pacing">Pause, skip, or open the exact source at any point.</span>
-              </div>
-              <div className="guide-tour-actions">
-                <button className="primary-button" onClick={() => onReadRevision(acceptedOverview)}>Read the guide <ArrowRight size={15} /></button>
-                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
-              </div>
-            </> : revisionsLoading ? <>
-              <div className="guide-tour-copy">
-                <span className="guide-home-kicker">CHECKING THIS SNAPSHOT</span>
-                <h2 id="guide-home-title">Looking for a saved repository guide.</h2>
-                <p>While the local guide index loads, you can browse captured files or compare revisions.</p>
-              </div>
-            </> : revisionsError ? <>
-              <div className="guide-tour-copy">
-                <span className="guide-home-kicker">GUIDE STATUS UNAVAILABLE</span>
-                <h2 id="guide-home-title">Saved explanations could not be loaded.</h2>
-                <p>{revisionsError}</p>
-                <button className="secondary-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button>
-              </div>
-            </> : currentOverviewReview ? <>
-              <div className="guide-tour-copy">
-                <span className="guide-home-kicker">REPOSITORY TOUR · {currentOverviewReview.lifecycle === 'rejected' ? 'NEEDS REVISION' : 'DRAFT SAVED'}</span>
-                <h2 id="guide-home-title">Review the repository tour draft.</h2>
-                <p>This draft is tied to the selected snapshot. Review its source links and accept it before it appears as the Guide tour.</p>
-              </div>
-              <div className="guide-tour-actions">
-                <button className="primary-button" onClick={() => onReviewRevision(currentOverviewReview)}>Review tour draft <ArrowRight size={15} /></button>
-                {canBuildOverview && <button className="secondary-button" onClick={onGenerateOverview}>Create another tour</button>}
-                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
-              </div>
-            </> : <>
-              <div className="guide-tour-copy">
-                <span className="guide-home-kicker">OPTIONAL REPOSITORY TOUR</span>
-                <h2 id="guide-home-title">Build a short guide through this codebase.</h2>
-                <p>A tour connects a few evidenced steps. Every file still gets its own explanation and coverage status; review the selected source and request before anything is sent.</p>
-              </div>
-              <div className="guide-tour-actions">
-                {canBuildOverview && <button className="primary-button" onClick={onGenerateOverview}><Play size={14} /> Create repository tour <ArrowRight size={15} /></button>}
-                {coverageReady && firstFileToOpen && <button className={canBuildOverview ? 'secondary-button' : 'primary-button'} onClick={() => onOpenFile(firstFileToOpen.inventory.path)}><FileCode2 size={14} /> {firstFileToOpen.status === 'accepted' ? 'Read' : 'Explain'} {firstFileToOpen.inventory.path}</button>}
-                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
-                {!canBuildOverview && !firstFileToOpen && <button className="primary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse captured files</button>}
-              </div>
-            </>}
-          </section>
-          <section className="guide-home-coverage" aria-label="File explanation progress">
-            <div className="guide-home-coverage-heading"><strong>File explanations</strong><span>{!coveragePlanReady || revisionsError ? 'Unavailable' : revisionsLoading ? 'Loading…' : `${totals.accepted} / ${guideEligibleTotal}`}</span></div>
-            {coverageReady
-              ? <><div className="guide-home-progress" role="progressbar" aria-label="Captured files with accepted explanations" aria-valuemin={0} aria-valuemax={guideEligibleTotal} aria-valuenow={totals.accepted}><span style={{ width: `${guideProgress}%` }} /></div>
-                <p>{`${totals.accepted.toLocaleString()} explained · ${(guideEligibleTotal - totals.accepted).toLocaleString()} still to explore`}</p></>
-              : <p role="status">{!coveragePlanReady ? 'Saved file grouping and exclusion data is unavailable; its counts are not shown.' : revisionsError ? 'Coverage is unavailable until saved revisions can be read.' : 'Loading saved file explanations…'}</p>}
-            <div className="guide-home-file-list">
-              {coverageReady && (nextFiles.length > 0 ? nextFiles : explainedFiles).slice(0, 3).map((row) => (
-                <button key={row.inventory.path} onClick={() => onOpenFile(row.inventory.path)}>
-                  <span className={`guide-file-dot ${row.status === 'accepted' ? 'is-explained' : ''}`} />
-                  <code>{row.inventory.path}</code>
-                  <small>{row.status === 'accepted' ? 'Read' : row.status === 'missing' ? 'Needs explanation' : statusLabel[row.status]}</small>
-                  <ArrowRight size={12} />
-                </button>
-              ))}
-              {coverageReady && nextFiles.length === 0 && explainedFiles.length === 0 && <span className="guide-home-no-files">No captured text files in this snapshot.</span>}
-            </div>
-            {revisionsLoading && <small className="guide-home-loading" role="status">Loading saved explanations…</small>}
-          </section>
-        </div>
-        <div className="guide-home-actions">
-          <button className="secondary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse all files</button>
-          <button className="secondary-button" onClick={onGoChanges}><GitBranch size={14} /> See what changed</button>
-          {acceptedOverview && <span>Tour and per-file explanations are separate. Every source link opens its exact snapshot.</span>}
-        </div>
-      </section>
-
-      <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
-      <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
-        <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={revisionsReady} returnFocusTarget={returnFocusTarget}
-          onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onReadRevision={onReadRevision} onReviewRevision={onReviewRevision} />
-      </Suspense>
-      </details>
-
-      <details className="guide-coverage-disclosure">
-        <summary><span>File-by-file coverage</span><small>{coverageReady ? `${totals.accepted} explained · ${Math.max(0, guideEligibleTotal - totals.accepted)} remaining · ${totals.total} inventory paths` : 'Coverage unavailable'}</small></summary>
-      <section className="guide-plan-card" aria-labelledby="guide-plan-title">
-        <div className="guide-plan-topline">
-          <div>
-            <div className="step-pill"><span>GUIDE</span> FILE BY FILE</div>
-            <h2 id="guide-plan-title">What still needs an explanation?</h2>
-            <p>Choose a file to explain it, or open an accepted explanation to read it with its source links.</p>
-          </div>
-          <div className="chapter-studio-top-actions"><button className="secondary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse files</button><button className="secondary-button" onClick={onGoStudio}><BookOpen size={14} /> Edit explanations</button></div>
-        </div>
-
-        {manifest.summary.status === 'partial' && <p className="coverage-storage-warning" role="status">This snapshot is partial. {manifest.summary.pathsSkipped.toLocaleString()} paths were skipped; open “All paths” to review them and why they were skipped.</p>}
-        {planRead.status === 'unavailable' && <p className="coverage-storage-warning coverage-plan-unavailable" role="alert"><span>{planRead.message} Editing is paused so this data is not overwritten.</span><button className="secondary-button" onClick={discardSavedCoveragePlan}>Discard saved file groups and exclusions</button></p>}
-        <details className="guide-source-details">
-          <summary>Source snapshot details</summary>
-          <div className="guide-plan-identity"><span>{manifest.summary.status === 'partial' ? 'Partial snapshot' : 'Immutable snapshot'}</span><code>{snapshotId}</code><span>{projectId}</span></div>
-        </details>
-
-        {revisionsLoading && <p className="coverage-feedback" role="status">Loading saved chapter revisions across snapshots…</p>}
-        {revisionsError && <p className="coverage-storage-warning" role="alert">{revisionsError}<button className="text-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button></p>}
-
-        {coverageReady && <div className="coverage-total-strip" role="group" aria-label="Filter guide files">
-          <button className={`coverage-total${guideView === 'needs-explanation' ? ' is-active' : ''}`} onClick={() => chooseGuideView('needs-explanation')} aria-pressed={guideView === 'needs-explanation'}><strong>{(totals.missing + totals.draft + totals.rejected + totals.stale + totals.unsupported).toLocaleString()}</strong><span>Needs explanation</span></button>
-          <button className={`coverage-total${guideView === 'explained' ? ' is-active' : ''}`} onClick={() => chooseGuideView('explained')} aria-pressed={guideView === 'explained'}><strong>{totals.accepted.toLocaleString()}</strong><span>Explained</span></button>
-          <button className={`coverage-total${guideView === 'all' ? ' is-active' : ''}`} onClick={() => chooseGuideView('all')} aria-pressed={guideView === 'all'}><strong>{totals.total.toLocaleString()}</strong><span>All paths</span></button>
-        </div>}
-
-        <div className="guide-list-toolbar">
-          <label className="inventory-search"><Search size={14} /><input aria-label="Search guide files" placeholder="Find a file by name or path" value={query} onChange={(event) => setQueryFilter(event.target.value)} /></label>
-          <button className={`secondary-button${groupingOpen ? ' selected' : ''}`} onClick={() => { if (groupingOpen) setGroupFormOpen(false); setGroupingOpen(!groupingOpen); setSelectedPaths([]); }} aria-expanded={groupingOpen} disabled={!coverageReady}><Layers3 size={14} /> {groupingOpen ? 'Done grouping' : 'Organize files'}</button>
-          <details className="coverage-advanced-filters">
-            <summary>More filters</summary>
-            <div className="coverage-filter-bar">
-              <label><span>Status</span><select aria-label="Filter guide coverage by status" value={statusFilter} onChange={(event) => setStatus(event.target.value as 'all' | CoverageStatus)}><option value="all">All statuses ({totals.total})</option>{COVERAGE_STATUSES.map((status) => <option key={status} value={status}>{statusLabel[status]} ({totals[status]})</option>)}</select></label>
-              <label><span>Language</span><select aria-label="Filter guide coverage by language" value={languageFilter} onChange={(event) => { setLanguageFilter(event.target.value); setPage(0); }}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label>
-              <label><span>Capture outcome</span><select aria-label="Filter inventory by capture outcome" value={captureFilter} onChange={(event) => { setCaptureFilter(event.target.value as 'all' | CaptureDisposition); setPage(0); }}><option value="all">All capture outcomes</option><option value="captured">Captured</option><option value="skipped">Skipped</option><option value="excluded">Excluded</option></select></label>
-              <label><span>Language support</span><select aria-label="Filter inventory by language support" value={parserFilter} onChange={(event) => { setParserFilter(event.target.value as 'all' | ParserReadiness); setPage(0); }}><option value="all">All support levels</option><option value="notReady">Partial structural</option><option value="unsupported">Text only</option><option value="notApplicable">Not analyzed</option></select></label>
-              <label><span>File category</span><select aria-label="Filter inventory by file category" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value as 'all' | InventoryCategory); setPage(0); }}><option value="all">All categories</option><option value="config">Configuration</option><option value="test">Test</option><option value="generated">Generated</option><option value="secret">Secret-like</option></select></label>
-              <label><span>Content</span><select aria-label="Filter inventory by content type" value={contentFilter} onChange={(event) => { setContentFilter(event.target.value as 'all' | InventoryRow['contentKind']); setPage(0); }}><option value="all">All content</option><option value="text">Text</option><option value="binary">Binary</option><option value="invalidEncoding">Invalid encoding</option><option value="unknown">Unknown</option><option value="notApplicable">Not applicable</option></select></label>
-              <button className="inventory-clear" onClick={() => { setQueryFilter(''); setStatus('all'); setLanguageFilter('all'); setCaptureFilter('all'); setParserFilter('all'); setContentFilter('all'); setCategoryFilter('all'); setPage(0); }}>Reset filters</button>
-            </div>
-          </details>
-          <span className="coverage-match-count" aria-live="polite">{pageData.total.toLocaleString()} files</span>
-        </div>
-
-        {groupingOpen && coverageReady && <section className="guide-grouping-panel" aria-label="Organize files into optional groups">
-          <div className="guide-plan-actions">
-            <div><strong>Group related files (optional)</strong><span>Groups organize files; every file keeps its own explanation and source links.</span></div>
-            <div className="guide-plan-action-buttons"><span aria-live="polite">{selectedPaths.length} selected</span><button className="secondary-button" onClick={startGroup} disabled={selectedPaths.length < 2 || revisionsLoading || Boolean(revisionsError)}>Create group</button>{selectedPaths.length > 0 && <button className="text-button" onClick={() => setSelectedPaths([])}>Clear selection</button>}</div>
-          </div>
-          {plan.groups.length > 0 && <section className="coverage-groups" aria-labelledby="coverage-groups-heading">
-            <div className="coverage-subheading"><div><strong id="coverage-groups-heading">Your groups</strong><span>Each member still has its own explanation.</span></div><span>{plan.groups.length} group{plan.groups.length === 1 ? '' : 's'}</span></div>
-            {plan.groups.map((group) => <article className="coverage-group-card" key={group.groupId}><div><strong>{group.name}</strong><p>{group.rationale}</p><div className="coverage-group-members">{group.paths.map((path) => <button key={path} onClick={() => onOpenFile(path)}><FileCode2 size={12} /><code>{path}</code></button>)}</div></div><button className="text-button" onClick={() => dissolveGroup(group.groupId, group.name)}>Remove group</button></article>)}
-          </section>}
-        </section>}
-
-        {groupFormOpen && (
-          <form className="coverage-group-form" onSubmit={submitGroup}>
-            <div><strong>Name this group</strong><p>All selected paths remain visible as separate rows and source citations.</p></div>
-            <label><span>Group name</span><input autoFocus value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="For example, request handling" required maxLength={100} /></label>
-            <label><span>Why do these files belong together?</span><textarea value={groupRationale} onChange={(event) => setGroupRationale(event.target.value)} placeholder="Describe their shared responsibility. This rationale is shown beside every member." required maxLength={500} rows={3} /></label>
-            <div className="coverage-form-footer"><span>{selectedPaths.length} paths · {selectedPaths.slice(0, 3).join(', ')}{selectedPaths.length > 3 ? ` and ${selectedPaths.length - 3} more` : ''}</span><div><button type="button" className="text-button" onClick={() => setGroupFormOpen(false)}>Cancel</button><button className="primary-button" type="submit">Create named group</button></div></div>
-          </form>
-        )}
-
-        {coverageReady && <CoverageTable
-          rows={pageData.rows}
-          statusLabel={statusLabel}
-          showGrouping={groupingOpen}
-          selectedPaths={selectedPaths}
-          allVisibleSelected={allVisibleSelected}
-          visibleEligible={visibleEligible}
-          excludePath={excludePath}
-          excludeReason={excludeReason}
-          setExcludePath={(path) => { setExcludePath(path); setExcludeReason(''); }}
-          setExcludeReason={setExcludeReason}
-          onToggleSelected={toggleSelected}
-          onToggleVisible={toggleVisible}
-          onOpenFile={onOpenFile}
-          onReadRevision={(revisionId) => openRevision(revisionId, 'read')}
-          onReviewRevision={(revisionId) => openRevision(revisionId, 'review')}
-          onExclude={submitExclusion}
-          onRestore={(path) => { if (!coverageReady) return; setPlan((current) => restoreCoveragePath(current, path)); setFeedback(`${path} is back in the guide plan.`); }}
-          onCancelExclude={() => setExcludePath(null)}
-        />}
-        {!coverageReady && <p className="coverage-feedback" role="status">{!coveragePlanReady ? 'File-by-file coverage is paused until the saved groups and exclusions are reviewed.' : revisionsError ? 'File-by-file coverage is unavailable until saved revisions can be read.' : 'Loading file-by-file coverage…'}</p>}
-        {coverageReady && <div className="coverage-pagination">
-          <span>Showing {pageData.firstVisible.toLocaleString()}–{pageData.lastVisible.toLocaleString()} of {pageData.total.toLocaleString()} matches · {totals.total.toLocaleString()} snapshot paths</span>
-          <label>Rows <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0); }} aria-label="Rows per coverage page"><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
-          <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={pageData.page === 0}>Previous</button>
-          <span>Page {pageData.page + 1} of {pageData.pageCount}</span>
-          <button onClick={() => setPage((current) => Math.min(pageData.pageCount - 1, current + 1))} disabled={pageData.page >= pageData.pageCount - 1}>Next</button>
-        </div>}
-        {feedback && <p className="coverage-feedback" role="status">{feedback}<button className="text-button" onClick={() => setFeedback(null)}>Dismiss</button></p>}
-        {!storageAvailable && <p className="coverage-storage-warning" role="status">This session can’t save Guide Plan changes in local storage. Keep this window open to retain them.</p>}
-        <p className="coverage-footnote">Draft and accepted counts reflect chapter revisions tied to this exact project and snapshot. Capture exclusions remain unavailable inventory rows; they are never counted as completed explanations.</p>
-        {coverageReady && totals.draft === 0 && totals.accepted === 0 && <p className="coverage-no-revisions">No draft or accepted chapter revision is saved for this snapshot yet. Captured text files still appear as independent work items.</p>}
-      </section>
-      </details>
-    </div>
-  );
-}
-
-interface ChapterStudioTarget {
-  key: string;
-  targetId: string | null;
-  paths: string[];
-  overview?: boolean;
-  revisions: ChapterRevision[];
-  latestCurrent: ChapterRevision | null;
-  latestAny: ChapterRevision | null;
-  missing: boolean;
-}
-
-interface ChapterFreshnessState {
-  key: string;
-  report: ChapterFreshnessReport | null;
-  error: string | null;
-  loading: boolean;
-}
-
-interface RangedDiffLine {
-  line: number;
-  text: string;
-}
-
-interface DiffLine {
-  kind: 'same' | 'removed' | 'added';
-  oldLine?: number;
-  newLine?: number;
-  text: string;
-}
-
-function changedRangeLines(source: SnapshotSource, range: { startLine: number; endLine: number }): { lines: RangedDiffLine[]; truncated: boolean } {
-  const allLines = source.contents.split(/\r?\n/);
-  const start = Math.max(0, range.startLine - 1);
-  const stop = Math.min(allLines.length, Math.max(start, range.endLine));
-  const selected = allLines.slice(start, stop);
-  const lines: RangedDiffLine[] = [];
-  let bytes = 0;
-  for (let index = 0; index < selected.length; index += 1) {
-    const original = selected[index];
-    const text = original.slice(0, 1_000);
-    bytes += text.length;
-    if (lines.length >= 120 || bytes > 16_000) return { lines, truncated: true };
-    lines.push({ line: start + index + 1, text });
-  }
-  return { lines, truncated: stop < range.endLine || selected.some((line) => line.length > 1_000) };
-}
-
-function compareRangeLines(oldLines: RangedDiffLine[], newLines: RangedDiffLine[]): DiffLine[] {
-  const oldCount = oldLines.length;
-  const newCount = newLines.length;
-  const stride = newCount + 1;
-  const lcs = new Uint16Array((oldCount + 1) * (newCount + 1));
-  for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex -= 1) {
-    for (let newIndex = newCount - 1; newIndex >= 0; newIndex -= 1) {
-      const cell = oldIndex * stride + newIndex;
-      lcs[cell] = oldLines[oldIndex].text === newLines[newIndex].text
-        ? lcs[(oldIndex + 1) * stride + newIndex + 1] + 1
-        : Math.max(lcs[(oldIndex + 1) * stride + newIndex], lcs[oldIndex * stride + newIndex + 1]);
-    }
-  }
-  const diff: DiffLine[] = [];
-  let oldIndex = 0;
-  let newIndex = 0;
-  while (oldIndex < oldCount || newIndex < newCount) {
-    if (oldIndex < oldCount && newIndex < newCount && oldLines[oldIndex].text === newLines[newIndex].text) {
-      diff.push({ kind: 'same', oldLine: oldLines[oldIndex].line, newLine: newLines[newIndex].line, text: oldLines[oldIndex].text });
-      oldIndex += 1;
-      newIndex += 1;
-    } else if (oldIndex < oldCount && (newIndex >= newCount || lcs[(oldIndex + 1) * stride + newIndex] >= lcs[oldIndex * stride + newIndex + 1])) {
-      diff.push({ kind: 'removed', oldLine: oldLines[oldIndex].line, text: oldLines[oldIndex].text });
-      oldIndex += 1;
-    } else {
-      diff.push({ kind: 'added', newLine: newLines[newIndex].line, text: newLines[newIndex].text });
-      newIndex += 1;
-    }
-  }
-  return diff;
-}
-
-function ChapterSourceDiff({ projectId, change }: { projectId: string; change: ChapterFreshnessSourceChange }) {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [diff, setDiff] = useState<{ lines: DiffLine[]; oldTruncated: boolean; newTruncated: boolean } | null>(null);
-  const started = useRef(false);
-  useEffect(() => {
-    if (!open || diff || started.current) return;
-    started.current = true;
-    let active = true;
-    setLoading(true);
-    const readRange = (range: ChapterFreshnessSourceChange['oldRange']) => range
-      ? readSnapshotSource(projectId, range.snapshotId, range.path).then((source) => changedRangeLines(source, range))
-      : Promise.resolve({ lines: [] as RangedDiffLine[], truncated: false });
-    void Promise.all([readRange(change.oldRange), readRange(change.newRange)])
-      .then(([oldSide, newSide]) => { if (active) setDiff({ lines: compareRangeLines(oldSide.lines, newSide.lines), oldTruncated: oldSide.truncated, newTruncated: newSide.truncated }); })
-      .catch(() => { if (active) setError('The saved source ranges could not be loaded for a local diff.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [change, diff, open, projectId]);
-  return <details className="chapter-source-diff" onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary>Show exact source diff</summary>
-    {loading && <p role="status">Loading both captured source ranges locally…</p>}
-    {error && <p role="alert">{error}</p>}
-    {diff && <>
-      <div className="chapter-source-diff-labels">
-        <span>Old {change.oldRange ? `${change.oldRange.path}:${change.oldRange.startLine}–${change.oldRange.endLine}` : 'source removed'}</span>
-        <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
-      </div>
-      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Files for full source.</p>}
-      <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
-    </>}
-  </details>;
-}
-
 function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {
   projectId: string;
   manifest: SnapshotManifest;
@@ -5330,76 +4746,6 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       </section>
     </div>
   );
-}
-
-function CoverageTable({ rows, statusLabel, showGrouping, selectedPaths, allVisibleSelected, visibleEligible, excludePath, excludeReason, setExcludePath, setExcludeReason, onToggleSelected, onToggleVisible, onOpenFile, onReadRevision, onReviewRevision, onExclude, onRestore, onCancelExclude }: {
-  rows: CoverageRow[];
-  statusLabel: Record<CoverageStatus, string>;
-  showGrouping: boolean;
-  selectedPaths: string[];
-  allVisibleSelected: boolean;
-  visibleEligible: number;
-  excludePath: string | null;
-  excludeReason: string;
-  setExcludePath: (path: string) => void;
-  setExcludeReason: (reason: string) => void;
-  onToggleSelected: (path: string) => void;
-  onToggleVisible: () => void;
-  onOpenFile: (path: string) => void;
-  onReadRevision: (revisionId: string) => void;
-  onReviewRevision: (revisionId: string) => void;
-  onExclude: (event: FormEvent<HTMLFormElement>, row: CoverageRow) => void;
-  onRestore: (path: string) => void;
-  onCancelExclude: () => void;
-}) {
-  return (
-    <div className="coverage-table-wrap">
-      <div className={`coverage-table${showGrouping ? ' is-grouping' : ''}`} role="table" aria-label="Guide status for repository files">
-        <div className="coverage-table-header" role="row">
-          {showGrouping && <label className="coverage-select-all"><input type="checkbox" checked={allVisibleSelected} disabled={visibleEligible === 0} onChange={onToggleVisible} aria-label="Select all eligible files on this page" /><span>Group</span></label>}
-          <span role="columnheader">File</span><span role="columnheader">Status</span><span role="columnheader">Next step</span>
-        </div>
-        {rows.length === 0 ? <div className="coverage-empty">No files in this view. Choose “All paths” or adjust your search and filters.</div> : rows.map((row) => (
-          <div className="coverage-row" role="row" key={`${row.inventory.path}:${row.inventory.kind}:${row.inventory.reason}`}>
-            {showGrouping && <div className="coverage-select-cell" role="cell">{row.canSelectForGroup ? <input type="checkbox" checked={selectedPaths.includes(row.inventory.path)} onChange={() => onToggleSelected(row.inventory.path)} aria-label={`Select ${row.inventory.path} for an explicit group`} /> : <span aria-hidden="true">—</span>}</div>}
-            <div className="coverage-path-cell" role="cell">
-              <code title={row.inventory.path}>{row.inventory.path}</code>
-              <span>{row.inventory.language}{row.group ? ` · ${row.group.name}` : ''}</span>
-              <details className="coverage-row-details">
-                <summary>File details</summary>
-                <div>{row.inventory.kind} · {row.inventory.disposition} · {row.inventory.contentKind} · {languageSupportLabel(languageSupportTier(row.inventory))}</div>
-                <div>{languageSupportNote(languageSupportTier(row.inventory), row.inventory.language)}</div>
-                {row.inventory.categories.length > 0 && <div>Category: {row.inventory.categories.join(' · ')}</div>}
-                {row.group && <div className="coverage-row-group"><strong>Group: {row.group.name}</strong><span>{row.group.rationale}</span></div>}
-                {row.reason && <div className={`coverage-reason coverage-reason-${row.status}`}>{row.reason}</div>}
-                {row.status === 'excluded' && row.userExclusion && <div className="coverage-row-reason"><span>Your reason: {row.userExclusion.reason}</span><button className="text-button" onClick={() => onRestore(row.inventory.path)}>Include again</button></div>}
-                {row.revisionId && <div>Revision {row.revisionNumber} · <code>{row.revisionId}</code></div>}
-              </details>
-            </div>
-            <div className="coverage-status-cell" role="cell"><span className={`coverage-status coverage-status-${row.status}`}>{statusLabel[row.status]}</span>{row.status === 'unsupported' && <small>Captured text and citations are available; local structural analysis is not.</small>}{row.status === 'unavailable' && <small>Inventory is retained; no chapter is counted.</small>}</div>
-            <div className="coverage-action-cell" role="cell">
-              {row.status === 'accepted' && row.revisionId && <button className="text-button" onClick={() => onReadRevision(row.revisionId!)}><Play size={13} /> Read explanation</button>}
-              {['draft', 'rejected', 'stale'].includes(row.status) && row.revisionId && <button className="text-button" onClick={() => onReviewRevision(row.revisionId!)}><Pencil size={13} /> Review explanation</button>}
-              {row.canOpenSource && <button className="text-button" onClick={() => onOpenFile(row.inventory.path)}><FileCode2 size={13} /> Open source</button>}
-              {row.canExclude && excludePath !== row.inventory.path && <button className="text-button" onClick={() => setExcludePath(row.inventory.path)}>Exclude with reason</button>}
-              {excludePath === row.inventory.path && (
-                <form className="coverage-exclusion-form" onSubmit={(event) => onExclude(event, row)}>
-                  <label><span>Why exclude this file?</span><textarea autoFocus required rows={2} maxLength={300} value={excludeReason} onChange={(event) => setExcludeReason(event.target.value)} /></label>
-                  <div><button className="text-button" type="button" onClick={onCancelExclude}>Cancel</button><button className="secondary-button" type="submit" disabled={!excludeReason.trim()}>Save exclusion</button></div>
-                </form>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function makeCoverageId(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? `grp_${crypto.randomUUID()}`
-    : `grp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
