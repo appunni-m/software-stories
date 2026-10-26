@@ -257,6 +257,7 @@ function isImplementationCandidate(row: InventoryRow): boolean {
     && !isDocumentationPath(row.path)
     && !nonImplementationLanguages.has(row.language)
     && !testPath
+    && !row.categories.includes('config')
     && !row.categories.includes('secret')
     && !row.categories.includes('generated');
 }
@@ -280,8 +281,6 @@ export function recommendedEntryPoint(rows: readonly InventoryRow[], preferredPa
     if (parts.slice(0, -1).some((part) => ['src', 'app', 'cmd', 'lib', 'server'].includes(part))) value += 35;
     if (parts[0] === 'packages') value += 10;
     if (parts.some((part) => nonEntryDirectories.has(part))) value -= 100;
-    if (row.categories.includes('test')) value -= 80;
-    if (row.categories.includes('config')) value -= 35;
     if (row.sizeBytes !== null && row.sizeBytes > 1024 * 1024) value -= 25;
     value -= parts.length * 4;
     return value;
