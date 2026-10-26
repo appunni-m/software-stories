@@ -78,7 +78,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-app-zoom'] });
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
   }, [reveal, path, contents, theme]);
-  return <section className="preview-code-pane" aria-label="Code">
+  return <section className="preview-code-pane" aria-label="Code" data-focus-key="workspace-source" tabIndex={-1}>
     <div className="preview-editor-tab"><Code2 size={14} /><span>{path.split('/').at(-1)}</span><Tooltip content="Close code pane"><IconButton size="1" variant="ghost" aria-label="Close code pane" onClick={onClose}><X size={14} /></IconButton></Tooltip></div>
     <div className="preview-code-path">{path.split('/').join('  /  ')}</div>
     <div ref={host} className="preview-editor" />

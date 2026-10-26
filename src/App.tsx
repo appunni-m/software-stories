@@ -1298,9 +1298,10 @@ function App() {
       const origin = returnFocusTarget
         ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocusTarget })
         : state;
+      const openBesideGuide = origin.current.workspace === 'guide-plan';
       const destination: WorkspaceRoute = {
         ...origin.current,
-        workspace: 'atlas',
+        workspace: openBesideGuide ? 'guide-plan' : 'atlas',
         projectId: currentProject.projectId,
         snapshotId: targetSnapshotId,
         relativePath,
@@ -1315,9 +1316,9 @@ function App() {
         playbackPosition: undefined,
         transcriptPosition: undefined,
         readerSnapshotBaselineId: undefined,
-        focusTarget: 'heading:atlas',
+        focusTarget: openBesideGuide ? 'workspace-source' : 'heading:atlas',
       };
-      return origin.current.workspace === 'atlas'
+      return origin.current.workspace === destination.workspace
         && origin.current.snapshotId === targetSnapshotId
         && origin.current.relativePath === relativePath
         ? replaceCurrentRoute(origin, destination)
