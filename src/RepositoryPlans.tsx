@@ -16,6 +16,7 @@ import {
   type RepositoryPlanRevisionDetail, type RepositoryPlanRevisionSummary, type ReviewedPlanSource,
 } from './lib/repositoryPlans';
 import { loadSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
+import { parseLocalQuestionDraft, serializeLocalQuestionDraft } from './lib/localQuestionDraft';
 import type { SourceDiscoveryScope } from './lib/sourceDiscovery';
 import type { RepositoryPlanningScope } from './RepositoryPlanningDialog';
 
@@ -33,23 +34,9 @@ interface Props {
   onReviewChapter: (chapter: ChapterRevision) => void;
 }
 
-type LocalQuestionDraft = { question: string; issue: 'unreadable' | 'unsupported' | 'invalid' | null };
-
-function readLocalQuestionDraft(key: string): LocalQuestionDraft {
-  let serialized: string | null;
-  try { serialized = localStorage.getItem(key); }
-  catch { return { question: '', issue: 'unreadable' }; }
-  if (serialized === null) return { question: '', issue: null };
-  let value: unknown;
-  try { value = JSON.parse(serialized); }
-  catch { return { question: '', issue: 'unreadable' }; }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { question: '', issue: 'invalid' };
-  const record = value as Record<string, unknown>;
-  if (!Object.hasOwn(record, 'schemaVersion') || record.schemaVersion !== 1) return { question: '', issue: 'unsupported' };
-  if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'question') || typeof record.question !== 'string') {
-    return { question: '', issue: 'invalid' };
-  }
-  return { question: record.question, issue: null };
+function readLocalQuestionDraft(key: string) {
+  try { return parseLocalQuestionDraft(localStorage.getItem(key)); }
+  catch { return { question: '', issue: 'unreadable' as const }; }
 }
 
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
@@ -69,7 +56,9 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   ));
   useEffect(() => {
     if (preservedDraftIssue) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({ schemaVersion: 1, question })); } catch { /* Optional unsent local draft. */ }
+    const serialized = serializeLocalQuestionDraft(question);
+    if (serialized === null) return;
+    try { localStorage.setItem(draftKey, serialized); } catch { /* Optional unsent local draft. */ }
   }, [draftKey, preservedDraftIssue, question]);
   useEffect(() => {
     const reload = () => setSavedDiscovery(loadSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
@@ -344,7 +333,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
           ? 'It uses a format this version cannot open.'
           : preservedDraftIssue === 'unreadable'
             ? 'Its saved contents could not be read.'
-            : 'Its saved contents are incomplete.'} The stored data has been left untouched.</span>
+            : 'Its saved contents are incomplete, too long, or invalid.'} The stored data has been left untouched.</span>
         <button type="button" className="text-button" onClick={discardUnavailableQuestionDraft}>Discard saved question</button>
       </div>}
       <label>What do you want to understand?<input value={question} disabled={Boolean(preservedDraftIssue)} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
