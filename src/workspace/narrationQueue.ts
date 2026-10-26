@@ -27,7 +27,12 @@ export function createNarrationPrewarmQueue(options: {
   const maxConcurrent = Math.max(1, Math.min(4, options.maxConcurrent ?? 4));
 
   const keyOf = (input: NarrationSynthesisInput) => JSON.stringify([
-    input.spokenText, input.voice, input.style, input.lexicon,
+    input.spokenText.trim(),
+    input.voice,
+    input.style.trim(),
+    // Disabled pronunciations do not affect the native cache identity. Drop
+    // them here so duplicate sections cannot consume separate prewarm slots.
+    input.lexicon.filter((entry) => entry.include).map(({ name, sayAs }) => [name, sayAs]),
   ]);
 
   const prepareOne = async (input: NarrationSynthesisInput): Promise<void> => {
