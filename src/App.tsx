@@ -106,7 +106,6 @@ import {
   type CodeLensExplanationCitation,
   type CodeLensExplanationPreview,
   type SnapshotIndex,
-  type IndexProgress,
   type RelationshipKind,
   type GitComparisonResult,
   type HandoffAgent,
@@ -3235,21 +3234,21 @@ function AtlasDestinationCard({ refElement, manifest, selection, onOpenFile }: {
     <section className="atlas-destination-card" aria-labelledby="atlas-destination-title">
       <div className="atlas-destination-header">
         <div className="atlas-destination-icon"><Workflow size={15} /></div>
-        <div><span className="step-pill"><span>FROM WALKTHROUGH</span> ATLAS DESTINATION</span><h3 id="atlas-destination-title">Linked {selection.kind}</h3></div>
+        <div><h3 id="atlas-destination-title">Linked {selection.kind}</h3></div>
       </div>
       <div className="atlas-destination-body" ref={refElement} tabIndex={-1} data-focus-key="atlas-destination">
         {selection.kind === 'file' && <><code>{selection.path}</code><p>This file is selected in the snapshot inventory below.</p></>}
         {selection.kind === 'symbol' && <>
           <code>{selection.path}</code>
           {symbol ? <><strong>{symbol.qualifiedName}</strong><p>{symbol.kind} · lines {symbol.anchor.startLine}–{symbol.anchor.endLine}{symbol.isExported ? ' · exported' : ''}</p></>
-            : indexLoading ? <p>Resolving symbol from the snapshot index…</p>
-              : <p>The exact symbol is not present in this snapshot index.{indexError ? ` ${indexError}` : ''} The file remains selected below.</p>}
+            : indexLoading ? <p>Looking for this symbol…</p>
+              : <p>This symbol wasn’t found in the captured code.{indexError ? ` ${indexError}` : ''} The file remains selected below.</p>}
         </>}
         {selection.kind === 'relationship' && <>
           <code>{selection.relationshipId}</code>
           {relationship ? <><strong>{sourceSymbol?.qualifiedName ?? relationship.sourceId} {relationship.kind} {targetSymbol?.qualifiedName ?? relationship.targetLabel ?? relationship.targetPath ?? 'an unresolved target'}</strong><p>{relationship.confidence === 'unresolved' ? relationship.unresolvedReason ?? 'The relationship target could not be resolved.' : `Evidence at ${relationship.evidence.path}:${relationship.evidence.startLine}-${relationship.evidence.endLine}`}</p></>
-            : indexLoading ? <p>Resolving relationship from the snapshot index…</p>
-              : <p>The relationship is not present in this snapshot index.{indexError ? ` ${indexError}` : ''}</p>}
+            : indexLoading ? <p>Checking this code connection…</p>
+              : <p>This connection wasn’t found in the captured code.{indexError ? ` ${indexError}` : ''}</p>}
         </>}
         {selectedPath && <button className="atlas-destination-open" data-focus-key="atlas-destination-open" onClick={() => onOpenFile(selectedPath, snapshotId, selectedRange)}><FileCode2 size={14} /> {selectedRange ? 'Open exact source evidence' : 'Open this file'} <ArrowRight size={13} /></button>}
       </div>
@@ -3375,7 +3374,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const [indexState, setIndexState] = useState<'loading' | 'pending' | 'ready' | 'error'>('loading');
   const [indexError, setIndexError] = useState<string | null>(null);
   const [indexJobId, setIndexJobId] = useState<string | null>(null);
-  const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
   const [startingIndex, setStartingIndex] = useState(false);
   const treeRef = useRef<HTMLDivElement>(null);
   const treeTopRef = useRef(view.treeTop);
@@ -3439,7 +3437,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
     setIndex(null);
     if (!isNativeRuntime()) {
       setIndexState('pending');
-      setIndexError('Local snapshot indexing is available in the Mac app.');
+      setIndexError('Open Code Atlas on your Mac to explore code connections.');
       return () => { active = false; };
     }
     void loadSnapshotIndex(projectId, snapshotId).then((loaded) => {
@@ -3463,7 +3461,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
       try {
         const progress = await getSnapshotIndexProgress(indexJobId);
         if (!active) return;
-        if (progress) setIndexProgress(progress);
         if (progress?.status === 'running') { timer = setTimeout(poll, 900); return; }
         const loaded = await loadSnapshotIndex(projectId, snapshotId);
         if (!active) return;
@@ -3623,7 +3620,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
     setStartingIndex(true); setIndexError(null);
     try {
       const started = await startSnapshotIndexing(projectId, snapshotId);
-      setIndexProgress(null); setIndexJobId(started.jobId); setIndexState('loading');
+      setIndexJobId(started.jobId); setIndexState('loading');
     } catch (error) {
       setIndexError(errorMessageOr(error, 'Snapshot indexing could not start.'));
       setIndexState('error');
@@ -3793,10 +3790,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
       />
 
       <details className="atlas-relationship-details">
-        <summary>Explore code relationships <span>Optional · verified links from the snapshot index</span></summary>
+        <summary>Explore connected code <span>Static links found in the source</span></summary>
         <div className="atlas-map-columns">
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
-        <header><div><strong id="atlas-map-title">Relationships</strong><small>{shownEdges.length} shown · {provenEdges.length} proven for snapshot</small></div><span className="atlas-snapshot-badge">{index?.status ?? (indexState === 'loading' ? 'indexing' : indexState)}</span></header>
+        <header><div><strong id="atlas-map-title">Connections</strong><small>{shownEdges.length} code link{shownEdges.length === 1 ? '' : 's'}</small></div></header>
         <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><select aria-label="Filter relationships by type" value={view.kind} onChange={(event) => setView((s) => ({ ...s, kind: event.target.value as AtlasWorkbenchViewState['kind'] }))}><option value="all">All types</option><option value="calls">Calls</option><option value="imports">Imports</option><option value="testReference">Test references</option><option value="defines">Defines</option><option value="exports">Exports</option></select></label><label><span>Language</span><select aria-label="Filter relationships by language" value={view.language} onChange={(event) => setView((s) => ({ ...s, language: event.target.value }))}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label></div>
         {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
           {view.selectedFolder && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></button>}
@@ -3804,11 +3801,11 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
           {view.language !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, language: 'all' }))}>Language: {view.language} <span aria-hidden="true">×</span></button>}
           <button className="atlas-clear-filters" onClick={() => setView((s) => ({ ...s, selectedFolder: null, kind: 'all', language: 'all' }))}>Clear filters</button>
         </div>}
-        {indexState === 'loading' && <div className="atlas-index-banner" role="status">{indexProgress ? `Indexing ${indexProgress.filesProcessed}/${indexProgress.filesTotal} files · ${indexProgress.relationshipsFound} relationships` : 'Loading the local snapshot index…'}</div>}
-        {indexState === 'pending' && <div className="atlas-index-banner" role="status"><strong>Index pending</strong><span>{indexError ?? 'No saved index is available for this snapshot yet.'}</span>{!indexError && <button onClick={() => { void startIndex(); }} disabled={startingIndex}>{startingIndex ? 'Starting…' : 'Index this snapshot'}</button>}</div>}
-        {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Index unavailable</strong><span>{indexError}</span><button onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try indexing</button></div>}
-        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Stale snapshot evidence</strong><span>{stalePaths.length} indexed file hash{stalePaths.length === 1 ? '' : 'es'} differ from the selected snapshot; affected edges are withheld.</span>{isNativeRuntime() && <button onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Re-indexing…' : 'Re-index snapshot'}</button>}</div>}
-        {indexState === 'ready' && unsupportedCount > 0 && <div className="atlas-index-banner unsupported" role="status"><strong>{unsupportedCount} text-only path{unsupportedCount === 1 ? '' : 's'}</strong><span>Captured source stays available, but these files do not contribute local symbols or relationships.</span></div>}
+        {indexState === 'loading' && <div className="atlas-index-banner" role="status">Building code connections…</div>}
+        {indexState === 'pending' && <div className="atlas-index-banner" role="status"><strong>Connections aren’t ready</strong><span>{indexError ?? 'Prepare links between files to explore how this code fits together.'}</span>{!indexError && <button onClick={() => { void startIndex(); }} disabled={startingIndex}>{startingIndex ? 'Preparing…' : 'Prepare connections'}</button>}</div>}
+        {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Connections unavailable</strong><span>{indexError}</span><button onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try again</button></div>}
+        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Some connections may be out of date</strong><span>Links for changed files are hidden until they can be refreshed.</span>{isNativeRuntime() && <button onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Refreshing…' : 'Refresh links'}</button>}</div>}
+        {indexState === 'ready' && unsupportedCount > 0 && <div className="atlas-index-banner unsupported" role="status"><strong>{unsupportedCount} files have no code connections</strong><span>You can still open them in Explorer.</span></div>}
         <div className="atlas-canvas-toolbar" role="group" aria-label="Relationship map viewport controls">
           <span>Zoom {Math.round((dragViewport ?? view.viewport).scale * 100)}% · drag empty canvas to pan</span>
           <button aria-label="Zoom out relationship map" title="Zoom out (−)" onClick={() => zoomAtCenter(-ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale <= ATLAS_MIN_ZOOM}>−</button>
@@ -3827,10 +3824,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
               <button className="atlas-edge-node" onClick={() => to && chooseSymbol(to.symbolId, to.path)}><small>TO · {to?.kind ?? 'symbol'}</small><strong>{to?.qualifiedName ?? edge.targetId}</strong><code>{to?.path}</code></button>
               <button className="atlas-edge-evidence" onClick={() => chooseEdge(edge)}>{edge.evidence.path}:{edge.evidence.startLine}–{edge.evidence.endLine}<span>Inspect evidence</span></button>
             </article>;
-          }) : indexState === 'ready' ? <div className="atlas-empty-note"><strong>{provenEdges.length ? 'No relationships match these filters.' : 'No proven relationships in this snapshot.'}</strong><span>{provenEdges.length ? 'Clear search, select another type, or widen the folder scope.' : unresolvedCount ? `${unresolvedCount} unresolved or dynamic links were withheld from the proven map.` : 'The saved index contains no resolved relationships.'}</span></div> : null}
+          }) : indexState === 'ready' ? <div className="atlas-empty-note"><strong>{provenEdges.length ? 'No connections match these filters.' : 'No code connections could be confirmed.'}</strong><span>{provenEdges.length ? 'Clear the search, choose another connection type, or widen the folder scope.' : unresolvedCount ? `${unresolvedCount} possible connections could not be verified from the available code.` : 'No direct connections were found in the captured source.'}</span></div> : null}
           </div>
         </div>
-        <footer>{indexState === 'ready' ? `${unresolvedCount} unresolved/dynamic links withheld · ${provenEdges.length} verified edges` : 'Map contents are limited to the selected immutable snapshot.'}</footer>
+        <footer>{indexState === 'ready' ? `Showing ${provenEdges.length} source-supported links; ${unresolvedCount} possible connections could not be confirmed.` : 'Only connections supported by the captured code are shown.'}</footer>
       </section>
 
       <aside className="atlas-details-panel" aria-labelledby="atlas-details-title">
