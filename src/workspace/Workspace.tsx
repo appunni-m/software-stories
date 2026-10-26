@@ -177,6 +177,7 @@ export function DeveloperWorkspace(props:Props) {
     updateWorkspace(projectId,snapshotId,(s)=>rememberCodePane(s,current.id,open));
   };
   const [sourceEntry,setSourceEntry] = useState<{projectId:string;snapshotId:string;path:string;document:SnapshotSource}|null>(null);
+  const sourceReadRevision = useRef(0);
   const source=sourceEntry?.projectId===projectId&&sourceEntry.snapshotId===snapshotId&&sourceEntry.path===state.file
     ? sourceEntry.document : null;
   const sourceLineIndex=useMemo(()=>source?capturedSourceLineIndex(source.contents):null,[source?.contents]);
@@ -324,16 +325,28 @@ export function DeveloperWorkspace(props:Props) {
   },[projectId,snapshotId,onAnswerRestoration]);
   useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:sourcePaths[0],explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:sourcePaths[0]}:e)}));},[state.file,sourcePaths]);
-  useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){const context={path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256};update((s)=>({...s,file:routePath,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:routePath,reveal:context,codeOpen:true}:e)}));setReveal(context);setNarrowPane('source');setSearchFocused(false);}},[routePath,routeRange]);
+  useEffect(()=>{
+    if(!routePath)return;
+    if(!sourcePaths.includes(routePath)){
+      sourceReadRevision.current+=1;
+      setSourceEntry(null);setSourceError(`“${routePath}” is not readable in this captured snapshot.`);setSourceBusy(false);
+      setCodeOpen(true);setReveal(null);setNarrowPane('source');setSearchFocused(false);
+      return;
+    }
+    const context={path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256};
+    update((s)=>({...s,file:routePath,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:routePath,reveal:context,codeOpen:true}:e)}));
+    setReveal(context);setNarrowPane('source');setSearchFocused(false);
+  },[routePath,routeRange,sourcePaths]);
   useEffect(()=>{
     const path=state.file;
     setSourceEntry(null);setSourceError(null);
     if(!path||!isNativeRuntime()){setSourceBusy(false);return;}
+    const revision=++sourceReadRevision.current;
     let active=true;setSourceBusy(true);
-    void readSnapshotSource(projectId,snapshotId,path).then((value)=>{if(!active)return;
+    void readSnapshotSource(projectId,snapshotId,path).then((value)=>{if(!active||revision!==sourceReadRevision.current)return;
       if(value.snapshotId!==snapshotId||value.path!==path){setSourceError('The returned source did not match the selected snapshot and file.');setSourceBusy(false);return;}
       setSourceEntry({projectId,snapshotId,path,document:value});setSourceBusy(false);
-    }).catch((failure)=>{if(active){setSourceError(errorMessageOr(failure,'This captured file could not be opened.'));setSourceBusy(false);}});
+    }).catch((failure)=>{if(active&&revision===sourceReadRevision.current){setSourceError(errorMessageOr(failure,'This captured file could not be opened.'));setSourceBusy(false);}});
     return()=>{active=false;};
   },[projectId,snapshotId,state.file]);
   useEffect(()=>{setReveal(current.reveal??null);},[current.id,current.reveal]);
@@ -742,7 +755,7 @@ export function DeveloperWorkspace(props:Props) {
   };
   const sourcePane=source
     ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!generationPaused} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
-    : <div className="dw-source-empty">{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
+    : <div className="dw-source-empty" data-focus-key="workspace-source" tabIndex={-1}>{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
   const resolveConversationConflict=async(choice:'current'|'saved')=>{
     if(conflictResolutionBusy)return;
     setConflictResolutionBusy(true);setConflictResolutionError(null);
