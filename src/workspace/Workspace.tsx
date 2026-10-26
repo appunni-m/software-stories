@@ -622,7 +622,7 @@ export function DeveloperWorkspace(props:Props) {
   />;
   const activityButtons=[{id:'files',label:'Explorer',icon:Files},{id:'search',label:'Search',icon:Search},{id:'changes',label:'Changes',icon:GitBranch},{id:'history',label:'Explorations',icon:History}] as const;
   const explorationCounts=explorationSummaryCounts(state.explorations);
-  const [expandedExplorations,setExpandedExplorations]=useState<Set<string>>(()=>new Set());
+  const [expandedExplorations,setExpandedExplorations]=useState<Set<string>>(()=>new Set(['root']));
   const [focusedExplorationId,setFocusedExplorationId]=useState(current.id);
   useEffect(()=>setFocusedExplorationId(current.id),[current.id]);
   const renderExplorations=(parent:string|null):ReactNode=>{
@@ -634,7 +634,7 @@ export function DeveloperWorkspace(props:Props) {
       siblings.push(exploration);childrenByParent.set(exploration.parentId,siblings);
     }
     const roots=childrenByParent.get(parent)??[];
-    const currentPathIds=new Set(path.map((exploration)=>exploration.id));
+    const currentPathIds=new Set(path.slice(1).map((exploration)=>exploration.id));
     const siblingPositions=new Map<string,{position:number;size:number}>();
     for(const siblings of childrenByParent.values()){
       siblings.forEach((exploration,index)=>siblingPositions.set(exploration.id,{position:index+1,size:siblings.length}));
