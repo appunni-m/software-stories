@@ -133,13 +133,26 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
 /** Search matches are starting points for investigation, not proof of an answer. */
 export function searchExploration(query:string,mode:CodeSearchMode,matches:CodeSearchHit[]){
   const question=mode==='regex'?`Explain the code matching this regular expression: ${query}`:query.length<8?`Explain ${query}`:query;
-  const context:{path:string;from?:number;to?:number}[]=[];
+  const candidates:{path:string;from?:number;to?:number}[]=[];
   const seen=new Set<string>();
   for(const hit of matches){
     const reference={path:hit.path,...(hit.from!==undefined?{from:hit.from,to:hit.to??hit.from}:{})};
     const key=JSON.stringify(reference);
     if(seen.has(key))continue;
-    seen.add(key);context.push(reference);
+    seen.add(key);candidates.push(reference);
+  }
+  const context:{path:string;from?:number;to?:number}[]=[];
+  const selected=new Set<string>();
+  const selectedPaths=new Set<string>();
+  for(const reference of candidates){
+    if(selectedPaths.has(reference.path))continue;
+    context.push(reference);selected.add(JSON.stringify(reference));selectedPaths.add(reference.path);
+    if(context.length===8)break;
+  }
+  if(context.length<8)for(const reference of candidates){
+    const key=JSON.stringify(reference);
+    if(selected.has(key))continue;
+    context.push(reference);selected.add(key);
     if(context.length===8)break;
   }
   return {question,context};
