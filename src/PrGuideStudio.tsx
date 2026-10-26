@@ -1,5 +1,6 @@
 import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, type DirectApiSelectionIssue } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
+import { providerFailureMessage } from './lib/errorMessage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
@@ -626,10 +627,10 @@ export function PrGuideStudio({
       {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider in Connections.</p>}
       {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model in Connections.</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}
-      {credential?.status === 'error' && <p className="git-error-note" role="alert">{credential.error.message}</p>}
+      {credential?.status === 'error' && <p className="git-error-note" role="alert">{providerFailureMessage(credential.error)}</p>}
       </>}
       {!isNativeRuntime() && <p className="git-preview-note" role="status">The browser preview can inspect the UI but cannot run coding agents, call provider APIs or read local Git. Generation runs only in the packaged Mac app.</p>}
-      {requestError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {requestError.message}</p>}
+      {requestError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {providerFailureMessage(requestError)}</p>}
       {notice && <p className="pr-guide-notice" role="status"><Check size={15} /> {notice}</p>}
 
       {codexMode && <CodexChapterDialog mode={codexMode} native={isNativeRuntime()}
@@ -956,7 +957,7 @@ function PrChangeExplanationPanel({
       </div>
       <p className="pr-guide-muted">This request explains one selected hunk and returns temporary claims linked to the exact base/head source. It does not create PR Guide history or change Git refs.</p>
       {building && <p className="pr-guide-muted" role="status">Building the exact local hunk review…</p>}
-      {error && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {error.message}</p>}
+      {error && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {providerFailureMessage(error)}</p>}
       {requestReview && (
         <>
           <div className="provider-request-summary">

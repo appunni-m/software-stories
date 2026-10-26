@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileCode2, X } from 'lucide-react';
+import { providerFailureMessage } from './lib/errorMessage';
 import { InlineCodeText } from './InlineCodeText';
 import {
   buildAgentHandoffReview, discardGeneratedChapterDraft, discardProviderRequestReview,
@@ -120,7 +121,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
     try {
       const result = await buildAgentHandoffReview({ projectId, snapshotId, targetPath, selectedPaths: paths, agentId: agent });
       if (epoch !== lifetime.current) { if (result.status === 'ok') void discardProviderRequestReview(result.data.reviewId).catch(() => {}); return; }
-      if (result.status === 'error') { setError(result.error.message); return; }
+      if (result.status === 'error') { setError(providerFailureMessage(result.error)); return; }
       resources.current.review = result.data.reviewId; setReview(result.data);
     } catch { if (epoch === lifetime.current) setError('The local task could not be prepared. No agent was started.'); }
     finally { finish(epoch); }
@@ -131,7 +132,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
     try {
       const result = await exportAgentHandoff(review.reviewId, review.fingerprint, consent);
       if (epoch !== lifetime.current) return;
-      if (result.status === 'error') { setError(result.error.message); return; }
+      if (result.status === 'error') { setError(providerFailureMessage(result.error)); return; }
       setTaskText(result.data);
       try {
         await navigator.clipboard.writeText(result.data);
@@ -146,7 +147,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
     try {
       const result = await importAgentHandoffResult(review.reviewId, review.fingerprint, response);
       if (epoch !== lifetime.current) { if (result.status === 'ok') void discardGeneratedChapterDraft(result.data.generationId).catch(() => {}); return; }
-      if (result.status === 'error') { setError(result.error.message); return; }
+      if (result.status === 'error') { setError(providerFailureMessage(result.error)); return; }
       resources.current.draft = result.data.generationId; resources.current.review = null;
       setPreview(result.data); setTaskText(''); setResponse(''); setConsent(false);
       window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
