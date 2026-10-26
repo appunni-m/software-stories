@@ -377,7 +377,7 @@ fn validate(record: &Record) -> Result<(), String> {
             .position(|unit| unit.continuation_topic.is_some())
             .unwrap_or(plan.units.len());
         let continuation_units = plan.units.len().saturating_sub(original_units);
-        if !(2..=MAX_UNITS).contains(&original_units)
+        if !(2..=MAX_TOTAL_UNITS).contains(&original_units)
             || plan.units.len() > MAX_TOTAL_UNITS
             || continuation_units > MAX_TOTAL_UNITS.saturating_sub(original_units)
             || record.units.len() != plan.units.len()

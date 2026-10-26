@@ -37,12 +37,13 @@ const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
-// Keep the previous stored-outline bound so existing guides remain readable.
+// Older saved guides have at most twelve planned units and may have up to
+// eight continuation units appended later. Keep both shapes readable while
+// allowing new guides to plan the full saved-guide capacity up front.
 const MAX_UNITS: usize = 12;
-const MAX_INITIAL_UNITS: usize = 4;
-// Preserve the existing total guide ceiling while reallocating later slots.
 const MAX_LEGACY_CONTINUATION_UNITS: usize = 8;
 pub(crate) const MAX_TOTAL_UNITS: usize = MAX_UNITS + MAX_LEGACY_CONTINUATION_UNITS;
+const MAX_INITIAL_UNITS: usize = MAX_TOTAL_UNITS;
 pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_TOTAL_UNITS + 1;
 const MAX_OMISSIONS: usize = 64;
 const MAX_OMISSION_BYTES: usize = 240;
