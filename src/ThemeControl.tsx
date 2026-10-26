@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Select } from '@radix-ui/themes';
 import { Monitor, Moon, Sun } from 'lucide-react';
+import { AppSelect } from './design/AppSelect';
 export type ThemeMode = 'system' | 'light' | 'dark';
 const key = 'code-atlas:theme';
 export function ThemeControl() {
@@ -16,14 +16,7 @@ export function ThemeControl() {
     try { localStorage.setItem(key, value); } catch { /* Appearance still applies to this window. */ }
   };
   const Icon = mode === 'light' ? Sun : mode === 'dark' ? Moon : Monitor;
-  return <div className="theme-control"><Icon size={15} aria-hidden="true" /><Select.Root size="1" value={mode} onValueChange={(value) => {
+  return <div className="theme-control"><Icon size={15} aria-hidden="true" /><AppSelect ariaLabel="Appearance" className="theme-control-trigger" size="1" variant="ghost" value={mode} options={[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'}]} onValueChange={(value) => {
     if (value === 'system' || value === 'light' || value === 'dark') chooseMode(value);
-  }}>
-    <Select.Trigger className="theme-control-trigger" variant="ghost" color="gray" aria-label="Appearance" />
-    <Select.Content position="popper">
-      <Select.Item value="system">System</Select.Item>
-      <Select.Item value="light">Light</Select.Item>
-      <Select.Item value="dark">Dark</Select.Item>
-    </Select.Content>
-  </Select.Root></div>;
+  }} /></div>;
 }

@@ -9,9 +9,11 @@ import {
   matchesClaudeOperationReview, prepareClaudeOperationReview, type ClaudeOperationReviewMode,
 } from './lib/claudeReview';
 import { ClaudeGenerationPanel, type ClaudeResultCallbacks } from './ClaudeGenerationPanel';
+import { AppSelect } from './design/AppSelect';
 
 type Selection = Pick<ClaudeGenerationSettings, 'modelId' | 'effort' | 'maxTurns'>;
 const preferenceKey = 'code-atlas:claude-chapter-preferences';
+const runtimeDefaultValue = 'runtime-default';
 
 function isEffort(value: unknown): value is ClaudeReasoningEffort {
   return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh' || value === 'max';
@@ -271,26 +273,13 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     <p>Choose supported settings and review the exact source locally. Generation needs an admitted native runtime and your explicit confirmation.</p>
     {savedPreferences.unavailable && <p className="provider-preference-warning" role="status">Saved Claude settings could not be read. They are unchanged; choose a model to replace them.</p>}
     <label className="provider-model-select">Model
-      <select value={selectedModel ? selection.modelId : ''} disabled={locked} onChange={(event) => changeSettings({ ...selection, modelId: event.target.value, effort: null }, event.target.value.length > 0)}>
-        <option value="">Choose from this catalog…</option>
-        {discovery.catalog.models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}
-      </select>
+      <AppSelect ariaLabel="Claude model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked} clearLabel="Choose from this catalog…" options={discovery.catalog.models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={(modelId)=>changeSettings({...selection,modelId,effort:null},modelId.length>0)}/>
     </label>
     <label className="provider-model-select">Reasoning effort
-      <select value={effortKnown ? selection.effort ?? '' : 'unavailable'} disabled={locked || !selectedModel} onChange={(event) => {
-        const effort = event.target.value;
-        if (effort === '') changeSettings({ ...selection, effort: null });
-        else if (isEffort(effort) && selectedModel?.supportedEfforts.includes(effort)) changeSettings({ ...selection, effort });
-      }}>
-        {!effortKnown && <option value="unavailable" disabled>Saved effort unavailable</option>}
-        <option value="">Runtime default</option>
-        {selectedModel?.supportedEfforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
-      </select>
+      <AppSelect ariaLabel="Claude reasoning effort" size="1" value={effortKnown ? selection.effort ?? runtimeDefaultValue : 'unavailable'} disabled={locked || !selectedModel} options={[...(!effortKnown?[{value:'unavailable',label:'Saved effort unavailable',disabled:true}]:[]),{value:runtimeDefaultValue,label:'Runtime default'},...(selectedModel?.supportedEfforts??[]).map((effort)=>({value:effort,label:effort}))]} onValueChange={(effort)=>{if(effort===runtimeDefaultValue)changeSettings({...selection,effort:null});else if(isEffort(effort)&&selectedModel?.supportedEfforts.includes(effort))changeSettings({...selection,effort});}}/>
     </label>
     <label className="provider-model-select">Turn limit
-      <select value={selection.maxTurns} disabled={locked} onChange={(event) => changeSettings({ ...selection, maxTurns: Number(event.target.value) })}>
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((turns) => <option key={turns} value={turns}>{turns}</option>)}
-      </select>
+      <AppSelect ariaLabel="Claude turn limit" size="1" value={String(selection.maxTurns)} disabled={locked} options={[1,2,3,4,5,6,7,8].map((turns)=>({value:String(turns),label:String(turns)}))} onValueChange={(turns)=>changeSettings({...selection,maxTurns:Number(turns)})}/>
     </label>
     <p className="provider-small-note"><strong>Approval: Don’t ask · fixed.</strong> This explanation adapter requests no command, file, web or external tools. Runtime default effort omits the effort override. These defaults are saved for Claude only.</p>
     {!!selection.modelId && !selectedModel && <p role="status">The saved model is absent from this catalog. Choose an available model.</p>}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
+import { AppSelect } from './design/AppSelect';
 import { providerFailureMessage } from './lib/errorMessage';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -87,7 +88,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
   };
   return <div className="provider-dialog-content connections-voice">
     <div><h3>Voice for your explanations</h3><p>Choose once, then press Listen on any answer.</p></div>
-    <label className="walkthrough-narration-field">Voice engine<select value={settings.backend} disabled={busy} onChange={(event) => save({ backend: event.target.value === 'gemini' ? 'gemini' : 'pocket-tts' })}><option value="pocket-tts">Pocket TTS — on this Mac, free</option><option value="gemini">Google Gemini — cloud</option></select></label>
+    <label className="walkthrough-narration-field">Voice engine<AppSelect ariaLabel="Voice engine" size="1" value={settings.backend} disabled={busy} options={[{value:'pocket-tts',label:'Pocket TTS — on this Mac, free'},{value:'gemini',label:'Google Gemini — cloud'}]} onValueChange={(backend)=>save({backend:backend==='gemini'?'gemini':'pocket-tts'})}/></label>
     {!native && <p role="status">Voice setup is available in the Code Atlas Mac app.</p>}
     {settings.backend === 'pocket-tts' ? <>
       <div className="connections-status"><CheckCircle2 size={17}/><div><strong>{busy ? 'Preparing voice…' : status?.ready ? 'Ready to listen' : 'Prepare local voice'}</strong><p>Alba · English · text stays on this Mac</p></div></div>
@@ -97,7 +98,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       <details><summary>Voice details and troubleshooting</summary><p>{status?.message ?? 'Checking availability…'}</p><p>Alba MacKenna voice · CC BY 4.0.</p><a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>{status?.ready && <button className="secondary-button" disabled={busy || status.busy || !status.setupAvailable} onClick={() => { void prepare(); }}>Repair voice setup</button>}</details>
     </> : <>
       <p>Only narration text is sent to Google after you review and approve it. Free-tier limits, data use and possible charges depend on your Google project.</p>
-      <label className="walkthrough-narration-field">Voice<select value={settings.googleVoice} disabled={!native || busy} onChange={(event) => save({ googleVoice: event.target.value })}>{(disclosure?.voices ?? ['Kore', 'Charon', 'Puck', 'Aoede']).map((voice) => <option key={voice}>{voice}</option>)}</select></label>
+      <label className="walkthrough-narration-field">Voice<AppSelect ariaLabel="Google narration voice" size="1" value={settings.googleVoice} disabled={!native || busy} options={(disclosure?.voices ?? ['Kore', 'Charon', 'Puck', 'Aoede']).map((voice)=>({value:voice,label:voice}))} onValueChange={(googleVoice)=>save({googleVoice})}/></label>
       <details><summary>Delivery style</summary><label className="walkthrough-narration-field">Style<input value={settings.googleStyle} disabled={busy} maxLength={160} onChange={(event) => save({ googleStyle: event.target.value })} placeholder="Optional, e.g. calm and conversational"/></label></details>
       <form onSubmit={(event) => { event.preventDefault(); void changeKey(); }}><label className="walkthrough-narration-field">{credential?.apiKeyConfigured ? 'Replace Google API key' : 'Google API key'}<input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" spellCheck={false} disabled={!native || busy}/></label><div className="provider-key-actions"><button className="secondary-button" type="submit" disabled={!native || busy || !key.trim()}>Save key</button>{credential?.apiKeyConfigured && <button className="text-button" type="button" disabled={busy} onClick={() => { void changeKey(true); }}>Remove key</button>}</div></form>
       <p>{credential?.apiKeyConfigured ? 'Key saved in macOS Keychain.' : 'No Google key saved.'} {disclosure && <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get a Google key</a>}</p>

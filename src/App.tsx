@@ -3,6 +3,7 @@ import { removeClaimAndReferences, replaceCitation } from './lib/chapterEditing'
 import { ChapterCitationEditor } from './ChapterCitationEditor';
 import { ChapterValidationIssues } from './ChapterValidationIssues';
 import { ChapterRebaseReview } from './ChapterRebaseReview';
+import { AppSelect } from './design/AppSelect';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
@@ -2594,10 +2595,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
         ) : (
           <div className="provider-dialog-content">
             {!reviewMode ? <label className="provider-model-select">Direct API provider
-              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={keyBusy || sending || saveBusy || Boolean(sendResult || codeLensResult)}>
-                <option value="">Choose a provider…</option>
-                {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
-              </select>
+              <AppSelect ariaLabel="Direct API provider" size="1" value={providerId} clearLabel="Choose a provider…" options={providerCatalog.map((provider)=>({value:provider.providerId,label:provider.displayName}))} onValueChange={handleProviderChange} disabled={keyBusy || sending || saveBusy || Boolean(sendResult || codeLensResult)}/>
             </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
             {!reviewMode && directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
             {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
@@ -2641,10 +2639,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 </div>
                 {!reviewMode && (
                   <label className="provider-model-select">Model
-                    <select value={modelId} onChange={(event) => handleModelChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult) || disclosure.models.length === 0}>
-                      <option value="">Choose a model…</option>
-                      {disclosure.models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}
-                    </select>
+                    <AppSelect ariaLabel="Direct API model" size="1" value={modelId} clearLabel="Choose a model…" options={disclosure.models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={handleModelChange} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult) || disclosure.models.length === 0}/>
                   </label>
                 )}
                 {reviewMode && selectedModel && <article className="provider-model selected">
@@ -3794,7 +3789,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         <div className="atlas-map-columns">
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
         <header><div><strong id="atlas-map-title">Connections</strong><small>{shownEdges.length} code link{shownEdges.length === 1 ? '' : 's'}</small></div></header>
-        <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><select aria-label="Filter relationships by type" value={view.kind} onChange={(event) => setView((s) => ({ ...s, kind: event.target.value as AtlasWorkbenchViewState['kind'] }))}><option value="all">All types</option><option value="calls">Calls</option><option value="imports">Imports</option><option value="testReference">Test references</option><option value="defines">Defines</option><option value="exports">Exports</option></select></label><label><span>Language</span><select aria-label="Filter relationships by language" value={view.language} onChange={(event) => setView((s) => ({ ...s, language: event.target.value }))}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label></div>
+        <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><AppSelect ariaLabel="Filter relationships by type" size="1" value={view.kind} options={[{value:'all',label:'All types'},{value:'calls',label:'Calls'},{value:'imports',label:'Imports'},{value:'testReference',label:'Test references'},{value:'defines',label:'Defines'},{value:'exports',label:'Exports'}]} onValueChange={(kind)=>setView((s)=>({...s,kind:kind as AtlasWorkbenchViewState['kind']}))}/></label><label><span>Language</span><AppSelect ariaLabel="Filter relationships by language" size="1" value={view.language} options={[{value:'all',label:'All languages'},...languages.map((language)=>({value:language,label:language}))]} onValueChange={(language)=>setView((s)=>({...s,language}))}/></label></div>
         {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
           {view.selectedFolder && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></button>}
           {view.kind !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, kind: 'all' }))}>Type: {view.kind} <span aria-hidden="true">×</span></button>}

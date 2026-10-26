@@ -58,7 +58,6 @@ interface NarrationPlayerProps {
   transcriptPosition: number;
   onPlaybackPositionChange: (position: number) => void;
   onTranscriptPositionChange: (position: number) => void;
-  onOpenProviderSettings: () => void;
   onPlaybackStarted?: () => void;
   autoPlay?: boolean;
   clip?: { id: string; text: string };
