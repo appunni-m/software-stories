@@ -325,8 +325,12 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("start with list_modules to identify top-level modules")
+            .contains("begin with one focused search_code call using resultKind:files")
     );
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS
+        .contains("Do not make a full module inventory a prerequisite for the first useful outline"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS
+        .contains("Use list_modules only for a specific inventory question"));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("multiple relevant implementation files")
