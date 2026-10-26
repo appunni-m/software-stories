@@ -9,6 +9,7 @@ import { CodeDetail } from '../design/CodeDetail';
 import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
+import { AnswerVisualPreview } from './AnswerVisualPreview';
 import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
@@ -1048,7 +1049,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
           }}
         />
         <div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{position+1} / {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>
-      </> : <details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details>}
+      </> : <><AnswerVisualPreview revision={revision} section={section} onOpenAnchor={onOpen}/><details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details></>}
       {coverageSummary&&<div className="dw-guide-coverage" role="status"><strong>Partial guide</strong><span>Still uncovered: {coverageSummary}</span></div>}
       <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}<ExplorationBranchLinks branches={branches} onGo={onGo}/></footer>
       </>
