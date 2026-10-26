@@ -4051,9 +4051,11 @@ fn compact_agent_index_evidence(user_prompt: &mut String) -> bool {
     let Some((prefix, encoded_evidence)) = user_prompt.rsplit_once(MARKER) else {
         return false;
     };
-    let Ok(mut evidence) = serde_json::from_str::<Value>(encoded_evidence) else {
+    let mut parser = serde_json::Deserializer::from_str(encoded_evidence).into_iter::<Value>();
+    let Some(Ok(mut evidence)) = parser.next() else {
         return false;
     };
+    let suffix = encoded_evidence[parser.byte_offset()..].to_owned();
     let Some(object) = evidence.as_object_mut() else {
         return false;
     };
@@ -4081,6 +4083,7 @@ fn compact_agent_index_evidence(user_prompt: &mut String) -> bool {
     user_prompt.truncate(prefix.len());
     user_prompt.push_str(MARKER);
     user_prompt.push_str(&compact);
+    user_prompt.push_str(&suffix);
     true
 }
 
