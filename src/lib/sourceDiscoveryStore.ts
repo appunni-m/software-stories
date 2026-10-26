@@ -15,6 +15,11 @@ const MAX_COLLECTION_BYTES = 128 * 1024;
 
 export const SOURCE_DISCOVERY_SAVED_EVENT = 'code-atlas:source-discovery-saved';
 
+export type SourceDiscoveryRead =
+  | { status: 'missing' }
+  | { status: 'available'; result: SourceDiscoveryResult }
+  | { status: 'unavailable'; issue: 'storage' | 'oversized' | 'unreadable' | 'unsupported' | 'invalid' | 'stale-path' };
+
 interface SavedSourceDiscovery {
   schemaVersion: 1;
   projectId: string;
@@ -185,28 +190,45 @@ export function saveSourceDiscoveryResult(scope: SourceDiscoveryScope, result: S
   } catch { return false; }
 }
 
-/** Load only for the same question, snapshot and target, and only while every path remains in its manifest. */
-export function loadSourceDiscoveryResult(
+/** Read only for the same question, snapshot and target, and only while every path remains in its manifest. */
+export function readSourceDiscoveryResult(
   scope: SourceDiscoveryScope,
   availablePaths: readonly string[],
-): SourceDiscoveryResult | null {
+): SourceDiscoveryRead {
   const key = storageKey(scope);
-  if (!key) return null;
+  if (!key) return { status: 'missing' };
+  let serialized: string | null;
   try {
-    const serialized = localStorage.getItem(key);
-    if (!serialized || byteLength(serialized) > MAX_COLLECTION_BYTES) return null;
-    const parsed: unknown = JSON.parse(serialized);
-    const records = validCollection(parsed)
-      && parsed.projectId === scope.projectId
-      && parsed.snapshotId === scope.snapshotId
-      ? parsed.records : [];
+    serialized = localStorage.getItem(key);
+  } catch {
+    return { status: 'unavailable', issue: 'storage' };
+  }
+  if (serialized === null) return { status: 'missing' };
+  if (byteLength(serialized) > MAX_COLLECTION_BYTES) return { status: 'unavailable', issue: 'oversized' };
+
+  let parsed: unknown;
+  try { parsed = JSON.parse(serialized); }
+  catch { return { status: 'unavailable', issue: 'unreadable' }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { status: 'unavailable', issue: 'invalid' };
+  const collection = parsed as Record<string, unknown>;
+  if (collection.schemaVersion !== 2) return { status: 'unavailable', issue: 'unsupported' };
+  if (Array.isArray(collection.records) && collection.records.some((candidate) => candidate && typeof candidate === 'object'
+    && !Array.isArray(candidate) && (candidate as Record<string, unknown>).schemaVersion !== 1)) {
+    return { status: 'unavailable', issue: 'unsupported' };
+  }
+  if (!validCollection(parsed)) return { status: 'unavailable', issue: 'invalid' };
+  if (collection.projectId !== scope.projectId || collection.snapshotId !== scope.snapshotId) {
+    return { status: 'unavailable', issue: 'invalid' };
+  }
+  const records = collection.records as SavedSourceDiscovery[];
+  try {
     const saved = records.find((record) => recordMatchesScope(record, scope));
-    if (!saved) return null;
+    if (!saved) return { status: 'missing' };
     const allowed = new Set(availablePaths);
-    if (saved.selectedFiles.some(({ path }) => !allowed.has(path))) return null;
-    return {
+    if (saved.selectedFiles.some(({ path }) => !allowed.has(path))) return { status: 'unavailable', issue: 'stale-path' };
+    return { status: 'available', result: {
       selectedFiles: saved.selectedFiles.map(({ path, reason }) => ({ path, reason })),
       limitation: saved.limitation,
-    };
-  } catch { return null; }
+    } };
+  } catch { return { status: 'unavailable', issue: 'invalid' }; }
 }

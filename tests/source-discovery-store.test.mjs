@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import {
-  loadSourceDiscoveryResult, saveSourceDiscoveryResult,
+  readSourceDiscoveryResult, saveSourceDiscoveryResult,
 } from '../src/lib/sourceDiscoveryStore.ts';
 
 const scope = { projectId: '/repo/example', snapshotId: 'snapshot-1', question: 'How does parsing work?' };
@@ -28,7 +28,7 @@ describe('saved source discovery scope', () => {
     const values = new Map();
     withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
       assert.equal(saveSourceDiscoveryResult(scope, result), true);
-      assert.deepEqual(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), result);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
       const collection = JSON.parse([...values.values()][0]);
       assert.equal(collection.schemaVersion, 2);
       assert.equal(collection.projectId, scope.projectId);
@@ -47,10 +47,10 @@ describe('saved source discovery scope', () => {
     const values = new Map();
     withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
       saveSourceDiscoveryResult(scope, result);
-      assert.equal(loadSourceDiscoveryResult({ ...scope, question: 'A different question?' }, ['src/parser.ts', 'src/token.ts']), null);
-      assert.equal(loadSourceDiscoveryResult({ ...scope, snapshotId: 'snapshot-2' }, ['src/parser.ts', 'src/token.ts']), null);
-      assert.equal(loadSourceDiscoveryResult({ ...scope, targetPath: 'src/other.ts' }, ['src/parser.ts', 'src/token.ts']), null);
-      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts']), null);
+      assert.deepEqual(readSourceDiscoveryResult({ ...scope, question: 'A different question?' }, ['src/parser.ts', 'src/token.ts']), { status: 'missing' });
+      assert.deepEqual(readSourceDiscoveryResult({ ...scope, snapshotId: 'snapshot-2' }, ['src/parser.ts', 'src/token.ts']), { status: 'missing' });
+      assert.deepEqual(readSourceDiscoveryResult({ ...scope, targetPath: 'src/other.ts' }, ['src/parser.ts', 'src/token.ts']), { status: 'missing' });
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts']), { status: 'unavailable', issue: 'stale-path' });
     });
   });
 
@@ -66,16 +66,21 @@ describe('saved source discovery scope', () => {
       const collection = JSON.parse(values.get(key));
       collection.extra = 'unknown schema';
       values.set(key, JSON.stringify(collection));
-      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'unavailable', issue: 'invalid' });
+      const unsupported = JSON.stringify({ schemaVersion: 99, projectId: scope.projectId, snapshotId: scope.snapshotId, records: [] });
+      values.set(key, unsupported);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'unavailable', issue: 'unsupported' });
+      assert.equal(saveSourceDiscoveryResult(scope, result), false);
+      assert.equal(values.get(key), unsupported);
       values.set(key, '{');
-      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'unavailable', issue: 'unreadable' });
     });
   });
 
   it('treats unavailable local storage as an optional cache', () => {
     withStorage({ getItem() { throw Error('blocked'); }, setItem() { throw Error('full'); } }, () => {
       assert.equal(saveSourceDiscoveryResult(scope, result), false);
-      assert.equal(loadSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), null);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'unavailable', issue: 'storage' });
     });
   });
 
@@ -83,7 +88,7 @@ describe('saved source discovery scope', () => {
     const malformed = { ...scope, projectId: '/repo/\ud800' };
     withStorage({ getItem: () => null, setItem() {} }, () => {
       assert.equal(saveSourceDiscoveryResult(malformed, result), false);
-      assert.equal(loadSourceDiscoveryResult(malformed, ['src/parser.ts', 'src/token.ts']), null);
+      assert.deepEqual(readSourceDiscoveryResult(malformed, ['src/parser.ts', 'src/token.ts']), { status: 'missing' });
     });
   });
 
@@ -93,7 +98,7 @@ describe('saved source discovery scope', () => {
     const accepted = { ...scope, question: '🧭'.repeat(300) };
     withStorage(storage, () => {
       assert.equal(saveSourceDiscoveryResult(accepted, result), true);
-      assert.deepEqual(loadSourceDiscoveryResult(accepted, ['src/parser.ts', 'src/token.ts']), result);
+      assert.deepEqual(readSourceDiscoveryResult(accepted, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
       assert.equal(saveSourceDiscoveryResult({ ...scope, question: '🧭'.repeat(301) }, result), false);
     });
   });
@@ -116,7 +121,7 @@ describe('saved source discovery scope', () => {
       readFile(new URL('../src/RepositoryPlanningDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
     ]);
-    assert.match(plans, /loadSourceDiscoveryResult\(\{ projectId, snapshotId, question: clean \}, availablePaths\)/);
+    assert.match(plans, /readSourceDiscoveryResult\(\{ projectId, snapshotId, question: clean \}, availablePaths\)/);
     assert.match(plans, /selectedPaths: discoveryResult\?\.selectedFiles\.map/);
     assert.match(plans, /Find code again/);
     assert.match(dialog, /useState<SourceDiscoveryResult \| null>\(\(\) => scope\.discoveryResult \?\? null\)/);

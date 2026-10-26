@@ -15,7 +15,7 @@ import {
   type RepositoryPlanDraftDetail, type RepositoryPlanDraftSummary,
   type RepositoryPlanRevisionDetail, type RepositoryPlanRevisionSummary, type ReviewedPlanSource,
 } from './lib/repositoryPlans';
-import { loadSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
+import { readSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT, type SourceDiscoveryRead } from './lib/sourceDiscoveryStore';
 import { parseLocalQuestionDraft, serializeLocalQuestionDraft } from './lib/localQuestionDraft';
 import type { SourceDiscoveryScope } from './lib/sourceDiscovery';
 import type { RepositoryPlanningScope } from './RepositoryPlanningDialog';
@@ -39,6 +39,17 @@ function readLocalQuestionDraft(key: string) {
   catch { return { question: '', issue: 'unreadable' as const }; }
 }
 
+function sourceDiscoveryIssueText(issue: Extract<SourceDiscoveryRead, { status: 'unavailable' }>['issue']): string {
+  switch (issue) {
+    case 'storage': return 'The saved code selection could not be read from local storage.';
+    case 'oversized': return 'The saved code selection exceeds its storage limit.';
+    case 'unreadable': return 'The saved code selection is unreadable.';
+    case 'unsupported': return 'The saved code selection uses an unsupported format.';
+    case 'invalid': return 'The saved code selection is invalid for this snapshot.';
+    case 'stale-path': return 'A saved code path is no longer present in this snapshot.';
+  }
+}
+
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
  * discovery is followed by a native evidence-revalidating load before display. */
 export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter,
@@ -51,9 +62,10 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   const [question, setQuestion] = useState(localDraft.question);
   const [preservedDraftIssue, setPreservedDraftIssue] = useState(localDraft.issue);
   const availablePaths = useMemo(() => manifest.files.filter((file) => file.kind === 'file').map((file) => file.path), [manifest.files]);
-  const [savedDiscovery, setSavedDiscovery] = useState(() => loadSourceDiscoveryResult(
+  const [savedDiscoveryRead, setSavedDiscoveryRead] = useState<SourceDiscoveryRead>(() => readSourceDiscoveryResult(
     { projectId, snapshotId, question: localDraft.question.trim() }, availablePaths,
   ));
+  const savedDiscovery = savedDiscoveryRead.status === 'available' ? savedDiscoveryRead.result : null;
   useEffect(() => {
     if (preservedDraftIssue) return;
     const serialized = serializeLocalQuestionDraft(question);
@@ -61,7 +73,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     try { localStorage.setItem(draftKey, serialized); } catch { /* Optional unsent local draft. */ }
   }, [draftKey, preservedDraftIssue, question]);
   useEffect(() => {
-    const reload = () => setSavedDiscovery(loadSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
+    const reload = () => setSavedDiscoveryRead(readSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
     const onSaved = (event: Event) => {
       const detail = (event as CustomEvent<SourceDiscoveryScope>).detail;
       if (!detail || detail.projectId !== projectId || detail.snapshotId !== snapshotId || detail.question !== question.trim()) return;
@@ -293,8 +305,9 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     if ([...clean].length < 8 || [...clean].length > 300 || /[\u0000-\u001f\u007f-\u009f]/u.test(clean)) { setFormError('Write a learning question using 8–300 characters without control characters.'); return; }
 
     setQuestion(clean);
-    const discoveryResult = loadSourceDiscoveryResult({ projectId, snapshotId, question: clean }, availablePaths);
-    setSavedDiscovery(discoveryResult);
+    const discoveryRead = readSourceDiscoveryResult({ projectId, snapshotId, question: clean }, availablePaths);
+    setSavedDiscoveryRead(discoveryRead);
+    const discoveryResult = discoveryRead.status === 'available' ? discoveryRead.result : null;
     onPlan({ projectId, snapshotId, question: clean,
       selectedPaths: discoveryResult?.selectedFiles.map((file) => file.path) ?? [], discoveryResult: discoveryResult ?? undefined });
   }
@@ -338,6 +351,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
       </div>}
       <label>What do you want to understand?<input value={question} disabled={Boolean(preservedDraftIssue)} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
       <p>Codex follows the code index and flow to choose relevant implementation files. Documentation is treated as guidance and checked against code.</p>
+      {savedDiscoveryRead.status === 'unavailable' && <div className="coverage-storage-warning" role="status"><span>{sourceDiscoveryIssueText(savedDiscoveryRead.issue)} Stored bytes were left untouched; find code again to create a fresh selection.</span></div>}
       {savedDiscovery && <section className="provider-review-card plan-saved-code-scope" aria-label="Saved code scope">
         <div><strong>Code found for this question</strong><p>This scope matches the current snapshot and question. Source is reviewed again before generation.</p></div>
         <ul>{savedDiscovery.selectedFiles.map((file) => <li key={file.path}><code>{file.path}</code><span>{file.reason}</span></li>)}</ul>

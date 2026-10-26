@@ -3,7 +3,7 @@ import { LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type DiscoveryCoverageGapCategory, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
-import { loadSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
+import { readSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
 import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, loadSnapshotManifest, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
@@ -27,6 +27,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const [phase, setPhase] = useState('Preparing your repository…');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savedSelectionNotice, setSavedSelectionNotice] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [needsConnection, setNeedsConnection] = useState(false);
   const connectionState = useConnectionState();
@@ -49,7 +50,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     let timer: ReturnType<typeof setTimeout> | undefined;
     const wait = () => new Promise<void>((resolve) => { timer = setTimeout(resolve, 250); });
     dialog.current?.focus();
-    setReview(null); setError(null); setBusy(true); preparing.current = true;
+    setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true); preparing.current = true;
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
       if (persistSuccessfulResult) {
@@ -57,11 +58,19 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
           const manifest=await loadSnapshotManifest(scope.projectId,scope.snapshotId);
           if (!current) return;
           const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&file.disposition==='captured'&&!file.secretLike).map((file)=>file.path);
-          const saved=loadSourceDiscoveryResult(scope,availablePaths);
-          if (saved) { onReady(saved); return; }
+          const saved=readSourceDiscoveryResult(scope,availablePaths);
+          if (saved.status === 'available') { onReady(saved.result); return; }
+          if (saved.status === 'unavailable') {
+            const issue = saved.issue === 'unsupported' ? 'The saved code selection uses an unsupported format.'
+              : saved.issue === 'stale-path' ? 'A saved code path is no longer present in this snapshot.'
+                : saved.issue === 'oversized' ? 'The saved code selection exceeds its storage limit.'
+                  : saved.issue === 'storage' ? 'The saved code selection could not be read from local storage.'
+                    : saved.issue === 'unreadable' ? 'The saved code selection is unreadable.'
+                      : 'The saved code selection is invalid for this snapshot.';
+            setSavedSelectionNotice(`${issue} The stored bytes were left untouched; you can find code again below.`);
+          }
         } catch {
-          // Cached selections are used only after their paths can be checked
-          // against the current immutable manifest. Discovery may still retry.
+          setSavedSelectionNotice('The saved code selection could not be checked against this snapshot. The stored bytes were left untouched; you can find code again below.');
         }
       }
       const connection = await ensureCodexConnection(retry > 0);
@@ -151,6 +160,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         <details><summary>Details shared with your connection</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}
       </>}
+      {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
     </div><footer className="provider-dialog-footer"><button className="secondary-button" onClick={onClose}>{active.current ? 'Cancel discovery' : 'Cancel'}</button>
       {error ? <button className="primary-button" onClick={() => setRetry((value) => value + 1)}>Try again</button> : <button className="primary-button" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</button>}
