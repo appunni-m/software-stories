@@ -659,6 +659,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   patchTurn(project,snapshot,id,{status:'queued',failureCode:undefined,error:undefined,runIds:[...(turn.runIds ?? []),runId]});
   let release:(()=>void)|null=null;
   let unlisten: (() => void) | undefined;
+  let generationDispatched = false;
   let adoption = Promise.resolve();
   try {
     // Save turn identity first so either side of the following native write
@@ -681,6 +682,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       });
     });
     check();
+    generationDispatched = true;
     const summary = await invoke<AnswerSummary>('generate_progressive_workspace_answer',{input:{
       runId,turnId:id,projectId:project,snapshotId:snapshot,grantId,rendererQueueWaitMs:queueWaitMs,
       question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200),
@@ -692,6 +694,14 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     return revision;
   } catch (failure) {
     await adoption;
+    if (!generationDispatched) {
+      // Local save conflicts, connection failures, and pre-dispatch Stops did
+      // not consume a model attempt. Keep any other-window run IDs intact.
+      const latest=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===id);
+      if (latest?.runIds?.includes(runId)) {
+        patchTurn(project,snapshot,id,{runIds:latest.runIds.filter((candidate)=>candidate!==runId)});
+      }
+    }
     try {
       const state=job.cancelled?'stopped':closingWorkspace?'interrupted':'failed';
       // Native ownership is checked atomically. This closes the queued record
