@@ -58,7 +58,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   const needsRepositoryDiscovery = !scope.selectedPaths.length && !discoveredPaths
     && !scope.recoveryOperationId && scope.kind !== 'planned-chapter';
   if (needsRepositoryDiscovery && backend === 'codex') {
-    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} persistSuccessfulResult />;
+    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} persistSuccessfulResult autoDiscover />;
   }
   if (needsRepositoryDiscovery && backend === 'claude-agent') {
     return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>

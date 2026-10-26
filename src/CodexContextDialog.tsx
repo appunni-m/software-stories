@@ -15,7 +15,7 @@ export function CodexContextDialog(props: CodexChapterDialogProps) {
     return <SourceDiscoveryDialog scope={{ projectId: mode.projectId, snapshotId: mode.snapshotId, targetPath: mode.targetPath,
       question: mode.targetPath ? `How does ${mode.targetPath} work, including its callers, dependencies, transformations, errors and tests?`.slice(0, 300)
         : 'Explain the main implementation flow from entry points through transformations, state and outputs, including error handling and relevant tests.' }}
-      onClose={props.onClose} onReady={setDiscovery} />;
+      onClose={props.onClose} onReady={setDiscovery} autoDiscover />;
   }
   return <CodexChapterDialog {...props} discoveryResult={discovery ?? undefined} mode={paths && mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview') ? { ...mode, selectedPaths: paths } : mode} />;
 }

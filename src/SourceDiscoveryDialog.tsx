@@ -19,12 +19,13 @@ const coverageGapLabels: Record<DiscoveryCoverageGapCategory, string> = {
   unindexedFiles: 'files missing from the local map',
 };
 
-export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true }: {
+export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
   persistSuccessfulResult?: boolean;
+  autoDiscover?: boolean;
 }) {
   const [review, setReview] = useState<SourceDiscoveryReview | null>(null);
-  const [phase, setPhase] = useState('Preparing your repository…');
+  const [phase, setPhase] = useState(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savedSelectionNotice, setSavedSelectionNotice] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     });
     dialog.current?.focus();
     setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true); preparing.current = true;
+    setPhase(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
       if (persistSuccessfulResult) {
@@ -91,7 +93,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         if (!current) return;
         indexReady = existing !== null;
         if (!existing) {
-          setPhase('Organizing the code for search…');
+          if (!autoDiscover) setPhase('Organizing the code for search…');
           const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
           while (current) {
             const progress = await getSnapshotIndexProgress(job.jobId);
@@ -110,11 +112,15 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         // the immutable captured file inventory when it is absent or unreadable.
       }
       if (!current) return;
-      setPhase(indexReady ? 'Almost ready…' : 'Preparing your question…');
+      if (!autoDiscover) setPhase(indexReady ? 'Almost ready…' : 'Preparing your question…');
       const selection = readCodexSelection();
       const value = await prepareSourceDiscovery({ ...scope, ...selection });
       if (!current) { void discardSourceDiscovery(value.reviewId).catch(() => {}); return; }
       prepared.current = value.reviewId; setReview(value);
+      if (autoDiscover) {
+        preparing.current = false;
+        await discover(value);
+      }
     })().catch((failure) => { if (current) setError(errorMessageOr(failure, 'The code index could not be prepared.')); })
       .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
     return () => {
@@ -129,20 +135,20 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       if (active.current) void cancelCodexChapterRequest(active.current).catch(() => {});
       if (prepared.current) void discardSourceDiscovery(prepared.current).catch(() => {});
     };
-  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, onReady]);
-  async function discover() {
-    if (!review || busy || preparing.current || active.current) return;
-    setBusy(true); setError(null); setPhase('Finding the files related to your question…');
-    active.current = review.reviewId;
+  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, onReady, autoDiscover]);
+  async function discover(selectedReview: SourceDiscoveryReview | null = review) {
+    if (!selectedReview || active.current) return;
+    setBusy(true); setError(null); setPhase(autoDiscover ? 'Preparing your explanation…' : 'Finding the files related to your question…');
+    active.current = selectedReview.reviewId;
     try {
-      const result = await sendSourceDiscovery(review);
+      const result = await sendSourceDiscovery(selectedReview);
       if (!mounted.current) return;
       if (!result.selectedFiles.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
       if (persistSuccessfulResult && saveSourceDiscoveryResult(scope, result) && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(SOURCE_DISCOVERY_SAVED_EVENT, { detail: scope }));
       }
       active.current = null;
-      onReady(result, review);
+      onReady(result, selectedReview);
     } catch (failure) {
       if (mounted.current) { setError(errorMessageOr(failure, 'Code discovery could not finish.')); setReview(null); }
     } finally { active.current = null; if (mounted.current) setBusy(false); }
@@ -152,7 +158,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     setNeedsConnection(false); setRetry((value) => value + 1);
   }} />;
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
-    <header className="provider-dialog-header"><div><h2 id="discovery-title">Find code for this question</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
+    <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">
       {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
         <p>Code Atlas will choose relevant files for you. You do not need to select references.</p>
@@ -180,7 +186,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
     </div><footer className="provider-dialog-footer"><button className="secondary-button" onClick={onClose}>{active.current ? 'Cancel discovery' : 'Cancel'}</button>
-      {error ? <button className="primary-button" onClick={() => setRetry((value) => value + 1)}>Try again</button> : <button className="primary-button" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</button>}
+      {error ? <button className="primary-button" onClick={() => setRetry((value) => value + 1)}>Try again</button> : !autoDiscover && <button className="primary-button" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</button>}
     </footer>
   </section></div>;
 }
