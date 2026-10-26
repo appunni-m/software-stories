@@ -293,27 +293,51 @@ pub(super) fn run(
     publish: impl FnOnce(Plan) -> Result<(), String>,
 ) -> Result<(), String> {
     let started = Instant::now();
-    let manifest = checked_manifest(storage, job)?;
-    let runtime = manager.review_runtime(storage)?;
-    workspace::check_retrieval_grant(
-        storage,
-        &job.grant_id,
-        &job.project_id,
-        &job.snapshot_id,
-        &runtime,
+    let mut preparation = crate::generation_timing::Preparation::new(started);
+    let manifest = preparation.run_stage(
+        crate::generation_timing::PreparationKind::SnapshotLoad,
+        || checked_manifest(storage, job),
     )?;
-    let _worker = manager.hold_answer_worker(&job.planning_run_id)?;
-    let (prompt, schema, fingerprint, instructions) = request(job)?;
-    let session = Arc::new(Mutex::new(new_session(
-        storage,
-        job,
-        manifest.clone(),
-        &runtime,
-        jobs,
-        &fingerprint,
-        notify,
-    )?));
-    let outcome = manager.run_with_result_and_publish(
+    let runtime = preparation.run_stage(
+        crate::generation_timing::PreparationKind::RuntimeReview,
+        || manager.review_runtime(storage),
+    )?;
+    preparation.run_stage(
+        crate::generation_timing::PreparationKind::RetrievalGrant,
+        || {
+            workspace::check_retrieval_grant(
+                storage,
+                &job.grant_id,
+                &job.project_id,
+                &job.snapshot_id,
+                &runtime,
+            )
+        },
+    )?;
+    let _worker = preparation.run_stage(
+        crate::generation_timing::PreparationKind::WorkerRegistration,
+        || manager.hold_answer_worker(&job.planning_run_id),
+    )?;
+    let (prompt, schema, fingerprint, instructions) = preparation.run_stage(
+        crate::generation_timing::PreparationKind::RequestPreparation,
+        || request(job),
+    )?;
+    let session = preparation.run_stage(
+        crate::generation_timing::PreparationKind::RetrievalSession,
+        || {
+            new_session(
+                storage,
+                job,
+                manifest.clone(),
+                &runtime,
+                jobs,
+                &fingerprint,
+                notify,
+            )
+        },
+    )?;
+    let preparation_stages = preparation.into_stages();
+    let outcome = manager.run_with_result_and_publish_and_preparation(
         storage,
         codex_agent::CodexRunInput {
             run_id: job.planning_run_id.clone(),
@@ -331,6 +355,8 @@ pub(super) fn run(
         },
         &fingerprint,
         started,
+        None,
+        preparation_stages,
         progress,
         |response, access| -> Result<Plan, String> {
             access.check_review(&job.planning_run_id, &fingerprint, &runtime.executable_path)?;
