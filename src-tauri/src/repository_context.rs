@@ -1347,9 +1347,24 @@ fn is_literal_operator_query(query: &str) -> bool {
 }
 
 fn is_code_path(path: &str) -> bool {
+    let path = Path::new(path);
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if matches!(
+        file_name.as_str(),
+        "makefile" | "gnumakefile" | "cmakelists.txt" | "dockerfile" | "containerfile"
+    )
+        || ["dockerfile.", "containerfile."]
+            .iter()
+            .any(|prefix| file_name.starts_with(prefix))
+    {
+        return true;
+    }
     matches!(
-        Path::new(path)
-            .extension()
+        path.extension()
             .and_then(|extension| extension.to_str())
             .map(str::to_ascii_lowercase)
             .as_deref(),
@@ -1429,6 +1444,20 @@ fn is_code_path(path: &str) -> bool {
                 | "zsh"
                 | "fish"
                 | "zig"
+                | "nim"
+                | "bzl"
+                | "nix"
+                | "tf"
+                | "tfvars"
+                | "hcl"
+                | "cmake"
+                | "gradle"
+                | "proto"
+                | "graphql"
+                | "gql"
+                | "prisma"
+                | "vue"
+                | "svelte"
                 | "sol"
                 | "purs"
                 | "res"

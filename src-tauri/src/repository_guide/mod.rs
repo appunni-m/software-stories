@@ -38,12 +38,14 @@ const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 // Older saved guides have at most twelve planned units and may have up to
-// eight continuation units appended later. Keep both shapes readable while
-// allowing new guides to plan the full saved-guide capacity up front.
+// eight continuation units appended later. New guides start with five detailed
+// units and append discovered pending topics up to the same total capacity.
 const MAX_UNITS: usize = 12;
 const MAX_LEGACY_CONTINUATION_UNITS: usize = 8;
 pub(crate) const MAX_TOTAL_UNITS: usize = MAX_UNITS + MAX_LEGACY_CONTINUATION_UNITS;
-const MAX_INITIAL_UNITS: usize = MAX_TOTAL_UNITS;
+// Keep the first source-grounded outline quick. Remaining discovered routes
+// stay explicit as pending topics and can be appended incrementally later.
+const MAX_INITIAL_UNITS: usize = 5;
 pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_TOTAL_UNITS + 1;
 const MAX_OMISSIONS: usize = 64;
 const MAX_OMISSION_BYTES: usize = 240;

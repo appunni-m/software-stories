@@ -71,7 +71,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
 }
 
 #[test]
-fn initial_outline_accepts_full_guide_capacity_and_rejects_overflow() {
+fn initial_outline_accepts_five_detailed_units_and_rejects_overflow() {
     let mut full = proposal();
     for index in 2..MAX_INITIAL_UNITS {
         full["sections"].as_array_mut().unwrap().push(json!({
@@ -265,7 +265,8 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
         r.question
     );
     assert!(prompt.len() < 128 * 1024);
-    assert_eq!(MAX_INITIAL_UNITS, MAX_TOTAL_UNITS);
+    assert_eq!(MAX_INITIAL_UNITS, 5);
+    assert_eq!(MAX_TOTAL_UNITS, 20);
     assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
@@ -275,12 +276,14 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("complete cited research outline before any slide content is generated"));
-    assert!(instructions.contains("two to twenty focused behavior questions"));
-    assert!(instructions.contains("full source-grounded outline"));
-    assert!(instructions.contains("limits completed content, never the outline"));
-    assert!(instructions.contains("explicit pending omissions for any route that does not"));
-    assert!(instructions.contains("understand the user's requested repository scope"));
+    assert!(instructions.contains("compact, source-grounded initial outline before slide content is generated"));
+    assert!(instructions.contains("two to five focused behavior questions"));
+    assert!(instructions.contains("five-unit limit so the first useful slide is not blocked"));
+    assert!(instructions.contains("Do not deeply investigate pending routes in this planning operation"));
+    assert!(instructions.contains(
+        "Record every additional route that needs its own explanation as a concise, explicit pending omission"
+    ));
+    assert!(instructions.contains("the highest-value path through the requested scope"));
     assert!(instructions.contains("Return an opening-range lead followed"));
     assert!(instructions.contains("key `opening`"));
     assert!(instructions.contains("internal helper that receives an already constructed object"));
@@ -291,19 +294,19 @@ fn plan_instructions_keep_the_full_requested_scope() {
     ));
     assert!(instructions.contains("Never name the opening, current unit, or a later unit"));
     assert!(instructions.contains(
-        "make a source-grounded inventory of caller-controlled languages and entry surfaces"
+        "do a bounded route inventory from implementation, checked-in examples and build manifests"
     ));
     assert!(instructions.contains(
         "Do not count a language as covered because another language's example reaches the same engine"
     ));
     assert!(instructions.contains(
-        "Name each materially different surface in its own question, including C, JavaScript/Node, WASM"
+        "Give each materially different surface its own question or pending topic"
     ));
     assert!(instructions.contains(
-        "creating a face from memory and loading a glyph into an existing face are separate units"
+        "creating a face from memory and loading a glyph into an existing face are separate topics"
     ));
     assert!(instructions.contains(
-        "Plan the full guide in source-grounded reading order"
+        "Plan the initial five slides in source-grounded reading order"
     ));
     assert!(
         instructions
@@ -344,14 +347,14 @@ fn plan_instructions_keep_the_full_requested_scope() {
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Do not present one representative path as whole-project coverage")
+            .contains("Every discovered route must appear as an initial detailed slide or an explicit pending topic")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("name remaining work as not yet covered")
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("twenty-unit limit"));
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("complete, navigable outline"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("compact, navigable initial outline"));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
     );
@@ -365,11 +368,12 @@ fn plan_instructions_keep_the_full_requested_scope() {
     ));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Use at most twenty-four code-tool calls, matching the native planner budget")
+            .contains("Use at most twelve code-tool calls, matching the native planner budget")
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
-    assert_eq!(MAX_INITIAL_UNITS, MAX_TOTAL_UNITS);
+    assert_eq!(MAX_INITIAL_UNITS, 5);
+    assert_eq!(MAX_TOTAL_UNITS, 20);
     assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
@@ -407,7 +411,8 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     assert_eq!(request(&r).unwrap().2, fingerprint);
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);
-    assert_eq!(MAX_INITIAL_UNITS, MAX_TOTAL_UNITS);
+    assert_eq!(MAX_INITIAL_UNITS, 5);
+    assert_eq!(MAX_TOTAL_UNITS, 20);
     assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
