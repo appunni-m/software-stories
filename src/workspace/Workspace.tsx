@@ -251,7 +251,10 @@ export function DeveloperWorkspace(props:Props) {
       setConnectionNotice(generationBackend===null
         ? `The ${selected} could not be read. Choose a connection in Connections to continue. Your question stays here.`
         : `Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
-      onSettings();
+      // A configured non-Codex backend is a deliberate choice. Keep the
+      // question in place and offer the existing inline Connections action
+      // instead of reopening setup on every Explain/Explore attempt.
+      if(generationBackend===null)onSettings();
       return false;
     }
     if(connection.checking){
