@@ -1,9 +1,9 @@
 import {Button,Dialog,Flex,Table} from '@radix-ui/themes';
 
 const shortcuts=[
-  ['Guide','⌘1'],['Files','⌘2'],['Changes','⌘3'],['Find a file or folder','⌘K'],
-  ['Open a repository','⌘O'],['Back','⌘['],['Forward','⌘]'],['Zoom in / out (20% steps)','⌘= / ⌘−'],
-  ['Actual size (100%)','⌘0'],
+  ['Quick open a file','⌘P'],['Search the repository','⌘⇧F'],['Focus the question','⌘L'],
+  ['Guide / Flow / Chat history','⌘1 / ⌘2 / ⌘3'],['Explain selected code','⌘I'],
+  ['Open a repository','⌘O'],['Back / forward','⌘[ / ⌘]'],['Back one exploration','⌥←'],
 ];
 
 /** Help is an explicit view, not a saved background outcome. */

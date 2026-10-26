@@ -451,17 +451,19 @@ export function DeveloperWorkspace(props:Props) {
     else {setGuideConsent({id:turn.id,resume:true});setConsentError(null);}
   }
   useEffect(()=>{
-    const find=()=>{setActivity('search');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
+    const findInRepository=()=>{setActivity('search');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
+    const quickOpen=()=>{setActivity('files');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
     const listener=(event:KeyboardEvent)=>{
       if(document.querySelector('[role="dialog"][aria-modal="true"]'))return;
       const mod=event.metaKey||event.ctrlKey; const k=event.key.toLowerCase();
-      if(mod&&(k==='p'||k==='k'||(event.shiftKey&&k==='f'))){event.preventDefault();event.stopImmediatePropagation();find();}
+      if(mod&&event.shiftKey&&k==='f'){event.preventDefault();event.stopImmediatePropagation();findInRepository();}
+      else if(mod&&(k==='p'||k==='k')){event.preventDefault();event.stopImmediatePropagation();quickOpen();}
       if(mod&&event.shiftKey&&k==='e'){event.preventDefault();event.stopImmediatePropagation();setActivity('files');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>explorer.current?.focus());}
       if(mod&&k==='l'){event.preventDefault();event.stopImmediatePropagation();focusComposer();}
       if(mod&&['1','2','3'].includes(k)){event.preventDefault();event.stopImmediatePropagation();setView((['guide','flow','history'] as const)[Number(k)-1]);onWorkspace('guide-plan');}
       if(event.altKey&&k==='arrowleft'&&current.parentId){event.preventDefault();go(current.parentId);}
     };
-    window.addEventListener('keydown',listener,true);window.addEventListener('code-atlas:search',find);return()=>{window.removeEventListener('keydown',listener,true);window.removeEventListener('code-atlas:search',find);};
+    window.addEventListener('keydown',listener,true);window.addEventListener('code-atlas:search',findInRepository);return()=>{window.removeEventListener('keydown',listener,true);window.removeEventListener('code-atlas:search',findInRepository);};
   },[current.id,current.parentId]);
   const composerSearchActive=searchFocused&&[...query.trim()].length>=2;
   const term=(composerSearchActive?query:activity==='search'?repositorySearch:query).trim();
