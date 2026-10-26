@@ -94,6 +94,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     if (e.kind === 'code') body = value ? <pre><code>{value}</code></pre> : null;
     return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ? plainInlineCodeText(node.detail) : undefined}
+      aria-pressed={focusedNode === node.nodeId}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, value, e.valueOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue); } }}>
