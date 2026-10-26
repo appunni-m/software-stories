@@ -160,6 +160,8 @@ import {
   languageSupportNote,
   languageSupportTier,
   languageForPath,
+  initiallyCollapsedDirectories,
+  recommendedEntryPoint,
   type InventoryRow,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
@@ -3313,16 +3315,16 @@ function isAtlasWorkbenchViewState(value: unknown): value is AtlasWorkbenchViewS
     && point.scale >= ATLAS_MIN_ZOOM && point.scale <= ATLAS_MAX_ZOOM;
 }
 
-function loadAtlasWorkbenchState(key: string): { state: AtlasWorkbenchViewState; writable: boolean } {
+function loadAtlasWorkbenchState(key: string): { state: AtlasWorkbenchViewState; writable: boolean; firstOpen: boolean } {
   try {
     const value = sessionStorage.getItem(key);
-    if (value === null) return { state: emptyAtlasWorkbenchState(), writable: true };
-    if (new TextEncoder().encode(value).byteLength > MAX_ATLAS_VIEW_BYTES) return { state: emptyAtlasWorkbenchState(), writable: false };
+    if (value === null) return { state: emptyAtlasWorkbenchState(), writable: true, firstOpen: true };
+    if (new TextEncoder().encode(value).byteLength > MAX_ATLAS_VIEW_BYTES) return { state: emptyAtlasWorkbenchState(), writable: false, firstOpen: false };
     const parsed: unknown = JSON.parse(value);
     return isAtlasWorkbenchViewState(parsed)
-      ? { state: parsed, writable: true }
-      : { state: emptyAtlasWorkbenchState(), writable: false };
-  } catch { return { state: emptyAtlasWorkbenchState(), writable: false }; }
+      ? { state: parsed, writable: true, firstOpen: false }
+      : { state: emptyAtlasWorkbenchState(), writable: false, firstOpen: false };
+  } catch { return { state: emptyAtlasWorkbenchState(), writable: false, firstOpen: false }; }
 }
 
 function saveAtlasWorkbenchState(key: string, state: AtlasWorkbenchViewState): boolean {
@@ -3378,6 +3380,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const panGestureRef = useRef<{ pointerId: number; startX: number; startY: number; startViewport: AtlasViewport; pendingViewport: AtlasViewport } | null>(null);
   const [dragViewport, setDragViewport] = useState<AtlasViewport | null>(null);
   const routeKey = routeSelection ? JSON.stringify(routeSelection) : '';
+  const initialSourceResolved = useRef(false);
 
   useEffect(() => {
     if (!viewStorageWritable) return;
@@ -3426,6 +3429,39 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         : { ...current, selectedPath, selectedFolder: null, selectedSymbol: null, selectedRelationship: null });
     }
   }, [routeKey, routeSelection, selectedPath]);
+  useEffect(() => {
+    if (initialSourceResolved.current) return;
+    if (selectedPath || routeSelection) {
+      initialSourceResolved.current = true;
+      return;
+    }
+    if (view.selectedFolder) {
+      initialSourceResolved.current = true;
+      return;
+    }
+    const entryPath = recommendedEntryPoint(rows, view.selectedPath);
+    if (!entryPath) {
+      initialSourceResolved.current = true;
+      return;
+    }
+    initialSourceResolved.current = true;
+    if (restored.firstOpen) {
+      const nextView = {
+        ...view,
+        collapsed: initiallyCollapsedDirectories(rows, entryPath),
+        selectedPath: entryPath,
+        selectedFolder: null,
+        selectedSymbol: null,
+        selectedRelationship: null,
+      };
+      setView(nextView);
+      if (viewStorageWritable) {
+        try { if (!saveAtlasWorkbenchState(storageKey, nextView)) setViewStorageWritable(false); }
+        catch { setViewStorageWritable(false); }
+      }
+    }
+    onAtlasSelection({ kind: 'file', path: entryPath }, entryPath, view.viewport);
+  }, [onAtlasSelection, restored.firstOpen, routeSelection, rows, selectedPath, storageKey, view, viewStorageWritable]);
   useEffect(() => {
     let active = true;
     setIndexState('loading');

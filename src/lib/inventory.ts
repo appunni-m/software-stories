@@ -224,6 +224,87 @@ export function languageSupportNote(tier: LanguageSupportTier, language: string)
   }
 }
 
+const nonImplementationLanguages = new Set([
+  'Documentation', 'Text', 'Lockfile', 'JSON', 'JSON with comments', 'YAML', 'TOML',
+  'Java properties', 'Diff', 'INI', 'Configuration', 'XML', 'SVG', 'XML schema', 'XSLT',
+  'Protocol Buffers', 'Terraform variables', 'EditorConfig', 'npm config', 'Git config',
+]);
+
+const entryFilePriority = new Map([
+  ['main.rs', 140], ['main.go', 140], ['main.py', 140], ['main.tsx', 140],
+  ['main.ts', 135], ['main.js', 135], ['main.jsx', 135],
+  ['lib.rs', 130], ['app.py', 125], ['app.tsx', 120], ['app.jsx', 120], ['app.js', 115],
+  ['index.tsx', 110], ['index.ts', 105], ['index.jsx', 105], ['index.js', 100],
+  ['server.py', 95], ['server.ts', 95], ['server.js', 95], ['manage.py', 90],
+]);
+
+const nonEntryDirectories = new Set([
+  '.claude', '.codex', '.github', '.vscode', 'benchmarks', 'build', 'coverage', 'dist',
+  'docs', 'examples', 'node_modules', 'out', 'spec', 'specs', 'target', 'test', 'tests',
+  'vendor',
+]);
+
+function isImplementationCandidate(row: InventoryRow): boolean {
+  const path = row.path.toLowerCase();
+  const filename = path.split('/').at(-1) ?? path;
+  const testPath = row.categories.includes('test')
+    || /(^|\/)(test|tests|__tests__|spec|specs)(\/|$)/.test(path)
+    || /(^|\/)(test_|spec_)[^/]+\.[^/]+$/.test(path)
+    || /(?:_test|_spec|[.-](?:test|spec))\.[^/.]+$/.test(filename);
+  return row.kind === 'file'
+    && row.disposition === 'captured'
+    && row.contentKind === 'text'
+    && !isDocumentationPath(row.path)
+    && !nonImplementationLanguages.has(row.language)
+    && !testPath
+    && !row.categories.includes('secret')
+    && !row.categories.includes('generated');
+}
+
+/** Prefer an existing valid selection; otherwise choose a likely implementation entry point. */
+export function recommendedEntryPoint(rows: readonly InventoryRow[], preferredPath?: string | null): string | null {
+  const candidates = rows.filter(isImplementationCandidate);
+  if (preferredPath) {
+    const preferred = candidates.find((row) => row.path === preferredPath);
+    if (preferred) return preferred.path;
+  }
+  if (candidates.length === 0) return null;
+
+  const score = (row: InventoryRow) => {
+    const path = row.path.toLowerCase();
+    const parts = path.split('/');
+    const name = parts.at(-1) ?? path;
+    let value = entryFilePriority.get(name) ?? 0;
+    if (/^main\.[^.]+$/.test(name)) value = Math.max(value, 100);
+    if (/^(app|server|index)\.[^.]+$/.test(name)) value = Math.max(value, 70);
+    if (parts.slice(0, -1).some((part) => ['src', 'app', 'cmd', 'lib', 'server'].includes(part))) value += 35;
+    if (parts[0] === 'packages') value += 10;
+    if (parts.some((part) => nonEntryDirectories.has(part))) value -= 100;
+    if (row.categories.includes('test')) value -= 80;
+    if (row.categories.includes('config')) value -= 35;
+    if (row.sizeBytes !== null && row.sizeBytes > 1024 * 1024) value -= 25;
+    value -= parts.length * 4;
+    return value;
+  };
+  return [...candidates]
+    .sort((left, right) => score(right) - score(left)
+      || left.path.split('/').length - right.path.split('/').length
+      || stableCompare(left.path, right.path))[0]?.path ?? null;
+}
+
+/** Collapse unrelated folders on first open while keeping the chosen file's route visible. */
+export function initiallyCollapsedDirectories(rows: readonly InventoryRow[], entryPath: string | null): string[] {
+  const expanded = new Set<string>();
+  if (entryPath) {
+    const parts = entryPath.split('/');
+    for (let length = 1; length < parts.length; length += 1) expanded.add(parts.slice(0, length).join('/'));
+  }
+  return rows
+    .filter((row) => row.kind === 'directory' && row.path !== '.' && !expanded.has(row.path))
+    .map((row) => row.path)
+    .sort(stableCompare);
+}
+
 export function buildInventory(manifest: SnapshotManifest): InventoryRow[] {
   const rows: InventoryRow[] = [];
   for (const directory of manifest.directories ?? []) {
