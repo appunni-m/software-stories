@@ -268,7 +268,7 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-guide-outline summary > .dw-guide-outline-count { margin-left: auto; padding-left: var(--space-3); font-size: 12px; color: var(--gray-11); }
 .dw-guide-outline summary > .dw-guide-status { display: inline-block; padding: var(--space-1) var(--space-2); border: 1px solid var(--amber-7); border-radius: 999px; background: var(--amber-2); color: var(--amber-11); font-size: 11px; font-weight: 600; line-height: 1.3; }
 .dw-guide-outline summary > .dw-guide-status.is-complete { border-color: var(--green-7); background: var(--green-2); color: var(--green-11); }
-.dw-guide-outline ol { margin: var(--space-4) 0; padding-left: var(--space-5); }
+.dw-guide-outline ol { max-height: 14rem; overflow: auto; margin: var(--space-4) 0; padding-left: var(--space-5); }
 .dw-guide-outline li { padding: var(--space-1) 0; font-size: 13px; }
 .dw-guide-outline li small { display: block; color: var(--gray-10); }
 .dw-guide-outline p { font-size: 12px; line-height: 1.5; }
