@@ -639,8 +639,9 @@ function Answer(props:AnswerProps){
   const selectGuideSlide=(index:number)=>{
     const next=guideSlides[index];
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
-    const firstSection=revision?.sections[0];
-    if(revision&&firstSection)props.onFocus(revision.revisionId,firstSection.sectionId);
+    const sectionId=(revision&&answerReadingPosition(turn,'guide',revision.revisionId)?.sectionId)
+      ?? revision?.sections[0]?.sectionId;
+    if(revision&&sectionId)props.onFocus(revision.revisionId,sectionId);
   };
   const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
   const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));

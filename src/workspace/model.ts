@@ -519,8 +519,45 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
   const clean = cleanReadingPosition(position);
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
-  if (!clean || !turn || !ownsAnswerRevision(turn,clean.revisionId) || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
-  return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : { ...t, reading: { ...t.reading, [view]: clean }, ...(t.answerVersions?{answerVersions:t.answerVersions.map(v=>v.revisionId===clean.revisionId?{...v,reading:{...v.reading,[view]:clean.sectionId}}:v)}:{}) }) }) };
+  if (!clean || !turn || !ownsAnswerRevision(turn,clean.revisionId)) return state;
+
+  // Progressive guides publish each slide as a separate revision. Keep that
+  // slide's section in the existing bounded reader map; `reading` remains the
+  // active slide cursor.
+  const perRevisionReading = Boolean(turn.guideId || (turn.publishedSections?.length ?? 0) > 1);
+  let answerVersions: AnswerVersion[] | undefined;
+  if (turn.answerVersions !== undefined || perRevisionReading) {
+    const versions = cleanAnswerVersions(turn.answerVersions, turn).map((version) => ({
+      ...version,
+      reading: { ...version.reading },
+    }));
+    let entry = versions.find((version) => version.revisionId === clean.revisionId);
+    if (!entry && perRevisionReading && originalIds(turn).has(clean.revisionId)) {
+      entry = {
+        originalRevisionId: clean.revisionId,
+        revisionId: clean.revisionId,
+        selected: false,
+        reading: {},
+      };
+      versions.push(entry);
+    }
+    if (entry) entry.reading = { ...entry.reading, [view]: clean.sectionId };
+    while (versions.length > 256) {
+      const oldestUnselected = versions.findIndex((version) => !version.selected);
+      if (oldestUnselected < 0) return state;
+      versions.splice(oldestUnselected, 1);
+    }
+    answerVersions = versions;
+  }
+
+  const readingUnchanged = turn.reading?.[view]?.revisionId === clean.revisionId
+    && turn.reading?.[view]?.sectionId === clean.sectionId;
+  if (readingUnchanged && (answerVersions === undefined || JSON.stringify(answerVersions) === JSON.stringify(turn.answerVersions))) return state;
+  return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : {
+    ...t,
+    reading: { ...t.reading, [view]: clean },
+    ...(answerVersions === undefined ? {} : { answerVersions }),
+  }) }) };
 }
 /** Opening a compact answer card must restore the exact section the reader chose,
  * even when the same question has several published revisions. */
