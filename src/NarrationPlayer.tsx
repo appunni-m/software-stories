@@ -1,4 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { InlineCodeText } from './InlineCodeText';
+import { plainInlineCodeText } from './lib/inlineCode';
 import {
   AlertCircle,
   Check,
@@ -741,9 +743,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
       <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>
       <summary>Read narration</summary>
-      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Narration for ${section.title}`}>
+      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Narration for ${plainInlineCodeText(section.title)}`}>
         <div className="walkthrough-caption">
-          <p>{captionText.trim() ? captionText : <em>No narration text is saved for this section. The written explanation and source evidence remain available.</em>}</p>
+          <p>{captionText.trim() ? <InlineCodeText text={captionText}/> : <em>No narration text is saved for this section. The written explanation and source evidence remain available.</em>}</p>
         </div>
       </div>
       </details>

@@ -760,12 +760,12 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               </>}
               {busy === 'send' && <div className="provider-loading" role="status" aria-live="polite"><Sparkles size={16} /><div><strong>{cancelling ? 'Cancelling Codex generation…' : progress?.message ?? 'Generating explanation…'}</strong><p>{progress?.phase ?? 'preparing'} · {planning ? 'A validated route is saved as an unaccepted plan.' : gitGuide ? 'A validated response is saved as an unaccepted PR Guide draft.' : codeLensTarget || gitChange ? 'This explanation will not be saved to history.' : 'No draft is saved until you choose Save.'}</p></div></div>}
               {prGuideResult && <section className="provider-response" aria-labelledby="codex-pr-guide-result-title">
-                <div><span>SAVED · UNACCEPTED PR GUIDE</span><h4 id="codex-pr-guide-result-title">{prGuideResult.revision.title}</h4></div>
+                <div><span>SAVED · UNACCEPTED PR GUIDE</span><h4 id="codex-pr-guide-result-title"><InlineCodeText text={prGuideResult.revision.title}/></h4></div>
                 <p>Draft revision {prGuideResult.revision.revisionNumber} passed local citation validation and is saved in PR Guide history. Select Done to review its claims and choose what to accept.</p>
                 <small>{prGuideResult.modelVersion ?? prGuideResult.modelId}</small>
               </section>}
               {prChangeResult && <section className="provider-response" aria-labelledby="codex-pr-change-result-title">
-                <div><span>TRANSIENT · HUNK GROUNDED</span><h4 id="codex-pr-change-result-title">{prChangeResult.title}</h4></div>
+                <div><span>TRANSIENT · HUNK GROUNDED</span><h4 id="codex-pr-change-result-title"><InlineCodeText text={prChangeResult.title}/></h4></div>
                 <p>Every claim cites an exact quote from this hunk. No chapter or PR Guide revision was saved.</p>
                 <ol className="code-lens-explanation-claims">{prChangeResult.claims.map((claim) => <li key={claim.claimId}>
                   <span className="chapter-claim-category">{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code behavior'}</span><p><InlineCodeText text={claim.prose}/></p>
@@ -784,7 +784,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </li>)}</ol>
                 <small>{codeLensResult.modelVersion ?? codeLensResult.modelId}</small>
               </section>}
-              {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4>{planResult.plan.title}</h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
+              {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4><InlineCodeText text={planResult.plan.title}/></h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
                 <GenerationRecord origin={preview.revision.generationOrigin} />

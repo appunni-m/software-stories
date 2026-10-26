@@ -452,7 +452,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                   <ChevronDown size={13} className={isSelectedChapter ? '' : 'is-collapsed'} />
                 </button>
                 {isSelectedChapter && selectedRevision && (
-                  <ol className="walkthrough-section-list" aria-label={`Sections in ${selectedRevision.title}`}>
+                  <ol className="walkthrough-section-list" aria-label={`Sections in ${plainInlineCodeText(selectedRevision.title)}`}>
                     {sections.map((section, index) => (
                       <li key={section.sectionId}>
                         <button
@@ -503,7 +503,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
           <div className="walkthrough-reader-grid">
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>
-              <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}><InlineCodeText text={selectedSection.title}/></h2>
+              <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${plainInlineCodeText(selectedSection.title)}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}><InlineCodeText text={selectedSection.title}/></h2>
               <VisualStory key={`${selectedRevision.revisionId}:${selectedSection.sectionRevisionId}`} revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onOpenAnchor={openAnchor} onFollowHotspot={followHotspot} onSettings={onOpenProviderSettings} restorePosition={finitePosition(route.playbackPosition)} onPlaybackPositionChange={rememberPlaybackPosition} onTranscriptPositionChange={rememberTranscriptPosition} />
               <EvidencePanel section={selectedSection} onOpenAnchor={(anchor) => openAnchor(anchor)} />
               <SectionFileLinks section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} />

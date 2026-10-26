@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GenerationRecord } from './GenerationRecord';
+import { InlineCodeText } from './InlineCodeText';
 import { recordedRecoveryLabel } from './lib/chapterOrigin';
 import type { PlannedChapterTarget } from './lib/plannedChapters';
 import {
@@ -73,7 +74,7 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
           onClick={() => onOpenPreview?.(preview.generationId)}>Review saved preview</button>
       </li>)}</ul> : <p>No matching pending chapter previews were found.</p>}
       {saved.length ? <details open><summary>{saved.length} saved chapter revisions for this target</summary>
-        <ul>{saved.slice(0, 20).map((revision) => <li key={revision.revisionId}>{revision.title} · {revision.lifecycle} · revision {revision.revisionNumber}
+        <ul>{saved.slice(0, 20).map((revision) => <li key={revision.revisionId}><InlineCodeText text={revision.title}/> · {revision.lifecycle} · revision {revision.revisionNumber}
           <small> · {new Date(revision.createdAtUnixMs).toLocaleString()}</small>
           <p>{recordedRecoveryLabel(revision.generationOrigin, requestId, backend, plannedTarget)}</p>
           <GenerationRecord origin={revision.generationOrigin} /></li>)}</ul>

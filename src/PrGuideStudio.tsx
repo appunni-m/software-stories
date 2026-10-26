@@ -761,7 +761,7 @@ export function PrGuideStudio({
           return (
             <li key={revision.revisionId}>
               <span className={`pr-guide-lifecycle lifecycle-${decision?.lifecycle ?? revision.lifecycle}`}>{statusLabel}</span>
-              <div><strong>{revision.title}</strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small></div>
+              <div><strong><InlineCodeText text={revision.title}/></strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small></div>
               {revision.lifecycle === 'draft' && !decision && <button type="button" className="secondary-button" disabled={decisionBusy || building || sending} onClick={() => openDraft(revision)}>Review draft</button>}
             </li>
           );
