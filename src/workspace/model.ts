@@ -99,6 +99,8 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   if (saved) {
     const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide) : null;
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
+      : turn.status === 'working' && turn.guideId
+        ? turn.publishedSections?.length ? 'Building the next slide as you read or listen.' : 'Preparing the first slides.'
       : turn.status === 'working' ? 'Adding more detail.'
       : turn.status === 'waiting' ? 'Building the next slide as you read or listen.'
       : turn.status === 'partial' ? 'Partially completed.'

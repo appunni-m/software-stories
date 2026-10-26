@@ -275,11 +275,17 @@ export function markQuestionOutcome(state: WorkspaceState, explorationId: string
 
 /** Reopen the exact existing question without retrying inference. The one-shot
  * reveal is consumed by the mounted reader and discarded during reload. */
-export function openWorkspaceQuestion(state: WorkspaceState, explorationId: string, turnId: string): WorkspaceState {
+export function openWorkspaceQuestion(
+  state: WorkspaceState,
+  explorationId: string,
+  turnId: string,
+  currentlyDisplayedTurnId?: string,
+): WorkspaceState {
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
   if (!owner || !turn) return state;
-  const alreadyReadingThisQuestion = state.currentId === owner.id && owner.focusedTurnId === turnId;
+  const alreadyReadingThisQuestion = state.currentId === owner.id
+    && (owner.focusedTurnId === turnId || currentlyDisplayedTurnId === turnId);
   const key = questionOutcomeKey(turn);
   const read = key ? markQuestionOutcome(state, explorationId, turnId, key, 'read') : state;
   return { ...read, currentId: owner.id, file: owner.file ?? state.file,
