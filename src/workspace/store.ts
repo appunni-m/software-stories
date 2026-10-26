@@ -177,7 +177,10 @@ export function updateWorkspaceDraft(project:string,snapshot:string,explorationI
   const next=rememberComposerDraft(previous,explorationId,draft);
   if(next===previous)return;
   states.set(id,next);
-  scheduleWorkspaceDraftWrite(project,snapshot);
+  // Native conversation records deliberately omit unsent composer drafts.
+  // Do not turn every typing pause into a durable no-op write (and a possible
+  // cross-window revision conflict); browser preview still persists drafts.
+  if(!native)scheduleWorkspaceDraftWrite(project,snapshot);
   listeners.forEach(notify=>notify());
 }
 function clearWorkspaceDraftTimer(id:string){
