@@ -73,6 +73,25 @@ const languageLoaders: Record<string, LanguageLoader> = {
   f95: () => import('@codemirror/legacy-modes/mode/fortran').then(({ fortran }) => StreamLanguage.define(fortran)),
   f03: () => import('@codemirror/legacy-modes/mode/fortran').then(({ fortran }) => StreamLanguage.define(fortran)),
   dart: () => import('@codemirror/legacy-modes/mode/clike').then(({ dart }) => StreamLanguage.define(dart)),
+  swift: () => import('@codemirror/legacy-modes/mode/swift').then(({ swift }) => StreamLanguage.define(swift)),
+  erl: () => import('@codemirror/legacy-modes/mode/erlang').then(({ erlang }) => StreamLanguage.define(erlang)),
+  hrl: () => import('@codemirror/legacy-modes/mode/erlang').then(({ erlang }) => StreamLanguage.define(erlang)),
+  jl: () => import('@codemirror/legacy-modes/mode/julia').then(({ julia }) => StreamLanguage.define(julia)),
+  pm: () => import('@codemirror/legacy-modes/mode/perl').then(({ perl }) => StreamLanguage.define(perl)),
+  ps1: () => import('@codemirror/legacy-modes/mode/powershell').then(({ powerShell }) => StreamLanguage.define(powerShell)),
+  psm1: () => import('@codemirror/legacy-modes/mode/powershell').then(({ powerShell }) => StreamLanguage.define(powerShell)),
+  psd1: () => import('@codemirror/legacy-modes/mode/powershell').then(({ powerShell }) => StreamLanguage.define(powerShell)),
+  cob: () => import('@codemirror/legacy-modes/mode/cobol').then(({ cobol }) => StreamLanguage.define(cobol)),
+  cbl: () => import('@codemirror/legacy-modes/mode/cobol').then(({ cobol }) => StreamLanguage.define(cobol)),
+  elm: () => import('@codemirror/legacy-modes/mode/elm').then(({ elm }) => StreamLanguage.define(elm)),
+  groovy: () => import('@codemirror/legacy-modes/mode/groovy').then(({ groovy }) => StreamLanguage.define(groovy)),
+  gvy: () => import('@codemirror/legacy-modes/mode/groovy').then(({ groovy }) => StreamLanguage.define(groovy)),
+  gsh: () => import('@codemirror/legacy-modes/mode/groovy').then(({ groovy }) => StreamLanguage.define(groovy)),
+  d: () => import('@codemirror/legacy-modes/mode/d').then(({ d }) => StreamLanguage.define(d)),
+  proto: () => import('@codemirror/legacy-modes/mode/protobuf').then(({ protobuf }) => StreamLanguage.define(protobuf)),
+  properties: () => import('@codemirror/legacy-modes/mode/properties').then(({ properties }) => StreamLanguage.define(properties)),
+  diff: () => import('@codemirror/legacy-modes/mode/diff').then(({ diff }) => StreamLanguage.define(diff)),
+  patch: () => import('@codemirror/legacy-modes/mode/diff').then(({ diff }) => StreamLanguage.define(diff)),
   xml: () => import('@codemirror/lang-xml').then(({ xml }) => xml()),
   svg: () => import('@codemirror/lang-xml').then(({ xml }) => xml()),
   xsd: () => import('@codemirror/lang-xml').then(({ xml }) => xml()),
@@ -86,6 +105,7 @@ const languageLoaders: Record<string, LanguageLoader> = {
 const namedLanguageLoaders: Record<string, LanguageLoader> = {
   dockerfile: () => import('@codemirror/legacy-modes/mode/dockerfile').then(({ dockerFile }) => StreamLanguage.define(dockerFile)),
   'cmakelists.txt': () => import('@codemirror/legacy-modes/mode/cmake').then(({ cmake }) => StreamLanguage.define(cmake)),
+  'nginx.conf': () => import('@codemirror/legacy-modes/mode/nginx').then(({ nginx }) => StreamLanguage.define(nginx)),
 };
 
 const languageLoads = new Map<string, Promise<Extension>>();

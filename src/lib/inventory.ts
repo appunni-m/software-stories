@@ -51,6 +51,7 @@ const languageByExtension: Record<string, string> = {
   rs: 'Rust', py: 'Python', pyw: 'Python', pyi: 'Python', go: 'Go', java: 'Java',
   c: 'C', h: 'C/C++/Objective-C header', cc: 'C++', cpp: 'C++', cxx: 'C++', hpp: 'C++',
   cs: 'C#', swift: 'Swift', kt: 'Kotlin', kts: 'Kotlin',
+  d: 'D',
   rb: 'Ruby', php: 'PHP', scala: 'Scala', sc: 'Scala',
   ex: 'Elixir', exs: 'Elixir', erl: 'Erlang', hrl: 'Erlang',
   hs: 'Haskell', lhs: 'Haskell', ml: 'OCaml', mli: 'OCaml',
@@ -64,12 +65,14 @@ const languageByExtension: Record<string, string> = {
   f: 'Fortran', f90: 'Fortran', f95: 'Fortran', f03: 'Fortran',
   cob: 'COBOL', cbl: 'COBOL', nix: 'Nix', tf: 'Terraform',
   cmake: 'CMake', prisma: 'Prisma', gradle: 'Gradle',
-  ps1: 'PowerShell', bat: 'Batch', cmd: 'Batch',
+  groovy: 'Groovy', gvy: 'Groovy', gsh: 'Groovy',
+  ps1: 'PowerShell', psm1: 'PowerShell', psd1: 'PowerShell', bat: 'Batch', cmd: 'Batch',
   m: 'Objective-C / MATLAB', mm: 'Objective-C++',
   json: 'JSON', jsonc: 'JSON with comments', yaml: 'YAML', yml: 'YAML', toml: 'TOML',
   md: 'Markdown', mdx: 'MDX', rst: 'reStructuredText', txt: 'Text',
   html: 'HTML', htm: 'HTML', css: 'CSS', scss: 'SCSS', less: 'Less',
   sql: 'SQL', sh: 'Shell', bash: 'Shell', zsh: 'Shell', fish: 'Shell',
+  properties: 'Java properties', diff: 'Diff', patch: 'Diff',
   xml: 'XML', svg: 'SVG', graphql: 'GraphQL', gql: 'GraphQL',
   dockerfile: 'Dockerfile', makefile: 'Makefile', lock: 'Lockfile',
 };
@@ -88,6 +91,7 @@ export function languageForPath(path: string): string {
   if (name === 'dockerfile') return 'Dockerfile';
   if (name === 'makefile' || name === 'gnumakefile') return 'Makefile';
   if (name === 'cmakelists.txt') return 'CMake';
+  if (name === 'nginx.conf') return 'Nginx config';
   const extension = name.includes('.') ? name.split('.').at(-1) ?? '' : '';
   return languageByExtension[extension] ?? (extension ? `.${extension}` : 'No extension');
 }

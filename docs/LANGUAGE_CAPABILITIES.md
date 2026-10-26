@@ -1,6 +1,6 @@
 # Language capabilities
 
-**Status reviewed: 2026-10-24.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
+**Status reviewed: 2026-10-27.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
 
 ## Tiers
 
@@ -36,7 +36,7 @@ The local index recognizes a bounded syntax subset. It attempts declarations and
 
 The current source maps parser-backed text to **Partial structural**, captured text without a supported parser to **Text only**, and non-text or uncaptured entries to **Not analyzed**. Capture disposition and its reason remain separate from the capability label. The packaged workspace was reopened on 2026-10-24, but the language-capability labels themselves were not inspected in that packaged run; this is not native UI acceptance. See [Getting started](GETTING_STARTED.md) for the source-review workflow and [Troubleshooting](TROUBLESHOOTING.md) for capture/index limitations.
 
-The source editor also lazy-loads display-only syntax highlighting for additional captured languages, including C#, Kotlin, Scala, Ruby, R, Lua, Haskell, Clojure, Fortran, and Dart. This is separate from the structural parser matrix above: highlighting does not add symbols, relationships, runtime behavior, or language-specific explanation qualification. Files without a matching display mode remain readable as plain text.
+The source editor also lazy-loads display-only syntax highlighting for additional captured languages, including C#, Kotlin, Scala, Ruby, R, Lua, Haskell, Clojure, Fortran, Dart, Swift, Erlang, Julia, Perl, PowerShell, COBOL, Elm, Groovy, D, Protocol Buffers, Java properties, unified diffs, and Nginx configuration. This is separate from the structural parser matrix above: highlighting does not add symbols, relationships, runtime behavior, or language-specific explanation qualification. Files without a matching display mode remain readable as plain text.
 
 ## Qualification still required
 
