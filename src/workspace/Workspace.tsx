@@ -369,6 +369,7 @@ export function DeveloperWorkspace(props:Props) {
   function explain(context:Context){
     if(conversationUnavailable)return;
     const selected=bindSelectionToDisplayedSource(context,source);
+    const pendingDraft=current.draft;
     const question=`Explain what ${label(selected)} does and how it works.`;
     const reject=(message:string)=>{
       setCodeRequestReview({context:selected,question,snapshotId,
@@ -389,13 +390,16 @@ export function DeveloperWorkspace(props:Props) {
       reject('The selected source range could not be verified. Close this review, reopen the file, and select its code again.');
       return;
     }
+    const excerpt=hasRange?lines.slice((selected.from??1)-1,selected.to??lines.length):lines;
     if(!requireCodexConnection()){
-      updateWorkspaceDraft(projectId,snapshotId,current.id,{question,context:[selected]});
-      setCodeRequestReview(null);setCodeRequestReviewError(null);
+      setCodeRequestReview({context:selected,question,snapshotId,sourceSha256:source.sha256,
+        sourceExcerpt:excerpt.slice(0,40).join('\n'),excerptTruncated:excerpt.length>40});
+      setCodeRequestReviewError(null);
       return;
     }
     setConnectionNotice(null);setCodeRequestReview(null);setCodeRequestReviewError(null);
     ask(question,current.view==='flow'?'flow':'guide',[selected]);
+    if(pendingDraft)updateWorkspaceDraft(projectId,snapshotId,current.id,pendingDraft);
   }
   function acceptCodeRequestReview(){
     const review=codeRequestReview;
@@ -407,9 +411,11 @@ export function DeveloperWorkspace(props:Props) {
     // Keep the reviewed question available if the saved account/backend needs
     // attention. The connection check can open Settings and return here.
     if(!requireCodexConnection())return;
+    const pendingDraft=current.draft;
     setCodeRequestReview(null);setCodeRequestReviewError(null);
     openFile(review.context);
     ask(review.question,current.view==='flow'?'flow':'guide',[review.context]);
+    if(pendingDraft)updateWorkspaceDraft(projectId,snapshotId,current.id,pendingDraft);
   }
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
