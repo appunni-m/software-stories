@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,FOCUSED_STORY_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
-import {readSectionStoryProgress,readStoryProgress} from '../src/lib/visualStory.ts';
+import {readSectionStoryProgress,readStoryProgressRecord} from '../src/lib/visualStory.ts';
 import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
@@ -31,7 +31,7 @@ test('native zero and scene selection restore without autoplay or unscoped fallb
   assert.deepEqual(changed,{index:0,positions:[['claim:first',0],['claim:second',0]],fullMap:false,viewport:undefined});
   const removed=readSectionStoryProgress(story,identity,[scenes[0]]);assert.equal(removed.index,0);assert.equal(removed.viewport,undefined);
   const unscoped=JSON.stringify({sceneId:'claim:second',positions:{'claim:second':12}});
-  assert.equal(readStoryProgress(unscoped,identity,scenes),undefined);
+  assert.equal(readStoryProgressRecord(unscoped,identity,scenes).status,'unavailable');
   const whole=[{id:'claim:second'}];
   assert.equal(readSectionStoryProgress(undefined,identity,whole,19.5).positions[0][1],19.5);
   assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
@@ -46,9 +46,12 @@ test('focused graph progress keeps its current layout and exact section position
   assert.deepEqual(readSectionStoryProgress(story,identity,scenes),{
     index:0,positions:[['claim:second',3.2]],fullMap:true,viewport:story.viewport,
   });
-  const browserProgress=readStoryProgress(JSON.stringify(focused),identity,scenes);
-  assert.equal(browserProgress.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
-  assert.deepEqual(browserProgress.viewport,story.viewport);
+  const browserProgress=readStoryProgressRecord(JSON.stringify(focused),identity,scenes);
+  assert.equal(browserProgress.status,'available');
+  if(browserProgress.status==='available'){
+    assert.equal(browserProgress.progress.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
+    assert.deepEqual(browserProgress.progress.viewport,story.viewport);
+  }
   assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(focused)),undefined);
   assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-2}),undefined);
   assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:1}),undefined);

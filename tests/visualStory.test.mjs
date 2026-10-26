@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -733,10 +733,9 @@ describe('visual story scenes', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 4 };
-    const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
-    assert.deepEqual(readStoryProgressRecord(JSON.stringify(saved), identity, scenes), { status: 'available', progress: saved });
-    assert.deepEqual(progress, saved);
-    const restored = readSectionStoryProgress(progress, identity, scenes);
+    const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
+    assert.deepEqual(progress, { status: 'available', progress: saved });
+    const restored = readSectionStoryProgress(progress.status === 'available' ? progress.progress : undefined, identity, scenes);
     assert.deepEqual(restored, { index: 1, positions: [['entry', 12.4], ['check', 3.2]], fullMap: false, viewport: undefined });
     assert.equal('autoPlay' in restored, false);
   });
@@ -747,8 +746,8 @@ describe('visual story scenes', () => {
     const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2 }, fullMap: false,
       focusedNodeId: 'check', focusedEdgeId: 'e:1', focusLayoutVersion: 4 };
 
-    const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
-    const restored = readSectionStoryProgress(progress, identity, scenes);
+    const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
+    const restored = readSectionStoryProgress(progress.status === 'available' ? progress.progress : undefined, identity, scenes);
 
     assert.equal(restored.index, 1);
     assert.equal(restored.focusedNodeId, 'check');
@@ -765,20 +764,14 @@ describe('visual story scenes', () => {
     assert.deepEqual(restoreStoryFocus(visual, 'error', 'e:0'), { nodeId: 'error', edgeId: null });
   });
 
-  it('drops invalid visual focus metadata without losing the saved scene or narration position', () => {
+  it('keeps progress unavailable when its visual focus metadata is invalid', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 4, check: 9 }, fullMap: false,
       focusedNodeId: 'x'.repeat(257), focusedEdgeId: {}, focusLayoutVersion: 4 };
 
-    const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
-    const restored = readSectionStoryProgress(progress, identity, scenes);
-
-    assert.ok(progress, 'untrusted optional focus data does not invalidate owned playback progress');
-    assert.equal(restored.index, 1);
-    assert.deepEqual(restored.positions, [['entry', 4], ['check', 9]]);
-    assert.equal(restored.focusedNodeId, undefined);
-    assert.equal(restored.focusedEdgeId, undefined);
+    const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
+    assert.equal(progress.status, 'unavailable');
   });
 
   it('rejects malformed or unscoped progress and never lets it select a foreign scene', () => {
@@ -787,17 +780,17 @@ describe('visual story scenes', () => {
     assert.deepEqual(readStoryProgressRecord(null, identity, scenes), { status: 'missing' });
     assert.deepEqual(readStoryProgressRecord('{bad', identity, scenes), { status: 'unavailable' });
     assert.deepEqual(readStoryProgressRecord('0'.repeat(64_001), identity, scenes), { status: 'unavailable' });
-    for (const raw of [null, '{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
-      assert.equal(readStoryProgress(raw, identity, scenes), undefined);
+    for (const raw of ['{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
+      assert.equal(readStoryProgressRecord(raw, identity, scenes).status, 'unavailable');
     }
     const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4 };
-    assert.equal(readStoryProgress(JSON.stringify(foreign), identity, scenes), undefined);
+    assert.equal(readStoryProgressRecord(JSON.stringify(foreign), identity, scenes).status, 'unavailable');
     const unversioned = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false };
-    assert.equal(readStoryProgress(JSON.stringify(unversioned), identity, scenes), undefined);
+    assert.equal(readStoryProgressRecord(JSON.stringify(unversioned), identity, scenes).status, 'unavailable');
     const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4, autoPlay: true };
-    assert.equal(readStoryProgress(JSON.stringify(extra), identity, scenes), undefined);
+    assert.equal(readStoryProgressRecord(JSON.stringify(extra), identity, scenes).status, 'unavailable');
     const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 4 };
-    assert.equal(readStoryProgress(JSON.stringify(bad), identity, scenes), undefined);
+    assert.equal(readStoryProgressRecord(JSON.stringify(bad), identity, scenes).status, 'unavailable');
   });
 });
 

@@ -390,11 +390,6 @@ export function readStoryProgressRecord(raw: string | null, identity: SectionIde
   return { status: 'available', progress: clean };
 }
 
-export function readStoryProgress(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgress | undefined {
-  const result = readStoryProgressRecord(raw, identity, scenes);
-  return result.status === 'available' ? result.progress : undefined;
-}
-
 function sectionStoryProgress(progress: StoryProgress | undefined, scenes: StoryScene[]): { index: number; positions: [string, number][]; fullMap: boolean; viewport?: FlowViewport; focusedNodeId?: string; focusedEdgeId?: string } {
   const positions = progress?.positions ?? {};
   return { index: Math.max(0, scenes.findIndex((scene) => scene.id === progress?.sceneId)), positions: scenes.map((scene) => {
