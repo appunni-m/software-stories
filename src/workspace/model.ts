@@ -631,8 +631,9 @@ export function presentationOwner(exploration:Exploration,revisionId:string):Tur
   return exploration.turns.find(t=>t.id===exploration.focusedTurnId&&owns(t))??exploration.turns.slice().reverse().find(owns);
 }
 export function rankSourcePaths(paths: string[]): string[] {
-  const score = (p: string) => (/(^|\/)(main|lib|index|app|server)\.(rs|tsx?|jsx?|py|go|swift)$/i.test(p) ? 100 : 0)
-    + (/^(src|app|lib|Sources)\//.test(p) ? 40 : 0)
+  const score = (p: string) => (/(^|\/)(main|lib|index|app|server|program|__main__)\.(rs|tsx?|jsx?|mjs|cjs|py|go|swift|c|cc|cpp|cxx|cs|java|kt|kts|m|mm|rb|php|scala|sc|ex|exs|erl|hs|ml|fs|clj|cljs|lua|zig|dart|vue|svelte)$/i.test(p) ? 100 : 0)
+    + (/^(src|app|lib|sources|cmd)\//i.test(p) ? 40 : 0)
+    + (/(^|\/)src\/bin\/[^/]+\.rs$/i.test(p) ? 60 : 0)
     - (/(^|\/)(\.[^/]+|tests?|docs?|examples?|skills|agents|deprecated)(\/|$)/.test(p) ? 90 : 0)
     - (/\.(json|ya?ml|toml|md|txt|lock)$/.test(p) ? 50 : 0);
   return [...paths].sort((a,b) => score(b) - score(a) || a.localeCompare(b));
