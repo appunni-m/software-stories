@@ -603,7 +603,7 @@ export function DeveloperWorkspace(props:Props) {
       if(mod&&['1','2','3'].includes(k)){event.preventDefault();event.stopImmediatePropagation();setView((['guide','flow','history'] as const)[Number(k)-1]);onWorkspace('guide-plan');}
       if(event.altKey&&k==='arrowleft'&&current.parentId){event.preventDefault();go(current.parentId);}
     };
-    window.addEventListener('keydown',listener,true);window.addEventListener('code-atlas:search',findInRepository);return()=>{window.removeEventListener('keydown',listener,true);window.removeEventListener('code-atlas:search',findInRepository);};
+    window.addEventListener('keydown',listener,true);return()=>window.removeEventListener('keydown',listener,true);
   },[current.id,current.parentId]);
   const composerSearchActive=searchFocused&&[...query.trim()].length>=2;
   const term=(composerSearchActive?query:activity==='search'?repositorySearch:query).trim();

@@ -45,7 +45,6 @@ import {
   ChevronDown,
   CircleHelp,
   Code2,
-  Command,
   FileCode2,
   FolderOpen,
   GitBranch,
@@ -1708,16 +1707,6 @@ function App() {
             onDismissRead={noticeHistoryState.issue === 'full' && noticeHistoryState.items.some(item => item.read)
               ? () => noticeHistory.dismissMany(noticeHistoryState.items.filter(item => item.read).map(item => item.id))
               : undefined} />
-          <button
-            className="search-control"
-            disabled={!navigation.current.snapshotId}
-            onClick={() => window.dispatchEvent(new Event('code-atlas:search'))}
-            aria-label="Search repository code, Command Shift F"
-          >
-            <Search size={15} />
-            <span>Search repository</span>
-            <kbd><Command size={10} /> ⇧ F</kbd>
-          </button>
           <button
             className="help-button"
             onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setShortcutsOpen(true); }}
