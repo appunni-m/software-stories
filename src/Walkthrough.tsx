@@ -27,7 +27,7 @@ import { InlineCodeText } from './InlineCodeText';
 import { ReaderProgressContext } from './lib/ReaderProgressContext';
 import { sameSection, type SectionIdentity, type StoryProgress } from './lib/readerProgress';
 import { answerReadingPosition } from './workspace/answerVersions';
-import { presentationOwner, rememberPresentation, rememberSection, type WorkspaceState } from './workspace/model';
+import { presentationOwner, rememberPresentation, rememberSection as rememberWorkspaceSection, type WorkspaceState } from './workspace/model';
 import { getWorkspace, prepareWorkspaceConversation, updateWorkspace, useConversationAvailability, useWorkspace } from './workspace/store';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
@@ -152,7 +152,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     const owner = readerTurnForRevision(readerWorkspace, selectedRevision.revisionId);
     if (owner) updateWorkspace(projectId, selectedRevision.snapshotId, (state) => {
       const current = readerTurnForRevision(state, selectedRevision.revisionId);
-      return current ? rememberSection(state, current.exploration.id, current.turn.id, 'guide', {
+      return current ? rememberWorkspaceSection(state, current.exploration.id, current.turn.id, 'guide', {
         revisionId: selectedRevision.revisionId,
         sectionId: selectedSectionId,
       }) : state;
@@ -401,7 +401,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
           if (!revision.sections.some((section) => section.sectionId === sectionId)) return;
           updateWorkspace(projectId, readerSnapshotId, (state) => {
             const current = readerTurnForRevision(state, revisionId);
-            return current ? rememberSection(state, current.exploration.id, current.turn.id, 'guide', { revisionId, sectionId }) : state;
+            return current ? rememberWorkspaceSection(state, current.exploration.id, current.turn.id, 'guide', { revisionId, sectionId }) : state;
           });
         },
       };

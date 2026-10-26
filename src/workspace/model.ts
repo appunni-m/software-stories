@@ -546,7 +546,8 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
       reading: { ...version.reading },
     }));
     let entry = versions.find((version) => version.revisionId === clean.revisionId);
-    if (!entry && perRevisionReading && originalIds(turn).has(clean.revisionId)) {
+    if (!entry && perRevisionReading && (turn.revisionId === clean.revisionId
+      || (turn.publishedSections ?? []).some((section) => section.revisionId === clean.revisionId))) {
       entry = {
         originalRevisionId: clean.revisionId,
         revisionId: clean.revisionId,

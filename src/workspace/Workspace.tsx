@@ -38,6 +38,7 @@ import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibil
 import { plainInlineCodeText } from '../lib/inlineCode';
 import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
+import { readRepositorySearchContext, rememberRepositorySearchContext } from './searchContext';
 import './workspace.css';
 
 interface Props {
@@ -109,10 +110,18 @@ export function DeveloperWorkspace(props:Props) {
   const path = ancestors(state);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
   const sourcePaths = useMemo(()=>rankSourcePaths(rows.map((r)=>r.path)),[rows]);
-  const [activity,setActivityState] = useState<'files'|'search'|'changes'|'history'>(props.routeSidebarActivity??'files');
+  const initialSearchContext=useMemo(()=>{
+    if(props.routeSearchQuery!==undefined||props.routeSearchMode!==undefined||props.routeSidebarActivity!==undefined){
+      const activity=props.routeSidebarActivity??(props.routeSearchQuery!==undefined?'search':'files');
+      return {activity:activity==='changes'?'files' as const:activity,query:props.routeSearchQuery??'',mode:props.routeSearchMode==='regex'?'regex' as const:'code' as const};
+    }
+    const saved=readRepositorySearchContext(projectId,snapshotId);
+    return saved?{activity:saved.activity,query:saved.query,mode:saved.mode}:{activity:'files' as const,query:'',mode:'code' as const};
+  },[projectId,snapshotId,props.routeSearchQuery,props.routeSearchMode,props.routeSidebarActivity]);
+  const [activity,setActivityState] = useState<'files'|'search'|'changes'|'history'>(initialSearchContext.activity);
   const [fileFilter,setFileFilter] = useState('');
-  const [repositorySearch,setRepositorySearchState] = useState(props.routeSearchQuery??'');
-  const [repositoryRegex,setRepositoryRegexState] = useState(props.routeSearchMode==='regex');
+  const [repositorySearch,setRepositorySearchState] = useState(initialSearchContext.query);
+  const [repositoryRegex,setRepositoryRegexState] = useState(initialSearchContext.mode==='regex');
   const searchRouteRef=useRef({activity,query:repositorySearch,regex:repositoryRegex,remember:props.onRememberSearch});
   searchRouteRef.current={activity,query:repositorySearch,regex:repositoryRegex,remember:props.onRememberSearch};
   function rememberSearchState(next:{activity?:'files'|'search'|'changes'|'history';query?:string;regex?:boolean}) {
@@ -124,16 +133,17 @@ export function DeveloperWorkspace(props:Props) {
     if(next.activity!==undefined)setActivityState(next.activity);
     if(next.query!==undefined)setRepositorySearchState(next.query);
     if(next.regex!==undefined)setRepositoryRegexState(next.regex);
+    rememberRepositorySearchContext(projectId,snapshotId,{query:nextQuery,mode:nextRegex?'regex':'code',activity:nextActivity==='changes'?'files':nextActivity});
     current.remember?.(nextQuery,nextRegex?'regex':'code',nextActivity);
   }
   const setActivity=(next:'files'|'search'|'changes'|'history')=>rememberSearchState({activity:next});
   const setRepositorySearch=(next:string)=>rememberSearchState({query:next});
   const toggleRepositoryRegex=()=>rememberSearchState({regex:!repositoryRegex});
   useEffect(()=>{
-    setActivityState(props.routeSidebarActivity??'files');
-    setRepositorySearchState(props.routeSearchQuery??'');
-    setRepositoryRegexState(props.routeSearchMode==='regex');
-  },[props.routeSearchQuery,props.routeSearchMode,props.routeSidebarActivity]);
+    setActivityState(initialSearchContext.activity);
+    setRepositorySearchState(initialSearchContext.query);
+    setRepositoryRegexState(initialSearchContext.mode==='regex');
+  },[initialSearchContext]);
   useEffect(()=>{
     if(workspace!=='changes'&&activity==='changes'){
       setActivityState('files');
