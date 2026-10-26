@@ -68,9 +68,9 @@ export function visibleConversationTurns(
   });
 }
 
-/** Keep the selected question prominent in Guide. Without an explicit
- * selection, prefer the newest active or source-available answer; old receipts
- * remain in the conversation and Chat history. */
+/** Choose the Guide card to restore and the question Flow follows. Guide keeps
+ * all eligible answer cards stacked; this identity controls its reading
+ * position rather than filtering the conversation. */
 export function featuredGuideTurnId(
   turns: readonly Turn[],
   focusedTurnId: string | undefined,
