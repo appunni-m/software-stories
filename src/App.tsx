@@ -9,7 +9,7 @@ import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
-import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
+import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
@@ -1331,32 +1331,8 @@ function App() {
     }
     if (navigationAtStart !== navigationRef.current) return;
 
-    updateWorkspace(revision.projectId, revision.snapshotId, (state) => {
-      const existing = state.explorations.flatMap((exploration) =>
-        exploration.turns.map((turn) => ({ exploration, turn })))
-        .find(({ turn }) => turn.revisionId === revision.revisionId
-          || turn.publishedSections?.some((section) => section.revisionId === revision.revisionId));
-      if (existing) return openWorkspaceQuestion(state, existing.exploration.id, existing.turn.id);
-
-      const owner = state.explorations.find((exploration) => exploration.id === state.currentId)
-        ?? state.explorations[0];
-      if (!owner) return state;
-      const turnId = crypto.randomUUID();
-      const next = {
-        ...state,
-        explorations: state.explorations.map((exploration) => exploration.id !== owner.id ? exploration : {
-          ...exploration,
-          turns: [...exploration.turns, {
-            id: turnId,
-            question: revision.title,
-            context: [],
-            status: 'ready' as const,
-            revisionId: revision.revisionId,
-          }],
-        }),
-      };
-      return openWorkspaceQuestion(next, owner.id, turnId);
-    });
+    updateWorkspace(revision.projectId, revision.snapshotId, (state) =>
+      openWorkspaceRevision(state, revision.revisionId, revision.title));
     const openedWorkspace = getWorkspace(revision.projectId, revision.snapshotId);
     const focusedTurnId = openedWorkspace.explorations
       .find((exploration) => exploration.id === openedWorkspace.currentId)?.focusedTurnId;

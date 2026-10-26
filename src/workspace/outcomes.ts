@@ -297,3 +297,32 @@ export function openWorkspaceQuestion(
       revealTurnId: alreadyReadingThisQuestion ? undefined : turnId,
     }) };
 }
+
+/** Open a saved revision in its existing question, or attach it to the current
+ * exploration so every saved explanation has the same Guide reader. */
+export function openWorkspaceRevision(state: WorkspaceState, revisionId: string, title: string): WorkspaceState {
+  const existing = state.explorations.flatMap((exploration) =>
+    exploration.turns.map((turn) => ({ exploration, turn })))
+    .find(({ turn }) => turn.revisionId === revisionId
+      || turn.publishedSections?.some((section) => section.revisionId === revisionId));
+  if (existing) return openWorkspaceQuestion(state, existing.exploration.id, existing.turn.id);
+
+  const owner = state.explorations.find((exploration) => exploration.id === state.currentId)
+    ?? state.explorations[0];
+  if (!owner) return state;
+  const turnId = crypto.randomUUID();
+  const next = {
+    ...state,
+    explorations: state.explorations.map((exploration) => exploration.id !== owner.id ? exploration : {
+      ...exploration,
+      turns: [...exploration.turns, {
+        id: turnId,
+        question: title,
+        context: [],
+        status: 'ready' as const,
+        revisionId,
+      }],
+    }),
+  };
+  return openWorkspaceQuestion(next, owner.id, turnId);
+}
