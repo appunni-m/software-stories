@@ -211,6 +211,7 @@ pub(super) fn run(
     changed: &impl Fn(&GuideSummary),
     automatic_retry: bool,
     renderer_queue_wait_ms: Option<u64>,
+    started_at: std::time::Instant,
 ) -> Result<Record, String> {
     checked_manifest(storage, record)?;
     let runtime = manager.review_runtime(storage)?;
@@ -225,7 +226,7 @@ pub(super) fn run(
     let run_id = Uuid::new_v4().to_string();
     let record = begin_with_retry(storage, record, &run_id, automatic_retry)?;
     changed(&summary(storage, &record)?);
-    let result = workspace_generation::progressive::run_with_starting_ranges(
+    let result = workspace_generation::progressive::run_with_starting_ranges_at(
         storage,
         Input {
             run_id: run_id.clone(),
@@ -244,6 +245,7 @@ pub(super) fn run(
         manager,
         jobs,
         journal,
+        started_at,
         progress,
         notify,
     );

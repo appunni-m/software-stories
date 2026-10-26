@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     path::Path,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
@@ -979,6 +980,7 @@ fn run_initial_opening(
     adopt: &impl Fn(&SectionNotice) -> Result<(), String>,
     changed: &impl Fn(&GuideSummary),
     renderer_queue_wait_ms: Option<u64>,
+    operation_started_at: Instant,
 ) -> Result<Record, String> {
     checked_manifest(storage, record)?;
     let runtime = manager.review_runtime(storage)?;
@@ -1022,7 +1024,7 @@ fn run_initial_opening(
         .collect();
     let record = begin_initial_opening(storage, record)?;
     changed(&summary(storage, &record)?);
-    let result = workspace_generation::progressive::run_with_starting_ranges(
+    let result = workspace_generation::progressive::run_with_starting_ranges_at(
         storage,
         Input {
             run_id: run_id.clone(),
@@ -1041,6 +1043,7 @@ fn run_initial_opening(
         manager,
         jobs,
         journal,
+        operation_started_at,
         progress,
         notify,
     );
@@ -1101,6 +1104,7 @@ fn build(
     max_new_slides: usize,
     only_unit_key: Option<&str>,
     renderer_queue_wait_ms: Option<u64>,
+    operation_started_at: Instant,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -1116,6 +1120,7 @@ fn build(
         max_new_slides,
         only_unit_key,
         renderer_queue_wait_ms,
+        operation_started_at,
         progress,
         notify,
         adopt,
@@ -1143,6 +1148,7 @@ fn build_inner(
     max_new_slides: usize,
     only_unit_key: Option<&str>,
     mut renderer_queue_wait_ms: Option<u64>,
+    operation_started_at: Instant,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -1170,6 +1176,7 @@ fn build_inner(
                 &owner,
                 manager,
                 jobs.clone(),
+                operation_started_at,
                 &progress,
                 Arc::clone(&notify),
                 |plan| save_outline(storage, &owner, plan, None),
@@ -1222,6 +1229,7 @@ fn build_inner(
             &adopt,
             &changed,
             renderer_queue_wait_ms.take(),
+            operation_started_at,
         )?;
     }
     if only_unit_key.is_none() && continue_opening && opening_continuation::eligible(&record) {
@@ -1237,6 +1245,7 @@ fn build_inner(
             &changed,
             false,
             renderer_queue_wait_ms.take(),
+            operation_started_at,
         )?;
     }
     record = store::read(storage, id)?;
@@ -1253,6 +1262,7 @@ fn build_inner(
             &changed,
             true,
             renderer_queue_wait_ms.take(),
+            operation_started_at,
         )?;
     }
     record = store::read(storage, id)?;
@@ -1322,7 +1332,15 @@ fn build_inner(
                     to: Some(r.end_line as u32),
                 })
                 .collect();
-            let result = workspace_generation::progressive::run_with_starting_ranges(
+            // Keep the command origin until this operation publishes its first
+            // section. On a fresh guide this includes planning; on a refill it
+            // excludes time spent waiting for the reader to consume a slide.
+            let slide_started_at = if published_slide_count(&record) == starting_slide_count {
+                operation_started_at
+            } else {
+                Instant::now()
+            };
+            let result = workspace_generation::progressive::run_with_starting_ranges_at(
                 storage,
                 Input {
                     run_id: run_id.clone(),
@@ -1341,6 +1359,7 @@ fn build_inner(
                 manager,
                 jobs.clone(),
                 journal,
+                slide_started_at,
                 &progress,
                 Arc::clone(&notify),
             );
@@ -1511,6 +1530,7 @@ pub(crate) async fn start_repository_guide(
     sessions: State<'_, ProjectSessions>,
     input: Start,
 ) -> Result<GuideSummary, String> {
+    let operation_started_at = Instant::now();
     sessions.get(&input.project_id)?;
     if !input.consent
         || !uuid(&input.id)
@@ -1557,6 +1577,7 @@ pub(crate) async fn start_repository_guide(
         GUIDE_SLIDE_BUFFER,
         None,
         renderer_queue_wait_ms,
+        operation_started_at,
     )
     .await
 }
@@ -1569,6 +1590,7 @@ async fn run_command(
     max_new_slides: usize,
     only_unit_key: Option<String>,
     renderer_queue_wait_ms: Option<u64>,
+    operation_started_at: Instant,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;
@@ -1587,6 +1609,7 @@ async fn run_command(
             max_new_slides,
             only_unit_key.as_deref(),
             renderer_queue_wait_ms,
+            operation_started_at,
             |progress| {
                 let _ = app.emit("codex-agent-progress", progress);
             },
@@ -1632,6 +1655,7 @@ pub(crate) async fn resume_repository_guide(
     consent: bool,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
+    let operation_started_at = Instant::now();
     sessions.get(&project_id)?;
     if !consent {
         return Err("Allow continuation before building more guide content.".into());
@@ -1668,6 +1692,7 @@ pub(crate) async fn resume_repository_guide(
             GUIDE_SLIDE_BUFFER,
             None,
             renderer_queue_wait_ms,
+            operation_started_at,
         )
         .await;
     }
@@ -1681,6 +1706,7 @@ pub(crate) async fn resume_repository_guide(
         GUIDE_SLIDE_BUFFER,
         None,
         renderer_queue_wait_ms,
+        operation_started_at,
     )
     .await
 }
@@ -1696,6 +1722,7 @@ pub(crate) async fn advance_repository_guide(
     consumed_revision_id: String,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
+    let operation_started_at = Instant::now();
     sessions.get(&project_id)?;
     if !text(&consumed_revision_id, 1, 256) {
         return Err("The completed guide slide could not be identified.".into());
@@ -1782,7 +1809,18 @@ pub(crate) async fn advance_repository_guide(
     }
     let expected_revision = record.revision;
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, false, 1, None, renderer_queue_wait_ms).await
+    run_command(
+        app,
+        storage,
+        id,
+        lease,
+        false,
+        1,
+        None,
+        renderer_queue_wait_ms,
+        operation_started_at,
+    )
+    .await
 }
 
 /// Retry one terminally incomplete outline unit without replaying or advancing
@@ -1800,6 +1838,7 @@ pub(crate) async fn retry_repository_guide_unit(
     consent: bool,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
+    let operation_started_at = Instant::now();
     sessions.get(&project_id)?;
     if !consent || !key(&unit_key) || !uuid(&grant_id) {
         return Err("Choose an unfinished guide slide before retrying it.".into());
@@ -1857,6 +1896,7 @@ pub(crate) async fn retry_repository_guide_unit(
         1,
         Some(unit_key),
         renderer_queue_wait_ms,
+        operation_started_at,
     )
     .await
 }

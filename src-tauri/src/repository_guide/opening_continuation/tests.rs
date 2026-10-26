@@ -296,6 +296,7 @@ fn a_missing_current_connection_or_changed_snapshot_cannot_spend_the_opening_fol
                 &|_| {},
                 false,
                 None,
+                std::time::Instant::now(),
             )
             .is_err()
         );

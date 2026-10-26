@@ -70,7 +70,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         publications,
         preparation_stages: vec![],
         unmeasured: [
-            "repositoryGuidePlanningDuration",
+            "wholeGuideCompletionAcrossUserPlayback",
             "registrationFailureBeforeDurableJob",
             "coldWarmIndexComparison",
             "rendererAdoption",
@@ -104,7 +104,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         value["unmeasured"]
             .as_array()
             .unwrap()
-            .contains(&json!("repositoryGuidePlanningDuration"))
+            .contains(&json!("wholeGuideCompletionAcrossUserPlayback"))
     );
 }
 

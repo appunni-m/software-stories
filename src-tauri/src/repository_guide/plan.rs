@@ -289,12 +289,12 @@ pub(super) fn run(
     job: &Record,
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
+    started_at: Instant,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     publish: impl FnOnce(Plan) -> Result<(), String>,
 ) -> Result<(), String> {
-    let started = Instant::now();
-    let mut preparation = crate::generation_timing::Preparation::new(started);
+    let mut preparation = crate::generation_timing::Preparation::new(started_at);
     let manifest = preparation.run_stage(
         crate::generation_timing::PreparationKind::SnapshotLoad,
         || checked_manifest(storage, job),
@@ -355,7 +355,7 @@ pub(super) fn run(
             sources: vec![],
         },
         &fingerprint,
-        started,
+        started_at,
         None,
         preparation_stages,
         progress,

@@ -291,10 +291,37 @@ pub(crate) fn run_with_starting_ranges(
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<Summary, String> {
+    run_with_starting_ranges_at(
+        storage,
+        input,
+        ranges,
+        guide_intent,
+        manager,
+        jobs,
+        journal,
+        Instant::now(),
+        progress,
+        notify,
+    )
+}
+
+/// Run a guide slide against an existing monotonic origin when measuring a
+/// first useful answer across the outline and its opening slide.
+pub(crate) fn run_with_starting_ranges_at(
+    storage: &Path,
+    input: Input,
+    ranges: &[context::CodeRange],
+    guide_intent: Option<&GuideIntent>,
+    manager: &codex_agent::CodexAgentManager,
+    jobs: RepositoryContextJobs,
+    journal: &recovery::InterruptionJournal,
+    started_at: Instant,
+    progress: impl Fn(codex_agent::CodexProgress),
+    notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
+) -> Result<Summary, String> {
     if guide_intent.is_none() && input.turn_id.is_none() {
         return Err("This question is missing its conversation identity. Nothing was sent.".into());
     }
-    let started_at = Instant::now();
     let mut preparation = crate::generation_timing::Preparation::new(started_at);
     let _worker = preparation.run_stage(
         crate::generation_timing::PreparationKind::WorkerRegistration,
@@ -866,7 +893,7 @@ pub(crate) fn timing_report(
     Ok(TimingReport {
         schema_version: 4,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. For a repository-guide operation, the candidate runs before its first published section are anchored to that command's monotonic start. On a fresh guide this makes firstUsefulAnswer include outline planning and earlier failed slide attempts; a resumed or refilled guide starts a new origin at that user action, excluding time waiting for playback. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if let Some(answer) = answer {
             if !active && answer.outcome == Outcome::Working {
@@ -895,7 +922,7 @@ pub(crate) fn timing_report(
         publications,
         preparation_stages,
         unmeasured: [
-            "repositoryGuidePlanningDuration",
+            "wholeGuideCompletionAcrossUserPlayback",
             "registrationFailureBeforeDurableJob",
             "coldWarmIndexComparison",
             "rendererAdoption",
