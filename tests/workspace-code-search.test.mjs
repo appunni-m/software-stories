@@ -112,13 +112,14 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,searchBusy,searchError,results\.length\)/);
 });
 
-test('Explore with AI appears only when a settled search has no matches or search error',()=>{
+test('Explore with AI appears after empty code search or when local code search is unavailable',()=>{
   assert.equal(shouldOfferExploreWithAI('memory_face','code',true,null,0),false);
-  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',0),false);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',0),true);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,1),false);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,0),true);
   assert.equal(shouldOfferExploreWithAI('a','code',false,null,0),false);
   assert.equal(shouldOfferExploreWithAI('.','regex',false,null,0),true);
+  assert.equal(shouldOfferExploreWithAI('.','regex',false,'Invalid regular expression',0),false);
   assert.equal(shouldOfferExploreWithAI('x'.repeat(241),'code',false,null,0),false);
   assert.equal(shouldOfferExploreWithAI('   ','code',false,null,0),false);
 });
