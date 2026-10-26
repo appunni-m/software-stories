@@ -2004,6 +2004,8 @@ pub(crate) fn search_files_with_mode_page(
     let words = relevant_words;
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
+    let path_field = field(&prepared.index, "path")?;
+    let symbol_field = field(&prepared.index, "symbol")?;
     let mut term_groups = Vec::with_capacity(words.len());
     for word in &words {
         let mut variants = vec![(body, word.clone())];
@@ -2025,6 +2027,10 @@ pub(crate) fn search_files_with_mode_page(
     // needs to retain which positive-weight terms matched. A 32-bit mask keeps
     // the bounded 50,000-range index from allocating a heap vector per hit.
     let mut path_terms: HashMap<&str, u32> = HashMap::new();
+    // Paths and indexed declarations are useful for ranking a file shortlist,
+    // but they are not source evidence. Keep their coverage separate from the
+    // body matches that select the returned, verifiable source range.
+    let mut path_hint_terms: HashMap<&str, u32> = HashMap::new();
     let mut range_terms: HashMap<usize, u32> = HashMap::new();
     let mut term_weights = vec![0.0f32; term_groups.len()];
     // File discovery returns one result per path, so IDF must count files,
@@ -2099,6 +2105,51 @@ pub(crate) fn search_files_with_mode_page(
             *path_terms.entry(range.path.as_str()).or_default() |= term_bit;
             *range_terms.entry(range_id).or_default() |= term_bit;
         }
+
+        // Discovery previously ranked only words found in source bodies. An
+        // indexed path or declaration can disambiguate equally relevant files
+        // without allowing metadata-only matches to create a result or source
+        // span of their own.
+        if term_bit != 0 {
+            let hint_query = BooleanQuery::union(vec![
+                term_query(path_field, word),
+                term_query(symbol_field, word),
+            ]);
+            let documents = searcher
+                .search(&hint_query, &tantivy::collector::DocSetCollector)
+                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+            for (index, address) in documents.into_iter().enumerate() {
+                if index % 128 == 0 {
+                    budget.check()?;
+                }
+                let document = searcher
+                    .doc::<TantivyDocument>(address)
+                    .map_err(|_| "A code search result is unavailable.".to_owned())?;
+                let key = document
+                    .get_first(range_key_field)
+                    .and_then(|value| value.as_str())
+                    .ok_or("The code search index is invalid.")?;
+                let range_id = *prepared
+                    .ranges_by_key
+                    .get(key)
+                    .ok_or("The code search index is invalid.")?;
+                let range = prepared
+                    .metadata
+                    .ranges
+                    .get(range_id)
+                    .ok_or("The code search index is invalid.")?;
+                if path.is_none_or(|scope| {
+                    range.path == scope
+                        || range
+                            .path
+                            .strip_prefix(scope)
+                            .is_some_and(|suffix| suffix.starts_with('/'))
+                }) {
+                    *path_hint_terms.entry(range.path.as_str()).or_default() |=
+                        1u32 << term_index;
+                }
+            }
+        }
     }
 
     let score_terms = |mask: u32| {
@@ -2148,13 +2199,19 @@ pub(crate) fn search_files_with_mode_page(
                     (mask & (1u32 << index) != 0).then(|| word.clone())
                 })
                 .collect::<Vec<_>>();
-            Some((file_path, *range_id, score, coverage, matched_terms))
+            let hint_coverage = path_hint_terms
+                .get(file_path)
+                .copied()
+                .unwrap_or_default()
+                .count_ones() as usize;
+            Some((file_path, *range_id, score, coverage, hint_coverage, matched_terms))
         })
         .collect::<Vec<_>>();
     ranked_files.sort_by(|left, right| {
         right
             .3
             .cmp(&left.3)
+            .then_with(|| right.4.cmp(&left.4))
             .then_with(|| right.2.total_cmp(&left.2))
             .then_with(|| left.0.cmp(&right.0))
     });
@@ -2166,7 +2223,7 @@ pub(crate) fn search_files_with_mode_page(
         .build_literals(&words)
         .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let mut matches = Vec::new();
-    for (file_path, range_id, score, _, matched_terms) in
+    for (file_path, range_id, score, _, _, matched_terms) in
         ranked_files.into_iter().skip(offset).take(limit)
     {
         budget.check()?;
