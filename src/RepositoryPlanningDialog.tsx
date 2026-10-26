@@ -54,15 +54,25 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   }, [backend, onClose]);
   const [discovery, setDiscovery] = useState<SourceDiscoveryResult | null>(() => scope.discoveryResult ?? null);
   const discoveredPaths = discovery?.selectedFiles.map((file) => file.path);
-  if (!scope.selectedPaths.length && !discoveredPaths && !scope.recoveryOperationId && scope.kind !== 'planned-chapter') {
+  const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
+  const needsRepositoryDiscovery = !scope.selectedPaths.length && !discoveredPaths
+    && !scope.recoveryOperationId && scope.kind !== 'planned-chapter';
+  if (needsRepositoryDiscovery && backend === 'codex') {
     return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} persistSuccessfulResult />;
+  }
+  if (needsRepositoryDiscovery && backend === 'claude-agent') {
+    return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>
+      <header className="provider-dialog-header"><div><h2 id="claude-discovery-title">Repository discovery isn’t available for Claude yet</h2><p>{scope.question}</p></div>
+        <button className="icon-button" onClick={onClose} aria-label="Close planning"><X size={17} /></button></header>
+      <div className="provider-dialog-content"><p>Your question is unchanged. Switch to Codex in Connections to have Code Atlas find the relevant files automatically.</p></div>
+      <footer className="provider-dialog-footer"><button className="secondary-button" onClick={onClose}>Close</button><button className="primary-button" onClick={openConnections}>Change connection</button></footer>
+    </section></div>;
   }
   const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
   const savedBackend = readGenerationBackend();
   const unsupportedSavedConnection = !scope.recoveryOperationId && (savedBackend === null || savedBackend === 'api' || savedBackend === 'handoff');
   const savedConnectionName = savedBackend === null ? 'The saved AI connection'
     : savedBackend === 'api' ? 'Direct API' : 'Claude Code handoff';
-  const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
   const planned = scope.kind === 'planned-chapter' ? scope.plannedChapter : null;
   const mode = planned ? { kind: 'review' as const, projectId: scope.projectId, snapshotId: scope.snapshotId,
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,

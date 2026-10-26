@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileSearch, LoaderCircle, X } from 'lucide-react';
+import { LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type DiscoveryCoverageGapCategory, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -126,11 +126,11 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     setNeedsConnection(false); setRetry((value) => value + 1);
   }} />;
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
-    <header className="provider-dialog-header"><div><div className="step-pill"><FileSearch size={15} /> AI FINDS THE CODE</div><h2 id="discovery-title">Start with your question</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
+    <header className="provider-dialog-header"><div><h2 id="discovery-title">Find code for this question</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">
       {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
-        <p>Code Atlas will search the repository for code related to your question and choose the files. You do not need to select references.</p>
-        <p className="provider-small-note">{review.modelId} · {review.effort} · uses your header connection. This step shares your question and repository metadata (file paths, code names, relationships and coverage notes) with OpenAI through Codex, not file contents. Those are reviewed separately before an explanation is generated. Account quota applies.</p>
+        <p>Code Atlas will choose relevant files for you. You do not need to select references.</p>
+        <p className="provider-small-note">Your question and repository details (file paths, code names and relationships) go to your saved AI connection. File contents are not sent in this step; you can review them before asking for the explanation. This may count toward your connected account’s usage.</p>
         {review.indexStatus === 'partial' && <p className="source-warning">Some code relationships are missing, so file selection may be incomplete.</p>}
         {review.indexStatus === 'cancelled' && <p className="source-warning">The repository map is incomplete, so file selection may be incomplete.</p>}
         {review.indexStatus === 'missing' && <p className="source-warning">Code relationships are unavailable. Codex can still search file paths, but may miss related code.</p>}
@@ -148,7 +148,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
             ))}</ul>
           </details>
         )}
-        <details><summary>Exact discovery context</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
+        <details><summary>Details shared with your connection</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}
       </>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
