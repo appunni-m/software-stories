@@ -553,15 +553,42 @@ export function DeveloperWorkspace(props:Props) {
   />;
   const activityButtons=[{id:'files',label:'Explorer',icon:Files},{id:'search',label:'Search',icon:Search},{id:'changes',label:'Changes',icon:GitBranch},{id:'history',label:'Explorations',icon:History}] as const;
   const explorationCounts=explorationSummaryCounts(state.explorations);
-  const renderExplorations=(parent:string|null,depth=0):ReactNode=>state.explorations.filter((e)=>e.parentId===parent).map((e)=>{
-    const nested=renderExplorations(e.id,depth+1);
-    const title=e.id==='root'?projectName:e.title;
-    const displayTitle=e.id==='root'?projectName:questionSummaryText(title);
-    const counts=explorationCounts.get(e.id)!;
-    const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
-    const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
-    return <li key={e.id}><button title={`${displayTitle} · ${questionCount} · ${childCount}`} aria-label={`${displayTitle}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>;
-  });
+  const renderExplorations=(parent:string|null):ReactNode=>{
+    // Persisted branches can be deeply nested; index siblings once and render
+    // bottom-up so history depth does not rescan the full record or recurse.
+    const childrenByParent=new Map<string|null,Exploration[]>();
+    for(const exploration of state.explorations){
+      const siblings=childrenByParent.get(exploration.parentId)??[];
+      siblings.push(exploration);childrenByParent.set(exploration.parentId,siblings);
+    }
+    const roots=childrenByParent.get(parent)??[];
+    const rendered=new Map<string,ReactNode>();
+    const visited=new Set<string>();
+    const stack=roots.slice().reverse().map((exploration)=>({exploration,depth:0,expanded:false}));
+    while(stack.length){
+      const frame=stack.pop()!;
+      const {exploration:e,depth}=frame;
+      if(frame.expanded){
+        const title=e.id==='root'?projectName:e.title;
+        const displayTitle=e.id==='root'?projectName:questionSummaryText(title);
+        const counts=explorationCounts.get(e.id)!;
+        const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
+        const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
+        const nested=(childrenByParent.get(e.id)??[]).map((child)=>rendered.get(child.id));
+        rendered.set(e.id,<li key={e.id}><button title={`${displayTitle} · ${questionCount} · ${childCount}`} aria-label={`${displayTitle}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>);
+        continue;
+      }
+      if(visited.has(e.id))continue;
+      visited.add(e.id);
+      stack.push({...frame,expanded:true});
+      const children=childrenByParent.get(e.id)??[];
+      for(let index=children.length-1;index>=0;index--){
+        const child=children[index];
+        if(!visited.has(child.id))stack.push({exploration:child,depth:depth+1,expanded:false});
+      }
+    }
+    return roots.map((exploration)=>rendered.get(exploration.id));
+  };
   const sourcePane=source
     ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!conversationUnavailable} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
     : <div className="dw-source-empty">{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
