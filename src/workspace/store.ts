@@ -3,14 +3,14 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { finishQueuedWorkspaceGenerationJob, getLocalNarrationPreparationStatus, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, prewarmLocalNarration, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
+import { finishQueuedWorkspaceGenerationJob, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
 import type { NoticeTarget } from '../lib/noticeHistory';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
-import { createNarrationPrewarmQueue } from './narrationQueue';
+import { localNarrationPrewarmer } from './localNarrationQueue';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
 import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
@@ -50,7 +50,6 @@ const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
 const workspaceDraftTimers = new Map<string,{project:string;snapshot:string;timer:ReturnType<typeof setTimeout>}>();
-const narrationPrewarmer = createNarrationPrewarmQueue({prepare:prewarmLocalNarration,status:getLocalNarrationPreparationStatus});
 // A new identity on WebView reload lets native recovery distinguish live
 // renderer-owned queue entries from entries whose owner disappeared.
 const rendererSessionId = crypto.randomUUID();
@@ -320,7 +319,7 @@ function prewarmRevisionNarration(revision: ChapterRevision) {
     try { return window.localStorage.getItem(key); }
     catch { return null; }
   };
-  narrationPrewarmer.enqueue(localNarrationPrewarmInputs(revision, connection, read));
+  localNarrationPrewarmer.enqueue(localNarrationPrewarmInputs(revision, connection, read));
 }
 /** Store section references only after the native draft is independently read
  * and saved. Retrying adoption cannot trigger another model request. */

@@ -2,6 +2,7 @@ import type { NarrationPrewarmStatus, NarrationSynthesisInput, ProviderCommandRe
 
 export interface NarrationPrewarmQueue {
   enqueue(inputs: readonly NarrationSynthesisInput[]): number;
+  state(input: NarrationSynthesisInput): 'idle' | 'queued' | 'preparing';
   flush(): Promise<void>;
 }
 
@@ -17,6 +18,8 @@ export function createNarrationPrewarmQueue(options: {
 }): NarrationPrewarmQueue {
   const pending: NarrationSynthesisInput[] = [];
   const keys = new Set<string>();
+  const queuedKeys = new Set<string>();
+  const preparingKeys = new Set<string>();
   const active = new Set<Promise<void>>();
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
@@ -47,11 +50,14 @@ export function createNarrationPrewarmQueue(options: {
     while (pending.length && active.size < maxConcurrent) {
       const input = pending.shift()!;
       const key = keyOf(input);
+      queuedKeys.delete(key);
+      preparingKeys.add(key);
       let task: Promise<void>;
       task = prepareOne(input).catch(() => {
         // Narration is optional; a failed clip must not block later clips.
       }).finally(() => {
         active.delete(task);
+        preparingKeys.delete(key);
         keys.delete(key);
         pump();
       });
@@ -67,11 +73,17 @@ export function createNarrationPrewarmQueue(options: {
         if (keys.has(key)) continue;
         if (keys.size >= maxPending) break;
         keys.add(key);
+        queuedKeys.add(key);
         pending.push(input);
         accepted += 1;
       }
       if (accepted) pump();
       return accepted;
+    },
+    state(input) {
+      const key = keyOf(input);
+      if (preparingKeys.has(key)) return 'preparing';
+      return queuedKeys.has(key) ? 'queued' : 'idle';
     },
     async flush() {
       while (active.size || pending.length) {

@@ -42,6 +42,7 @@ import {
   serializeNarrationPreferences,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
+import { localNarrationPrewarmState } from './workspace/localNarrationQueue';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
@@ -379,15 +380,23 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       && requestedDraft.spokenText.trim().length > 0;
     const refresh = async () => {
       try {
-        const result = await getLocalNarrationPreparationStatus({
+        const input = {
           spokenText: requestedDraft.spokenText,
           voice: requestedDraft.voice,
           style: requestedDraft.style,
           lexicon: requestedDraft.lexicon,
-        });
+        };
+        const result = await getLocalNarrationPreparationStatus(input);
         if (!active || !narrationPreferencesMatch(draftRef.current, requestedDraft)) return;
         if (result.status === 'error') {
           setPrewarmState('unavailable');
+          return;
+        }
+        if (result.data.state === 'idle' && localNarrationPrewarmState(input) !== 'idle') {
+          // The shared queue may still be waiting for a native worker slot.
+          // Keep polling until that request is visible to native status.
+          setPrewarmState('preparing');
+          timer = setTimeout(() => { void refresh(); }, 750);
           return;
         }
         setPrewarmState(result.data.state);
