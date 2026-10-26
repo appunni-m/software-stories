@@ -34,7 +34,7 @@ export function providerFailureMessage(failure: ProviderFailure): string {
     requestCancelled: 'Generation was cancelled. No response was accepted.',
     requestTimedOut: 'The provider did not finish this request. No draft was accepted; build a fresh review before retrying.',
     networkUnavailable: 'The provider could not complete this request. Check the connection, then build a fresh review.',
-    malformedProviderResponse: 'The response did not pass format or source checks. No response was accepted.',
+    malformedProviderResponse: 'The response did not pass format or source checks, so nothing was accepted. Try asking about one behavior or selecting a smaller code range.',
     providerResponseTooLarge: 'The response was too large to save. Try a more focused question.',
     localStorageUnavailable: 'Local storage is unavailable. Existing saved work was preserved.',
     invalidReview: 'The local request could not be validated. Check the selected snapshot and connection.',
