@@ -25,7 +25,7 @@ const TTL: Duration = Duration::from_secs(300);
 pub(crate) const QUERY_STOPWORDS: &[&str] = &[
     "about", "after", "again", "also", "any", "are", "because", "before", "being",
     "between", "can", "could", "does", "each", "explain", "file", "for", "from",
-    "have", "help", "how", "into", "its", "just", "make", "me", "more", "most",
+    "get", "have", "help", "how", "into", "its", "just", "make", "me", "more", "most",
     "of", "on", "our", "please", "project", "repo", "repository", "show", "such",
     "tell", "than", "that", "the", "their", "these", "this", "those", "through", "to",
     "use", "using", "what", "when", "where", "which", "who", "why", "with", "work",

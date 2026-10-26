@@ -290,7 +290,7 @@ fn broad_question_coverage_ignores_prompt_scaffolding() {
     let words = terms(query);
     assert_eq!(
         coverage_terms(query, None, &words),
-        ["bitmap", "bytes", "font", "get"]
+        ["bitmap", "bytes", "font"]
     );
     assert!(coverage_terms("How does it work", None, &terms("How does it work")).is_empty());
 
@@ -329,7 +329,7 @@ fn broad_range_search_reports_content_terms_not_question_scaffolding() {
         .find(|hit| hit.range.path == "src/render.rs")
         .expect("the code range should remain searchable with the full question");
     let coverage = hit.query_coverage.as_ref().unwrap();
-    assert_eq!(coverage.total_terms, 4);
+    assert_eq!(coverage.total_terms, 3);
     assert_eq!(coverage.matched_terms, ["bitmap", "bytes", "font"]);
 }
 
