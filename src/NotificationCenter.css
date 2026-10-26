@@ -16,6 +16,10 @@
 .notification-earlier-snapshots > details > summary, .notification-other-repositories > details > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4); color: var(--muted); cursor: pointer; }
 .notification-earlier-snapshots > details > summary span, .notification-other-repositories > details > summary span { border-radius: 999px; padding: 1px 7px; background: var(--surface-hover); color: var(--muted); font: 500 11px/1.5 system-ui, sans-serif; }
 .notification-earlier-snapshots > details > .notification-list, .notification-other-repositories > details > .notification-list { border-top: 1px solid var(--border); }
+.notification-more { border-top: 1px solid var(--border); }
+.notification-more > details > summary { padding: var(--space-3) var(--space-4); color: var(--accent); cursor: pointer; }
+.notification-more > details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.notification-more > details > .notification-list { border-top: 1px solid var(--border); }
 .notification-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-2); border-bottom: 1px solid var(--border); color: var(--muted); }
 .notification-section-heading h3 { margin: 0; color: var(--text); font: 600 12px/1.4 system-ui, sans-serif; }
 .notification-section-heading span, .notification-group-count, .notification-read { border-radius: 999px; padding: 1px 7px; background: var(--surface-hover); color: var(--muted); font: 500 11px/1.5 system-ui, sans-serif; white-space: nowrap; }

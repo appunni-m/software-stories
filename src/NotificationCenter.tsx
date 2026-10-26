@@ -74,10 +74,19 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
       </details>}
     </li>;
   };
-  const renderSection = (title: string, section: typeof groups) => section.length > 0 ? <>
-    <li className="notification-section-heading"><h3>{title}</h3><span>{section.length}</span></li>
-    {section.map(renderGroup)}
-  </> : null;
+  const renderSection = (title: string, section: typeof groups) => {
+    if (!section.length) return null;
+    const visible = section.slice(0, 5);
+    const older = section.slice(5);
+    return <>
+      <li className="notification-section-heading"><h3>{title}</h3><span>{section.length}</span></li>
+      {visible.map(renderGroup)}
+      {older.length > 0 && <li className="notification-more"><details>
+        <summary>Show {older.length} more</summary>
+        <ul className="notification-list">{older.map(renderGroup)}</ul>
+      </details></li>}
+    </>;
+  };
   return <Popover.Root open={open} onOpenChange={setOpen} modal={false}>
     <Popover.Trigger asChild>
       <button ref={trigger} type="button" className="notification-trigger" data-focus-key="notifications" aria-label={summary.label} aria-busy={availability === 'loading'} title="Notifications">
