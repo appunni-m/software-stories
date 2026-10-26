@@ -622,6 +622,7 @@ export function DeveloperWorkspace(props:Props) {
   />;
   const activityButtons=[{id:'files',label:'Explorer',icon:Files},{id:'search',label:'Search',icon:Search},{id:'changes',label:'Changes',icon:GitBranch},{id:'history',label:'Explorations',icon:History}] as const;
   const explorationCounts=explorationSummaryCounts(state.explorations);
+  const [expandedExplorations,setExpandedExplorations]=useState<Set<string>>(()=>new Set());
   const renderExplorations=(parent:string|null):ReactNode=>{
     // Persisted branches can be deeply nested; index siblings once and render
     // bottom-up so history depth does not rescan the full record or recurse.
@@ -631,6 +632,7 @@ export function DeveloperWorkspace(props:Props) {
       siblings.push(exploration);childrenByParent.set(exploration.parentId,siblings);
     }
     const roots=childrenByParent.get(parent)??[];
+    const currentPathIds=new Set(path.map((exploration)=>exploration.id));
     const rendered=new Map<string,ReactNode>();
     const visited=new Set<string>();
     const stack=roots.slice().reverse().map((exploration)=>({exploration,depth:0,expanded:false}));
@@ -641,16 +643,17 @@ export function DeveloperWorkspace(props:Props) {
         const title=e.id==='root'?projectName:e.title;
         const displayTitle=e.id==='root'?projectName:questionSummaryText(title);
         const counts=explorationCounts.get(e.id)!;
+        const expanded=expandedExplorations.has(e.id)||currentPathIds.has(e.id);
         const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
         const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
-        const nested=(childrenByParent.get(e.id)??[]).map((child)=>rendered.get(child.id));
-        rendered.set(e.id,<li key={e.id}><button title={`${plainInlineCodeText(displayTitle)} · ${questionCount} · ${childCount}`} aria-label={`${plainInlineCodeText(displayTitle)}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button><ul>{nested}</ul></li>);
+        const nested=expanded?(childrenByParent.get(e.id)??[]).map((child)=>rendered.get(child.id)):[];
+        rendered.set(e.id,<li key={e.id}><div className="dw-exploration-row" style={{paddingLeft:10+depth*12}}><button title={`${plainInlineCodeText(displayTitle)} · ${questionCount} · ${childCount}`} aria-label={`${plainInlineCodeText(displayTitle)}, ${questionCount}, ${childCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} onClick={()=>go(e.id)}><MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span><small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>{counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}</button>{counts.children>0&&<IconButton size="1" variant="ghost" color="gray" className="dw-exploration-toggle" aria-label={currentPathIds.has(e.id)?`${plainInlineCodeText(displayTitle)} stays open on the current path`:`${expanded?'Collapse':'Expand'} ${plainInlineCodeText(displayTitle)} explorations`} aria-expanded={expanded} title={currentPathIds.has(e.id)?'The current path stays visible':`${expanded?'Collapse':'Expand'} ${childCount}`} disabled={currentPathIds.has(e.id)} onClick={()=>setExpandedExplorations((previous)=>{const next=new Set(previous);if(expanded)next.delete(e.id);else next.add(e.id);return next;})}>{expanded?<ChevronDown size={13}/>:<ChevronRight size={13}/>}</IconButton>}</div>{nested.length>0&&<ul>{nested}</ul>}</li>);
         continue;
       }
       if(visited.has(e.id))continue;
       visited.add(e.id);
       stack.push({...frame,expanded:true});
-      const children=childrenByParent.get(e.id)??[];
+      const children=expandedExplorations.has(e.id)||currentPathIds.has(e.id)?childrenByParent.get(e.id)??[]:[];
       for(let index=children.length-1;index>=0;index--){
         const child=children[index];
         if(!visited.has(child.id))stack.push({exploration:child,depth:depth+1,expanded:false});
