@@ -451,8 +451,8 @@ export function DeveloperWorkspace(props:Props) {
     else {setGuideConsent({id:turn.id,resume:true});setConsentError(null);}
   }
   useEffect(()=>{
-    const findInRepository=()=>{setActivity('search');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
-    const quickOpen=()=>{setActivity('files');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>search.current?.focus());};
+    const findInRepository=()=>{setActivity('search');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>{search.current?.focus();search.current?.select();});};
+    const quickOpen=()=>{setActivity('files');setFileFilter('');setSearchFocused(false);setSearchOffset(0);setNarrowPane('explorer');onWorkspace('guide-plan');requestAnimationFrame(()=>{search.current?.focus();search.current?.select();});};
     const listener=(event:KeyboardEvent)=>{
       if(document.querySelector('[role="dialog"][aria-modal="true"]'))return;
       const mod=event.metaKey||event.ctrlKey; const k=event.key.toLowerCase();
