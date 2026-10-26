@@ -46,6 +46,11 @@ const partialStructuralParserLanguages = new Set([
 ]);
 
 const documentationExtensions = new Set(['md', 'markdown', 'mdx', 'rst', 'adoc', 'asciidoc', 'txt']);
+const documentationNames = new Set([
+  'readme', 'license', 'license-mit', 'license-apache', 'notice', 'copying', 'authors', 'contributors',
+  'changelog', 'changes', 'contributing', 'code_of_conduct', 'security', 'support', 'maintainers',
+  'patents', 'news', 'install', 'todo', 'faq',
+]);
 
 const languageByExtension: Record<string, string> = {
   ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript',
@@ -82,6 +87,13 @@ const languageByExtension: Record<string, string> = {
 };
 
 const languageByFilename: Record<string, string> = {
+  readme: 'Documentation', license: 'Documentation', 'license-mit': 'Documentation',
+  'license-apache': 'Documentation', notice: 'Documentation', copying: 'Documentation',
+  authors: 'Documentation', contributors: 'Documentation', changelog: 'Documentation',
+  changes: 'Documentation', contributing: 'Documentation', code_of_conduct: 'Documentation',
+  security: 'Documentation', support: 'Documentation', maintainers: 'Documentation',
+  patents: 'Documentation', news: 'Documentation', install: 'Documentation', todo: 'Documentation',
+  faq: 'Documentation',
   '.bashrc': 'Shell', '.bash_profile': 'Shell', '.bash_login': 'Shell', '.bash_aliases': 'Shell',
   '.profile': 'Shell', '.zshrc': 'Shell', '.zprofile': 'Shell', '.zshenv': 'Shell', '.envrc': 'Shell',
   '.editorconfig': 'EditorConfig', '.npmrc': 'npm config', '.gitconfig': 'Git config', '.gitmodules': 'Git config',
@@ -114,6 +126,7 @@ function isDockerfileName(name: string): boolean {
 
 export function isDocumentationPath(path: string): boolean {
   const filename = path.split('/').at(-1)?.toLowerCase() ?? '';
+  if (documentationNames.has(filename)) return true;
   const extension = filename.includes('.') ? filename.split('.').at(-1) ?? '' : '';
   return documentationExtensions.has(extension);
 }

@@ -559,6 +559,24 @@ fn has_explicit_deprecation_marker(line: &str) -> bool {
         })
 }
 
+fn is_documentation_file(path: &str) -> bool {
+    let filename = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();
+    if [
+        "readme", "license", "license-mit", "license-apache", "notice", "copying", "authors",
+        "contributors", "changelog", "changes", "contributing", "code_of_conduct", "security",
+        "support", "maintainers", "patents", "news", "install", "todo", "faq",
+    ]
+    .contains(&filename.as_str())
+    {
+        return true;
+    }
+    filename.rsplit_once('.').is_some_and(|(_, extension)| {
+        ["md", "markdown", "mdx", "rst", "adoc", "asciidoc", "txt"]
+            .iter()
+            .any(|supported| extension.eq_ignore_ascii_case(supported))
+    })
+}
+
 fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<DocumentationNotice> {
     manifest
         .files
@@ -567,11 +585,7 @@ fn documentation_notices(storage: &Path, manifest: &SnapshotManifest) -> Vec<Doc
             !file.secret_like
                 && file.size_bytes <= 250_000
                 && matches!(file.content_kind, CapturedContentKind::Text)
-                && file.path.rsplit('.').next().is_some_and(|extension| {
-                    ["md", "markdown", "mdx", "rst", "adoc", "asciidoc", "txt"]
-                        .iter()
-                        .any(|supported| extension.eq_ignore_ascii_case(supported))
-                })
+                && is_documentation_file(&file.path)
         })
         .take(20)
         .map(|file| {
