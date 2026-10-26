@@ -2124,9 +2124,10 @@ function ProviderDialog(props: ProviderDialogProps) {
           <button className="primary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
           <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or automatic generation is offered here.</p>
         </section>
-        <section className="provider-review-card"><h3>Antigravity or another agent · manual handoff</h3>
-          <p>Use the same reviewed task and validated import with your chosen agent. Its own account rules and permissions apply. Code Atlas does not manage or verify that external run.</p>
-          <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
+        <section className="provider-review-card"><h3>Antigravity · manual copy/import</h3>
+          <p>Code Atlas can’t connect a consumer Antigravity login. Google restricts third-party apps from accessing it. This option only prepares a reviewed task for you to copy into your agent and validates what you bring back. For a connected Google model, choose Gemini API.</p>
+          <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Prepare copy/import handoff</button>
+          <p className="provider-small-note"><a href="https://www.antigravity.google/docs/faq" target="_blank" rel="noreferrer">Google Antigravity account rules</a></p>
         </section>
         {!handoffOperation && <p role="status">Manual agent handoffs currently cover file chapters and selected-source overviews. Automatic Claude integration remains pending.</p>}
         <section className="provider-review-card"><h3>Direct API</h3>
