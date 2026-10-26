@@ -36,7 +36,10 @@ const MAX_TTS_REQUEST_TEXT_BYTES: usize = 4_000;
 const MAX_STYLE_BYTES: usize = 160;
 const MAX_LEXICON_ENTRIES: usize = 12;
 const MAX_RESPONSE_BYTES: usize = 12 * 1024 * 1024;
-const MAX_PREWARM_JOBS: usize = 16;
+// A five-slide Guide buffer can expose up to eight visual narration scenes per
+// slide. Keep room for that buffer plus one refill slide so later scenes are
+// not marked unavailable before the serial local worker reaches them.
+const MAX_PREWARM_JOBS: usize = 48;
 const MAX_PREWARM_STATUS_ENTRIES: usize = 128;
 const POCKET_SEGMENT_POLICY: &str = "utf8-4000-sentence-word-v1-pause200ms";
 
