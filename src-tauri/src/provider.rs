@@ -2867,7 +2867,7 @@ pub(crate) fn build_codex_chapter_review(
         transport.config["workspaceFocus"] = json!(input.focus);
         if input.target_path.is_none() && input.section_update.is_none() {
             context.system_instruction.push_str(" The workspace keeps every validated claim in inspectable prose. Author separate natural spokenText for sections without a presentation, or narration for every presentation scene. Preserve every claim's conditions, outcomes and uncertainty in speech; exact code names remain in the claims and source links.");
-            transport.config["overviewPresentation"] = json!("authored-narration-v2");
+            transport.config["overviewPresentation"] = json!("authored-narration-v3");
         }
     } else if !input.focus.is_empty() {
         return Err(failure(

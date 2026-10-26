@@ -773,7 +773,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v30");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v31");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no claim benefits from a visual, set kind:none and give every claim a narration scene"

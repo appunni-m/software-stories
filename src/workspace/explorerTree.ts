@@ -1,3 +1,5 @@
+import { rankSourcePaths } from './model';
+
 /** A tree built once from the immutable captured paths, independent of the DOM. */
 export interface ExplorerEntry {
   path: string;
@@ -43,7 +45,24 @@ export function buildExplorerTree(paths: readonly string[]): ExplorerTree {
       children = entry.children;
     }
   }
+  // Keep the explorer useful on large repositories: directories containing
+  // likely implementation entry points appear before docs, tests, and agent
+  // configuration. Every captured path remains in the tree and search still
+  // sees the complete inventory.
+  const sourceOrder = new Map(rankSourcePaths(paths.slice()).map((path, index) => [path, index]));
+  const branchOrder = new Map<string, number>();
+  for (const [path, order] of sourceOrder) {
+    let end = path.indexOf('/');
+    while (end >= 0) {
+      const parent = path.slice(0, end);
+      const previous = branchOrder.get(parent);
+      if (previous === undefined || order < previous) branchOrder.set(parent, order);
+      end = path.indexOf('/', end + 1);
+    }
+    branchOrder.set(path, order);
+  }
   const compare = (a: ExplorerEntry, b: ExplorerEntry) => Number(b.folder) - Number(a.folder)
+    || (branchOrder.get(a.path) ?? Number.MAX_SAFE_INTEGER) - (branchOrder.get(b.path) ?? Number.MAX_SAFE_INTEGER)
     || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
     || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   roots.sort(compare);

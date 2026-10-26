@@ -2251,7 +2251,7 @@ mod chapter_pipeline_tests {
                 .review;
                 assert_eq!(
                     review.generation_config["overviewPresentation"],
-                    "authored-narration-v2"
+                    "authored-narration-v3"
                 );
                 assert!(
                     !review
