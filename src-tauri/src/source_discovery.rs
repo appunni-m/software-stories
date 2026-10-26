@@ -287,7 +287,7 @@ fn metadata(
     // entries on large repositories.
     let mut indexed_files = HashMap::new();
     let mut symbols_by_path = HashMap::<&str, Vec<(usize, &index::IndexedSymbol)>>::new();
-    let mut links_by_path = HashMap::<&str, Vec<&index::IndexedRelationship>>::new();
+    let mut links_by_path = HashMap::<&str, Vec<(usize, &index::IndexedRelationship)>>::new();
     let mut symbol_relevance_by_path = HashMap::<&str, usize>::new();
     let mut link_relevance_by_path = HashMap::<&str, usize>::new();
     if let Some(local_index) = &local_index {
@@ -336,9 +336,14 @@ fn metadata(
                 let links = links_by_path
                     .entry(edge.evidence.path.as_str())
                     .or_default();
-                if links.len() < 10 {
-                    links.push(edge);
-                }
+                links.push((matched_terms, edge));
+                links.sort_by(|(left_score, left), (right_score, right)| {
+                    right_score
+                        .cmp(left_score)
+                        .then_with(|| left.evidence.start_line.cmp(&right.evidence.start_line))
+                        .then_with(|| left.relationship_id.cmp(&right.relationship_id))
+                });
+                links.truncate(10);
             }
         }
     }
@@ -378,7 +383,7 @@ fn metadata(
             .get(file.path.as_str())
             .into_iter()
             .flatten()
-            .map(|edge| json!({"kind":edge.kind,"path":edge.target_path,"name":edge.target_label}))
+            .map(|(_, edge)| json!({"kind":edge.kind,"path":edge.target_path,"name":edge.target_label}))
             .collect();
         let indexing = indexed_files
             .get(file.path.as_str())
