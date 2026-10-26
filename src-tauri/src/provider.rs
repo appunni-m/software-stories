@@ -403,6 +403,16 @@ pub struct ProviderSymbolEvidence {
     pub end_line: u32,
 }
 
+/// Current provider envelopes represent optional values explicitly as JSON
+/// null. Missing a nullable field is a contract error, not an older format.
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProviderRelationshipEvidence {
@@ -410,9 +420,12 @@ pub struct ProviderRelationshipEvidence {
     pub kind: String,
     pub source_path: String,
     pub source_name: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub target_path: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
     pub target_name: Option<String>,
     pub confidence: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub unresolved_reason: Option<String>,
     pub evidence_start_line: u32,
     pub evidence_end_line: u32,
@@ -426,6 +439,7 @@ pub struct ProviderRequestReview {
     pub project_id: String,
     pub snapshot_id: String,
     pub purpose: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub target_path: Option<String>,
     pub provider_id: String,
     pub model_id: String,
@@ -434,13 +448,13 @@ pub struct ProviderRequestReview {
     pub selected_files: Vec<ProviderRequestFile>,
     pub selected_symbols: Vec<ProviderSymbolEvidence>,
     pub selected_relationships: Vec<ProviderRelationshipEvidence>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable")]
     pub pr_guide_context: Option<ComparisonContext>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable")]
     pub section_update_context: Option<SectionUpdateReviewTarget>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable")]
     pub code_lens_context: Option<CodeLensExplanationTarget>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable")]
     pub pr_change_context: Option<PrChangeExplanationTarget>,
     pub index_evidence_truncated: bool,
     pub system_instruction: String,
@@ -461,9 +475,12 @@ pub struct ProviderSendResult {
     pub review_id: String,
     pub fingerprint: String,
     pub model_id: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub model_version: Option<String>,
     pub response_text: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub input_tokens: Option<u64>,
+    #[serde(deserialize_with = "required_nullable")]
     pub output_tokens: Option<u64>,
 }
 
@@ -6799,6 +6816,25 @@ mod tests {
         review["selectedFiles"][0]["obsoleteFileField"] = json!("ignored");
         assert!(serde_json::from_value::<ProviderRequestReview>(review).is_err());
 
+        let mut review = serde_json::to_value(sample_pending().review).unwrap();
+        review.as_object_mut().unwrap().remove("prGuideContext");
+        assert!(serde_json::from_value::<ProviderRequestReview>(review).is_err());
+
+        let mut review = serde_json::to_value(sample_pending().review).unwrap();
+        review["selectedRelationships"] = json!([{
+            "relationshipId": "relationship:one",
+            "kind": "calls",
+            "sourcePath": "src/lib.rs",
+            "sourceName": "caller",
+            "targetName": null,
+            "confidence": "unresolved",
+            "unresolvedReason": null,
+            "evidenceStartLine": 1,
+            "evidenceEndLine": 1,
+            "evidenceExcerpt": "caller()"
+        }]);
+        assert!(serde_json::from_value::<ProviderRequestReview>(review).is_err());
+
         let input = json!({
             "projectId": "project-a",
             "snapshotId": "snapshot-a",
@@ -6821,6 +6857,19 @@ mod tests {
         })
         .unwrap();
         result["obsoleteResultField"] = json!("ignored");
+        assert!(serde_json::from_value::<ProviderSendResult>(result).is_err());
+
+        let mut result = serde_json::to_value(ProviderSendResult {
+            review_id: "review-a".to_owned(),
+            fingerprint: "fingerprint".to_owned(),
+            model_id: "test-model".to_owned(),
+            model_version: None,
+            response_text: "{}".to_owned(),
+            input_tokens: None,
+            output_tokens: None,
+        })
+        .unwrap();
+        result.as_object_mut().unwrap().remove("inputTokens");
         assert!(serde_json::from_value::<ProviderSendResult>(result).is_err());
     }
 
