@@ -78,6 +78,12 @@ const languageByExtension: Record<string, string> = {
   dockerfile: 'Dockerfile', makefile: 'Makefile', lock: 'Lockfile',
 };
 
+const languageByFilename: Record<string, string> = {
+  '.bashrc': 'Shell', '.bash_profile': 'Shell', '.bash_login': 'Shell', '.bash_aliases': 'Shell',
+  '.profile': 'Shell', '.zshrc': 'Shell', '.zprofile': 'Shell', '.zshenv': 'Shell', '.envrc': 'Shell',
+  '.editorconfig': 'EditorConfig', '.npmrc': 'npm config', '.gitconfig': 'Git config', '.gitmodules': 'Git config',
+};
+
 const intentionallyExcludedReasons = new Set([
   'directoryContainer', 'ignoredByGit', 'excludedByPolicy', 'gitMetadata', 'nestedRepository',
   'symlink', 'nonRegularFile',
@@ -89,6 +95,7 @@ function stableCompare(left: string, right: string): number {
 
 export function languageForPath(path: string): string {
   const name = path.split('/').at(-1)?.toLowerCase() ?? '';
+  if (languageByFilename[name]) return languageByFilename[name]!;
   if (name === 'dockerfile') return 'Dockerfile';
   if (name === 'makefile' || name === 'gnumakefile') return 'Makefile';
   if (name === 'cmakelists.txt') return 'CMake';

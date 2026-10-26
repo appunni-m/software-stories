@@ -123,6 +123,19 @@ const namedLanguageLoaders: Record<string, LanguageLoader> = {
   dockerfile: () => import('@codemirror/legacy-modes/mode/dockerfile').then(({ dockerFile }) => StreamLanguage.define(dockerFile)),
   'cmakelists.txt': () => import('@codemirror/legacy-modes/mode/cmake').then(({ cmake }) => StreamLanguage.define(cmake)),
   'nginx.conf': () => import('@codemirror/legacy-modes/mode/nginx').then(({ nginx }) => StreamLanguage.define(nginx)),
+  '.bashrc': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.bash_profile': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.bash_login': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.bash_aliases': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.profile': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.zshrc': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.zprofile': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.zshenv': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.envrc': () => import('@codemirror/legacy-modes/mode/shell').then(({ shell }) => StreamLanguage.define(shell)),
+  '.editorconfig': () => import('@codemirror/legacy-modes/mode/properties').then(({ properties }) => StreamLanguage.define(properties)),
+  '.npmrc': () => import('@codemirror/legacy-modes/mode/properties').then(({ properties }) => StreamLanguage.define(properties)),
+  '.gitconfig': () => import('@codemirror/legacy-modes/mode/properties').then(({ properties }) => StreamLanguage.define(properties)),
+  '.gitmodules': () => import('@codemirror/legacy-modes/mode/properties').then(({ properties }) => StreamLanguage.define(properties)),
 };
 
 const languageLoads = new Map<string, Promise<Extension>>();
