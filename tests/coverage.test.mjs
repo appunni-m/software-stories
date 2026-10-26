@@ -10,6 +10,7 @@ import {
   filterCoverageRows,
   loadCoveragePlan,
   paginateCoverage,
+  readCoveragePlan,
   removeCoverageGroup,
   restoreCoveragePath,
   saveCoveragePlan,
@@ -232,5 +233,21 @@ describe('Guide Plan coverage', () => {
     assert.equal(coverageStorageKey(projectId, snapshotId).includes(encodeURIComponent(snapshotId)), true);
     assert.deepEqual(loadCoveragePlan(projectId, snapshotId, fakeStorage), saved);
     assert.deepEqual(loadCoveragePlan(projectId, 'snapshot-2', fakeStorage), emptyCoveragePlan(projectId, 'snapshot-2'));
+  });
+
+  it('preserves an oversized saved plan and refuses to overwrite it', () => {
+    const projectId = 'project-storage';
+    const snapshotId = 'snapshot-storage';
+    const key = coverageStorageKey(projectId, snapshotId);
+    const stored = ' '.repeat(4 * 1024 * 1024 + 1);
+    const values = new Map([[key, stored]]);
+    const storage = {
+      getItem: (storageKey) => values.get(storageKey) ?? null,
+      setItem: (storageKey, value) => values.set(storageKey, value),
+    };
+
+    assert.equal(readCoveragePlan(projectId, snapshotId, storage).status, 'unavailable');
+    assert.equal(saveCoveragePlan(emptyCoveragePlan(projectId, snapshotId), storage), false);
+    assert.equal(values.get(key), stored);
   });
 });

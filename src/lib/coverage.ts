@@ -59,6 +59,13 @@ export interface CoveragePage<T> {
   lastVisible: number;
 }
 
+const MAX_COVERAGE_PLAN_BYTES = 4 * 1024 * 1024;
+
+function exceedsCoveragePlanLimit(serialized: string): boolean {
+  return serialized.length > MAX_COVERAGE_PLAN_BYTES
+    || new TextEncoder().encode(serialized).byteLength > MAX_COVERAGE_PLAN_BYTES;
+}
+
 export const COVERAGE_STATUSES: CoverageStatus[] = [
   'missing', 'draft', 'rejected', 'stale', 'accepted', 'excluded', 'unsupported', 'unavailable',
 ];
@@ -80,6 +87,9 @@ export function readCoveragePlan(projectId: string, snapshotId: string, storage?
     return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions could not be read. Their stored data has not been changed.' };
   }
   if (saved === null) return { status: 'ready', plan: empty };
+  if (exceedsCoveragePlanLimit(saved)) {
+    return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions exceed the local size limit. Their stored data has not been changed.' };
+  }
   let parsed: unknown;
   try { parsed = JSON.parse(saved); }
   catch { return { status: 'unavailable', plan: empty, message: 'Saved file groups and exclusions are malformed. Their stored data has not been changed.' }; }
@@ -104,15 +114,18 @@ export function discardCoveragePlan(projectId: string, snapshotId: string, stora
 export function saveCoveragePlan(plan: CoveragePlan, storage?: Pick<Storage, 'getItem' | 'setItem'>): boolean {
   if (!isCoveragePlan(plan)) return false;
   try {
+    const serialized = JSON.stringify(plan);
+    if (exceedsCoveragePlanLimit(serialized)) return false;
     const target = storage ?? window.localStorage;
     const key = coverageStorageKey(plan.projectId, plan.snapshotId);
     const current = target.getItem(key);
     if (current !== null) {
+      if (exceedsCoveragePlanLimit(current)) return false;
       let parsed: unknown;
       try { parsed = JSON.parse(current); } catch { return false; }
       if (!isCoveragePlan(parsed) || parsed.projectId !== plan.projectId || parsed.snapshotId !== plan.snapshotId) return false;
     }
-    target.setItem(key, JSON.stringify(plan));
+    target.setItem(key, serialized);
     return true;
   } catch {
     return false;
