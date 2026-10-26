@@ -824,6 +824,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-source-code code { display: block; min-width: max-content; font: inherit; }
 .snapshot-source-line { display: block; min-height: 1.7em; padding: 0 8px; border-left: 2px solid transparent; }
 .snapshot-source-line.is-cited { border-left-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); }
+.snapshot-source-line-omission { color: var(--muted); font-style: italic; }
 .snapshot-source-cited-bytes { padding: 0; border-radius: 2px; background: var(--accent-soft); color: var(--text); box-shadow: 0 0 0 1px var(--accent); }
 .snapshot-source-line-number { display: inline-block; width: 4em; margin-right: 1.5em; color: var(--muted); text-align: right; user-select: none; }
 .snapshot-source-line.is-cited .snapshot-source-line-number { color: var(--accent); }

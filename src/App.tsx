@@ -4941,6 +4941,7 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
 }
 
 const CODE_LENS_SOURCE_WINDOW_LINES = 200;
+const CODE_LENS_SOURCE_LINE_CHARACTERS = 16_000;
 
 function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
   projectId: string | null;
@@ -5039,8 +5040,11 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   const lastDisplayedLine = Math.min(sourceLineCount, firstDisplayedLine + CODE_LENS_SOURCE_WINDOW_LINES - 1,
     sourceWindowStart === null && !showCompleteSource ? defaultWindowEnd : sourceLineCount);
   const displayedWindow = useMemo(
-    () => source ? capturedSourceLineWindow(source.contents, firstDisplayedLine, lastDisplayedLine) : { lines: [], ranges: [] },
-    [source?.contents, firstDisplayedLine, lastDisplayedLine],
+    () => source ? capturedSourceLineWindow(source.contents, firstDisplayedLine, lastDisplayedLine, {
+      maxLineCharacters: CODE_LENS_SOURCE_LINE_CHARACTERS,
+      focusRange: citation.status === 'verified' ? citation.textRange : undefined,
+    }) : { lines: [], ranges: [], omittedBefore: [], omittedAfter: [] },
+    [source?.contents, firstDisplayedLine, lastDisplayedLine, citation],
   );
   const displayedLines = displayedWindow.lines;
   const highlightedLines = useMemo(
@@ -5190,10 +5194,10 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
               const lineTextRange = displayedWindow.ranges[offset];
               const exactRange = citation.status === 'verified' ? citation.textRange : undefined;
               const localStart = exactRange && lineTextRange ? Math.max(0, exactRange.start - lineTextRange.start) : 0;
-              const localEnd = exactRange && lineTextRange ? Math.max(0, Math.min(lineTextRange.end - lineTextRange.start, exactRange.end - lineTextRange.start)) : 0;
+              const localEnd = exactRange && lineTextRange ? Math.max(localStart, Math.min(lineTextRange.end - lineTextRange.start, exactRange.end - lineTextRange.start)) : 0;
               let tokenOffset = 0;
               const renderedText = (tokens ?? [{ text: line || ' ' }]).flatMap((token, tokenIndex) => {
-                const chunks = exactRange
+                const chunks = exactRange && localEnd > localStart
                   ? splitSourceTextAtRange(token.text, localStart - tokenOffset, localEnd - tokenOffset)
                   : [{ text: token.text, cited: false }];
                 tokenOffset += token.text.length;
@@ -5212,7 +5216,11 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
                 ref={lineNumber === visibleSourceRange?.startLine ? citedLineRef : undefined}
                 className={`snapshot-source-line${isCited ? ' is-cited' : ''}`}
                 id={`snapshot-source-line-${lineNumber}`}
-              ><span className="snapshot-source-line-number" aria-hidden="true">{lineNumber}</span><span>{renderedText}</span></span>;
+              ><span className="snapshot-source-line-number" aria-hidden="true">{lineNumber}</span><span>
+                {displayedWindow.omittedBefore[offset] && <span className="snapshot-source-line-omission">… earlier characters on this line omitted …</span>}
+                {renderedText}
+                {displayedWindow.omittedAfter[offset] && <span className="snapshot-source-line-omission">… later characters on this line omitted …</span>}
+              </span></span>;
             })}
             {lastDisplayedLine < sourceLineCount && <span className="snapshot-source-omission">… {sourceLineCount - lastDisplayedLine} later lines …</span>}
           </code>

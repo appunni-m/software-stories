@@ -104,16 +104,64 @@ export function capturedSourceLineCount(contents: string): number {
   return count + (last === '\r' || last === '\n' ? 0 : 1);
 }
 
-/** Read only a bounded source-line window and its original UTF-16 text offsets. */
-export function capturedSourceLineWindow(contents: string, firstLine: number, lastLine: number): {
+/** Read a bounded line window and preserve the visible text's original UTF-16 offsets. */
+export function capturedSourceLineWindow(contents: string, firstLine: number, lastLine: number, options: {
+  maxLineCharacters?: number;
+  focusRange?: SourceTextRange;
+} = {}): {
   lines: string[];
   ranges: SourceTextRange[];
+  omittedBefore: boolean[];
+  omittedAfter: boolean[];
 } {
   const first = Number.isSafeInteger(firstLine) ? Math.max(1, firstLine) : 1;
   const last = Number.isSafeInteger(lastLine) ? Math.max(first, lastLine) : Number.MAX_SAFE_INTEGER;
+  const maxLineCharacters = Number.isSafeInteger(options.maxLineCharacters) && (options.maxLineCharacters ?? 0) > 0
+    ? options.maxLineCharacters!
+    : Number.MAX_SAFE_INTEGER;
   const lines: string[] = [];
   const ranges: SourceTextRange[] = [];
-  if (contents.length === 0) return { lines, ranges };
+  const omittedBefore: boolean[] = [];
+  const omittedAfter: boolean[] = [];
+  if (contents.length === 0) return { lines, ranges, omittedBefore, omittedAfter };
+
+  const appendLine = (lineStart: number, lineEnd: number) => {
+    const lineLength = lineEnd - lineStart;
+    let visibleStart = lineStart;
+    let visibleEnd = lineEnd;
+    if (lineLength > maxLineCharacters) {
+      const focus = options.focusRange;
+      const overlapsFocus = focus && focus.start < lineEnd && focus.end > lineStart;
+      if (overlapsFocus) {
+        const focusStart = Math.max(0, Math.min(lineLength, focus.start - lineStart));
+        const focusEnd = Math.max(focusStart, Math.min(lineLength, focus.end - lineStart));
+        const focusLength = focusEnd - focusStart;
+        const windowStart = focusLength <= maxLineCharacters
+          ? Math.max(0, Math.min(lineLength - maxLineCharacters, focusStart - Math.floor((maxLineCharacters - focusLength) / 2)))
+          : focusStart;
+        visibleStart = lineStart + windowStart;
+        visibleEnd = Math.min(lineEnd, visibleStart + maxLineCharacters);
+      } else {
+        visibleEnd = lineStart + maxLineCharacters;
+      }
+      if (visibleStart > lineStart) {
+        const firstVisibleCodeUnit = contents.charCodeAt(visibleStart);
+        if (firstVisibleCodeUnit >= 0xdc00 && firstVisibleCodeUnit <= 0xdfff) visibleStart += 1;
+      }
+      if (visibleEnd < lineEnd) {
+        const lastVisibleCodeUnit = contents.charCodeAt(visibleEnd - 1);
+        if (lastVisibleCodeUnit >= 0xd800 && lastVisibleCodeUnit <= 0xdbff) visibleEnd -= 1;
+      }
+      if (visibleEnd <= visibleStart && lineLength > 0) {
+        const codePoint = contents.codePointAt(visibleStart);
+        visibleEnd = Math.min(lineEnd, visibleStart + (codePoint !== undefined && codePoint > 0xffff ? 2 : 1));
+      }
+    }
+    lines.push(contents.slice(visibleStart, visibleEnd));
+    ranges.push({ start: visibleStart, end: visibleEnd });
+    omittedBefore.push(visibleStart > lineStart);
+    omittedAfter.push(visibleEnd < lineEnd);
+  };
 
   let line = 1;
   let start = 0;
@@ -124,19 +172,15 @@ export function capturedSourceLineWindow(contents: string, firstLine: number, la
       continue;
     }
     if (line >= first && line <= last) {
-      lines.push(contents.slice(start, index));
-      ranges.push({ start, end: index });
+      appendLine(start, index);
     }
     index += character === '\r' && contents[index + 1] === '\n' ? 2 : 1;
     line += 1;
     start = index;
     if (line > last) break;
   }
-  if (start < contents.length && line >= first && line <= last) {
-    lines.push(contents.slice(start));
-    ranges.push({ start, end: contents.length });
-  }
-  return { lines, ranges };
+  if (start < contents.length && line >= first && line <= last) appendLine(start, contents.length);
+  return { lines, ranges, omittedBefore, omittedAfter };
 }
 
 /** Return the 1-based source line at a UTF-16 offset, counting CRLF as one terminator. */
