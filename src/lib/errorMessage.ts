@@ -46,7 +46,7 @@ export function providerFailureMessage(failure: ProviderFailure): string {
 export function explanationErrorMessage(error: string): string {
   if (error === 'The answer did not publish any sections.') return explanationFailureMessage('noPublishedSections')!;
   if (/^This conversation changed in another window\./u.test(error)) {
-    return 'Your question was saved but not sent because this conversation changed in another window. Choose “Keep this window” or “Keep saved value” above, then try this question again.';
+    return 'Your question is still here, but it was not sent because this conversation changed in another window. Choose “Keep this window” or “Keep saved value” above, then try again.';
   }
   if (
     /^(?:The private Codex file could not be (?:created|saved)\. )?Local storage is full\. Free disk space, then try again\.$/u.test(error)
