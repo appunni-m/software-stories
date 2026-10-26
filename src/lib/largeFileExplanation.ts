@@ -12,6 +12,27 @@ export interface PendingLargeFileExplanation {
   question: string;
 }
 
+/** Build a bounded-reader handoff when the target is known but the manifest is
+ * still loading. The workspace validates every path against that snapshot
+ * before it creates source contexts. */
+export function pendingLargeFileExplanation(input: {
+  id: string;
+  projectId: string;
+  snapshotId: string;
+  targetPath: string;
+  paths?: readonly string[];
+}): PendingLargeFileExplanation {
+  const paths = [...new Set([input.targetPath, ...(input.paths ?? [])])].slice(0, 12);
+  return {
+    id: input.id,
+    projectId: input.projectId,
+    snapshotId: input.snapshotId,
+    targetPath: input.targetPath,
+    paths,
+    question: `Explain ${input.targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite exact code and call out unresolved links or anything unverified.`,
+  };
+}
+
 type CapturedExplanationFile = Pick<CapturedFile, 'path' | 'kind' | 'contentKind' | 'secretLike' | 'sizeBytes' | 'sha256'>;
 
 /** Larger captured text should use the workspace's bounded source-range reader. */
@@ -40,14 +61,13 @@ export function createLargeFileExplanation(input: {
     .filter((path) => readablePaths.has(path))
     .slice(0, 12);
   if (!paths.includes(input.targetPath)) return null;
-  return {
+  return pendingLargeFileExplanation({
     id: input.id,
     projectId: input.projectId,
     snapshotId: input.snapshotId,
     targetPath: input.targetPath,
     paths,
-    question: `Explain ${input.targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite exact code and call out unresolved links or anything unverified.`,
-  };
+  });
 }
 
 /** Resolve only snapshot paths and hashes for the workspace; source bytes are fetched through bounded range tools. */

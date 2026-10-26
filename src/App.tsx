@@ -15,7 +15,7 @@ import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad
 import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
-import { createLargeFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
+import { createLargeFileExplanation, pendingLargeFileExplanation, requiresBoundedFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
@@ -1143,14 +1143,32 @@ function App() {
       return;
     }
     const sourceManifest = snapshotManifest?.summary.snapshotId === selectedSnapshot.snapshotId ? snapshotManifest : null;
-    const largeFileRequest = isNativeRuntime() && sourceManifest ? createLargeFileExplanation({
-      id: crypto.randomUUID(),
-      projectId: currentProject.projectId,
-      snapshotId: selectedSnapshot.snapshotId,
-      targetPath,
-      selectedPaths,
-      files: sourceManifest.files,
-    }) : null;
+    const targetFile = sourceManifest?.files.find((file) => file.path === targetPath);
+    const targetSource = sourceDocument?.snapshotId === selectedSnapshot.snapshotId
+      && sourceDocument.path === targetPath ? sourceDocument : null;
+    const requestId = crypto.randomUUID();
+    const largeFileRequest = isNativeRuntime()
+      ? targetFile
+        ? createLargeFileExplanation({
+          id: requestId,
+          projectId: currentProject.projectId,
+          snapshotId: selectedSnapshot.snapshotId,
+          targetPath,
+          selectedPaths,
+          files: sourceManifest!.files,
+        })
+        : targetSource && targetSource.sha256 && requiresBoundedFileExplanation({
+          kind: 'file', contentKind: 'text', secretLike: false, sizeBytes: targetSource.sizeBytes,
+        })
+          ? pendingLargeFileExplanation({
+            id: requestId,
+            projectId: currentProject.projectId,
+            snapshotId: selectedSnapshot.snapshotId,
+            targetPath,
+            paths: selectedPaths,
+          })
+          : null
+      : null;
     if (largeFileRequest) {
       setPendingLargeFileExplanation(largeFileRequest);
       setProviderDialog(null);
