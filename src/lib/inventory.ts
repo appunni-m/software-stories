@@ -244,9 +244,12 @@ const nonEntryDirectories = new Set([
   'vendor',
 ]);
 
+const toolingDirectories = new Set(['.agents', '.claude', '.codex', '.cursor', '.github', '.idea', '.vscode', '.zed']);
+
 function isImplementationCandidate(row: InventoryRow): boolean {
   const path = row.path.toLowerCase();
   const filename = path.split('/').at(-1) ?? path;
+  const parts = path.split('/');
   const testPath = row.categories.includes('test')
     || /(^|\/)(test|tests|__tests__|spec|specs)(\/|$)/.test(path)
     || /(^|\/)(test_|spec_)[^/]+\.[^/]+$/.test(path)
@@ -257,6 +260,7 @@ function isImplementationCandidate(row: InventoryRow): boolean {
     && !isDocumentationPath(row.path)
     && !nonImplementationLanguages.has(row.language)
     && !testPath
+    && !parts.slice(0, -1).some((part) => toolingDirectories.has(part))
     && !row.categories.includes('config')
     && !row.categories.includes('secret')
     && !row.categories.includes('generated');
