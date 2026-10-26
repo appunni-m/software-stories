@@ -3896,11 +3896,11 @@ fn build_scoped_agent_context_review(
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let ExplanationRequestContext {
         selected_files,
-        selected_symbols,
-        selected_relationships,
-        index_evidence_truncated,
+        mut selected_symbols,
+        mut selected_relationships,
+        mut index_evidence_truncated,
         system_instruction,
-        user_prompt,
+        mut user_prompt,
         generation_config: chapter_config,
         source_bytes,
         purpose,
@@ -3968,16 +3968,33 @@ fn build_scoped_agent_context_review(
         }
         None => {}
     }
-    let encoded = serde_json::to_vec(&body).map_err(|_| {
+    let mut encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
             "The coding-agent request contract could not be encoded.",
         )
     })?;
+    if encoded.len() > MAX_REQUEST_BODY_BYTES
+        && compact_agent_index_evidence(&mut user_prompt)
+    {
+        // Exact source is the primary evidence. Drop only optional local
+        // symbol/relationship metadata when it pushes the reviewed operation
+        // over the wire limit; retain every selected source byte.
+        selected_symbols.clear();
+        selected_relationships.clear();
+        index_evidence_truncated = true;
+        body["userPrompt"] = Value::String(user_prompt.clone());
+        encoded = serde_json::to_vec(&body).map_err(|_| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The compact coding-agent request contract could not be encoded.",
+            )
+        })?;
+    }
     if encoded.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The reviewed coding-agent operation exceeds 512 KB. Select fewer source files.",
+            "This reviewed request is too large after encoding, even with optional index details removed. Narrow the question or choose a focused code range; no source was sent.",
         ));
     }
     let request_body_sha256 = format!("{:x}", Sha256::digest(&encoded));
@@ -4024,6 +4041,47 @@ fn build_scoped_agent_context_review(
         expires_at_unix_ms: unix_time_ms().saturating_add(REVIEW_LIFETIME_MS),
     };
     Ok(PendingProviderRequest { review, body })
+}
+
+/// Replace optional selected-index details with an explicitly incomplete
+/// marker when their JSON encoding alone pushes a coding-agent review over its
+/// request limit. Source blocks remain untouched and independently validated.
+fn compact_agent_index_evidence(user_prompt: &mut String) -> bool {
+    const MARKER: &str = "\n\nSELECTED LOCAL INDEX EVIDENCE JSON:\n";
+    let Some((prefix, encoded_evidence)) = user_prompt.rsplit_once(MARKER) else {
+        return false;
+    };
+    let Ok(mut evidence) = serde_json::from_str::<Value>(encoded_evidence) else {
+        return false;
+    };
+    let Some(object) = evidence.as_object_mut() else {
+        return false;
+    };
+    let has_symbols = object
+        .get("selectedSymbols")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_relationships = object
+        .get("selectedRelationships")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let was_truncated = object
+        .get("truncated")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if !has_symbols && !has_relationships && was_truncated {
+        return false;
+    }
+    object.insert("selectedSymbols".to_owned(), json!([]));
+    object.insert("selectedRelationships".to_owned(), json!([]));
+    object.insert("truncated".to_owned(), Value::Bool(true));
+    let Ok(compact) = serde_json::to_string(&evidence) else {
+        return false;
+    };
+    user_prompt.truncate(prefix.len());
+    user_prompt.push_str(MARKER);
+    user_prompt.push_str(&compact);
+    true
 }
 
 #[derive(Clone, Deserialize)]
