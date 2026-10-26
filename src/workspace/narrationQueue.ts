@@ -21,10 +21,10 @@ export function createNarrationPrewarmQueue(options: {
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
   const maxPending = options.maxPending ?? 512;
-  // Native synthesis is single-worker, but it can hold a small queue and let
-  // playback promote the clip the reader just selected. Keep that runway
-  // populated without consuming the native queue's full capacity.
-  const maxConcurrent = Math.max(1, Math.min(8, options.maxConcurrent ?? 8));
+  // The native worker admits one active request and four waiting requests.
+  // Leave one slot free so playback can start the clip the reader selected;
+  // prewarming must not fill the native queue or lose excess requests.
+  const maxConcurrent = Math.max(1, Math.min(4, options.maxConcurrent ?? 4));
 
   const keyOf = (input: NarrationSynthesisInput) => JSON.stringify([
     input.spokenText, input.voice, input.style, input.lexicon,
