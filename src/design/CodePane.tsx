@@ -50,8 +50,10 @@ const languageLoaders: Record<string, LanguageLoader> = {
   h: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   cc: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   cpp: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
+  'c++': () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   cxx: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   hpp: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
+  'h++': () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   hh: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   hxx: () => import('@codemirror/lang-cpp').then(({ cpp }) => cpp()),
   java: () => import('@codemirror/lang-java').then(({ java }) => java()),
@@ -61,6 +63,7 @@ const languageLoaders: Record<string, LanguageLoader> = {
   fs: () => import('@codemirror/legacy-modes/mode/mllike').then(({ fSharp }) => StreamLanguage.define(fSharp)),
   fsx: () => import('@codemirror/legacy-modes/mode/mllike').then(({ fSharp }) => StreamLanguage.define(fSharp)),
   cs: () => import('@codemirror/legacy-modes/mode/clike').then(({ csharp }) => StreamLanguage.define(csharp)),
+  csx: () => import('@codemirror/legacy-modes/mode/clike').then(({ csharp }) => StreamLanguage.define(csharp)),
   kt: () => import('@codemirror/legacy-modes/mode/clike').then(({ kotlin }) => StreamLanguage.define(kotlin)),
   kts: () => import('@codemirror/legacy-modes/mode/clike').then(({ kotlin }) => StreamLanguage.define(kotlin)),
   scala: () => import('@codemirror/legacy-modes/mode/clike').then(({ scala }) => StreamLanguage.define(scala)),
@@ -143,7 +146,9 @@ const languageLoads = new Map<string, Promise<Extension>>();
 function loadLanguageForPath(path: string): Promise<Extension> | null {
   const filename = path.split('/').at(-1)?.toLowerCase() ?? '';
   const extension = filename.split('.').at(-1) ?? '';
-  const namedLoader = namedLanguageLoaders[filename];
+  const dockerfileName = filename === 'dockerfile' || filename === 'containerfile'
+    || filename.startsWith('dockerfile.') || filename.startsWith('containerfile.');
+  const namedLoader = dockerfileName ? namedLanguageLoaders.dockerfile : namedLanguageLoaders[filename];
   const loader = namedLoader ?? languageLoaders[extension];
   if (!loader) return null;
   const cacheKey = namedLoader ? `filename:${filename}` : extension;

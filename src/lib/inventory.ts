@@ -49,8 +49,8 @@ const languageByExtension: Record<string, string> = {
   ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript',
   js: 'JavaScript', jsx: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript',
   rs: 'Rust', py: 'Python', pyw: 'Python', pyi: 'Python', go: 'Go', java: 'Java',
-  c: 'C', h: 'C/C++/Objective-C header', cc: 'C++', cpp: 'C++', cxx: 'C++', hpp: 'C++',
-  cs: 'C#', swift: 'Swift', kt: 'Kotlin', kts: 'Kotlin',
+  c: 'C', h: 'C/C++/Objective-C header', cc: 'C++', cpp: 'C++', cxx: 'C++', 'c++': 'C++', hpp: 'C++', 'h++': 'C++',
+  cs: 'C#', csx: 'C#', swift: 'Swift', kt: 'Kotlin', kts: 'Kotlin',
   d: 'D',
   rb: 'Ruby', php: 'PHP', scala: 'Scala', sc: 'Scala',
   ex: 'Elixir', exs: 'Elixir', erl: 'Erlang', hrl: 'Erlang',
@@ -96,12 +96,17 @@ function stableCompare(left: string, right: string): number {
 export function languageForPath(path: string): string {
   const name = path.split('/').at(-1)?.toLowerCase() ?? '';
   if (languageByFilename[name]) return languageByFilename[name]!;
-  if (name === 'dockerfile') return 'Dockerfile';
+  if (isDockerfileName(name)) return 'Dockerfile';
   if (name === 'makefile' || name === 'gnumakefile') return 'Makefile';
   if (name === 'cmakelists.txt') return 'CMake';
   if (name === 'nginx.conf') return 'Nginx config';
   const extension = name.includes('.') ? name.split('.').at(-1) ?? '' : '';
   return languageByExtension[extension] ?? (extension ? `.${extension}` : 'No extension');
+}
+
+function isDockerfileName(name: string): boolean {
+  return name === 'dockerfile' || name === 'containerfile'
+    || name.startsWith('dockerfile.') || name.startsWith('containerfile.');
 }
 
 function categoriesForPath(path: string, secretLike: boolean): InventoryCategory[] {
