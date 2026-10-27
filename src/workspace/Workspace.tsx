@@ -926,6 +926,8 @@ function Answer(props:AnswerProps){
   const guideSlideItemIndex=guideSlide?sectionItems.findIndex((item)=>item.kind==='section'&&item.section.revisionId===guideSlide.revisionId):-1;
   const guideSlideRevision=guideSlide?chapters?.find((candidate)=>candidate.revisionId===guideSlide.revisionId):undefined;
   const selectGuideSlide=(index:number)=>{
+    if(turn.guideId&&index>selectedGuideSlide&&guideSlide)
+      props.onGuideSlideConsumed?.(guideSlide.revisionId);
     const next=guideSlides[index];
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
     const sectionId=(revision&&answerReadingPosition(turn,'guide',revision.revisionId)?.sectionId)
@@ -990,7 +992,7 @@ function Answer(props:AnswerProps){
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
     {sectionSequence&&props.loading&&sections.length>0&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
-    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span role="status" aria-live="polite" aria-atomic="true">{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={!hasNextGuideSlide&&!canBuildNextGuideSlide} aria-label={nextGuideSlideLabel} onClick={()=>{if(hasNextGuideSlide){if(turn.guideId)props.onGuideSlideConsumed?.(guideSlide.revisionId);selectGuideSlide(selectedGuideSlide+1);}else if(canBuildNextGuideSlide)props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{nextGuideSlideLabel}<ArrowRight size={13}/></Button></nav>}
+    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span role="status" aria-live="polite" aria-atomic="true">{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={!hasNextGuideSlide&&!canBuildNextGuideSlide} aria-label={nextGuideSlideLabel} onClick={()=>{if(hasNextGuideSlide)selectGuideSlide(selectedGuideSlide+1);else if(canBuildNextGuideSlide)props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{nextGuideSlideLabel}<ArrowRight size={13/></Button></nav>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}

@@ -1718,7 +1718,7 @@ pub(crate) async fn resume_repository_guide(
     .await
 }
 
-/// Admit one new slide after the reader finishes a narrated slide.
+/// Record a consumed slide and refill the buffer when the reader moves forward.
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn advance_repository_guide(
     app: AppHandle,
