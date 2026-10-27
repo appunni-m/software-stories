@@ -631,6 +631,7 @@ mod tests {
         revision.chapter_id = "chapter:overview".into();
         revision.target.target_id = "target:overview".into();
         revision.target.scope = ChapterTargetScope::Overview;
+        revision.sections.truncate(1);
         let sources = f.sources(&[SIMPLE_PATH]);
         let range =
             crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
@@ -660,5 +661,44 @@ mod tests {
         let mut changed = origin.clone();
         changed.retrieval.as_mut().unwrap().ledger_sha256 = "c".repeat(64);
         assert!(changed.validate(&revision).is_err());
+    }
+
+    #[test]
+    fn schema_five_repository_origin_accepts_historical_missing_index_identity() {
+        let f = Fixture::new();
+        let mut revision = chapter(&f);
+        revision.chapter_id = "chapter:overview".into();
+        revision.target.target_id = "target:overview".into();
+        revision.target.scope = ChapterTargetScope::Overview;
+        revision.sections.truncate(1);
+        let sources = f.sources(&[SIMPLE_PATH]);
+        let range =
+            crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
+                .unwrap()
+                .range;
+        let mut origin = ChapterGenerationOrigin::from_answer_checkpoint(
+            &Uuid::new_v4().to_string(),
+            &"a".repeat(64),
+            &"b".repeat(64),
+            "gpt-6-luna",
+            "max",
+            vec![range],
+            None,
+            &sources,
+            &revision,
+        )
+        .unwrap();
+        origin.schema_version = 5;
+        origin.retrieval.as_mut().unwrap().index_identity = RecordedIndexIdentity::NotRecorded;
+        origin.request_fingerprint = crate::repository_context::digest(
+            &serde_json::to_vec(&(&origin.request_body_sha256, &"b".repeat(64))).unwrap(),
+        );
+
+        let wire = serde_json::to_value(&origin).unwrap();
+        assert!(wire["retrieval"].get("indexIdentity").is_none());
+        let restored: ChapterGenerationOrigin = serde_json::from_value(wire).unwrap();
+        assert_eq!(restored.schema_version, 5);
+        assert_eq!(restored.retrieval_index_identity(), None);
+        assert!(restored.validate(&revision).is_ok());
     }
 }
