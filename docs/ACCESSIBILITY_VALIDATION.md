@@ -50,10 +50,12 @@ contrast, zoom, or native-app usability pass.
   [App.tsx](../src/App.tsx).
 - Modal focus containment and the recovered-preview focus return are implemented
   in [App.tsx](../src/App.tsx).
-- Walkthrough section navigation exposes aria-current, Previous/Continue
-  buttons, keyboard section movement, and focus restoration. The focused section
-  heading includes its position and title in its accessible name in
-  [Walkthrough.tsx](../src/Walkthrough.tsx).
+- Guide section paging is implemented in
+  [Workspace.tsx](../src/workspace/Workspace.tsx), and scene navigation is in
+  [VisualStory.tsx](../src/VisualStory.tsx). Scene buttons expose the current
+  scene with `aria-current`; the selected Guide section is persisted by
+  [model.ts](../src/workspace/model.ts). Route-level focus restoration is
+  handled in [App.tsx](../src/App.tsx).
 - Notices, interrupted jobs, captions, and narration errors use status or alert
   semantics in [App.tsx](../src/App.tsx) and
   [NarrationPlayer.tsx](../src/NarrationPlayer.tsx).
