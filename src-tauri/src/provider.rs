@@ -3145,13 +3145,13 @@ fn codex_transport(
         provider_id: "codex",
         authentication: "chatgpt-account",
         endpoint_url: "codex-app-server://stdio",
-        disclosure_version: "codex-account-2026-10-16-v2",
+        disclosure_version: "codex-account-2026-10-27-v3",
         config: json!({
             "contractVersion": contract_version, "effort": effort,
             "approvalPolicy": "never", "executablePath": runtime.executable_path, "runtimeIdentity": runtime,
             "shell": false, "webSearch": false,
             "filesystem": "read-only staged selected source", "ephemeral": true,
-            "timeoutSeconds": 600,
+            "runDeadlinePolicy": "user-controlled-stop-v1",
         }),
     })
 }
