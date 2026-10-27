@@ -1834,7 +1834,7 @@ pub(crate) fn search_with_mode_page(
     }
     let words = validate_search_mode(query, path, limit, mode)?;
     let page_end = validate_search_page(limit, offset)?;
-    let fetch_limit = page_end.saturating_add(1).min(MAX_CANDIDATES);
+    let mut fetch_limit = page_end.saturating_add(1).min(MAX_CANDIDATES);
     let query = query.trim();
     if mode == SearchMode::Regex || words.is_empty() {
         let mut result = search_pattern(
@@ -1861,80 +1861,92 @@ pub(crate) fn search_with_mode_page(
         result.result_bytes = json(&result.matches)?.len();
         return Ok(result);
     }
-    let mut ranked = search_ranked(
-        storage,
-        manifest,
-        prepared,
-        query,
-        path,
-        fetch_limit,
-        budget,
-    )?;
-    let literal = search_pattern(
-        storage,
-        manifest,
-        prepared,
-        query,
-        path,
-        fetch_limit,
-        budget,
-        started,
-        SearchMode::Code,
-    )?;
-    let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
-        .matches
-        .into_iter()
-        .partition(|hit| hit.declaration_match);
-    let (exact, other): (Vec<_>, Vec<_>) =
-        remaining.into_iter().partition(|hit| hit.exact_identifier);
-    let (literal_declarations, literal_other): (Vec<_>, Vec<_>) = literal
-        .matches
-        .into_iter()
-        .partition(|hit| hit.declaration_match);
-    let (preferred_fallback, remaining_fallback) = if is_literal_operator_query(query) {
-        (literal_other, other)
-    } else {
-        (other, literal_other)
-    };
-    let mut matches: Vec<SearchHit> = vec![];
-    let mut limited = ranked.limited || literal.limited;
-    for hit in declarations
-        .into_iter()
-        .chain(literal_declarations)
-        .chain(exact)
-        .chain(preferred_fallback)
-        .chain(remaining_fallback)
-    {
-        budget.check()?;
-        if matches.iter().any(|old| {
-            old.range.snapshot_id == hit.range.snapshot_id
-                && old.range.path == hit.range.path
-                && old.range.source_sha256 == hit.range.source_sha256
-                && old.range.start_byte < hit.range.end_byte
-                && hit.range.start_byte < old.range.end_byte
-        }) {
+    loop {
+        let mut ranked = search_ranked(
+            storage,
+            manifest,
+            prepared,
+            query,
+            path,
+            fetch_limit,
+            budget,
+        )?;
+        let literal = search_pattern(
+            storage,
+            manifest,
+            prepared,
+            query,
+            path,
+            fetch_limit,
+            budget,
+            started,
+            SearchMode::Code,
+        )?;
+        let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
+            .matches
+            .into_iter()
+            .partition(|hit| hit.declaration_match);
+        let (exact, other): (Vec<_>, Vec<_>) =
+            remaining.into_iter().partition(|hit| hit.exact_identifier);
+        let (literal_declarations, literal_other): (Vec<_>, Vec<_>) = literal
+            .matches
+            .into_iter()
+            .partition(|hit| hit.declaration_match);
+        let (preferred_fallback, remaining_fallback) = if is_literal_operator_query(query) {
+            (literal_other, other)
+        } else {
+            (other, literal_other)
+        };
+        let mut matches: Vec<SearchHit> = vec![];
+        let mut limited = ranked.limited || literal.limited;
+        for hit in declarations
+            .into_iter()
+            .chain(literal_declarations)
+            .chain(exact)
+            .chain(preferred_fallback)
+            .chain(remaining_fallback)
+        {
+            budget.check()?;
+            if matches.iter().any(|old| {
+                old.range.snapshot_id == hit.range.snapshot_id
+                    && old.range.path == hit.range.path
+                    && old.range.source_sha256 == hit.range.source_sha256
+                    && old.range.start_byte < hit.range.end_byte
+                    && hit.range.start_byte < old.range.end_byte
+            }) {
+                continue;
+            }
+            if matches.len() == fetch_limit {
+                limited = true;
+                continue;
+            }
+            matches.push(hit);
+        }
+        let has_more = limited || matches.len() > page_end;
+        let has_page_sentinel = matches.len() > page_end;
+        // The ranked and literal searches can return overlapping windows. If
+        // those duplicates consume their per-search sentinel, grow both
+        // bounded prefixes until the merged unique results contain a sentinel
+        // or the shared candidate window is exhausted. Otherwise a truncated
+        // page can incorrectly report no next offset after deduplication.
+        if has_more && !has_page_sentinel && fetch_limit < MAX_CANDIDATES {
+            fetch_limit = fetch_limit.saturating_mul(2).min(MAX_CANDIDATES);
             continue;
         }
-        if matches.len() == fetch_limit {
-            limited = true;
-            continue;
-        }
-        matches.push(hit);
+        let next_offset = (page_end < MAX_CANDIDATES && has_page_sentinel).then_some(page_end);
+        ranked.matches = matches;
+        ranked.next_offset = next_offset;
+        ranked.limited = has_more;
+        ranked.matches = ranked
+            .matches
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
+        ranked.result_bytes = json(&ranked.matches)?.len();
+        ranked.elapsed_ms = started.elapsed().as_millis() as u64;
+        return Ok(ranked);
     }
-    let has_more = limited || matches.len() > page_end;
-    let next_offset = (page_end < MAX_CANDIDATES && matches.len() > page_end).then_some(page_end);
-    ranked.matches = matches;
-    ranked.next_offset = next_offset;
-    ranked.limited = has_more;
-    ranked.matches = ranked
-        .matches
-        .into_iter()
-        .skip(offset)
-        .take(limit)
-        .collect();
-    ranked.result_bytes = json(&ranked.matches)?.len();
-    ranked.elapsed_ms = started.elapsed().as_millis() as u64;
-    Ok(ranked)
 }
 
 /// Return one relevant source range per captured file, ranked by distinct
