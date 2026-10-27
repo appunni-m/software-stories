@@ -362,7 +362,7 @@ impl ChapterGenerationOrigin {
                 && fingerprint_valid
                 && !retrieval.ranges.is_empty()
                 && retrieval.ranges.len() <= 512
-                && revision.sections.len() == 1
+                // One checkpoint may support an overview with multiple sections.
                 && retrieval.ranges.iter().all(|r| {
                     crate::repository_context::safe_path(&r.path)
                         && r.snapshot_id == self.snapshot_id
@@ -700,5 +700,9 @@ mod tests {
         assert_eq!(restored.schema_version, 5);
         assert_eq!(restored.retrieval_index_identity(), None);
         assert!(restored.validate(&revision).is_ok());
+
+        revision.generation_origin = Some(restored);
+        let saved_revision = serde_json::to_vec(&revision).unwrap();
+        assert!(crate::chapters::decode_chapter_revision(&saved_revision).is_ok());
     }
 }

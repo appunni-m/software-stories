@@ -53,6 +53,9 @@ pub fn save_new_draft(
         );
     }
     validate_revision_identity(&revision)?;
+    // New overview drafts must follow the current content policy. History reads
+    // use identity validation only so older drafts remain available for repair.
+    chapters::validate_overview_content(&revision)?;
     append_revision(storage_dir, &mut revision, false)
 }
 
@@ -80,6 +83,10 @@ pub fn append_review_revision(
                 "The review revision has an invalid lifecycle or decision reason.".to_owned(),
             );
         }
+    }
+    if revision.lifecycle == RevisionLifecycle::Accepted {
+        // Invalid drafts can be saved for repair, but acceptance is always gated.
+        chapters::validate_overview_content(&revision)?;
     }
     append_revision(storage_dir, &mut revision, true)
 }
@@ -406,7 +413,6 @@ fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> 
         return Err("An overview chapter must use its stable overview identities.".to_owned());
     }
     crate::chapter_origin::validate_revision_origin(revision)?;
-    chapters::validate_overview_content(revision)?;
     if revision.lifecycle != RevisionLifecycle::Draft && revision.based_on_revision_id.is_none() {
         return Err("A reviewed revision must identify the revision it follows.".to_owned());
     }
@@ -781,6 +787,21 @@ mod tests {
             list_for_project(&temp.0, "project-test").unwrap(),
             vec![saved]
         );
+
+        let legacy_path = target_directory(&temp.0, "project-test", "target:overview")
+            .join("revision:overview.json");
+        let mut legacy_payload: serde_json::Value =
+            serde_json::from_slice(&fs::read(&legacy_path).unwrap()).unwrap();
+        legacy_payload["sections"][0]["prose"] = serde_json::Value::String("main".into());
+        legacy_payload["sections"][0]["spokenText"] =
+            serde_json::Value::String("main".into());
+        let legacy_bytes = serde_json::to_vec(&legacy_payload).unwrap();
+        fs::write(&legacy_path, &legacy_bytes).unwrap();
+        let loaded_legacy = list_for_project(&temp.0, "project-test").unwrap();
+        assert_eq!(loaded_legacy.len(), 1);
+        assert_eq!(loaded_legacy[0].sections[0].prose, "main");
+        assert!(chapters::validate_overview_content(&loaded_legacy[0]).is_err());
+        assert_eq!(fs::read(&legacy_path).unwrap(), legacy_bytes);
 
         for (chapter_id, target_id, schema_version) in [
             (

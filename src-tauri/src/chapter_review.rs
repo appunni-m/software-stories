@@ -487,7 +487,7 @@ mod tests {
             SIMPLE_PATH,
             &source,
             &relationships,
-            &serde_json::to_string(&proposal).unwrap(),
+            &chapter_generation::tests::simple_proposal_text(),
         )
         .unwrap();
         let report = chapters::validate_chapter_revision(
@@ -780,6 +780,74 @@ mod tests {
                 .unwrap()
                 .validation_status,
             ValidationStatus::Invalid
+        );
+    }
+
+    #[test]
+    fn invalid_overview_copy_remains_repairable_but_cannot_be_accepted() {
+        let fixture = Fixture::new();
+        let base = saved_agent_overview(&fixture);
+        let lock = Mutex::new(());
+
+        let mut proposal = base.clone();
+        proposal.sections[0].prose = "main".into();
+        proposal.sections[0].spoken_text = "main".into();
+        let invalid = save_edits(
+            &fixture.storage,
+            &lock,
+            &base.project_id,
+            &base.revision_id,
+            proposal,
+        )
+        .unwrap();
+        assert_eq!(invalid.revision.lifecycle, RevisionLifecycle::Draft);
+        assert_eq!(
+            invalid.revision.validation_status,
+            ValidationStatus::Invalid
+        );
+        assert!(invalid.validation.issues.iter().any(|issue| {
+            issue.message
+                == "Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved."
+        }));
+        assert!(chapter_store::list_for_project(&fixture.storage, &base.project_id)
+            .unwrap()
+            .iter()
+            .any(|revision| revision.revision_id == invalid.revision.revision_id));
+        assert!(accept_draft(
+            &fixture.storage,
+            &lock,
+            &base.project_id,
+            &invalid.revision.revision_id,
+        )
+        .is_err());
+
+        let mut repaired_proposal = invalid.revision.clone();
+        let supported_copy =
+            chapters::overview_claim_sentences(&repaired_proposal.sections[0].claims).join(" ");
+        repaired_proposal.sections[0].prose = supported_copy.clone();
+        repaired_proposal.sections[0].spoken_text = supported_copy;
+        let repaired = save_edits(
+            &fixture.storage,
+            &lock,
+            &base.project_id,
+            &invalid.revision.revision_id,
+            repaired_proposal,
+        )
+        .unwrap();
+        assert_eq!(repaired.validation.status, ValidationReportStatus::Valid);
+        let accepted = accept_draft(
+            &fixture.storage,
+            &lock,
+            &base.project_id,
+            &repaired.revision.revision_id,
+        )
+        .unwrap();
+        assert_eq!(accepted.revision.lifecycle, RevisionLifecycle::Accepted);
+        assert_eq!(
+            chapter_store::list_for_project(&fixture.storage, &base.project_id)
+                .unwrap()
+                .len(),
+            5
         );
     }
 
