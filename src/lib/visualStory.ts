@@ -17,7 +17,7 @@ export interface StoryLayoutResult {
 
 /** A full graph is an authored view only when a current presentation includes a graph scene. */
 export function supportsStoryFullMap(visual: EvidenceLinkedVisualSpec | undefined): boolean {
-  return Boolean(visual?.presentation.scenes.some((scene) => scene.mode === 'graph'));
+  return Boolean(visual?.presentation?.scenes.some((scene) => scene.mode === 'graph'));
 }
 
 export const STORY_NODE_WIDTH = 195;

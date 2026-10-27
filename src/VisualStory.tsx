@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
-import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Code2, Maximize2 } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
@@ -405,19 +405,18 @@ export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, 
         <Background gap={24} /><Controls showInteractive={false} />
       </ReactFlow>
     </div> : <div className="story-source-stage">
-      {anchor ? <div className="story-no-visual story-source-fallback">
-        <Code2 size={28} aria-hidden="true" />
-        <span><InlineCodeText text={section.title}/></span>
-        <small>Open the cited code beside this explanation to inspect this step.</small>
-        <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
+      <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}`} role="group"
+        aria-label={inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}>
+        <span>{inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
+        <small>{inspection.status === 'unavailable'
+          ? 'This saved visual cannot be displayed. Narration and source links are still available.'
+          : 'This saved section has narration and source links, but no visual representation.'}</small>
+        {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
           aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
           onClick={() => onOpenAnchor(anchor, `reader-citation:${anchor.anchorId}`)}>
           <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
-        </button>
-      </div> : <div className="story-no-visual">
-        <Network size={28} aria-hidden="true" /><span><InlineCodeText text={section.title}/></span>
-        <small>{inspection.status === 'unavailable' ? 'This saved visual cannot be displayed. Narration and source links are available.' : 'No diagram was saved for this section.'}</small>
-      </div>}
+        </button>}
+      </div>
     </div>}
     <div className="story-playbar">
       <button className="story-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>

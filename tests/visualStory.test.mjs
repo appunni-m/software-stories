@@ -42,11 +42,12 @@ describe('visual story scenes', () => {
     assert.match(component, /\{canShowFullMap && <button className="story-map-toggle"/u);
   });
 
-  it('keeps source-only scenes compact and opens their cited range beside the answer', () => {
+  it('labels sections without a saved visual and opens their cited range beside the answer', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
-    assert.match(component, /className="story-no-visual story-source-fallback"/u);
-    assert.match(component, /Open the cited code beside this explanation to inspect this step\./u);
+    assert.match(component, /Saved visual unavailable' : 'No visual saved for this section'/u);
+    assert.match(component, /This saved section has narration and source links, but no visual representation\./u);
+    assert.doesNotMatch(component, /Open the cited code beside this explanation to inspect this step\./u);
     assert.match(component, /onClick=\{\(\) => onOpenAnchor\(anchor, `reader-citation:\$\{anchor\.anchorId\}`\)\}/u);
     assert.doesNotMatch(component, /<pre><code>\{anchor\.excerpt\}<\/code><\/pre>/u,
       'the Explorer already shows the captured code; do not duplicate a long excerpt as the visual');
@@ -279,11 +280,11 @@ describe('visual story scenes', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     assert.match(component, /function EvidenceStoryEdge\(/u);
     assert.match(component, /<EdgeLabelRenderer>/u);
-    assert.match(component, /aria-label=\{`\$\{label\}\. Open cited source code`\}/u);
+    assert.match(component, /aria-label=\{`\$\{accessibleLabel\}\. Open cited source code`\}/u);
     assert.match(component, /const sourceLinkedEdges = visibleEdges\.flatMap\(/u);
     assert.match(component, /<div className="story-details-connections">[\s\S]*?<ul>\{sourceLinkedEdges\.map/u);
     assert.match(component, /data-focus-key=\{`reader-visual-edge:\$\{edge\.edgeId\}:\$\{source\.anchorId\}`\}/u);
-    assert.ok(component.includes('aria-label={`${from.label} — ${edge.label} — ${to.label}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}'));
+    assert.ok(component.includes('aria-label={`${plainInlineCodeText(from.label)} — ${plainInlineCodeText(edge.label)} — ${plainInlineCodeText(to.label)}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}'));
     assert.match(component, /onClick=\{\(\) => chooseEdge\(edge\.edgeId\)\}/u);
     assert.match(component, /onOpenAnchor\(sourceAnchorForVisualEdge\(source, edge, targetAnchor, sourceContextAnchor\), `reader-visual-edge:/u);
     assert.match(component, /sourceAnchorForVisualNode\(sourceContext, origin, origin\.sourceValue\)/u);
@@ -303,7 +304,8 @@ describe('visual story scenes', () => {
     assert.equal(sourceValuesByVisualNode(conflicting).has('error'), false);
 
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
-    assert.match(component, /onClick=\{\(\) => chooseNode\(node\.id, sourceValues\.get\(node\.id\)\)\}/u);
+    assert.match(component, /const focusSourceValue = focus\?\.sourceValue \?\? \(focus \? sourceValues\.get\(focus\.nodeId\) : undefined\)/u);
+    assert.match(component, /sourceAnchorForVisualNode\(focusAnchor, focus, focusSourceValue\)/u);
   });
 
   it('keeps the full citation when a visual node has no unique exact expression', () => {
@@ -330,8 +332,8 @@ describe('visual story scenes', () => {
     const detailsIndex = component.indexOf('className="story-details"');
     assert.ok(headingIndex >= 0 && headingIndex < visualIndex && visualIndex < playerIndex && playerIndex < detailsIndex,
       'scene heading, visual, player and details should appear in that order');
-    assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}/u);
-    assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{item\.title\}`\}/u);
+    assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{plainInlineCodeText\(scene\.title\)\}/u);
+    assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{plainInlineCodeText\(item\.title\)\}`\}/u);
     assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*10/u,
       'the dedicated walkthrough can keep scene controls visible while its own view scrolls');
     const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
@@ -563,8 +565,8 @@ describe('visual story scenes', () => {
       assert.doesNotMatch(rule, /overflow-wrap:\s*anywhere/u);
     }
     assert.match(buttonRule, /white-space:\s*normal/u);
-    assert.match(component, /className="story-node-detail">\{data\.detail\}/u);
-    assert.ok(component.includes("title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`}"));
+    assert.ok(component.includes('<small className="story-node-detail"><InlineCodeText text={data.detail}/></small>'));
+    assert.ok(component.includes("title={`${label}${detail ? ` — ${detail}` : ''}`}"));
     const detailRule = styles.match(/\.visual-story \.story-node-detail\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(detailRule, /-webkit-line-clamp:\s*2/u);
     assert.match(detailRule, /color:\s*var\(--text\)/u);
@@ -691,7 +693,7 @@ describe('visual story scenes', () => {
     const labelRule = styles.match(/\.visual-story \.story-edge-label\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(labelRule, /max-width:\s*180px/u);
     assert.match(labelRule, /max-height:\s*40px/u);
-    assert.match(labelRule, /font:\s*500 10px\/1\.2/u);
+    assert.match(labelRule, /font:\s*500 12px\/1\.2/u);
     const textRule = styles.match(/\.visual-story \.story-edge-label-text\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(textRule, /-webkit-line-clamp:\s*2/u);
     assert.match(textRule, /white-space:\s*normal/u);
