@@ -50,9 +50,10 @@ describe('visual story scenes', () => {
     assert.match(component, /'Saved visual unavailable' : 'No visual saved for this section'/u);
     assert.match(component, /Visual needs refreshing/u);
     assert.match(component, /Create a fresh visual/u);
-    assert.match(component, /savedVisualNeedsRefresh && onRefreshVisual/u);
+    assert.match(component, /savedVisualUnavailable && Boolean\(onRefreshVisual\)/u);
     assert.match(workspace, /onRefreshVisual=\{\(\) => onBranch\(visualRefreshQuestion\(section\.title\), contexts\)\}/u);
     assert.match(preview, /Create a fresh visual/u);
+    assert.match(preview, /inspection\.status === 'unavailable' && Boolean\(onRefreshVisual\)/u);
     assert.match(component, /This saved section has narration and source links, but no visual representation\./u);
     assert.doesNotMatch(component, /Open the cited code beside this explanation to inspect this step\./u);
     assert.match(component, /onClick=\{\(\) => onOpenAnchor\(anchor, `reader-citation:\$\{anchor\.anchorId\}`\)\}/u);

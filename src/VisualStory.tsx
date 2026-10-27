@@ -73,6 +73,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const savedVisualNeedsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
+  const savedVisualUnavailable = inspection.status === 'unavailable';
+  const canRefreshSavedVisual = savedVisualUnavailable && Boolean(onRefreshVisual);
   const baseKey = narrationStorageKey(revision.projectId,revision.chapterId,revision.revisionId,section.sectionId);
   const sceneKey = `code-atlas:story:v2:${revision.revisionId}:${section.sectionRevisionId}`;
   const identity = {revisionId:revision.revisionId,sectionId:section.sectionId,sectionRevisionId:section.sectionRevisionId};
@@ -408,17 +410,19 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       </ReactFlow>
     </div> : <div className="story-source-stage">
       <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}`} role="group"
-        aria-label={savedVisualNeedsRefresh ? 'Saved visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}>
-        <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
+        aria-label={savedVisualNeedsRefresh ? 'Saved visual needs refreshing' : savedVisualUnavailable ? 'Saved visual unavailable' : 'No visual saved for this section'}>
+        <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : savedVisualUnavailable ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
         <small>{savedVisualNeedsRefresh
-          ? onRefreshVisual
+          ? canRefreshSavedVisual
             ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
             : 'This saved visual cannot be shown here. Narration and source links are still available.'
-          : inspection.status === 'unavailable'
-            ? 'This saved visual cannot be displayed. Narration and source links are still available.'
+          : savedVisualUnavailable
+            ? canRefreshSavedVisual
+              ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
+              : 'This saved visual cannot be displayed. Narration and source links are still available.'
           : 'This saved section has narration and source links, but no visual representation.'}</small>
-        {(savedVisualNeedsRefresh && onRefreshVisual || anchor) && <div className="story-source-actions">
-          {savedVisualNeedsRefresh && onRefreshVisual && <button type="button" className="story-refresh-visual" onClick={onRefreshVisual}>
+        {(canRefreshSavedVisual || anchor) && <div className="story-source-actions">
+          {canRefreshSavedVisual && onRefreshVisual && <button type="button" className="story-refresh-visual" onClick={onRefreshVisual}>
             <Sparkles size={13} aria-hidden="true" />Create a fresh visual
           </button>}
           {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}

@@ -33,13 +33,15 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
     const anchor = section.claims.flatMap((claim) => claim.anchors)[0];
     const unavailable = inspection.status === 'unavailable' || Boolean(visual);
     const needsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
+    const canRefresh = inspection.status === 'unavailable' && Boolean(onRefreshVisual);
     return <div className="dw-answer-visual-preview dw-answer-visual-preview-empty" role="group"
       aria-label={`Visual preview for ${plainInlineCodeText(section.title)}`}>
       <span>{needsRefresh
-        ? onRefreshVisual ? 'This saved visual needs refreshing.' : 'This visual cannot be shown here.'
+        ? canRefresh ? 'This saved visual needs refreshing.' : 'This visual cannot be shown here.'
+        : canRefresh ? 'This saved visual cannot be shown.'
         : unavailable ? 'This visual cannot be previewed here.' : 'No visual was saved for this section.'}</span>
-      {(needsRefresh && onRefreshVisual || anchor) && <div className="dw-answer-visual-actions">
-        {needsRefresh && onRefreshVisual && <button type="button" onClick={onRefreshVisual} aria-label={`Create a fresh visual explanation for ${plainInlineCodeText(section.title)}`}>
+      {(canRefresh || anchor) && <div className="dw-answer-visual-actions">
+        {canRefresh && onRefreshVisual && <button type="button" onClick={onRefreshVisual} aria-label={`Create a fresh visual explanation for ${plainInlineCodeText(section.title)}`}>
           <Sparkles size={13} aria-hidden="true" />Create a fresh visual
         </button>}
         {anchor && <button type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
