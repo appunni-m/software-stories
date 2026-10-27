@@ -50,6 +50,25 @@ test('restoration keeps a native worker visible after a webview reload without r
   assert.deepEqual(h.calls.filter((call)=>call.name==='generate_progressive_workspace_answer'),[]);
 });
 
+test('restart interrupts a saved active turn whose native job row is missing and keeps its sections',async()=>{
+  const runId='11111111-1111-4111-8111-111111111111';
+  const turnId='33333333-3333-4333-8333-333333333333';
+  const h=workspaceStoreHarness(nativeReads(async(name)=>{
+    if(name==='list_workspace_answers')return [];
+    assert.fail(`Unexpected command ${name}`);
+  }),{listWorkspaceGenerationJobsForScope:async()=>[]});
+  h.store.updateWorkspace('project','snapshot',(state)=>({...state,explorations:state.explorations.map((e)=>e.id==='root'
+    ?{...e,turns:[{id:turnId,question:'Explain the interrupted work',context:[],status:'working',runIds:[runId],publishedSections:[section]}]}:e)}));
+
+  await h.store.restoreWorkspaceAnswers('project','snapshot');
+
+  const restored=turns(h)[0];
+  assert.equal(restored.status,'interrupted');
+  assert.match(restored.error,/Retry to continue/);
+  assert.deepEqual(restored.publishedSections,[section]);
+  assert.deepEqual(h.calls.filter((call)=>call.name==='generate_progressive_workspace_answer'),[]);
+});
+
 test('restoration preserves a renderer-owned queued question and never dispatches it again',async()=>{
   const runId='11111111-1111-4111-8111-111111111111';
   const turnId='33333333-3333-4333-8333-333333333333';let listedSession;

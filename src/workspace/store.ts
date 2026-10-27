@@ -554,9 +554,11 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
   if (failed) throw firstFailure;
 }
 
-function restoreWorkspaceJobStates(project:string,snapshot:string,jobs:WorkspaceGenerationJob[]) {
-  for (const job of jobs) {
+function restoreWorkspaceJobStates(project:string,snapshot:string,jobRecords:WorkspaceGenerationJob[]) {
+  const questionJobs = new Set<string>();
+  for (const job of jobRecords) {
     if (job.kind!=='workspaceQuestion'||job.projectId!==project||job.snapshotId!==snapshot||!job.conversationTurnId) continue;
+    questionJobs.add(`${job.conversationTurnId}\u0000${job.jobId}`);
     const turns=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns);
     const turn=turns.find((candidate)=>candidate.id===job.conversationTurnId);
     if (!turn||!turn.runIds?.includes(job.jobId)||turn.runIds.at(-1)!==job.jobId) continue;
@@ -566,6 +568,17 @@ function restoreWorkspaceJobStates(project:string,snapshot:string,jobs:Workspace
       :job.state==='completed'?'ready':job.state==='partiallyCompleted'?'partial'
       :job.state==='stopped'?'stopped':job.state==='failed'?'failed':'interrupted';
     patchTurn(project,snapshot,turn.id,status==='working'?{status,error:undefined}:{status});
+  }
+  // The conversation is saved immediately before the native job row. A crash
+  // in that small gap must not leave a queued/working card stuck forever.
+  // The job list is successfully read and snapshot-scoped before reaching this
+  // function, so an absent row is safe to reconcile locally without replaying
+  // inference or changing any already-published sections.
+  for (const turn of getWorkspace(project,snapshot).explorations.flatMap((exploration)=>exploration.turns)) {
+    if (jobs.has(turn.id) || (turn.status!=='queued'&&turn.status!=='working')) continue;
+    const latestRunId=turn.runIds?.at(-1);
+    if (!latestRunId || questionJobs.has(`${turn.id}\u0000${latestRunId}`)) continue;
+    patchTurn(project,snapshot,turn.id,{status:'interrupted',error:'This question stopped before its work could be recovered. Retry to continue; published sections remain available.'});
   }
 }
 /** Explicitly remove a terminal investigation receipt after its drafts have
