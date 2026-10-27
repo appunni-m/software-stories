@@ -29,6 +29,37 @@ The packaged app automatically discovered the existing desktop Codex with no sav
 - If repair fails, show a plain-language reason and one retry action that obtains a fresh review; preserve source selection and saved work. Store only controlled diagnostic categories, never credentials/private raw responses in logs.
 - Add deterministic malformed/missing/ambiguous-quote fixtures, native cancellation/recovery checks and a real repository run before accepting this requirement.
 
+## One-shot candidate correction checkpoint — 27 October 2026
+
+The source now implements the bounded repair described above for reviewed Codex
+chapter operations. The exact correction policy and `maxAttempts: 1` are bound
+into the generation review; its consent disclosure warns that a correction may
+make another account-quota request. Native preflight uses the same selected
+files, model, reasoning, schema, permissions, owner and deadline. Feedback is
+limited to controlled validation categories and positional identifiers; the
+corrected candidate is still subject to the complete source/citation/visual and
+storage validators, and there is no second repair or provider fallback. The
+implementation is in `claim_alignment.rs`, `codex_commands.rs` and
+`CodexChapterDialog.tsx`; focused correction evidence and limits are recorded
+in the [correction acceptance note](../acceptance/2026-10-17-codex-layout-correction.md).
+
+This closes the bounded-correction implementation subtask, not the Codex
+account backend. This source review did not run tests, build, launch the agent,
+or send a request. Account and permission boundaries, process/restart/cancel
+qualification, every required operation, real-repository quality and packaged
+release remain open.
+
+## Outgoing turn frame bound — source checkpoint, 2026-10-27
+
+The Codex adapter now checks the serialized protocol frame for every model
+turn immediately before dispatch, including the one corrected turn after local
+validation feedback. The first reviewed turn is still preflighted before
+creating a thread. This prevents a larger correction prompt from reaching the
+protocol writer's generic frame rejection and maps the limit to an actionable
+context-size failure. Source review only; no tests, build, app launch, account
+operation or model request ran. Correction-size behavior and the complete
+native operation/lifecycle matrix still need qualification.
+
 ## User outcome
 The user connects an eligible ChatGPT account once and generates chapters through Codex without configuring a direct API key for each workflow.
 
@@ -210,3 +241,64 @@ This is source change detection, not immutable account/workspace identity, entit
 Both native agent frame readers now reuse the existing chapter duplicate-key decoder, extracted into a shared module. Codex rejects non-object RPC frames and checks final JSON text strictly. Claude retains the reviewed turn limit and rejects successful results without an integer `num_turns` from 1 through that limit. Existing byte/depth limits, stream failure latching, independent source validation, clean exit, cancellation and publication ownership remain in place. Chapter storage/schema versions are unchanged.
 
 These unbuilt/unexecuted checks neither prevent nor refund reported usage and cannot qualify runtime/account behavior. Complete the new parser/count/EOF/lifecycle cases in `xymb`, including actual CLI formatter/retry count semantics for every supported turn setting. No tests, builds, app launches, runtime probes, logins or model requests ran. Both-agent native acceptance remains open; Claude stays behind the empty qualification registry. See [the lifecycle contract](../AGENT_RESULT_LIFECYCLE.md#protocol-parsing-and-reported-limits).
+
+### Codex source-context size checkpoint — 2026-10-27
+
+Ordinary Codex file chapters and repository overviews no longer duplicate the
+selected source blocks inside the initial request JSON. Before removing that
+block, the builder verifies it byte-for-byte against the exact selected files;
+the prompt then directs Codex to the already-created read-only staging manifest
+and files. The app-server base instruction now permits this narrowly scoped
+read-only access only when the per-request developer instruction explicitly
+authorizes it; other operations remain instructed not to read files. Selected
+files remain visible in the consent review and bound into the request
+fingerprint. Local index evidence and later prompt context remain in place, and
+the input-token estimate still accounts for the staged source. This addresses
+encoded-body overflow caused by escaping otherwise bounded source. It is
+source-only progress: no test, build, package run or Codex request was
+performed, and the `512 KB` review/send, packaged large-repository and
+account/runtime acceptance gates remain open.
+
+### Post-consent source handoff correction — 2026-10-27
+
+Static review found that the compact review referred Codex to staged files even
+though fixed-source operations expose no accepted filesystem-read event. The
+review now states that the exact selected source, already shown separately and
+bound by the review fingerprint, is inserted into the first Codex turn only
+after consent. Fixed-source base instructions prohibit file access; the native
+client checks the fully encoded turn against its frame limit before creating a
+thread. This restores the bounded source scope and removes an unsupported
+read-tool assumption. It does not reduce the selected source bytes or token
+cost sent after consent. No tests, build, package run or Codex request ran; all
+account, cancellation, large-repository and answer-quality gates remain open.
+
+### Classify local turn-size rejection — 2026-10-27
+
+The client checks the fully encoded first Codex turn before creating its
+thread. Oversized turns now retain the `contextTooLarge` failure category at
+the command boundary, so the workspace explains that the selected context must
+be narrowed and that no turn was sent instead of labeling the local preflight
+as a provider rejection. Prompt/source overflow now has the same actionable
+classification, while an empty prompt is invalid review and a source-digest
+mismatch is a changed review that requires fresh consent. No tests or build
+ran; the complete request-boundary, packaged and account acceptance remains
+open.
+
+### Count the outgoing JSON-line delimiter — 2026-10-27
+
+The Codex reader counts the terminating newline as part of its 2 MiB frame
+limit. Outgoing turn preflight and writes now count the same delimiter, so a
+request at the boundary cannot pass local validation and then exceed the
+reader's protocol limit by one byte. No test, build or provider request ran;
+the operation, runtime and packaged acceptance gates remain open.
+
+### Disclose the bounded chapter correction before consent — 2026-10-27
+
+When the reviewed generation config enables one candidate correction, the
+consent summary now says that local rejection may trigger at most one further
+Codex request, using the same reviewed source, model, schema and deadline, and
+that it can consume additional account quota. The repaired result still has to
+pass the original local checks. Non-chapter operations do not show the notice.
+This makes the existing repair behavior visible before the user consents; it
+does not qualify correction reliability or the packaged Codex route. No tests
+or build ran.

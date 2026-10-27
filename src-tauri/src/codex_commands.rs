@@ -879,7 +879,7 @@ async fn prepare_codex_operation(
                 .unwrap_or("")
                 .to_owned(),
             system_instruction: review.system_instruction.clone(),
-            user_prompt: review.user_prompt.clone(),
+            user_prompt: provider::codex_prompt_after_consent(&review)?,
             output_schema: review.generation_config["outputSchema"].clone(),
             correction_policy: if matches!(operation, CodexOperation::Chapter) {
                 crate::claim_alignment::CorrectionPolicy::from_generation_config(
@@ -1047,6 +1047,18 @@ fn codex_run_failure_kind(message: &str) -> provider::ProviderFailureKind {
         Kind::RequestCancelled
     } else if message.contains("timed out") || message.contains("exceeded ten minutes") {
         Kind::RequestTimedOut
+    } else if message.starts_with("The prepared Codex turn exceeds Codex's local message limit.")
+        || message.starts_with("The reviewed context exceeds Codex's local message limit.")
+    {
+        Kind::ContextTooLarge
+    } else if message.starts_with("The reviewed Codex context exceeds the local prompt limit.")
+        || message.starts_with("The reviewed Codex source exceeds 256 KB.")
+    {
+        Kind::ContextTooLarge
+    } else if message.starts_with("The reviewed Codex source changed after review.") {
+        Kind::ReviewChanged
+    } else if message.starts_with("The reviewed Codex prompt is empty.") {
+        Kind::InvalidReview
     } else if message.starts_with("Your Codex account reached a usage limit.") {
         Kind::QuotaExceeded
     } else if message.starts_with("The selected model is not in")
