@@ -4151,6 +4151,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [validation, setValidation] = useState<ChapterValidationReport | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const rejectReasonBytes = new TextEncoder().encode(rejectReason).length;
   const [busy, setBusy] = useState(false);
   const [freshnessState, setFreshnessState] = useState<ChapterFreshnessState | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; tone: 'success' | 'error' | 'info' } | null>(restoredDraft ? {
@@ -4560,6 +4561,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       }
       return;
     }
+    if (new TextEncoder().encode(rejectReason).length > 4_000) {
+      setFeedback({ message: 'Keep the rejection reason within 4,000 UTF-8 bytes.', tone: 'info' });
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
@@ -4762,8 +4767,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       />}
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form id="chapter-rejection-form" className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
-                        <label><span>Why is this draft rejected?</span><textarea disabled={busy || historyAvailability !== 'ready'} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
-                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || historyAvailability !== 'ready' || !rejectReason.trim()} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}>Record rejection</button></div>
+                        <label><span>Why is this draft rejected?</span><textarea disabled={busy || historyAvailability !== 'ready'} autoFocus rows={2} maxLength={4000} aria-describedby="chapter-rejection-reason-limit" value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
+                        <small id="chapter-rejection-reason-limit" className="chapter-rejection-reason-count">{rejectReasonBytes > 4_000 ? 'The reason exceeds the 4,000-byte limit.' : `${rejectReasonBytes} / 4,000 UTF-8 bytes`}</small>
+                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || historyAvailability !== 'ready' || !rejectReason.trim() || rejectReasonBytes > 4_000} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}>Record rejection</button></div>
                       </form>}
 
                       {selectedFreshness?.loading && <p className="chapter-review-feedback tone-info" role="status">Comparing this accepted revision with snapshot {snapshotId.slice(-12)}…</p>}
