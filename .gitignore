@@ -19,8 +19,11 @@ benchmarks/chapter-quality/review/reports/
 # Local test coverage output, regardless of which package directory emits it.
 **/.nyc_output/
 **/coverage/
+**/htmlcov/
 .coverage
 .coverage.*
+lcov.info
+coverage.xml
 
 # Python worker contract checks.
 __pycache__/
