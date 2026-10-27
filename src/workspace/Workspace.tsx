@@ -30,7 +30,7 @@ import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
@@ -233,6 +233,7 @@ export function DeveloperWorkspace(props:Props) {
   const guideTurns=guideStackTurns(visibleTurns,
     [current.focusedTurnId,featuredTurnId??undefined,...branchesByTurn.keys()],guideStackExpanded);
   const hiddenGuideTurnCount=visibleTurns.length-guideTurns.length;
+  const guideStackLabels=guideStackCopy(guideTurns.length,visibleTurns.length,guideStackExpanded);
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
@@ -859,10 +860,10 @@ export function DeveloperWorkspace(props:Props) {
               <Tabs.Content value="guide">
                 {visibleTurns.length > 0 ? (
                   <>
-                  {(hiddenGuideTurnCount>0||guideStackExpanded)&&<div className="dw-guide-stack-control" role="group" aria-label="Guide answer history">
-                    <span>{hiddenGuideTurnCount>0?`Showing ${guideTurns.length} of ${visibleTurns.length} answers. Older answers are in Chat history.`:`Showing all ${visibleTurns.length} answers.`}</span>
+                  {(hiddenGuideTurnCount>0||guideStackExpanded)&&<div className="dw-guide-stack-control" role="group" aria-label="Guide question history">
+                    <span>{guideStackLabels.status}</span>
                     <Button size="1" variant="ghost" onClick={()=>setExpandedGuideStackKey(guideStackExpanded?null:guideStackKey)}>
-                      {guideStackExpanded?'Show recent answers':`Show all ${visibleTurns.length} answers`}
+                      {guideStackLabels.action}
                     </Button>
                   </div>}
                   {guideTurns.map(renderAnswer)}

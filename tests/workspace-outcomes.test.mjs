@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -12,6 +12,21 @@ test('the Guide reader hides draft bookkeeping but keeps an explicit rejection w
   assert.equal(workspaceAnswerLifecycleBadge('draft'), null);
   assert.equal(workspaceAnswerLifecycleBadge('accepted'), null);
   assert.equal(workspaceAnswerLifecycleBadge('rejected'), 'Rejected');
+});
+
+test('the Guide stack counts retained failed branch questions without calling them answers', () => {
+  let state = stateWith(turn('stopped-parent', 'stopped'));
+  state = addTurn(state, turn('stopped-child', 'stopped'), 'guide', { id: 'child', originTurnId: 'stopped-parent' });
+  const visible = visibleConversationTurns(state, state.explorations[0]);
+  assert.deepEqual(visible.map(({ id }) => id), ['stopped-parent'], 'keep the question that owns the branch visible');
+  assert.deepEqual(guideStackCopy(1, 1, true), {
+    status: 'Showing all 1 question.',
+    action: 'Show recent questions',
+  });
+  assert.deepEqual(guideStackCopy(8, 10, false), {
+    status: 'Showing 8 of 10 questions. Older questions are in Chat history.',
+    action: 'Show all 10 questions',
+  });
 });
 
 test('Guide and History show the question topic and preserve the exact prompt in a collapsed disclosure', () => {

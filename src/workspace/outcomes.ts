@@ -1,6 +1,6 @@
 import type { ChapterRevision } from '../lib/commands';
-import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion } from './answerVersions';
-import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model';
+import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion } from './answerVersions.ts';
+import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model.ts';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length || turn.answerVersions?.length);
@@ -69,6 +69,18 @@ export function visibleConversationTurns(
 }
 
 const GUIDE_STACK_PREVIEW_COUNT = 8;
+
+/** The Guide stack contains questions, including retained attempts without a
+ * saved answer. Keep its count labels accurate for failed and stopped turns. */
+export function guideStackCopy(shownCount: number, totalCount: number, expanded: boolean): { status: string; action: string } {
+  const noun = totalCount === 1 ? 'question' : 'questions';
+  return {
+    status: expanded
+      ? `Showing all ${totalCount} ${noun}.`
+      : `Showing ${shownCount} of ${totalCount} ${noun}. Older ${noun} ${totalCount === 1 ? 'is' : 'are'} in Chat history.`,
+    action: expanded ? 'Show recent questions' : `Show all ${totalCount} ${noun}`,
+  };
+}
 
 /** Keep the default Guide readable in long-lived explorations. The selected,
  * featured, active, and branch-owning answers remain in the stack; older
