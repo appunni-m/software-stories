@@ -222,13 +222,13 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
     let instructions = format!(
-        "{PLAN_INSTRUCTIONS}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Finish the full source-grounded outline, including every requested route that fits the twenty-unit capacity and explicit pending omissions for any route that does not. The five-slide ready buffer applies only to section generation after the outline is saved. Native source and call limits still apply.",
+        "{PLAN_INSTRUCTIONS}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Return the compact initial outline as soon as its opening lead and up to five high-value follow-on topics are grounded. Do not finish planning every requested route before the first slide can start. Preserve routes already observed or explicitly requested as pending omissions; after the outline and opening lead are saved, the owned guide worker may promote those omissions to later slide units up to the fixed twenty-unit capacity. Keep the five-slide ready buffer for section generation. Native source and call limits still apply.",
         crate::provider::visual_scenes::READER_LANGUAGE_POLICY
     );
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-initial-outline-v9",
+        "operationPolicy":"repository-guide-plan-initial-outline-v10",
         "readerLanguagePolicy":crate::provider::visual_scenes::READER_LANGUAGE_POLICY_VERSION,
         "model":job.model_id,"effort":job.reasoning_effort,
         "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"maxResearchCalls":crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT,"firstBufferSlides":5,
