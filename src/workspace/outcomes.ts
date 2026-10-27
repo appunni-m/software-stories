@@ -202,20 +202,25 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
     .map((entry, order) => ({ ...entry, order, key: questionOutcomeKey(entry.turn) }))
     .filter((entry) => entry.key && entry.turn.outcomeNotice?.dismissed !== entry.key)
     .sort((a, b) => (b.turn.outcomeAt ?? 0) - (a.turn.outcomeAt ?? 0) || b.order - a.order)
-    .slice(0, 50).map(({ explorationId, turn, key }) => ({
-      explorationId, turnId: turn.id, key: key!, question: turn.question,
-      answerRevisionIds: [...new Set([turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
-        ...(turn.answerVersions ?? []).map((version) => version.revisionId)].filter((id): id is string => Boolean(id)))],
-      read: turn.outcomeNotice?.read === key,
-      title: turn.status === 'ready' && hasAnswer(turn) && turn.guideId && repositoryGuideCoverageLabel(turn.guide) === 'Partial coverage' ? 'Guide partly covered'
-        : turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
-        : hasAnswer(turn) ? 'Explanation partly complete'
-        : turn.status === 'stopped' ? 'Question stopped'
-        : turn.status === 'interrupted' ? 'Question interrupted'
-        : 'Question needs attention',
-      tone: turn.status === 'ready' && hasAnswer(turn) && (!turn.guideId || repositoryGuideCoverageLabel(turn.guide) !== 'Partial coverage') ? 'info'
-        : turn.status === 'failed' && !hasAnswer(turn) ? 'error' : 'warning',
-    }));
+    .slice(0, 50).map(({ explorationId, turn, key }) => {
+      const partiallyCoveredGuide = Boolean(turn.guideId && hasAnswer(turn)
+        && repositoryGuideCoverageLabel(turn.guide, hasAnswer(turn)) === 'Partial coverage');
+      return {
+        explorationId, turnId: turn.id, key: key!, question: turn.question,
+        answerRevisionIds: [...new Set([turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+          ...(turn.answerVersions ?? []).map((version) => version.revisionId)].filter((id): id is string => Boolean(id)))],
+        read: turn.outcomeNotice?.read === key,
+        title: partiallyCoveredGuide ? 'Guide partly covered'
+          : turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
+          : hasAnswer(turn) ? 'Explanation partly complete'
+          : turn.status === 'stopped' ? 'Question stopped'
+          : turn.status === 'interrupted' ? 'Question interrupted'
+          : 'Question needs attention',
+        tone: partiallyCoveredGuide ? 'warning'
+          : turn.status === 'ready' && hasAnswer(turn) ? 'info'
+          : turn.status === 'failed' && !hasAnswer(turn) ? 'error' : 'warning',
+      };
+    });
 }
 
 /** Keep the notification honest when conversation metadata points at a

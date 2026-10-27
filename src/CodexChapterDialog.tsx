@@ -154,9 +154,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(selection.effort));
   const modelAvailabilityMessage = models.length === 0 ? null
     : !selectedModel ? selection.modelId
-      ? `Saved model ${selection.modelId} is not available in this Codex account. Choose a listed model in Connection settings; Code Atlas will not switch models for you.`
-      : 'Choose a model in Connection settings before generating.'
-    : !modelReady ? `Saved reasoning level ${selection.effort || '(none)'} is not available for ${selectedModel.displayName}. Choose a supported level in Connection settings.`
+      ? `Saved model ${selection.modelId} is not available in this Codex account. Choose a listed model in Model settings; Code Atlas will not switch models for you.`
+      : 'Choose a model in Model settings before generating.'
+    : !selection.effort ? `Choose a reasoning level for ${selectedModel.displayName} before continuing.`
+    : !modelReady ? `Saved reasoning level ${selection.effort} is not available for ${selectedModel.displayName}. Choose a supported level in Model settings.`
     : null;
   const sourceReady = gitGuide ? Boolean(gitGuide.comparisonId && gitGuide.selectedChanges.length > 0 && gitGuide.selectedChanges.length <= 12)
     : gitChange ? Boolean(gitChange.comparisonId && Number.isInteger(gitChange.hunkIndex) && gitChange.hunkIndex >= 0)
@@ -410,12 +411,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
 
   const changeModel = (modelId: string) => {
     if (locked) return;
-    const model = models.find((item) => item.modelId === modelId);
-    const effort = model?.defaultReasoningEffort && model.supportedReasoningEfforts.includes(model.defaultReasoningEffort)
-      ? model.defaultReasoningEffort : model?.supportedReasoningEfforts[0] ?? '';
     releaseReview();
-    setSelection({ modelId, effort });
-    remember(modelId, effort);
+    // Selecting a replacement model does not implicitly replace the saved
+    // reasoning preference. Require an explicit, supported effort selection.
+    setSelection({ modelId, effort: '' });
   };
 
   const changePath = (path: string, checked: boolean) => {
@@ -693,11 +692,11 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </div>
                 {login && <div className="provider-status-note"><a href={loginHref(login.authUrl) ?? undefined} target="_blank" rel="noreferrer">Continue ChatGPT sign-in in your browser ↗</a><p>After sign-in, select Refresh account.</p><button className="secondary-button" disabled={busy !== null} onClick={() => { void cancelLogin(); }}>Cancel sign-in</button></div>}
                 <p className="provider-small-note">Your connection, model and reasoning are reused across files, projects and app restarts. Codex manages sign-in securely. Disconnect pauses automatic reuse until you connect again.</p>
-            {status?.authenticated && <details className="provider-disclosure-card"><summary>Model settings · {selectedModel?.displayName ?? 'Choose a model'} · {selection.effort}</summary><section aria-labelledby="codex-model-title">
+            {status?.authenticated && <details className="provider-disclosure-card" open={Boolean(modelAvailabilityMessage)}><summary>Model settings · {selectedModel?.displayName ?? 'Choose a model'} · {selection.effort}</summary><section aria-labelledby="codex-model-title">
               <div className="provider-section-heading"><div><span>ACCOUNT MODELS</span><h3 id="codex-model-title">Model and reasoning</h3></div><button className="secondary-button" onClick={() => { void discoverModels(); }} disabled={locked || otherRun || Boolean(login)}>{busy === 'models' ? 'Loading…' : 'Load / refresh models'}</button></div>
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<AppSelect ariaLabel="Codex model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked || !models.length} clearLabel={models.length ? 'Choose a model…' : 'Load models first…'} options={models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={changeModel}/></label>
-              <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={(effort)=>{if(locked)return;releaseReview();const next={...selection,effort};setSelection(next);remember(next.modelId,next.effort);}}/></label>
+              <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={(effort)=>{if(locked || !selectedModel?.supportedReasoningEfforts.includes(effort))return;releaseReview();const next={...selection,effort};setSelection(next);remember(next.modelId,next.effort);}}/></label>
               <p><strong>Approval: Never.</strong> This initial adapter disables command and web tools and uses a temporary, read-only copy of the reviewed {gitOperation ? 'patches' : 'files'}.</p>
               <p className="provider-small-note">These settings are saved once. Source review and consent apply separately to each generation.</p>
             </section></details>}

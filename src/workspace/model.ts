@@ -107,18 +107,19 @@ export function historyEntry(
     return { text: 'Checking saved explanation…', action: 'Open question' };
   }
   if (saved) {
-    const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide) : null;
+    const guideCoverage = turn.guideId ? repositoryGuideCoverageLabel(turn.guide, saved) : null;
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
       : turn.status === 'working' && turn.guideId
         ? turn.publishedSections?.length ? 'Building the next slide as you read or listen.' : 'Preparing the first slides.'
       : turn.status === 'working' ? 'Adding more detail.'
       : turn.status === 'waiting' ? 'Building the next slide as you read or listen.'
+      : guideCoverage === 'Partial coverage' ? 'Guide partly covered.'
       : turn.status === 'partial' ? 'Partially completed.'
       : turn.status === 'stopped' ? 'Stopped.'
       : turn.status === 'interrupted' ? 'Interrupted.'
       : turn.status === 'failed' ? 'Could not finish.'
-      : guideCoverage === 'Partial coverage' ? 'Guide partly covered.' : 'Saved explanation.';
-    const readyNote = turn.status === 'ready' && guideCoverage === 'Partial coverage'
+      : 'Saved explanation.';
+    const readyNote = guideCoverage === 'Partial coverage'
       ? ' Some planned topics remain uncovered.'
       : turn.status === 'ready' ? '' : ' Saved sections are available.';
     return { text: `${state}${readyNote}`, action: 'Open explanation' };
@@ -355,8 +356,15 @@ export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGui
   const status: Turn['status'] = guide.status === 'planning' || guide.status === 'building' ? 'working'
     : guide.status === 'waitingForPlayback' ? 'waiting' : guide.status;
   const { answers: _, ...metadata } = guide;
-  const merge = (turn: Turn): Turn => mergePublishedSections({ ...turn, guideId: guide.id, guide: metadata,
-    runIds, status, error: undefined, notes: [] }, guide.answers.flatMap((answer) => answer.sections));
+  const incomingSections = guide.answers.flatMap((answer) => answer.sections);
+  const merge = (turn: Turn): Turn => {
+    const hasPublishedSections = Boolean(turn.publishedSections?.length
+      || incomingSections.some((section) => runIds.includes(section.runId)));
+    const partialCoverage = repositoryGuideCoverageLabel(metadata, hasPublishedSections) === 'Partial coverage';
+    return mergePublishedSections({ ...turn, guideId: guide.id, guide: metadata,
+      runIds, status, error: undefined,
+      notes: partialCoverage ? ['Guide partly covered. Some planned topics remain uncovered.'] : [] }, incomingSections);
+  };
   return { ...state, explorations: state.explorations.map((e) => owner ? e.id !== owner.id ? e : {
     ...e, turns: e.turns.map((t) => t.guideId === guide.id ? merge(t) : t),
   } : e.id !== 'root' ? e : { ...e, turns: [...e.turns, merge({ id: guide.id, question: guide.question, context: [], status: 'interrupted' })] }) };
