@@ -1076,3 +1076,17 @@ remains in history. This is an explicit new request, not an automatic
 migration or replacement. Focused visual tests pass (58), and `npm run build`
 passes. A packaged-provider generation, actual-source review, audio,
 accessibility, export and comprehension qualification are still open.
+
+## Current-build recovery action — 28 October 2026
+
+Built and installed the current `main@0f9247b8c438` app bundle (version
+`0.1.0`; executable SHA-256
+`57027250d6309a4c59ef87ae5fe9da82efed6756d6a6e39f2255cb047ef9dbf3`). The
+existing Fontdone `main@5249b72371` workspace reopened with its Codex
+connection, saved questions, and captured source intact. An older saved visual
+was classified as needing refresh, showed **Create a fresh visual**, and kept
+its narration and source action available. This confirms the recovery control
+in the packaged current build without dispatching a request or rewriting a
+saved answer. It does not qualify a newly generated current-schema visual,
+source-click review, playback, accessibility, export, or comprehension. Keep
+`j53m` open.

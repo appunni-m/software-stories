@@ -199,3 +199,14 @@ or provider request. Together with the review click above, this covers Explorer
 open, a visual/source citation, return, and the per-question review entry point
 in the current packaged app. The original click location/error text and any
 legacy “Explain cited range” control remain unidentified; keep the issue open.
+
+## Rebuilt app file-selection check — 28 October 2026
+
+Installed the current `main@0f9247b8c438` bundle (version `0.1.0`; executable
+SHA-256 `57027250d6309a4c59ef87ae5fe9da82efed6756d6a6e39f2255cb047ef9dbf3`)
+and reopened Fontdone `main@5249b72371`. Selecting captured `src/tt/glyf.rs`
+from Explorer switched the Code pane to that file; the app remained open and
+the saved Guide stayed available. No error, crash, provider review, or model
+request occurred. This is a successful Explorer-selection check, not a
+reproduction of the original Code Lens click exception or the selected-code
+review flow. Keep the original report unconfirmed and the issue open.
