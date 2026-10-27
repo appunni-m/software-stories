@@ -54,7 +54,7 @@ interface Props {
   routeSearchQuery?:string; routeSearchMode?:CodeSearchMode; routeSidebarActivity?:'files'|'search'|'changes'|'history';
   onRememberSearch?:(query:string,mode:CodeSearchMode,activity:'files'|'search'|'changes'|'history')=>void;
   comparisonRefs?: { baseRef?:string; headRef?:string };
-  pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string } | null;
+  pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string; sourceDiscoveryNotes?:string[] } | null;
   onPendingLargeFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onReview:(revision:ChapterRevision)=>void;

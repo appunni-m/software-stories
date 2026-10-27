@@ -42,7 +42,7 @@ export function createNarrationPrewarmQueue(options: {
     // pronunciations. Key equivalent scripts together so unused pronunciation
     // entries do not consume extra bounded-queue slots.
     const lexicon = input.lexicon.filter((entry) => entry.include)
-      .map(({ name, sayAs }) => ({ name: name.trim(), sayAs: sayAs.trim() }));
+      .map(({ name, sayAs }) => ({ name: name.trim(), sayAs: sayAs.trim(), include: true }));
     const names = new Set<string>();
     const encoder = new TextEncoder();
     const lexiconIsValid = input.lexicon.length <= 12 && lexicon.every(({ name, sayAs }) => {
