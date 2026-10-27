@@ -2830,7 +2830,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                         })}
                         {availableContextFiles.length === 0 && <p className="provider-small-note">No eligible captured text files match this filter.</p>}
                       </div>
-                      <p className="provider-small-note">Only captured text up to 250 KB per file is listed. Selected source is limited to 250 KB total and the encoded request to 512 KB. Secret-like, binary, invalid-encoding, skipped, and uncaptured paths cannot be selected.</p>
+                      <p className="provider-small-note">Your question and selected code are shared. Files that look private, cannot be read, or are outside this snapshot are left out.</p>
                     </>
                   )}
                 </div>}

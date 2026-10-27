@@ -1509,7 +1509,7 @@ pub fn build_pr_change_explanation_request_review_for_provider(
     if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The exact PR change explanation request exceeds the 512 KB review limit.",
+            "This change explanation includes too much code to send at once. Focus on one part of the change; nothing was sent.",
         ));
     }
     let fingerprint = request_fingerprint_for_provider(
@@ -1980,7 +1980,7 @@ pub fn build_pr_guide_request_review_for_provider(
     if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The exact PR Guide request exceeds the 512 KB review limit. Select fewer changed files.",
+            "This PR Guide includes too much code to send at once. Ask about one part of the change; nothing was sent.",
         ));
     }
     let model = disclosure
@@ -2407,7 +2407,7 @@ pub fn build_request_review_for_provider(
     if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The exact request body exceeds the 512 KB review limit. Reduce the file selection.",
+            "This request includes too much code to send at once. Ask about one part and review again; nothing was sent.",
         ));
     }
     let model = disclosure
@@ -2575,7 +2575,7 @@ pub(crate) fn load_selected_snapshot_evidence(
         if source_bytes > MAX_CONTEXT_BYTES {
             return Err(failure(
                 ProviderFailureKind::ContextTooLarge,
-                "Selected source exceeds the 250 KB request-context limit. Reduce the file selection before building a provider request.",
+                "Too much code is selected for one request. Ask about one behavior or choose a smaller part; nothing was sent.",
             ));
         }
         sources.push(ReviewSource {
@@ -4418,7 +4418,7 @@ pub(crate) fn agent_handoff_text(
     if text.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "This reviewed task is too large to copy safely. Choose fewer source files or a focused code range; nothing has been sent.",
+            "This review includes too much code to copy safely. Ask about one behavior or choose a focused code range; nothing was sent.",
         ));
     }
     Ok(text)
@@ -5048,7 +5048,7 @@ pub fn build_code_lens_request_review_for_provider(
     if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The exact Code Lens request exceeds the 512 KB review limit.",
+            "This Code Lens request includes too much code to review at once. Choose a smaller range; nothing was sent.",
         ));
     }
     let fingerprint = request_fingerprint_for_provider(

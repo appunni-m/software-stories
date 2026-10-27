@@ -741,7 +741,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                     ? sectionUpdate ? 'This fixed repair scope exceeds 12 files. Reopen the section to correct its declared source scope.' : 'This selection exceeds 12 files. Remove supporting files before reviewing.'
                     : 'The target or a selected file is unavailable for this request. Use an eligible captured text file.'}</p>}
                 </>}
-                <p className="provider-small-note">Captured text only, up to 250 KB per file. The native review enforces the total request limit and blocks secret-like context.</p>
+                <p className="provider-small-note">Review the captured code above before sending. Files that look private or cannot be read are left out.</p>
               </div>}
               <button className="secondary-button" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</button>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>

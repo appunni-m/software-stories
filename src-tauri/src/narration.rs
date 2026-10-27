@@ -18,8 +18,8 @@ use std::future::Future;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{oneshot, watch};
 use uuid::Uuid;
 
@@ -36,6 +36,11 @@ const MAX_TTS_REQUEST_TEXT_BYTES: usize = 4_000;
 const MAX_STYLE_BYTES: usize = 160;
 const MAX_LEXICON_ENTRIES: usize = 12;
 const MAX_RESPONSE_BYTES: usize = 12 * 1024 * 1024;
+// Local speech is free to recreate, but distinct scripts must not grow app
+// storage indefinitely. This keeps a recent runway for several Guides.
+const MAX_POCKET_CACHE_FILES: usize = 256;
+const MAX_POCKET_CACHE_BYTES: u64 = 256 * 1024 * 1024;
+const ABANDONED_CACHE_TEMP_LIFETIME: Duration = Duration::from_secs(24 * 60 * 60);
 // A five-slide Guide buffer can expose up to eight visual narration scenes per
 // slide. Keep room for that buffer plus one refill slide so later scenes are
 // not marked unavailable before the serial local worker reaches them.
@@ -1440,12 +1445,111 @@ fn cache_path(storage_dir: &Path, fingerprint: &str, model_id: &str) -> PathBuf 
 
 fn read_cached_audio(storage_dir: &Path, fingerprint: &str, model_id: &str) -> Option<Vec<u8>> {
     let current = cache_path(storage_dir, fingerprint, model_id);
-    if let Ok(file) = fs::File::open(current) {
-        if let Some(bytes) = read_cached_audio_from(file) {
-            return Some(bytes);
+    if model_id == crate::pocket_tts::MODEL_ID {
+        if let Some(parent) = current.parent() {
+            if claim_initial_pocket_cache_sweep(parent) {
+                prune_pocket_audio_cache(parent, Some(&current));
+            }
         }
     }
-    None
+    let file = fs::File::open(&current).ok()?;
+    let bytes = read_cached_audio_from(&file)?;
+    if model_id == crate::pocket_tts::MODEL_ID {
+        // Modified time is already available on the cache entry, so LRU
+        // ordering does not create another index or per-playback file.
+        let _ = file.set_modified(SystemTime::now());
+    }
+    Some(bytes)
+}
+
+fn claim_initial_pocket_cache_sweep(cache_dir: &Path) -> bool {
+    static SWEPT_DIRECTORIES: OnceLock<Mutex<std::collections::HashSet<PathBuf>>> = OnceLock::new();
+    let directories =
+        SWEPT_DIRECTORIES.get_or_init(|| Mutex::new(std::collections::HashSet::new()));
+    match directories.lock() {
+        Ok(mut swept) => swept.insert(cache_dir.to_path_buf()),
+        Err(poisoned) => poisoned.into_inner().insert(cache_dir.to_path_buf()),
+    }
+}
+
+fn prune_pocket_audio_cache(cache_dir: &Path, keep: Option<&Path>) {
+    struct CacheFile {
+        path: PathBuf,
+        bytes: u64,
+        modified: SystemTime,
+    }
+
+    let Ok(entries) = fs::read_dir(cache_dir) else {
+        return;
+    };
+    let now = SystemTime::now();
+    let mut files = Vec::new();
+    let mut total_bytes = 0u64;
+    let mut abandoned_temps = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.') && name.ends_with(".tmp") {
+            let stale = entry
+                .metadata()
+                .ok()
+                .and_then(|metadata| metadata.modified().ok())
+                .and_then(|modified| now.duration_since(modified).ok())
+                .is_some_and(|age| age >= ABANDONED_CACHE_TEMP_LIFETIME);
+            if stale {
+                abandoned_temps.push(path);
+            }
+            continue;
+        }
+        let Some(stem) = name.strip_suffix(".wav") else {
+            continue;
+        };
+        if stem.len() != 64 || !stem.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        let bytes = metadata.len();
+        total_bytes = total_bytes.saturating_add(bytes);
+        files.push(CacheFile {
+            path,
+            bytes,
+            modified: metadata.modified().unwrap_or(UNIX_EPOCH),
+        });
+    }
+    for path in abandoned_temps {
+        let _ = fs::remove_file(path);
+    }
+    if files.len() <= MAX_POCKET_CACHE_FILES && total_bytes <= MAX_POCKET_CACHE_BYTES {
+        return;
+    }
+    files.sort_by(|left, right| {
+        left.modified
+            .cmp(&right.modified)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    let mut remaining_files = files.len();
+    for file in files {
+        if keep.is_some_and(|path| path == file.path) {
+            continue;
+        }
+        if fs::remove_file(&file.path).is_ok() {
+            remaining_files = remaining_files.saturating_sub(1);
+            total_bytes = total_bytes.saturating_sub(file.bytes);
+        }
+        if remaining_files <= MAX_POCKET_CACHE_FILES && total_bytes <= MAX_POCKET_CACHE_BYTES {
+            break;
+        }
+    }
 }
 
 fn read_cached_audio_from(reader: impl Read) -> Option<Vec<u8>> {
@@ -1482,7 +1586,13 @@ fn write_cached_audio(
     fs::rename(&temporary, &path).map_err(|_| {
         let _ = fs::remove_file(&temporary);
         failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache could not be finalized. The narration can still play for this session.")
-    })
+    })?;
+    if model_id == crate::pocket_tts::MODEL_ID {
+        if let Some(parent) = path.parent() {
+            prune_pocket_audio_cache(parent, Some(&path));
+        }
+    }
+    Ok(())
 }
 
 fn is_wav(bytes: &[u8]) -> bool {
