@@ -198,7 +198,6 @@ function loadCargoInventory(cargoLicenseBlocks, cargoNoticeBlocks, tempDirectory
     '--target',
     target,
     '--locked',
-    '--offline',
     '--output-file',
     jsonPath,
   ]);
