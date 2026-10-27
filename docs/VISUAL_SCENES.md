@@ -61,14 +61,25 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v48` and teaching policy `meaning-first-v29`. It starts
+`ai-html-compositions-v61`, teaching policy `meaning-first-v31`, and reader
+language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
-outcomes, and gives each scene one behavior to make visible. Each claim scene
+outcomes, and gives each scene one behavior to make visible. Scene narration
+allows up to three short sentences and 520 UTF-8 bytes; native admission rejects
+longer speech and offers a bounded correction. If a behavior needs more room,
+split it into ordered claims/scenes without omitting outcomes. The complete
+section script must fit 20–4,000 UTF-8 bytes and is assembled from grounded
+claims; this keeps the transport bounded but does not establish narration
+quality or listener comprehension. Each claim scene
 selects composition or graph independently, so one visual section can mix those
 modes when the behavior warrants it. Narration-only mode applies only when the
 entire section has no useful visual. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
 guards become separate scenes; first-match candidate dispatch uses a selector.
+For a branch, show the guard once and give each outcome a distinct, specific
+label and result. Keep nested guards visible when the scene remains clear, or
+continue in a later scene that names the path condition; do not compress
+multiple subcases into one outcome card.
 LIFO stacks are authored oldest/bottom first and rendered/read newest/top first,
 with the next item to pop marked. A source-backed state change uses a transform with its operation visible, and
 `beforeAfter` is reserved for comparing states when this claim does not cover
@@ -180,10 +191,11 @@ preserves the behavior being explained.
 
 ### Stored shape
 
-Stored visual version 2 has an optional `presentation` field. New chapter
+Stored interactive visual version 3 requires a `presentation` field. New chapter
 compositions and progressive generations use presentation version 3;
 progressive publication uses answer checkpoint version 8. Historical admitted
-proposals and immutable answer checkpoints keep their original saved content.
+proposals and immutable answer checkpoints keep their original saved content,
+but old visual shapes are not upgraded into the current chapter contract.
 The current renderer supports semantic `transform`, coordinate-free `pointFlow`, `tree`, `queue`, and
 `selector` groups in addition to the existing layouts. Composition data
 participates in visual fingerprints, revision comparisons and selective visual
@@ -308,7 +320,7 @@ wires. Schema and mock-wire checks do not qualify a remote API model's output.
 The fresh chapter boundary requires presentation version 3 and assembles complete grounded
 claim narration, with a 4,000-byte section bound and no silent selection of
 shorter sentences. Selective repairs prepare only their selected section;
-existing saved scripts and carried legacy scenes keep their content.
+existing saved scripts and carried-forward scenes keep their content.
 Broad representation quality across languages and operations remains task
 `j53m` scope.
 

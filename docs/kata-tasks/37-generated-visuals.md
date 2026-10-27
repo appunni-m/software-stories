@@ -990,3 +990,38 @@ scene and passes (20/20 in `tests/scenePresentation.test.mjs`). Rust prompt
 assertions and documentation were updated. Native Rust tests were not run
 because free disk space is below 1 GB; no fresh provider generation or human
 visual-quality acceptance was performed. Keep `j53m` open.
+
+## Branch clarity and nested decisions — 25 October 2026
+
+The shared prompt is now `ai-html-compositions-v49`. A read-only review of the
+installed Fontdone Code Lens visual “Choose the component displacement” found
+that its branch used “Argument interpretation” for both the guard and one
+outcome, then compressed multiple nested cases into broad outcome cards. The
+spoken narration preserved those cases, but the visual did not expose them
+clearly at a glance. The prompt now requires one visible guard, distinct
+source-grounded labels and results for each outcome, and explicit nested
+guards or a follow-up scene naming the path condition. The shared prompt test
+passes and `git diff --check` is clean.
+
+This is a prompt-quality correction, not proof the model follows it. No new
+provider request or audio playback was made. Qualify it on a future authorized
+fresh generation and continue the source, Pocket listening, accessibility,
+export, and human-comprehension gates; keep `j53m` open.
+
+## Current narration and visual policy — 27 October 2026
+
+The shared story contract is now `ai-html-compositions-v61`, with teaching
+policy `meaning-first-v31` and reader-language policy `reader-language-v1`.
+Scene speech may use up to three short sentences and 520 UTF-8 bytes; the
+complete grounded section script is assembled from claims and remains bounded
+to 20–4,000 bytes. The prompt keeps source behavior and cause-and-effect
+narration central, chooses an app-supported composition or graph per claim
+scene, and limits graphs to genuine non-linear relationships. Rendering still
+uses the app's structured, inert HTML/CSS primitives; arbitrary JavaScript and
+Three.js are unsupported.
+
+The scene and schema docs now match these source constants and bounds. This is
+documentation/source-contract alignment only: no tests, build, fresh generation,
+audio playback, or human comprehension review ran. `j53m` remains open for
+generated-content quality, source navigation, narration, accessibility, export,
+and representative-repository acceptance.
