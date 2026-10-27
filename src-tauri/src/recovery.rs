@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+const LEGACY_JOURNAL_SCHEMA_VERSION: u32 = 1;
 const JOURNAL_SCHEMA_VERSION: u32 = 2;
 const MAX_JOURNAL_BYTES: usize = 1024 * 1024;
 const MAX_OPERATION_COUNT: usize = 256;
@@ -515,10 +516,12 @@ fn read_journal(storage_dir: &Path) -> Result<JournalFile, String> {
             );
         }
     };
-    let journal: JournalFile = serde_json::from_slice(&bytes)
+    let mut journal: JournalFile = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Interrupted work data is invalid: {error}"))?;
-    if journal.schema_version != JOURNAL_SCHEMA_VERSION
-        || journal.operations.len() > MAX_OPERATION_COUNT
+    if !matches!(
+        journal.schema_version,
+        LEGACY_JOURNAL_SCHEMA_VERSION | JOURNAL_SCHEMA_VERSION
+    ) || journal.operations.len() > MAX_OPERATION_COUNT
     {
         return Err(
             "Interrupted work uses an unsupported or oversized recovery format.".to_owned(),
@@ -526,6 +529,14 @@ fn read_journal(storage_dir: &Path) -> Result<JournalFile, String> {
     }
     for operation in &journal.operations {
         validate_operation(operation)?;
+    }
+    if journal.schema_version == LEGACY_JOURNAL_SCHEMA_VERSION {
+        // Version 2 made the existing recovery shape strict and added optional
+        // fields. Accept a version-1 record only when it fully deserializes and
+        // validates against that same current shape, then atomically rewrite it
+        // so the app does not lose saved recovery work after an update.
+        journal.schema_version = JOURNAL_SCHEMA_VERSION;
+        write_journal(storage_dir, &journal)?;
     }
     Ok(journal)
 }
@@ -636,6 +647,52 @@ mod tests {
             assert!(matches!(read_journal(&directory.0), Err(error) if error.contains("invalid")));
             assert_eq!(fs::read(journal_path(&directory.0)).unwrap(), invalid);
         }
+    }
+
+    #[test]
+    fn schema_one_recovery_journal_migrates_without_dropping_operations() {
+        let directory = TestDirectory::new();
+        let mut provider = new_provider_operation(
+            "/repo/fontdone".to_owned(),
+            "snapshot-a".to_owned(),
+            Some("src/font.rs".to_owned()),
+            "review-a".to_owned(),
+        );
+        provider.provider_request = Some(InterruptedProviderRequest {
+            provider_id: "codex".to_owned(),
+            purpose: "fileChapter".to_owned(),
+            selected_paths: vec!["src/font.rs".to_owned()],
+            section_update: None,
+            code_lens: None,
+            git: None,
+            repository_plan: None,
+            planned_chapter: None,
+        });
+        let mut legacy = JournalFile {
+            schema_version: LEGACY_JOURNAL_SCHEMA_VERSION,
+            operations: vec![provider.clone()],
+        };
+        // Version 1 predates the optional code-lens and Git scope fields.
+        let mut value = serde_json::to_value(&legacy).unwrap();
+        let provider_request = value["operations"][0]["providerRequest"]
+            .as_object_mut()
+            .unwrap();
+        provider_request.remove("codeLens");
+        provider_request.remove("git");
+        legacy = serde_json::from_value(value).unwrap();
+        fs::write(
+            journal_path(&directory.0),
+            serde_json::to_vec(&legacy).unwrap(),
+        )
+        .unwrap();
+
+        let journal = InterruptionJournal::default();
+        assert_eq!(journal.list(&directory.0).unwrap(), vec![provider.clone()]);
+
+        let stored: JournalFile =
+            serde_json::from_slice(&fs::read(journal_path(&directory.0)).unwrap()).unwrap();
+        assert_eq!(stored.schema_version, JOURNAL_SCHEMA_VERSION);
+        assert_eq!(stored.operations, vec![provider]);
     }
 
     #[test]
