@@ -4,6 +4,8 @@ October 21 source update: explicit setup now downloads the pinned Apple Silicon 
 
 October 21 package-lock update: setup now installs the 49 resolved Python dependencies from the checked-in [`uv` hash lock](../../src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.lock), with `--require-hashes` and binary wheels only. Its direct pins are maintained in the adjacent [input file](../../src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.in); regenerate with the recorded `uv pip compile --generate-hashes` command using Python 3.13.14 and the `aarch64-apple-darwin` target. The selected PyTorch wheel requires macOS 14, so the app bundle now declares macOS 14 as its minimum. Setup writes the exact lock into app storage, stores its SHA-256 in the runtime manifest, validates it before synthesis, and includes it in narration-cache identity. This closes the source-level transitive lock gap; fresh packaged setup, clean-account and offline installer qualification remain open.
 
+October 28 storage cleanup: after setup verifies the installed runtime, it now best-effort removes the setup-only `uv-cache` and `huggingface` download directories. Synthesis repeats this cleanup for older valid installations that still have those duplicate downloads. The managed interpreter, virtual environment and copied model/voice assets remain in place. A focused regression verifies the cleanup is limited to those download caches and is idempotent; packaged storage savings have not been measured.
+
 October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. That run used an existing uv installation and was not a clean-account installer qualification. The final app installed at `~/Applications/Code Atlas.app` generated and played an 8.85-second section, supported replay/pause and reused its cached audio after section navigation. Cancellation, clean-account packaging, export and listening qualification remain open below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
 
 ## Runtime contract
@@ -21,9 +23,11 @@ into the application binary; no separately discovered script is required.
   storage. No globally installed `uv`, shell activation or user `uv` config is
   required. Downloads use the system `curl` only after the user starts setup.
 - Setup creates `pocket-tts/runtime-3.3.0-v1` under the app data directory. Its
-  pinned `uv`, virtual environment, downloaded Python, uv/Hugging Face caches,
-  temporary directory, model assets and readiness manifest stay there. It does
-  not use the development machine's Pocket TTS sample caches.
+  pinned `uv`, virtual environment, downloaded Python, temporary directory,
+  model assets and readiness manifest stay there. The setup-only uv and
+  Hugging Face download caches are best-effort removed after successful setup
+  and again before synthesis to clean older installations. It does not use the
+  development machine's Pocket TTS sample caches.
 - Setup downloads Python 3.13.14 and installs the exact direct and transitive
   dependency set in the checked-in macOS/Python hash lock. `uv pip install`
   requires hashes and binary wheels only; if a matching wheel or hash is
@@ -32,8 +36,9 @@ into the application binary; no separately discovered script is required.
   credentials. The fixed model and voice assets are downloaded without a
   Hugging Face token.
 - Explicit setup also repairs an existing installation: it clears only the
-  app-managed `venv` and rebuilds the readiness manifest. Download caches remain
-  available for reuse. Readiness is written only after downloads and model
+  app-managed `venv` and rebuilds the readiness manifest. Failed setup keeps
+  download caches available for retry; successful setup removes them after the
+  runtime is verified. Readiness is written only after downloads and model
   initialization succeed; cancellation racing completion can leave that completed
   installation available.
 - Status reads files only. During work it exposes the current phase: Python,

@@ -275,6 +275,10 @@ pub(crate) async fn synthesize_segments(
         if !installed(&runtime) {
             return Err(failure(ProviderFailureKind::UnavailableModel, "Set up Pocket TTS before generating narration. Missing or changed runtime files require setup again."));
         }
+        // Older successful installations may still have setup-only package and
+        // model-download caches. The offline worker uses the verified venv and
+        // copied assets, so reclaim those duplicate downloads before synthesis.
+        cleanup_setup_caches(&runtime);
         set_phase("synthesizing");
         write_worker(&runtime)?;
         let output = runtime.join("active.wav");
@@ -1243,6 +1247,30 @@ mod tests {
             runtime.0.join(REQUIREMENTS_LOCK_FILE).display().to_string()
         );
         assert!(!args.iter().any(|arg| REQUIREMENTS.contains(&arg.as_str())));
+    }
+
+    #[test]
+    fn setup_cache_cleanup_removes_only_rebuildable_download_caches() {
+        let runtime = TestRuntime::new();
+        for directory in ["uv-cache", "huggingface"] {
+            let nested = runtime.0.join(directory).join("nested");
+            fs::create_dir_all(&nested).unwrap();
+            fs::write(nested.join("download-cache"), b"rebuildable").unwrap();
+        }
+        for directory in ["python", "venv", "assets"] {
+            fs::create_dir_all(runtime.0.join(directory)).unwrap();
+            fs::write(runtime.0.join(directory).join("installed"), b"keep").unwrap();
+        }
+
+        cleanup_setup_caches(&runtime.0);
+
+        for directory in ["uv-cache", "huggingface"] {
+            assert!(!runtime.0.join(directory).exists());
+        }
+        for directory in ["python", "venv", "assets"] {
+            assert!(runtime.0.join(directory).join("installed").is_file());
+        }
+        cleanup_setup_caches(&runtime.0);
     }
 
     #[test]
