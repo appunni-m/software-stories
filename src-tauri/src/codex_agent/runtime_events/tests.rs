@@ -17,6 +17,7 @@ impl Fixture {
                 account_identity_sha256: "b".repeat(64),
                 account_revision: 1,
             },
+            prompt_contract_version: "synthetic-runtime-events-v1".into(),
             model: "gpt-6-luna".into(),
             effort: "max".into(),
             run_deadline: super::super::RunDeadline::TenMinutes,

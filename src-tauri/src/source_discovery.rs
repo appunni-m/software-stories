@@ -25,6 +25,7 @@ use uuid::Uuid;
 
 const MAX_METADATA: usize = 96_000;
 const TTL: Duration = Duration::from_secs(300);
+const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v1";
 pub(crate) const QUERY_STOPWORDS: &[&str] = &[
     "about", "after", "again", "also", "any", "are", "because", "before", "being",
     "between", "can", "could", "does", "each", "explain", "file", "for", "from",
@@ -734,7 +735,7 @@ fn fingerprint(
     metadata: &str,
     runtime: &CodexReviewRuntime,
 ) -> Result<String, String> {
-    let bytes = serde_json::to_vec(&(input, metadata, runtime))
+    let bytes = serde_json::to_vec(&(PROMPT_CONTRACT_VERSION, input, metadata, runtime))
         .map_err(|_| "The discovery review could not be encoded.")?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
@@ -868,6 +869,7 @@ pub(crate) async fn send_source_discovery(
         let run = codex_agent::CodexRunInput {
             run_id: input.review_id,
             expected_runtime: prepared.runtime,
+            prompt_contract_version: PROMPT_CONTRACT_VERSION.to_owned(),
             model: prepared.input.model_id,
             effort: prepared.input.effort,
             // Discovery is user-started and the dialog cancels the run on close.

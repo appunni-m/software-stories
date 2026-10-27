@@ -23,8 +23,8 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const PREVIOUS_SCHEMA_VERSION: u32 = 3;
-const SCHEMA_VERSION: u32 = 4;
+const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -297,6 +297,7 @@ pub(crate) struct Record {
     clock: String,
     run_id: String,
     request_fingerprint: Option<String>,
+    prompt_contract_version: Option<String>,
     model_id: String,
     reasoning_effort: String,
     runtime_identity_sha256: String,
@@ -357,6 +358,14 @@ fn safe_model_id(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:/+".contains(&byte))
 }
 
+pub(crate) fn valid_prompt_contract_version(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 160
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:/+".contains(&byte))
+}
+
 fn path(storage: &Path, run: &str) -> Result<PathBuf, String> {
     if !canonical_run(run) {
         return Err("The timing identity is invalid.".into());
@@ -378,7 +387,7 @@ fn read(path: &Path) -> Result<Record, String> {
     let schema_version = value
         .get("schemaVersion")
         .and_then(serde_json::Value::as_u64);
-    if !matches!(schema_version, Some(version) if version == u64::from(PREVIOUS_SCHEMA_VERSION) || version == u64::from(SCHEMA_VERSION)) {
+    if !matches!(schema_version, Some(version) if (u64::from(MIN_SUPPORTED_SCHEMA_VERSION)..=u64::from(SCHEMA_VERSION)).contains(&version)) {
         return Err("Timing diagnostics use an unsupported format.".into());
     }
     // `Option<T>` fields deserialize as `None` when absent, even without a
@@ -404,13 +413,17 @@ fn read(path: &Path) -> Result<Record, String> {
         "writeFailures",
         "truncated",
     ];
-    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some()) {
+    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some())
+        || (schema_version == Some(u64::from(SCHEMA_VERSION))
+            && value.get("promptContractVersion").is_none())
+    {
         return Err("Timing diagnostics are damaged.".into());
     }
     let mut record: Record =
         serde_json::from_value(value).map_err(|_| "Timing diagnostics are damaged.")?;
     // Version 4 adds an explicit optional-index fallback outcome without
-    // changing the saved record shape. Keep version-3 diagnostics readable.
+    // changing the saved record shape. Version 5 adds prompt/contract
+    // attribution; keep version-3 and version-4 diagnostics readable.
     record.schema_version = SCHEMA_VERSION;
     validate(&record)?;
     Ok(record)
@@ -429,6 +442,10 @@ fn validate(record: &Record) -> Result<(), String> {
             .request_fingerprint
             .as_ref()
             .is_some_and(|v| !hash(v))
+        || record
+            .prompt_contract_version
+            .as_ref()
+            .is_some_and(|value| !valid_prompt_contract_version(value))
         || record.events.len() > MAX_EVENTS
         || record
             .renderer_queue_wait_ms
@@ -709,6 +726,32 @@ impl Trace {
         renderer_queue_wait_ms: Option<u64>,
         preparation_stages: Vec<PreparationStage>,
     ) -> Self {
+        Self::new_with_preparation_and_prompt(
+            storage,
+            run,
+            fingerprint,
+            runtime,
+            model,
+            effort,
+            started,
+            None,
+            renderer_queue_wait_ms,
+            preparation_stages,
+        )
+    }
+
+    pub(crate) fn new_with_preparation_and_prompt(
+        storage: &Path,
+        run: &str,
+        fingerprint: &str,
+        runtime: &crate::codex_identity::CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+        started: Instant,
+        prompt_contract_version: Option<&str>,
+        renderer_queue_wait_ms: Option<u64>,
+        preparation_stages: Vec<PreparationStage>,
+    ) -> Self {
         let state = (|| -> Result<State, String> {
             let _guard = STORE.lock().map_err(|_| "Timing storage is unavailable.")?;
             let record = Record {
@@ -716,6 +759,7 @@ impl Trace {
                 clock: "nativeCodexAdmissionV1".into(),
                 run_id: run.into(),
                 request_fingerprint: (!fingerprint.is_empty()).then(|| fingerprint.into()),
+                prompt_contract_version: prompt_contract_version.map(str::to_owned),
                 model_id: model.into(),
                 reasoning_effort: effort.into(),
                 runtime_identity_sha256: context::digest(

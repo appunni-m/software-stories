@@ -444,6 +444,7 @@ mod live_tests {
                 CodexRunInput {
                     run_id: format!("synthetic-plan-{}", Uuid::new_v4()),
                     expected_runtime: manager.review_runtime(&fixture.storage)?,
+                    prompt_contract_version: PROMPT_VERSION.to_owned(),
                     model: "gpt-6-luna".to_owned(),
                     effort: "max".to_owned(),
                     run_deadline: crate::codex_agent::RunDeadline::TenMinutes,

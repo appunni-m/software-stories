@@ -531,6 +531,7 @@ pub(crate) fn run_with_starting_ranges_at(
         codex_agent::CodexRunInput {
             run_id: input.run_id.clone(),
             expected_runtime: runtime.clone(),
+            prompt_contract_version: crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned(),
             model: input.model_id.clone(),
             effort: input.effort.clone(),
             run_deadline,

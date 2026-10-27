@@ -6,6 +6,8 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
+const PLAN_OPERATION_VERSION: &str = "repository-guide-plan-initial-outline-v10";
+
 const PLAN_INSTRUCTIONS: &str = r#"
 Create a compact, source-grounded initial outline before slide content is generated. Return the app-authored opening-range lead followed by two to five focused behavior questions for the highest-value path through the requested scope. This initial outline has a five-unit limit so the first useful slide is not blocked on deeply researching every route. For a repository-wide request, identify the central input and operation path first, then identify materially different caller-controlled surfaces from captured source, examples and build manifests. Record every additional route that needs its own explanation as a concise, explicit pending omission; these are later slide topics, not covered explanations. Do not deeply investigate pending routes in this planning operation; each slide gets its own bounded research run. Do not discard a requested or source-observed route to make the initial outline shorter, and never imply that a pending topic is covered. The saved guide can hold up to twenty follow-on units; name any route that cannot fit as an uncovered omission. The reader shows the initial outline and pending topics, publishes validated slides independently, and keeps up to five ready slides buffered. The opening lead must use key `opening`, exactly match the app-provided `openingQuestion`, have no prerequisites, and contain one claim citing one to four delivered code references for the real outermost input boundary. The app authors this opening as a separate slide.
 
@@ -230,7 +232,7 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
-        "operationPolicy":"repository-guide-plan-initial-outline-v10",
+        "operationPolicy":PLAN_OPERATION_VERSION,
         "readerLanguagePolicy":crate::provider::visual_scenes::READER_LANGUAGE_POLICY_VERSION,
         "model":job.model_id,"effort":job.reasoning_effort,
         "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"maxResearchCalls":crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT,"firstBufferSlides":5,
@@ -347,6 +349,7 @@ pub(super) fn run(
         codex_agent::CodexRunInput {
             run_id: job.planning_run_id.clone(),
             expected_runtime: runtime.clone(),
+            prompt_contract_version: format!("{}:{}", job.contract, PLAN_OPERATION_VERSION),
             model: job.model_id.clone(),
             effort: job.reasoning_effort.clone(),
             run_deadline: crate::codex_agent::RunDeadline::UserControlled,

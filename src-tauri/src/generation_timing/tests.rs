@@ -11,7 +11,7 @@ impl Fixture {
         Self(root)
     }
     pub(super) fn trace(&self, run: &str, started: Instant) -> Trace {
-        Trace::new(
+        Trace::new_with_preparation_and_prompt(
             &self.0,
             run,
             &"c".repeat(64),
@@ -19,6 +19,9 @@ impl Fixture {
             "gpt-6-luna",
             "max",
             started,
+            Some("synthetic-contract-v1"),
+            None,
+            vec![],
         )
     }
 }
@@ -93,7 +96,7 @@ fn native_events_keep_one_clock_unknown_usage_and_no_sensitive_fields() {
 fn timing_diagnostics_preserve_the_selected_model_and_effort() {
     let f = Fixture::new();
     let id = run();
-    let trace = Trace::new(
+    let trace = Trace::new_with_preparation_and_prompt(
         &f.0,
         &id,
         &"c".repeat(64),
@@ -101,12 +104,19 @@ fn timing_diagnostics_preserve_the_selected_model_and_effort() {
         "gpt-5.6-luna",
         "medium",
         Instant::now(),
+        Some("file-chapter-test-v1"),
+        None,
+        vec![],
     );
     trace.finish(Ok(()));
 
     let record = inspect(&f.0, &id).unwrap().unwrap();
     assert_eq!(record.model_id, "gpt-5.6-luna");
     assert_eq!(record.reasoning_effort, "medium");
+    assert_eq!(
+        record.prompt_contract_version.as_deref(),
+        Some("file-chapter-test-v1")
+    );
 }
 
 #[test]
@@ -573,7 +583,7 @@ fn diagnostics_reject_corruption_duplicates_unexpected_content_and_identity_chan
     let original = fs::read(&file).unwrap();
     let original_value: Value = serde_json::from_slice(&original).unwrap();
     for (key, bad) in [
-        ("schemaVersion", json!(5)),
+        ("schemaVersion", json!(6)),
         ("modelId", json!("private source")),
         ("events", json!([])),
         ("clock", json!("wall clock")),

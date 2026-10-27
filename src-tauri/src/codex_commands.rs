@@ -869,6 +869,8 @@ async fn prepare_codex_operation(
             run_id: review_id.to_owned(),
             model: review.model_id.clone(),
             expected_runtime: provider::codex_runtime_from_review(&review)?,
+            prompt_contract_version:
+                provider::prompt_contract_version_for_purpose(&review.purpose).to_owned(),
             effort: review.generation_config["effort"]
                 .as_str()
                 .unwrap_or("")

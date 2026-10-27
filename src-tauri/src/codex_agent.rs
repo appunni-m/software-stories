@@ -102,6 +102,8 @@ pub(crate) struct CodexSourceFile {
 pub(crate) struct CodexRunInput {
     pub run_id: String,
     pub expected_runtime: CodexReviewRuntime,
+    /// Safe prompt/contract version label for local generation diagnostics.
+    pub prompt_contract_version: String,
     pub model: String,
     pub effort: String,
     /// Interactive, user-started operations run until complete or explicitly
@@ -712,29 +714,18 @@ impl CodexAgentManager {
         F: Fn(CodexProgress),
     {
         validate_run(&input)?;
-        let trace = if preparation_stages.is_empty() && renderer_queue_wait_ms.is_none() {
-            crate::generation_timing::Trace::new(
-                storage_dir,
-                &input.run_id,
-                fingerprint,
-                &input.expected_runtime,
-                &input.model,
-                &input.effort,
-                started_at,
-            )
-        } else {
-            crate::generation_timing::Trace::new_with_preparation(
-                storage_dir,
-                &input.run_id,
-                fingerprint,
-                &input.expected_runtime,
-                &input.model,
-                &input.effort,
-                started_at,
-                renderer_queue_wait_ms,
-                preparation_stages,
-            )
-        };
+        let trace = crate::generation_timing::Trace::new_with_preparation_and_prompt(
+            storage_dir,
+            &input.run_id,
+            fingerprint,
+            &input.expected_runtime,
+            &input.model,
+            &input.effort,
+            started_at,
+            Some(input.prompt_contract_version.as_str()),
+            renderer_queue_wait_ms,
+            preparation_stages,
+        );
         let retrieval = input.retrieval.clone();
         let result = self.run_owned_with_timing(
             storage_dir,
@@ -2021,6 +2012,11 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
     if input.run_id.is_empty() || input.run_id.len() > 256 {
         return Err("The Codex request identity is invalid.".to_owned());
     }
+    if !crate::generation_timing::valid_prompt_contract_version(
+        &input.prompt_contract_version,
+    ) {
+        return Err("The Codex prompt contract version is invalid.".to_owned());
+    }
     validate_model_source_mode(
         &input.model,
         &input.effort,
@@ -3199,6 +3195,7 @@ mod section_publication_tests {
             let input = CodexRunInput {
                 run_id: id.clone(),
                 expected_runtime: runtime(),
+                prompt_contract_version: "synthetic-cancellation-v1".into(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
                 run_deadline: RunDeadline::TenMinutes,

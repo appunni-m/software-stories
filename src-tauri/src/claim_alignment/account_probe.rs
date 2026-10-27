@@ -80,6 +80,7 @@ fn installed_codex_repairs_a_leaf_parent_once() {
             CodexRunInput {
                 run_id: format!("synthetic-layout-correction-{}", uuid::Uuid::new_v4()),
                 expected_runtime: runtime,
+                prompt_contract_version: "synthetic-layout-correction-probe-v1".into(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
                 run_deadline: crate::codex_agent::RunDeadline::TenMinutes,

@@ -2465,6 +2465,10 @@ mod chapter_pipeline_tests {
             CodexRunInput {
                 run_id: format!("file-scenes-{}", uuid::Uuid::new_v4()),
                 expected_runtime: runtime,
+                prompt_contract_version: crate::provider::prompt_contract_version_for_purpose(
+                    &review.purpose,
+                )
+                .to_owned(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
                 run_deadline: crate::codex_agent::RunDeadline::TenMinutes,
