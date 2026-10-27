@@ -378,7 +378,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-tree-entry > svg { flex: 0 0 auto; color: var(--accent); }
 .atlas-tree-entry code { min-width: 25px; overflow: hidden; color: inherit; font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .atlas-tree-entry small { margin-left: auto; color: var(--muted); font: 12px var(--mono); }
-.atlas-tree-entry em { padding: 2px 3px; border: 1px solid var(--warning-border); border-radius: 3px; color: var(--warning); font: normal 11px var(--mono); white-space: nowrap; }
+.atlas-tree-entry em { padding: 2px 3px; border: 1px solid var(--warning-border); border-radius: 3px; color: var(--warning); font: normal 12px var(--mono); white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
 .atlas-state-mark { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: var(--accent); }
 .atlas-state-mark.skipped, .atlas-state-mark.excluded { background: var(--warning); }
@@ -1354,7 +1354,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .file-tool-tabs > button[aria-pressed="true"] { border-bottom-color: var(--blue-border); color: var(--blue); background: var(--blue-soft); }
 .file-tool-content { flex: 1; min-height: 0; padding: 26px 24px; overflow: auto; }
 .file-tool-content > header { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
-.file-explanation-kicker { color: var(--blue); font: 600 10px var(--mono); letter-spacing: .1em; }
+.file-explanation-kicker { color: var(--blue); font: 600 12px var(--mono); letter-spacing: .1em; }
 .file-tool-content h2 { margin: 10px 0 0; color: var(--text); font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
 .file-explanation-status { margin: 17px 0 4px; }
 .file-explanation-status > span { display: flex; align-items: center; gap: 5px; color: var(--accent); font-size: 12px; }
