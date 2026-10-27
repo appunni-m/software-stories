@@ -867,6 +867,32 @@ pub async fn load_prewarmed_audio_if_ready(
     )))
 }
 
+/// Return a completed local prewarm and release its per-playback review slot.
+/// When no prepared result is available, the caller may continue through the
+/// ordinary synthesis path, which consumes the review itself.
+pub async fn load_prewarmed_audio_for_playback(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    queue: &NarrationPrewarmQueue,
+    review_id: &str,
+    fingerprint: &str,
+    cancellation: &mut oneshot::Receiver<()>,
+) -> Option<ProviderCommandResult<NarrationAudio>> {
+    let result = load_prewarmed_audio_if_ready(
+        storage_dir,
+        reviews,
+        queue,
+        review_id,
+        fingerprint,
+        cancellation,
+    )
+    .await;
+    if result.is_some() {
+        discard_request_review(reviews, review_id);
+    }
+    result
+}
+
 pub async fn synthesize_reviewed_audio(
     storage_dir: &Path,
     reviews: &PendingNarrationReviews,
@@ -2328,6 +2354,83 @@ mod tests {
             worker_runs.load(std::sync::atomic::Ordering::SeqCst),
             1,
             "replaying the same script and settings should not rerun synthesis"
+        );
+    }
+
+    #[tokio::test]
+    async fn completed_prewarm_playback_releases_a_bounded_review_slot() {
+        let storage = TestStorage::new();
+        let queue = NarrationPrewarmQueue::default();
+        let reviews = PendingNarrationReviews::default();
+        let mut pending = Vec::new();
+        for index in 0..MAX_PENDING_REVIEWS {
+            let input = BuildNarrationReviewInput {
+                spoken_text: format!("Prepared section {index} has a local clip."),
+                voice: crate::pocket_tts::VOICE.into(),
+                style: String::new(),
+                lexicon: Vec::new(),
+            };
+            let review = match build_local_request_review(&storage.0, &reviews, input) {
+                ProviderCommandResult::Ok { data } => data,
+                ProviderCommandResult::Error { error } => {
+                    panic!("bounded synthetic review should be admitted: {error:?}")
+                }
+            };
+            pending.push(review);
+        }
+        let played = &pending[0];
+        let storage_path = storage.path().to_path_buf();
+        let cache_key = played.cache_key.clone();
+        let model_id = played.model_id.clone();
+        let audio = valid_test_wav(41);
+        let worker_audio = audio.clone();
+        let scheduled = queue
+            .schedule(cache_key.clone(), move |_| async move {
+                write_cached_audio(&storage_path, &cache_key, &model_id, &worker_audio).is_ok()
+            })
+            .expect("the cached playback fixture should enter the worker");
+        assert!(scheduled.accepted);
+
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while queue.status(&played.cache_key) != Some(NarrationPrewarmState::Ready) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the synthetic prewarm should finish");
+
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+        let loaded = load_prewarmed_audio_for_playback(
+            storage.path(),
+            &reviews,
+            &queue,
+            &played.review_id,
+            &played.fingerprint,
+            &mut cancellation,
+        )
+        .await;
+        assert!(matches!(
+            loaded,
+            Some(ProviderCommandResult::Ok { data }) if data.cache_hit
+        ));
+        assert!(matches!(
+            reviews.get(&played.review_id, &played.fingerprint),
+            Err(error) if error.kind == ProviderFailureKind::ReviewUnavailable
+        ));
+
+        let next = build_local_request_review(
+            storage.path(),
+            &reviews,
+            BuildNarrationReviewInput {
+                spoken_text: "The next section can still receive a review.".into(),
+                voice: crate::pocket_tts::VOICE.into(),
+                style: String::new(),
+                lexicon: Vec::new(),
+            },
+        );
+        assert!(
+            matches!(next, ProviderCommandResult::Ok { .. }),
+            "cached playback must free a slot for later narration reviews"
         );
     }
 

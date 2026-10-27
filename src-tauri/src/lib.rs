@@ -989,7 +989,7 @@ async fn synthesize_reviewed_narration_audio(
         Ok(cancellation) => cancellation,
         Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    if let Some(result) = narration::load_prewarmed_audio_if_ready(
+    if let Some(result) = narration::load_prewarmed_audio_for_playback(
         &storage_dir,
         &reviews,
         &prewarms,
@@ -999,10 +999,6 @@ async fn synthesize_reviewed_narration_audio(
     )
     .await
     {
-        // The prewarmed fast path returns before synthesize_reviewed_audio
-        // consumes the review. Playback is complete either way, so release it
-        // here to avoid filling the bounded review store on repeated replays.
-        narration::discard_request_review(&reviews, &review_id);
         cancellations.finish(&review_id);
         return Ok(result);
     }

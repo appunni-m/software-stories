@@ -206,3 +206,16 @@ reuse and packaged verification of the preparing-to-ready transition,
 first-section latency, canonical cache-key match, offline restart, queue
 cancellation/shutdown/failure under load, manual playback, and listening
 quality.
+
+## Fast-path review-slot regression — 28 October 2026
+
+Prewarmed playback and its per-playback review cleanup now share one
+`load_prewarmed_audio_for_playback` path. If a prepared clip or terminal
+prewarm result completes playback, the helper releases the review slot; if no
+prewarmed result is available, the normal synthesis path still owns and
+consumes the review. A focused native regression fills all 16 review slots,
+plays a cached Pocket clip through the fast path, then verifies a new review is
+admitted. The test has been added but not run in this checkpoint; a full Rust
+build was deferred to avoid recreating the 5.1 GB local target cache just
+removed for disk recovery. Packaged timing, offline restart, queue cancellation
+and failure under load, and listening-quality acceptance remain open.
