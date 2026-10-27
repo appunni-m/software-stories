@@ -38,7 +38,7 @@ export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & 
   kind: 'section-update';
   projectId: string;
   snapshotId: string;
-  targetPath: string;
+  targetPath: string | null;
   selectedPaths: string[];
   sectionUpdate: SectionUpdateReviewTarget;
   sectionTitle?: string;

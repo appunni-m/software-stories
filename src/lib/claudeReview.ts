@@ -12,7 +12,7 @@ export type ClaudeChapterScope = {
 } | {
   kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[];
 } | {
-  kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string;
+  kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string | null;
   selectedPaths: string[]; sectionUpdate: SectionUpdateReviewTarget;
 };
 
