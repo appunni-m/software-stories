@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
+import { inspectInteractiveVisual, visualRefreshQuestion } from '../src/lib/visuals.ts';
 
 const anchor = (anchorId = 'anchor:call', path = 'src/main.ts') => ({
   anchorId,
@@ -68,6 +68,12 @@ const chapter = (diagram = visual(), { anchors = [anchor()], hotspots = [{
 };
 
 describe('interactive diagram safety', () => {
+  it('creates a focused visual refresh question without replacing saved sections', () => {
+    assert.equal(visualRefreshQuestion('Transform the child points'),
+      'Create a fresh visual explanation for "Transform the child points" from the captured source. Show the behavior with the representation that best fits, connect each visual cue to the code that proves it, and narrate what changes and why it matters. Leave other saved sections untouched.');
+    assert.match(visualRefreshQuestion('line\nbreak'), /"line break"/u);
+  });
+
   it('accepts a bounded v3 diagram with exact same-section evidence, a scene, and a valid hotspot route', () => {
     const revision = chapter();
     const result = inspectInteractiveVisual(revision, revision.sections[0]);

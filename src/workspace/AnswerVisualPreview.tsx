@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ArrowRight, Code2 } from 'lucide-react';
+import { ArrowRight, Code2, Sparkles } from 'lucide-react';
 import { HtmlScene } from '../HtmlScene';
 import { InlineCodeText } from '../InlineCodeText';
 import type { ChapterRevision, ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec } from '../lib/commands';
@@ -8,10 +8,11 @@ import { inspectInteractiveVisual } from '../lib/visuals';
 import { plainInlineCodeText } from '../lib/inlineCode';
 
 /** Keep earlier stacked answers visual without mounting their players or full canvases. */
-export function AnswerVisualPreview({ revision, section, onOpenAnchor }: {
+export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefreshVisual }: {
   revision: ChapterRevision;
   section: ChapterSection;
   onOpenAnchor: (anchor: ChapterSourceAnchor) => void;
+  onRefreshVisual?: () => void;
 }) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
@@ -35,11 +36,16 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor }: {
     return <div className="dw-answer-visual-preview dw-answer-visual-preview-empty" role="group"
       aria-label={`Visual preview for ${plainInlineCodeText(section.title)}`}>
       <span>{needsRefresh
-        ? 'This saved visual needs refreshing.'
+        ? onRefreshVisual ? 'This saved visual needs refreshing.' : 'This visual cannot be shown here.'
         : unavailable ? 'This visual cannot be previewed here.' : 'No visual was saved for this section.'}</span>
-      {anchor && <button type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
-        <Code2 size={13} />{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}
-      </button>}
+      {(needsRefresh && onRefreshVisual || anchor) && <div className="dw-answer-visual-actions">
+        {needsRefresh && onRefreshVisual && <button type="button" onClick={onRefreshVisual} aria-label={`Create a fresh visual explanation for ${plainInlineCodeText(section.title)}`}>
+          <Sparkles size={13} aria-hidden="true" />Create a fresh visual
+        </button>}
+        {anchor && <button type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
+          <Code2 size={13} />{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}
+        </button>}
+      </div>}
     </div>;
   }
 

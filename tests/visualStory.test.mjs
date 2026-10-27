@@ -45,9 +45,14 @@ describe('visual story scenes', () => {
   it('labels sections without a saved visual and opens their cited range beside the answer', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    const preview = readFileSync(new URL('../src/workspace/AnswerVisualPreview.tsx', import.meta.url), 'utf8');
     assert.match(component, /'Saved visual unavailable' : 'No visual saved for this section'/u);
     assert.match(component, /Visual needs refreshing/u);
-    assert.match(component, /This visual was saved in an earlier format and cannot be shown here\./u);
+    assert.match(component, /Create a fresh visual/u);
+    assert.match(component, /savedVisualNeedsRefresh && onRefreshVisual/u);
+    assert.match(workspace, /onRefreshVisual=\{\(\) => onBranch\(visualRefreshQuestion\(section\.title\), contexts\)\}/u);
+    assert.match(preview, /Create a fresh visual/u);
     assert.match(component, /This saved section has narration and source links, but no visual representation\./u);
     assert.doesNotMatch(component, /Open the cited code beside this explanation to inspect this step\./u);
     assert.match(component, /onClick=\{\(\) => onOpenAnchor\(anchor, `reader-citation:\$\{anchor\.anchorId\}`\)\}/u);
@@ -57,7 +62,7 @@ describe('visual story scenes', () => {
       'a missing visual should not reserve a large fixed-height canvas');
     assert.match(styles, /\.story-source-stage \.story-no-visual\s*\{[^}]*display:\s*grid/u,
       'the honest no-visual state should read as a compact explanation and source action');
-    assert.match(styles, /@container guide-pane \(max-width: 700px\)\s*\{[\s\S]*?\.story-source-stage \.story-no-visual\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/u,
+    assert.match(styles, /@container guide-pane \(max-width: 700px\)\s*\{[\s\S]*?\.story-source-stage \.story-no-visual\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\.story-source-actions\s*\{[^}]*grid-column:\s*1/u,
       'the source action should stack below the note in a narrow Guide pane');
   });
 

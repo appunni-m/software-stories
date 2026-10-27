@@ -25,6 +25,16 @@ export type InteractiveVisualResult =
       hotspotsById: Map<string, ChapterSection['hotspots'][number]>;
     };
 
+/** Build a focused question for replacing an unsupported saved visual. */
+export function visualRefreshQuestion(sectionTitle: string): string {
+  const title = sectionTitle
+    .replace(/[\u0000-\u001f\u007f]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 180) || 'this section';
+  return `Create a fresh visual explanation for "${title}" from the captured source. Show the behavior with the representation that best fits, connect each visual cue to the code that proves it, and narrate what changes and why it matters. Leave other saved sections untouched.`;
+}
+
 export function inspectInteractiveVisual(
   revision: ChapterRevision,
   section: ChapterSection,

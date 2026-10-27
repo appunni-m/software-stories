@@ -21,7 +21,7 @@ import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowV
 import { buildInventory, recommendedEntryPoint } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
-import { inspectInteractiveVisual } from '../lib/visuals';
+import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
 import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, resolveWorkspaceConversationConflict, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, useWorkspaceConversationConflict, watchWorkspaceAnswers } from './store';
@@ -1096,6 +1096,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
           }))}
           onProgressChange={onStoryProgress}
           onOpenAnchor={onOpen}
+          onRefreshVisual={() => onBranch(visualRefreshQuestion(section.title), contexts)}
           onExploreDetail={(title, anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors))}
           // Start the next guide slide while this narration plays. Completion
           // also fires for the same slide, so it must not enqueue a second run.
@@ -1117,7 +1118,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
           }}
         />
         <div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{position+1} / {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>
-      </> : <><AnswerVisualPreview revision={revision} section={section} onOpenAnchor={onOpen}/><details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details></>}
+      </> : <><AnswerVisualPreview revision={revision} section={section} onOpenAnchor={onOpen} onRefreshVisual={() => onBranch(visualRefreshQuestion(section.title), contexts)}/><details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details></>}
       {coverageSummary&&<div className="dw-guide-coverage" role="status"><strong>Partial guide</strong><span>Still uncovered: {coverageSummary}</span></div>}
       <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}<ExplorationBranchLinks branches={branches} onGo={onGo}/></footer>
       </>

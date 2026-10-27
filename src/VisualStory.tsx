@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
-import { ArrowLeft, ArrowRight, Code2, Maximize2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Code2, Maximize2, Sparkles } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
@@ -21,6 +21,7 @@ interface Props {
   revision: ChapterRevision;
   section: ChapterSection;
   onOpenAnchor: (anchor: ChapterSourceAnchor, focusTarget?: string) => void;
+  onRefreshVisual?: () => void;
   onExploreDetail?: (title: string, anchors: readonly ChapterSourceAnchor[]) => void;
   onFollowHotspot?: (hotspot: ChapterHotspot, focusTarget?: string) => void;
   activeFocusTarget?: string;
@@ -68,7 +69,7 @@ const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 /** One narrated, evidence-backed scene at a time. Audio completion, not guessed
  * elapsed-time percentages, advances the story. Sections always advance manually.
  */
-export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, onFollowHotspot, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
+export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, onExploreDetail, onFollowHotspot, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const savedVisualNeedsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
@@ -410,15 +411,22 @@ export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, 
         aria-label={savedVisualNeedsRefresh ? 'Saved visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}>
         <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
         <small>{savedVisualNeedsRefresh
-          ? 'This visual was saved in an earlier format and cannot be shown here. Narration and source links are still available.'
+          ? onRefreshVisual
+            ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
+            : 'This saved visual cannot be shown here. Narration and source links are still available.'
           : inspection.status === 'unavailable'
             ? 'This saved visual cannot be displayed. Narration and source links are still available.'
           : 'This saved section has narration and source links, but no visual representation.'}</small>
-        {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
-          aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
-          onClick={() => onOpenAnchor(anchor, `reader-citation:${anchor.anchorId}`)}>
-          <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
-        </button>}
+        {(savedVisualNeedsRefresh && onRefreshVisual || anchor) && <div className="story-source-actions">
+          {savedVisualNeedsRefresh && onRefreshVisual && <button type="button" className="story-refresh-visual" onClick={onRefreshVisual}>
+            <Sparkles size={13} aria-hidden="true" />Create a fresh visual
+          </button>}
+          {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
+            aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
+            onClick={() => onOpenAnchor(anchor, `reader-citation:${anchor.anchorId}`)}>
+            <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
+          </button>}
+        </div>}
       </div>
     </div>}
     <div className="story-playbar">

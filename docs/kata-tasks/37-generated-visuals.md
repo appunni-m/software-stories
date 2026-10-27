@@ -1066,3 +1066,11 @@ the saved chapter remains untouched. The Guide and answer preview share this
 diagnosis. The two focused visual test files pass (57 tests). This improves the
 failure state only; it does not generate a replacement visual or qualify fresh
 schema-3 content, accessibility, export, or comprehension. Keep `j53m` open.
+
+The unsupported-version state now has a **Create a fresh visual** action in
+both Guide and Flow. It starts a nested, section-scoped question using that
+section's cited source context and asks for a new source-grounded visual; the
+existing explanation remains in history. This is an explicit new request, not
+an automatic migration or replacement. Focused visual tests pass (58), and
+`npm run build` passes. A packaged-provider generation, actual-source review,
+audio, accessibility, export and comprehension qualification are still open.
