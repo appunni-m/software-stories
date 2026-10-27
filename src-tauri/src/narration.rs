@@ -1582,7 +1582,13 @@ fn write_cached_audio(
     })?;
     fs::create_dir_all(parent).map_err(|_| failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache folder could not be created. The narration can still play for this session."))?;
     let temporary = parent.join(format!(".{}.{}.tmp", fingerprint, Uuid::new_v4()));
-    fs::write(&temporary, bytes).map_err(|_| failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache could not be written. The narration can still play for this session."))?;
+    write_cache_temporary(&temporary, || fs::write(&temporary, bytes))
+        .map_err(|_| {
+            failure(
+                ProviderFailureKind::LocalStorageUnavailable,
+                "The local audio cache could not be written. The narration can still play for this session.",
+            )
+        })?;
     fs::rename(&temporary, &path).map_err(|_| {
         let _ = fs::remove_file(&temporary);
         failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache could not be finalized. The narration can still play for this session.")
@@ -1593,6 +1599,17 @@ fn write_cached_audio(
         }
     }
     Ok(())
+}
+
+fn write_cache_temporary(
+    path: &Path,
+    write: impl FnOnce() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let result = write();
+    if result.is_err() {
+        let _ = fs::remove_file(path);
+    }
+    result
 }
 
 fn is_wav(bytes: &[u8]) -> bool {
@@ -3246,5 +3263,20 @@ mod tests {
             read_cached_audio(storage.path(), &review.cache_key, &review.model_id),
             Some(previous)
         );
+    }
+
+    #[test]
+    fn partial_cache_temp_write_is_removed_after_failure() {
+        let storage = TestStorage::new();
+        let temporary = storage.path().join(".partial-audio.tmp");
+
+        let result = write_cache_temporary(&temporary, || {
+            fs::write(&temporary, b"partial WAV bytes")?;
+            Err(std::io::Error::other("simulated storage failure"))
+        });
+
+        assert!(result.is_err());
+        assert!(!temporary.exists());
+        assert_eq!(fs::read_dir(storage.path()).unwrap().count(), 0);
     }
 }
