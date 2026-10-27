@@ -1265,26 +1265,18 @@ impl ActiveAnswer {
         {
             return Err("This answer has stopped or changed owners.".into());
         }
-        if arguments.len() > MAX_PROPOSAL_BYTES {
-            return Err("The section proposal exceeds its 32 KiB limit.".into());
-        }
-        let parsed = crate::strict_json::from_slice(arguments.as_bytes()).ok();
-        let arguments_sha256 = parsed
-            .as_ref()
-            .map(crate::agent_context::arguments_digest)
-            .transpose()?
-            .unwrap_or_else(|| context::digest(arguments.as_bytes()));
-        let proposal_sha256 = context::digest(arguments.as_bytes());
-        let proposal_key = Answer::proposal_key(arguments);
-        let repeated_key = self.value.has_proposal_key(&proposal_key);
-        let successful_replay = self
-            .value
-            .exact_successful_replay(&proposal_key, &proposal_sha256);
         if self.value.attempts.len() >= MAX_ATTEMPTS {
             // Keep an over-budget model call recoverable without saving a
             // ninth attempt. Exact replays still resolve their current saved
             // section identity, matching the normal proposal path.
-            let generation_id = if successful_replay {
+            let proposal_sha256 = context::digest(arguments.as_bytes());
+            let proposal_key = (arguments.len() <= MAX_PROPOSAL_BYTES)
+                .then(|| Answer::proposal_key(arguments))
+                .flatten();
+            let generation_id = if self
+                .value
+                .exact_successful_replay(&proposal_key, &proposal_sha256)
+            {
                 self.value
                     .sections
                     .iter()
@@ -1309,6 +1301,21 @@ impl ActiveAnswer {
                 generation_id,
             });
         }
+        if arguments.len() > MAX_PROPOSAL_BYTES {
+            return Err("The section proposal exceeds its 32 KiB limit.".into());
+        }
+        let parsed = crate::strict_json::from_slice(arguments.as_bytes()).ok();
+        let arguments_sha256 = parsed
+            .as_ref()
+            .map(crate::agent_context::arguments_digest)
+            .transpose()?
+            .unwrap_or_else(|| context::digest(arguments.as_bytes()));
+        let proposal_sha256 = context::digest(arguments.as_bytes());
+        let proposal_key = Answer::proposal_key(arguments);
+        let repeated_key = self.value.has_proposal_key(&proposal_key);
+        let successful_replay = self
+            .value
+            .exact_successful_replay(&proposal_key, &proposal_sha256);
         let guide_slide_key_conflict = section_limit == 1
             && self.value.sections.is_empty()
             && self
