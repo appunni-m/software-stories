@@ -422,8 +422,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
               : 'This saved visual cannot be displayed. Narration and source links are still available.'
           : 'This saved section has narration and source links, but no visual representation.'}</small>
         {(canRefreshSavedVisual || anchor) && <div className="story-source-actions">
-          {canRefreshSavedVisual && onRefreshVisual && <button type="button" className="story-refresh-visual" onClick={onRefreshVisual}>
-            <Sparkles size={13} aria-hidden="true" />Create a fresh visual
+          {canRefreshSavedVisual && onRefreshVisual && <button type="button" className="story-refresh-visual" aria-label="Create a fresh visual explanation" onClick={onRefreshVisual}>
+            <Sparkles size={13} aria-hidden="true" /><span>Refresh visual</span>
           </button>}
           {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
             aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
