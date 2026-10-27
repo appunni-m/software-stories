@@ -2,16 +2,31 @@
 use serde_json::{Value, json};
 const MAX_STEPS: usize = 24;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// Keep persisted request identities for prior prompts replayable. New agent
+// requests must always use CURRENT; saved plans may replay only KNOWN versions.
 pub(super) enum RequestContract {
-    ExplicitEvidence,
+    ExplicitEvidenceV1,
+    ExplicitEvidenceV2,
 }
 impl RequestContract {
-    pub(super) const CURRENT: Self = Self::ExplicitEvidence;
+    pub(super) const CURRENT: Self = Self::ExplicitEvidenceV2;
+    pub(super) const KNOWN: [Self; 2] = [Self::ExplicitEvidenceV2, Self::ExplicitEvidenceV1];
+
+    pub(super) const fn prompt_version(self) -> &'static str {
+        match self {
+            Self::ExplicitEvidenceV1 => "grounded-repository-plan-v1",
+            Self::ExplicitEvidenceV2 => "grounded-repository-plan-v2",
+        }
+    }
+
     pub(super) fn system_instruction(self) -> String {
-        format!(
-            "{SYSTEM_CODE_FIRST}\n\n{}",
-            crate::provider::visual_scenes::READER_LANGUAGE_POLICY
-        )
+        match self {
+            Self::ExplicitEvidenceV1 => SYSTEM_CODE_FIRST.to_owned(),
+            Self::ExplicitEvidenceV2 => format!(
+                "{SYSTEM_CODE_FIRST}\n\n{}",
+                crate::provider::visual_scenes::READER_LANGUAGE_POLICY
+            ),
+        }
     }
     pub(super) fn user_prompt(
         self,

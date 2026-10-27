@@ -953,6 +953,7 @@ fn fontdone_repository_guide_account_probe() {
             GUIDE_SLIDES_PER_OPERATION,
             None,
             None,
+            Instant::now(),
             &progress,
             Arc::clone(&notify),
             &adopt,
