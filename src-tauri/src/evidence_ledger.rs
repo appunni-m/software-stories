@@ -121,6 +121,8 @@ pub(crate) enum Context<'a> {
         #[serde(rename = "generationId")]
         generation_id: Option<&'a str>,
         findings: &'a [serde_json::Value],
+        #[serde(rename = "finishNow")]
+        finish_now: bool,
         #[serde(rename = "remainingAttempts")]
         remaining_attempts: usize,
         #[serde(rename = "remainingCorrections")]

@@ -1262,9 +1262,8 @@ impl ActiveAnswer {
         ledger.check(manifest, runtime, cancelled)?;
         if self.value.outcome != Outcome::Working
             || !same_binding(&self.value.binding, &ledger.record.binding)?
-            || self.value.attempts.len() >= MAX_ATTEMPTS
         {
-            return Err("This answer stopped or reached its eight-proposal limit.".into());
+            return Err("This answer has stopped or changed owners.".into());
         }
         if arguments.len() > MAX_PROPOSAL_BYTES {
             return Err("The section proposal exceeds its 32 KiB limit.".into());
@@ -1281,6 +1280,35 @@ impl ActiveAnswer {
         let successful_replay = self
             .value
             .exact_successful_replay(&proposal_key, &proposal_sha256);
+        if self.value.attempts.len() >= MAX_ATTEMPTS {
+            // Keep an over-budget model call recoverable without saving a
+            // ninth attempt. Exact replays still resolve their current saved
+            // section identity, matching the normal proposal path.
+            let generation_id = if successful_replay {
+                self.value
+                    .sections
+                    .iter()
+                    .rev()
+                    .find(|section| {
+                        proposal_key.as_deref() == Some(section.key.as_str())
+                            && section.proposal_sha256 == proposal_sha256
+                    })
+                    .map(|section| section.preview.generation_id.clone())
+            } else {
+                None
+            };
+            let bytes = encode_answer(&self.value)?;
+            return Ok(PreparedSection {
+                before_sha256: context::digest(&bytes),
+                next: self.value.clone(),
+                findings: if generation_id.is_some() {
+                    Vec::new()
+                } else {
+                    finding("proposalLimit")
+                },
+                generation_id,
+            });
+        }
         let guide_slide_key_conflict = section_limit == 1
             && self.value.sections.is_empty()
             && self
@@ -1500,7 +1528,10 @@ impl ActiveAnswer {
                 "The answer publication owner changed. Existing sections were preserved.".into(),
             );
         }
-        codex_agent::atomic_private_write(&self.path, &encode_answer(&prepared.next)?)?;
+        let next_bytes = encode_answer(&prepared.next)?;
+        if prepared.before_sha256 != context::digest(&next_bytes) {
+            codex_agent::atomic_private_write(&self.path, &next_bytes)?;
+        }
         self.value = prepared.next;
         Ok(())
     }
