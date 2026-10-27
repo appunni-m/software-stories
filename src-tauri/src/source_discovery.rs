@@ -424,7 +424,7 @@ fn metadata(
     let mut sizes = BTreeMap::new();
     let mut files = Vec::new();
     let mut range_only_files = Vec::new();
-    let mut budget = 0;
+    let mut budget: usize = 0;
     for file in candidates {
         let symbols: Vec<_> = symbols_by_path
             .get(file.path.as_str())
@@ -905,13 +905,13 @@ fn validate_selection(
     {
         return Err("Codex proposed too much source. Ask a more specific question.".to_owned());
     }
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::<String>::new();
     let mut total = 0_u64;
     for file in &result.selected_files {
         let candidate = sizes
             .get(&file.path)
             .ok_or("Codex proposed a file outside the captured implementation index.")?;
-        if !seen.insert(&file.path)
+        if !seen.insert(file.path.clone())
             || candidate.range_only
             || file.reason.trim().is_empty()
             || file.reason.len() > 600
@@ -925,7 +925,7 @@ fn validate_selection(
         let candidate = sizes
             .get(&file.path)
             .ok_or("Codex proposed a range target outside the captured implementation index.")?;
-        if !seen.insert(&file.path)
+        if !seen.insert(file.path.clone())
             || !candidate.range_only
             || file.reason.trim().is_empty()
             || file.reason.len() > 600
