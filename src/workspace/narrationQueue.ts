@@ -3,6 +3,7 @@ import type { NarrationPrewarmStatus, NarrationSynthesisInput, ProviderCommandRe
 export interface NarrationPrewarmQueue {
   enqueue(inputs: readonly NarrationSynthesisInput[]): number;
   state(input: NarrationSynthesisInput): 'idle' | 'queued' | 'preparing';
+  invalidateIdentity(): void;
   flush(): Promise<void>;
 }
 
@@ -16,11 +17,12 @@ export function createNarrationPrewarmQueue(options: {
   maxPending?: number;
   maxConcurrent?: number;
 }): NarrationPrewarmQueue {
-  const pending: NarrationSynthesisInput[] = [];
+  const pending: Array<{ input: NarrationSynthesisInput; key: string }> = [];
   const keys = new Set<string>();
   const queuedKeys = new Set<string>();
   const preparingKeys = new Set<string>();
   const active = new Set<Promise<void>>();
+  let identityEpoch = 0;
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
   const maxPending = options.maxPending ?? 512;
@@ -30,6 +32,7 @@ export function createNarrationPrewarmQueue(options: {
   const maxConcurrent = Math.max(1, Math.min(4, options.maxConcurrent ?? 4));
 
   const keyOf = (input: NarrationSynthesisInput) => JSON.stringify([
+    identityEpoch,
     input.spokenText.trim(),
     input.voice,
     input.style.trim(),
@@ -48,8 +51,7 @@ export function createNarrationPrewarmQueue(options: {
 
   const pump = () => {
     while (pending.length && active.size < maxConcurrent) {
-      const input = pending.shift()!;
-      const key = keyOf(input);
+      const { input, key } = pending.shift()!;
       queuedKeys.delete(key);
       preparingKeys.add(key);
       let task: Promise<void>;
@@ -74,7 +76,7 @@ export function createNarrationPrewarmQueue(options: {
         if (keys.size >= maxPending) break;
         keys.add(key);
         queuedKeys.add(key);
-        pending.push(input);
+        pending.push({ input, key });
         accepted += 1;
       }
       if (accepted) pump();
@@ -84,6 +86,12 @@ export function createNarrationPrewarmQueue(options: {
       const key = keyOf(input);
       if (preparingKeys.has(key)) return 'preparing';
       return queuedKeys.has(key) ? 'queued' : 'idle';
+    },
+    invalidateIdentity() {
+      // Native audio fingerprints bind the runtime/model. Advance the
+      // client-only dedup epoch when the managed runtime may have changed so
+      // an active old request cannot suppress a request for the new runtime.
+      identityEpoch += 1;
     },
     async flush() {
       while (active.size || pending.length) {

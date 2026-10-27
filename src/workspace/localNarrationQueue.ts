@@ -10,3 +10,8 @@ export const localNarrationPrewarmer = createNarrationPrewarmQueue({
 export function localNarrationPrewarmState(input: NarrationSynthesisInput): 'idle' | 'queued' | 'preparing' {
   return localNarrationPrewarmer.state(input);
 }
+
+/** Separate pending client deduplication from a replaced managed runtime. */
+export function invalidateLocalNarrationPrewarmIdentity() {
+  localNarrationPrewarmer.invalidateIdentity();
+}

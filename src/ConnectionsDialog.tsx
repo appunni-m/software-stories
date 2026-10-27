@@ -6,6 +6,7 @@ import { providerFailureMessage } from './lib/errorMessage';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { readVoiceConnectionIssue, saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
+import { invalidateLocalNarrationPrewarmIdentity } from './workspace/localNarrationQueue';
 
 export function ConnectionsDialog({ native, initialSection = 'explanations', onClose, onChooseBackend }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void; onChooseBackend: () => void }) {
   const [section, setSection] = useState(initialSection);
@@ -73,7 +74,14 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       if (result.status === 'ok') { setStatus(result.data); setMessage('Voice is ready. Open any answer and choose Listen.'); }
       else setError(result.error.message);
     } catch { if (alive.current) setError('Local voice setup could not finish. Try again.'); }
-    finally { setupId.current = null; if (alive.current) setBusy(false); }
+    finally {
+      // Setup and repair can change the runtime fingerprint used by native
+      // cached audio. Do not let an older in-flight client key suppress new
+      // Pocket work after this attempt.
+      invalidateLocalNarrationPrewarmIdentity();
+      setupId.current = null;
+      if (alive.current) setBusy(false);
+    }
   };
   const changeKey = async (remove = false) => {
     if (busy) return;
