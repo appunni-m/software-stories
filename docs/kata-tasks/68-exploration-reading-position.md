@@ -106,3 +106,26 @@ same-process spot check does not establish restart, exact scroll, third-level
 navigation, independent Flow viewport, revision fallback, corrupt state through
 the app or accessibility. The installed bundle's source revision was not
 verified. Keep `erzc` open.
+
+## Exact viewport restoration and corrupt-position recovery — 28 October 2026
+
+Source inspection found that Guide restoration always called `scrollIntoView`
+for the focused answer, even when the exploration had a saved Guide offset. That
+overrode the per-view scroll value on Back and view switches. Restoration now
+uses a saved offset (including zero) when present; it scrolls to an answer only
+for an explicit one-shot reveal or an uninitialized Guide. Selecting another
+slide inside the already-open progressive answer updates its section without
+creating another answer reveal.
+
+Workspace decoding now sanitizes optional reader and view metadata independently.
+Malformed per-view scroll, answer positions, answer versions, visual progress,
+file-flow selection, drafts, and invalid optional file selections are discarded
+without rejecting the conversation tree or other valid positions. Valid saved
+offsets and answer revisions remain scoped to their original exploration.
+
+The focused reader-progress checks cover saved Guide offsets (including zero),
+explicit reveals, answer focus changes and corrupt optional state. All 15 cases
+passed across the final focused runs; the frontend production build and
+`git diff --check` passed. These are source-level checks. Packaged exact-scroll,
+third-level, independent Flow viewport, restart, revision fallback, malformed
+state and accessibility acceptance remain outstanding; keep `erzc` open.

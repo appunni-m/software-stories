@@ -3,15 +3,17 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,FOCUSED_STORY_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
 import {readSectionStoryProgress,readStoryProgressRecord} from '../src/lib/visualStory.ts';
-import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition} from '../src/workspace/model.ts';
+import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,focusAnswerSection,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition,shouldRestoreFocusedAnswerAnchor} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
 const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION};
 const diagram={...identity,viewport:{x:250,y:-91,zoom:1.7},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION};
 const ready=(id,revisionId=identity.revisionId)=>({id,question:'Follow the bytes',context:[],status:'ready',revisionId});
+const runId=(value)=>`00000000-0000-4000-8000-${String(value).padStart(12,'0')}`;
 
 test('presentation records contain only bounded metadata and exact immutable section identity',()=>{
-  assert.deepEqual(cleanStoryProgress({...story,html:'private generated content',autoPlay:true}),story);
+  assert.deepEqual(cleanStoryProgress(story),story);
+  assert.equal(cleanStoryProgress({...story,html:'private generated content',autoPlay:true}),undefined,'unknown content is rejected instead of silently copied into saved metadata');
   const raw={stories:[story,story,{...story,sectionRevisionId:'section-revision:changed',sceneId:'claim:first'}],diagrams:[diagram]};
   const result=cleanReaderProgress(raw);
   assert.equal(result.stories.length,2);assert.equal(result.diagrams.length,1);
@@ -90,15 +92,16 @@ test('each section retains its position and metadata retention never changes art
 });
 
 test('parent, sibling and nested readers retain independent views without changing selected sections',()=>{
-  let state=addTurn(createWorkspace('project','snapshot'),ready('root-turn'),'guide');
+  const rootTurn=runId(1),childTurn=runId(2),childId=runId(3),siblingTurn=runId(4),siblingId=runId(5);
+  let state=addTurn(createWorkspace('project','snapshot'),ready(rootTurn),'guide');
   state=rememberCodePane(state,'root',false);state=rememberFileFlow(state,'root','src/font.rs',true);
   const focusedStory={...story,focusedNodeId:'node:validation',focusedEdgeId:'edge:accepts'};
-  state=rememberPresentation(state,'root','root-turn','stories',focusedStory);state=rememberPresentation(state,'root','root-turn','diagrams',diagram);
+  state=rememberPresentation(state,'root',rootTurn,'stories',focusedStory);state=rememberPresentation(state,'root',rootTurn,'diagrams',diagram);
   const before=JSON.stringify(state.explorations[0]);
-  state=addTurn(state,ready('child-turn'),'flow',{id:'child',originTurnId:'root-turn'});
-  state=rememberCodePane(state,'child',true);state=rememberPresentation(state,'child','child-turn','stories',{...story,sceneId:'claim:first',fullMap:false});
-  state={...state,currentId:'root'};state=addTurn(state,ready('sibling-turn'),'history',{id:'sibling',originTurnId:'root-turn'});
-  state=rememberCodePane(state,'sibling',true);
+  state=addTurn(state,ready(childTurn),'flow',{id:childId,originTurnId:rootTurn});
+  state=rememberCodePane(state,childId,true);state=rememberPresentation(state,childId,childTurn,'stories',{...story,sceneId:'claim:first',fullMap:false});
+  state={...state,currentId:'root'};state=addTurn(state,ready(siblingTurn),'history',{id:siblingId,originTurnId:rootTurn});
+  state=rememberCodePane(state,siblingId,true);
   assert.equal(JSON.stringify(state.explorations[0]),before);
   const restored=decodeWorkspace(JSON.stringify(state),'project','snapshot');
   assert.equal(restored.explorations[0].codeOpen,false);assert.deepEqual(restored.explorations[0].fileFlow,{path:'src/font.rs',showAll:true});
@@ -110,41 +113,69 @@ test('parent, sibling and nested readers retain independent views without changi
 });
 
 test('five nested exploration levels and a sibling restore independent answer positions and views',()=>{
+  const turns=Array.from({length:6},(_,depth)=>runId(100+depth));
+  const children=Array.from({length:6},(_,depth)=>runId(200+depth));
+  const siblingId=runId(300),siblingTurn=runId(301);
   let state=createWorkspace('project','snapshot');
-  state=addTurn(state,ready('turn-level-0','revision:level-0'),'guide');
+  state=addTurn(state,ready(turns[0],'revision:level-0'),'guide');
   for(let depth=0;depth<=5;depth++){
-    const explorationId=depth===0?'root':`child-${depth}`;
-    const turnId=`turn-level-${depth}`;
+    const explorationId=depth===0?'root':children[depth-1];
+    const turnId=turns[depth];
     const view=depth%2===0?'guide':'flow';
     const sectionId=`section:level-${depth}:${view}`;
     state=rememberSection(state,explorationId,turnId,view,{revisionId:`revision:level-${depth}`,sectionId});
     state=rememberScroll(state,explorationId,view,depth*137.5);
     if(depth<5){
       const nextDepth=depth+1;
-      state=addTurn(state,ready(`turn-level-${nextDepth}`,`revision:level-${nextDepth}`),nextDepth%2===0?'guide':'flow',{id:`child-${nextDepth}`,originTurnId:turnId});
+      state=addTurn(state,ready(turns[nextDepth],`revision:level-${nextDepth}`),nextDepth%2===0?'guide':'flow',{id:children[nextDepth-1],originTurnId:turnId});
     }
   }
 
-  state={...state,currentId:'child-2'};
-  state=addTurn(state,ready('turn-sibling','revision:sibling'),'flow',{id:'child-2-sibling',originTurnId:'turn-level-2'});
-  state=rememberSection(state,'child-2-sibling','turn-sibling','flow',{revisionId:'revision:sibling',sectionId:'section:sibling:flow'});
-  state=rememberScroll(state,'child-2-sibling','flow',913.25);
+  state={...state,currentId:children[1]};
+  state=addTurn(state,ready(siblingTurn,'revision:sibling'),'flow',{id:siblingId,originTurnId:turns[2]});
+  state=rememberSection(state,siblingId,siblingTurn,'flow',{revisionId:'revision:sibling',sectionId:'section:sibling:flow'});
+  state=rememberScroll(state,siblingId,'flow',913.25);
 
   const restored=decodeWorkspace(JSON.stringify(state),'project','snapshot');
-  assert.deepEqual(ancestors(restored,'child-5').map(item=>item.id),['root','child-1','child-2','child-3','child-4','child-5']);
-  const deepest=restored.explorations.find(item=>item.id==='child-5');
+  assert.deepEqual(ancestors(restored,children[4]).map(item=>item.id),['root',...children.slice(0,5)]);
+  const deepest=restored.explorations.find(item=>item.id===children[4]);
   assert.equal(deepest.view,'flow');
   assert.deepEqual(deepest.turns[0].reading.flow,{revisionId:'revision:level-5',sectionId:'section:level-5:flow'});
   assert.equal(sectionPosition('revision:level-5',[{sectionId:'first'},{sectionId:'section:level-5:flow'}],deepest.turns[0].reading.flow),1);
   assert.equal(deepest.scrollPositions.flow,687.5);
-  const parent=restored.explorations.find(item=>item.id==='child-2');
-  const child=restored.explorations.find(item=>item.id==='child-3');
-  const sibling=restored.explorations.find(item=>item.id==='child-2-sibling');
+  const parent=restored.explorations.find(item=>item.id===children[1]);
+  const child=restored.explorations.find(item=>item.id===children[2]);
+  const sibling=restored.explorations.find(item=>item.id===siblingId);
   assert.equal(parent.turns[0].reading.guide.sectionId,'section:level-2:guide');
   assert.equal(child.turns[0].reading.flow.sectionId,'section:level-3:flow');
   assert.equal(sibling.view,'flow');
   assert.deepEqual(sibling.turns[0].reading.flow,{revisionId:'revision:sibling',sectionId:'section:sibling:flow'});
   assert.equal(sibling.scrollPositions.flow,913.25);
+});
+
+test('saved Guide scroll wins over the focused-answer anchor except for explicit reveals',()=>{
+  assert.equal(shouldRestoreFocusedAnswerAnchor('guide'),true,'an uninitialized Guide should find its answer');
+  assert.equal(shouldRestoreFocusedAnswerAnchor('guide',undefined,0),false,'zero is a saved viewport');
+  assert.equal(shouldRestoreFocusedAnswerAnchor('guide',undefined,731.5),false,'a saved offset must be restored exactly');
+  assert.equal(shouldRestoreFocusedAnswerAnchor('guide','turn-one',731.5),true,'explicit History navigation reveals its answer');
+  assert.equal(shouldRestoreFocusedAnswerAnchor('flow','turn-one'),false,'Guide anchors never override another view');
+  assert.equal(shouldRestoreFocusedAnswerAnchor('history','turn-one'),false,'History keeps its own viewport');
+});
+
+test('focusing a different answer schedules one reveal while section changes preserve the current viewport',()=>{
+  let state=addTurn(createWorkspace('project','snapshot'),ready('one'),'guide');
+  state=addTurn(state,ready('two'),'guide');
+  state=rememberScroll(state,'root','guide',845.25);
+  state=focusAnswerSection(state,'root','one',identity);
+  assert.equal(state.explorations[0].focusedTurnId,'one');
+  assert.equal(state.explorations[0].revealTurnId,'one');
+  assert.equal(state.explorations[0].scrollPositions.guide,845.25);
+
+  state={...state,explorations:state.explorations.map((item)=>({...item,revealTurnId:undefined}))};
+  state=rememberSection(state,'root','one','guide',{revisionId:identity.revisionId,sectionId:'section:next'});
+  assert.equal(state.explorations[0].revealTurnId,undefined,'changing a section within the same answer does not create another reveal');
+  assert.equal(state.explorations[0].scrollPositions.guide,845.25);
+  assert.deepEqual(state.explorations[0].turns[0].reading.guide,{revisionId:identity.revisionId,sectionId:'section:next'});
 });
 
 test('a late presentation callback belongs to its original turn and cannot select or move another branch',()=>{
@@ -165,11 +196,15 @@ test('a dedicated player uses the focused owner and cannot write into an unrelat
 });
 
 test('invalid optional presentation metadata does not erase valid conversation history',()=>{
-  const state=addTurn(createWorkspace('project','snapshot'),ready('one'),'guide');
+  const state=addTurn(createWorkspace('project','snapshot'),ready(runId(400)),'guide');
   state.explorations[0].codeOpen='false';state.explorations[0].fileFlow={path:'../outside',showAll:true};
+  state.explorations[0].scrollPositions={guide:321.5,flow:'not-a-position',history:Infinity};
+  state.explorations[0].turns[0].reading={guide:{revisionId:identity.revisionId,sectionId:identity.sectionId},flow:{revisionId:'foreign-revision',sectionId:'foreign-section'},other:{revisionId:'revision:one',sectionId:'section:one'}};
   state.explorations[0].turns[0].presentation={stories:[story,{...story,revisionId:'revision:foreign'}],diagrams:[{...diagram,viewport:{x:0,y:0,zoom:Infinity}}]};
   const restored=decodeWorkspace(JSON.stringify(state),'project','snapshot');
   assert.equal(restored.explorations[0].codeOpen,undefined);assert.equal(restored.explorations[0].fileFlow,undefined);
+  assert.deepEqual(restored.explorations[0].scrollPositions,{guide:321.5});
+  assert.deepEqual(restored.explorations[0].turns[0].reading,{guide:{revisionId:identity.revisionId,sectionId:identity.sectionId}});
   assert.equal(restored.explorations[0].turns[0].question,'Follow the bytes');
   assert.deepEqual(restored.explorations[0].turns[0].presentation,{stories:[story],diagrams:[]});
 });
@@ -182,17 +217,17 @@ test('real reading components bind scoped progress without persisting an autopla
   assert.match(workspace,/<ReaderProgressContext\.Provider/);
   assert.match(workspace,/progress=\{turn\.presentation\?\.stories\.find/);
   assert.match(workspace,/onProgressChange=\{onStoryProgress\}/);
-  assert.match(workspace,/progress=\{latestTurn\?\.presentation\?\.diagrams\}/);
+  assert.match(workspace,/progress=\{selectedTurn\?\.presentation\?\.diagrams\}/);
   assert.match(workspace,/defaultViewport=\{viewport\} fitView=\{!viewport\}/);
   assert.match(workspace,/rememberFileFlow\(s,current\.id,source\.path,showAll\)/);
   assert.match(visual,/useReaderProgress\(identity\)/);
   assert.match(visual,/!nativeProgress && !isNativeRuntime\(\)/);
-  assert.match(visual,/else if\(!isNativeRuntime\(\)\)try \{ localStorage\.setItem/);
+  assert.match(visual,/if \(!isNativeRuntime\(\)\) \{\s*try \{\s*localStorage\.setItem/);
   assert.doesNotMatch(visual,/if\(!nativeProgress&&onProgressChange\)/,'browser progress is never imported into an owned conversation');
-  const reader=readFileSync(new URL('../src/Walkthrough.tsx',import.meta.url),'utf8');
-  assert.match(reader,/useReaderSection\(selectedRevision\?\.revisionId\)/);
-  assert.match(reader,/ownedSection\?\.sectionId \?\? rememberedProgress\?\.sectionId/);
-  assert.match(reader,/ownedSection\?\.onSectionChange\(selectedSectionId\)/);
+  const readerAccess=readFileSync(new URL('../src/lib/ReaderProgressContext.tsx',import.meta.url),'utf8');
+  assert.match(readerAccess,/export function useReaderSection/);
+  assert.match(workspace,/section:\(revisionId\)=>\{const owner=presentationOwner/);
+  assert.match(workspace,/onSectionChange:\(sectionId\)=>\{/);
   const narration=readFileSync(new URL('../src/NarrationPlayer.tsx',import.meta.url),'utf8');
   assert.match(narration,/if\(mountedRef\.current\)persistPlaybackPosition\(event\.currentTarget\.currentTime\)/);
   assert.match(visual,/\[autoPlay, setAutoPlay\] = useState\(false\)/);

@@ -23,7 +23,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, shouldRestoreFocusedAnswerAnchor, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, resolveWorkspaceConversationConflict, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, useWorkspaceConversationConflict, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import { codexSelectionIsSupported } from '../lib/codexConnection';
@@ -283,11 +283,6 @@ export function DeveloperWorkspace(props:Props) {
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
   const focusAnswer = (turnId:string,revisionId:string,sectionId:string) => {
     update((s)=>focusAnswerSection(s,current.id,turnId,{revisionId,sectionId}));
-    requestAnimationFrame(()=>{
-      const target=Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]')??[])
-        .find((node)=>node.dataset.questionId===turnId);
-      target?.scrollIntoView({block:'start'});
-    });
   };
   const go = (id:string) => { update((s)=>openWorkspaceExploration(s,id)); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
@@ -402,12 +397,13 @@ export function DeveloperWorkspace(props:Props) {
     if(chaptersLoading||tool||!answerScroll.current)return;
     let release=0;
     const restore=requestAnimationFrame(()=>{
-      // `focusedTurnId` is durable and identifies the answer the reader last
-      // opened. `revealTurnId` is a one-shot History navigation request that
-      // may also move keyboard focus; after restart, restore reading without
-      // taking focus away from the user's current control.
-      const restoreTurnId=current.revealTurnId??current.focusedTurnId??featuredTurnId;
-      const target = current.view === 'guide' && restoreTurnId
+      // An explicit answer reveal wins over the saved viewport. Otherwise,
+      // restore that exact offset; use the focused answer only before a Guide
+      // viewport has been saved. Reveal focus is one-shot and never restored
+      // after restart.
+      const revealAnswer = shouldRestoreFocusedAnswerAnchor(current.view, current.revealTurnId, current.scrollPositions?.guide);
+      const restoreTurnId=current.revealTurnId??(revealAnswer?current.focusedTurnId??featuredTurnId:undefined);
+      const target = revealAnswer && restoreTurnId
         ? Array.from(answerScroll.current?.querySelectorAll<HTMLElement>('[data-question-id]') ?? []).find((node)=>node.dataset.questionId===restoreTurnId) : null;
       if (target) {
         target.scrollIntoView({block:'start'});
@@ -926,7 +922,10 @@ function Answer(props:AnswerProps){
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
     const sectionId=(revision&&answerReadingPosition(turn,'guide',revision.revisionId)?.sectionId)
       ?? revision?.sections[0]?.sectionId;
-    if(revision&&sectionId)props.onFocus(revision.revisionId,sectionId);
+    if(revision&&sectionId){
+      if(props.compact)props.onFocus(revision.revisionId,sectionId);
+      else props.onSection(revision.revisionId,sectionId);
+    }
   };
   const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
   const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));

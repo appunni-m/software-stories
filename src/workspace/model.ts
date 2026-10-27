@@ -220,25 +220,12 @@ const validRecordIdentifier = (value: unknown): value is string =>
 const validRecordText = (value: unknown, maxUtf8Bytes: number): value is string =>
   typeof value === 'string' && new TextEncoder().encode(value).byteLength <= maxUtf8Bytes
     && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(value);
-function strictReaderProgress(value: unknown, ownsRevision: (revisionId: string) => boolean): ReaderProgress | null {
-  if (!hasOnlyKeys(value, ['stories','diagrams']) || !Array.isArray(value.stories) || value.stories.length > 256
-    || !Array.isArray(value.diagrams) || value.diagrams.length > 256) return null;
-  const storyKeys = ['revisionId','sectionId','sectionRevisionId','sceneId','positions','fullMap','viewport','focusedNodeId','focusedEdgeId','focusLayoutVersion'];
-  const diagramKeys = ['revisionId','sectionId','sectionRevisionId','viewport','focusedNodeId','layoutVersion'];
-  for (const story of value.stories) {
-    if (!hasOnlyKeys(story, storyKeys) || (story.viewport !== undefined && !hasOnlyKeys(story.viewport, ['x','y','zoom']))
-      || (story.focusedNodeId !== undefined && (typeof story.focusedNodeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(story.focusedNodeId)))
-      || (story.focusedEdgeId !== undefined && (typeof story.focusedEdgeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(story.focusedEdgeId)))
-      || typeof story.revisionId !== 'string' || !ownsRevision(story.revisionId)) return null;
-  }
-  for (const diagram of value.diagrams) {
-    if (!hasOnlyKeys(diagram, diagramKeys) || (diagram.viewport !== undefined && !hasOnlyKeys(diagram.viewport, ['x','y','zoom']))
-      || (diagram.focusedNodeId !== undefined && (typeof diagram.focusedNodeId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(diagram.focusedNodeId)))
-      || typeof diagram.revisionId !== 'string' || !ownsRevision(diagram.revisionId)) return null;
-  }
+function cleanOwnedReaderProgress(value: unknown, ownsRevision: (revisionId: string) => boolean): ReaderProgress {
   const clean = cleanReaderProgress(value);
-  return clean.stories.length === value.stories.length && clean.diagrams.length === value.diagrams.length
-    ? value as unknown as ReaderProgress : null;
+  return {
+    stories: clean.stories.filter((item) => ownsRevision(item.revisionId)),
+    diagrams: clean.diagrams.filter((item) => ownsRevision(item.revisionId)),
+  };
 }
 /** The browser preview starts with an empty tree when its saved state is unavailable. */
 export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
@@ -249,7 +236,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
     if (!hasOnlyKeys(parsed, WORKSPACE_STATE_KEYS)) return fallback();
     const value = parsed as unknown as WorkspaceState;
     if (!value || value.version !== 1 || value.projectId !== projectId || value.snapshotId !== snapshotId || !Array.isArray(value.explorations) || !value.explorations.length || value.explorations.length > 2000) return fallback();
-    if (value.file !== null && !isWorkspaceContext({ path: value.file })) return fallback();
+    if (value.file !== null && !isWorkspaceContext({ path: value.file })) value.file = null;
     if (value.grantId !== undefined && !validRunId(value.grantId)) return fallback();
     const ids = new Set(value.explorations.map((e) => e.id));
     if (ids.size !== value.explorations.length || !ids.has('root') || !ids.has(value.currentId)) return fallback();
@@ -260,21 +247,24 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
       if ((e.id === 'root' && e.originTurnId !== null)
         || (e.id !== 'root' && (!validRunId(e.id) || !(e.parentId === 'root' || validRunId(e.parentId)) || !validRunId(e.originTurnId)))) return fallback();
-      if (e.file !== undefined && !isWorkspaceContext({ path: e.file })) return fallback();
-      if (e.reveal !== undefined && !isWorkspaceContext(e.reveal)) return fallback();
-      if (e.scrollPositions !== undefined && (!hasOnlyKeys(e.scrollPositions, ['guide','flow','history'])
-        || Object.values(e.scrollPositions).some((position) => !validScroll(position)))) return fallback();
-      if (e.fileFlow !== undefined && !hasOnlyKeys(e.fileFlow, ['path','showAll'])) return fallback();
-      if (e.draft !== undefined && (!hasOnlyKeys(e.draft, ['question','context'])
-        || typeof e.draft.question !== 'string' || e.draft.question.length > 1000
-        || !Array.isArray(e.draft.context) || e.draft.context.length > 32 || !e.draft.context.every(isWorkspaceContext)
-        || (!e.draft.question && e.draft.context.length === 0))) return fallback();
-      if (e.draft && new Set(e.draft.context.map((context) => `${context.path}\u0000${context.from ?? ''}\u0000${context.to ?? ''}`)).size !== e.draft.context.length) return fallback();
+      if (e.file !== undefined && !isWorkspaceContext({ path: e.file })) delete e.file;
+      if (e.reveal !== undefined && !isWorkspaceContext(e.reveal)) delete e.reveal;
+      if (e.scrollPositions !== undefined) {
+        const scrollPositions = cleanScrollPositions(e.scrollPositions);
+        if (scrollPositions) e.scrollPositions = scrollPositions; else delete e.scrollPositions;
+      }
+      if (e.fileFlow !== undefined) {
+        const flow = e.fileFlow;
+        if (!hasOnlyKeys(flow, ['path','showAll']) || typeof flow.path !== 'string' || flow.path.startsWith('/') || flow.path.includes('\\')
+          || flow.path.split('/').some((part) => !part || part === '.' || part === '..') || /[\u0000-\u001f\u007f]/.test(flow.path)
+          || new TextEncoder().encode(flow.path).length > 4096 || typeof flow.showAll !== 'boolean') delete e.fileFlow;
+      }
+      if (e.draft !== undefined) {
+        const draft = cleanComposerDraft(e.draft);
+        if (draft) e.draft = draft; else delete e.draft;
+      }
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
-      if (e.codeOpen !== undefined && typeof e.codeOpen !== 'boolean') return fallback();
-      if (e.fileFlow !== undefined && (typeof e.fileFlow.path !== 'string' || e.fileFlow.path.startsWith('/') || e.fileFlow.path.includes('\\')
-        || e.fileFlow.path.split('/').some((p) => !p || p === '.' || p === '..') || /[\u0000-\u001f\u007f]/.test(e.fileFlow.path)
-        || new TextEncoder().encode(e.fileFlow.path).length > 4096 || typeof e.fileFlow.showAll !== 'boolean')) return fallback();
+      if (e.codeOpen !== undefined && typeof e.codeOpen !== 'boolean') delete e.codeOpen;
       if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
@@ -285,9 +275,16 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if ((t.revisionId !== undefined && !validRecordIdentifier(t.revisionId))
           || (t.generationId !== undefined && !validGenerationId(t.generationId))
           || (t.error !== undefined && !validRecordText(t.error, 4096))) return fallback();
-        if (t.reading !== undefined && (!hasOnlyKeys(t.reading, ['guide','flow'])
-          || Object.values(t.reading).some((position) => position !== undefined
-            && (!hasOnlyKeys(position, ['revisionId','sectionId']) || !cleanReadingPosition(position))))) return fallback();
+        if (t.reading !== undefined) {
+          const reading: Partial<Record<'guide'|'flow',ReadingPosition>> = {};
+          if (t.reading && typeof t.reading === 'object' && !Array.isArray(t.reading)) {
+            for (const view of ['guide','flow'] as const) {
+              const position = cleanReadingPosition(t.reading[view]);
+              if (position && ownsAnswerRevision(t, position.revisionId)) reading[view] = position;
+            }
+          }
+          if (Object.keys(reading).length > 0) t.reading = reading; else delete t.reading;
+        }
         if (t.outcomeNotice !== undefined && (!hasOnlyKeys(t.outcomeNotice, ['read','dismissed'])
           || Object.keys(t.outcomeNotice).length === 0
           || Object.values(t.outcomeNotice).some((id) => typeof id !== 'string' || !/^[a-f0-9]{16}$/u.test(id)))) delete t.outcomeNotice;
@@ -317,19 +314,13 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if (t.outcomeAt !== undefined && (!Number.isSafeInteger(t.outcomeAt) || Number(t.outcomeAt) < 0)) delete t.outcomeAt;
         if (t.outcomeSequence !== undefined && (!Number.isSafeInteger(t.outcomeSequence) || Number(t.outcomeSequence) < 0)) delete t.outcomeSequence;
         if (t.answerVersions !== undefined) {
-          const versions: unknown = t.answerVersions;
-          if (!Array.isArray(versions) || versions.length > 256 || versions.some((version) => !hasOnlyKeys(version, ['originalRevisionId','revisionId','selected','reading']))) return fallback();
-          for (const version of versions) {
-            if (version.reading !== undefined && (!hasOnlyKeys(version.reading, ['guide','flow'])
-              || Object.values(version.reading).some((sectionId) => sectionId !== undefined
-                && (typeof sectionId !== 'string' || !/^[A-Za-z0-9_.:-]{1,256}$/u.test(sectionId))))) return fallback();
-          }
-          const cleanVersions = cleanAnswerVersions(versions, t);
-          if (cleanVersions.length !== versions.length) return fallback();
+          const cleanVersions = cleanAnswerVersions(t.answerVersions, t);
+          if (cleanVersions.length > 0) t.answerVersions = cleanVersions; else delete t.answerVersions;
         }
         if (t.presentation !== undefined) {
-          const presentation = strictReaderProgress(t.presentation, (revisionId) => ownsAnswerRevision(t, revisionId));
-          if (!presentation) return fallback();
+          const presentation = cleanOwnedReaderProgress(t.presentation, (revisionId) => ownsAnswerRevision(t, revisionId));
+          if (presentation.stories.length + presentation.diagrams.length > 0) t.presentation = presentation;
+          else delete t.presentation;
         }
         // A reload never silently resubmits inference. Native saved previews remain recoverable.
         if (t.status === 'working' || t.status === 'queued') {
@@ -560,6 +551,13 @@ function cleanReadingPosition(value: unknown): ReadingPosition | undefined {
     ? { revisionId: p.revisionId, sectionId: p.sectionId } : undefined;
 }
 const validScroll = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10_000_000;
+function cleanScrollPositions(value: unknown): Partial<Record<View,number>> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const source = value as Partial<Record<View,unknown>>;
+  const clean: Partial<Record<View,number>> = {};
+  for (const view of ['guide','flow','history'] as const) if (validScroll(source[view])) clean[view] = source[view];
+  return Object.keys(clean).length > 0 ? clean : undefined;
+}
 /** Stable section IDs survive sorting; positions never carry across revisions. */
 export function sectionPosition(revisionId: string, sections: readonly { sectionId: string }[], saved?: ReadingPosition): number {
   if (saved?.revisionId !== revisionId) return 0;
@@ -620,13 +618,22 @@ export function focusAnswerSection(state: WorkspaceState, explorationId: string,
   if (!clean || !owner || !turn || !ownsAnswerRevision(turn, clean.revisionId)) return state;
   const positioned = rememberSection(state, explorationId, turnId, 'guide', clean);
   if (owner.focusedTurnId === turnId && positioned === state) return state;
-  return { ...positioned, explorations: positioned.explorations.map((e) => e.id !== explorationId ? e : { ...e, focusedTurnId: turnId }) };
+  const focusChanged = owner.focusedTurnId !== turnId;
+  return { ...positioned, explorations: positioned.explorations.map((e) => e.id !== explorationId ? e : {
+    ...e,
+    focusedTurnId: turnId,
+    ...(focusChanged ? { revealTurnId: turnId } : {}),
+  }) };
 }
 export function rememberScroll(state: WorkspaceState, explorationId: string, view: View, top: number): WorkspaceState {
   if (!validScroll(top) || !['guide', 'flow', 'history'].includes(view)) return state;
   const owner = state.explorations.find((e) => e.id === explorationId);
   if (!owner || owner.scrollPositions?.[view] === top) return state;
   return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, scrollPositions: { ...e.scrollPositions, [view]: top } }) };
+}
+/** Prefer the saved viewport; use the answer anchor only for an explicit reveal or an uninitialized Guide. */
+export function shouldRestoreFocusedAnswerAnchor(view: View, revealTurnId?: string, savedGuideScrollTop?: number): boolean {
+  return view === 'guide' && (Boolean(revealTurnId) || !validScroll(savedGuideScrollTop));
 }
 export function rememberCodePane(state:WorkspaceState,explorationId:string,codeOpen:boolean):WorkspaceState {
   if(typeof codeOpen!=='boolean'||!state.explorations.some(e=>e.id===explorationId&&e.codeOpen!==codeOpen))return state;
