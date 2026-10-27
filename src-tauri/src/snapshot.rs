@@ -2864,6 +2864,19 @@ mod tests {
         )
         .unwrap();
         fs::write(repository.join("ignored.txt"), b"do not capture").unwrap();
+        fs::create_dir_all(repository.join("coverage")).unwrap();
+        fs::write(
+            repository.join("coverage/lcov.info"),
+            b"SF:src/lib.rs\nDA:1,1\n",
+        )
+        .unwrap();
+        fs::write(
+            repository.join("coverage/coverage-final.json"),
+            b"generated coverage report",
+        )
+        .unwrap();
+        fs::write(repository.join(".env"), b"TOKEN=do-not-capture").unwrap();
+        fs::write(repository.join(".env.local"), b"TOKEN=also-do-not-capture").unwrap();
         fs::write(
             repository.join("important.log"),
             b"re-included by a later rule",
@@ -2918,6 +2931,9 @@ mod tests {
         assert!(paths.contains("excluded/keep/keep.rs"));
         assert!(paths.contains("real.txt"));
         assert!(!paths.contains("ignored.txt"));
+        assert!(!paths.iter().any(|path| path.starts_with("coverage/")));
+        assert!(paths.contains(".env"));
+        assert!(paths.contains(".env.local"));
         assert!(!paths.contains("ignored.log"));
         assert!(!paths.contains("ignored-dir/untracked.rs"));
         assert!(!paths.contains("excluded/hidden.rs"));
@@ -2940,6 +2956,22 @@ mod tests {
             );
         }
         assert!(result.skipped.iter().any(|item| item.reason == "symlink"));
+        assert!(
+            result
+                .skipped
+                .iter()
+                .any(|item| item.path == "coverage" && item.reason == "excludedByPolicy")
+        );
+        for env_path in [".env", ".env.local"] {
+            assert!(
+                result
+                    .files
+                    .iter()
+                    .any(|file| file.path == env_path && file.secret_like)
+            );
+        }
+        let manifest_text = serde_json::to_string(&result).unwrap();
+        assert!(!manifest_text.contains("do-not-capture"));
         assert!(
             result
                 .skipped
