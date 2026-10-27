@@ -15,6 +15,7 @@ export function localNarrationPrewarmInputs(
       for (const scope of sectionNarrationScopes(revision, section, read)) {
         const preferences = applyVoiceConnection(scope.preferences, connection);
         if (preferences.backend !== 'pocket-tts') continue;
+        if (!preferences.spokenText.trim()) continue;
         requests.push({
           spokenText: preferences.spokenText,
           voice: preferences.voice,

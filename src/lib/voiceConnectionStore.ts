@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_VOICE_CONNECTION, parseVoiceConnection, VOICE_CONNECTION_KEY, type VoiceConnection } from './voiceConnection';
 
+export const VOICE_CONNECTION_CHANGED_EVENT = 'code-atlas:voice-connection-changed';
 let issue: string | null = null;
 function readSaved() {
   try { issue = null; return parseVoiceConnection(localStorage.getItem(VOICE_CONNECTION_KEY)); }
@@ -20,9 +21,11 @@ export function saveVoiceConnection(value: VoiceConnection) {
   current = next;
   issue = null;
   listeners.forEach((listener) => listener());
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(VOICE_CONNECTION_CHANGED_EVENT));
 }
 if (typeof window !== 'undefined') window.addEventListener('storage', (event) => {
   if (event.key !== VOICE_CONNECTION_KEY && event.key !== null) return;
   current = readSaved(); listeners.forEach((listener) => listener());
+  window.dispatchEvent(new Event(VOICE_CONNECTION_CHANGED_EVENT));
 });
 export function openVoiceConnections() { window.dispatchEvent(new Event('code-atlas:voice-connections')); }

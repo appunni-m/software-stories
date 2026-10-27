@@ -1,8 +1,10 @@
 import type { NarrationPrewarmStatus, NarrationSynthesisInput, ProviderCommandResult } from '../lib/commands';
+import { applyPronunciationLexicon } from '../lib/narration';
 
 export interface NarrationPrewarmQueue {
   enqueue(inputs: readonly NarrationSynthesisInput[]): number;
   state(input: NarrationSynthesisInput): 'idle' | 'queued' | 'preparing';
+  cancelPending(): number;
   invalidateIdentity(): void;
   flush(): Promise<void>;
 }
@@ -25,21 +27,52 @@ export function createNarrationPrewarmQueue(options: {
   let identityEpoch = 0;
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
-  const maxPending = options.maxPending ?? 512;
   // The native worker admits one active request and four waiting requests.
   // Leave one slot free so playback can start the clip the reader selected;
   // prewarming must not fill the native queue or lose excess requests.
   const maxConcurrent = Math.max(1, Math.min(4, options.maxConcurrent ?? 4));
+  // The native cache exposes 48 prewarm slots: five Guide slides plus one
+  // refill slide, with up to eight scenes each. Keep the renderer's queue to
+  // that same bound so a long run cannot accumulate hundreds of stale scripts.
+  const maxPending = options.maxPending ?? 48;
 
-  const keyOf = (input: NarrationSynthesisInput) => JSON.stringify([
-    identityEpoch,
-    input.spokenText.trim(),
-    input.voice,
-    input.style.trim(),
-    // Disabled pronunciations do not affect the native cache identity. Drop
-    // them here so duplicate sections cannot consume separate prewarm slots.
-    input.lexicon.filter((entry) => entry.include).map(({ name, sayAs }) => [name, sayAs]),
-  ]);
+  const keyOf = (input: NarrationSynthesisInput) => {
+    const spokenText = input.spokenText.trim();
+    // Native caching fingerprints the script after applying enabled
+    // pronunciations. Key equivalent scripts together so unused pronunciation
+    // entries do not consume extra bounded-queue slots.
+    const lexicon = input.lexicon.filter((entry) => entry.include)
+      .map(({ name, sayAs }) => ({ name: name.trim(), sayAs: sayAs.trim() }));
+    const names = new Set<string>();
+    const encoder = new TextEncoder();
+    const lexiconIsValid = input.lexicon.length <= 12 && lexicon.every(({ name, sayAs }) => {
+      if (!name || encoder.encode(name).byteLength > 120 || /[\s\u0085]/u.test(name)
+        || !sayAs || encoder.encode(sayAs).byteLength > 160 || names.has(name)) return false;
+      names.add(name);
+      return true;
+    });
+
+    if (lexiconIsValid) {
+      return JSON.stringify([
+        identityEpoch,
+        'audio',
+        applyPronunciationLexicon(spokenText, lexicon),
+        input.voice,
+        input.style.trim(),
+      ]);
+    }
+
+    // Invalid settings must reach native validation independently; otherwise
+    // an invalid request could coalesce with a valid request for the same text.
+    return JSON.stringify([
+      identityEpoch,
+      'invalid',
+      spokenText,
+      input.voice,
+      input.style.trim(),
+      lexicon,
+    ]);
+  };
 
   const prepareOne = async (input: NarrationSynthesisInput): Promise<void> => {
     let result = await options.prepare(input);
@@ -47,6 +80,15 @@ export function createNarrationPrewarmQueue(options: {
       await wait(pollMilliseconds);
       result = await options.status(input);
     }
+  };
+
+  const dropPending = () => {
+    const count = pending.length;
+    for (const { key } of pending.splice(0)) {
+      queuedKeys.delete(key);
+      keys.delete(key);
+    }
+    return count;
   };
 
   const pump = () => {
@@ -87,11 +129,19 @@ export function createNarrationPrewarmQueue(options: {
       if (preparingKeys.has(key)) return 'preparing';
       return queuedKeys.has(key) ? 'queued' : 'idle';
     },
+    cancelPending() {
+      // These jobs have not crossed into the native worker yet. When the saved
+      // voice switches to cloud, discard them without cancelling submitted
+      // local synthesis or its reusable cache entries.
+      return dropPending();
+    },
     invalidateIdentity() {
       // Native audio fingerprints bind the runtime/model. Advance the
       // client-only dedup epoch when the managed runtime may have changed so
       // an active old request cannot suppress a request for the new runtime.
       identityEpoch += 1;
+      // Do not spend the native queue on audio keyed to the replaced runtime.
+      dropPending();
     },
     async flush() {
       while (active.size || pending.length) {
