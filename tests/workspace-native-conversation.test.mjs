@@ -7,6 +7,7 @@ import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspac
 import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 
 const clone=value=>JSON.parse(JSON.stringify(value));
+const runId=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const browserWorkspaceKey=(p='project',s='snapshot')=>`code-atlas:workspace:v1:${p}:${s}`;
 
 test('native conversation validation accepts the reader pane’s current Flow layout',async()=>{
@@ -36,8 +37,9 @@ test('a selected accepted edit and each version position survive the actual wire
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
   const original={projectId:'project',snapshotId:'snapshot',chapterId:'chapter:one',target:{targetId:'target:one',scope:{kind:'overview'}},revisionId:'revision:original',revisionNumber:1,basedOnRevisionId:null,lifecycle:'draft',validationStatus:'valid',sections:[{sectionId:'section:one'}]};
   const edit={...original,revisionId:'revision:edited',revisionNumber:2,basedOnRevisionId:original.revisionId,lifecycle:'accepted'};
-  let s=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader',question:'What happens?',context:[],status:'ready',revisionId:original.revisionId,reading:{guide:{revisionId:original.revisionId,sectionId:'section:original-last'}}},'guide');
-  s=rememberAnswerVersion(s,'root','reader',original.revisionId,edit.revisionId,[original,edit]);
+  const readerId=runId(1);
+  let s=addTurn(h.store.getWorkspace('project','snapshot'),{id:readerId,question:'What happens?',context:[],status:'ready',revisionId:original.revisionId,reading:{guide:{revisionId:original.revisionId,sectionId:'section:original-last'}}},'guide');
+  s=rememberAnswerVersion(s,'root',readerId,original.revisionId,edit.revisionId,[original,edit]);
   s.explorations[0].turns[0].answerVersions[1].html='must not persist';
   h.store.updateWorkspace('project','snapshot',()=>s);await h.store.flushAllWorkspaceConversations();
   assert.doesNotMatch(JSON.stringify(b.records.get(scope)),/must not persist/);
@@ -299,21 +301,27 @@ test('an uncovered-topic Guide is a nested, durable guide under the original que
 
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
-  const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');
+  const readerId=runId(2);
+  const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:readerId,question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');
   const identity={revisionId:'revision:one',sectionId:'section:two',sectionRevisionId:'section-revision:two'};
   const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:4};
   h.store.updateWorkspace('project','snapshot',()=>state);
   h.store.updateWorkspace('project','snapshot',s=>rememberCodePane(s,'root',false));
   h.store.updateWorkspace('project','snapshot',s=>rememberFileFlow(s,'root','src/font.rs',true));
-  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','stories',{...story,html:'must never be copied',autoPlay:true}));
-  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root',readerId,'stories',story));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root',readerId,'diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}));
+  h.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>{
+    if(e.id!=='root')return e;
+    return {...e,turns:e.turns.map(t=>t.id!==readerId?t:{...t,presentation:{...t.presentation,
+      stories:t.presentation.stories.map(item=>({...item,html:'must never be copied',autoPlay:true}))}})};
+  })}));
   await h.store.flushWorkspaceConversation('project','snapshot');
   const metadata=JSON.stringify(b.records.get(scope));assert.doesNotMatch(metadata,/must never be copied|autoPlay|spokenText/);
   storage.clear();storage.get=()=>{throw new Error('browser unavailable');};
   const reopened=native(b,storage);await reopened.store.prepareWorkspaceConversation('project','snapshot');
   const root=reopened.store.getWorkspace('project','snapshot').explorations[0];
   assert.equal(root.codeOpen,false);assert.deepEqual(clone(root.fileFlow),{path:'src/font.rs',showAll:true});
-  assert.equal(root.focusedTurnId,'reader-turn','restart retains the answer the reader last opened');
+  assert.equal(root.focusedTurnId,readerId,'restart retains the answer the reader last opened');
   assert.deepEqual(clone(root.turns[0].presentation.stories),[story]);assert.equal(root.turns[0].presentation.diagrams[0].viewport.zoom,1.8);
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'),'restart reads local metadata without model, audio or indexing work');
 });
@@ -342,14 +350,18 @@ test('invalid Code Lens source context cannot replace the current saved reveal',
 });
 
 test('nested conversations retain parent turns, source, sections and last views in native storage',async()=>{
-  let state=createWorkspace('project','snapshot');state=addTurn(state,{id:'root-turn',question:'Read bytes',context:[{path:'src/font.rs',from:3,to:7}],status:'stopped',revisionId:'revision-one',reading:{guide:{revisionId:'revision-one',sectionId:'section:two'}}},'guide');
-  let parent='root-turn';for(let n=1;n<=5;n++){state=addTurn(state,{id:`turn-${n}`,question:`Depth ${n}`,context:[],status:'stopped'},['guide','flow','history'][n%3],{originTurnId:parent,id:`child-${n}`});parent=`turn-${n}`;}
-  state={...state,currentId:'root'};state=addTurn(state,{id:'sibling-turn',question:'Sibling',context:[],status:'stopped'},'flow',{originTurnId:'root-turn',id:'sibling'});
+  const rootTurnId=runId(10);
+  let state=createWorkspace('project','snapshot');state=addTurn(state,{id:rootTurnId,question:'Read bytes',context:[{path:'src/font.rs',from:3,to:7}],status:'stopped',failureCode:'stopped',revisionId:'revision-one',reading:{guide:{revisionId:'revision-one',sectionId:'section:two'}}},'guide');
+  let parent=rootTurnId;for(let n=1;n<=5;n++){const turnId=runId(10+n);state=addTurn(state,{id:turnId,question:`Depth ${n}`,context:[],status:'stopped'},['guide','flow','history'][n%3],{originTurnId:parent,id:runId(100+n)});parent=turnId;}
+  const siblingId=runId(200);
+  state={...state,currentId:'root'};state=addTurn(state,{id:runId(20),question:'Sibling',context:[],status:'stopped'},'flow',{originTurnId:rootTurnId,id:siblingId});
+  state={...state,explorations:state.explorations.map(e=>e.id===siblingId?{...e,draft:{question:'Explain this later',context:[]}}:e)};
   state=decodeWorkspace(JSON.stringify(state),'project','snapshot');assert.ok(state);
   const b=backend(),h=native(b);
   await h.store.prepareWorkspaceConversation('project','snapshot');
   h.store.updateWorkspace('project','snapshot',()=>state);await h.store.flushWorkspaceConversation('project','snapshot');
-  const saved=clone(h.store.getWorkspace('project','snapshot'));assert.equal(saved.explorations.length,7);assert.equal(saved.currentId,'sibling');assert.equal(saved.explorations[0].turns[0].reading.guide.sectionId,'section:two');
+  const saved=clone(h.store.getWorkspace('project','snapshot'));assert.equal(saved.explorations.length,7);assert.equal(saved.currentId,siblingId);assert.equal(saved.explorations[0].turns[0].reading.guide.sectionId,'section:two');
+  assert.equal(saved.explorations[0].turns[0].failureCode,'stopped');assert.equal(saved.explorations.find(e=>e.id===siblingId).draft.question,'Explain this later');
   const writesBeforeRestart=b.writes.length;const reloaded=native(b);await reloaded.store.prepareWorkspaceConversation('project','snapshot');assert.deepEqual(clone(reloaded.store.getWorkspace('project','snapshot')),saved);assert.equal(b.writes.length,writesBeforeRestart);
 });
 
@@ -495,12 +507,12 @@ test('a new attempt reconciles a previously blocked window conflict before gener
   },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
   await local.store.prepareWorkspaceConversation('project','snapshot');
   await remote.store.prepareWorkspaceConversation('project','snapshot');
-  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:remote'}));
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(301)}));
   remoteTurn=remote.store.appendQuestion('project','snapshot','Remote window question',[],'flow');
   await remote.store.flushWorkspaceConversation('project','snapshot');
-  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:local'}));
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(302)}));
   await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'),/conversation changed in another window/);
-  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:local'}));
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(302)}));
   await remote.store.flushWorkspaceConversation('project','snapshot');
   localTurn=local.store.appendQuestion('project','snapshot','Retry this focused question',[],'guide');
   await local.store.runQuestion('project','snapshot',localTurn,'grant');
@@ -511,16 +523,16 @@ test('a new attempt reconciles a previously blocked window conflict before gener
 test('same-field window conflicts keep both copies intact until the current window resolves its choice',async()=>{
   const b=backend(),local=native(b),remote=native(b);
   await Promise.all([local.store.prepareWorkspaceConversation('project','snapshot'),remote.store.prepareWorkspaceConversation('project','snapshot')]);
-  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:other-window'}));await remote.store.flushWorkspaceConversation('project','snapshot');
-  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:this-window'}));
+  remote.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(401)}));await remote.store.flushWorkspaceConversation('project','snapshot');
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(402)}));
   await assert.rejects(local.store.flushWorkspaceConversation('project','snapshot'));
   await assert.rejects(local.store.retryWorkspaceConversation('project','snapshot'),/This conversation changed in another window/);
-  assert.equal(b.records.get(scope).state.grantId,'grant:other-window');
-  assert.equal(local.store.getWorkspace('project','snapshot').grantId,'grant:this-window');
-  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:'grant:other-window'}));
+  assert.equal(b.records.get(scope).state.grantId,runId(401));
+  assert.equal(local.store.getWorkspace('project','snapshot').grantId,runId(402));
+  local.store.updateWorkspace('project','snapshot',s=>({...s,grantId:runId(401)}));
   await local.store.retryWorkspaceConversation('project','snapshot');
-  assert.equal(b.records.get(scope).state.grantId,'grant:other-window');
-  assert.equal(local.store.getWorkspace('project','snapshot').grantId,'grant:other-window');
+  assert.equal(b.records.get(scope).state.grantId,runId(401));
+  assert.equal(local.store.getWorkspace('project','snapshot').grantId,runId(401));
 });
 
 test('concurrent code-context changes stay separate instead of broadening one question',async()=>{
@@ -565,10 +577,11 @@ test('tuple scopes stay independent even when project and snapshot names contain
 });
 
 test('wire persistence excludes one-shot focus and native guide copies and restart never resends queued work',async()=>{
-  const state=createWorkspace('project','snapshot');state.explorations[0].revealTurnId='turn-one';state.explorations[0].turns=[{id:'turn-one',question:'Queued work',context:[],status:'queued',guide:{privateCopy:true}}];
+  const turnId=runId(501);
+  const state=createWorkspace('project','snapshot');state.explorations[0].revealTurnId=turnId;state.explorations[0].turns=[{id:turnId,question:'Queued work',context:[],status:'queued',guide:{privateCopy:true}}];
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');h.store.updateWorkspace('project','snapshot',()=>state);await h.store.flushWorkspaceConversation('project','snapshot');const saved=b.records.get(scope).state;
   assert.equal(saved.explorations[0].turns[0].status,'interrupted');assert.equal('revealTurnId' in saved.explorations[0],false);assert.equal('guide' in saved.explorations[0].turns[0],false);assert.equal(h.calls.some(c=>/generate|start_repository|resume_repository|authorize/.test(c.name)),false);assert.equal(decodeWorkspace('{broken','project','snapshot'),null);
-  h.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>({...e,revealTurnId:'turn-one',turns:e.turns.map(t=>({...t,guide:{privateCopy:true},context:[{path:'src/font.rs',sourceText:'not metadata'}]}))}))}));
+  h.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>({...e,revealTurnId:turnId,turns:e.turns.map(t=>({...t,guide:{privateCopy:true},context:[{path:'src/font.rs',sourceText:'not metadata'}]}))}))}));
   assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].guide.privateCopy,true);await h.store.flushWorkspaceConversation('project','snapshot');
   assert.doesNotMatch(JSON.stringify(b.records.get(scope)),/privateCopy|sourceText|revealTurnId/);
 });
@@ -584,8 +597,8 @@ test('a real queued question cannot dispatch inference when its native run refer
 test('an unavailable conversation leaves the production source workspace readable and gates generation',async()=>{
   const [store,workspace,app,native]=await Promise.all(['../src/workspace/store.ts','../src/workspace/Workspace.tsx','../src/App.tsx','../src-tauri/src/lib.rs'].map(p=>readFile(new URL(p,import.meta.url),'utf8')));
   assert.match(workspace,/return availability==='loading'\?[\s\S]*?:<DeveloperWorkspace \{\.\.\.props\} conversationAvailability=\{availability\}/);assert.match(workspace,/prepareWorkspaceConversation\(projectId,snapshotId\)/);assert.match(app,/retryWorkspaceConversation\(projectId,snapshotId\)/);
-  assert.match(workspace,/Saved conversation unavailable\./);assert.match(workspace,/disabled=\{conversationUnavailable\}/);assert.match(workspace,/This session is read-only/);
-  assert.match(workspace,/Guide me for a project walkthrough/);assert.doesNotMatch(workspace,/Build repository guide/);
+  assert.match(workspace,/Saved conversation unavailable\./);assert.match(workspace,/disabled=\{conversationUnavailable\}/);assert.match(workspace,/new questions cannot be saved/);
+  assert.match(workspace,/<BookOpen size=\{14\}\/>Guide me/);assert.doesNotMatch(workspace,/Build repository guide/);
   assert.match(workspace,/const action=contextualGuideAction\(query,attachments,!!current\.parentId\);if\(action\.kind==='repository-guide'\)startRepositoryGuide\(action\.intent\);else ask\(action\.intent,'guide'\)/);
   assert.match(store,/if\(persistence!\.availability==='ready'\)persistence!\.enqueue\(next\)/);
   assert.match(store,/await prepareWorkspaceConversation\(project,snapshot\)/);

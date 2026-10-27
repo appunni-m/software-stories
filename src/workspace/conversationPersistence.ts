@@ -129,12 +129,65 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
 
 /** Explicit wire fields exclude transient focus requests and native job copies. */
 export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
-  // A live Guide carries native metadata beside its turn in memory. The
-  // conversation contract stores its ID and section references, not that
-  // duplicate runtime object; remove it before strict record validation.
-  const durableState={...state,explorations:state.explorations.map(exploration=>({...exploration,
-    turns:exploration.turns.map(({guide:_guide,...turn})=>turn),
-  }))};
+  // Project the wire schema before validation. Runtime objects can carry
+  // transient fields (for example selection text, rendered HTML or a native
+  // Guide copy); they must never become durable metadata or make a valid save
+  // fail merely because an in-memory object has an extra property.
+  const project=(value:unknown,keys:readonly string[]):unknown=>{
+    if(!isObject(value))return value;
+    return Object.fromEntries(keys.filter(key=>Object.hasOwn(value,key)).map(key=>[key,value[key]]));
+  };
+  const projectList=(value:unknown,projectItem:(item:unknown)=>unknown):unknown=>Array.isArray(value)?value.map(projectItem):value;
+  const projectContext=(value:unknown)=>project(value,['path','sha256','from','to']);
+  const projectReading=(value:unknown)=>{
+    const reading=project(value,['guide','flow']);
+    if(isObject(reading))for(const view of ['guide','flow'])if(Object.hasOwn(reading,view))
+      reading[view]=project(reading[view],['revisionId','sectionId']);
+    return reading;
+  };
+  const projectPresentation=(value:unknown)=>{
+    const presentation=project(value,['stories','diagrams']);
+    if(!isObject(presentation))return presentation;
+    presentation.stories=projectList(presentation.stories,item=>{
+      const story=project(item,['revisionId','sectionId','sectionRevisionId','sceneId','positions','fullMap','viewport','focusedNodeId','focusedEdgeId','focusLayoutVersion']);
+      if(isObject(story)&&Object.hasOwn(story,'viewport'))story.viewport=project(story.viewport,['x','y','zoom']);
+      return story;
+    });
+    presentation.diagrams=projectList(presentation.diagrams,item=>{
+      const diagram=project(item,['revisionId','sectionId','sectionRevisionId','viewport','focusedNodeId','layoutVersion']);
+      if(isObject(diagram)&&Object.hasOwn(diagram,'viewport'))diagram.viewport=project(diagram.viewport,['x','y','zoom']);
+      return diagram;
+    });
+    return presentation;
+  };
+  const projectTurn=(value:unknown)=>{
+    const turn=project(value,['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','sourceDiscoveryNotes','guideId','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice']);
+    if(!isObject(turn))return turn;
+    if(Object.hasOwn(turn,'context'))turn.context=projectList(turn.context,projectContext);
+    if(Object.hasOwn(turn,'publishedSections'))turn.publishedSections=projectList(turn.publishedSections,item=>project(item,['runId','key','order','generationId','revisionId','supersedes','contextElapsedMs','runElapsedMs']));
+    if(Object.hasOwn(turn,'reading'))turn.reading=projectReading(turn.reading);
+    if(Object.hasOwn(turn,'presentation'))turn.presentation=projectPresentation(turn.presentation);
+    if(Object.hasOwn(turn,'answerVersions'))turn.answerVersions=projectList(turn.answerVersions,item=>{
+      const version=project(item,['originalRevisionId','revisionId','selected','reading']);
+      if(isObject(version)&&Object.hasOwn(version,'reading'))version.reading=projectReading(version.reading);
+      return version;
+    });
+    return turn;
+  };
+  const durableState=project(state,['version','projectId','snapshotId','currentId','file','grantId','explorations']);
+  if(isObject(durableState))durableState.explorations=projectList(durableState.explorations,value=>{
+    const exploration=project(value,['id','parentId','originTurnId','title','view','turns','focusedTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft']);
+    if(!isObject(exploration))return exploration;
+    if(Object.hasOwn(exploration,'turns'))exploration.turns=projectList(exploration.turns,projectTurn);
+    if(Object.hasOwn(exploration,'reveal'))exploration.reveal=projectContext(exploration.reveal);
+    if(Object.hasOwn(exploration,'fileFlow'))exploration.fileFlow=project(exploration.fileFlow,['path','showAll']);
+    if(Object.hasOwn(exploration,'scrollPositions'))exploration.scrollPositions=project(exploration.scrollPositions,['guide','flow','history']);
+    if(Object.hasOwn(exploration,'draft')){
+      exploration.draft=project(exploration.draft,['question','context']);
+      if(isObject(exploration.draft)&&Object.hasOwn(exploration.draft,'context'))exploration.draft.context=projectList(exploration.draft.context,projectContext);
+    }
+    return exploration;
+  });
   const current=decodeWorkspace(JSON.stringify(durableState),state.projectId,state.snapshotId);
   if(!current)throw unavailable();
   const {version,projectId,snapshotId,currentId,file,grantId}=current;
@@ -142,7 +195,8 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
   return JSON.parse(JSON.stringify({version,projectId,snapshotId,currentId,file,grantId,
     explorations:current.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
       file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
-      turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,
+      draft:e.draft?{question:e.draft.question,context:e.draft.context.map(context)}:undefined,
+      turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,failureCode:t.failureCode,
         generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,sourceDiscoveryNotes:t.sourceDiscoveryNotes,
         guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,answerVersions:t.answerVersions?cleanAnswerVersions(t.answerVersions,t):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
 }
