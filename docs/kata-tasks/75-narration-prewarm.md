@@ -122,3 +122,87 @@ This did not capture the brief **Checking audio** state before the lookup
 resolved, test offline restart, inspect a file-to-section hash independently,
 exercise worker cancellation/failure, or perform a listening review. Keep those
 acceptance gates open.
+
+## Runtime-invalidation source checkpoint — 27 October 2026
+
+When Pocket setup or repair changes the managed runtime identity, the client
+queue now drops prewarm jobs that have not yet entered the native worker and
+releases their deduplication slots. Already submitted work has no exposed cancel
+command and remains governed by the native queue; replacing its runtime is not
+claimed to interrupt active synthesis. No test/build or packaged runtime check
+ran. Keep queue race, offline restart, latency and listening acceptance open.
+
+## Saved voice-switch source checkpoint — 27 October 2026
+
+Saving Gemini now broadcasts the updated global voice preference to the local
+prewarm queue, including changes received through another app window's storage
+event. Pocket jobs still waiting in the client queue are dropped and release
+their deduplication slots. Requests already submitted to the native worker are
+allowed to finish and remain cacheable; switching to Gemini does not start any
+cloud narration request. No test/build or packaged transition check ran. Keep
+the queue race and remaining packaged acceptance open.
+
+## Invalid saved-voice transition — 27 October 2026
+
+The cross-window voice-change listener now also drops queued Pocket work when
+the stored preference cannot be parsed. The preference store exposes Pocket as
+a display fallback while separately reporting the parse issue; treating that
+fallback as an explicit Pocket choice could otherwise keep old queue entries
+alive. Already submitted native work remains unaffected. No tests, build, or
+packaged transition check ran; keep the queue race and remaining acceptance
+open.
+
+## Best-effort queue admission — 27 October 2026
+
+Saved-answer adoption now catches synchronous errors from optional narration
+prewarm admission. Native answer storage and workspace reconciliation remain
+the success boundary; malformed local narration preferences or a queue
+admission error cannot turn an already-saved section into a failed adoption.
+Synthesis still runs asynchronously through the existing bounded worker. No
+tests or build ran; keep audio failure, cancellation, packaged readiness and
+restart acceptance open.
+
+## Skip silent sections — 27 October 2026
+
+Prewarm input construction now omits empty or whitespace-only narration scopes.
+The Guide's intentionally silent evidence-boundary section therefore uses no
+Pocket worker slot; nonempty scripts are passed unchanged so their audio key
+continues to match player synthesis. This source-only refinement has no test or
+packaged evidence. Queue bounds, failure recovery, latency and playback remain
+open.
+
+## Clear queued clips when any saved voice setting changes — 27 October 2026
+
+The process-wide prewarm queue now drops all Pocket clips that have not yet
+entered the native worker when the global Voice preference changes. This also
+covers Pocket-to-Pocket edits: queued jobs retain their original script and
+voice settings, so continuing them after a saved edit wastes worker capacity
+even though their fingerprints would prevent stale playback reuse. Synthesis
+already submitted to the native worker is allowed to finish and remains
+cacheable under its original fingerprint. No tests, build, or packaged
+transition check ran; queue race and remaining acceptance gates stay open.
+
+## Align renderer and native queue bounds — 27 October 2026
+
+The renderer previously retained up to 512 queued scripts even though the
+native cache admits 48 prewarm jobs. The renderer cap now matches 48, which is
+the documented maximum for five ready/ahead Guide slides plus one refill at
+eight scenes per slide. Extra scripts remain unprepared until ordinary
+on-demand playback requests them. This bounds duplicate/stale queued work in
+both layers without changing cache fingerprints or the single native worker.
+Source-only change; no tests, build or packaged queue-pressure check ran. Keep
+capacity, cancellation and first-play latency acceptance open.
+
+## Release playback reviews after prewarmed audio — 27 October 2026
+
+The native playback command now removes its request review when it returns
+from the prewarmed-audio path. That path can return a cached WAV (or a terminal
+wait error) without passing through normal synthesis, which consumes reviews;
+the player then drops its review reference. Repeated ready replays could
+therefore leave entries in the 16-slot native review store until expiry and
+block new reviews. This cleanup changes no audio or cache data. No tests or
+build ran. Acceptance still needs a source regression check for review-slot
+reuse and packaged verification of the preparing-to-ready transition,
+first-section latency, canonical cache-key match, offline restart, queue
+cancellation/shutdown/failure under load, manual playback, and listening
+quality.
