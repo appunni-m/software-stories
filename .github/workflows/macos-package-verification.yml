@@ -61,8 +61,8 @@ jobs:
             exit 0
           fi
 
-          if git diff --quiet "$base" "$head" -- . ':(exclude)docs/**'; then
-            echo "Only documentation under docs/ changed; skipping the native package build."
+          if git diff --quiet "$base" "$head" -- . ':(exclude)docs/**' ':(exclude).gitignore'; then
+            echo "Only documentation or repository ignore rules changed; skipping the native package build."
             echo "verify=false" >> "$GITHUB_OUTPUT"
           else
             echo "Package inputs changed or the diff check failed; package verification is required."

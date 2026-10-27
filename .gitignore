@@ -27,6 +27,7 @@ benchmarks/chapter-quality/review/reports/
 **/htmlcov/
 .coverage
 .coverage.*
+**/coverage-final.json
 lcov.info
 coverage.xml
 **/coverage.out
