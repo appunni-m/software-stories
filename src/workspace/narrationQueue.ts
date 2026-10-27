@@ -76,9 +76,25 @@ export function createNarrationPrewarmQueue(options: {
     ]);
   };
 
-  const prepareOne = async (input: NarrationSynthesisInput): Promise<void> => {
+  const cancelNative = (input: NarrationSynthesisInput) => {
+    if (!options.cancelNativePending) return;
+    try {
+      void options.cancelNativePending(input).catch(() => {});
+    } catch {
+      // Cancellation is best-effort; active synthesis remains cacheable.
+    }
+  };
+
+  const prepareOne = async (input: NarrationSynthesisInput, epoch: number): Promise<void> => {
     let result = await options.prepare(input);
-    while (result.status === 'ok' && result.data.state === 'preparing') {
+    while (true) {
+      if (epoch !== identityEpoch) {
+        // The connection-change cancellation may have reached native before
+        // this preparation command was admitted. Retry after admission settles.
+        cancelNative(input);
+        return;
+      }
+      if (result.status !== 'ok' || result.data.state !== 'preparing') return;
       await wait(pollMilliseconds);
       result = await options.status(input);
     }
@@ -100,7 +116,7 @@ export function createNarrationPrewarmQueue(options: {
       preparingKeys.add(key);
       activeInputs.set(key, input);
       let task: Promise<void>;
-      task = prepareOne(input).catch(() => {
+      task = prepareOne(input, identityEpoch).catch(() => {
         // Narration is optional; a failed clip must not block later clips.
       }).finally(() => {
         active.delete(task);
@@ -146,15 +162,7 @@ export function createNarrationPrewarmQueue(options: {
       identityEpoch += 1;
       // Do not spend the native queue on audio keyed to the replaced runtime.
       dropPending();
-      if (options.cancelNativePending) {
-        for (const input of activeInputs.values()) {
-          try {
-            void options.cancelNativePending(input).catch(() => {});
-          } catch {
-            // Cancellation is best-effort; active synthesis keeps its cache key.
-          }
-        }
-      }
+      for (const input of activeInputs.values()) cancelNative(input);
     },
     async flush() {
       while (active.size || pending.length) {
