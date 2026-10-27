@@ -83,7 +83,7 @@ npm run check
 
 `npm run bundle:macos` is configured to request an unsigned `.app` and `.dmg` and verify their identity and embedded schema metadata. A macOS GitHub Actions preflight is configured to run that command on pull requests and pushes to `main`; it does not sign, notarize, or publish the bundle. The packaged app declares macOS 14 as its minimum; a signed user-download artifact has not been qualified.
 
-After changing the npm or Cargo dependency graph, regenerate the packaged license inventory with `cargo install cargo-about --version 0.9.2 --locked` followed by `npm run licenses:generate`. The macOS bundle command checks the recorded manifest, lockfile, icon, and bundled-license fingerprints before packaging.
+After changing the npm or Cargo dependency graph, regenerate the packaged license inventory with `cargo install cargo-about --version 0.9.2 --locked --features cli` followed by `npm run licenses:generate`. The macOS bundle command checks the recorded manifest, lockfile, icon, and bundled-license fingerprints before packaging.
 
 ## Data and provider behavior
 

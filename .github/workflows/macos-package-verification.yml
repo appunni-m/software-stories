@@ -29,7 +29,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install the pinned license inventory tool
-        run: cargo install cargo-about --version 0.9.2 --locked
+        run: |
+          cargo install cargo-about --version 0.9.2 --locked --features cli
+          cargo about --version
 
       - name: Fetch locked Rust dependencies for offline license inventory
         run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
