@@ -433,7 +433,16 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
             "Pocket TTS setup did not produce a complete runtime. Retry setup.",
         ));
     }
+    cleanup_setup_caches(runtime);
     Ok(())
+}
+
+/// Drop setup-only copies after the verified runtime owns its model assets.
+/// Failed setup keeps these caches so an explicit retry can reuse downloads.
+fn cleanup_setup_caches(runtime: &Path) {
+    for directory in ["uv-cache", "huggingface"] {
+        let _ = remove_path_if_present(&runtime.join(directory));
+    }
 }
 
 fn write_worker(runtime: &Path) -> Result<(), ProviderFailure> {
