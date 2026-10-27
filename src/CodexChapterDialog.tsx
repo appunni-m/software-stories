@@ -152,7 +152,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(selection.effort));
-  const modelAvailabilityMessage = models.length === 0 ? null
+  const modelAvailabilityMessage = models.length === 0
+    ? busy === 'models' ? 'Loading available models from this Codex account…' : 'Load the available models from this Codex account before generating.'
     : !selectedModel ? selection.modelId
       ? `Saved model ${selection.modelId} is not available in this Codex account. Choose a listed model in Model settings; Code Atlas will not switch models for you.`
       : 'Choose a model in Model settings before generating.'
