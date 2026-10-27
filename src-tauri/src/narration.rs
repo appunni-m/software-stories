@@ -363,6 +363,36 @@ impl NarrationPrewarmQueue {
             .and_then(|queue| queue.entries.get(cache_key).map(|entry| entry.state))
     }
 
+    /// Remove a stale request only while it is still waiting for the native
+    /// worker. Work already dequeued remains cacheable under its original key.
+    fn cancel_pending(&self, cache_key: &str) -> bool {
+        let mut cancellation = None;
+        let mut work = None;
+        let cancelled = {
+            let Ok(mut queue) = self.0.lock() else {
+                return false;
+            };
+            let Some(position) = queue.pending.iter().position(|key| key == cache_key) else {
+                return false;
+            };
+            queue.pending.remove(position);
+            if let Some(entry) = queue.entries.get_mut(cache_key)
+                && entry.state == NarrationPrewarmState::Preparing
+            {
+                entry.state = NarrationPrewarmState::Unavailable;
+                entry.updates.send_replace(NarrationPrewarmState::Unavailable);
+                cancellation = entry.cancellation.take();
+                work = entry.work.take();
+            }
+            true
+        };
+        drop(work);
+        if let Some(cancellation) = cancellation {
+            let _ = cancellation.send(());
+        }
+        cancelled
+    }
+
     fn finish(&self, cache_key: &str, state: NarrationPrewarmState) {
         if let Ok(mut queue) = self.0.lock() {
             if let Some(entry) = queue.entries.get_mut(cache_key) {
@@ -722,6 +752,19 @@ pub fn prewarm_local_audio(
         state: schedule.state,
         cached_audio_available: schedule.accepted && schedule.state == NarrationPrewarmState::Ready,
     })
+}
+
+/// Best-effort cleanup for voice changes: a queued prewarm can be discarded,
+/// while audio already in synthesis remains valid for its original fingerprint.
+pub fn cancel_pending_local_audio(
+    storage_dir: &Path,
+    queue: &NarrationPrewarmQueue,
+    input: BuildNarrationReviewInput,
+) -> bool {
+    let Ok(review) = create_review(storage_dir, input, true) else {
+        return false;
+    };
+    queue.cancel_pending(&review.cache_key)
 }
 
 pub fn local_audio_preparation_status(

@@ -1359,6 +1359,10 @@ export async function prewarmLocalNarration(input: NarrationSynthesisInput): Pro
   return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('prewarm_local_narration', { input });
 }
 
+export async function cancelPendingLocalNarration(input: NarrationSynthesisInput): Promise<boolean> {
+  return invoke<boolean>('cancel_pending_local_narration', { input });
+}
+
 export async function getLocalNarrationPreparationStatus(input: NarrationSynthesisInput): Promise<ProviderCommandResult<NarrationPrewarmStatus>> {
   return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('get_local_narration_preparation_status', { input });
 }

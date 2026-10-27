@@ -894,6 +894,20 @@ fn prewarm_local_narration(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn cancel_pending_local_narration(
+    app: AppHandle,
+    prewarms: State<'_, narration::NarrationPrewarmQueue>,
+    input: narration::BuildNarrationReviewInput,
+) -> Result<bool, String> {
+    let storage_dir = app_data_directory(&app)?;
+    Ok(narration::cancel_pending_local_audio(
+        &storage_dir,
+        &prewarms,
+        input,
+    ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn get_local_narration_preparation_status(
     app: AppHandle,
     prewarms: State<'_, narration::NarrationPrewarmQueue>,
@@ -2182,6 +2196,7 @@ pub fn run() {
             setup_pocket_tts,
             build_local_narration_request_review,
             prewarm_local_narration,
+            cancel_pending_local_narration,
             get_local_narration_preparation_status,
             build_narration_request_review,
             discard_narration_request_review,

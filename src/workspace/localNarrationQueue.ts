@@ -1,4 +1,9 @@
-import { getLocalNarrationPreparationStatus, prewarmLocalNarration, type NarrationSynthesisInput } from '../lib/commands';
+import {
+  cancelPendingLocalNarration,
+  getLocalNarrationPreparationStatus,
+  prewarmLocalNarration,
+  type NarrationSynthesisInput,
+} from '../lib/commands';
 import { VOICE_CONNECTION_CHANGED_EVENT } from '../lib/voiceConnectionStore';
 import { createNarrationPrewarmQueue } from './narrationQueue';
 
@@ -6,6 +11,7 @@ import { createNarrationPrewarmQueue } from './narrationQueue';
 export const localNarrationPrewarmer = createNarrationPrewarmQueue({
   prepare: prewarmLocalNarration,
   status: getLocalNarrationPreparationStatus,
+  cancelNativePending: cancelPendingLocalNarration,
 });
 
 // The global saved voice applies to every answer. Discard not-yet-started jobs
@@ -13,7 +19,7 @@ export const localNarrationPrewarmer = createNarrationPrewarmQueue({
 // voice or script settings. Submitted native work remains fingerprinted/cacheable.
 if (typeof window !== 'undefined') {
   window.addEventListener(VOICE_CONNECTION_CHANGED_EVENT, () => {
-    localNarrationPrewarmer.cancelPending();
+    localNarrationPrewarmer.invalidateIdentity();
   });
 }
 

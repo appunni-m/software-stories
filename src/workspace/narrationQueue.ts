@@ -14,6 +14,7 @@ export interface NarrationPrewarmQueue {
 export function createNarrationPrewarmQueue(options: {
   prepare: (input: NarrationSynthesisInput) => Promise<ProviderCommandResult<NarrationPrewarmStatus>>;
   status: (input: NarrationSynthesisInput) => Promise<ProviderCommandResult<NarrationPrewarmStatus>>;
+  cancelNativePending?: (input: NarrationSynthesisInput) => Promise<boolean>;
   wait?: (milliseconds: number) => Promise<void>;
   pollMilliseconds?: number;
   maxPending?: number;
@@ -24,6 +25,7 @@ export function createNarrationPrewarmQueue(options: {
   const queuedKeys = new Set<string>();
   const preparingKeys = new Set<string>();
   const active = new Set<Promise<void>>();
+  const activeInputs = new Map<string, NarrationSynthesisInput>();
   let identityEpoch = 0;
   const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const pollMilliseconds = options.pollMilliseconds ?? 750;
@@ -96,12 +98,14 @@ export function createNarrationPrewarmQueue(options: {
       const { input, key } = pending.shift()!;
       queuedKeys.delete(key);
       preparingKeys.add(key);
+      activeInputs.set(key, input);
       let task: Promise<void>;
       task = prepareOne(input).catch(() => {
         // Narration is optional; a failed clip must not block later clips.
       }).finally(() => {
         active.delete(task);
         preparingKeys.delete(key);
+        activeInputs.delete(key);
         keys.delete(key);
         pump();
       });
@@ -142,6 +146,15 @@ export function createNarrationPrewarmQueue(options: {
       identityEpoch += 1;
       // Do not spend the native queue on audio keyed to the replaced runtime.
       dropPending();
+      if (options.cancelNativePending) {
+        for (const input of activeInputs.values()) {
+          try {
+            void options.cancelNativePending(input).catch(() => {});
+          } catch {
+            // Cancellation is best-effort; active synthesis keeps its cache key.
+          }
+        }
+      }
     },
     async flush() {
       while (active.size || pending.length) {
