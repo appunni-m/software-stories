@@ -285,6 +285,7 @@ struct CallTiming {
     started_ms: u64,
     prepared_ms: Option<u64>,
     finished_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     local_stages: Vec<crate::generation_timing::ContextStage>,
 }
 

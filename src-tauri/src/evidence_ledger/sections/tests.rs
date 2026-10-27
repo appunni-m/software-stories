@@ -786,6 +786,37 @@ fn current_answer_listing_skips_unsupported_old_records_without_modifying_them()
 }
 
 #[test]
+fn current_answer_replays_checkpoints_without_optional_local_search_timings() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let proposal = authoring::tests::proposal(&reference, "entry", 0);
+    publish(&mut answer, &ledger, &proposal, &f, &runtime, &cancel);
+
+    let run = ledger.record.binding.operation_id.clone();
+    let mut value = serde_json::to_value(inspect(&f.storage, &run).unwrap()).unwrap();
+    let checkpoint_call = value["sections"][0]["checkpoint"]["calls"][0]
+        .as_object_mut()
+        .unwrap();
+    let timing = checkpoint_call["timing"].as_object_mut().unwrap();
+    assert!(timing.remove("localStages").is_none());
+    let bytes = serde_json::to_vec(&value).unwrap();
+    let path = record_path(&f.storage, &run).unwrap();
+    fs::write(&path, &bytes).unwrap();
+
+    capacity::check(&f.storage, None, None).unwrap();
+    let observations = reading::list_observations(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+    )
+    .unwrap();
+    assert_eq!(observations.len(), 1);
+    assert_eq!(fs::read(path).unwrap(), bytes);
+}
+
+#[test]
 fn legacy_answers_count_toward_the_total_limit_and_remain_unchanged_on_check() {
     let f = Fixture::new();
     let (ledger, runtime, cancel) = setup(&f);
