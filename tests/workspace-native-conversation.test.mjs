@@ -243,6 +243,40 @@ test('repository guide start, resume and refill carry renderer queue wait to nat
   assert.ok(Number.isInteger(advanceArgs.rendererQueueWaitMs)&&advanceArgs.rendererQueueWaitMs>=0&&advanceArgs.rendererQueueWaitMs<=86_400_000);
 });
 
+test('playing a Guide slide during an active run saves its receipt before the queued refill',async()=>{
+  const b=backend(),started=deferred(),startResult=deferred(),receiptSaved=deferred(),refillStarted=deferred();
+  let receiptArgs,refillArgs;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='start_repository_guide'){started.resolve();return startResult.promise;}
+    if(name==='record_repository_guide_consumption'){
+      receiptArgs=clone(args);receiptSaved.resolve();return guideSummary(args.id,args.consumedRevisionId);
+    }
+    if(name==='advance_repository_guide'){
+      refillArgs=clone(args);refillStarted.resolve();return guideSummary(args.id,args.consumedRevisionId);
+    }
+    if(name==='list_repository_guides')return {guides:[],unavailableCount:0};
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  function guideSummary(id,consumedRevisionId){
+    return {revision:1,id,projectId:'project',snapshotId:'snapshot',question:'Explain the repository journey',title:'Repository journey',
+      status:'building',openingRunId:null,openingRunIds:[],canContinue:true,canExtend:false,continuationOperations:1,
+      consumedSlideRevisions:consumedRevisionId?[consumedRevisionId]:[],units:[],answers:[],omissions:[],capturedFiles:1,startingFiles:1};
+  }
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const turnId=h.store.appendRepositoryGuide('project','snapshot','Explain the repository journey');
+  const guideId=h.store.getWorkspace('project','snapshot').explorations[0].turns.find(turn=>turn.id===turnId).guideId;
+  const running=h.store.runRepositoryGuide('project','snapshot',turnId,'grant');await started.promise;
+  h.store.updateWorkspace('project','snapshot',state=>({...state,explorations:state.explorations.map(exploration=>({...exploration,
+    turns:exploration.turns.map(turn=>turn.id===turnId?{...turn,guide:{canContinue:true}}:turn)}))}));
+
+  await h.store.advanceRepositoryGuide('project','snapshot',turnId,'slide:one');await receiptSaved.promise;
+  assert.deepEqual(receiptArgs,{id:guideId,projectId:'project',snapshotId:'snapshot',consumedRevisionId:'slide:one'});
+  assert.equal(refillArgs,undefined,'the active Guide worker owns refill scheduling');
+
+  startResult.resolve(guideSummary(guideId));await running;await refillStarted.promise;
+  assert.equal(refillArgs.id,guideId);assert.equal(refillArgs.consumedRevisionId,'slide:one');
+});
+
 test('an uncovered-topic Guide is a nested, durable guide under the original question',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
   const parentId=h.store.appendRepositoryGuide('project','snapshot','How does this project work?');
