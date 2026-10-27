@@ -68,6 +68,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: code-atlas-${{ github.ref_name }}-macos-release-candidate
+          retention-days: 14
           if-no-files-found: error
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
