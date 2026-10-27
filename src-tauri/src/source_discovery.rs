@@ -17,6 +17,9 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
+use tantivy::tokenizer::{
+    Language, LowerCaser, SimpleTokenizer, Stemmer, TextAnalyzer, TokenStream,
+};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
@@ -149,17 +152,64 @@ pub(crate) fn is_code_path(path: &str) -> bool {
     )
 }
 
-fn query_term_matches(value: &str, words: &[String]) -> usize {
+fn english_stemmer() -> TextAnalyzer {
+    TextAnalyzer::builder(SimpleTokenizer::default())
+        .filter(LowerCaser)
+        .filter(Stemmer::new(Language::English))
+        .build()
+}
+
+fn english_stem(analyzer: &mut TextAnalyzer, word: &str) -> String {
+    let mut stream = analyzer.token_stream(word);
+    if stream.advance() {
+        stream.token().text.clone()
+    } else {
+        word.to_owned()
+    }
+}
+
+fn stem_query_words(words: &[String], analyzer: &mut TextAnalyzer) -> HashMap<String, String> {
+    words
+        .iter()
+        .map(|word| (word.clone(), english_stem(analyzer, word)))
+        .collect()
+}
+
+fn query_term_matches(
+    value: &str,
+    words: &[String],
+    query_stems: &HashMap<String, String>,
+    analyzer: &mut TextAnalyzer,
+) -> usize {
     if words.is_empty() {
         return 0;
     }
     let lower = value.to_lowercase();
     let terms = identifier_terms(value);
+    let exact_terms = terms.split_whitespace().collect::<HashSet<_>>();
+    let needs_stemming = words
+        .iter()
+        .any(|word| !exact_terms.contains(word.as_str()) && !lower.contains(word));
+    let candidate_stems = if needs_stemming {
+        let mut stream = analyzer.token_stream(&terms);
+        let mut stems = HashSet::new();
+        while stream.advance() {
+            stems.insert(stream.token().text.clone());
+        }
+        stems
+    } else {
+        HashSet::new()
+    };
     words
         .iter()
         .map(|word| {
-            if terms.split_whitespace().any(|term| term == word) {
+            if exact_terms.contains(word.as_str()) {
                 2
+            } else if query_stems
+                .get(word)
+                .is_some_and(|stem| candidate_stems.contains(stem))
+            {
+                1
             } else if lower.contains(word.as_str()) {
                 1
             } else {
@@ -247,6 +297,8 @@ fn metadata(
     }
     words.sort_unstable();
     words.dedup();
+    let mut stemmer = english_stemmer();
+    let query_stems = stem_query_words(&words, &mut stemmer);
     if input.target_path.as_ref().is_some_and(|target| {
         !candidates.iter().any(|file| &file.path == target)
     }) {
@@ -303,7 +355,8 @@ fn metadata(
             indexed_files.insert(indexed.path.as_str(), indexed);
         }
         for symbol in &local_index.symbols {
-            let matched_terms = query_term_matches(&symbol.qualified_name, &words);
+            let matched_terms =
+                query_term_matches(&symbol.qualified_name, &words, &query_stems, &mut stemmer);
             if matched_terms > 0 {
                 let relevance = matched_terms * 8;
                 symbol_relevance_by_path
@@ -323,17 +376,13 @@ fn metadata(
         }
         for edge in &local_index.relationships {
             if edge.confidence == index::RelationshipConfidence::High {
-                let matched_terms = edge
-                    .target_label
-                    .as_deref()
-                    .map(|label| query_term_matches(label, &words))
-                    .unwrap_or_default()
-                    .max(
-                        edge.target_path
-                            .as_deref()
-                            .map(|path| query_term_matches(path, &words))
-                            .unwrap_or_default(),
-                    );
+                let label_matches = edge.target_label.as_deref().map_or(0, |label| {
+                    query_term_matches(label, &words, &query_stems, &mut stemmer)
+                });
+                let path_matches = edge.target_path.as_deref().map_or(0, |path| {
+                    query_term_matches(path, &words, &query_stems, &mut stemmer)
+                });
+                let matched_terms = label_matches.max(path_matches);
                 if matched_terms > 0 {
                     let relevance = matched_terms * 4;
                     link_relevance_by_path
@@ -360,7 +409,7 @@ fn metadata(
     // implementations alphabetically before Codex gets to select them.
     candidates.sort_by_cached_key(|file| {
         let lower = file.path.to_ascii_lowercase();
-        let path_score = query_term_matches(&lower, &words) * 10
+        let path_score = query_term_matches(&lower, &words, &query_stems, &mut stemmer) * 10
             + usize::from(lower.starts_with("src/") || lower.contains("/src/")) * 3;
         let symbol_score = symbol_relevance_by_path
             .get(file.path.as_str())
@@ -828,6 +877,31 @@ fn validate_selection(
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn discovery_matches_common_english_inflections_in_source_names() {
+        let words = vec!["pixels".to_owned(), "rendering".to_owned()];
+        let mut analyzer = english_stemmer();
+        let stems = stem_query_words(&words, &mut analyzer);
+
+        assert_eq!(
+            query_term_matches("src/pixel.rs", &words, &stems, &mut analyzer),
+            1,
+        );
+        assert_eq!(
+            query_term_matches("src/pixels.rs", &words, &stems, &mut analyzer),
+            2,
+        );
+        assert_eq!(
+            query_term_matches("render_glyph", &words, &stems, &mut analyzer),
+            1,
+        );
+        assert_eq!(
+            query_term_matches("pixels_rendering", &words, &stems, &mut analyzer),
+            4,
+        );
+    }
+
     #[test]
     fn parser_supported_implementation_paths_are_discoverable() {
         for path in [
