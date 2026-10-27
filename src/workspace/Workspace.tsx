@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, MarkerType, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, ShieldCheck, Square, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { CodeDetail } from '../design/CodeDetail';
 import { AppSelect } from '../design/AppSelect';
@@ -231,7 +231,7 @@ export function DeveloperWorkspace(props:Props) {
   const guideStackKey=JSON.stringify([projectId,snapshotId,current.id]);
   const guideStackExpanded=expandedGuideStackKey===guideStackKey;
   const guideTurns=guideStackTurns(visibleTurns,
-    [current.focusedTurnId,featuredTurnId,...branchesByTurn.keys()],guideStackExpanded);
+    [current.focusedTurnId,featuredTurnId??undefined,...branchesByTurn.keys()],guideStackExpanded);
   const hiddenGuideTurnCount=visibleTurns.length-guideTurns.length;
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);

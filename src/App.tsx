@@ -282,7 +282,7 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
-  const [pendingLargeFileExplanation, setPendingLargeFileExplanation] = useState<PendingLargeFileExplanation | null>(null);
+  const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
     setPlanningDialog(null);
@@ -302,14 +302,14 @@ function App() {
     }
   }, [planningDialog, navigation.current.workspace, navigation.current.projectId, navigation.current.snapshotId]);
   useEffect(() => {
-    if (!pendingLargeFileExplanation) return;
+    if (!pendingLargeFileRequest) return;
     const route = navigation.current;
-    if (route.workspace !== 'guide-plan' || route.projectId !== pendingLargeFileExplanation.projectId
-      || route.snapshotId !== pendingLargeFileExplanation.snapshotId
-      || route.relativePath !== pendingLargeFileExplanation.targetPath) {
-      setPendingLargeFileExplanation(null);
+    if (route.workspace !== 'guide-plan' || route.projectId !== pendingLargeFileRequest.projectId
+      || route.snapshotId !== pendingLargeFileRequest.snapshotId
+      || route.relativePath !== pendingLargeFileRequest.targetPath) {
+      setPendingLargeFileRequest(null);
     }
-  }, [pendingLargeFileExplanation, navigation.current.workspace, navigation.current.projectId,
+  }, [pendingLargeFileRequest, navigation.current.workspace, navigation.current.projectId,
     navigation.current.snapshotId, navigation.current.relativePath]);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
   const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -1173,7 +1173,7 @@ function App() {
           : null
       : null;
     if (largeFileRequest) {
-      setPendingLargeFileExplanation(largeFileRequest);
+      setPendingLargeFileRequest(largeFileRequest);
       setProviderDialog(null);
       setNavigation((state) => navigateToRoute(state, {
         ...state.current,
@@ -1758,8 +1758,8 @@ function App() {
                 </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
               </div>
             ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
-              pendingLargeFileExplanation={pendingLargeFileExplanation}
-              onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileExplanation((current) => current?.id === id ? null : current)}
+              pendingLargeFileExplanation={pendingLargeFileRequest}
+              onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileRequest((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef}}

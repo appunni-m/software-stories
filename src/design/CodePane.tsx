@@ -20,7 +20,7 @@ type LanguageLoader = () => Promise<Extension>;
 // Load only the parser needed by the open file. The dynamic imports keep the
 // initial workspace bundle small while giving the code pane real language
 // support for the languages most often encountered in repositories.
-const languageLoaders: Record<string, LanguageLoader> = {
+const languageLoaders: Partial<Record<string, LanguageLoader>> = {
   js: () => import('@codemirror/lang-javascript').then(({ javascript }) => javascript()),
   mjs: () => import('@codemirror/lang-javascript').then(({ javascript }) => javascript()),
   cjs: () => import('@codemirror/lang-javascript').then(({ javascript }) => javascript()),
@@ -129,7 +129,7 @@ const languageLoaders: Record<string, LanguageLoader> = {
   gradle: () => import('@codemirror/legacy-modes/mode/groovy').then(({ groovy }) => StreamLanguage.define(groovy)),
 };
 
-const namedLanguageLoaders: Record<string, LanguageLoader> = {
+const namedLanguageLoaders: Partial<Record<string, LanguageLoader>> = {
   dockerfile: () => import('@codemirror/legacy-modes/mode/dockerfile').then(({ dockerFile }) => StreamLanguage.define(dockerFile)),
   'cmakelists.txt': () => import('@codemirror/legacy-modes/mode/cmake').then(({ cmake }) => StreamLanguage.define(cmake)),
   'nginx.conf': () => import('@codemirror/legacy-modes/mode/nginx').then(({ nginx }) => StreamLanguage.define(nginx)),
