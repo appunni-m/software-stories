@@ -30,7 +30,7 @@ import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
@@ -215,6 +215,7 @@ export function DeveloperWorkspace(props:Props) {
   const [reveal,setReveal] = useState<Context|null>(null);
   const [chapters,setChapters] = useState<ChapterRevision[]>([]);
   const [chaptersLoading,setChaptersLoading] = useState(true);
+  const [expandedGuideStackKey,setExpandedGuideStackKey] = useState<string|null>(null);
   const availableRevisionIds = useMemo(()=>new Set(chapters.map((chapter)=>chapter.revisionId)),[chapters]);
   const visibleTurns = visibleConversationTurns(state, current, availableRevisionIds, chaptersLoading);
   const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, availableRevisionIds);
@@ -227,6 +228,11 @@ export function DeveloperWorkspace(props:Props) {
     }
     return grouped;
   },[state.explorations,current.id]);
+  const guideStackKey=JSON.stringify([projectId,snapshotId,current.id]);
+  const guideStackExpanded=expandedGuideStackKey===guideStackKey;
+  const guideTurns=guideStackTurns(visibleTurns,
+    [current.focusedTurnId,featuredTurnId,...branchesByTurn.keys()],guideStackExpanded);
+  const hiddenGuideTurnCount=visibleTurns.length-guideTurns.length;
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
@@ -844,7 +850,15 @@ export function DeveloperWorkspace(props:Props) {
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>
               {chapterError&&<p className="dw-error" role="alert">{chapterError}<button onClick={()=>{void refreshChapters();}}>Retry</button></p>}
               <Tabs.Content value="guide">
-                {visibleTurns.length>0?visibleTurns.map(renderAnswer):<section className="dw-welcome"><BookOpen size={25}/><h1>What would you like to understand?</h1><p>{conversationUnavailable?'Browse or search the captured code to inspect it.':'Ask above, or start with the selected file.'}</p>{!generationPaused&&source&&<button className="dw-text-action" onClick={()=>explain({path:source.path,sha256:source.sha256})}>Explain {source.path.split('/').at(-1)}</button>}</section>}
+                {visibleTurns.length>0?<>
+                  {guideTurns.map(renderAnswer)}
+                  {(hiddenGuideTurnCount>0||guideStackExpanded)&&<div className="dw-guide-stack-control" role="group" aria-label="Guide answer history">
+                    <span>{hiddenGuideTurnCount>0?`Showing ${guideTurns.length} of ${visibleTurns.length} answers. Older answers are in Chat history.`:`Showing all ${visibleTurns.length} answers.`}</span>
+                    <Button size="1" variant="ghost" onClick={()=>setExpandedGuideStackKey(guideStackExpanded?null:guideStackKey)}>
+                      {guideStackExpanded?'Show recent answers':`Show all ${visibleTurns.length} answers`}
+                    </Button>
+                  </div>}
+                </>:<section className="dw-welcome"><BookOpen size={25}/><h1>What would you like to understand?</h1><p>{conversationUnavailable?'Browse or search the captured code to inspect it.':'Ask above, or start with the selected file.'}</p>{!generationPaused&&source&&<button className="dw-text-action" onClick={()=>explain({path:source.path,sha256:source.sha256})}>Explain {source.path.split('/').at(-1)}</button></section>}
               </Tabs.Content>
               <Tabs.Content value="flow">{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><AppSelect id="answer-flow-section" ariaLabel="Explanation" size="1" value={latestRevision?.revisionId??''} clearLabel="Choose an explanation…" options={flowRevisions.map((revision)=>({value:revision.revisionId,label:plainInlineCodeText(revision.sections[0]?.title??revision.title)}))} onValueChange={(revisionId)=>{const revision=flowRevisions.find((r)=>r.revisionId===revisionId);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}/></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
               <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=>{const entry=historyEntry(turn,availableRevisionIds,chaptersLoading);const isCurrent=e.id===current.id&&turn.id===historyTurnId;return <article key={turn.id} className={isCurrent?'is-current':''}><details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details><p><InlineCodeText text={entry.text}/></p><button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,e.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>{turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}</article>;})}</section>)}{!path.some((e)=>e.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}{chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((r)=><button key={r.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,r.revisionId,r.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={r.title}/></span><small>{r.lifecycle}</small></button>)}</details>}</div>{chapters.some((revision)=>revision.lifecycle==='accepted'&&revision.sections.length>0)&&<div className="dw-history-export"><OfflineExport projectId={projectId} revisions={chapters}/></div>}</Tabs.Content>

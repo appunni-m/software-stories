@@ -68,9 +68,29 @@ export function visibleConversationTurns(
   });
 }
 
-/** Choose the Guide card to restore and the question Flow follows. Guide keeps
- * all eligible answer cards stacked; this identity controls its reading
- * position rather than filtering the conversation. */
+const GUIDE_STACK_PREVIEW_COUNT = 8;
+
+/** Keep the default Guide readable in long-lived explorations. The selected,
+ * featured, active, and branch-owning answers remain in the stack; older
+ * answers stay available from Chat history or an explicit full-stack choice. */
+export function guideStackTurns(
+  turns: readonly Turn[],
+  pinnedTurnIds: Iterable<string | undefined>,
+  expanded: boolean,
+): Turn[] {
+  if (expanded || turns.length <= GUIDE_STACK_PREVIEW_COUNT) return [...turns];
+  const included = new Set(turns.slice(-GUIDE_STACK_PREVIEW_COUNT).map((turn) => turn.id));
+  const available = new Set(turns.map((turn) => turn.id));
+  for (const id of pinnedTurnIds) if (id && available.has(id)) included.add(id);
+  for (const turn of turns) {
+    if (active(turn)) included.add(turn.id);
+  }
+  return turns.filter((turn) => included.has(turn.id));
+}
+
+/** Choose the Guide card to restore and the question Flow follows. This
+ * identity controls reading position independently from the compact Guide
+ * card stack and its full-history disclosure. */
 export function featuredGuideTurnId(
   turns: readonly Turn[],
   focusedTurnId: string | undefined,
