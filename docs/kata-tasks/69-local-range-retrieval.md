@@ -100,3 +100,65 @@ exercise the MCP `auto` dispatch or an agent's tool choice. See the detailed
 [current-source profile](../acceptance/2026-10-17-range-retrieval.md).
 Keep the agent orchestration, full retrieval recall and answer-quality gates
 open.
+
+## Scope-bounded file discovery — 27 October 2026
+
+File discovery queries now apply the indexed exact `scope` term before
+collecting matching body and declaration documents. The in-memory path-hint
+pass also skips files outside the requested file or folder scope. This avoids
+scanning and then discarding repository-wide matches for a request that is
+already scoped; final path checks remain in place. This is a source-level
+retrieval improvement only: no tests, build, large-repository profile, or
+packaged qualification ran. Keep `a699`, `0wdn`, and `gk46` open.
+
+## Declaration-frequency ranking and source excerpt correction — 27 October
+
+Broad file discovery now weights each declaration hint by the number of
+distinct in-scope files that declare it. A declaration unique to a few files
+can therefore outrank a generic body coincidence, while a returned evidence
+range still has to match captured source text. File result previews now use the
+first literal matching line when available, and recheck cancellation after
+searching the selected range. Static review also restored the ripgrep UTF-8
+sink's explicit stop result; without it, the callback did not satisfy the
+searcher's result contract. No tests, build, retrieval profile, or packaged
+qualification ran, so no recall improvement is claimed. Keep `a699`, `0wdn`,
+and `gk46` open.
+
+## Distinctive-term weighting in range results — 27 October 2026
+
+Natural-language range search now weights each matched query term by its
+document frequency in the scoped range corpus, matching the information-value
+signal already used by file discovery. Exact identifier and declaration
+matches retain precedence; weighted distinct-term coverage then orders broad
+range candidates, with term count and the existing BM25 score as tie-breakers.
+The bounded per-term candidate window and result budget are unchanged. This is
+a source-level ranking change only: no tests, build, retrieval profile,
+Fontdone recall measurement, or packaged qualification ran. Do not claim
+improved recall until the frozen expected-range corpus is rerun. Keep `a699`,
+`0wdn`, and `gk46` open.
+
+## Full bounded term coverage before range ranking — 27 October 2026
+
+Natural-language range search now considers the complete per-term match set
+from the local index before applying distinct-term coverage ranking. Each
+per-term TopDocs collection is bounded by the existing 50,000-range index cap;
+the 256-candidate window, 32-result page, source-byte budget and exact
+snapshot/hash checks remain unchanged. This removes the earlier per-term BM25
+cutoff that could discard a lower-scoring match before its distinctive-term
+coverage was considered. Source-only change; no tests, build, retrieval profile
+or packaged qualification ran. The Fontdone recall and other acceptance gates
+remain open; do not claim improved recall until the frozen expected-range
+corpus is rerun.
+
+## Reuse verified files during identifier fallback — 27 October 2026
+
+Identifier literal fallback now recognizes parserless and partially parsed
+declarations from the same captured-file read and SHA-256 verification used
+for literal matches. It no longer reopens and rehashes those files in a second
+pass; declaration matching still scans the already verified in-memory text.
+The existing 100 MiB verified-source cap is reserved before each file read,
+so a final file cannot push a scan past the cap. Range sizes, search-result
+limits, the 250,000-byte model-operation budget, snapshot/hash validation,
+secret filtering and cancellation checks are unchanged. Source-only change;
+no tests, build, profile or packaged qualification ran. Broad recall and the
+remaining acceptance gates stay open; do not claim a recall improvement.

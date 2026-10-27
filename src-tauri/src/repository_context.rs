@@ -1468,139 +1468,104 @@ fn function_declaration_at(source: &str, start: usize, end: usize) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c.is_whitespace() || "_*&<>:\"'".contains(c))
 }
 
-fn search_identifier_declarations(
-    storage: &Path,
-    manifest: &snapshot::SnapshotManifest,
-    prepared: &PreparedIndex,
-    query: &str,
-    path: Option<&str>,
+fn needs_identifier_declaration_fallback(file: &FileCoverage) -> bool {
+    file.chunks > 0
+        && (file.parser.is_none()
+            || file.status.as_ref().is_some_and(|status| {
+                matches!(
+                    status,
+                    index::IndexFileStatus::PartialParse | index::IndexFileStatus::ParseError
+                )
+            }))
+        && is_code_path(&file.path)
+}
+
+fn reserve_verified_source_bytes(
+    verified_bytes: &mut u64,
+    next_file_bytes: u64,
+) -> Result<(), String> {
+    *verified_bytes = verified_bytes
+        .checked_add(next_file_bytes)
+        .filter(|total| *total <= MAX_SOURCE_BYTES)
+        .ok_or_else(|| "The captured text exceeds the local code index byte limit.".to_owned())?;
+    Ok(())
+}
+
+fn collect_identifier_declarations_from_source(
+    source: &snapshot::SnapshotSource,
+    ranges: &[&CodeRange],
+    snapshot_id: &str,
+    matcher: &RegexMatcher,
+    declarations: &mut Vec<SearchHit>,
     limit: usize,
     budget: &Budget<'_>,
-) -> Result<(Vec<SearchHit>, bool), String> {
-    let matcher = pattern_matcher(query, SearchMode::Code)?;
-    // A parser can be recorded for a partial or failed parse. Keep those files
-    // in the bounded exact-text fallback so syntax errors do not hide names.
-    let mut files = prepared
-        .metadata
-        .files
-        .iter()
-        .filter(|file| {
-            file.chunks > 0
-                && (file.parser.is_none()
-                    || file.status.as_ref().is_some_and(|status| {
-                        matches!(
-                            status,
-                            index::IndexFileStatus::PartialParse | index::IndexFileStatus::ParseError
-                        )
-                    }))
-                && is_code_path(&file.path)
-                && path.is_none_or(|scope| {
-                    file.path == scope
-                        || file
-                            .path
-                            .strip_prefix(scope)
-                            .is_some_and(|rest| rest.starts_with('/'))
-                })
-        })
-        .collect::<Vec<_>>();
-    files.sort_by_key(|file| &file.path);
-    let mut ranges_by_path: HashMap<&str, Vec<&CodeRange>> = HashMap::new();
-    for range in &prepared.metadata.ranges {
-        ranges_by_path.entry(&range.path).or_default().push(range);
-    }
-    for ranges in ranges_by_path.values_mut() {
-        ranges.sort_by_key(|range| range.start_byte);
-    }
-    let mut declarations = vec![];
-    let mut limited = false;
-    let mut verified_bytes = 0u64;
-    'files: for file in files {
+) -> Result<bool, String> {
+    let starts = line_starts(&source.contents);
+    let mut cursor = 0;
+    loop {
         budget.check()?;
-        let captured = source_with_budget(storage, manifest, &file.path, budget)?;
-        verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
-        if verified_bytes > MAX_SOURCE_BYTES {
-            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        let Some(found) = matcher
+            .find_at(source.contents.as_bytes(), cursor)
+            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
+        else {
+            return Ok(false);
+        };
+        if found.start() == found.end() {
+            return Err("Use a regular expression that matches at least one character.".to_owned());
         }
-        if captured.sha256 != file.source_sha256 {
-            return Err("A code result belongs to a different source version.".to_owned());
+        if !source.contents.is_char_boundary(found.start())
+            || !source.contents.is_char_boundary(found.end())
+        {
+            return Err(
+                "The expression selected part of a UTF-8 character. Use a Unicode pattern."
+                    .to_owned(),
+            );
         }
-        let ranges = ranges_by_path
-            .get(file.path.as_str())
-            .ok_or("The code search index is invalid.")?;
-        let mut starts = None;
-        let mut cursor = 0;
-        loop {
-            budget.check()?;
-            let Some(found) = matcher
-                .find_at(captured.contents.as_bytes(), cursor)
-                .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
-            else {
-                break;
-            };
-            if found.start() == found.end() {
-                return Err(
-                    "Use a regular expression that matches at least one character.".to_owned(),
-                );
+        if function_declaration_at(&source.contents, found.start(), found.end()) {
+            if declarations.len() == limit {
+                return Ok(true);
             }
-            if !captured.contents.is_char_boundary(found.start())
-                || !captured.contents.is_char_boundary(found.end())
+            let range = ranges
+                .get(ranges.partition_point(|range| range.end_byte <= found.start()))
+                .ok_or("The code search index is invalid.")?;
+            let original = source
+                .contents
+                .get(range.start_byte..range.end_byte)
+                .ok_or("The code search index is invalid.")?;
+            if range.start_byte >= range.end_byte
+                || range.end_byte - range.start_byte > CHUNK_BYTES
+                || range.start_byte > found.start()
+                || range.snapshot_id != snapshot_id
+                || range.source_sha256 != source.sha256
+                || range.chunk_sha256 != digest(original.as_bytes())
+                || range.start_line != line_at(&starts, range.start_byte)
+                || range.end_line != line_at(&starts, range.end_byte - 1)
             {
-                return Err(
-                    "The expression selected part of a UTF-8 character. Use a Unicode pattern."
-                        .to_owned(),
-                );
+                return Err("A saved code range changed. Rebuild the local code index.".to_owned());
             }
-            if function_declaration_at(&captured.contents, found.start(), found.end()) {
-                if declarations.len() == limit {
-                    limited = true;
-                    break 'files;
-                }
-                let range = ranges
-                    .get(ranges.partition_point(|range| range.end_byte <= found.start()))
-                    .ok_or("The code search index is invalid.")?;
-                let original = captured
-                    .contents
-                    .get(range.start_byte..range.end_byte)
-                    .ok_or("The code search index is invalid.")?;
-                let lines = starts.get_or_insert_with(|| line_starts(&captured.contents));
-                if range.start_byte >= range.end_byte
-                    || range.end_byte - range.start_byte > CHUNK_BYTES
-                    || range.start_byte > found.start()
-                    || range.snapshot_id != manifest.summary.snapshot_id
-                    || range.source_sha256 != captured.sha256
-                    || range.chunk_sha256 != digest(original.as_bytes())
-                    || range.start_line != line_at(lines, range.start_byte)
-                    || range.end_line != line_at(lines, range.end_byte - 1)
-                {
-                    return Err(
-                        "A saved code range changed. Rebuild the local code index.".to_owned()
-                    );
-                }
-                let line_start = captured.contents[..found.start()]
-                    .rfind('\n')
-                    .map_or(0, |at| at + 1);
-                let line_end = captured.contents[found.end()..]
-                    .find('\n')
-                    .map_or(captured.contents.len(), |offset| found.end() + offset);
-                let text = captured.contents[line_start..line_end]
-                    .trim()
-                    .chars()
-                    .take(360)
-                    .collect();
-                declarations.push(SearchHit {
-                    range: (**range).clone(),
-                    line: line_at(lines, found.start()),
-                    text,
-                    exact_identifier: true,
-                    declaration_match: true,
-                    score: 0.0,
-                    query_coverage: None,
-                });
-            }
-            cursor = found.end();
+            let line_start = source.contents[..found.start()]
+                .rfind('\n')
+                .map_or(0, |at| at + 1);
+            let line_end = source.contents[found.end()..]
+                .find('\n')
+                .map_or(source.contents.len(), |offset| found.end() + offset);
+            let text = source.contents[line_start..line_end]
+                .trim()
+                .chars()
+                .take(360)
+                .collect();
+            declarations.push(SearchHit {
+                range: (**range).clone(),
+                line: line_at(&starts, found.start()),
+                text,
+                exact_identifier: true,
+                declaration_match: true,
+                score: 0.0,
+                query_coverage: None,
+            });
         }
+        cursor = found.end();
     }
-    Ok((declarations, limited))
 }
 
 /// Bounded literal or explicit regex search over verified captured text.
@@ -1643,16 +1608,25 @@ fn search_pattern(
         ranges.sort_by_key(|range| range.start_byte);
     }
     let mut matches = vec![];
-    let mut limited = false;
+    let mut declarations = vec![];
+    let mut pattern_limited = false;
+    let mut declaration_limited = false;
     let mut verified_bytes = 0u64;
     'files: for file in files {
-        budget.check()?;
-        let captured = source_with_budget(storage, manifest, &file.path, budget)?;
-        verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
-        if verified_bytes > MAX_SOURCE_BYTES {
-            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        let declaration_fallback = seek_declarations && needs_identifier_declaration_fallback(file);
+        if seek_declarations && pattern_limited && declaration_limited {
+            break 'files;
         }
-        if captured.sha256 != file.source_sha256 {
+        if seek_declarations && pattern_limited && !declaration_fallback {
+            continue;
+        }
+        if !seek_declarations && pattern_limited {
+            break;
+        }
+        budget.check()?;
+        reserve_verified_source_bytes(&mut verified_bytes, file.bytes)?;
+        let captured = source_with_budget(storage, manifest, &file.path, budget)?;
+        if captured.sha256 != file.source_sha256 || captured.size_bytes != file.bytes {
             return Err("A code result belongs to a different source version.".to_owned());
         }
         let ranges = ranges_by_path
@@ -1660,7 +1634,7 @@ fn search_pattern(
             .ok_or("The code search index is invalid.")?;
         let mut starts = None;
         let mut cursor = 0;
-        loop {
+        while !pattern_limited {
             budget.check()?;
             let Some(found) = matcher
                 .find_at(captured.contents.as_bytes(), cursor)
@@ -1683,8 +1657,11 @@ fn search_pattern(
                 );
             }
             if matches.len() == limit {
-                limited = true;
-                break 'files;
+                pattern_limited = true;
+                if !seek_declarations {
+                    break 'files;
+                }
+                break;
             }
             let range = ranges
                 .get(ranges.partition_point(|range| range.end_byte <= found.start()))
@@ -1761,18 +1738,27 @@ fn search_pattern(
             // One result per non-overlapping evidence window, even on long lines.
             cursor = end;
         }
-    }
-    if seek_declarations {
-        let (mut declarations, declaration_limited) = search_identifier_declarations(
-            storage, manifest, prepared, query, path, limit, budget,
-        )?;
-        if !declarations.is_empty() {
-            declarations.append(&mut matches);
-            declarations.truncate(limit);
-            matches = declarations;
+        if declaration_fallback && !declaration_limited {
+            declaration_limited = collect_identifier_declarations_from_source(
+                &captured,
+                ranges,
+                &manifest.summary.snapshot_id,
+                &matcher,
+                &mut declarations,
+                limit,
+                budget,
+            )?;
         }
-        limited |= declaration_limited;
+        if seek_declarations && pattern_limited && declaration_limited {
+            break 'files;
+        }
     }
+    if !declarations.is_empty() {
+        declarations.append(&mut matches);
+        declarations.truncate(limit);
+        matches = declarations;
+    }
+    let limited = pattern_limited || declaration_limited;
     budget.check()?;
     let result_bytes = json(&matches)?.len();
     Ok(SearchResult {
@@ -1994,20 +1980,32 @@ pub(crate) fn search_files_with_mode_page(
         });
     }
     let words = relevant_words;
+    let in_scope = |candidate: &str| {
+        path.is_none_or(|scope| {
+            candidate == scope
+                || candidate
+                    .strip_prefix(scope)
+                    .is_some_and(|suffix| suffix.starts_with('/'))
+        })
+    };
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
-    let path_field = field(&prepared.index, "path")?;
     let symbol_field = field(&prepared.index, "symbol")?;
     let mut term_groups = Vec::with_capacity(words.len());
+    let mut hint_term_groups = Vec::with_capacity(words.len());
     for word in &words {
+        let stems = english_stems(&prepared.index, word)?;
+        let mut hint_terms = BTreeSet::from([word.clone()]);
+        hint_terms.extend(stems.iter().cloned());
         let mut variants = vec![(body, word.clone())];
         variants.extend(
-            english_stems(&prepared.index, word)?
+            stems
                 .into_iter()
                 .filter(|stem| stem != word)
                 .map(|stem| (body_stem, stem)),
         );
         term_groups.push(variants);
+        hint_term_groups.push(hint_terms);
     }
 
     let searcher = prepared
@@ -2023,8 +2021,11 @@ pub(crate) fn search_files_with_mode_page(
     // but they are not source evidence. Keep their coverage separate from the
     // body matches that select the returned, verifiable source range.
     let mut path_hint_terms: HashMap<&str, u32> = HashMap::new();
+    let mut declaration_hint_terms: HashMap<&str, u32> = HashMap::new();
+    let mut declaration_range_terms: HashMap<usize, u32> = HashMap::new();
     let mut range_terms: HashMap<usize, u32> = HashMap::new();
     let mut term_weights = vec![0.0f32; term_groups.len()];
+    let mut declaration_term_weights = vec![0.0f32; term_groups.len()];
     // File discovery returns one result per path, so IDF must count files,
     // not chunks. Otherwise one large file with many matching ranges can
     // distort term rarity for every other file in the repository.
@@ -2032,7 +2033,7 @@ pub(crate) fn search_files_with_mode_page(
         .metadata
         .files
         .iter()
-        .filter(|file| file.chunks > 0)
+        .filter(|file| file.chunks > 0 && in_scope(&file.path))
         .count()
         .max(1);
     let range_key_field = field(&prepared.index, "range_key")?;
@@ -2040,11 +2041,13 @@ pub(crate) fn search_files_with_mode_page(
         budget.check()?;
         let mut matching_ranges = BTreeSet::new();
         for (term_field, term) in variants {
+            let query = scoped(
+                term_query(*term_field, term),
+                &prepared.index,
+                path,
+            )?;
             let documents = searcher
-                .search(
-                    &term_query(*term_field, term),
-                    &tantivy::collector::DocSetCollector,
-                )
+                .search(&query, &tantivy::collector::DocSetCollector)
                 .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
             for (index, address) in documents.into_iter().enumerate() {
                 if index % 128 == 0 {
@@ -2066,13 +2069,7 @@ pub(crate) fn search_files_with_mode_page(
                     .ranges
                     .get(range_id)
                     .ok_or("The code search index is invalid.")?;
-                if path.is_none_or(|scope| {
-                    range.path == scope
-                        || range
-                            .path
-                            .strip_prefix(scope)
-                            .is_some_and(|suffix| suffix.starts_with('/'))
-                }) {
+                if in_scope(&range.path) {
                     matching_ranges.insert(range_id);
                 }
             }
@@ -2098,93 +2095,157 @@ pub(crate) fn search_files_with_mode_page(
             *range_terms.entry(range_id).or_default() |= term_bit;
         }
 
-        // Discovery previously ranked only words found in source bodies. An
-        // indexed path or declaration can disambiguate equally relevant files
-        // without allowing metadata-only matches to create a result or source
-        // span of their own.
-        if term_bit != 0 {
-            let word = &words[term_index];
-            let hint_query = BooleanQuery::union(vec![
-                term_query(path_field, word),
-                term_query(symbol_field, word),
-            ]);
-            let documents = searcher
-                .search(&hint_query, &tantivy::collector::DocSetCollector)
-                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
-            for (index, address) in documents.into_iter().enumerate() {
-                if index % 128 == 0 {
-                    budget.check()?;
-                }
-                let document = searcher
-                    .doc::<TantivyDocument>(address)
-                    .map_err(|_| "A code search result is unavailable.".to_owned())?;
-                let key = document
-                    .get_first(range_key_field)
-                    .and_then(|value| value.as_str())
-                    .ok_or("The code search index is invalid.")?;
-                let range_id = *prepared
-                    .ranges_by_key
-                    .get(key)
-                    .ok_or("The code search index is invalid.")?;
-                let range = prepared
-                    .metadata
-                    .ranges
-                    .get(range_id)
-                    .ok_or("The code search index is invalid.")?;
-                if path.is_none_or(|scope| {
-                    range.path == scope
-                        || range
-                            .path
-                            .strip_prefix(scope)
-                            .is_some_and(|suffix| suffix.starts_with('/'))
-                }) {
-                    *path_hint_terms.entry(range.path.as_str()).or_default() |=
-                        1u32 << term_index;
-                }
+        // Declaration names are a strong signal for broad questions: a code
+        // file can contain many generic body matches while its relevant entry
+        // point is visible only in the indexed symbol name. Keep declarations
+        // separate from paths. Match both the original term and its indexed
+        // English stem so questions such as "rendering" can find a declared
+        // `render` entry point without changing the exact source evidence.
+        // Body matches remain mandatory before returning any source result.
+        // A common body term can still identify a rare declaration, so score
+        // declaration frequency independently from body-term IDF.
+        let declarations = BooleanQuery::union(
+            hint_term_groups[term_index]
+                .iter()
+                .map(|term| term_query(symbol_field, term))
+                .collect(),
+        );
+        let declarations = scoped(Box::new(declarations), &prepared.index, path)?;
+        let declaration_docs = searcher
+            .search(&declarations, &tantivy::collector::DocSetCollector)
+            .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+        let mut declaration_ranges = BTreeSet::new();
+        let mut declaration_paths = BTreeSet::new();
+        for (index, address) in declaration_docs.into_iter().enumerate() {
+            if index % 128 == 0 {
+                budget.check()?;
+            }
+            let document = searcher
+                .doc::<TantivyDocument>(address)
+                .map_err(|_| "A code search result is unavailable.".to_owned())?;
+            let key = document
+                .get_first(range_key_field)
+                .and_then(|value| value.as_str())
+                .ok_or("The code search index is invalid.")?;
+            let range_id = *prepared
+                .ranges_by_key
+                .get(key)
+                .ok_or("The code search index is invalid.")?;
+            let range = prepared
+                .metadata
+                .ranges
+                .get(range_id)
+                .ok_or("The code search index is invalid.")?;
+            if in_scope(&range.path) {
+                declaration_ranges.insert(range_id);
+                declaration_paths.insert(range.path.as_str());
+            }
+        }
+        let declaration_weight = if declaration_paths.is_empty()
+            || declaration_paths.len() >= total_paths
+        {
+            0.0
+        } else {
+            (((total_paths + 1) as f32) / ((declaration_paths.len() + 1) as f32)).ln()
+        };
+        declaration_term_weights[term_index] = declaration_weight;
+        if declaration_weight > 0.0 {
+            let declaration_bit = 1u32 << term_index;
+            for range_id in declaration_ranges {
+                let range = &prepared.metadata.ranges[range_id];
+                *declaration_hint_terms
+                    .entry(range.path.as_str())
+                    .or_default() |= declaration_bit;
+                *declaration_range_terms.entry(range_id).or_default() |= declaration_bit;
             }
         }
     }
 
-    let score_terms = |mask: u32| {
+    // File paths are already present in the bounded local file inventory, so
+    // derive their low-priority hint score directly instead of querying every
+    // matching range document a second time. Compare the same raw and stemmed
+    // term variants used for declarations against the indexed path tokens.
+    for (file_index, file) in prepared.metadata.files.iter().enumerate() {
+        if file_index % 128 == 0 {
+            budget.check()?;
+        }
+        if file.chunks == 0 || !in_scope(&file.path) {
+            continue;
+        }
+        let file_terms = terms(&file.path);
+        for (term_index, hint_terms) in hint_term_groups.iter().enumerate() {
+            if hint_terms
+                .iter()
+                .any(|term| file_terms.iter().any(|file_term| file_term == term))
+            {
+                *path_hint_terms.entry(file.path.as_str()).or_default() |= 1u32 << term_index;
+            }
+        }
+    }
+
+    let score_terms = |mask: u32, weights: &[f32]| {
         let mut score = 0.0f32;
         let mut coverage = 0usize;
-        for (index, weight) in term_weights.iter().enumerate() {
+        for (index, weight) in weights.iter().enumerate() {
             if mask & (1u32 << index) != 0 {
-                score += weight;
+                score += *weight;
                 coverage += 1;
             }
         }
         (score, coverage)
     };
-    let mut best_ranges: HashMap<&str, (usize, f32, usize)> = HashMap::new();
+    let mut best_ranges: HashMap<&str, (usize, f32, usize, f32, usize)> = HashMap::new();
     for (range_id, mask) in &range_terms {
         let range = &prepared.metadata.ranges[*range_id];
-        let (score, coverage) = score_terms(*mask);
-        let replace =
-            best_ranges
-                .get(range.path.as_str())
-                .is_none_or(|(best_id, best_score, best_coverage)| {
-                    score.total_cmp(best_score).is_gt()
-                        || (score.total_cmp(best_score).is_eq() && coverage > *best_coverage)
-                        || (score.total_cmp(best_score).is_eq()
-                            && coverage == *best_coverage
-                            && (range.start_byte, range.end_byte, *range_id)
-                                < (
-                                    prepared.metadata.ranges[*best_id].start_byte,
-                                    prepared.metadata.ranges[*best_id].end_byte,
-                                    *best_id,
-                                ))
-                });
+        let (score, coverage) = score_terms(*mask, &term_weights);
+        let declaration_mask = declaration_range_terms
+            .get(range_id)
+            .copied()
+            .unwrap_or_default();
+        let (declaration_score, declaration_coverage) =
+            score_terms(declaration_mask, &declaration_term_weights);
+        let replace = best_ranges.get(range.path.as_str()).is_none_or(
+            |(
+                best_id,
+                best_score,
+                best_coverage,
+                best_declaration_score,
+                best_declaration_coverage,
+            )| {
+                let relevance = declaration_score
+                    .total_cmp(best_declaration_score)
+                    .then_with(|| declaration_coverage.cmp(best_declaration_coverage))
+                    .then_with(|| score.total_cmp(best_score))
+                    .then_with(|| coverage.cmp(best_coverage));
+                relevance.is_gt()
+                    || (relevance.is_eq()
+                        && (range.start_byte, range.end_byte, *range_id)
+                            < (
+                                prepared.metadata.ranges[*best_id].start_byte,
+                                prepared.metadata.ranges[*best_id].end_byte,
+                                *best_id,
+                            ))
+            },
+        );
         if replace {
-            best_ranges.insert(range.path.as_str(), (*range_id, score, coverage));
+            best_ranges.insert(
+                range.path.as_str(),
+                (
+                    *range_id,
+                    score,
+                    coverage,
+                    declaration_score,
+                    declaration_coverage,
+                ),
+            );
         }
     }
 
     let mut ranked_files = path_terms
         .into_iter()
         .filter_map(|(file_path, mask)| {
-            let (range_id, _, _) = best_ranges.get(file_path)?;
-            let (score, coverage) = score_terms(mask);
+            let (range_id, _, _, _, _) = best_ranges.get(file_path)?;
+            let (score, coverage) = score_terms(mask, &term_weights);
             let matched_terms = words
                 .iter()
                 .enumerate()
@@ -2197,14 +2258,31 @@ pub(crate) fn search_files_with_mode_page(
                 .copied()
                 .unwrap_or_default()
                 .count_ones() as usize;
-            Some((file_path, *range_id, score, coverage, hint_coverage, matched_terms))
+            let declaration_mask = declaration_hint_terms
+                .get(file_path)
+                .copied()
+                .unwrap_or_default();
+            let (declaration_score, declaration_coverage) =
+                score_terms(declaration_mask, &declaration_term_weights);
+            Some((
+                file_path,
+                *range_id,
+                score,
+                coverage,
+                declaration_score,
+                declaration_coverage,
+                hint_coverage,
+                matched_terms,
+            ))
         })
         .collect::<Vec<_>>();
     ranked_files.sort_by(|left, right| {
         right
-            .3
-            .cmp(&left.3)
-            .then_with(|| right.4.cmp(&left.4))
+            .4
+            .total_cmp(&left.4)
+            .then_with(|| right.5.cmp(&left.5))
+            .then_with(|| right.3.cmp(&left.3))
+            .then_with(|| right.6.cmp(&left.6))
             .then_with(|| right.2.total_cmp(&left.2))
             .then_with(|| left.0.cmp(&right.0))
     });
@@ -2216,7 +2294,7 @@ pub(crate) fn search_files_with_mode_page(
         .build_literals(&words)
         .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let mut matches = Vec::new();
-    for (file_path, range_id, score, _, _, matched_terms) in
+    for (file_path, range_id, score, _, _, _, _, matched_terms) in
         ranked_files.into_iter().skip(offset).take(limit)
     {
         budget.check()?;
@@ -2262,10 +2340,10 @@ pub(crate) fn search_files_with_mode_page(
                     Ok(false)
                 }),
             )
-            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
+            .map_err(|_| "A code search result could not be inspected.".to_owned())?;
         budget.check()?;
         matches.push(SearchHit {
-            range: range.clone(),
+            range: read.range,
             line,
             text,
             exact_identifier: false,
@@ -2278,16 +2356,18 @@ pub(crate) fn search_files_with_mode_page(
         });
     }
     budget.check()?;
+    let next_offset = (page_end < MAX_CANDIDATES && total_files > page_end).then_some(page_end);
+    let limited = total_files > page_end;
     let result_bytes = json(&matches)?.len();
     Ok(SearchResult {
         matches,
-        limited: total_files > page_end,
-        next_offset: (page_end < MAX_CANDIDATES && total_files > page_end).then_some(page_end),
+        result_bytes,
+        limited,
+        next_offset,
         coverage: prepared.metadata.coverage.clone(),
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
-        result_bytes,
     })
 }
 
@@ -2463,8 +2543,24 @@ fn search_ranked(
             .or_insert((exact, declaration, score));
     }
     let mut term_coverage = HashMap::<usize, u32>::new();
+    let mut coverage_term_weights = vec![0.0f32; coverage_words.len()];
     let mut coverage_limited = false;
     if natural_query_coverage {
+        let in_scope = |candidate: &str| {
+            path.is_none_or(|scope| {
+                candidate == scope
+                    || candidate
+                        .strip_prefix(scope)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+            })
+        };
+        let coverage_range_count = prepared
+            .metadata
+            .ranges
+            .iter()
+            .filter(|range| in_scope(&range.path))
+            .count()
+            .max(1) as f32;
         let body_field = field(&prepared.index, "body")?;
         let body_stem_field = field(&prepared.index, "body_stem")?;
         let symbol_field = field(&prepared.index, "symbol")?;
@@ -2488,11 +2584,24 @@ fn search_ranked(
                 }
             }
             let term = scoped(Box::new(BooleanQuery::new(clauses)), &prepared.index, path)?;
-            let (hits, count) = ranking::candidates_with_limit(&searcher, &term, ranking_limit)
+            // Coverage ranking must see every matching range before the final
+            // 256-result window is selected. A BM25 TopDocs cap here can hide
+            // a low-score match that covers a distinctive query term. The
+            // immutable range index itself is bounded by MAX_CHUNKS.
+            let (term_matches, count) = ranking::candidates_with_limit(&searcher, &term, MAX_CHUNKS)
                 .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
-            coverage_limited |= count > ranking_limit;
+            coverage_limited |= count > MAX_CHUNKS;
+            // Weight distinct query terms by their rarity across the scoped
+            // range corpus. This mirrors file discovery's IDF ranking and
+            // keeps generic words from outranking specific implementation
+            // terms merely because both matched the same number of ranges.
+            let document_frequency = (count as f32).min(coverage_range_count);
+            coverage_term_weights[term_index] = ((coverage_range_count + 1.0)
+                / (document_frequency + 1.0))
+                .ln()
+                .max(0.0);
             let term_bit = 1u32 << term_index;
-            for (index, (score, address)) in hits.into_iter().enumerate() {
+            for (index, (score, address)) in term_matches.into_iter().enumerate() {
                 if index % 128 == 0 {
                     budget.check()?;
                 }
@@ -2522,21 +2631,27 @@ fn search_ranked(
                 );
             }
         }
+        coverage_limited |= candidates.len() > MAX_CANDIDATES;
     }
     let mut ranked = candidates
         .into_iter()
         .map(|(id, (exact, declaration, score))| {
-            let coverage = term_coverage
-                .get(&id)
-                .copied()
-                .unwrap_or_default()
-                .count_ones() as usize;
-            (id, (exact, declaration, coverage, score))
+            let coverage_mask = term_coverage.get(&id).copied().unwrap_or_default();
+            let coverage = coverage_mask.count_ones() as usize;
+            let weighted_coverage = coverage_term_weights
+                .iter()
+                .enumerate()
+                .filter_map(|(term_index, weight)| {
+                    (coverage_mask & (1u32 << term_index) != 0).then_some(*weight)
+                })
+                .sum::<f32>();
+            (id, (exact, declaration, weighted_coverage, coverage, score))
         })
         .collect::<Vec<_>>();
-    ranked.sort_by(|(a, (ae, ad, ac, ascore)), (b, (be, bd, bc, bscore))| {
+    ranked.sort_by(|(a, (ae, ad, aw, ac, ascore)), (b, (be, bd, bw, bc, bscore))| {
         bd.cmp(ad)
             .then_with(|| be.cmp(ae))
+            .then_with(|| bw.total_cmp(aw))
             .then_with(|| bc.cmp(ac))
             .then_with(|| bscore.total_cmp(ascore))
             .then_with(|| {
@@ -2568,10 +2683,10 @@ fn search_ranked(
         };
         let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
             .into_iter()
-            .partition(|(_, (_, declaration, _, _))| *declaration);
+            .partition(|(_, (_, declaration, _, _, _))| *declaration);
         let (exact, other): (Vec<_>, Vec<_>) = remaining
             .into_iter()
-            .partition(|(_, (exact, _, _, _))| *exact);
+            .partition(|(_, (exact, _, _, _, _))| *exact);
         let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
         ranked = diversify_by_path_limited(declarations, &path_for, path_limit)
             .into_iter()
@@ -2614,7 +2729,7 @@ fn search_ranked(
         let starts = line_starts(&captured.contents);
         for position in positions {
             budget.check()?;
-            let (id, (exact_identifier, declaration_match, _, score)) = selected[position];
+            let (id, (exact_identifier, declaration_match, _, _, score)) = selected[position];
             let range = &prepared.metadata.ranges[id];
             if range.path != path {
                 return Err("The code search index is invalid.".to_owned());
