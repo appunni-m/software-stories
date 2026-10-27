@@ -55,3 +55,31 @@ Implementation presence and a successful exact-name search do not pass the
 broad-retrieval or generated-answer acceptance gates. Keep Kata `0wdn`, `a699`,
 and dependent `gk46` open until the remaining retrieval, agent, package, and
 answer-quality evidence is recorded.
+
+## Discovery handoff improvement — 27 October 2026
+
+Automatic source discovery now keeps captured text files larger than 250 KB in
+a range-only candidate list instead of treating them as whole-file sources or
+excluding them entirely. It may return one large target and up to 11 small
+supporting files; the target remains subject to the existing bounded local
+range reader and fresh workspace grant. Discovery guidance now prefers a
+materially relevant large implementation as the primary target, with small
+whole-file sources as supporting context. The handoff preserves the user's
+question, snapshot identity, supporting paths, and per-file selection reasons
+as a collapsed disclosure on the saved answer card. A range-only result with
+zero smaller supporting files is now accepted. Source-only change; no build,
+tests, agent request, restart, or packaged-app acceptance ran. Search recall,
+exact range selection, omitted relevant ranges, citations, cancellation,
+multi-stage follow-up, and the Fontdone scenarios above remain unqualified.
+
+## Persist discovery coverage limits with the range answer — 27 October 2026
+
+The range handoff now carries the bounded discovery review's omitted-candidate
+count, coverage-gap counts and one example path per gap, together with the
+agent's limitation note. These join the already persisted target/supporting
+file reasons in the answer card's collapsed source-selection record. The same
+coverage labels now drive both the review dialog and saved note. This preserves
+discovery-level omissions across navigation and restart; it does not identify
+which omitted files or byte ranges are semantically relevant, or qualify local
+range-search recall. Source-only change; no tests, build, agent request or
+packaged-app acceptance ran. Keep the full acceptance above open.

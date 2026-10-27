@@ -38,3 +38,69 @@ Remaining: Rust multi-crate and large TypeScript native runs, missing/unreadable
 The real Rust multi-crate repository exposes a gap between capture/index eligibility and question retrieval: the central 375,700-byte `src/font.rs` is indexed but excluded from discovery, and larger adapter implementations are above both request and parser limits. The broad font-to-bitmap request staged nine smaller files without the core font implementation or public Rust API. Keep large-repository acceptance open. Bounded source ranges and staged retrieval have a separate contract in [task 66](66-large-source-discovery.md), Kata `0wdn`; [native observations](../acceptance/2026-10-17-fontdone.md) preserve the limitations and failed attempts.
 
 The subsequent [industry study](../research/2026-10-17-repository-context-and-indexing.md) recommends a local lexical/range index plus owned agent search/read tools. Implementation contracts are `a699` and `gk46`; neither is complete. Discovery acceptance must measure expected-range recall independently, rather than using the model's selected files as its own ground truth.
+
+## Index fallback implementation — October 25
+
+Discovery now records the local map state as `complete`, `partial`, `cancelled`, `missing`, or `unreadable` in the review metadata. A partial/cancelled map can still contribute the symbols and static links it contains; a missing or unreadable map falls back to eligible paths in the immutable captured inventory. Failure to load, start, or observe the optional indexing job no longer blocks discovery preparation. The dialog uses “captured code files” and gives an explicit limitation message for each incomplete state.
+
+Focused source-discovery coverage passes for complete/partial baseline metadata, missing and corrupt indexes with captured-path fallback, partial/cancelled map labeling, and scope validation (5 tests). `npm run build` also passes. This closes the missing-index fallback implementation gap only; the Rust multi-crate and large TypeScript recall matrix, metadata/source overflow, restart persistence, multi-window behavior, and user-visible consent/return-state checks remain open.
+
+## Fixed-target metadata priority — 27 October 2026
+
+The source discovery metadata rank now puts a caller-specified eligible target
+ahead of relevance-ranked candidates as a separate sort key. A sufficiently
+long question can no longer outrank the target merely by accumulating more
+path, symbol, or relationship matches. Remaining candidates keep their
+relevance score and lexical tie break. This only orders candidates within the
+existing 96 KB metadata budget; it does not relax file/source limits or the
+large-file bounded-range route. This was a source-only change: no tests or build
+ran. Multi-repository recall, overflow, restart, multi-window, consent and
+packaged return-state acceptance remain open.
+
+## Oversized fixed-target metadata — 27 October 2026
+
+If a fixed target's single indexed metadata record cannot fit the bounded
+discovery window, preparation now returns a focused limitation instead of
+silently omitting that target and asking the agent to choose from unrelated
+files. Ordinary non-target candidates still use the remaining shared budget.
+Source-only change; no tests or build ran. The multi-project recall, aggregate
+metadata/source overflow, restart, multi-window, consent and packaged
+return-state acceptance remain open.
+
+## Complete discovery-envelope bound — 27 October 2026
+
+The 96 KB discovery limit now applies to the complete serialized review sent to
+the agent, including the question, capture status, documentation notices and
+coverage gaps, rather than only the per-file records. If envelope overhead
+pushes the request over budget, the lowest-ranked non-target records are
+removed and the omitted-file count is refreshed. The fixed target remains
+first; if the target plus its mandatory coverage context cannot fit, preparation
+returns a focused limitation before consent or transmission. The existing
+metadata-size assertion now checks the actual 96 KB cap. Source-only change; no
+tests or build ran. Recall quality, explicit consent, restart/multi-window and
+packaged return-state acceptance remain open.
+
+## Large-file discovery handoff — 27 October 2026
+
+Captured readable code above the whole-file request limit is now offered as a
+separate range-only candidate during discovery. The agent can select up to one
+such target while selecting small supporting files under the existing 250 KB
+whole-file budget. Discovery guidance prefers a materially relevant large
+implementation as the primary target and uses small files as supporting
+context. A range-only result is accepted even when it has no small
+supporting files, then routes into the existing bounded-reader consent flow.
+The original question, selected snapshot and up to 12 source paths are kept;
+the target and supporting-file selection reasons plus any discovery limitation
+are saved with the answer card for review after restart. Source-only change;
+no build, tests, agent request or packaged-app acceptance ran. Recall quality,
+multi-stage retrieval, omitted-range reporting and Fontdone acceptance remain
+open.
+
+## Automatic discovery sharing notice — 27 October 2026
+
+The automatic repository-discovery dialog now displays its data boundary
+while local preparation and agent discovery run: the question and a codebase
+summary are sent to the saved AI connection to identify relevant files; file
+contents are reviewed separately. It adds no file-picking step. This copy-only
+source change was not built or tested; the consent, recall, restart,
+multi-window and packaged acceptance above remain open.
