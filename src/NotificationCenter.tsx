@@ -91,9 +91,10 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   };
   return <Popover.Root open={open} onOpenChange={setOpen} modal={false}>
     <Popover.Trigger asChild>
-      <button ref={trigger} type="button" className="notification-trigger" data-focus-key="notifications" aria-label={summary.label} aria-busy={availability === 'loading'} title="Notifications">
+      <button ref={trigger} type="button" className="notification-trigger" data-focus-key="notifications" aria-label={summary.label} aria-busy={availability === 'loading'} title={summary.label}>
         <Bell size={17} />
         {summary.badge && <span className="notification-count" aria-hidden="true">{summary.badge}</span>}
+        {summary.marker && <span className={`notification-status-marker status-${summary.marker}`} aria-hidden="true" />}
       </button>
     </Popover.Trigger>
     <span className="notification-announcement" role="status" aria-live="polite" aria-atomic="true">{summary.announcement}</span>

@@ -117,6 +117,7 @@ describe('notification totals', () => {
         const summary = notificationSummary(items, availability);
         assert.equal(summary.label, 'Notifications, loading updates');
         assert.equal(summary.badge, null);
+        assert.equal(summary.marker, null);
         assert.equal(summary.announcement, '');
         assert.equal(summary.status, 'Loading updates…');
       }
@@ -130,6 +131,7 @@ describe('notification totals', () => {
     const summary = notificationSummary(unread.slice(0, 23), notificationAvailability({ ...ready, unavailable: true }));
     assert.equal(summary.label, 'Notifications, some updates unavailable');
     assert.equal(summary.badge, null);
+    assert.equal(summary.marker, 'unavailable');
     assert.match(summary.status, /try again/);
     assert.doesNotMatch(summary.announcement, /23|unread|caught up/);
     assert.equal(notificationAvailability({ ...ready, unavailable: true, refreshing: true }), 'loading');
@@ -154,7 +156,7 @@ describe('notification totals', () => {
 
   it('counts only unread entries, handles singular/empty and bounds the visible badge', () => {
     assert.deepEqual(notificationSummary([], 'ready'), {
-      label: 'Notifications, no unread updates', badge: null, announcement: '', status: null,
+      label: 'Notifications, no unread updates', badge: null, marker: null, announcement: '', status: null,
     });
     const one = notificationSummary([{ read: true }, { read: false }], 'ready');
     assert.equal(one.label, 'Notifications, 1 unread update');
@@ -166,7 +168,7 @@ describe('notification totals', () => {
 
   it('explains how to recover a full local notification history', () => {
     assert.deepEqual(notificationSummary([], 'unavailable', 'full'), {
-      label: 'Notifications, history full', badge: null,
+      label: 'Notifications, history full', badge: null, marker: 'full',
       announcement: 'Notification history is full. Dismiss an older notification to make room.',
       status: 'New notifications are waiting to save. Dismiss an older notification to make room.',
     });
@@ -211,6 +213,7 @@ describe('notification totals', () => {
     assert.match(component, /notificationSummary\(items, availability, issue\)/);
     assert.match(app, /issue=\{noticeHistoryState\.issue==='full'\?'full':null\}/);
     assert.match(component, /aria-label=\{summary.label\} aria-busy=\{availability === 'loading'\}/);
+    assert.match(component, /summary\.marker && <span className=\{`notification-status-marker status-\$\{summary\.marker\}`\}/);
     assert.match(component, /role="status" aria-live="polite" aria-atomic="true">\{summary.announcement\}/);
     assert.match(component, /groups.length === 0 \? availability === 'ready' &&/);
     assert.match(component, /renderSection\('Needs attention', attentionGroups\)/);

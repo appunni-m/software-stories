@@ -108,10 +108,10 @@ export function notificationAvailability(input: {
 
 export function notificationSummary(items: readonly { id?: string; groupKey?: string; read?: boolean }[], availability: NotificationAvailability, issue?: 'full'|null) {
   if (availability === 'loading') return {
-    label: 'Notifications, loading updates', badge: null, announcement: '', status: 'Loading updates…',
+    label: 'Notifications, loading updates', badge: null, marker: null, announcement: '', status: 'Loading updates…',
   };
   if (availability === 'unavailable') return {
-    label: issue==='full'?'Notifications, history full':'Notifications, some updates unavailable', badge: null,
+    label: issue==='full'?'Notifications, history full':'Notifications, some updates unavailable', badge: null, marker: issue === 'full' ? 'full' : 'unavailable',
     announcement: issue==='full'?'Notification history is full. Dismiss an older notification to make room.':'Some updates could not be loaded. Open Notifications to try again.',
     status: issue==='full'?'New notifications are waiting to save. Dismiss an older notification to make room.':'Some updates could not be loaded. You can try again below.',
   };
@@ -126,6 +126,7 @@ export function notificationSummary(items: readonly { id?: string; groupKey?: st
   return {
     label: `Notifications, ${unread ? count : 'no unread updates'}`,
     badge: unread > 0 ? (unread > 9 ? '9+' : String(unread)) : null,
+    marker: null,
     announcement: unread > 0 ? `${count} available in Notifications.` : '', status: null,
   };
 }
