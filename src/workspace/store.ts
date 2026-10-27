@@ -682,6 +682,14 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
   const active=jobs.get(turnId);
   if(active){
     queuePendingGuideAdvance(active,consumedRevisionId);
+    try {
+      const guide=await invoke<RepositoryGuide>('record_repository_guide_consumption',{
+        id:turn.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,
+      });
+      await reconcileGuide(project,snapshot,guide);
+    } catch(failure) {
+      patchTurn(project,snapshot,turnId,{error:errorMessageOr(failure,'Playback progress could not be saved. The current Guide remains available.')});
+    }
     return;
   }
   const job={cancelled:false,runId:null as string|null,pendingGuideAdvances:[] as string[]};jobs.set(turnId,job);
@@ -699,12 +707,9 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     if(job.cancelled||closingWorkspace)return;
     job.runId=current.guideId;
     const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,rendererQueueWaitMs});
-    if(Array.isArray(guide.consumedSlideRevisions)&&!guide.consumedSlideRevisions.includes(consumedRevisionId)){
-      // Another webview currently owns the native guide lease. Its operation
-      // can accept this playback receipt after it releases ownership; sending
-      // this small local event keeps the receipt out of the provider request.
-      try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* The active owner may have closed; saved guide content remains usable. */}
-    }
+    // The native receipt is already durable. This local signal only wakes an
+    // active owner in another webview so it can extend the current runway.
+    try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* Refill can recover from the saved receipt on the next reader action. */}
     await reconcileGuide(project,snapshot,guide,true);
   }catch(failure){
     try{await restoreRepositoryGuides(project,snapshot);}catch{/* Keep the current reader content. */}

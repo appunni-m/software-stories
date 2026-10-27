@@ -139,6 +139,30 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
 }
 
 #[test]
+fn playback_receipt_is_durable_while_a_guide_worker_owns_the_runway() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    let completed = attempt(&record, Outcome::Complete);
+    let revision_id = completed.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    record.units[0].attempts.push(completed);
+    store::create(&f.storage, &record).unwrap();
+    let _owner = store::lease(&f.storage, &record.id).unwrap().unwrap();
+
+    let saved = record_consumed_slide(&f.storage, &record.id, &revision_id).unwrap();
+    assert!(saved.consumed_slide_revisions.contains(&revision_id));
+    assert!(store::lease(&f.storage, &record.id).unwrap().is_none());
+
+    let revision = saved.revision;
+    let repeated = record_consumed_slide(&f.storage, &record.id, &revision_id).unwrap();
+    assert_eq!(repeated.revision, revision, "a replayed receipt is a no-op");
+    assert_eq!(repeated.consumed_slide_revisions.len(), 1);
+    assert_eq!(slide_run_limit(5, 0, &repeated, true), 6);
+    assert_eq!(slide_run_limit(5, 0, &repeated, false), 5);
+}
+
+#[test]
 fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units() {
     let f = Fixture::new();
     let mut record = fresh_record(&f);

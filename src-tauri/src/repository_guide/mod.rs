@@ -347,6 +347,64 @@ fn unit_retryable(record: &Record, index: usize) -> bool {
         })
 }
 
+fn guide_buffer_gap(record: &Record) -> usize {
+    GUIDE_SLIDE_BUFFER.saturating_sub(
+        published_slide_count(record).saturating_sub(record.consumed_slide_revisions.len()),
+    )
+}
+
+fn slide_run_limit(
+    requested_slides: usize,
+    starting_consumed_count: usize,
+    record: &Record,
+    follow_playback: bool,
+) -> usize {
+    if follow_playback {
+        requested_slides.saturating_add(
+            record
+                .consumed_slide_revisions
+                .len()
+                .saturating_sub(starting_consumed_count),
+        )
+    } else {
+        requested_slides
+    }
+}
+
+fn record_consumed_slide(
+    storage: &Path,
+    guide_id: &str,
+    revision_id: &str,
+) -> Result<Record, String> {
+    if !text(revision_id, 1, 256) {
+        return Err("The completed guide slide could not be identified.".into());
+    }
+    store::update_if_changed(storage, guide_id, |current| {
+        if !contains_slide(current, revision_id) {
+            return Err(
+                "The completed slide does not belong to this guide. Saved progress was preserved."
+                    .into(),
+            );
+        }
+        if current
+            .consumed_slide_revisions
+            .contains(&revision_id.to_owned())
+        {
+            return Ok(false);
+        }
+        if current.consumed_slide_revisions.len() >= MAX_GUIDE_ANSWER_RECORDS {
+            return Err(
+                "The guide reached its slide progression limit. Saved slides remain available."
+                    .into(),
+            );
+        }
+        current
+            .consumed_slide_revisions
+            .push(revision_id.to_owned());
+        Ok(true)
+    })
+}
+
 /// Distinct omitted topics that can still be appended to the saved outline.
 /// The labels come from the validated local plan, never from the renderer.
 fn pending_extension_topics(plan: &Plan) -> Vec<String> {
@@ -1165,6 +1223,8 @@ fn build_inner(
 ) -> Result<GuideSummary, String> {
     let mut record = store::read(storage, id)?;
     let starting_slide_count = published_slide_count(&record);
+    let starting_consumed_count = record.consumed_slide_revisions.len();
+    let follow_playback = only_unit_key.is_none();
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         storage,
         &answer_reservation(&record),
@@ -1293,7 +1353,14 @@ fn build_inner(
         if record.status == Status::Stopped {
             break;
         }
-        if published_slide_count(&record).saturating_sub(starting_slide_count) >= max_new_slides {
+        if published_slide_count(&record).saturating_sub(starting_slide_count)
+            >= slide_run_limit(
+                max_new_slides,
+                starting_consumed_count,
+                &record,
+                follow_playback,
+            )
+        {
             break;
         }
         for section in record.units[index]
@@ -1462,7 +1529,12 @@ fn build_inner(
             current.status = if guide_complete(current) {
                 Status::Ready
             } else if published_slide_count(current).saturating_sub(starting_slide_count)
-                >= max_new_slides
+                >= slide_run_limit(
+                    max_new_slides,
+                    starting_consumed_count,
+                    current,
+                    follow_playback,
+                )
                 && opening_continuation::remaining_operations(current) > 0
             {
                 Status::WaitingForPlayback
@@ -1722,6 +1794,22 @@ pub(crate) async fn resume_repository_guide(
 
 /// Record a consumed slide and refill the buffer when the reader moves forward.
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn record_repository_guide_consumption(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    id: String,
+    project_id: String,
+    snapshot_id: String,
+    consumed_revision_id: String,
+) -> Result<GuideSummary, String> {
+    sessions.get(&project_id)?;
+    let storage = app_data_directory(&app)?;
+    scoped(&storage, &id, &project_id, &snapshot_id)?;
+    let record = record_consumed_slide(&storage, &id, &consumed_revision_id)?;
+    summary(&storage, &record)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn advance_repository_guide(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -1733,21 +1821,14 @@ pub(crate) async fn advance_repository_guide(
 ) -> Result<GuideSummary, String> {
     let operation_started_at = Instant::now();
     sessions.get(&project_id)?;
-    if !text(&consumed_revision_id, 1, 256) {
-        return Err("The completed guide slide could not be identified.".into());
-    }
     let storage = app_data_directory(&app)?;
     let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
-    let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
-    if !contains_slide(&record, &consumed_revision_id) {
-        return Err(
-            "The completed slide does not belong to this guide. Saved progress was preserved."
-                .into(),
-        );
-    }
-    if record
-        .consumed_slide_revisions
-        .contains(&consumed_revision_id)
+    scoped(&storage, &id, &project_id, &snapshot_id)?;
+    let record = record_consumed_slide(&storage, &id, &consumed_revision_id)?;
+    let slides_needed = guide_buffer_gap(&record);
+    if slides_needed == 0
+        || record.status == Status::Stopped
+        || opening_continuation::remaining_operations(&record) == 0
     {
         return summary(&storage, &record);
     }
@@ -1756,12 +1837,15 @@ pub(crate) async fn advance_repository_guide(
         .inner()
         .clone();
     let Some(lease) = store::lease(&storage, &id)? else {
-        // A worker owned by another webview still controls this guide. Do not
-        // claim the playback receipt; the reader can submit it after that run.
+        // The receipt is durable before checking ownership. The active owner
+        // observes it at the next slide boundary and extends its bounded runway.
         return summary(&storage, &record);
     };
     let record = reconcile(&storage, &record, &manager)?;
-    if record.status == Status::Stopped || opening_continuation::remaining_operations(&record) == 0
+    let slides_needed = guide_buffer_gap(&record);
+    if slides_needed == 0
+        || record.status == Status::Stopped
+        || opening_continuation::remaining_operations(&record) == 0
     {
         return summary(&storage, &record);
     }
@@ -1770,12 +1854,6 @@ pub(crate) async fn advance_repository_guide(
             "The completed slide is no longer part of this guide. Saved progress was preserved."
                 .into(),
         );
-    }
-    if record
-        .consumed_slide_revisions
-        .contains(&consumed_revision_id)
-    {
-        return summary(&storage, &record);
     }
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         &storage,
@@ -1790,32 +1868,6 @@ pub(crate) async fn advance_repository_guide(
         &snapshot_id,
         &runtime,
     )?;
-    let mut duplicate = false;
-    let record = store::update_if_changed(&storage, &id, |current| {
-        if !contains_slide(current, &consumed_revision_id) {
-            return Err("The completed slide changed while its progress was saved.".into());
-        }
-        if current
-            .consumed_slide_revisions
-            .contains(&consumed_revision_id)
-        {
-            duplicate = true;
-            return Ok(false);
-        }
-        if current.consumed_slide_revisions.len() >= MAX_GUIDE_ANSWER_RECORDS {
-            return Err(
-                "The guide reached its slide progression limit. Saved slides remain available."
-                    .into(),
-            );
-        }
-        current
-            .consumed_slide_revisions
-            .push(consumed_revision_id.clone());
-        Ok(true)
-    })?;
-    if duplicate {
-        return summary(&storage, &record);
-    }
     let expected_revision = record.revision;
     store::prepare_continuation(&storage, &id, expected_revision)?;
     run_command(
@@ -1824,7 +1876,7 @@ pub(crate) async fn advance_repository_guide(
         id,
         lease,
         false,
-        1,
+        slides_needed,
         None,
         renderer_queue_wait_ms,
         operation_started_at,

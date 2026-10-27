@@ -2109,6 +2109,7 @@ pub fn run() {
             repository_guide::start_repository_guide,
             repository_guide::resume_repository_guide,
             repository_guide::retry_repository_guide_unit,
+            repository_guide::record_repository_guide_consumption,
             repository_guide::advance_repository_guide,
             repository_guide::stop_repository_guide,
             repository_guide::list_repository_guides,
