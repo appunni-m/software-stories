@@ -3,18 +3,24 @@
 *.local
 .kata.local.toml
 # Local environment files can contain API keys and other secrets.
-.env
-.env.*
-!.env.example
-!.env.*.example
-**/node_modules/
+# Cover local dotenv files in any package, including generated suffix variants.
+*.env
+*.env.*
+!*.env.example
+!*.env.*.example
 **/target/
 **/dist/
 **/.vite/
-# Also ignore a root node_modules symlink used by the local development server.
+# Ignore installed dependencies, including the root development-server symlink.
 node_modules
 /src-tauri/macos-release-metadata.json
 benchmarks/chapter-quality/review/reports/
+
+# Local test coverage output, regardless of which package directory emits it.
+**/.nyc_output/
+**/coverage/
+.coverage
+.coverage.*
 
 # Python worker contract checks.
 __pycache__/
