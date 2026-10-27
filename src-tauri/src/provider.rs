@@ -4338,6 +4338,11 @@ pub(crate) fn build_agent_handoff_review(
         // review is still bounded and never extended when an import fails.
         expires_at_unix_ms: unix_time_ms().saturating_add(60 * 60 * 1_000),
     };
+    // The copyable agent task has a different envelope from the reviewed
+    // metadata body. Prove that exact exported payload fits before showing a
+    // consentable review; otherwise the user could approve a task that fails
+    // only after they ask to copy it.
+    agent_handoff_text(&review)?;
     Ok(PendingProviderRequest { review, body })
 }
 
@@ -4413,7 +4418,7 @@ pub(crate) fn agent_handoff_text(
     if text.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "This handoff still exceeds the 512 KB limit. Ask about one behavior or use a focused code range. No agent received source.",
+            "This reviewed task is too large to copy safely. Choose fewer source files or a focused code range; nothing has been sent.",
         ));
     }
     Ok(text)
