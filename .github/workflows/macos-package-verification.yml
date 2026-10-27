@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: macos-package-verification-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Native macOS builds can take a while. Preserve the active verification and
+  # let GitHub retain only the newest pending run for this branch/PR.
+  cancel-in-progress: false
 
 jobs:
   verify-unsigned-package:
