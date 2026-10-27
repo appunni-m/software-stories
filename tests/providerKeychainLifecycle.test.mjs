@@ -41,5 +41,7 @@ test('a credential lookup cannot publish after the provider changes or Keychain 
   const providerChange = app.slice(providerStart, providerEnd);
   assert.match(providerChange, /if \(keyBusy \|\| sending/);
   assert.match(providerChange, /setCredential\(null\)/);
-  assert.match(app, /<select value=\{providerId\} onChange=\{\(event\) => handleProviderChange\(event\.target\.value\)\} disabled=\{keyBusy \|\|/);
+  assert.match(app, /<AppSelect ariaLabel="Direct API provider"/);
+  assert.match(app, /onValueChange=\{handleProviderChange\}/);
+  assert.match(app, /disabled=\{keyBusy \|\| sending \|\| saveBusy \|\| Boolean\(sendResult \|\| codeLensResult\)\}/);
 });
