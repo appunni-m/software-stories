@@ -58,8 +58,8 @@ export function visibleConversationTurns(
 ): Turn[] {
   const branchOwners = new Set(state.explorations.filter((e) => e.parentId === exploration.id).map((e) => e.originTurnId));
   return exploration.turns.filter((turn) => {
-    const answerRevisionIds = [turn.revisionId,
-      ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+    const answerRevisionIds = [
+      ...(turn.publishedSections?.length ? turn.publishedSections.map((section) => section.revisionId) : [turn.revisionId]),
       ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
     const answerAvailable = historyLoading || !availableRevisionIds
       || answerRevisionIds.some((revisionId) => revisionId && availableRevisionIds.has(revisionId));

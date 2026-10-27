@@ -275,7 +275,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (e.fileFlow !== undefined && (typeof e.fileFlow.path !== 'string' || e.fileFlow.path.startsWith('/') || e.fileFlow.path.includes('\\')
         || e.fileFlow.path.split('/').some((p) => !p || p === '.' || p === '..') || /[\u0000-\u001f\u007f]/.test(e.fileFlow.path)
         || new TextEncoder().encode(e.fileFlow.path).length > 4096 || typeof e.fileFlow.showAll !== 'boolean')) return fallback();
-      if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) return fallback();
+      if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
         if (!validRunId(t.id) || turnOwners.has(t.id) || !validRecordText(t.question, 65536) || !Array.isArray(t.context) || t.context.length > 32
@@ -290,7 +290,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
             && (!hasOnlyKeys(position, ['revisionId','sectionId']) || !cleanReadingPosition(position))))) return fallback();
         if (t.outcomeNotice !== undefined && (!hasOnlyKeys(t.outcomeNotice, ['read','dismissed'])
           || Object.keys(t.outcomeNotice).length === 0
-          || Object.values(t.outcomeNotice).some((id) => typeof id !== 'string' || !/^[a-f0-9]{16}$/u.test(id)))) return fallback();
+          || Object.values(t.outcomeNotice).some((id) => typeof id !== 'string' || !/^[a-f0-9]{16}$/u.test(id)))) delete t.outcomeNotice;
         const savedRunIds: unknown = t.runIds;
         if (savedRunIds !== undefined && (!Array.isArray(savedRunIds) || savedRunIds.length > 32 || savedRunIds.some((id) => !validRunId(id)))) return fallback();
         const runIds = (savedRunIds === undefined ? [] : savedRunIds) as string[];
@@ -303,6 +303,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
           || sectionValues.some((section) => !hasOnlyKeys(section, ['runId','key','order','generationId','revisionId','supersedes','contextElapsedMs','runElapsedMs']))) return fallback();
         const publishedSections = cleanPublishedSections(sectionValues);
         if (publishedSections.length !== sectionValues.length || publishedSections.some((section) => !runIds.includes(section.runId))) return fallback();
+        t.runIds ??= runIds;
         const rawNotes: unknown = t.notes;
         const noteValues = rawNotes === undefined ? [] : rawNotes;
         if (!Array.isArray(noteValues) || noteValues.length > 8) return fallback();
@@ -313,8 +314,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if (!Array.isArray(discoveryNoteValues) || discoveryNoteValues.length > 14) return fallback();
         const discoveryNotes = cleanSourceDiscoveryNotes(discoveryNoteValues);
         if (discoveryNotes.length !== discoveryNoteValues.length || discoveryNotes.some((note, index) => note !== discoveryNoteValues[index])) return fallback();
-        if (t.outcomeAt !== undefined && (!Number.isSafeInteger(t.outcomeAt) || Number(t.outcomeAt) < 0)) return fallback();
-        if (t.outcomeSequence !== undefined && (!Number.isSafeInteger(t.outcomeSequence) || Number(t.outcomeSequence) < 0)) return fallback();
+        if (t.outcomeAt !== undefined && (!Number.isSafeInteger(t.outcomeAt) || Number(t.outcomeAt) < 0)) delete t.outcomeAt;
+        if (t.outcomeSequence !== undefined && (!Number.isSafeInteger(t.outcomeSequence) || Number(t.outcomeSequence) < 0)) delete t.outcomeSequence;
         if (t.answerVersions !== undefined) {
           const versions: unknown = t.answerVersions;
           if (!Array.isArray(versions) || versions.length > 256 || versions.some((version) => !hasOnlyKeys(version, ['originalRevisionId','revisionId','selected','reading']))) return fallback();
@@ -334,6 +335,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if (t.status === 'working' || t.status === 'queued') {
           t.status = 'interrupted';
           t.error ??= 'This question was interrupted. Saved explanations are preserved.';
+          t.runIds ??= [];
         }
       }
       if (ancestors(value, e.id)[0]?.id !== 'root') return fallback();

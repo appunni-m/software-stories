@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, createWorkspace, parseWorkspace, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
+import { addTurn, createWorkspace, parseWorkspace, questionProgressText, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
 import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
+const persistedTurnId = '00000000-0000-4000-8000-000000000001';
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
 const patch = (state, id, values, now = 100) => recordQuestionOutcomes(state, { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...values } : t) })) }, now);
 
@@ -53,7 +54,7 @@ test('Guide and History show the question topic and preserve the exact prompt in
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{questionSummaryText\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
   assert.match(source, /const displayTitle=e\.id==='root'\?projectName:questionSummaryText\(title\)/);
-  assert.match(source, /title=\{`\$\{displayTitle\} · \$\{questionCount\} · \$\{childCount\}`\}/);
+  assert.match(source, /title=\{`\$\{plainInlineCodeText\(displayTitle\)\} · \$\{questionCount\} · \$\{childCount\}`\}/);
 });
 
 test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {
@@ -153,10 +154,13 @@ test('progressive guide keeps its selected slide while later slides enter the re
   assert.equal(guideSlideIndex(slides, 'dispatch'), 2, 'Next selects a stable revision identity');
   assert.equal(guideSlideIndex(slides, 'missing'), 0, 'a stale cursor falls back to the first available slide');
   assert.equal(guideSlideIndex([], undefined), -1, 'the sequence is empty before the first slide is validated');
+  assert.equal(questionProgressText(turn('guide', 'working', {
+    guideId: 'guide-id', guide: { status: 'building' }, publishedSections: slides.slice(0, 1),
+  })), '1 slide ready · more on the way');
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(workspace, /aria-label=\{turn\.guideId\?'Guide slides':'Answer sections'\}/);
   assert.match(workspace, /Next \$\{turn\.guideId\?'slide':'section'\}/);
-  assert.match(workspace, /Building next \$\{turn\.guideId\?'slide':'section'\}/);
+  assert.match(workspace, /const progressText=questionProgressText\(turn\)/);
 });
 
 test('ordinary multi-section answers use one focused section without changing one-section answers or guide slides', () => {
@@ -230,16 +234,16 @@ test('History preserves the reader position when reopening its already focused q
 });
 
 test('read and dismissal persist across restart without deleting answers or changing generation ownership', () => {
-  let state = stateWith(turn('one', 'partial', { revisionId: 'revision:one' }));
+  let state = stateWith(turn(persistedTurnId, 'partial', { revisionId: 'revision:one' }));
   const key = questionOutcomeKey(state.explorations[0].turns[0]);
-  state = openWorkspaceQuestion(state, 'root', 'one');
+  state = openWorkspaceQuestion(state, 'root', persistedTurnId);
   assert.equal(questionOutcomes(state)[0].read, true);
-  state = markQuestionOutcome(state, 'root', 'one', key, 'dismissed');
+  state = markQuestionOutcome(state, 'root', persistedTurnId, key, 'dismissed');
   const restored = parseWorkspace(JSON.stringify(state), 'project', 'snapshot');
   assert.deepEqual(questionOutcomes(restored), []);
   assert.equal(restored.explorations[0].turns[0].revisionId, 'revision:one');
   assert.equal(restored.explorations[0].turns[0].status, 'partial');
-  assert.equal(restored.explorations[0].focusedTurnId, 'one');
+  assert.equal(restored.explorations[0].focusedTurnId, persistedTurnId);
   assert.equal(restored.explorations[0].revealTurnId, undefined);
   assert.equal(restored.explorations[0].turns[0].runIds.length, 0);
 });
@@ -308,7 +312,7 @@ test('notifications are snapshot scoped, bounded and ordered by terminal outcome
 });
 
 test('reloading an active question reports interruption without automatically submitting it', () => {
-  const state = stateWith(turn('one', 'working'));
+  const state = stateWith(turn(persistedTurnId, 'working'));
   const restored = parseWorkspace(JSON.stringify(state), 'project', 'snapshot');
   assert.equal(questionOutcomes(restored)[0].title, 'Question interrupted');
   assert.equal(restored.explorations[0].turns[0].status, 'interrupted');
@@ -316,9 +320,9 @@ test('reloading an active question reports interruption without automatically su
 });
 
 test('invalid focus and notification metadata are discarded during restore', () => {
-  const state = stateWith(turn('one', 'failed', { outcomeAt: -1, outcomeSequence: Infinity, outcomeNotice: { read: 'x'.repeat(5000), dismissed: ['invalid'] } }));
+  const state = stateWith(turn(persistedTurnId, 'failed', { outcomeAt: -1, outcomeSequence: Infinity, outcomeNotice: { read: 'x'.repeat(5000), dismissed: ['invalid'] } }));
   state.explorations[0].focusedTurnId = 'someone-elses-question';
-  state.explorations[0].revealTurnId = 'one';
+  state.explorations[0].revealTurnId = persistedTurnId;
   const restored = parseWorkspace(JSON.stringify(state), 'project', 'snapshot');
   assert.equal(restored.explorations[0].focusedTurnId, undefined);
   assert.equal(restored.explorations[0].revealTurnId, undefined);
