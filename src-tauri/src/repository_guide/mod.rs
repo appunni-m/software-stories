@@ -35,8 +35,8 @@ const RECORD_SCHEMA_VERSION: u32 = 8;
 const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 #[cfg(test)]
 const DEFAULT_REASONING_EFFORT: &str = "max";
-const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
-const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
+const RESEARCH_POLICY: &str = "ordered-independent-code-first-research-v2";
+const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Implementation code is authoritative for behavior. Documentation is a discovery hint that may be outdated or deprecated; never use it alone as proof of code behavior. Identify a document as stale only when a specific statement is contradicted by cited implementation; otherwise label its status unverified. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 // Older saved guides have at most twelve planned units and may have up to
 // eight continuation units appended later. New guides start with five detailed
 // units and append discovered pending topics up to the same total capacity.
