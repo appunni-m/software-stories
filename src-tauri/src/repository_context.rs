@@ -478,7 +478,7 @@ fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<Str
         .filter(|word| {
             !crate::source_discovery::QUERY_STOPWORDS
                 .iter()
-                .any(|stopword| *stopword == word.as_str())
+                .any(|stopword| word.eq_ignore_ascii_case(stopword))
         })
         .cloned()
         .collect()
