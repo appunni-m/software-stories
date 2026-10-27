@@ -22,6 +22,7 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
   const [fileWideFocus, setFileWideFocus] = useState<string | null>(null);
   const showAll=storedShowAll??expanded;
   useEffect(()=>{setExpanded(false);setFileWideFocus(null);},[path,focus?.path,focus?.sha256,focus?.from,focus?.to]);
+  if (!path) return null;
   const symbols = new Map(index?.symbols.map((symbol) => [symbol.symbolId, symbol]));
   const fileLinked = edges.filter((edge) => ['calls', 'imports', 'testReference'].includes(edge.relationship.kind)
     && (symbols.get(edge.sourceId)?.path === path || symbols.get(edge.targetId)?.path === path));
@@ -44,8 +45,7 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
       {showingFileWide ? 'Return to selected code' : `Show file connections (${fileLinked.length})`}
     </button>}
     {loading ? <p role="status">Reading the local code index…</p>
-      : !path ? <p>Select a file in the explorer.</p>
-        : visible.length === 0 ? <p>{focusedSymbol && !showingFileWide
+      : visible.length === 0 ? <p>{focusedSymbol && !showingFileWide
           ? `No verified calls, imports, or test references touch ${focusedSymbol.name}.`
           : 'No verified calls, imports, or test references are available for this file.'}</p>
           : <div className="file-flow-routes">{visible.map((edge) => {

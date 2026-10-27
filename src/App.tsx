@@ -3934,7 +3934,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
   return <aside className="file-explanation-panel" aria-labelledby="file-explanation-title">
     <div className="file-tool-tabs" role="group" aria-label="File tools">
       <button aria-pressed={panel === 'explanation'} onClick={() => setPanel('explanation')}><BookOpen size={14} /> Explanation</button>
-      <button aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); onEnsureIndex(); }}><Workflow size={14} /> Flow</button>
+      <button aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); if (selectedPath) onEnsureIndex(); }}><Workflow size={14} /> Flow</button>
       <button disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open this explanation in Guide' : 'Accept an explanation to open it in Guide'}><BookOpen size={13} /> Guide</button>
     </div>
     <div className="file-tool-content">
@@ -3943,7 +3943,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
       <h2 id="file-explanation-title">{selectedPath ? selectedPath.split('/').at(-1) : 'Understand your code'}</h2>
     </header>
     {panel === 'flow' ? <FileFlow key={selectedPath} path={selectedPath} index={index} edges={edges} loading={indexLoading} onOpenFile={onOpenFile} />
-      : !selectedPath ? <div className="file-explanation-empty"><BookOpen size={24} /><strong>Start with a file.</strong><span>Choose one in the explorer. Its source and explanation stay side by side.</span></div>
+      : !selectedPath ? null
       : !isNativeRuntime() ? <p className="file-explanation-message">Open the Mac app to browse your code and generate explanations.</p>
         : loading ? <p className="file-explanation-message" role="status">Loading explanation…</p>
           : error ? <div className="file-explanation-message" role="alert"><span>{error}</span><button className="text-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry</button></div>
@@ -5266,7 +5266,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
     <div className={`empty-workspace simple-empty${inline ? ' source-inline-state' : ''}`} data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
       <div className="empty-state-icon code-icon"><Code2 size={24} /></div>
       <div className="step-pill"><span>FILES</span> SOURCE</div>
-      <h2>Choose a file to see its source.</h2>
+      <h2>Choose a file to see its source and explanation.</h2>
       <p>Source opens from the selected snapshot and is checked against its saved hash. The live working copy is not substituted.</p>
       {!inline && onGoAtlas && <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>}
       <div className="state-note"><HardDrive size={14} /> No source file is selected.</div>
