@@ -154,6 +154,7 @@ export function isCurrentChapterGenerationOrigin(value: unknown): value is Chapt
   if (!exactKeys(value, required, ['retrieval'])) return false;
   const schemaVersion = value.schemaVersion;
   if ((schemaVersion !== 5 && schemaVersion !== 6)
+    || (schemaVersion === 5 && !Object.hasOwn(value, 'retrieval'))
     || !boundedText(value.projectId, 4096) || !boundedText(value.snapshotId, 256)
     || !(value.targetPath === null || boundedText(value.targetPath, 4096))
     || !['fileChapter','repositoryOverview','sectionUpdate'].includes(String(value.purpose))

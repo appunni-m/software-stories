@@ -392,7 +392,7 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            matches!(self.schema_version, 5 | 6)
+            self.schema_version == 6
         };
         let expected_contract = if self.retrieval.is_some() {
             crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned()
@@ -403,7 +403,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if !matches!(self.schema_version, 5 | 6)
+        if !(self.schema_version == 6 || (self.schema_version == 5 && self.retrieval.is_some()))
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id
