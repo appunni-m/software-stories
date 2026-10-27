@@ -23,7 +23,8 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const SCHEMA_VERSION: u32 = 3;
+const PREVIOUS_SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +61,7 @@ pub(crate) enum PreparationKind {
 #[serde(rename_all = "camelCase")]
 pub(crate) enum PreparationOutcome {
     Complete,
+    Fallback,
     Failed,
     Stopped,
 }
@@ -137,8 +139,8 @@ impl Preparation {
     }
 
     /// Measure an optional local capability read whose failure is intentionally
-    /// handled by a fallback. Completion means the read attempt finished and
-    /// the caller can continue; a missing capability is returned as `None`.
+    /// handled by a fallback. A loaded capability records `Complete`; a
+    /// missing or unreadable one records `Fallback` while returning `None`.
     /// Diagnostics never retain the error text or source data.
     pub(crate) fn run_optional_stage<T>(
         &mut self,
@@ -146,7 +148,11 @@ impl Preparation {
         operation: impl FnOnce() -> Result<Option<T>, String>,
     ) -> Option<T> {
         let result = operation();
-        self.record_stage(kind, PreparationOutcome::Complete);
+        let outcome = match &result {
+            Ok(Some(_)) => PreparationOutcome::Complete,
+            Ok(None) | Err(_) => PreparationOutcome::Fallback,
+        };
+        self.record_stage(kind, outcome);
         result.ok().flatten()
     }
 
@@ -369,9 +375,10 @@ fn read(path: &Path) -> Result<Record, String> {
         .map_err(|_| "Timing diagnostics exceed their limit.")?;
     let value =
         crate::strict_json::from_slice(&bytes).map_err(|_| "Timing diagnostics are damaged.")?;
-    if value.get("schemaVersion").and_then(serde_json::Value::as_u64)
-        != Some(u64::from(SCHEMA_VERSION))
-    {
+    let schema_version = value
+        .get("schemaVersion")
+        .and_then(serde_json::Value::as_u64);
+    if !matches!(schema_version, Some(version) if version == u64::from(PREVIOUS_SCHEMA_VERSION) || version == u64::from(SCHEMA_VERSION)) {
         return Err("Timing diagnostics use an unsupported format.".into());
     }
     // `Option<T>` fields deserialize as `None` when absent, even without a
@@ -400,8 +407,11 @@ fn read(path: &Path) -> Result<Record, String> {
     if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some()) {
         return Err("Timing diagnostics are damaged.".into());
     }
-    let record: Record =
+    let mut record: Record =
         serde_json::from_value(value).map_err(|_| "Timing diagnostics are damaged.")?;
+    // Version 4 adds an explicit optional-index fallback outcome without
+    // changing the saved record shape. Keep version-3 diagnostics readable.
+    record.schema_version = SCHEMA_VERSION;
     validate(&record)?;
     Ok(record)
 }
@@ -439,7 +449,10 @@ fn validate(record: &Record) -> Result<(), String> {
         if stage.started_ms < preparation_end
             || stage.finished_ms < stage.started_ms
             || stage.finished_ms > manager_entered_ms
-            || stage.outcome != PreparationOutcome::Complete
+            || !matches!(
+                stage.outcome,
+                PreparationOutcome::Complete | PreparationOutcome::Fallback
+            )
         {
             return Err(invalid());
         }
@@ -572,6 +585,8 @@ pub(crate) fn validate_preparation_stages(stages: &[PreparationStage]) -> Result
         if stage.started_ms < previous_end
             || stage.finished_ms < stage.started_ms
             || stage.finished_ms > MAX_ELAPSED
+            || (stage.outcome == PreparationOutcome::Fallback
+                && stage.kind != PreparationKind::SyntaxIndexLoad)
         {
             return Err("Timing diagnostics are invalid.".into());
         }

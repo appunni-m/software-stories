@@ -72,6 +72,47 @@ The first attached `memory-face` sample ended after 391.557 seconds without a va
 
 The separate [attached-function retest](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face-exact-quotes.json) failed after 380.156 seconds with no preview. Its 36 delivered native calls total 12.568 seconds; final native call finish is 113.301 seconds on the context clock. First observed agent-message delta is 286.377 seconds and final validation 379.455 seconds on the outer probe clock. [Native timing companion and explicit clock origins](../acceptance/artifacts/2026-10-17-fontdone-memory-face-native-timing.json) preserve the new observations. Different clock origins and unmeasured gaps prevent a full stage attribution; no model-reasoning or provider-time claim follows. The two-minute gate still fails. The native-reference reliability dependency is [yk6c](72-agent-evidence-references.md); it does not replace this task's complete trace/benchmark contract.
 
+## Syntax-index preparation stage — 25 October 2026
+
+Progressive workspace generation now records `syntaxIndexLoad` as its own
+monotonic pre-dispatch stage, before retrieval-session creation. A missing or
+unreadable optional index still uses the existing text-search fallback. The
+already loaded syntax index is passed into the session, avoiding a second
+unmeasured read. The diagnostic retains only the fixed stage name, elapsed
+offsets and normal stage completion; it contains no index contents or error
+text. The record schema is unchanged.
+
+Focused verification passed: generation-timing 18/18, workspace-job 18/18,
+progressive-generation 16/16 (two account probes ignored), and agent-context
+24/24, including the preloaded-index handoff regression. Formatting and
+whitespace checks pass. This measured session syntax-index loading before
+retrieval-session creation. The per-search cache and preparation steps are now
+measured separately below. Repository-guide planning, provider/runtime wait,
+renderer adoption and audible narration remain outside these observations.
+Frozen repeated Fontdone comparisons and the two-minute semantic first-answer
+gate remain unqualified. Keep `ps02` open.
+
+## Per-search cache and index stages — 25 October 2026
+
+Each owned `search_snapshot` call now records fixed stage names and monotonic
+offsets on the evidence-ledger context clock: input validation, local cache
+lock, manifest load, cache check, optional syntax-index load, local search-index
+preparation, cache publication check and query execution. Warm calls omit the
+index-load and preparation stages. The maximum is eight stages per search; the
+trace stores no query, source, path or dynamic error text. Missing or unreadable
+syntax indexes are marked as a fixed fallback outcome, while captured-text
+search remains available.
+
+Stages are persisted with the owned Search call, including completed local work
+when cancellation or response handling prevents delivery. The serialized timing
+schema remains backward-compatible through an optional empty stage list.
+Focused verification passed: generation-timing 25/25, repository-context
+commands 6/6 (one explicit Fontdone profile ignored), evidence-ledger stage
+persistence/cancellation 2/2, and the updated agent-context search-delivery
+case 1/1. Formatting passes. These deterministic tests do not qualify repeated
+Fontdone latency, queue or provider time, guide planning, independent section
+publication, or the two-minute first-useful-answer goal; `ps02` remains open.
+
 ## Native-reference timing observation — 17 October
 
 Frozen Fontdone operation `da7f3bb9-b3a8-4ce1-973e-e5ccd9916340` failed after 358.714 seconds, publishing no answer. Its 40 native calls totalled 18.542 seconds (longest 1.742); the last finished at 92.239 seconds on the separate captured-context clock. On the outer run clock: first answer delta 229.125, first preflight 258.780, correction start 270.063, correction first delta 323.996 and second preflight 351.580 seconds. [Source-free measurements and interpretation](../acceptance/2026-10-17-native-citation-references.md). These clocks differ in origin; do not attribute all uncovered time to model reasoning or provider latency.
@@ -106,3 +147,15 @@ parser topic building, and the final three topics pending; the Guide still had
 zero slides. The Rust-example topic had failed since the prior measurement.
 No stop or retry was initiated. This is an in-progress UI observation, not a
 terminal timing sample.
+
+## Optional syntax-index fallback outcome — 27 October 2026
+
+Pre-dispatch timing now distinguishes an available syntax index from a missing
+or unreadable index that falls back to bounded text search. The trace and job
+store schema versions advance to v4; v3 timing records and job stores remain
+readable and are normalized when loaded. Diagnostics retain only the fixed
+`syntaxIndexLoad` stage and `fallback` outcome, never the error text or index
+contents. The existing focused regression now expects this distinction. This
+source-only review did not run builds or tests. Packaged Fontdone timing,
+complete stage coverage and the two-minute useful-answer acceptance remain
+open; keep `ps02` open.

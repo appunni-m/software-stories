@@ -391,7 +391,7 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         .collect::<Vec<_>>();
     assert!(validate_preparation_stages(&over_limit).is_err());
 
-    // Current records must contain the complete v3 envelope, including fields
+    // Current records must contain the complete v4 envelope, including fields
     // introduced when preparation and renderer wait measurements became part
     // of the diagnostic contract.
     let file = path(&f.0, &id).unwrap();
@@ -481,7 +481,7 @@ fn local_context_stages_are_bounded_ordered_and_source_free() {
 }
 
 #[test]
-fn optional_syntax_index_load_records_duration_when_generation_uses_the_text_fallback() {
+fn optional_syntax_index_load_distinguishes_text_fallback_from_availability() {
     let mut preparation = Preparation::new(Instant::now());
     let index = preparation.run_optional_stage(PreparationKind::SyntaxIndexLoad, || {
         Ok::<_, String>(Some("available"))
@@ -499,8 +499,8 @@ fn optional_syntax_index_load_records_duration_when_generation_uses_the_text_fal
     let stages = preparation.into_stages();
     assert_eq!(stages.len(), 3);
     assert_eq!(stages[0].outcome, PreparationOutcome::Complete);
-    assert_eq!(stages[1].outcome, PreparationOutcome::Complete);
-    assert_eq!(stages[2].outcome, PreparationOutcome::Complete);
+    assert_eq!(stages[1].outcome, PreparationOutcome::Fallback);
+    assert_eq!(stages[2].outcome, PreparationOutcome::Fallback);
     let encoded = serde_json::to_string(&stages).unwrap();
     assert!(!encoded.contains("private index path"));
 }
@@ -573,7 +573,7 @@ fn diagnostics_reject_corruption_duplicates_unexpected_content_and_identity_chan
     let original = fs::read(&file).unwrap();
     let original_value: Value = serde_json::from_slice(&original).unwrap();
     for (key, bad) in [
-        ("schemaVersion", json!(4)),
+        ("schemaVersion", json!(5)),
         ("modelId", json!("private source")),
         ("events", json!([])),
         ("clock", json!("wall clock")),

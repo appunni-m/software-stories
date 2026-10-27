@@ -17,7 +17,8 @@ use std::{
 };
 use uuid::Uuid;
 
-const STORE_SCHEMA_VERSION: u32 = 3;
+const PREVIOUS_STORE_SCHEMA_VERSION: u32 = 3;
+const STORE_SCHEMA_VERSION: u32 = 4;
 const MAX_STORE_BYTES: usize = 1024 * 1024;
 const MAX_JOB_COUNT: usize = 512;
 const MAX_TURN_IDS: usize = 64;
@@ -610,11 +611,13 @@ pub(crate) fn finish_preparation_failure(
     if stages.last().is_none_or(|stage| stage.outcome != expected) {
         return Err("The final preparation stage does not match its job outcome.".into());
     }
-    if stages
-        .iter()
-        .take(stages.len().saturating_sub(1))
-        .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
-    {
+    if stages.iter().take(stages.len().saturating_sub(1)).any(|stage| {
+        matches!(
+            stage.outcome,
+            crate::generation_timing::PreparationOutcome::Failed
+                | crate::generation_timing::PreparationOutcome::Stopped
+        )
+    }) {
         return Err("A preparation failure contains an earlier failed stage.".into());
     }
     let _guard = lock()?;
@@ -642,9 +645,13 @@ pub(crate) fn record_preparation_stages(
     validate_job_id(job_id)?;
     crate::generation_timing::validate_preparation_stages(&stages)?;
     if stages.is_empty()
-        || stages
-            .iter()
-            .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
+        || stages.iter().any(|stage| {
+            matches!(
+                stage.outcome,
+                crate::generation_timing::PreparationOutcome::Failed
+                    | crate::generation_timing::PreparationOutcome::Stopped
+            )
+        })
     {
         return Err("Only successful preparation checkpoints can be recorded here.".into());
     }
@@ -826,11 +833,14 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
         return Err("The saved workspace job record is invalid.".into());
     }
     crate::generation_timing::validate_preparation_stages(&job.preparation_stages)?;
-    if job
-        .preparation_stages
-        .iter()
-        .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete)
-    {
+    let has_preparation_failure = job.preparation_stages.iter().any(|stage| {
+        matches!(
+            stage.outcome,
+            crate::generation_timing::PreparationOutcome::Failed
+                | crate::generation_timing::PreparationOutcome::Stopped
+        )
+    });
+    if has_preparation_failure {
         let state_matches = match (job.state, job.preparation_stages.last()) {
             (JobState::Failed, Some(stage)) => {
                 stage.outcome == crate::generation_timing::PreparationOutcome::Failed
@@ -842,7 +852,13 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
         };
         let earlier_failure = job.preparation_stages[..job.preparation_stages.len() - 1]
             .iter()
-            .any(|stage| stage.outcome != crate::generation_timing::PreparationOutcome::Complete);
+            .any(|stage| {
+                matches!(
+                    stage.outcome,
+                    crate::generation_timing::PreparationOutcome::Failed
+                        | crate::generation_timing::PreparationOutcome::Stopped
+                )
+            });
         if !state_matches || earlier_failure {
             return Err("The saved workspace preparation failure is invalid.".into());
         }
@@ -900,9 +916,10 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
     };
     let value = crate::strict_json::from_slice(&bytes)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
-    if value.get("schemaVersion").and_then(serde_json::Value::as_u64)
-        != Some(u64::from(STORE_SCHEMA_VERSION))
-    {
+    let schema_version = value
+        .get("schemaVersion")
+        .and_then(serde_json::Value::as_u64);
+    if !matches!(schema_version, Some(version) if version == u64::from(PREVIOUS_STORE_SCHEMA_VERSION) || version == u64::from(STORE_SCHEMA_VERSION)) {
         return Err("Workspace generation job data uses an unsupported format.".into());
     }
     const REQUIRED_JOB_FIELDS: &[&str] = &[
@@ -935,8 +952,11 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
     }) {
         return Err("Workspace generation job data is incomplete.".into());
     }
-    let store: StoreFile = serde_json::from_value(value)
+    let mut store: StoreFile = serde_json::from_value(value)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
+    // Version 4 adds the optional syntax-index fallback outcome. Existing
+    // version-3 job identities and saved answers remain intact.
+    store.schema_version = STORE_SCHEMA_VERSION;
     if store.jobs.len() > MAX_JOB_COUNT {
         return Err(
             "Workspace generation job data uses an unsupported or oversized format.".into(),
