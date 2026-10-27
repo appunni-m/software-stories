@@ -190,7 +190,7 @@ type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
-  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
+  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
 ) & { recoveryBackend?: 'codex' | 'claude-agent' };
 
@@ -646,12 +646,13 @@ function App() {
       const sectionTarget = request.sectionUpdate;
       let sectionBase: ChapterRevision | null = null;
       if (request.purpose === 'sectionUpdate') {
-        if (!sectionTarget || !operation.targetPath) throw new Error('The interrupted section identity is incomplete. Select the original stale section in Edit and review it again.');
+        if (!sectionTarget) throw new Error('The interrupted section identity is incomplete. Select the original stale section in Edit and review it again.');
         const revisions = await listProjectChapterRevisions(operation.projectId);
         if (!current()) return;
         const base = revisions.find((revision) => revision.revisionId === sectionTarget.chapterRevisionId);
         const section = base?.sections.find((item) => item.sectionId === sectionTarget.sectionId && item.sectionRevisionId === sectionTarget.sectionRevisionId);
-        if (!base || base.lifecycle !== 'accepted' || base.target.scope.kind !== 'file' || base.target.scope.path !== operation.targetPath || !section) {
+        const expectedTargetPath = base?.target.scope.kind === 'file' ? base.target.scope.path : null;
+        if (!base || base.lifecycle !== 'accepted' || expectedTargetPath !== operation.targetPath || !section) {
           throw new Error('The exact accepted chapter or section is unavailable. Reassess freshness in Edit and select the intended repair; no broader request was opened.');
         }
         sectionBase = base;
@@ -707,7 +708,7 @@ function App() {
       } else if (rangeTarget) {
         setProviderDialog({ kind: 'code-lens-range', projectId: operation.projectId, snapshotId: operation.snapshotId,
           target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend });
-      } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget && operation.targetPath) {
+      } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget) {
         setProviderDialog({ kind: 'section-update', projectId: operation.projectId, snapshotId: operation.snapshotId,
           targetPath: operation.targetPath, selectedPaths: request.selectedPaths, baseRevision: sectionBase, sectionUpdate: sectionTarget,
           recoveryOperationId: operation.operationId, recoveryBackend });
@@ -1971,7 +1972,7 @@ function App() {
                 onGoPlan={() => chooseWorkspace('guide-plan')}
                 onRegenerateSection={(revision, section, selectedPaths) => {
                   const targetPath = revision.target.scope.kind === 'file' ? revision.target.scope.path : null;
-                  if (!targetPath || !currentProject) return;
+                  if (!currentProject) return;
                   setProviderDialog({
                     kind: 'section-update',
                     projectId: currentProject.projectId,
@@ -2838,7 +2839,12 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
                       {sectionUpdateMode && <div><span>Update target</span><strong>One section · {mode.sectionUpdate.sectionId}</strong></div>}
                       {sectionUpdateMode && <div><span>Accepted source revision</span><code>{mode.baseRevision.revisionId} · snapshot {mode.baseRevision.snapshotId}</code></div>}
-                      <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>
+                      {sectionUpdateMode ? <div><span>Original chapter scope</span><code>{mode.baseRevision.target.scope.kind === 'file'
+                        ? mode.baseRevision.target.scope.path
+                        : mode.baseRevision.target.scope.kind === 'group'
+                          ? `Group · ${mode.baseRevision.target.scope.paths.length} paths`
+                          : 'Repository overview'}</code></div>
+                        : <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>}
                       <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
                       <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
                       <div><span>Source snapshot</span><code>{requestReview.snapshotId}</code></div>
@@ -4521,8 +4527,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       });
     }
   };
-  const declaredCurrentPaths = (section: ChapterSection, targetPath: string) => {
-    const paths = new Set<string>([targetPath]);
+  const declaredCurrentPaths = (section: ChapterSection, targetPath: string | null) => {
+    const paths = new Set<string>();
+    if (targetPath) paths.add(targetPath);
     for (const claim of section.claims) {
       for (const anchor of claim.anchors) paths.add(anchor.path);
       for (const dependency of claim.dependencies) paths.add(dependency.path);
@@ -4880,8 +4887,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           const section = activeDocument.sections.find((item) => item.sectionId === sectionResult.sectionId);
                           const labels = { current: 'Current', safeToCarry: 'Safe to carry forward', stale: 'Stale', needsReview: 'Needs review' };
                           const sectionTitle = section?.title ?? sectionResult.sectionId;
-                          const targetPath = selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : null;
-                          const sectionPaths = section && targetPath ? declaredCurrentPaths(section, targetPath) : [];
+                          const targetPath = selectedRevision.target.scope.kind === 'file' ? selectedRevision.target.scope.path : null;
+                          const sectionPaths = section ? declaredCurrentPaths(section, targetPath) : [];
                           const dependentSections = Array.from(new Set(selectedFreshness.report!.reverseDependencies
                             .filter((dependency) => dependency.dependentSectionIds.includes(sectionResult.sectionId))
                             .flatMap((dependency) => dependency.dependentSectionIds)
@@ -4894,7 +4901,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               <h4>{sectionTitle}</h4>
                               <span className={`chapter-review-status status-${sectionResult.status}`}>{labels[sectionResult.status]}</span>
                               <span className="chapter-review-status">Evidence {sectionResult.evidenceState}</span>
-                              {sectionResult.status === 'stale' && section && targetPath && isNativeRuntime() && <button
+                              {sectionResult.status === 'stale' && section && isNativeRuntime() && <button
                                 className="secondary-button"
                                 disabled={busy || Boolean(pendingDraft) || sectionPaths.length === 0 || sectionPaths.length > 12}
                                 onClick={() => onRegenerateSection(selectedRevision, section, sectionPaths)}

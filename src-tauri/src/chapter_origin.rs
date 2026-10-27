@@ -266,6 +266,13 @@ impl ChapterGenerationOrigin {
                     && (1..=8).contains(max_turns),
             ),
         };
+        let section_update_ok = || {
+            self.section_update.as_ref().is_some_and(|target| {
+                text(&target.chapter_revision_id, 256)
+                    && text(&target.section_id, 256)
+                    && text(&target.section_revision_id, 256)
+            })
+        };
         let purpose_ok = match (self.purpose.as_str(), &revision.target.scope) {
             ("repositoryOverview", ChapterTargetScope::Overview) => {
                 self.target_path.is_none() && self.section_update.is_none()
@@ -273,13 +280,14 @@ impl ChapterGenerationOrigin {
             ("fileChapter", ChapterTargetScope::File { path }) => {
                 self.target_path.as_ref() == Some(path) && self.section_update.is_none()
             }
+            ("sectionUpdate", ChapterTargetScope::Overview) => {
+                self.target_path.is_none() && section_update_ok()
+            }
             ("sectionUpdate", ChapterTargetScope::File { path }) => {
-                self.target_path.as_ref() == Some(path)
-                    && self.section_update.as_ref().is_some_and(|target| {
-                        text(&target.chapter_revision_id, 256)
-                            && text(&target.section_id, 256)
-                            && text(&target.section_revision_id, 256)
-                    })
+                self.target_path.as_ref() == Some(path) && section_update_ok()
+            }
+            ("sectionUpdate", ChapterTargetScope::Group { .. }) => {
+                self.target_path.is_none() && section_update_ok()
             }
             _ => false,
         };
