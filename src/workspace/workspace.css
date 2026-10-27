@@ -50,6 +50,7 @@
 .dw-conversation-warning svg {flex:0 0 auto;margin-top:1px;color:var(--accent);}
 .dw-conversation-warning p {flex:1;margin:0;min-width:0;}
 .dw-conversation-warning strong {color:var(--text);font-weight:600;}
+.dw-flow-request-state p span {display:block;margin-top:var(--space-1);}
 .dw-conversation-conflict {align-items:center;flex-wrap:wrap;}
 .dw-conversation-conflict>div {flex:1 1 320px;min-width:0;}
 .dw-conversation-conflict>div p {margin-top:2px;}
