@@ -1442,7 +1442,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .dw-tool-content .chapter-studio-card .chapter-source-diff-labels {font:12px/1.5 var(--mono);}
 .dw-tool-content .chapter-studio-card .chapter-source-diff-lines {font:12px/1.6 var(--mono);}
 .dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
-.dw-tool-content :is(.git-ref-card,.git-comparison-result) {border-radius:8px;}
+.dw-tool-content :is(.git-ref-card,.git-comparison-results) {border-radius:8px;}
 
 /* The packaged Changes workspace keeps file navigation beside the selected diff. */
 .git-compact-comparison {display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0;}

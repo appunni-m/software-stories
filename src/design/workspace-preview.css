@@ -96,14 +96,6 @@ html, body, #root { height: 100%; }
 .preview-card-footer { border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 15px; margin-top: 18px; }
 .preview-card-footer button { background: none; border: 0; padding: 0; font-size: 12px; color: var(--accent); display: flex; gap: 6px; align-items: center; text-align: left; cursor: pointer; }
 .preview-card-footer > span { font-size: 12px; color: var(--dim); white-space: nowrap; }
-.preview-collapsed-answer { display: flex; align-items: center; gap: 15px; width: 100%; padding: 18px; border: 1px solid var(--border); border-radius: 10px; margin-top: 12px; color: var(--text); background: var(--editor-bg); text-align: left; cursor: pointer; }
-.preview-collapsed-answer > span:nth-child(2) { flex: 1; }
-.preview-collapsed-answer strong { font-size: 12px; font-weight: 500; }
-.preview-collapsed-answer small { display: block; color: var(--dim); font-size: 12px; margin-top: 5px; }
-.preview-child-explorations { padding-top: 22px; }
-.preview-child-explorations h3 { font-size: 12px; color: var(--dim); font-weight: 500; }
-.preview-child-explorations button { display: flex; align-items: center; gap: 10px; border: 0; width: 100%; text-align: left; padding: 10px 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
-.preview-child-explorations button > svg:last-child { margin-left: auto; }
 .preview-flow-intro { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .preview-flow { height: 490px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--editor-bg); }
 .preview-flow .react-flow { --xy-background-color: var(--editor-bg); --xy-node-color: var(--text); --xy-node-background-color: var(--surface-raised); --xy-node-border: 1px solid var(--border-strong); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-edge-stroke: var(--dim); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--editor-bg); --xy-background-pattern-dots-color: var(--border); }
