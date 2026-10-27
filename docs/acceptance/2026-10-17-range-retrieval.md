@@ -208,3 +208,35 @@ Reran the ignored local service profile at Code Atlas commit `34d67b9` against F
 | All broad range pages time | 11,195 ms / 10,804 ms |
 
 This repeats the service-level discovery-then-scope result after the `search_code` automatic default change; it does not measure an agent choosing and using that default. The profile used an existing prepared parser index, so the first value is a disk-loaded search, not a cold index build. Results are one run without a variance estimate, and the all-page totals aggregate bounded request payloads rather than a single model context. A single broad range page remains at 1/12. Keep `a699`, `gk46`, and dependent guide-quality tasks open; this is not an explanation-quality or packaged acceptance result. The temporary test output is in `/tmp/code-atlas-a699-post-default-20261025.log`; no Fontdone source was copied into this repository.
+
+## Current-source Fontdone profile with an empty retrieval cache — 25 October 2026
+
+Ran the ignored native-service profile at Code Atlas source `6cbb30d382df97335af2bc01fe728a34d22c5b62` against Fontdone `main@5249b72371`. The fixture was an isolated copy of the saved snapshot, objects and syntax indexes at `/private/tmp/code-atlas-fontdone-profile-qOJQ59`; its pre-existing retrieval cache was moved aside before this run. The app's original storage was not modified. No model, Codex, speech request, or Fontdone code execution was involved. The test passed. This creates a fresh retrieval generation, while reusing the copied syntax index; it is not a cold parser-index build.
+
+Environment: Apple M3 Pro, arm64, macOS 15.7.7, Rust/Cargo 1.98.1. One run, without a variance estimate. Command:
+
+```sh
+RUSTC_WRAPPER= \
+CODE_ATLAS_FONTDONE_DATA_DIR=/private/tmp/code-atlas-fontdone-profile-qOJQ59 \
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib \
+  repository_context_commands::tests::fontdone_service_retrieval_profile -- --ignored --exact --nocapture
+```
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / bytes / ranges | 1,621 / 19,296,074 / 3,462 |
+| Syntax / text-fallback files | 153 / 1,468 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| First search including retrieval-index preparation / warm same-process search | 15,530 ms / 167 ms |
+| Serialized `memory_face` result; top hit | 23,276 bytes; `src/font.rs:4053` |
+| Named independently selected declarations | 12/12 globally and 12/12 file-scoped |
+| Broad first ranked page | 1/12 for each query |
+| Broad pages inside the 256-result candidate window | 8/12 and 7/12 |
+| File discovery first page | 6/7 and 4/7 expected paths |
+| Eight-page file discovery, then scoped search | 7/7 expected paths and 12/12 ranges for both queries |
+| First-page discovered paths, then scoped search | 11/12 and 8/12 ranges |
+| File discovery time / result bytes | 1,230 ms / 173,839 bytes; 1,267 ms / 170,760 bytes |
+| All broad range pages time / result bytes | 10,399 ms / 165,137 bytes; 19,298 ms / 159,096 bytes |
+| Retrieval cache / copied syntax-index directory after the run | 14 MiB / 234 MiB (index directory includes other saved snapshots) |
+
+This confirms the local service can discover all seven expected files and recover all twelve pinned ranges when it pages file discovery and scopes range searches. It also reconfirms weak global first-page recall and an incomplete first-page discovery result. The test invokes local services directly; it does not prove that an agent automatically follows the multi-step path, that the packaged app works offline, or that an explanation is accurate or useful. These are debug-profile observations, not user-facing latency or token measurements. Keep `a699`, `gk46`, and guide-quality tasks open.

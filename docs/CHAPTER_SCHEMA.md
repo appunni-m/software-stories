@@ -1,6 +1,6 @@
 # Chapter schema
 
-This document describes the current version 4 chapter payload used by Chapter Studio, validation, linked visuals, and the walkthrough player. The reader also supports strict legacy chapter payloads v1, v2 and v3; future versions are rejected. Visuals have their own version number: v2 is current, while v1 visuals are preserved only on legacy accepted revisions. The Rust structs in `src-tauri/src/chapters.rs` are the serialization authority; the matching TypeScript interfaces are in `src/lib/commands.ts`.
+This document describes the current version 5 chapter payload used by Chapter Studio, validation, linked visuals, and the walkthrough player. The reader accepts only chapter schema v5; versions 1–4 and unknown future versions are unsupported, and this reader does not migrate them. Stored interactive visuals use visual schema v3 and require a version-3 scene presentation. Unsupported visual payloads may remain attached as unavailable data for safe display/round-trip handling, but they are not valid current visuals. The Rust structs in `src-tauri/src/chapters.rs` are the serialization authority; the matching TypeScript interfaces are in `src/lib/commands.ts`.
 
 ## Revision shape
 
@@ -8,7 +8,7 @@ A chapter revision is one immutable, snapshot-pinned value. Its JSON uses camelC
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "chapterId": "chapter:request-flow",
   "revisionId": "revision:request-flow:1",
   "revisionNumber": 1,
@@ -26,7 +26,7 @@ A chapter revision is one immutable, snapshot-pinned value. Its JSON uses camelC
 }
 ```
 
-`basedOnRevisionId` is set on every Chapter Studio edit, acceptance, or rejection revision. `decisionNote` is present only on a rejected revision. When either optional value is absent, its JSON key is omitted. Version 1 JSON omits both keys, and the version 1 reader rejects either key even when its value is `null`. A generated first draft has no parent; later changes append a new immutable revision rather than replacing the saved value.
+`basedOnRevisionId` records the parent of a Chapter Studio edit, acceptance, or rejection revision. `decisionNote` is present only on a rejected revision. When either optional value is absent, its JSON key is omitted. A generated first draft has no parent; later changes append a new immutable revision rather than replacing the saved value.
 
 Chapter Studio transitions are append-only: edit creates a draft from the currently latest revision, accept creates a validated accepted revision from a saved draft, and reject creates a rejected revision with a reason while preserving the draft. A rejected revision cannot be accepted directly; repair creates another draft first. A stale snapshot remains readable but cannot be accepted as current code.
 
@@ -90,27 +90,32 @@ File generation accepts a separate, strict proposal, defined by the `GeneratedCh
 
 Ordinary Codex file chapters, overviews, planned file chapters and selected-section repairs fingerprint `candidateCorrection: {"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1}` into the native review, including requests without a chat question. Before source admission, bounded checks can request one correction in the same ephemeral Codex thread. The follow-up reports identifier problems and fixed positional composition-tree codes: invalid parents, element/content/child counts, nesting, empty groups and content in layout elements. Tree checks share the native validator's rules; their feedback does not copy source paths, excerpts, scene labels or values.
 
-The correction uses the original source context, model, reasoning, schema, permissions, cancellation owner and ten-minute deadline, and cannot fetch new files. It does not patch or admit output locally. The complete corrected JSON still passes normal quote, dependency, visual and independent storage checks. Persistent known findings, cancellation or transport failure stop the operation; malformed or unknown shapes remain subject to full admission. There is no automatic new generation. This structural check does not prove visual meaning or teaching quality. [Scope and retained evidence](acceptance/2026-10-17-codex-layout-correction.md).
+The correction uses the original source context, model, reasoning, schema, permissions, cancellation owner and user-controlled run deadline, and cannot fetch new files. It does not patch or admit output locally. The complete corrected JSON still passes normal quote, dependency, visual and independent storage checks. Persistent known findings, cancellation or transport failure stop the operation; malformed or unknown shapes remain subject to full admission. There is no automatic new generation. This structural check does not prove visual meaning or teaching quality. [Scope and retained evidence](acceptance/2026-10-17-codex-layout-correction.md).
 
-Historical retrieval requests retain `claimAlignmentCorrection: {"policy":"identifier-alignment-v1","maxAttempts":1}` and their original diagnostics. Progressive chat keeps its bounded section-proposal mechanism rather than using this final-chapter correction. Direct API, Claude, discovery, planning and PR requests do not acquire the ordinary Codex chapter policy.
+The old `claimAlignmentCorrection` format is ignored. Only the exact current
+`candidateCorrection` object enables the one-shot Codex chapter correction;
+changed, unknown, or mixed policy fields disable it. Progressive chat uses its
+separate bounded section-proposal validator. Direct API, Claude, discovery,
+planning and PR requests do not acquire the ordinary Codex chapter policy.
 
 An evidence item contains only a selected captured `path` and an exact `quote`. The quote must occur exactly once in that file, including overlapping occurrences, and its whitespace and UTF-8 bytes are preserved. Repeated, missing, empty, unselected, or malformed evidence rejects the proposal. The app locates each verified quote in the captured bytes and constructs its snapshot identity, source hash, inclusive byte offsets, line positions, byte columns, optional enclosing index symbol, and source dependencies locally. The model does not supply a revision ID, anchor ID, source hash, offset, lifecycle, validation status, saved visual ID, or hotspot ID.
 
-A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hierarchy`). Current generation schemas require each node/edge's evidence to contain references such as `{"claimIndex":0,"evidenceIndex":0}`. Both indexes are zero-based within that same section's claims and their evidence arrays. The app validates the claims first, resolves existing references to exact anchors, then constructs diagram and source-link IDs. Missing or duplicate references, foreign fields, malformed indexes and invalid graph edges reject the proposal. A reference does not establish that a diagram's semantic interpretation is correct; content review remains necessary. Legacy visual proposals using exact `{path, quote}` items remain readable with their original strict claim-attachment checks. Stored visual schema and anchor destinations are unchanged.
+A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hierarchy`). Current generation schemas require each node/edge's evidence to contain references such as `{"claimIndex":0,"evidenceIndex":0}`. Both indexes are zero-based within that same section's claims and their evidence arrays. The app validates the claims first, resolves existing references to exact anchors, then constructs diagram and source-link IDs. Missing or duplicate references, foreign fields, malformed indexes and invalid graph edges reject the proposal. A reference does not establish that a diagram's semantic interpretation is correct; content review remains necessary. Legacy visual proposals using `{path, quote}` are not part of the current proposal contract. Stored visual schema and anchor destinations use the current v3 visual contract.
 
 Fresh file chapters, repository overviews and single-section repairs request
 `presentation`, either `null` for no composition or a version-3 narrated
 [visual scene composition](VISUAL_SCENES.md). The prompt identities are
-`structured-file-chapter-v5`, `structured-repository-overview-v5` and
-`structured-single-section-update-v3`. The shared context builder supplies this
+`structured-file-chapter-v11`, `structured-repository-overview-v11` and
+`structured-single-section-update-v9`. The shared context builder supplies this
 contract to account-agent and direct-provider chapter requests. Existing
 five-tool retrieval schemas and progressive tool catalogs retain their pinned
 historical identities.
 
-Ordinary and progressive requests share the current scene and teaching
-instructions. Progressive contracts fingerprint the current source policies
-`storyPolicy: "ai-html-compositions-v47"`,
-`teachingPolicy: "meaning-first-v29"`, and the exact composed instructions.
+Ordinary and progressive requests share the current scene, teaching and reader
+language instructions. Progressive contracts fingerprint the current source
+policies `storyPolicy: "ai-html-compositions-v61"`,
+`teachingPolicy: "meaning-first-v31"`, `readerLanguagePolicy:
+"reader-language-v1"`, and the exact composed instructions.
 Each claim scene selects graph or composition mode independently, so one visual
 section can mix them; narration-only mode applies only when no claim benefits
 from a visual. This does not change stored checkpoint identities or replay
@@ -125,12 +130,13 @@ After source canonicalization, the fresh-preview boundary assembles displayed
 prose and speech from **all** anchored claim sentences, preserving inference
 labels and sentence order. The complete script must be 20–4,000 UTF-8 bytes;
 an oversized answer fails rather than losing later behavior. The proposal's
-shorter `spokenText` remains a required compatibility transport field under
+shorter `spokenText` remains a required transport field under
 its existing 1,000-byte bound. It does not select which claims are narrated.
 Evidence-limit sections remain silent. A selective repair prepares only its
 selected section; carried sections, custom scripts and stored revisions are
-not rewritten by this policy. Legacy presentations remain readable under
-their original validation, but a fresh result cannot downgrade to version 1.
+not rewritten by this policy. A freshly generated non-empty visual requires the
+current version-3 presentation; the `none` choice has no stored visual or
+presentation.
 
 Relationship claims cite IDs copied from the reviewed `selectedRelationships` context. Each relationship carries its indexed type, confidence, source and target, exact source excerpt, and unresolved reason when present. The request filter includes only relationships whose source and any resolved target refer to selected, verified indexed files or symbols. The app rechecks the cited IDs, hashes, ranges, and selected endpoints, then appends the actual indexed type and confidence to the saved claim. Unresolved targets retain their unresolved status; static index evidence does not establish runtime calls or outcomes.
 
@@ -162,7 +168,7 @@ Only the explicit **Save local draft** action adds that pending revision to chap
 
 ## Claims and evidence
 
-Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. Empty `spokenText` remains allowed for legacy or manually authored sections where narration is absent. Newly generated behavior sections receive the complete grounded claim narration described above; the app-generated evidence-limit section remains silent. TTS audio is still optional and is never requested until the reader reviews and consents to that request.
+Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. `spokenText` is a required string field in the chapter payload. Newly generated behavior sections receive the complete grounded claim narration described above; the app-generated evidence-limit section remains silent. TTS audio is optional and is never requested until the reader reviews and consents to that request.
 
 Claim categories are tagged values:
 
@@ -197,20 +203,11 @@ Dependencies are typed as `sourceFile`, `symbol`, or `relationship`. Each record
 
 ## Typed visuals and destinations
 
-A visual is data for the built-in renderer, not a document or program. Interactive visual version 2 permits `dataFlow`, `sequence`, or `hierarchy` diagrams made from labeled nodes and directed edges. It requires an app-owned `layoutHint.direction` (`auto`, `leftToRight`, or `topToBottom`). Every node and edge has one to eight `evidenceAnchorIds`; each ID must resolve to an exact source anchor attached to a claim in the same section. Nodes may also reference a `hotspotId`.
+A visual is data for the built-in renderer, not a document or program. Current interactive visual schema v3 permits `dataFlow`, `sequence`, or `hierarchy` diagrams made from labeled nodes and directed edges. It requires an app-owned `layoutHint.direction` (`auto`, `leftToRight`, or `topToBottom`) and a version-3 `presentation`. Every node and edge has one to eight `evidenceAnchorIds`; each ID must resolve to an exact source anchor attached to a claim in the same section. Nodes may also reference a `hotspotId`.
 
-Version 1 diagrams remain preserved only on an already accepted, validated chapter revision. The current player marks them as legacy and leaves the section explanation and evidence available. A v1 visual cannot contain v2 layout or evidence-link fields. New drafts and edited diagrams must use version 2. The bounded payload permits 1–500 nodes and 0–1,000 edges, titles up to 160 UTF-8 bytes, labels and hotspot labels up to 240 bytes, and node details up to 512 bytes. IDs are unique across node and edge IDs in the chapter revision. Every edge has a non-empty label and endpoints in the same diagram.
+The bounded payload permits 1–500 nodes and 0–1,000 edges, titles up to 160 UTF-8 bytes, labels and hotspot labels up to 240 bytes, and node details up to 512 bytes. IDs are unique across node and edge IDs in the chapter revision. Every edge has a non-empty label and endpoints in the same diagram.
 
-The closed v2 schema has no HTML, script, URL, or CSS field; unknown fields are rejected. A malformed or unsupported visual is reported as invalid and falls back to a visual-unavailable state while the chapter prose and source evidence remain readable. The reader renders labels, details, prose, and excerpts as text, never as markup.
-
-Version 2 now also permits optional `presentation` (presentation schema version
-1): AI-authored compositions of bounded app-owned HTML components, or graph
-scenes, one per claim. Content elements refer to same-claim visual node indices;
-source values must exactly occur in their cited excerpts, and invented examples
-must be visibly labeled illustrations. No raw HTML/CSS/script or model-defined
-handlers execute. Older visuals omit this field unchanged. Renderer contract
-version 2 includes the composition in asset identity and selective reuse. See
-[scene grammar, bounds and limitations](VISUAL_SCENES.md).
+The closed v3 schema has no HTML, script, URL, or CSS field; unknown fields are rejected. A malformed or unsupported visual is reported as unavailable while the chapter prose and source evidence remain readable. The reader renders labels, details, prose, and excerpts as text, never as markup. Presentation schema v3 stores bounded app-rendered compositions or graph scenes, one per claim. Content elements refer to same-claim visual node indices; source values must exactly occur in their cited excerpts, and invented examples must be visibly labeled illustrations. No raw HTML/CSS/script or model-defined handlers execute. Renderer contract version 2 includes the composition in asset identity and selective reuse. See [scene grammar, bounds and limitations](VISUAL_SCENES.md).
 
 Each app-rendered diagram has a deterministic identity based on its typed visual data, the renderer contract version, the exact payloads of linked anchors, and destinations of hotspots used by its nodes. Anchor payloads include their snapshot IDs because an interactive source link is scoped to one immutable snapshot; moving an otherwise identical link to another snapshot changes the diagram identity. Section prose, narration, section order, unused anchors, unused hotspots, and unrelated sections do not change this identity. App-owned diagrams have no generated image/audio cache; the identity and reverse links define which diagram would need updating if a typed input changes.
 
@@ -254,14 +251,14 @@ No line-distance search, fuzzy match, nearest-symbol fallback, or automatic save
 
 ## Versioning and existing accepted revisions
 
-Readers dispatch on `schemaVersion`; versions 1, 2, 3, and 4 are decoded strictly and future versions are rejected. Version 1 predates review metadata; v2 introduced `basedOnRevisionId` and `decisionNote`; v3 introduced grounded overview content; v4 is the current write version and adds optional native agent generation lineage. Reading, validating, or serializing an accepted revision never changes its lifecycle, status, sections, anchors, visual data, or payload values. Version 1 accepted JSON keeps its original shape because absent review metadata is omitted during serialization. Any future migration preserves the old accepted payload and appends a new draft/revision; accepted revisions are never rewritten in place.
+The decoder accepts only `schemaVersion: 5`; older and unknown future versions are rejected as unsupported. This is strict parsing, not a migration path. Version 5 is the current write version and carries optional native agent generation lineage. Reading, validating, or serializing a revision does not rewrite its stored bytes as a migration. Any future migration must preserve the old payload and append a new draft/revision; accepted revisions are never rewritten in place.
 
 
-## Version 4 agent generation record
+## Version 5 agent generation record
 
 `generationOrigin` is optional and omitted when absent. Native Codex and Claude chapter senders create it after independent source/claim validation; API and manual handoff generation do not create agent provenance. It retains the exact original request, supported agent settings, source digests, optional accepted-plan step scope and a bounded original-content digest. Saved previews and immutable chapter revisions keep this record together. The app exposes original generation in previews/history and exact recorded plan-step chapter links. Manual edits and review decisions inherit native lineage; new generation gets its own record rather than claiming the old one. Later content can differ, and the record does not attest account identity or teaching quality.
 
-Versions 1–3 reject origin metadata, including a present null field. Version-3 overview revisions and pending previews remain readable/recoverable without fabricated lineage. New review/edit decisions append version 4, preserving the older accepted bytes. See [the complete record, digest, evolution and acceptance contract](CHAPTER_GENERATION_RECORDS.md). This source extension has not been built or exercised; old evidence must be rerun against version 4.
+The current origin record uses schema version 6 and is optional; when absent its JSON field is omitted. A present malformed or unsupported origin is rejected. See [the complete record, digest, evolution and acceptance contract](CHAPTER_GENERATION_RECORDS.md). Current source changes remain unbuilt and unqualified until the consolidated release-candidate pass.
 
-### Agent lineage digest compatibility
-New agent lineage uses origin schema 2 and the current camelCase content serialization. Origin schema 1 remains readable using its original snake_case enum-field content digest (or the transitional camelCase digest). Verification reconstructs the exact original bounded serialization for comparison only. JSON object order is preserved when decoding retained visual payloads, so a read does not change their original digest serialization, including mixed carried-forward and newly generated visuals. It never updates a saved hash, rewrites stored chapter bytes, skips evidence validation or accepts changed prose/narration. This is local request lineage, not an account attestation or semantic-quality guarantee.
+### Agent lineage digest
+The current generation-origin record uses schema version 6 and the current camelCase content serialization. The decoder rejects unsupported origin versions rather than migrating them. Verification reconstructs the bounded serialization for comparison only. JSON object order is preserved when decoding retained visual payloads, so a read does not change their original digest serialization, including mixed carried-forward and newly generated visuals. It never updates a saved hash, rewrites stored chapter bytes, skips evidence validation or accepts changed prose/narration. This is local request lineage, not an account attestation or semantic-quality guarantee.

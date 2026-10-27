@@ -71,7 +71,7 @@ Code Lens opens captured bytes from the selected snapshot. If the citation's sou
 
 ## Chapter Studio has no current chapter for a file
 
-Open Guide Plan to see that file's status, then select the file in Chapter Studio. A chapter from an older snapshot is not current for the selected snapshot. The current workflow creates a new chapter draft through **Generate current snapshot** after you explicitly choose a direct API provider/model and review the exact context. There is no bulk generation action.
+Open Guide Plan to see that file's status, then select the file in Chapter Studio. A chapter from an older snapshot is not current for the selected snapshot. Choose **Generate current snapshot** to prepare a draft from the selected snapshot. Code Atlas reuses the saved connection when it supports the operation and asks you to review the exact request before source is sent. There is no bulk generation action.
 
 A generated preview must be saved as a draft before it appears in chapter history. A saved draft still requires a separate review and acceptance. Schema and citation validation do not establish that the prose is accurate; read the explanation against the cited code.
 
@@ -83,7 +83,7 @@ This means the generated draft named a function or variable in its evidence meta
 
 ## Direct API setup or request fails
 
-Direct API generation runs only in the native macOS app. For a legacy direct API request, use its provider setup to check Keychain and save that provider's key. The normal workspace uses the Codex account in **Connections → Explanations**. Code Atlas does not read the saved key back into the UI. Gemini text-to-speech uses its separate Gemini key.
+Direct API generation runs only in the native macOS app. Open **Connections** in the header to review the selected connection or configure a direct API key; API credentials are stored in macOS Keychain and are not read back into the UI. Workspace questions use the saved Codex connection. Gemini text-to-speech uses its separate Gemini key under **Connections → Voice**.
 
 Before sending, inspect the request review and all provider notices. A request can fail because of network access, model availability, quota, billing, eligibility, region, or provider limits. Code Atlas does not silently retry another model or switch to paid service. After failure, create and review a fresh request before retrying; prior consent is not reused.
 

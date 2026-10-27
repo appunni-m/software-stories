@@ -34,8 +34,8 @@ the selected folder and its Git metadata first; source bytes are read only when
 you choose **Create snapshot**. Local browsing, snapshots, indexes, and saved
 guides work without an AI key.
 
-Direct model APIs are optional. If you add a provider key in **AI and
-narration setup**, Code Atlas saves it in a provider-specific macOS Keychain
+Direct model APIs are optional. If you add a provider key in **Connections**,
+Code Atlas saves it in a provider-specific macOS Keychain
 item and never writes it to an app data file. Gemini narration uses a separate
 Gemini key. macOS may ask you to unlock Keychain or approve access. If access
 is denied, the app says the key was not saved; retry after unlocking Keychain
@@ -77,7 +77,7 @@ Go to Folder…**, enter `~/Library/Application Support/`, and move the
 project in Code Atlas. Emptying the Trash makes that deletion permanent. An
 offline HTML export stored elsewhere is not removed. Direct API keys are kept
 in provider-specific Keychain entries, and Gemini narration has its own key;
-remove the relevant keys in **AI and narration setup** if you also want to
+remove the relevant keys in **Connections** if you also want to
 delete them.
 
 ## If storage is low

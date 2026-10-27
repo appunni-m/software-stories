@@ -36,7 +36,7 @@ folder or relying on an offline export as a backup.
 
 1. Choose **Open repository** and select a local Git working copy. Choose **Create snapshot** to capture its eligible source. Capture is local, bounded and cancellable; partial captures remain labelled partial.
 2. The workspace opens with files on the left and a likely implementation entry point beside the explanation area. Browse files freely. Source comes from the selected immutable snapshot, rather than your changing working copy.
-3. Open **Connections** in the header once; **Explanations** contains Codex. It discovers the installed runtime and reuses its existing account. Model and reasoning settings are inside this connection. This workspace currently requires **GPT-6 Luna / max**. No API key is needed; account quota applies.
+3. Open **Connections** in the header. Choose Codex under **Explanations**; Code Atlas discovers the installed runtime and reuses its existing account. Saved model and reasoning choices are reused across projects. GPT-6 Luna with max reasoning is the initial preference when the installed catalog offers it; choose another supported catalog option if needed. No API key is required; account quota applies.
 4. Enter a question in the composer and choose **Guide me** or **Show the flow**. On the first question for this snapshot, review the sharing disclosure and choose **Allow and explain** only if you want relevant captured context sent to OpenAI through Codex. This permission is limited to the snapshot and connected account. To revoke it, open **Repository sharing** in the workspace toolbar and choose **Revoke permission and stop questions**. A changed snapshot, account or runtime needs a new permission.
 5. Codex finds relevant implementation in the background and saves a cited draft. No reference-file checklist or second generation stage is required. Keep reading files while it works, or choose **Stop** on the question. Completion and errors collect behind the notification bell. A restart marks unfinished questions interrupted and never resends them automatically.
 6. Read **Guide**, inspect **Flow**, or review **Chat history** at the current level. Click a citation to reveal its exact captured lines. **Next section** advances only when you choose it. Each answer has its own edit and narration controls. **Play narration** uses a matching cached clip when available; otherwise Pocket prepares it locally. Choose the voice once in **Connections → Voice**. Generated explanations are drafts until reviewed and accepted.
@@ -85,7 +85,7 @@ Automatic Claude and Antigravity generation are deferred. Manual handoffs and di
 
 Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To explicitly use a direct model API:
 
-1. Click the connection in the header, then choose **Change backend → Direct API**.
+1. For an operation that offers direct APIs, open the generation chooser and choose **Direct API**. The shared **Connections** header shows the current connection and opens its settings.
 2. Choose Gemini, OpenAI, or Anthropic, review its model and provider disclosures, then save that provider's API key to macOS Keychain.
 3. In Chapter Studio, select one file and choose **Generate current snapshot**.
 4. Inspect the exact selected source files, hashes, prompt, model, and estimate in the request review. The target file is included; up to eleven supporting files from the same snapshot can be selected.

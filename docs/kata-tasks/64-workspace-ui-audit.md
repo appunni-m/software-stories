@@ -56,10 +56,12 @@ Installed observation: existing origin-v1 answers/diagram now load; clicking Val
 The [large-repository acceptance run](../acceptance/2026-10-17-fontdone.md) reproduced remaining user-facing inconsistencies:
 
 - [ ] Returning from a child, switching Guide/history or restarting restores the parent answer at section one. Preserve exact reader position under separate [task 68](68-exploration-reading-position.md), Kata `erzc`.
-- [ ] History labels stopped questions with no saved revision “Open the saved explanation.” Show the actual stopped/interrupted/failed state and an appropriate navigation/retry label; only a matching revision may be called saved.
-- [ ] A stopped child with no generated result is counted as “1 answer.” Distinguish questions/explorations from completed answers without hiding their preserved history.
-- [ ] Headings and prose display literal Markdown backticks. Render supported inline code safely; preserve stored prose and citation identity and do not execute model HTML.
-- [ ] A shared search term carries from Search into Explorer, leaving an empty filtered tree for a symbol name. Make the filter's current scope obvious or retain separate search/filter values.
+- [x] History labels describe stopped/interrupted/failed questions truthfully and call an explanation saved only when its exact revision is available. The current model is `historyEntry` in `src/workspace/model.ts`; regressions are in `tests/workspace.test.mjs`.
+- [x] Exploration summaries distinguish questions and child explorations from answer sections. The current model is `explorationSummaryCounts` in `src/workspace/model.ts`; failed-child and count regressions are in `tests/workspace-outcomes.test.mjs`.
+- [x] Supported inline code is rendered as inert `<code>` elements through `InlineCodeText` and `inlineCodeParts`; stored prose and citation identity are unchanged.
+- [x] Search results and Explorer filtering have separate state (`repositorySearch` versus `fileFilter` in `src/workspace/Workspace.tsx`; the legacy Atlas tree uses its own `treeQuery`). A search query is not applied to the file tree.
+
+These four fixes are source/model findings, not packaged design acceptance. Keep the parent reader-position issue and full native navigation, first-run, theme, zoom, keyboard, and VoiceOver review open.
 
 The snapshot, source range, question tree, selected view and saved draft did survive restart; Pocket playback also reused its recording. These passes do not close the unresolved UI, reader-position, accessibility or deeper-branch gates.
 

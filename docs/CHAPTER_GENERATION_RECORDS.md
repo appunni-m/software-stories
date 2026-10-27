@@ -2,6 +2,8 @@
 
 Source checkpoint: October 16, 2026. This implementation has not been built or exercised. Codex native acceptance is pending; Claude automatic generation remains unavailable behind the empty qualification registry.
 
+> **Historical contract:** this page records the October 16 source checkpoint, when chapter schema v4 and agent-origin schema v1 were current. It is not the current serialization contract. The current chapter reader accepts only schema v5 and the current generation-origin record uses schema v6; see [Chapter schema](CHAPTER_SCHEMA.md). The acceptance status above is evidence from that checkpoint, not a claim about the current checkout.
+
 ## What the user sees
 
 - New native Codex/Claude chapter previews, recovered previews and saved revisions show **Original generation** with the recorded agent, model, reasoning/approval settings, request ID and original snapshot. Planned chapters also retain the original question and exact accepted plan revision/step.

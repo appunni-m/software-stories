@@ -13,13 +13,14 @@ blocked_by:
 Code Atlas is a Mac-first desktop app that helps a developer understand an unfamiliar local repository quickly and accurately. Its default guide explains every eligible file individually, links every code-behavior claim to exact captured source, and lets readers inspect and navigate at their own pace.
 
 ## Product shape
-Three primary destinations share one project and immutable source snapshot:
+One persistent VS Code-style workspace shares the selected project and immutable source snapshot. Its left activity bar contains **Explorer**, **Search**, **Changes**, and **Explorations**. A pinned chat composer stays above the content. Each exploration keeps **Guide**, **Flow**, and **Chat history** as views of the same conversation; source details open inline beside the active Guide or Flow view.
 
-- **Guide:** repository orientation, an optional accepted repository tour, file-level progress, and direct next actions.
-- **Files:** a repository tree with exact captured source, the selected file's explanation and clickable evidence; the relationship map is optional within this destination.
-- **Changes:** local base/head comparisons and evidence-backed change explanations.
+- **Explorer:** searchable repository tree and captured source. Selecting code or opening a citation keeps the current exploration in view; file explanation is a chat action at that level. The relationship map is optional context in Flow.
+- **Search:** local search of captured paths, symbols, and source, with an **Explore with AI** action when the user wants an answer.
+- **Changes:** local commit history and read-only base/head comparison with changed files, diff, and evidence.
+- **Explorations:** the nested question history, with Back and root navigation restoring each level's saved view and source position.
 
-The section-by-section Walkthrough is the Guide's reading mode, with deliberate Previous/Continue controls and clickable source evidence. File-by-file coverage remains available inside Guide. Chapter Studio remains a contextual editing/review surface, not a primary destination. This approved direction is detailed in [`docs/design/PROPOSED_SIMPLIFICATION.md`](../design/PROPOSED_SIMPLIFICATION.md); task `13yp` tracks implementation and packaged-app parity.
+Guide is an answer style: repository orientation can be a multi-section exploration, and file-level explanations appear as cards alongside code. The reader exposes deliberate Previous/Continue controls, source evidence, and optional narration. File coverage, Chapter Studio, settings, and map details remain contextual workflows, not additional primary destinations. The current authority is [`docs/design/WORKSPACE_EXPLORATION.md`](../design/WORKSPACE_EXPLORATION.md); [`docs/design/PROPOSED_SIMPLIFICATION.md`](../design/PROPOSED_SIMPLIFICATION.md) and its Guide / Files / Changes navigation are historical. Task `13yp` tracks implementation and packaged-app parity.
 
 ## Global interaction rules
 - Every captured path appears in Guide's file-by-file coverage with one visible disposition and reason where applicable.

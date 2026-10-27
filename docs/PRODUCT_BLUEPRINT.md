@@ -17,11 +17,13 @@ The guide is file-first. An overview can introduce the repository, but it never 
 
 ## Product concept
 
-The earlier design references are `design/proposed-00-first-run.svg` through `design/proposed-04-changes.svg`, summarized in [PROPOSED_SIMPLIFICATION.md](design/PROPOSED_SIMPLIFICATION.md). They are vector proposals, not screenshots of the current packaged app. The older `platform-overview.png`, `atlas-concept.png`, `code-lens-concept.png`, and `walkthrough-concept.png` depict a superseded information architecture and are historical references only.
+The current navigation authority is [Workspace exploration](design/WORKSPACE_EXPLORATION.md): a VS Code-style activity bar with Explorer, Search, Changes, and Explorations; pinned chat; and Guide, Flow, and Chat history views within each exploration. Opening code or a citation keeps the active exploration beside the captured source. The `workspace-*.jpg` images in that design document are illustrative preview screenshots, not the packaged app.
 
-The app has three primary destinations, all bound to the same project and immutable snapshot:
+The older Guide / Files / Changes vector proposals are summarized in [PROPOSED_SIMPLIFICATION.md](design/PROPOSED_SIMPLIFICATION.md). They describe capabilities and behavior that remain relevant, but their top-level navigation has been superseded. The older `platform-overview.png`, `atlas-concept.png`, `code-lens-concept.png`, and `walkthrough-concept.png` depict an earlier information architecture and are historical references only.
 
-### Guide — orient, continue, or choose a file
+The following capability descriptions use Guide, Files, and Changes as concepts, not as three primary destinations:
+
+### Guide view — orient, continue, or choose a file
 
 ![Proposed Guide home with a repository guide, file coverage, and direct next actions](design/proposed-01-guide-home.svg)
 
@@ -30,7 +32,7 @@ The app has three primary destinations, all bound to the same project and immuta
 - Keep the full, paginated file-by-file coverage manager available as a secondary Guide view. It accounts for every path and shows exclusions, skips, drafts, stale revisions, and unsupported content.
 - The section-by-section Walkthrough is the reading mode for accepted chapters. Previous, Continue, hotspots, and citations remain under reader control.
 
-### Files — inspect one file and its explanation together
+### Explorer and source — inspect one file beside its explanation
 
 ![Proposed Files screen combining a tree, exact source, explanation, and clickable evidence](design/proposed-02-files-explainer.svg)
 
@@ -40,13 +42,13 @@ The app has three primary destinations, all bound to the same project and immuta
 - Keep unsupported, skipped, generated, and excluded paths visible with their reasons. Never silently substitute working-tree bytes for missing captured source.
 - Editing and revision history remain contextual actions; the advanced relationship index and source hashes stay available without crowding the first view.
 
-### Changes — compare local revisions
+### Changes activity — compare local revisions
 
 ![Proposed Changes screen with explicit refs, diff, and evidence-backed explanation](design/proposed-04-changes.svg)
 
 - Compare commits already present locally, show exact changed ranges, and explain behavior only from evidence on the correct base/head side.
 - No fetch, checkout, remote request, or repository write occurs in the local comparison flow.
-- The section-by-section Walkthrough is a Guide reading flow, not a fourth primary destination.
+- A section-by-section Walkthrough is a deliberate reading flow within Guide, not a separate destination.
 
 ## Screen and state contract
 
@@ -56,7 +58,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 |---|---|---|---|
 | App shell | No project | Product promise, Open repository, recent projects if any; no AI prompt | Open launches the native folder picker. Cancel returns to this exact state. No scan or network call starts. |
 | App shell | Project selected, no snapshot | Canonical repo path, branch/HEAD when available, capture limits, Create snapshot | Create snapshot begins a local, cancellable read. Changing project changes the shared project selection only after confirmation. |
-| Capture | Scanning / cancelled / partial / complete | Progress, current phase, limits, cancel; final counts and per-path reasons | Cancel stops new reads. Partial capture is labeled and never presented as complete. A completed snapshot enables Guide, Files, and Changes. |
+| Capture | Scanning / cancelled / partial / complete | Progress, current phase, limits, cancel; final counts and per-path reasons | Cancel stops new reads. Partial capture is labeled and never presented as complete. A completed snapshot enables Explorer, Search, Changes, and AI-backed exploration when requested. |
 | Guide | No overview / accepted overview / file coverage / partial capture | Repository identity, optional saved guide, accepted-file progress, direct file actions, actionable capture gaps | Read the accepted guide, open a real file, browse coverage, or compare revisions. No overview is invented when none is saved. |
 | Files | No file / source / accepted explanation / draft / unsupported / stale citation | Repository tree, selected snapshot source, one-file explanation, exact citations; optional relationship map | Select a file to read its source and explanation together. Citation opens exact lines; missing or changed evidence names the reason with no live-source fallback. |
 | Changes | No repository / refs incomplete / comparing / ready / bounded / invalid refs | Explicit local base/head refs, resolved commit IDs, classified paths, changed-line ranges, hunks, separate anchors | Compare existing local commits only; no fetch, checkout, remote request, or repository write. Uncertain and omitted evidence remains visible. |
@@ -72,8 +74,8 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 
 | Start | User action | Destination | Return behavior |
 |---|---|---|---|
-| Guide home | Open a file or saved guide | Selected file in Files, or the accepted guide reader | Back restores the Guide home and the selected snapshot. |
-| Files tree or file explanation | Open a source citation or related file | Same Files view at the exact snapshot and anchor | Back restores the prior file or Guide reader section and focus. |
+| Current exploration | Open a captured file or source citation | Explorer opens the exact snapshot source beside the active Guide or Flow answer | Back restores the originating answer, source selection, and reading position. |
+| Explorer | Open a source citation or related file | The same persistent workspace shows the exact snapshot and anchor | Back restores the prior file or Guide/Flow section and focus. |
 | Guide coverage row | Create chapter | Local chapter target preview, then Request Review if the user chooses Generate | Cancel returns to the same row and status; no request was sent. |
 | Request Review | Confirm exact request | Selected Gemini, OpenAI, or Anthropic API request, then unaccepted Chapter Studio draft | User sees the draft and validation result; errors return to a retryable review state. |
 | Chapter Studio | Accept valid draft | Accepted chapter in Guide reader | Chapter remains visible in Guide coverage; prior revisions remain accessible. |
@@ -82,7 +84,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 | Local Git comparison hunk | Explain hunk N | Transient PR change explanation review/result | Close returns to the same comparison and hunk; no PR Guide history or Git state changes. |
 | Stale section | Carry forward or regenerate one section | New section draft; regeneration first opens Request Review | Accept creates a new chapter manifest; cancel/reject keeps prior accepted content. |
 
-No transition silently switches repository snapshots. A snapshot change is an explicit user action and is shown in Guide, Files, and Changes.
+No transition silently switches repository snapshots. A snapshot change is an explicit user action and is shown in the shared header and every activity/exploration view.
 
 ## Failure and recovery behavior
 
@@ -224,7 +226,7 @@ Users can preview or edit the narration before speech generation. Audio is optio
 
 ## Recommended architecture
 
-Use a macOS-first Tauri 2 app with a React/TypeScript interface and a Rust local core. Tauri officially supports maintained React project templates; the core owns filesystem and Git access, while the UI calls narrow, typed commands. This keeps local source handling and validation in a testable boundary while Guide, Files, and Changes share one navigation model. See [Tauri project creation](https://v2.tauri.app/start/create-project/).
+Use a macOS-first Tauri 2 app with a React/TypeScript interface and a Rust local core. Tauri officially supports maintained React project templates; the core owns filesystem and Git access, while the UI calls narrow, typed commands. This keeps local source handling and validation in a testable boundary while Explorer, Search, Changes, and Explorations share one workspace and project/snapshot identity. See [Tauri project creation](https://v2.tauri.app/start/create-project/).
 
 The more detailed data and trust boundaries are in [Technical plan](TECHNICAL_PLAN.md).
 
@@ -232,7 +234,7 @@ The more detailed data and trust boundaries are in [Technical plan](TECHNICAL_PL
 
 | Milestone | Result | Gate |
 |---|---|---|
-| M0 — Product shell | Shared visual language and navigable Mac shell | Guide, Files, Changes, and their empty/error states follow the approved simplified references without repository or provider access. |
+| M0 — Product shell | Shared visual language and navigable Mac shell | Explorer, Search, Changes, and Explorations use the approved activity bar; the pinned composer and Guide/Flow/history views work without an AI request. |
 | M1 — Repository truth | Immutable local snapshot, inventory, index, and Files source/explanation view | Offline browsing shows every path/reason and every source link opens the same captured snapshot. |
 | M2 — File-by-file guide | Full coverage accounting, reviewed generation, validation, editing, quality review | Every eligible file can have its own substantive chapter; invalid or uncited claims cannot be accepted; no hidden omission. |
 | M3 — Interactive explainer | Manual section player, linked visuals, transcript, optional narration | The reader can pause at every section, inspect the cited source, return to the same state, and deliberately continue. |

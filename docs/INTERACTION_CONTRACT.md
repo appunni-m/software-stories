@@ -28,14 +28,14 @@ When leaving a screen, save a local navigation-return entry with the origin scre
 | Appearance | Choose System, Light or Dark in header | Apply and remember the theme. | No repository or provider side effect. |
 | Project picker | Click project name or `⌘O` | Show recent local projects and **Open repository**. Selecting a different project updates the shared project selection after confirmation when there is unsaved work. | Focus stays in picker until selection/cancel. No source bytes are read; selecting a project does not create a snapshot. |
 | Open repository | Choose from picker or `⌘O` | Open the native macOS folder picker, then show the canonical selected folder, detected Git root, branch/HEAD when available, folder access, and **Create snapshot**. A nested folder resolves to its containing working copy. | Cancel returns to the previous screen with focus on the invoking control. Non-Git folders, missing folders, permission denial, missing Git, and metadata-storage failures have distinct recovery actions. No source bytes are read. |
-| Recent project | Choose a row in the project picker | Recheck the saved path and Git metadata, then select the project for Guide, Files, and Changes. | Reopening never starts a snapshot. If the path moved or access changed, preserve the recent entry and offer **Choose a folder** or **Remove from Recents**. |
+| Recent project | Choose a row in the project picker | Recheck the saved path and Git metadata, then select the project for Explorer, Search, Changes, and its explorations. | Reopening never starts a snapshot. If the path moved or access changed, preserve the recent entry and offer **Choose a folder** or **Remove from Recents**. |
 | Remove from Recents | Click the row's remove control | Remove that path from Code Atlas' local recent-project metadata. | Never delete or modify repository files. If it is the active project, the current session stays selected until the user switches projects or quits. |
 | Snapshot picker | Click snapshot/revision label | List immutable snapshots with capture time, branch/HEAD, dirty-state summary, and partial/capture status. | Choosing one updates every view's shared snapshot. If a draft is open, ask Save draft / Discard draft / Cancel before switching. No new capture is made. |
 | Create snapshot | Click from project preflight or snapshot list | Start a bounded local capture and show progress, phase, count, limits, and Cancel. | This is the only action that starts repository byte capture. It performs no network request and never writes into the selected repository. |
-| Primary workspace nav | Click Guide, Files, or Changes; shortcuts `⌘1`, `⌘2`, `⌘3` | Switch to the chosen destination using the current project/snapshot and selection when applicable. | Focus moves to the destination heading/primary selection. Switching away from playback pauses it and stores position. |
+| Workspace activity bar | Click Explorer, Search, Changes, or Explorations | Switch activity while keeping the project, snapshot, pinned composer, and current exploration available. | Guide, Flow, and Chat history remain views within an exploration; switching views preserves that exploration's saved selection and reading state. |
 | Guide coverage | Choose **File-by-file coverage** in Guide | Show every inventory path, its explanation state, and any skip/exclusion reason. | Returns to Guide with selection/focus restored. Does not call an AI API. |
 | Chapter Studio entry | Choose a contextual **Review** or **Edit** action | Open the selected chapter revision/draft. | Opening a draft is local. Opening an accepted revision is read-only until the user chooses Edit. |
-| Global search | `⌘K`, then type | Search captured paths, parsed symbols, and chapter titles within the displayed scope. Show scope and result type in each row. | Escape closes search and restores prior focus. Enter opens the selected result's defined destination; it never changes snapshot silently. |
+| Search and chat shortcuts | `⌘P` / `⌘K` opens repository search; `⌘⇧F` opens text search; `⌘L` focuses chat; `⌘1/2/3` selects Guide/Flow/Chat history | Search captured paths, indexed symbols, and source locally; typing a question also searches in parallel. A result opens captured code; **Explore with AI** sends only after the user chooses it. | Escape restores prior focus. Search and view shortcuts keep the current exploration and snapshot; they never silently dispatch a request or switch snapshots. |
 | Back / Forward | `⌘[` / `⌘]` or toolbar buttons | Traverse the app's local navigation-return entries. | Back restores previous selection, scroll, focus, and playback context. It never reverses a source edit or accepted revision. |
 | Help / About | App menu | Show product version, parser/provider metadata date, storage location help, keyboard shortcuts, and documentation links. | No provider request. |
 
@@ -80,16 +80,16 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Primary selection:** current project; no snapshot until one is explicitly chosen or captured.
 
-**Visible content:** project name and canonical path; recent-project list; captured snapshot selector; capture status; three primary destinations (Guide, Files, Changes); contextual coverage and Chapter Studio actions.
+**Visible content:** project name and snapshot in the compact header; Explorer, Search, Changes, and Explorations activity bar; pinned chat; Guide, Flow, and Chat history views within the current exploration. Coverage and Chapter Studio are contextual actions.
 
 **Controls and destinations:**
 
 - **Open repository** → native folder picker → project preflight.
 - **Create snapshot** → capture state machine above.
-- **Guide / Files / Changes** → selected destination; if no snapshot exists, show its designed no-snapshot screen with an Open/Create action.
+- **Explorer / Search / Changes / Explorations** → selected activity. If no snapshot exists, keep local project selection visible and offer the relevant Open/Create action.
 - **Guide file-by-file coverage** without a snapshot → explain that a snapshot is required and route to preflight.
 - **Remove from recents** → remove only Code Atlas project metadata after confirmation; never delete repository files or snapshots unless a separate destructive action names exactly what will be deleted.
-- **Settings** → local provider setup and app preferences. Provider setup itself does not send a request.
+- **Connections** → saved AI and voice providers and supported model choices. Opening connection settings does not send a request.
 
 **States:** first launch/no projects; project selected/no snapshot; capture in progress; capture cancelled; partial capture; complete snapshot; no repository permission; project unavailable/moved; persistence error. Each state has a next action and preserves prior projects/snapshots.
 
@@ -109,7 +109,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 - Typing in **Search** narrows paths/symbols in the current scope and updates the visible result count. A scope selector chooses repository, current folder, or indexed symbols. **Clear** removes only the text query.
 - Clicking a folder selects it and filters canvas results to descendants. It does not open a chapter.
-- Clicking a captured text file selects it and opens its source and explanation in the same Files destination. A symbol or relationship citation opens exact evidence in that source pane. No separate Code Lens destination is required.
+- Clicking a captured text file selects it in Explorer and opens its source beside the current Guide/Flow explanation. A symbol or relationship citation opens exact evidence in that source pane. No separate Code Lens destination is required.
 - In the browser preview, source-open actions explain that local snapshots require the Mac app; they do not attempt a native snapshot read or imply that the file is missing.
 - Clicking a relationship selects the edge and shows its type, confidence, and evidence. **Open evidence** navigates to the exact source range that proves the edge.
 - Relationship-type filters use AND with the current path/language filters. Selected filters appear as removable chips; **Clear filters** removes all active filter chips but preserves the selected snapshot.
@@ -135,7 +135,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 - Clicking a citation selects its exact range in the source pane. The selected explanation shows path, snapshot, hash, line range, excerpt, and claim category.
 - Browser Back returns to the prior file or Guide reader section, with its selection and focus restored. Moving between citations within one file does not create redundant history entries.
-- Clicking a resolved caller/import/test opens that file and exact relationship anchor in the same Files destination while stacking a return entry.
+- Clicking a resolved caller/import/test opens that file and exact relationship anchor in Explorer while preserving the current exploration and stacking a return entry.
 - Clicking **Copy path** copies only the repository-relative path. **Copy citation** copies path plus range and snapshot ID. Neither reads the live repository.
 - A stale/missing citation has **View source change** when both snapshots are available, or **Return to chapter**. No “closest line” action is offered.
 
@@ -147,11 +147,11 @@ The completed capture view includes one searchable inventory for the selected im
 
 ### Guide: file-by-file coverage
 
-**Purpose:** answer “which files have an accepted explanation, and what remains?” from the Guide home.
+**Purpose:** answer “which files have an accepted explanation, and what remains?” through a contextual Guide coverage action.
 
 **Primary selection:** one inventory path or an explicit user-created coverage group.
 
-**Layout:** a Guide home with optional accepted repository orientation, file explanation progress, and direct next actions. An explicit **File-by-file coverage** disclosure opens the full path table with status/reason, search, advanced filters, pagination, and chapter actions.
+**Layout:** the current exploration's Guide view contains its answer cards. **File-by-file coverage** opens the full path table with status/reason, search, advanced filters, pagination, and chapter actions without introducing a new primary destination.
 
 **Controls and destinations:**
 
@@ -302,7 +302,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 | Origin | Action | Destination | State restored on Back |
 |---|---|---|---|
-| Files selected file/symbol | Open citation or relationship evidence | Same Files view, exact anchor | Prior file or Guide reader section; tree/map selection and focus. |
+| Explorer selected file/symbol | Open citation or relationship evidence | Same workspace at exact captured anchor | Prior file or Guide/Flow section; tree/map selection and focus. |
 | Guide coverage file | Create chapter | Blank local draft | Selected row/status/filter/page; no request exists. |
 | Compare local revisions | Expand changed file | Base/head diff evidence | Ref pair and expanded file selection. |
 | Local Git comparison hunk | Explain hunk N | Transient PR change explanation | Close returns to the comparison and selected hunk; no guide history is created. |
@@ -320,7 +320,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 1. Launch with no project; verify no source/provider request and that Open repository is focused.
 2. Choose a temporary repo, cancel once, then choose it again; verify no bytes are captured until Create snapshot.
-3. Capture; inspect counts/reasons; open Guide, Files, and Changes; open a file and citation in Files, then verify Back restores the source selection and focus.
+3. Capture; inspect counts/reasons; use Explorer and Search, start a Guide question from the pinned composer, open Changes, then verify source/citation Back restores the current exploration, selection, and focus.
 4. Open Guide's **File-by-file coverage** view and verify each inventory path has a visible status. Create one file draft; no network call occurs.
 5. Generate that file; inspect exact request manifest; verify the send button is disabled until all three separate acknowledgements; Close; verify no request and origin state is restored.
 6. Repeat with explicit consent in a mocked provider flow; land in Chapter Studio as an unaccepted draft; click a citation and return to the same section/editor position.

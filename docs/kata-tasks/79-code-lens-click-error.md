@@ -127,3 +127,75 @@ specific caller or helper changes the result.” No section was published and no
 narration was synthesized. Earlier saved sections remain available. No retry
 was started. This repeats the recoverable no-published-section outcome; it
 does not reproduce the original click exception. Keep the issue open.
+
+## v30 packaged source and return check — 25 October 2026
+
+After the user authorized one request for `src/tt/glyf.rs:564–583`, Code Atlas
+published four Code Lens sections with distinct scene compositions and
+narration ready. No second request was sent. I then opened captured
+`src/tt/gasp.rs` from Explorer in the rebuilt v30 app. The source pane changed
+to that file while the saved Guide sections remained visible; **Show
+explanation** returned to the Guide view without an error. The replacement
+app reopened the existing Fontdone snapshot and restored the prior answers.
+
+This verifies a current packaged Explorer-open and Guide-return path. It does
+not reproduce the original click exception or qualify the selected-code
+request review/consent matrix. Keep `mhqx` open.
+
+In the same v30 run, I clicked the saved visual's “Invalid attachment index”
+supporting-code control. It opened captured `src/tt/glyf.rs:596–605`; the
+Guide stayed on “Choose the component displacement,” scene 2/2, with that
+failure outcome selected. **Show explanation** returned to the same scene and
+selection. No error or provider request occurred. This verifies one exact
+visual-to-source-and-back path after installation; it does not identify the
+original reported click failure.
+
+## Authorized exact-range Code Lens check — 25 October 2026
+
+After the user authorized one request, I selected exactly
+`src/tt/glyf.rs:564–583` in Fontdone `main@5249b72371` and clicked **Explain this
+code** once. The app saved one section and one visual scene,
+“Turning a child glyph into parent points.” Narration was ready to play; I did
+not play it. The scene's source details cite `554–574`, `575–595`, and
+`761–773` (plus repeated overlapping references), covering the selected
+transformation and its helper. Clicking the `575–595` source link opened that
+exact captured range; **Show explanation** returned to the same scene. The app
+stayed open with no visible error. This confirms one successful Code Lens
+generation and source-return path. The original user-reported click exception
+and the full reproduction matrix remain unresolved; keep `mhqx` open. No further
+provider request is authorized by this run.
+
+## Require a Code Lens review before dispatch — 27 October 2026
+
+The Code Lens action now opens a per-question review even when the repository
+already has a workspace sharing grant. It shows the exact captured path and
+selected range, a bounded source preview, and the generated question. The
+review is revalidated against the currently displayed snapshot/source before
+the user can choose **Ask about this code**; that action still requires the
+saved Codex connection, then follows the existing workspace-grant flow. This
+prevents an existing broad grant from silently dispatching the selected code.
+No test, build, package run or provider request was made. The original click
+exception remains unreproduced, so keep the task open.
+
+## Packaged Code Lens review click — 28 October 2026
+
+In the open packaged Code Atlas app on Fontdone `main@5249b72371`, selected
+`src/tt/glyf.rs:554–574` and clicked **Explain this code**. The app opened
+“Review your code question,” displayed the exact path and range, and stated
+that nothing is sent until **Ask about this code** is chosen. I canceled the
+review without dispatching a provider request; the Guide, source pane, and
+saved explanations remained open. No exception or error appeared. This
+confirms the current click opens the explicit review, but the original clicked
+control and exception are still unknown; keep the task open.
+
+## Current packaged source-navigation matrix — 28 October 2026
+
+Still in Fontdone `main@5249b72371`, I opened `src/tt/gasp.rs` from Explorer;
+the source pane showed that captured file and the saved Guide stayed in place.
+I then opened the scene's cited `src/tt/glyf.rs:554–574` range; Code Atlas
+showed those lines, and **Show source** returned to the same Guide section and
+selected file. Both local navigation paths completed without an error, crash,
+or provider request. Together with the review click above, this covers Explorer
+open, a visual/source citation, return, and the per-question review entry point
+in the current packaged app. The original click location/error text and any
+legacy “Explain cited range” control remain unidentified; keep the issue open.

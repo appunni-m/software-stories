@@ -39,6 +39,20 @@ The frozen Fontdone native-citation investigation returned three sections after 
 
 First define and test durable section/checkpoint admission; then integrate the owned proposal tool, background job events and existing Guide/Flow reader; finally qualify real generation and playback. No new app server/port, embedding service, agent framework, local model or API key prerequisite. Persistent cross-question agent conversations, full language/framework coverage, section editing and signed release remain separate tasks. This task is open until all of its gates pass.
 
+## Cross-window playback receipt handoff — source progress, 27 October 2026
+
+Static review found that a playback-driven refill from a second app window could
+reach the native guide while another window held the worker lease. The native
+command correctly returned without claiming that consumed receipt, but the
+active renderer had no way to learn about it. Guide summaries now include the
+bounded consumed-revision list; a window that sees its receipt is still missing
+sends a local Tauri event, and the active renderer queues that revision for its
+existing post-run refill path. This preserves native idempotence and sends no
+source or provider request for the handoff. No tests, build, or packaged
+multi-window check ran. A closed or reloaded owner can still miss this transient
+event, so durable receipt recovery and the packaged multi-window case remain
+open; no completion criterion is closed.
+
 ## Incremental outline and slide runway — 21 October 2026
 
 Before the incremental implementation checkpoint below, the guide planner returned `{outline, openingAnswer}` from one Codex operation. `repository_guide::plan::run` split the response only after operation and result validation; a timeout before that left no saved outline. The same worker loop then stopped on its first topic error.

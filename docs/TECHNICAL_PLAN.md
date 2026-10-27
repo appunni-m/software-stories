@@ -101,7 +101,7 @@ Each accepted chapter revision is a manifest over immutable section revisions. A
 
 A chapter edit creates a new manifest that can point to unchanged prior section revisions. A changed section creates a new section revision. Accepted rows and their asset hashes are immutable.
 
-The current version 3 chapter payload, legacy readers, inclusive anchor coordinates, exact validation rules, typed hotspot destinations, visual safety boundary, and line-shift remapping contract are specified in [Chapter schema](CHAPTER_SCHEMA.md).
+The current version 5 chapter payload (strictly decoded without legacy migration), inclusive anchor coordinates, exact validation rules, typed hotspot destinations, version-3 visual and scene contracts, visual safety boundary, and line-shift remapping contract are specified in [Chapter schema](CHAPTER_SCHEMA.md).
 
 ## Local repository capture
 
