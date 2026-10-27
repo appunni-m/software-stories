@@ -43,6 +43,10 @@ pub struct RecordedRetrievalEvidence {
     policy: String,
     ledger_sha256: String,
     ranges: Vec<crate::repository_context::CodeRange>,
+    // Schema 5 recorded the retrieval ranges before index identity became part
+    // of the freshness contract. Keep that historical absence distinguishable
+    // from schema 6's explicit `unavailable` value.
+    #[serde(default, skip_serializing_if = "RecordedIndexIdentity::was_not_recorded")]
     index_identity: RecordedIndexIdentity,
 }
 
@@ -54,6 +58,19 @@ pub enum RecordedIndexIdentity {
         indexer_version: String,
     },
     Unavailable,
+    NotRecorded,
+}
+
+impl Default for RecordedIndexIdentity {
+    fn default() -> Self {
+        Self::NotRecorded
+    }
+}
+
+impl RecordedIndexIdentity {
+    fn was_not_recorded(value: &Self) -> bool {
+        matches!(value, Self::NotRecorded)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -94,7 +111,7 @@ impl ChapterGenerationOrigin {
                 schema_version,
                 indexer_version,
             } => Some(format!("{schema_version}:{indexer_version}")),
-            RecordedIndexIdentity::Unavailable => None,
+            RecordedIndexIdentity::Unavailable | RecordedIndexIdentity::NotRecorded => None,
         }
     }
 
@@ -294,7 +311,39 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            self.schema_version == 6
+            let legacy_retrieval = self.schema_version == 5
+                && retrieval.index_identity == RecordedIndexIdentity::NotRecorded
+                && self.settings
+                    == RecordedAgentSettings::Codex {
+                        model_id: "gpt-6-luna".into(),
+                        effort: "max".into(),
+                        approval_policy: "never".into(),
+                    };
+            let current_retrieval = self.schema_version == 6
+                && matches!(
+                    &retrieval.index_identity,
+                    RecordedIndexIdentity::Available { .. }
+                        | RecordedIndexIdentity::Unavailable
+                );
+            let fingerprint_valid = if legacy_retrieval {
+                serde_json::to_vec(&(&self.request_body_sha256, &retrieval.ledger_sha256))
+                    .is_ok_and(|bytes| {
+                        crate::repository_context::digest(&bytes) == self.request_fingerprint
+                    })
+            } else if current_retrieval {
+                serde_json::to_vec(&(
+                    &self.request_body_sha256,
+                    &retrieval.ledger_sha256,
+                    &retrieval.index_identity,
+                    &self.settings,
+                ))
+                .is_ok_and(|bytes| {
+                    crate::repository_context::digest(&bytes) == self.request_fingerprint
+                })
+            } else {
+                false
+            };
+            (legacy_retrieval || current_retrieval)
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -305,19 +354,12 @@ impl ChapterGenerationOrigin {
                     RecordedIndexIdentity::Available {
                         schema_version,
                         indexer_version,
-                    } => *schema_version > 0 && text(indexer_version, 128),
-                    RecordedIndexIdentity::Unavailable => true,
+                    } => current_retrieval && *schema_version > 0 && text(indexer_version, 128),
+                    RecordedIndexIdentity::Unavailable => current_retrieval,
+                    RecordedIndexIdentity::NotRecorded => legacy_retrieval,
                 }
                 && digest(&retrieval.ledger_sha256)
-                && serde_json::to_vec(&(
-                    &self.request_body_sha256,
-                    &retrieval.ledger_sha256,
-                    &retrieval.index_identity,
-                    &self.settings,
-                ))
-                    .is_ok_and(|bytes| {
-                        crate::repository_context::digest(&bytes) == self.request_fingerprint
-                    })
+                && fingerprint_valid
                 && !retrieval.ranges.is_empty()
                 && retrieval.ranges.len() <= 512
                 && revision.sections.len() == 1
@@ -350,7 +392,7 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            self.schema_version == 6
+            matches!(self.schema_version, 5 | 6)
         };
         let expected_contract = if self.retrieval.is_some() {
             crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned()
@@ -361,7 +403,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if self.schema_version != 6
+        if !matches!(self.schema_version, 5 | 6)
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id

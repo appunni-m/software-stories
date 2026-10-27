@@ -17,9 +17,13 @@ type RecordedIndexIdentity =
   | { status: 'available'; schemaVersion: number; indexerVersion: string }
   | { status: 'unavailable' };
 
-/** Local dispatch lineage. This is not a cryptographic account attestation. */
-export interface ChapterGenerationOrigin {
-  schemaVersion: 6;
+type RecordedCodeRange = {
+  snapshotId: string; path: string; sourceSha256: string; startByte: number; endByte: number;
+  startLine: number; endLine: number; chunkSha256: string; enclosing: SymbolContext | null;
+  parent: SymbolContext | null; parser: ParserVersion | null;
+};
+
+interface ChapterGenerationOriginFields {
   projectId: string;
   snapshotId: string;
   targetPath: string | null;
@@ -32,13 +36,16 @@ export interface ChapterGenerationOrigin {
   sourceFiles: { path: string; sha256: string; sizeBytes: number }[];
   sectionUpdate: SectionUpdateReviewTarget | null;
   plannedChapter: PlannedChapterScope | null;
-  retrieval?: { policy: string; ledgerSha256: string; indexIdentity: RecordedIndexIdentity; ranges: {
-    snapshotId: string; path: string; sourceSha256: string; startByte: number; endByte: number;
-    startLine: number; endLine: number; chunkSha256: string; enclosing: SymbolContext | null;
-    parent: SymbolContext | null; parser: ParserVersion | null;
-  }[] };
   contentSha256: string;
 }
+
+/** Local dispatch lineage. This is not a cryptographic account attestation.
+ * Schema 5 predates persisted retrieval index identity; keep that absence distinct
+ * so saved records remain readable without claiming a historical index version. */
+export type ChapterGenerationOrigin = ChapterGenerationOriginFields & (
+  | { schemaVersion: 5; retrieval?: { policy: string; ledgerSha256: string; ranges: RecordedCodeRange[] } }
+  | { schemaVersion: 6; retrieval?: { policy: string; ledgerSha256: string; indexIdentity: RecordedIndexIdentity; ranges: RecordedCodeRange[] } }
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -111,16 +118,21 @@ function validSymbolContext(value: unknown): boolean {
     && Number(value.endByte) >= Number(value.startByte);
 }
 
-function validRetrieval(value: unknown): boolean {
-  if (!exactKeys(value, ['policy','ledgerSha256','indexIdentity','ranges'])
+function validRetrieval(value: unknown, schemaVersion: 5 | 6): boolean {
+  const required = schemaVersion === 5
+    ? ['policy','ledgerSha256','ranges']
+    : ['policy','ledgerSha256','indexIdentity','ranges'];
+  if (!exactKeys(value, required)
     || !boundedText(value.policy, 128) || !digest(value.ledgerSha256) || !Array.isArray(value.ranges)
     || value.ranges.length < 1 || value.ranges.length > 512) return false;
-  const indexIdentity = value.indexIdentity;
-  const validIndex = exactKeys(indexIdentity, ['status','schemaVersion','indexerVersion'])
-    ? indexIdentity.status === 'available' && Number.isSafeInteger(indexIdentity.schemaVersion)
-      && Number(indexIdentity.schemaVersion) > 0 && boundedText(indexIdentity.indexerVersion, 128)
-    : exactKeys(indexIdentity, ['status']) && indexIdentity.status === 'unavailable';
-  if (!validIndex) return false;
+  if (schemaVersion === 6) {
+    const indexIdentity = value.indexIdentity;
+    const validIndex = exactKeys(indexIdentity, ['status','schemaVersion','indexerVersion'])
+      ? indexIdentity.status === 'available' && Number.isSafeInteger(indexIdentity.schemaVersion)
+        && Number(indexIdentity.schemaVersion) > 0 && boundedText(indexIdentity.indexerVersion, 128)
+      : exactKeys(indexIdentity, ['status']) && indexIdentity.status === 'unavailable';
+    if (!validIndex) return false;
+  }
   return value.ranges.every((range) => {
     if (!exactKeys(range, ['snapshotId','path','sourceSha256','startByte','endByte','startLine','endLine','chunkSha256','enclosing','parent','parser'])
       || !boundedText(range.snapshotId, 256) || !boundedText(range.path, 4096)
@@ -139,7 +151,9 @@ function validRetrieval(value: unknown): boolean {
  * verifies that its digests, source scope and settings match the saved chapter. */
 export function isCurrentChapterGenerationOrigin(value: unknown): value is ChapterGenerationOrigin {
   const required = ['schemaVersion','projectId','snapshotId','targetPath','purpose','requestId','requestFingerprint','requestBodySha256','contractVersion','settings','sourceFiles','sectionUpdate','plannedChapter','contentSha256'];
-  if (!exactKeys(value, required, ['retrieval']) || value.schemaVersion !== 6
+  if (!exactKeys(value, required, ['retrieval'])) return false;
+  const schemaVersion = value.schemaVersion;
+  if ((schemaVersion !== 5 && schemaVersion !== 6)
     || !boundedText(value.projectId, 4096) || !boundedText(value.snapshotId, 256)
     || !(value.targetPath === null || boundedText(value.targetPath, 4096))
     || !['fileChapter','repositoryOverview','sectionUpdate'].includes(String(value.purpose))
@@ -162,7 +176,7 @@ export function isCurrentChapterGenerationOrigin(value: unknown): value is Chapt
     && boundedText(value.sectionUpdate.chapterRevisionId, 256) && boundedText(value.sectionUpdate.sectionId, 256)
     && boundedText(value.sectionUpdate.sectionRevisionId, 256);
   const planned = value.plannedChapter === null || validPlannedChapterScope(value.plannedChapter);
-  return sectionUpdate && planned && (!Object.hasOwn(value, 'retrieval') || validRetrieval(value.retrieval));
+  return sectionUpdate && planned && (!Object.hasOwn(value, 'retrieval') || validRetrieval(value.retrieval, schemaVersion));
 }
 
 export function samePlannedTarget(left: PlannedChapterTarget | null | undefined, right: PlannedChapterTarget): boolean {

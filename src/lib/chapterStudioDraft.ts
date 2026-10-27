@@ -146,6 +146,7 @@ export function readChapterStudioDraft(
     return { status: 'preserved', reason: 'unsupported' };
   }
   if (isRecord(value.candidate) && isRecord(value.candidate.generationOrigin)
+    && value.candidate.generationOrigin.schemaVersion !== 5
     && value.candidate.generationOrigin.schemaVersion !== 6) return { status: 'preserved', reason: 'unsupported' };
   if (!hasExactKeys(value, ['version','projectId','snapshotId','targetKey','baseRevisionId','candidate'])) {
     return { status: 'preserved', reason: 'invalid' };
