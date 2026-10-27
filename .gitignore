@@ -8,6 +8,11 @@
 *.env.*
 !*.env.example
 !*.env.*.example
+# Local direnv files may contain credentials or machine-specific settings.
+.envrc
+.envrc.*
+!*.envrc.example
+!*.envrc.*.example
 **/target/
 **/dist/
 **/.vite/
@@ -24,6 +29,11 @@ benchmarks/chapter-quality/review/reports/
 .coverage.*
 lcov.info
 coverage.xml
+**/coverage.out
+**/cobertura.xml
+**/tarpaulin-report.html
+*.profraw
+*.profdata
 
 # Python worker contract checks.
 __pycache__/
