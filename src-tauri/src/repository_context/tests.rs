@@ -2078,6 +2078,69 @@ fn search_pages_are_stable_complete_and_bounded_by_the_candidate_window() {
 }
 
 #[test]
+fn overlapping_ranked_and_literal_windows_expand_until_a_page_sentinel_or_cap() {
+    let source_sha256 = digest(b"captured source");
+    let range = |start_byte, end_byte| CodeRange {
+        snapshot_id: "snapshot".to_owned(),
+        path: "src/module.rs".to_owned(),
+        source_sha256: source_sha256.clone(),
+        start_byte,
+        end_byte,
+        start_line: 1,
+        end_line: 1,
+        chunk_sha256: digest(format!("{start_byte}:{end_byte}").as_bytes()),
+        enclosing: None,
+        parent: None,
+        parser: None,
+    };
+
+    // Each bounded search returns three windows. Their union contains only
+    // two unique windows because the ranked and literal prefixes overlap.
+    let ranked = [range(0, 80), range(40, 120), range(120, 200)];
+    let literal = [range(10, 70), range(70, 110), range(130, 190)];
+    let mut unique = Vec::<CodeRange>::new();
+    for candidate in ranked.into_iter().chain(literal) {
+        if !unique
+            .iter()
+            .any(|existing| search_windows_overlap(existing, &candidate))
+        {
+            unique.push(candidate);
+        }
+    }
+
+    assert_eq!(unique.len(), 2);
+    let different_snapshot = CodeRange {
+        snapshot_id: "another-snapshot".to_owned(),
+        ..range(10, 70)
+    };
+    let different_file = CodeRange {
+        path: "src/other.rs".to_owned(),
+        ..range(10, 70)
+    };
+    let changed_source = CodeRange {
+        source_sha256: digest(b"changed source"),
+        ..range(10, 70)
+    };
+    assert!(!search_windows_overlap(&unique[0], &different_snapshot));
+    assert!(!search_windows_overlap(&unique[0], &different_file));
+    assert!(!search_windows_overlap(&unique[0], &changed_source));
+
+    let page_end = 2;
+    let has_page_sentinel = unique.len() > page_end;
+    assert!(!has_page_sentinel);
+    assert_eq!(
+        expanded_search_fetch_limit(3, true, has_page_sentinel),
+        Some(6)
+    );
+    assert_eq!(expanded_search_fetch_limit(6, true, true), None);
+    assert_eq!(
+        expanded_search_fetch_limit(MAX_CANDIDATES, true, false),
+        None
+    );
+    assert_eq!(expanded_search_fetch_limit(6, false, false), None);
+}
+
+#[test]
 fn regex_cross_chunk_matches_keep_exact_nonoverlapping_ranges_and_reject_huge_matches() {
     let mut fixture = Fixture::new();
     let text = format!(

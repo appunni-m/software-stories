@@ -1936,6 +1936,7 @@ pub(crate) mod tests {
     use crate::chapters::{GeneratedChapterSection, ValidationReportStatus};
     use crate::index::{self, IndexFileStatus, RelationshipConfidence, RelationshipKind};
     use crate::project::{AccessStatus, RecentProject};
+    use crate::provider;
     use crate::snapshot::{self, CaptureLimits};
     use std::fs;
     use std::path::{Path, PathBuf};

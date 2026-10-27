@@ -1329,6 +1329,24 @@ pub(crate) fn validate_search_page(limit: usize, offset: usize) -> Result<usize,
         .ok_or_else(|| "Search page is outside the 256-result candidate window.".to_owned())
 }
 
+fn search_windows_overlap(left: &CodeRange, right: &CodeRange) -> bool {
+    left.snapshot_id == right.snapshot_id
+        && left.path == right.path
+        && left.source_sha256 == right.source_sha256
+        && left.start_byte < right.end_byte
+        && right.start_byte < left.end_byte
+}
+
+fn expanded_search_fetch_limit(
+    fetch_limit: usize,
+    has_more: bool,
+    has_page_sentinel: bool,
+) -> Option<usize> {
+    (has_more && !has_page_sentinel && fetch_limit < MAX_CANDIDATES)
+        .then(|| fetch_limit.saturating_mul(2).min(MAX_CANDIDATES))
+        .filter(|next| *next > fetch_limit)
+}
+
 fn is_identifier_query(query: &str) -> bool {
     let mut chars = query.chars();
     chars
@@ -1907,13 +1925,10 @@ pub(crate) fn search_with_mode_page(
             .chain(remaining_fallback)
         {
             budget.check()?;
-            if matches.iter().any(|old| {
-                old.range.snapshot_id == hit.range.snapshot_id
-                    && old.range.path == hit.range.path
-                    && old.range.source_sha256 == hit.range.source_sha256
-                    && old.range.start_byte < hit.range.end_byte
-                    && hit.range.start_byte < old.range.end_byte
-            }) {
+            if matches
+                .iter()
+                .any(|old: &SearchHit| search_windows_overlap(&old.range, &hit.range))
+            {
                 continue;
             }
             if matches.len() == fetch_limit {
@@ -1929,8 +1944,10 @@ pub(crate) fn search_with_mode_page(
         // bounded prefixes until the merged unique results contain a sentinel
         // or the shared candidate window is exhausted. Otherwise a truncated
         // page can incorrectly report no next offset after deduplication.
-        if has_more && !has_page_sentinel && fetch_limit < MAX_CANDIDATES {
-            fetch_limit = fetch_limit.saturating_mul(2).min(MAX_CANDIDATES);
+        if let Some(expanded_limit) =
+            expanded_search_fetch_limit(fetch_limit, has_more, has_page_sentinel)
+        {
+            fetch_limit = expanded_limit;
             continue;
         }
         let next_offset = (page_end < MAX_CANDIDATES && has_page_sentinel).then_some(page_end);
