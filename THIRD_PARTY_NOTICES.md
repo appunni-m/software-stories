@@ -18,7 +18,7 @@ source-sha256: src-tauri/icons/icon.icns=00fbafd08dff7aee785e1fae6088bc21791ca99
 source-sha256: src-tauri/icons/32x32.png=0750a464bdb192692ee851bb9d94745465427ecee6df28610442d05071e8d02f
 source-sha256: src-tauri/icons/128x128.png=1843e4a7d165e8966c5668e2b08d03985d635aeaa96a4a09ebf17ee2435cf3e4
 source-sha256: src-tauri/icons/128x128@2x.png=7f56614d24c45cbb1a0e5628dbc5f3ab7a588c1ef528186866749000a4b69e30
-source-sha256: scripts/generate-third-party-notices.mjs=5abe5be789fb8a2fa27bd06eb01f597939deb76061bac74635ebeecbf48e1a53
+source-sha256: scripts/generate-third-party-notices.mjs=ee5b86b88b2bbbb38cc8cb35d637fd74a710c0c940094537332d157c75eae117
 -->
 
 # Third-party notices

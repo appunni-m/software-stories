@@ -2,6 +2,11 @@
 *.log
 *.local
 .kata.local.toml
+# Local environment files can contain API keys and other secrets.
+.env
+.env.*
+!.env.example
+!.env.*.example
 **/node_modules/
 **/target/
 **/dist/
