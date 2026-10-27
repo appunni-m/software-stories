@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, CircleAlert, Info, X } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
@@ -27,6 +27,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   items: WorkspaceNotification[]; availability?: NotificationAvailability; issue?: 'full'|null; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void; onMarkAllRead?: () => void; onDismissRead?: () => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
+  const titleId = useId();
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange ?? setLocalOpen;
   const actionOpened = useRef(false);
@@ -98,9 +99,9 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
     <span className="notification-announcement" role="status" aria-live="polite" aria-atomic="true">{summary.announcement}</span>
     <Popover.Portal container={trigger.current?.closest<HTMLElement>('.radix-themes') ?? undefined}>
       <Popover.Content className="notification-panel" align="end" sideOffset={8} collisionPadding={12}
-        aria-label="Notifications" onOpenAutoFocus={() => { actionOpened.current = false; }}
+        aria-labelledby={titleId} onOpenAutoFocus={() => { actionOpened.current = false; }}
         onCloseAutoFocus={(event) => { if (actionOpened.current) event.preventDefault(); }}>
-        <header className="notification-panel-header"><strong>Notifications</strong><div className="notification-panel-header-actions">
+        <header className="notification-panel-header"><strong id={titleId}>Notifications</strong><div className="notification-panel-header-actions">
           {onMarkAllRead && <button type="button" className="notification-mark-all" onClick={onMarkAllRead}>Mark all read</button>}
           {issue === 'full' && onDismissRead && <button type="button" className="notification-mark-all" aria-label="Dismiss read notifications to make room" title="Saved explanations and drafts stay on this Mac" onClick={onDismissRead}>Dismiss read</button>}
           <Popover.Close asChild><button type="button" className="notification-close" aria-label="Close notifications"><X size={16} /></button></Popover.Close>

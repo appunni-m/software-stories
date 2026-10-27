@@ -190,7 +190,7 @@ export function questionOutcomeKey(turn: Turn): string | null {
 }
 
 export interface QuestionOutcome {
-  explorationId: string; turnId: string; key: string; question: string;
+  projectId: string; snapshotId: string; explorationId: string; turnId: string; key: string; question: string; outcomeAt: number;
   answerRevisionIds: string[];
   title: string; read: boolean; tone: 'info' | 'warning' | 'error';
 }
@@ -206,7 +206,8 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
       const partiallyCoveredGuide = Boolean(turn.guideId && hasAnswer(turn)
         && repositoryGuideCoverageLabel(turn.guide, hasAnswer(turn)) === 'Partial coverage');
       return {
-        explorationId, turnId: turn.id, key: key!, question: turn.question,
+        projectId: state.projectId, snapshotId: state.snapshotId, explorationId, turnId: turn.id, key: key!, question: turn.question,
+        outcomeAt: turn.outcomeAt ?? 0,
         answerRevisionIds: [...new Set([turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
           ...(turn.answerVersions ?? []).map((version) => version.revisionId)].filter((id): id is string => Boolean(id)))],
         read: turn.outcomeNotice?.read === key,

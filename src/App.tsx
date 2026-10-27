@@ -10,7 +10,7 @@ import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import { isEditableKeyboardTarget } from './lib/keyboardShortcuts';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
-import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useLoadedWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
@@ -18,6 +18,7 @@ import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { createLargeFileExplanation, pendingLargeFileExplanation, requiresBoundedFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
+import type { LargeFileDiscoveryHandoff } from './lib/sourceDiscovery';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
@@ -206,6 +207,45 @@ const projectResultTitles: Record<ProjectOpenStatus, string> = {
   recentProjectUnavailable: 'This recent project is unavailable',
 };
 
+function captureOutcomeNotice(progress: SnapshotProgress): AppNoticeInput | null {
+  if (progress.status === 'running') return null;
+
+  const outcomes: Record<Exclude<SnapshotProgress['status'], 'running'>, Pick<AppNoticeInput, 'title' | 'message' | 'tone'>> = {
+    complete: {
+      title: 'New snapshot saved',
+      message: 'Your selected snapshot did not change. Choose the new snapshot from the header when you are ready.',
+      tone: 'info',
+    },
+    partial: {
+      title: 'Partial snapshot saved',
+      message: 'Review its skipped paths, then choose the new snapshot from the header when you are ready.',
+      tone: 'warning',
+    },
+    cancelled: {
+      title: 'Repository update cancelled',
+      message: 'Your previous snapshots remain unchanged.',
+      tone: 'info',
+    },
+    inconsistent: {
+      title: 'Repository changed during update',
+      message: 'The repository changed during capture, so no new snapshot was added.',
+      tone: 'warning',
+    },
+    failed: {
+      title: 'Repository update failed',
+      message: 'Your previous snapshots remain unchanged. Try another update from Files.',
+      tone: 'warning',
+    },
+  };
+  const outcome = outcomes[progress.status];
+
+  return {
+    ...outcome,
+    projectId: progress.projectId,
+    snapshotId: progress.parentSnapshotId,
+    occurrenceId: `capture:${progress.snapshotId}:${progress.status}`,
+  };
+}
 
 function App() {
   const appearance=useAppAppearance();
@@ -258,6 +298,7 @@ function App() {
   const [knownProjects, setKnownProjects] = useState<Record<string, RecentProject>>({});
   const [snapshotsByProject, setSnapshotsByProject] = useState<Record<string, SnapshotSummary[]>>({});
   const [captureByProject, setCaptureByProject] = useState<Record<string, SnapshotProgress>>({});
+  const [readCaptureNotificationKeys, setReadCaptureNotificationKeys] = useState<string[]>([]);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotHistoryLoad, setSnapshotHistoryLoad] = useState<SnapshotHistoryLoad | null>(null);
   const [snapshotManifestLoad, setSnapshotManifestLoad] = useState<SnapshotManifestLoad | null>(null);
@@ -327,7 +368,15 @@ function App() {
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
-  const questionUpdates = useWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
+  const captureNotifications = Object.entries(captureByProject).flatMap(([projectId, progress]) => {
+    if (progress.status !== 'running'
+      || (projectId === currentProject?.projectId && progress.snapshotId === selectedSnapshot?.snapshotId)) return [];
+    const project = knownProjects[projectId] ?? recentProjects.find((candidate) => candidate.projectId === projectId);
+    const key = notificationGroupKey('capture', projectId, progress.snapshotId, progress.status);
+    return [{ progress, projectId, projectName: project?.displayName || 'Repository', key,
+      read: readCaptureNotificationKeys.includes(key) }];
+  });
+  const questionUpdates = useLoadedWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
   useEffect(() => {
     const projectId = currentProject?.projectId;
     const snapshotId = selectedSnapshot?.snapshotId;
@@ -352,10 +401,11 @@ function App() {
     window.addEventListener('code-atlas:chapters-changed', changed);
     return () => { active = false; window.removeEventListener('code-atlas:chapters-changed', changed); };
   }, [currentProject?.projectId, selectedSnapshot?.snapshotId]);
-  const visibleQuestionUpdates = useMemo(() => notificationChapterHistory && notificationChapterHistory.projectId === currentProject?.projectId
-    && notificationChapterHistory.snapshotId === selectedSnapshot?.snapshotId
-    ? withSavedAnswerAvailability(questionUpdates, new Set(notificationChapterHistory.revisionIds))
-    : questionUpdates, [questionUpdates, notificationChapterHistory, currentProject?.projectId, selectedSnapshot?.snapshotId]);
+  const visibleQuestionUpdates = useMemo(() => questionUpdates.map((outcome) =>
+    notificationChapterHistory && notificationChapterHistory.projectId === outcome.projectId
+      && notificationChapterHistory.snapshotId === outcome.snapshotId
+      ? withSavedAnswerAvailability([outcome], new Set(notificationChapterHistory.revisionIds))[0]!
+      : outcome), [questionUpdates, notificationChapterHistory]);
   const answerAvailability = workspaceAnswerAvailability(isNativeRuntime(), currentProject?.projectId, selectedSnapshot?.snapshotId, answerRestoration);
   const readiness = workspaceReadiness({ recentsPending, projectOpening,
     projectId: navigation.current.projectId, projectAvailable: !!currentProject, snapshotId: navigation.current.snapshotId,
@@ -839,17 +889,20 @@ function App() {
     }
   };
 
-  const stopSnapshot = async () => {
-    if (!currentCapture || currentCapture.status !== 'running') return;
+  const cancelCapture = async (progress: SnapshotProgress) => {
     try {
-      await cancelSnapshot(currentCapture.snapshotId);
+      await cancelSnapshot(progress.snapshotId);
     } catch (error) {
-      setNotice({projectId:currentCapture.projectId,snapshotId:currentCapture.snapshotId,
+      setNotice({projectId:progress.projectId,snapshotId:progress.snapshotId,
         title: 'Capture could not be cancelled',
         message: 'The capture may have already finished.',
         tone: 'error',
       });
     }
+  };
+  const stopSnapshot = async () => {
+    if (!currentCapture || currentCapture.status !== 'running') return;
+    await cancelCapture(currentCapture);
   };
 
   useEffect(() => {
@@ -1030,6 +1083,8 @@ function App() {
     let unlisten: (() => void) | undefined;
     void listen<SnapshotProgress>('snapshot-progress', ({ payload }) => {
       setCaptureByProject((current) => ({ ...current, [payload.projectId]: payload }));
+      const outcome = captureOutcomeNotice(payload);
+      if (outcome) void noticeHistory.publish(outcome);
       if (payload.summary) {
         setSnapshotsByProject((current) => {
           const previous = current[payload.projectId] ?? [];
@@ -1055,7 +1110,7 @@ function App() {
       else stop();
     });
     return () => { active = false; unlisten?.(); };
-  }, []);
+  }, [noticeHistory]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1138,6 +1193,31 @@ function App() {
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
     setProviderDialog({ kind: 'settings' });
+  };
+
+  const openDiscoveredLargeFile = (handoff: LargeFileDiscoveryHandoff) => {
+    const pending = pendingLargeFileExplanation({
+      id: crypto.randomUUID(),
+      projectId: handoff.projectId,
+      snapshotId: handoff.snapshotId,
+      targetPath: handoff.targetPath,
+      paths: handoff.supportingPaths,
+      question: handoff.question,
+      sourceDiscoveryNotes: handoff.discoveryNotes,
+    });
+    setPendingLargeFileRequest(pending);
+    setProviderDialog(null);
+    setNavigation((state) => navigateToRoute(state, {
+      ...state.current,
+      workspace: 'guide-plan',
+      projectId: handoff.projectId,
+      snapshotId: handoff.snapshotId,
+      relativePath: handoff.targetPath,
+      sourceRange: undefined,
+      sourceRangeIssue: undefined,
+      atlasSelection: undefined,
+      focusTarget: 'workspace-composer',
+    }));
   };
 
   const reviewFileWithProvider = (targetPath: string, selectedPaths?: string[]) => {
@@ -1453,28 +1533,39 @@ function App() {
     answers: answerAvailability, notices: noticeHistoryState.availability,
     refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable });
   const hasUnreadNotifications = notificationsAvailability === 'ready'
-    && (visibleQuestionUpdates.some((outcome) => !outcome.read) || noticeHistoryState.items.some((item) => !item.read));
+    && (visibleQuestionUpdates.some((outcome) => !outcome.read) || noticeHistoryState.items.some((item) => !item.read)
+      || captureNotifications.some((item) => !item.read));
   const markAllNotificationsRead = () => {
     const unreadQuestions = visibleQuestionUpdates.filter((outcome) => !outcome.read);
-    const projectId = currentProject?.projectId;
-    const snapshotId = selectedSnapshot?.snapshotId;
-    if (projectId && snapshotId && unreadQuestions.length) {
-      updateWorkspace(projectId, snapshotId, (state) => markQuestionOutcomes(state, unreadQuestions.map(({ explorationId, turnId, key }) => ({ explorationId, turnId, key })), 'read'));
+    const unreadQuestionsByScope = new Map<string, typeof unreadQuestions>();
+    for (const outcome of unreadQuestions) {
+      const scope = JSON.stringify([outcome.projectId, outcome.snapshotId]);
+      const group = unreadQuestionsByScope.get(scope);
+      if (group) group.push(outcome);
+      else unreadQuestionsByScope.set(scope, [outcome]);
+    }
+    for (const outcomes of unreadQuestionsByScope.values()) {
+      const first = outcomes[0];
+      if (!first) continue;
+      updateWorkspace(first.projectId, first.snapshotId, (state) => markQuestionOutcomes(state,
+        outcomes.map(({ explorationId, turnId, key }) => ({ explorationId, turnId, key })), 'read'));
     }
     const unreadNotices = noticeHistoryState.items.filter((item) => !item.read);
     if (noticeHistoryState.availability === 'ready' && unreadNotices.length) {
       void noticeHistory.readMany(unreadNotices.map((item) => item.id));
     }
+    const captureKeys = captureNotifications.filter((item) => !item.read).map((item) => item.key);
+    if (captureKeys.length) {
+      setReadCaptureNotificationKeys((current) => [...current.filter((key) => !captureKeys.includes(key)), ...captureKeys].slice(-50));
+    }
   };
 
   const questionOutcomesByGroupKey = new Map<string, (typeof visibleQuestionUpdates)[number][]>();
-  if (currentProject?.projectId && selectedSnapshot?.snapshotId) {
-    for (const outcome of visibleQuestionUpdates) {
-      const key = notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question);
-      const group = questionOutcomesByGroupKey.get(key);
-      if (group) group.push(outcome);
-      else questionOutcomesByGroupKey.set(key, [outcome]);
-    }
+  for (const outcome of visibleQuestionUpdates) {
+    const key = notificationGroupKey('question', outcome.projectId, outcome.snapshotId, outcome.question);
+    const group = questionOutcomesByGroupKey.get(key);
+    if (group) group.push(outcome);
+    else questionOutcomesByGroupKey.set(key, [outcome]);
   }
   const noticesByGroupKey = new Map<string, (typeof noticeHistoryState.items)[number][]>();
   for (const notice of noticeHistoryState.items) {
@@ -1484,16 +1575,37 @@ function App() {
     else noticesByGroupKey.set(key, [notice]);
   }
 
+  const captureNotificationItems: WorkspaceNotification[] = captureNotifications.map(({ progress, projectId, projectName, read }) => ({
+    id: `capture:${projectId}:${progress.snapshotId}:running`,
+    projectId,
+    // Keep a selected repository's capture with its current workspace; captures
+    // for other repositories remain scoped so the bell can group them together.
+    snapshotId: projectId === currentProject?.projectId ? selectedSnapshot?.snapshotId : progress.snapshotId,
+    title: 'Repository update in progress',
+    message: `${projectName} · ${progress.filesCaptured.toLocaleString()} files captured · ${formatBytes(progress.bytesRead)} read.`,
+    tone: 'info',
+    bucket: 'updates',
+    groupBucket: 'updates',
+    groupKey: notificationGroupKey('capture', projectId, progress.snapshotId),
+    countLabel: 'updates',
+    read,
+    actions: [{ label: 'Cancel capture', run: () => { void cancelCapture(progress); } }],
+  }));
+
   const workspaceNotifications: WorkspaceNotification[] = [
+    ...captureNotificationItems,
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => {
-      const projectId=currentProject?.projectId;
-      const snapshotId=selectedSnapshot?.snapshotId;
-      const groupKey=projectId&&snapshotId?notificationGroupKey('question',projectId,snapshotId,outcome.question):undefined;
-      const groupedOutcomes=groupKey?questionOutcomesByGroupKey.get(groupKey)??[]:[];
+      const projectId = outcome.projectId;
+      const snapshotId = outcome.snapshotId;
+      const groupKey = notificationGroupKey('question', projectId, snapshotId, outcome.question);
+      const groupedOutcomes = questionOutcomesByGroupKey.get(groupKey) ?? [];
       const unreadGroupedOutcomes=groupedOutcomes.filter(candidate=>!candidate.read);
+      const projectName = currentProject && projectId === currentProject.projectId
+        ? currentProject.displayName
+        : knownProjects[projectId]?.displayName ?? recentProjects.find((project) => project.projectId === projectId)?.displayName ?? 'Repository';
       return {
-        id: `question:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
-        message: `${currentProject?.displayName ?? 'Repository'} · ${questionNotificationText(outcome.question, 140)}`,
+        id: `question:${projectId}:${snapshotId}:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
+        message: `${projectName} · ${questionNotificationText(outcome.question, 140)}`,
         groupKey,
         bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
         read: outcome.read, tone: outcome.tone,
@@ -1565,7 +1677,7 @@ function App() {
       detail: `Started ${new Date(operation.startedAtUnixMs).toLocaleString()}`,
       title: operation.kind === 'capture' ? 'Repository update interrupted' : 'Explanation interrupted',
       message: interruptedNotificationMessage(operation, knownProjects[operation.projectId]?.displayName),
-      actions: [{ label: operation.kind === 'capture' ? 'Try update again' : 'Open work', disabled: recoveryBusyId !== null,
+      actions: [{ label: operation.kind === 'capture' ? 'Try update again' : 'Open work', movesFocus: true, disabled: recoveryBusyId !== null,
         run: () => { void (operation.kind === 'capture' ? retryInterruptedCapture(operation) : reviewInterruptedGeneration(operation)); } },
         { label: 'Discard recovery', disabled: recoveryBusyId !== null, run: () => { void discardRecovery(operation); } }],
     })),
@@ -1780,14 +1892,6 @@ function App() {
               }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>
-                {currentCapture && currentCapture.snapshotId !== selectedSnapshot.snapshotId && (
-                  <SnapshotCaptureBanner
-                    progress={currentCapture}
-                    onCancel={currentCapture.status === 'running' ? () => { void stopSnapshot(); } : undefined}
-                    onRetry={currentCapture.status === 'failed' || currentCapture.status === 'inconsistent' || currentCapture.status === 'cancelled' ? () => { void createSnapshot(); } : undefined}
-                    onView={currentCapture.summary ? () => selectSnapshot(currentCapture.summary!) : undefined}
-                  />
-                )}
                 <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onCaptureAgain={() => { void createSnapshot(); }} onOpenFile={openCapturedFile} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
                   ...state.current,
                   workspace: 'chapter-studio',
@@ -1944,6 +2048,10 @@ function App() {
         key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.discoveryResult ?? null, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
         scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
         onOpenConnections={openProviderSettings}
+        onLargeFileDiscovered={(handoff) => {
+          closePlanningDialog();
+          openDiscoveredLargeFile(handoff);
+        }}
         onRecoveryResultReady={completeRecoveredProviderReview}
         onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
       {providerDialog && (
@@ -1953,6 +2061,7 @@ function App() {
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
           onOpenConnections={openProviderSettings}
+          onLargeFileDiscovered={openDiscoveredLargeFile}
           onRecoveryReviewReady={completeRecoveredProviderReview}
           onOpenPendingPreview={(generationId) => { closeProviderDialog(); setRecoveredPreviewId(generationId); }}
           onOpenCodeLensCitation={(citation) => {
@@ -2002,6 +2111,7 @@ interface ProviderDialogProps {
   native: boolean;
   onClose: () => void;
   onOpenConnections: () => void;
+  onLargeFileDiscovered: (handoff: LargeFileDiscoveryHandoff) => void;
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
   onOpenPendingPreview: (generationId: string) => void;
@@ -2060,6 +2170,7 @@ function ProviderDialog(props: ProviderDialogProps) {
       : selectedMode;
     return <CodexContextDialog mode={mode}
       native={props.native} onClose={props.onClose} onChooseBackend={chooseConnection}
+      onLargeFileDiscovered={props.onLargeFileDiscovered}
       onOpenPendingPreview={props.onOpenPendingPreview}
       onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   }
@@ -3046,29 +3157,6 @@ function SnapshotCaptureState({ progress, onCancel }: { progress: SnapshotProgre
         <div className="capture-state-actions"><button className="secondary-button" onClick={onCancel}>Cancel capture</button></div>
         <CapturePolicy limits={progress.limits} />
       </div>
-    </div>
-  );
-}
-
-function SnapshotCaptureBanner({ progress, onCancel, onRetry, onView }: { progress: SnapshotProgress; onCancel?: () => void; onRetry?: () => void; onView?: () => void }) {
-  const label = progress.status === 'running'
-    ? `Capturing locally · ${progress.filesCaptured.toLocaleString()} files · ${formatBytes(progress.bytesRead)}`
-    : progress.status === 'cancelled'
-      ? 'New capture cancelled · selected snapshot is unchanged'
-      : progress.status === 'inconsistent'
-        ? 'Repository changed during capture · no new snapshot was added'
-        : progress.status === 'complete'
-          ? 'New snapshot saved · selected revision is unchanged'
-          : progress.status === 'partial'
-            ? 'New partial snapshot saved · selected revision is unchanged'
-            : 'Capture failed · selected snapshot is unchanged';
-  return (
-    <div className={`snapshot-capture-banner ${progress.status === 'running' ? 'is-running' : 'is-terminal'}`} role={progress.status === 'running' ? 'status' : 'alert'}>
-      <HardDrive size={15} />
-      <span><strong>{label}</strong>{progress.currentPath && <small title={progress.currentPath}>{progress.currentPath}</small>}{progress.message && progress.status !== 'running' && <small>{progress.message}</small>}</span>
-      {onCancel && <button onClick={onCancel}>Cancel capture</button>}
-      {onRetry && <button onClick={onRetry}>Try again</button>}
-      {onView && <button onClick={onView}>View new snapshot</button>}
     </div>
   );
 }

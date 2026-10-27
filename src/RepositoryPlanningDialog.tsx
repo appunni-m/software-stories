@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { readGenerationBackend, repositoryPlanningBackend } from './lib/generationPreferences';
 import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
-import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
+import { sourceDiscoveryLimitNotes, type LargeFileDiscoveryHandoff, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -22,9 +22,10 @@ export type RepositoryPlanningScope = PrepareRepositoryPlanInput & ({
 
 /** Agent-only planning/chapter entry. Each child owns its existing account, settings,
  * review, consent and cancellation lifecycle. No API or manual fallback. */
-export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnections, onRecoveryResultReady, onOpenPendingPreview }: {
+export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnections, onLargeFileDiscovered, onRecoveryResultReady, onOpenPendingPreview }: {
   scope: RepositoryPlanningScope; native: boolean; onClose: () => void;
   onOpenConnections: () => void;
+  onLargeFileDiscovered: (handoff: LargeFileDiscoveryHandoff) => void;
   onRecoveryResultReady?: (operationId: string) => void;
   onOpenPendingPreview?: (generationId: string) => void;
 }) {
@@ -58,7 +59,27 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   const needsRepositoryDiscovery = !scope.selectedPaths.length && !discoveredPaths
     && !scope.recoveryOperationId && scope.kind !== 'planned-chapter';
   if (needsRepositoryDiscovery && backend === 'codex') {
-    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} persistSuccessfulResult autoDiscover />;
+    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={(result, review) => {
+      const rangeTarget = result.rangeTargets?.[0];
+      if (rangeTarget) {
+        onClose();
+        const limitNotes = sourceDiscoveryLimitNotes(result, review);
+        onLargeFileDiscovered({
+          projectId: scope.projectId,
+          snapshotId: scope.snapshotId,
+          targetPath: rangeTarget.path,
+          supportingPaths: result.selectedFiles.map((file) => file.path),
+          question: scope.question,
+          discoveryNotes: [
+            `Range target ${rangeTarget.path}: ${rangeTarget.reason}`,
+            ...result.selectedFiles.map((file) => `Supporting source ${file.path}: ${file.reason}`),
+            ...limitNotes,
+          ],
+        });
+        return;
+      }
+      setDiscovery(result);
+    }} persistSuccessfulResult autoDiscover />;
   }
   if (needsRepositoryDiscovery && backend === 'claude-agent') {
     return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>

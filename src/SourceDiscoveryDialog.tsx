@@ -2,22 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
-import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type DiscoveryCoverageGapCategory, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
+import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, SOURCE_DISCOVERY_COVERAGE_LABELS, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { readSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
 import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, loadSnapshotManifest, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
-
-const coverageGapLabels: Record<DiscoveryCoverageGapCategory, string> = {
-  largeFiles: 'large files',
-  unreadableSource: 'unreadable source files',
-  unsupportedLanguage: 'files without a local parser',
-  indexLimit: 'files beyond local index limits',
-  partialParse: 'partially mapped files',
-  unavailableSource: 'unreadable source files',
-  incompleteIndex: 'files missing from the local map',
-  unindexedFiles: 'files missing from the local map',
-};
 
 export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
@@ -143,8 +132,12 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     try {
       const result = await sendSourceDiscovery(selectedReview);
       if (!mounted.current) return;
-      if (!result.selectedFiles.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
-      if (persistSuccessfulResult && saveSourceDiscoveryResult(scope, result) && typeof window !== 'undefined') {
+      if (!result.selectedFiles.length && !result.rangeTargets?.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
+      const cacheableResult = result.rangeTargets?.length ? null : {
+        selectedFiles: result.selectedFiles,
+        limitation: result.limitation,
+      };
+      if (persistSuccessfulResult && cacheableResult && saveSourceDiscoveryResult(scope, cacheableResult) && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(SOURCE_DISCOVERY_SAVED_EVENT, { detail: scope }));
       }
       active.current = null;
@@ -160,7 +153,10 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">
-      {busy ? <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p> : review && <>
+      {busy ? <>
+        <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p>
+        {autoDiscover && <p className="provider-small-note">Your question and a summary of the codebase go to your saved AI connection to find relevant files. File contents are reviewed separately.</p>}
+      </> : review && <>
         <p>Code Atlas will choose relevant files for you. You do not need to select references.</p>
         <p className="provider-small-note">Your question and repository details (file paths, code names and relationships) go to your saved AI connection. File contents are not sent in this step; you can review them before asking for the explanation. This may count toward your connected account’s usage.</p>
         {review.indexStatus === 'partial' && <p className="source-warning">Some code relationships are missing, so file selection may be incomplete.</p>}
@@ -173,7 +169,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
             <summary>Coverage notes · {review.coverageGaps.reduce((total, gap) => total + gap.count, 0).toLocaleString()} code paths</summary>
             <ul>{review.coverageGaps.map((gap) => (
               <li key={gap.category}>
-                <strong>{gap.count.toLocaleString()} {coverageGapLabels[gap.category]}</strong>
+                <strong>{gap.count.toLocaleString()} {SOURCE_DISCOVERY_COVERAGE_LABELS[gap.category]}</strong>
                 <p>{gap.message}</p>
                 {gap.examples.length > 0 && <p><code>{gap.examples.join(', ')}</code></p>}
               </li>

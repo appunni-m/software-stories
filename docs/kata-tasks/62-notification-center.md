@@ -32,3 +32,32 @@ In the packaged Fontdone workspace, one notification group contained 21 attempts
 The focused notification/history/outcome suites pass **64/64**, and `npm run build` passes with the existing large-bundle warning. The running v30 app was not replaced, so the new group action remains source-level evidence until packaged acceptance. Retain the restart, focus/keyboard, theme, zoom and broader recovery acceptance above; keep `hstr` open.
 
 The same one-click group dismissal now covers repeated durable app notices (for example, repeated save failures). It queues the exact dismissal for every notice in the visible group through the existing serialized history writer; opening/retry actions and saved repository content remain unchanged. No live notices were dismissed. The installed app still exposes only individual Dismiss actions, so this addition also needs packaged verification.
+
+## Keep repository updates out of the reading surface — 27 October 2026
+
+Active capture progress appears in the header notification center with a Cancel
+action. Terminal results are saved in the existing notice journal and direct the
+user to choose the new snapshot from the header; notices can be read or
+dismissed after restart. The old inline capture banner over an existing
+snapshot and its styles were removed, leaving the source workspace at full
+height. A first capture with no selected snapshot still keeps its capture state
+and recovery action in the empty workspace. The notification panel associates
+its visible heading with the popover through `aria-labelledby`. Source-only
+change; keyboard/focus, persistence, theme, zoom and packaged acceptance remain
+open.
+
+Active captures across repositories now each retain their own progress and
+Cancel action in the bell. Switching the selected repository leaves the other
+capture visible in the collapsed **Other repositories** group; cancellation is
+scoped to that capture's snapshot ID rather than whichever repository is
+currently selected. Source-only correction; multi-repository packaged behavior
+and the remaining acceptance checks stay open.
+
+Question outcomes from conversations already loaded in this renderer now remain
+in the bell when a background question finishes after navigation to another
+project or snapshot. The feed is capped at the 50 latest unresolved outcomes
+across those loaded scopes; each row retains its owning project/snapshot for
+grouping, opening, read and dismiss actions. Untouched conversations are not
+preloaded. Source-only change; restart discovery for unvisited scopes and the
+packaged, focus, persistence, contrast, zoom and screen-reader gates remain
+open.

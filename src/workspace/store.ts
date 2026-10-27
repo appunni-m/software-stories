@@ -2,7 +2,7 @@ import { createQuestionQueue } from './queue';
 import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { finishQueuedWorkspaceGenerationJob, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
@@ -11,8 +11,8 @@ import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConne
 import type { NoticeTarget } from '../lib/noticeHistory';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { localNarrationPrewarmer } from './localNarrationQueue';
-import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { createQuestionOutcomeSelector, questionOutcomes, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
+import { addTurn, cleanAnswerNotes, cleanSourceDiscoveryNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -48,7 +48,8 @@ const states = new Map<string, WorkspaceState>();
 const browserPreviewWriteBlocked = new Set<string>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
-const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
+type WorkspaceJob = { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] };
+const jobs = new Map<string, WorkspaceJob>();
 const workspaceDraftTimers = new Map<string,{project:string;snapshot:string;timer:ReturnType<typeof setTimeout>}>();
 // A new identity on WebView reload lets native recovery distinguish live
 // renderer-owned queue entries from entries whose owner disappeared.
@@ -62,6 +63,12 @@ const rendererClock = typeof globalThis.performance?.now === 'function'
   : () => Date.now();
 let closingWorkspace=false;
 let deferredCloseUpdates:(()=>void)[]=[];
+
+function queuePendingGuideAdvance(job: WorkspaceJob, revisionId: string) {
+  if (!job.cancelled && !job.pendingGuideAdvances.includes(revisionId) && job.pendingGuideAdvances.length < 16) {
+    job.pendingGuideAdvances.push(revisionId);
+  }
+}
 /** Freeze after reader capture. Late native-job reconciliation is replayed if
  * close fails; its source artifacts/run references already live natively. */
 export function beginWorkspaceClose():()=>void {
@@ -249,6 +256,38 @@ export function useWorkspaceOutcomes(project?: string, snapshot?: string): Quest
     return select.current!(state);
   });
 }
+function createLoadedWorkspaceOutcomesSelector(): (project?: string, snapshot?: string) => QuestionOutcome[] {
+  let previousStates: WorkspaceState[] = [];
+  let hasPrevious = false;
+  let items: QuestionOutcome[] = [];
+  return (project, snapshot) => {
+    const currentStates = [...states.values()];
+    if (project && snapshot && (!isNativeRuntime() || savedConversation(project, snapshot).availability === 'ready')) {
+      const selected = getWorkspace(project, snapshot);
+      if (!currentStates.includes(selected)) currentStates.push(selected);
+    }
+    const readyStates = currentStates.filter((state) =>
+      !isNativeRuntime() || savedConversation(state.projectId, state.snapshotId).availability === 'ready');
+    const unchanged = hasPrevious && readyStates.length === previousStates.length
+      && readyStates.every((state, index) => state === previousStates[index]);
+    if (unchanged) return items;
+    const next = readyStates.flatMap(questionOutcomes)
+      .sort((left, right) => right.outcomeAt - left.outcomeAt || right.turnId.localeCompare(left.turnId))
+      .slice(0, 50);
+    if (JSON.stringify(items) !== JSON.stringify(next)) items = next;
+    previousStates = readyStates;
+    hasPrevious = true;
+    return items;
+  };
+}
+/** Keep outcomes from already-opened conversations visible while their
+ * background questions finish after the reader switches projects/snapshots. */
+export function useLoadedWorkspaceOutcomes(project?: string, snapshot?: string): QuestionOutcome[] {
+  const select = useRef<ReturnType<typeof createLoadedWorkspaceOutcomesSelector> | null>(null);
+  if (!select.current) select.current = createLoadedWorkspaceOutcomesSelector();
+  return useSyncExternalStore((notify) => { listeners.add(notify); return () => { listeners.delete(notify); }; },
+    () => select.current!(project, snapshot));
+}
 function patchTurn(project: string, snapshot: string, id: string, patch: Partial<Turn>) {
   updateWorkspace(project, snapshot, (s) => ({ ...s, explorations: s.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...patch } : t) })) }));
 }
@@ -258,9 +297,9 @@ function patchTurnForLatestRun(project: string, snapshot: string, id: string, ru
   patchTurn(project,snapshot,id,patch);
   return true;
 }
-export function appendQuestion(project: string, snapshot: string, question: string, context: Context[], view: View, parentTurn?: string): string {
+export function appendQuestion(project: string, snapshot: string, question: string, context: Context[], view: View, parentTurn?: string, sourceDiscoveryNotes?: string[]): string {
   const id = crypto.randomUUID();
-  updateWorkspace(project, snapshot, (s) => addTurn(s,{id,question,context,status:'queued'},view,parentTurn?{originTurnId:parentTurn,id:crypto.randomUUID()}:undefined));
+  updateWorkspace(project, snapshot, (s) => addTurn(s,{id,question,context,status:'queued',sourceDiscoveryNotes:sourceDiscoveryNotes ? cleanSourceDiscoveryNotes(sourceDiscoveryNotes) : undefined},view,parentTurn?{originTurnId:parentTurn,id:crypto.randomUUID()}:undefined));
   return id;
 }
 export async function authorizeWorkspace(projectId: string, snapshotId: string) {
@@ -341,7 +380,10 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
   // check preparation status in the gap, see "idle", and stop polling before
   // this new section reaches the bounded native prewarm queue. This remains
   // fire-and-forget; synthesis cannot delay publishing the saved section.
-  if (prewarmAudio) prewarmRevisionNarration(revision);
+  if (prewarmAudio) {
+    try { prewarmRevisionNarration(revision); }
+    catch { /* Optional local audio must not fail adoption of the saved answer. */ }
+  }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
@@ -421,6 +463,7 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
     const finished = await listen<AnswerSummary>('workspace-answer-finished',({payload}) => refresh(payload));
     let guide: (() => void) | undefined;
     let guideSection: (() => void) | undefined;
+    let guideAdvance: (() => void) | undefined;
     try {
       guide = await listen<RepositoryGuide>('repository-guide-changed',({payload}) => {
         if (closed || payload.projectId !== project || payload.snapshotId !== snapshot) return;
@@ -439,9 +482,18 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
           void restoreChangedRepositoryGuide(project,snapshot,payload.guideId).catch(() => {});
         });
       });
+      guideAdvance = await listen<{guideId:string;projectId:string;snapshotId:string;revisionId:string;rendererSessionId:string}>('repository-guide-slide-consumed',({payload}) => {
+        if (closed || payload.rendererSessionId === rendererSessionId || payload.projectId !== project || payload.snapshotId !== snapshot
+          || !payload.guideId || payload.guideId.length > 256 || !payload.revisionId || payload.revisionId.length > 256) return;
+        const turn = getWorkspace(project,snapshot).explorations.flatMap((exploration) => exploration.turns)
+          .find((candidate) => candidate.guideId === payload.guideId);
+        if (!turn) return;
+        const owner = jobs.get(turn.id);
+        if (owner) queuePendingGuideAdvance(owner,payload.revisionId);
+      });
       const unobserve = onAvailability ? observeRestoration(key(project,snapshot),(availability) => { if (!closed) onAvailability(availability); }) : undefined;
-      return () => {closed=true;unobserve?.();section();finished();guide?.();guideSection?.();};
-    } catch (error) { guideSection?.();guide?.();finished();throw error; }
+      return () => {closed=true;unobserve?.();section();finished();guide?.();guideSection?.();guideAdvance?.();};
+    } catch (error) { guideAdvance?.();guideSection?.();guide?.();finished();throw error; }
   } catch (error) { section(); throw error; }
 }
 /** Restart recovery is local reading only. It never reconnects or replays AI. */
@@ -616,7 +668,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
   if(!turn?.guideId||!canContinueGuide(turn))return;
   const active=jobs.get(turnId);
   if(active){
-    if(!active.pendingGuideAdvances.includes(consumedRevisionId)&&active.pendingGuideAdvances.length<16)active.pendingGuideAdvances.push(consumedRevisionId);
+    queuePendingGuideAdvance(active,consumedRevisionId);
     return;
   }
   const job={cancelled:false,runId:null as string|null,pendingGuideAdvances:[] as string[]};jobs.set(turnId,job);
@@ -634,6 +686,12 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     if(job.cancelled||closingWorkspace)return;
     job.runId=current.guideId;
     const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,rendererQueueWaitMs});
+    if(Array.isArray(guide.consumedSlideRevisions)&&!guide.consumedSlideRevisions.includes(consumedRevisionId)){
+      // Another webview currently owns the native guide lease. Its operation
+      // can accept this playback receipt after it releases ownership; sending
+      // this small local event keeps the receipt out of the provider request.
+      try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* The active owner may have closed; saved guide content remains usable. */}
+    }
     await reconcileGuide(project,snapshot,guide,true);
   }catch(failure){
     try{await restoreRepositoryGuides(project,snapshot);}catch{/* Keep the current reader content. */}

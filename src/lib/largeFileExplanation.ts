@@ -10,6 +10,7 @@ export interface PendingLargeFileExplanation {
   targetPath: string;
   paths: string[];
   question: string;
+  sourceDiscoveryNotes?: string[];
 }
 
 /** Build a bounded-reader handoff when the target is known but the manifest is
@@ -21,6 +22,8 @@ export function pendingLargeFileExplanation(input: {
   snapshotId: string;
   targetPath: string;
   paths?: readonly string[];
+  question?: string;
+  sourceDiscoveryNotes?: readonly string[];
 }): PendingLargeFileExplanation {
   const paths = [...new Set([input.targetPath, ...(input.paths ?? [])])].slice(0, 12);
   return {
@@ -29,7 +32,8 @@ export function pendingLargeFileExplanation(input: {
     snapshotId: input.snapshotId,
     targetPath: input.targetPath,
     paths,
-    question: `Explain ${input.targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite exact code and call out unresolved links or anything unverified.`,
+    question: input.question?.trim() || `Explain ${input.targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite exact code and call out unresolved links or anything unverified.`,
+    sourceDiscoveryNotes: input.sourceDiscoveryNotes?.slice(0, 14).map((note) => note.slice(0, 1_500)),
   };
 }
 
