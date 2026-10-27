@@ -28,7 +28,7 @@ use tantivy::{
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v5-english-stems-v1-identifiers-v2-policy-v2-stable-order-v1";
+const VERSION: &str = "atlas-ranges-v6-english-stems-v1-identifiers-v2-policy-v2-stable-order-v1";
 // Search identity/ordering fields do not change source policy or chunk layouts.
 const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
@@ -146,6 +146,8 @@ struct FileCoverage {
     bytes: u64,
     chunks: usize,
     parser: Option<index::ParserVersion>,
+    #[serde(default)]
+    status: Option<index::IndexFileStatus>,
     reason: Option<String>,
     index_key: Option<String>,
 }
@@ -473,7 +475,11 @@ fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<Str
     }
     words
         .iter()
-        .filter(|word| !crate::source_discovery::QUERY_STOPWORDS.contains(&word.as_str()))
+        .filter(|word| {
+            !crate::source_discovery::QUERY_STOPWORDS
+                .iter()
+                .any(|stopword| *stopword == word.as_str())
+        })
         .cloned()
         .collect()
 }
@@ -841,6 +847,7 @@ fn prepare_cached(
             bytes: file.size_bytes,
             chunks: 0,
             parser: None,
+            status: None,
             reason: exclusion(file).map(str::to_owned),
             index_key: None,
         };
@@ -893,13 +900,14 @@ fn prepare_cached(
                     && source.contents.is_char_boundary(s.anchor.end_byte)
             })
             .collect::<Vec<_>>();
-        coverage.parser = syntax
+        let indexed_file = syntax
             .and_then(|s| {
                 s.files
                     .iter()
                     .find(|f| f.path == file.path && f.source_sha256 == file.sha256)
-            })
-            .and_then(|f| f.parser.clone());
+            });
+        coverage.parser = indexed_file.and_then(|file| file.parser.clone());
+        coverage.status = indexed_file.map(|file| file.status.clone());
         let key = digest(&json(&(
             CHUNK_VERSION,
             &source.sha256,
@@ -1479,8 +1487,12 @@ fn search_identifier_declarations(
         .filter(|file| {
             file.chunks > 0
                 && (file.parser.is_none()
-                    || file.status == index::IndexFileStatus::PartialParse
-                    || file.status == index::IndexFileStatus::ParseError)
+                    || file.status.as_ref().is_some_and(|status| {
+                        matches!(
+                            status,
+                            index::IndexFileStatus::PartialParse | index::IndexFileStatus::ParseError
+                        )
+                    }))
                 && is_code_path(&file.path)
                 && path.is_none_or(|scope| {
                     file.path == scope
@@ -2091,6 +2103,7 @@ pub(crate) fn search_files_with_mode_page(
         // without allowing metadata-only matches to create a result or source
         // span of their own.
         if term_bit != 0 {
+            let word = &words[term_index];
             let hint_query = BooleanQuery::union(vec![
                 term_query(path_field, word),
                 term_query(symbol_field, word),

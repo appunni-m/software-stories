@@ -176,7 +176,7 @@ fn identifier_terms(value: &str) -> String {
     let mut terms = String::with_capacity(value.len());
     let mut characters = value.chars().peekable();
     let mut previous: Option<char> = None;
-    for character in characters.by_ref() {
+    while let Some(character) = characters.next() {
         if !character.is_alphanumeric() {
             if !terms.is_empty() && !terms.ends_with(' ') {
                 terms.push(' ');

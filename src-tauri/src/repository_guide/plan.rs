@@ -327,7 +327,7 @@ pub(super) fn run(
         crate::generation_timing::PreparationKind::RequestPreparation,
         || request(job),
     )?;
-    let session = preparation.run_stage(
+    let session = Arc::new(Mutex::new(preparation.run_stage(
         crate::generation_timing::PreparationKind::RetrievalSession,
         || {
             new_session(
@@ -340,7 +340,7 @@ pub(super) fn run(
                 notify,
             )
         },
-    )?;
+    )?));
     let preparation_stages = preparation.into_stages();
     let outcome = manager.run_with_result_and_publish_and_preparation(
         storage,
