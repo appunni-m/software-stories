@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import ts from 'typescript';
 import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
-import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY, workspaceHeading } from '../src/lib/shell.ts';
+import { loadShellStartupData, WORKSPACE_COPY, workspaceHeading } from '../src/lib/shell.ts';
 
 const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'];
 
@@ -21,15 +21,10 @@ describe('desktop shell acceptance contract', () => {
     }
   });
 
-  it('opens local file browsing with no project and exposes the simple primary destinations', () => {
+  it('opens local file browsing with no project and defines copy for every workspace', () => {
     assert.deepEqual(initialNavigationState.current, {
       workspace: 'atlas', projectId: null, snapshotId: null, focusTarget: 'atlas:open-repository',
     });
-    assert.deepEqual(PRIMARY_WORKSPACES.map(({ id, label }) => [id, label]), [
-      ['guide-plan', 'Guide'],
-      ['atlas', 'Files'],
-      ['changes', 'Changes'],
-    ]);
     assert.deepEqual(Object.keys(WORKSPACE_COPY).sort(), [...allWorkspaces].sort());
     for (const workspace of allWorkspaces) {
       const copy = WORKSPACE_COPY[workspace];

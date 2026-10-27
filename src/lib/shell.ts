@@ -1,12 +1,6 @@
 import type { ApplicationStatus, CaptureLimits, InterruptedOperation, PendingChapterPreviewSummary, RecentProject } from './commands.ts';
 import type { Workspace } from './navigation.ts';
 
-export const PRIMARY_WORKSPACES: ReadonlyArray<{ id: Workspace; label: string; activeWorkspaces: readonly Workspace[] }> = [
-  { id: 'guide-plan', label: 'Guide', activeWorkspaces: ['guide-plan', 'chapter-studio'] },
-  { id: 'atlas', label: 'Files', activeWorkspaces: ['atlas', 'code-lens'] },
-  { id: 'changes', label: 'Changes', activeWorkspaces: ['changes'] },
-];
-
 export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string; subtitle: string }> = {
   atlas: {
     eyebrow: 'EXPLORER · SOURCE AND EXPLANATION',
