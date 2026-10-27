@@ -143,7 +143,7 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
     explorations:current.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
       file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
       turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,
-        generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,
+        generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,sourceDiscoveryNotes:t.sourceDiscoveryNotes,
         guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,answerVersions:t.answerVersions?cleanAnswerVersions(t.answerVersions,t):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
 }
 

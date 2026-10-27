@@ -168,6 +168,7 @@ pub(crate) struct GuideSummary {
     can_continue: bool,
     can_extend: bool,
     continuation_operations: usize,
+    consumed_slide_revisions: Vec<String>,
     omissions: Vec<String>,
     captured_files: usize,
     starting_files: usize,
@@ -789,6 +790,7 @@ fn guide_summary(
         can_continue: opening_continuation::remaining_operations(record) > 0,
         can_extend: plan_extension_eligible(record),
         continuation_operations: opening_continuation::remaining_operations(record),
+        consumed_slide_revisions: record.consumed_slide_revisions.clone(),
         omissions: plan.map_or_else(Vec::new, |p| p.omissions.clone()),
         captured_files: manifest
             .files

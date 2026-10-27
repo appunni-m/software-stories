@@ -53,6 +53,7 @@ export interface RepositoryGuide {
   canContinue: boolean;
   canExtend: boolean;
   continuationOperations: number;
+  consumedSlideRevisions?: string[];
   units: { key: string; question: string; prerequisites: string[]; status: string; canRetry: boolean; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
@@ -64,6 +65,7 @@ export interface Turn {
   failureCode?: ExplanationFailureCode;
   runIds?: string[]; publishedSections?: PublishedSection[];
   notes?: string[];
+  sourceDiscoveryNotes?: string[];
   guideId?: string;
   guide?: Omit<RepositoryGuide, 'answers'>;
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
@@ -194,7 +196,7 @@ export function cleanComposerDraft(value: unknown): ComposerDraft | undefined {
 }
 const WORKSPACE_STATE_KEYS = ['version','projectId','snapshotId','currentId','file','explorations','grantId'] as const;
 const EXPLORATION_KEYS = ['id','parentId','originTurnId','title','view','turns','focusedTurnId','revealTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft'] as const;
-const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','guideId','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
+const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','sourceDiscoveryNotes','guideId','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
 function hasOnlyKeys(value: unknown, allowed: readonly string[]): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
     && Object.keys(value).every((key) => allowed.includes(key));
@@ -306,6 +308,11 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         if (!Array.isArray(noteValues) || noteValues.length > 8) return fallback();
         const notes = cleanAnswerNotes(noteValues);
         if (notes.length !== noteValues.length || notes.some((note, index) => note !== noteValues[index])) return fallback();
+        const rawDiscoveryNotes: unknown = t.sourceDiscoveryNotes;
+        const discoveryNoteValues = rawDiscoveryNotes === undefined ? [] : rawDiscoveryNotes;
+        if (!Array.isArray(discoveryNoteValues) || discoveryNoteValues.length > 14) return fallback();
+        const discoveryNotes = cleanSourceDiscoveryNotes(discoveryNoteValues);
+        if (discoveryNotes.length !== discoveryNoteValues.length || discoveryNotes.some((note, index) => note !== discoveryNoteValues[index])) return fallback();
         if (t.outcomeAt !== undefined && (!Number.isSafeInteger(t.outcomeAt) || Number(t.outcomeAt) < 0)) return fallback();
         if (t.outcomeSequence !== undefined && (!Number.isSafeInteger(t.outcomeSequence) || Number(t.outcomeSequence) < 0)) return fallback();
         if (t.answerVersions !== undefined) {
@@ -498,6 +505,14 @@ export function cleanAnswerNotes(value: unknown): string[] {
   return [...new Set(value.filter((note): note is string => typeof note === 'string'
     && note.trim().length > 0 && note.length <= 1_000 && !/[\u0000-\u001f\u007f-\u009f]/.test(note))
     .map((note) => note.trim()))].slice(0, 8);
+}
+
+/** Keep the reviewed source-selection rationale with the answer after restart. */
+export function cleanSourceDiscoveryNotes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((note): note is string => typeof note === 'string'
+    && note.trim().length > 0 && note.length <= 1_500 && !/[\u0000-\u001f\u007f-\u009f]/.test(note))
+    .map((note) => note.trim()))].slice(0, 14);
 }
 
 const validRunId = (id: unknown): id is string => typeof id === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id);
