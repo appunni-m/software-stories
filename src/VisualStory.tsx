@@ -71,6 +71,7 @@ const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, onFollowHotspot, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
+  const savedVisualNeedsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
   const baseKey = narrationStorageKey(revision.projectId,revision.chapterId,revision.revisionId,section.sectionId);
   const sceneKey = `code-atlas:story:v2:${revision.revisionId}:${section.sectionRevisionId}`;
   const identity = {revisionId:revision.revisionId,sectionId:section.sectionId,sectionRevisionId:section.sectionRevisionId};
@@ -406,10 +407,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onExploreDetail, 
       </ReactFlow>
     </div> : <div className="story-source-stage">
       <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}`} role="group"
-        aria-label={inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}>
-        <span>{inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
-        <small>{inspection.status === 'unavailable'
-          ? 'This saved visual cannot be displayed. Narration and source links are still available.'
+        aria-label={savedVisualNeedsRefresh ? 'Saved visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}>
+        <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : inspection.status === 'unavailable' ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
+        <small>{savedVisualNeedsRefresh
+          ? 'This visual was saved in an earlier format and cannot be shown here. Narration and source links are still available.'
+          : inspection.status === 'unavailable'
+            ? 'This saved visual cannot be displayed. Narration and source links are still available.'
           : 'This saved section has narration and source links, but no visual representation.'}</small>
         {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
           aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}

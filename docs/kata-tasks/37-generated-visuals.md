@@ -1025,3 +1025,44 @@ documentation/source-contract alignment only: no tests, build, fresh generation,
 audio playback, or human comprehension review ran. `j53m` remains open for
 generated-content quality, source navigation, narration, accessibility, export,
 and representative-repository acceptance.
+
+## Current packaged visual availability failure — 28 October 2026
+
+In the open packaged app on Fontdone `main@5249b72371`, Guide shows multiple
+saved explanation cards with “This visual cannot be previewed here”; at least
+two cards say no visual was saved. The active one-scene Code Lens story,
+“How a composite glyph prepares component points,” instead reports “Saved
+visual unavailable” while keeping narration and the source link available.
+The app bundle is version `0.1.0`, with `visualSchema: 3` and
+`visualRendererContract: 2` in its release metadata. The UI does not expose the
+validator failure reason, and the source commit corresponding to this installed
+bundle was not established. No saved artifact was edited, no audio played and
+no provider request was sent.
+
+This is direct packaged evidence that the currently selected workspace does
+not render these saved visuals; it does not yet distinguish malformed saved
+presentation data from a build/schema mismatch. The next diagnostic must trace
+the local saved visual through `inspectInteractiveVisual` and the current scene
+renderer, then preserve the rejected record while repairing the producer or
+compatibility boundary. Do not hide this with a generic replacement diagram.
+Keep `j53m` and packaged visual acceptance open.
+
+## Saved visual schema mismatch — 28 October 2026
+
+A metadata-only read of the named persisted section found chapter schema 5,
+`visual.schemaVersion: 2`, and `visual.presentation.schemaVersion: 3`. The
+current frontend `inspectInteractiveVisual` requires visual schema 3, so it
+rejects the saved payload before validating or rendering the presentation.
+This identifies the observed unavailability as a saved-version mismatch; it
+does not prove fresh schema-3 output is rendered or useful. No chapter data was
+rewritten. The current product has no legacy visual renderer: do not relabel
+this payload as schema 3 or silently mutate it. Fresh current-schema generation
+and an appropriate recovery path for this saved scene remain open.
+
+The reader now distinguishes a positive but unsupported visual schema from a
+malformed current-schema visual. For the former it says that the saved visual
+needs refreshing and explicitly preserves access to narration and source links;
+the saved chapter remains untouched. The Guide and answer preview share this
+diagnosis. The two focused visual test files pass (57 tests). This improves the
+failure state only; it does not generate a replacement visual or qualify fresh
+schema-3 content, accessibility, export, or comprehension. Keep `j53m` open.

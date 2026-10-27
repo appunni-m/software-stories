@@ -85,17 +85,17 @@ describe('interactive diagram safety', () => {
     assert.deepEqual(inspectInteractiveVisual(revision, section), { status: 'none' });
   });
 
-  it('keeps absent and unsupported diagrams out of the interactive renderer', () => {
+  it('keeps absent and unsupported diagrams out of the renderer with a clear version reason', () => {
     const revisionWithoutVisual = chapter(null);
     revisionWithoutVisual.sections[0].visual = null;
     assert.deepEqual(inspectInteractiveVisual(revisionWithoutVisual, revisionWithoutVisual.sections[0]), { status: 'none' });
     const old = chapter({ schemaVersion: 2, kind: 'dataFlow', title: 'Old', layoutHint: { direction: 'auto' }, nodes: [], edges: [] });
-    assert.deepEqual(inspectInteractiveVisual(old, old.sections[0]), { status: 'unavailable', reason: 'malformed' });
+    assert.deepEqual(inspectInteractiveVisual(old, old.sections[0]), { status: 'unavailable', reason: 'unsupportedVersion' });
   });
 
   it('rejects unknown, malformed, oversized, or executable-shaped diagram data as a whole', () => {
     const unknown = chapter({ ...visual(), schemaVersion: 7 });
-    assert.equal(inspectInteractiveVisual(unknown, unknown.sections[0]).status, 'unavailable');
+    assert.deepEqual(inspectInteractiveVisual(unknown, unknown.sections[0]), { status: 'unavailable', reason: 'unsupportedVersion' });
     const executable = chapter({ ...visual(), html: '<script>run()</script>' });
     assert.deepEqual(inspectInteractiveVisual(executable, executable.sections[0]), { status: 'unavailable', reason: 'malformed' });
     const tooManyNodes = chapter({ ...visual(), nodes: Array.from({ length: 501 }, (_, index) => ({

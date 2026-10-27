@@ -45,13 +45,20 @@ describe('visual story scenes', () => {
   it('labels sections without a saved visual and opens their cited range beside the answer', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
-    assert.match(component, /Saved visual unavailable' : 'No visual saved for this section'/u);
+    assert.match(component, /'Saved visual unavailable' : 'No visual saved for this section'/u);
+    assert.match(component, /Visual needs refreshing/u);
+    assert.match(component, /This visual was saved in an earlier format and cannot be shown here\./u);
     assert.match(component, /This saved section has narration and source links, but no visual representation\./u);
     assert.doesNotMatch(component, /Open the cited code beside this explanation to inspect this step\./u);
     assert.match(component, /onClick=\{\(\) => onOpenAnchor\(anchor, `reader-citation:\$\{anchor\.anchorId\}`\)\}/u);
     assert.doesNotMatch(component, /<pre><code>\{anchor\.excerpt\}<\/code><\/pre>/u,
       'the Explorer already shows the captured code; do not duplicate a long excerpt as the visual');
-    assert.match(styles, /\.story-source-stage \.story-no-visual\s*\{[^}]*display:\s*flex/u);
+    assert.match(styles, /\.story-source-stage\s*\{[^}]*height:\s*auto/u,
+      'a missing visual should not reserve a large fixed-height canvas');
+    assert.match(styles, /\.story-source-stage \.story-no-visual\s*\{[^}]*display:\s*grid/u,
+      'the honest no-visual state should read as a compact explanation and source action');
+    assert.match(styles, /@container guide-pane \(max-width: 700px\)\s*\{[\s\S]*?\.story-source-stage \.story-no-visual\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/u,
+      'the source action should stack below the note in a narrow Guide pane');
   });
 
   it('keeps long edge labels scannable while preserving short labels', () => {

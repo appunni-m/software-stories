@@ -17,7 +17,7 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
 
 export type InteractiveVisualResult =
   | { status: 'none' }
-  | { status: 'unavailable'; reason: 'malformed' }
+  | { status: 'unavailable'; reason: 'malformed' | 'unsupportedVersion' }
   | {
       status: 'available';
       visual: EvidenceLinkedVisualSpec;
@@ -32,9 +32,11 @@ export function inspectInteractiveVisual(
   const raw: unknown = section.visual;
   if (raw == null) return { status: 'none' };
   if (!isRecord(raw)) return { status: 'unavailable', reason: 'malformed' };
-  if (raw.schemaVersion !== 3 || !isCurrentVisual(raw)) {
-    return { status: 'unavailable', reason: 'malformed' };
+  if (typeof raw.schemaVersion === 'number' && Number.isSafeInteger(raw.schemaVersion)
+    && raw.schemaVersion > 0 && raw.schemaVersion !== 3) {
+    return { status: 'unavailable', reason: 'unsupportedVersion' };
   }
+  if (raw.schemaVersion !== 3 || !isCurrentVisual(raw)) return { status: 'unavailable', reason: 'malformed' };
 
   const anchorsById = new Map<string, ChapterSourceAnchor>();
   for (const claim of section.claims) {

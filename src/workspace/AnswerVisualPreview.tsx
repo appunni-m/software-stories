@@ -31,9 +31,12 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor }: {
   if (!visual || !firstScene) {
     const anchor = section.claims.flatMap((claim) => claim.anchors)[0];
     const unavailable = inspection.status === 'unavailable' || Boolean(visual);
+    const needsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
     return <div className="dw-answer-visual-preview dw-answer-visual-preview-empty" role="group"
       aria-label={`Visual preview for ${plainInlineCodeText(section.title)}`}>
-      <span>{unavailable ? 'This visual cannot be previewed here.' : 'No visual was saved for this section.'}</span>
+      <span>{needsRefresh
+        ? 'This saved visual needs refreshing.'
+        : unavailable ? 'This visual cannot be previewed here.' : 'No visual was saved for this section.'}</span>
       {anchor && <button type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
         <Code2 size={13} />{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}
       </button>}
