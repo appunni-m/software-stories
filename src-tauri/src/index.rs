@@ -3049,7 +3049,32 @@ mod tests {
     use crate::project::{AccessStatus, RecentProject};
     use crate::snapshot::{self, CaptureLimits};
     use std::process::Command;
-    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    #[test]
+    fn concurrent_index_start_for_same_snapshot_joins_one_owned_job() {
+        let jobs = SnapshotIndexJobs::default();
+        let (first, first_cancel, first_created) =
+            jobs.begin_or_join("project-a", "snapshot-a", 12).unwrap();
+        assert!(first_created);
+
+        let (joined, joined_cancel, joined_created) =
+            jobs.begin_or_join("project-a", "snapshot-a", 12).unwrap();
+        assert!(!joined_created);
+        assert_eq!(joined.job_id, first.job_id);
+        assert!(Arc::ptr_eq(&joined_cancel, &first_cancel));
+
+        assert!(jobs.begin("project-a", "snapshot-a", 12).is_err());
+        assert_eq!(
+            jobs.get(&first.job_id).unwrap().status,
+            IndexJobStatus::Running
+        );
+
+        let (other_scope, _, other_created) =
+            jobs.begin_or_join("project-b", "snapshot-a", 12).unwrap();
+        assert!(other_created);
+        assert_ne!(other_scope.job_id, first.job_id);
+    }
 
     struct TestDirectory(PathBuf);
 

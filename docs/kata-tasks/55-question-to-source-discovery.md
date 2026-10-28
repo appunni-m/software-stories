@@ -173,3 +173,16 @@ shared job failed, clears the current path, and emits a retryable message. This
 prevents all renderers joining that job from polling a permanent running state;
 no partial index is saved. Source-only change; no tests or build ran. Parser
 panic recovery and cross-window retry still need native acceptance.
+
+## Snapshot index join regression — 28 October 2026
+
+A focused native regression now proves that a second request for the same
+project/snapshot joins the existing running index job and shares its
+cancellation token, while the strict `begin` API still rejects duplicates and
+a different project receives a distinct job. The exact command
+`cargo test --locked --manifest-path src-tauri/Cargo.toml --lib index::tests::concurrent_index_start_for_same_snapshot_joins_one_owned_job`
+passes (1 test). Two unrelated Claude dead-code warnings remain.
+
+This covers the job-registry contract only; it does not exercise two packaged
+windows, parser panic/retry, cancellation during indexing, or large-repository
+retrieval recall. Keep `xvjk` open.
