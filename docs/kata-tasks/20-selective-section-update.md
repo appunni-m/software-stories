@@ -74,3 +74,46 @@ unchanged, and no invalid current-snapshot chapter can be accepted. Keep the
 accepted chapter immutable throughout. No source change, test, build, provider
 request, or app run was made for this audit; packaged selective-repair
 acceptance remains pending.
+
+### Chosen direction — durable selective-repair session (planned)
+
+Use a bounded, durable repair session scoped to one project, the exact accepted
+base revision, and one target snapshot. This is a staging record, not a
+`ChapterRevision`: it may retain an unselected stale section with its original
+snapshot-bound citations, but must never label those citations current or pass
+them to the normal chapter validator as target-snapshot evidence.
+
+The session records the source/target snapshot IDs, base revision ID, a stable
+freshness assessment, and each affected section's ID, revision ID, status, and
+any validated replacement. Starting or resuming a session does not change the
+accepted chapter. Each user-requested repair binds to the same base and target,
+one selected section ID/revision, the saved connection, and the current exact
+permission. Only that section is sent for regeneration. Its response is
+canonicalized against the target snapshot and persisted in the session. Stop,
+provider failure, rejection, or app restart leaves the accepted chapter and
+previously completed session replacements intact.
+
+Unchanged sections may be carried only after existing freshness logic proves
+their anchors and dependencies safe in the target snapshot. Stale sections
+remain pending until explicitly repaired. `NeedsReview` is not equivalent to
+stale or safe: the session cannot finalize while source/index uncertainty
+remains unresolved. A changed base revision, target snapshot, or freshness
+fingerprint invalidates the session for new requests and presents a clear
+restart/reassess action; it never broadens an earlier request.
+
+Only when every affected section is resolved does native code assemble one
+ordinary draft pinned to the target snapshot and run the complete chapter
+validator. The normal preview/accept flow then creates a new immutable chapter
+revision/manifest. If final validation fails, retain the session for a scoped
+repair and leave accepted history untouched. Reuse section, visual, and audio
+identities only where the current input fingerprints prove they are unchanged.
+
+Required implementation evidence: a multi-section fixture where edits make
+two sections stale; repair one and verify only its replacement is recorded
+while the other remains pending; restart and repair the second; then verify the
+assembled draft has only target-snapshot anchors, unchanged safe sections and
+assets retain identities, and acceptance creates a distinct revision. Also
+cover cancel/failure, corrupt or oversized session data, changed base/target,
+and `NeedsReview` without automatic publication. This architecture is planned,
+not implemented or accepted; the provider and packaged-app gates above remain
+open.
