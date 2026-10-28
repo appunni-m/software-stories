@@ -129,3 +129,20 @@ passed across the final focused runs; the frontend production build and
 `git diff --check` passed. These are source-level checks. Packaged exact-scroll,
 third-level, independent Flow viewport, restart, revision fallback, malformed
 state and accessibility acceptance remain outstanding; keep `erzc` open.
+
+## Packaged exact-answer return check — 28 October 2026
+
+In the running Code Atlas window on Fontdone `main@5249b72371`, the parent was
+in Chat history with the saved answer “Explain what glyf.rs:564–583 does and
+how it works.” marked current and `src/tt/glyf.rs` open. I opened the existing
+child **Explore remaining topics**; its Guide opened with `src/api.rs`. Back
+returned to the parent with Chat history still selected, the same saved answer
+still marked current, and `src/tt/glyf.rs` restored. No question, provider
+request, or narration was started, and no saved record was changed.
+
+This confirms one same-process child/Back restoration path for the exact
+answer, tab, and source file. The running executable revision and a durable
+screenshot were not verified. It does not exercise a multi-section answer,
+exact scroll offset, sibling/nested-level independence, restart, revision
+fallback, corrupt state or accessibility. Keep `erzc` open for the remaining
+acceptance matrix.
