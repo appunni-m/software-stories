@@ -60,6 +60,7 @@ import {
   Pencil,
   Search,
   Save,
+  ShieldCheck,
   Sparkles,
   Trash2,
   TriangleAlert,
@@ -310,6 +311,7 @@ function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [repositorySharingOpen, setRepositorySharingOpen] = useState(false);
   const [projectMetadataBusy, setProjectMetadataBusy] = useState(false);
   const projectOpening = useSyncExternalStore(subscribeProjectOpening, isProjectOpeningBusy);
   const projectBusy = projectOpening || projectMetadataBusy;
@@ -1753,7 +1755,7 @@ function App() {
           </button>
           {projectOpening && <button className="icon-button" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></button>}
           {projectMenuOpen && (
-            <div className="project-menu" role="menu" aria-label="Local repositories">
+            <div className="project-menu" role="menu" aria-label="Repositories and snapshots">
               <div className="menu-label">LOCAL REPOSITORIES</div>
               <button
                 role="menuitem"
@@ -1763,6 +1765,12 @@ function App() {
               >
                 <FolderOpen size={16} /> <span>Choose a local repository…</span>
               </button>
+              {currentProject && <><div className="menu-rule" /><div className="menu-label">CURRENT SNAPSHOT</div><button
+                  role="menuitem"
+                  data-focus-key="action:repository-sharing"
+                  disabled={!selectedSnapshot || snapshotManifest?.summary.snapshotId !== selectedSnapshot.snapshotId}
+                  onClick={() => { setProjectMenuOpen(false); setRepositorySharingOpen(true); }}
+                ><ShieldCheck size={16} /> <span>Repository sharing…</span></button></>}
               <div className="menu-rule" />
               <div className="menu-label">RECENT PROJECTS</div>
               {recentProjects.length === 0 ? (
@@ -1900,6 +1908,7 @@ function App() {
                 </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
               </div>
             ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
+              sharingOpen={repositorySharingOpen} onSharingOpenChange={setRepositorySharingOpen}
               pendingLargeFileExplanation={pendingLargeFileRequest}
               onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileRequest((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}

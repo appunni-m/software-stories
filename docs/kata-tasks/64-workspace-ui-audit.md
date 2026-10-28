@@ -101,3 +101,14 @@ updated source.
 No test, build or packaged interaction check ran in this source-only increment.
 Native growing-answer, citation-return, narrow-layout and high-zoom checks
 remain open under the existing acceptance task.
+
+## Repository sharing menu placement — source change, 28 October 2026
+
+Moved **Repository sharing** from the activity-specific sidebar header to the
+current repository menu in the app header. The command is disabled until the
+selected snapshot's manifest is loaded; the existing dialog still displays the
+grant status and can revoke permission and stop active questions. The sidebar
+header now contains only the active tool label and its relevant Back action.
+This removes the settings affordance from the code-navigation rail without
+changing the snapshot/account grant contract. No test, build, or packaged menu
+and revoke check ran; keep `na54` open.

@@ -363,7 +363,17 @@ run.
 | P1 | **Narrow sidebar has no visible way back to the current explanation.** Every activity-button click selects `narrowPane='explorer'` (`Workspace.tsx:904`). At widths up to 680 px, the stylesheet shows the repository sidebar and hides the reading workspace (`workspace.css:342–349`). The sidebar header renders **Back to explanation** only when the route is a separate tool (`Workspace.tsx:908`), so ordinary Guide/Flow/history users who open Explorer, Search or Explorations cannot return to the current answer from the visible controls; clicking an activity button selects the sidebar again. | `src/workspace/Workspace.tsx:904,908`; `src/workspace/workspace.css:342–349` | In the narrow sidebar state, show a **Back to explanation** control in the sidebar header. It should set the pane to explanation while preserving the selected activity, search text, and current exploration. At ≤680 px and native compact zoom, verify that each activity can be opened and left without opening a file or relying on a keyboard shortcut. |
 | P2 | **Repository-sharing settings occupy the activity sidebar header.** The shield action is rendered beside the changing Explorer/Search/Explorations/Source control heading for every activity (`Workspace.tsx:908`). It puts a project permission control in the code-navigation rail, where the contract reserves the sidebar for repository tools and asks that settings stay out of the reading workspace. This also consumes scarce sidebar-header width in the narrow layout. | `src/workspace/Workspace.tsx:908`; header contents are defined in `docs/design/WORKSPACE_EXPLORATION.md` (“The header contains search, connection status, appearance, and a notification bell”). | Move **Repository sharing** to the project/header menu with the other project-level controls. Keep the sidebar header for the current activity and its relevant navigation actions; confirm the revoke action remains findable without adding a settings pane. |
 
-No source changes or package interactions were made for this audit. The
+At the time of this audit, no source changes or package interactions were made. The
 responsive-navigation behavior and the placement finding have not been
 reproduced in the native app; neither establishes that all routes, themes,
 zoom levels, or accessibility states pass. Keep `x21h` and `13yp` open.
+
+### Move repository sharing out of the navigation rail — 28 October 2026
+
+Repository sharing is now opened from the active repository's header menu; the
+activity sidebar header keeps only activity navigation and the relevant Back
+action. The dialog remains bound to the currently opened immutable snapshot and
+still offers the same permission status and revoke/cancel behavior. This is a
+source-level correction to the P2 placement gap above. No packaged screen,
+keyboard/menu, or revoke interaction was inspected; keep the audit and design
+parity tasks open.
