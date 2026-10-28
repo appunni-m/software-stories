@@ -85,11 +85,18 @@ screen-by-screen UI acceptance remain open.
 ## Remove redundant one-section controls — 28 October 2026
 
 The sequential Guide already owns Previous/Next navigation across published
-slides. Its child section renderer also displayed a second disabled `1 / 1`
-bar for every one-section revision. The revision-local navigator is now shown
-only when a revision actually contains multiple sections, and its counter uses
-the explicit `Section n of m` label. This reduces duplicate controls without
-changing the outer Guide slide sequence.
+slides. Its child section renderer also displayed a second `1 / 1` heading and
+a disabled Previous/Next bar for every one-section revision. Both inner
+indicators are now omitted for a one-section revision; the revision-local
+navigator appears only when a revision actually contains multiple sections,
+and its counter uses the explicit `Section n of m` label. This leaves the
+outer Guide slide sequence as the only progress control for sequential slides.
+
+In the running packaged Fontdone workspace, the accessibility tree showed the
+outer `Section 4 of 4`, followed by inner `1 / 1` and disabled section buttons
+for the same slide. The installed executable's source revision was not
+verified, so this is a concrete observed inconsistency, not acceptance of the
+updated source.
 
 No test, build or packaged interaction check ran in this source-only increment.
 Native growing-answer, citation-return, narrow-layout and high-zoom checks
