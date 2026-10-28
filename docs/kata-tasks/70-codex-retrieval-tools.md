@@ -199,3 +199,20 @@ General workspace answers, repository-guide planning, and progressive answers no
 ## Final tool-completion ownership — 28 October 2026
 
 The Codex adapter already rejected non-null `appContext` or `pluginId` on each `item/completed` tool event. The duplicate tool item carried in `turn/completed.items` was checked against the admitted result and digest but did not repeat those ownership checks. The final-item path now rejects that foreign metadata before accepting the duplicate, with a focused regression for both fields and the valid absent/null form. The focused Rust test passed (1 passed; 833 filtered out). This only closes the event-consistency gap; it does not qualify large-repository discovery, useful partial answers, latency, packaged invocation, or the remaining identity/cancellation/restart acceptance.
+
+## Shared 1,000-answer capacity boundary regression — 29 October 2026
+
+Ran the existing boundary regression against the current checkout:
+
+```text
+cargo test --manifest-path src-tauri/Cargo.toml --lib legacy_answers_count_toward_the_total_limit_and_remain_unchanged_on_check
+test evidence_ledger::sections::tests::legacy_answers_count_toward_the_total_limit_and_remain_unchanged_on_check ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 837 filtered out
+```
+
+The fixture accepts exactly 1,000 existing answer records, rejects the next
+reservation, and byte-compares all preexisting legacy receipts afterward. It
+uses an isolated test fixture; it did not inspect or modify the user's saved
+receipts and made no provider request. This verifies the native capacity
+boundary, not the packaged app's 1,000-record recovery, notification, restart,
+and user-visible removal flows. Keep those packaged acceptance gates open.
