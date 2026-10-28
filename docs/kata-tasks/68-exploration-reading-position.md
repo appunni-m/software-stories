@@ -273,3 +273,21 @@ fix. The check establishes one restart path for a multi-section answer in this
 snapshot; it does not exercise nested or sibling branches, exact scroll offset,
 revision fallback, corrupt state through the UI, Flow viewport or visual-focus
 restoration, or accessibility. Keep `erzc` open for those gates.
+
+## Packaged visual-detail return through Search — 29 October 2026
+
+In the installed app built from commit `eeb2c11` (executable SHA-256
+`4059e01548a752d6005bd2d465457f8af988f6d03a4875cd218059a2814a293c`), the
+existing `pillow-rs` `main@e843f864fc` `canvas.rs` answer was open at section 1
+of 4. In Flow, selecting the **Grayscale formats** node opened its cited code
+detail. Switching to Search and back to Explorer retained Flow and the same
+selected node/detail. In Guide, expanding the **Grayscale formats** scene
+detail, switching to Search and returning to Explorer retained Guide, the same
+section, and the cited detail. I collapsed the detail and restored the initial
+Explorer/Guide state afterward. No question, provider request, source change,
+snapshot refresh, answer edit, or narration was started.
+
+This confirms a same-process Search/activity round trip for one Flow selection
+and one Guide scene detail. It does not cover node/edge focus through nested
+branches, exact scroll offsets, revision replacement, malformed persisted
+state, or restart with a focused visual cue. Keep `erzc` open for those gates.
