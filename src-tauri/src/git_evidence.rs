@@ -680,19 +680,21 @@ fn build_revision_index(
 
     let mut sources_to_read = Vec::new();
     let mut selected_source_bytes = 0_u64;
-    for (file_index, entry) in index_order
-        .iter()
-        .take(index::MAX_INDEXED_FILES)
-        .enumerate()
-    {
-        let _ = file_index;
+    for entry in index_order {
         if ParseLanguage::for_path(&entry.path).is_none()
             || entry.size_bytes > index::MAX_SOURCE_BYTES_PER_FILE
         {
             continue;
         }
-        if selected_source_bytes.saturating_add(entry.size_bytes) > index::MAX_TOTAL_SOURCE_BYTES {
+        // The index-file cap is for parser-supported sources. Tree entries
+        // such as docs, assets, and files without a bundled grammar must not
+        // consume slots before the source filter runs.
+        if sources_to_read.len() >= index::MAX_INDEXED_FILES {
             break;
+        }
+        if selected_source_bytes.saturating_add(entry.size_bytes) > index::MAX_TOTAL_SOURCE_BYTES {
+            // A later, smaller changed source may still fit the shared budget.
+            continue;
         }
         selected_source_bytes = selected_source_bytes.saturating_add(entry.size_bytes);
         sources_to_read.push((*entry).clone());

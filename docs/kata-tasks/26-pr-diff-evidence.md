@@ -60,3 +60,15 @@ silently presenting the remaining indexed files as complete. This is a
 source-only correction; no tests or build ran. Keep the temporary-repository,
 deterministic anchor, unchanged-worktree and packaged Changes acceptance gates
 open.
+
+## Count only parser candidates toward the revision-index file cap — 28 October 2026
+
+The base/head source scan previously took the first 5,000 tree entries before
+filtering for files supported by a bundled parser. Repositories with many
+lexically earlier docs or assets could therefore use the source-index slots
+without contributing source. The cap now applies after parser and per-file-size
+eligibility checks. A candidate that does not fit the remaining shared byte
+budget is skipped so a smaller later changed source can still be indexed.
+Changed paths still sort first, and the existing aggregate source-byte and tree
+bounds remain. Source-only change; no tests or build ran.
+The temporary-repository and packaged Changes acceptance gates remain open.
