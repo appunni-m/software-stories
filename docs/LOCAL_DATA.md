@@ -20,6 +20,12 @@ indexes, chapter and PR Guide revisions, recovery records, and cached narration
 audio under that application data directory. The original Git working copy
 stays where you chose it; capture creates a separate local snapshot.
 
+The Pocket TTS audio cache is rebuildable and bounded to 256 WAV files or
+256 MiB, whichever limit is reached first. It removes the least recently used
+clips to stay within those limits; a later Play may synthesize an evicted clip
+again. This limit applies to the active Pocket cache directory, not to all
+application data or repository snapshots.
+
 Recent-project metadata is limited to 16 MiB and 10,000 entries. A snapshot
 catalog is limited to 16 MiB and 20,000 entries per repository; each snapshot
 manifest is limited to 128 MiB. Captured source objects are limited to 2 MiB
