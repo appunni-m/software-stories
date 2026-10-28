@@ -60,6 +60,16 @@ context-size failure. Source review only; no tests, build, app launch, account
 operation or model request ran. Correction-size behavior and the complete
 native operation/lifecycle matrix still need qualification.
 
+## Fail-closed feature configuration audit — source checkpoint, 2026-10-29
+
+Startup now verifies every configured Codex feature override that disables
+skill search, workspace dependencies, remote plugins, shell snapshots and
+skill-MCP installation. It also requires host-skill discovery to be explicitly
+disabled. A runtime that ignores any one of these settings cannot proceed to
+account review or a model turn. Source inspection only; no tests, build, app
+launch, runtime probe, login or model request ran. Native packaged
+configuration and account acceptance remain open.
+
 ## User outcome
 The user connects an eligible ChatGPT account once and generates chapters through Codex without configuring a direct API key for each workflow.
 

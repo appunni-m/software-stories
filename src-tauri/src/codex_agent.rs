@@ -1273,6 +1273,11 @@ impl ServerProcess {
             "browser_use",
             "computer_use",
             "image_generation",
+            "skill_search",
+            "workspace_dependencies",
+            "remote_plugin",
+            "shell_snapshot",
+            "skill_mcp_dependency_install",
         ] {
             if config
                 .pointer(&format!("/features/{feature}"))
@@ -1284,6 +1289,16 @@ impl ServerProcess {
                         .to_owned(),
                 );
             }
+        }
+        if config
+            .pointer("/features/skip_host_skill_discovery")
+            .and_then(Value::as_bool)
+            != Some(true)
+        {
+            return Err(
+                "Codex could not disable host skill discovery for this explanation. Reconnect to try again."
+                    .to_owned(),
+            );
         }
         let profile = config
             .pointer(&format!("/permissions/{PERMISSION_PROFILE}"))
