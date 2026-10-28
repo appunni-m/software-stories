@@ -337,6 +337,14 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
     projectId:project,snapshotId:snapshot,runId:section.runId,generationId:section.generationId,
   });
   if (revision.revisionId !== section.revisionId || revision.projectId !== project || revision.snapshotId !== snapshot) throw new Error('The saved section identity changed.');
+  // Queue local narration after the native draft is independently saved but
+  // before publishing it to the reader. Otherwise a fast player status check
+  // can see "idle" and stop polling before this section reaches the queue.
+  // This is fire-and-forget; synthesis cannot delay publishing the saved answer.
+  if (prewarmAudio) {
+    try { prewarmRevisionNarration(revision); }
+    catch { /* Optional local audio must not fail adoption of the saved answer. */ }
+  }
   if (turnId) updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
     turns:e.turns.map((t) => {
       if (t.id !== turnId) return t;
@@ -346,14 +354,6 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
       return mergePublishedSections(owner,[section]);
     }),
   }))}));
-  // Queue local narration before notifying the reader. Otherwise the player can
-  // check preparation status in the gap, see "idle", and stop polling before
-  // this new section reaches the bounded native prewarm queue. This remains
-  // fire-and-forget; synthesis cannot delay publishing the saved section.
-  if (prewarmAudio) {
-    try { prewarmRevisionNarration(revision); }
-    catch { /* Optional local audio must not fail adoption of the saved answer. */ }
-  }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
