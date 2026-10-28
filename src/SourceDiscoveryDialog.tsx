@@ -5,9 +5,10 @@ import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, SOURCE_DISCOVERY_COVERAGE_LABELS, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { readSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
-import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, loadSnapshotManifest, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
+import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotManifest } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
+import { ensureWorkspaceIndex } from './workspace/indexManager';
 
 export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
@@ -53,17 +54,6 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         projectId: scope.projectId, snapshotId: scope.snapshotId, occurrenceId: progressOccurrenceId,
       } }));
     };
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let finishWait: (() => void) | null = null;
-    let pollDelayMs = 200;
-    const wait = () => new Promise<void>((resolve) => {
-      finishWait = resolve;
-      timer = setTimeout(() => {
-        timer = undefined;
-        finishWait = null;
-        resolve();
-      }, pollDelayMs);
-    });
     dialog.current?.focus();
     setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true); preparing.current = true;
     setPhase(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
@@ -102,24 +92,10 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       }
       let indexReady = false;
       try {
-        const existing = await loadSnapshotIndex(scope.projectId, scope.snapshotId);
+        if (!autoDiscover) setPhase('Organizing the code for search…');
+        await ensureWorkspaceIndex(scope.projectId, scope.snapshotId);
         if (!current) return;
-        indexReady = existing !== null;
-        if (!existing) {
-          if (!autoDiscover) setPhase('Organizing the code for search…');
-          const job = await startSnapshotIndexing(scope.projectId, scope.snapshotId);
-          while (current) {
-            const progress = await getSnapshotIndexProgress(job.jobId);
-            if (!current) return;
-            if (!progress) break;
-            if (progress.status !== 'running') {
-              indexReady = progress.status === 'complete' || progress.status === 'partial';
-              break;
-            }
-            await wait();
-            pollDelayMs = Math.min(1000, Math.ceil(pollDelayMs * 1.5));
-          }
-        }
+        indexReady = true;
       } catch {
         // The local map is an optimization. Backend preparation can still use
         // the immutable captured file inventory when it is absent or unreadable.
@@ -141,13 +117,6 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
     return () => {
       current = false; mounted.current = false;
-      if (timer !== undefined) {
-        clearTimeout(timer);
-        timer = undefined;
-        const resolve = finishWait;
-        finishWait = null;
-        resolve?.();
-      }
       resolveProgress();
       const activeId = active.current;
       active.current = null;

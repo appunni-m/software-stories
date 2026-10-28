@@ -152,3 +152,14 @@ dialogs. The exact selected-source review and fresh consent remain in the
 subsequent explanation request. This is a source-only UX change; no tests,
 build, model request, or packaged keyboard/focus qualification ran. Retrieval,
 restart, multi-window, consent and packaged acceptance remain open.
+
+## Share one in-flight snapshot index — 28 October 2026
+
+Workspace flow loading and question discovery now use the same per-renderer,
+per-project/snapshot index promise. Discovery waits for the reader's active
+index job instead of racing a second `start_snapshot_indexing` call (which the
+native job store rejects) and proceeding with less relationship context. The
+shared helper still falls back to immutable captured inventory when indexing
+is absent or unreadable. Cross-window job sharing and packaged large-repository
+recall remain unqualified. Source-only change; no tests, build, provider request
+or app acceptance ran.

@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
-import { finishQueuedWorkspaceGenerationJob, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, loadSnapshotIndex, queueWorkspaceGenerationJob, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex, type WorkspaceGenerationJob } from '../lib/commands';
+import { finishQueuedWorkspaceGenerationJob, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, queueWorkspaceGenerationJob, stopWorkspaceGenerationJob, type ChapterRevision, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -13,36 +13,6 @@ import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { localNarrationPrewarmer } from './localNarrationQueue';
 import { createQuestionOutcomeSelector, questionOutcomes, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
 import { addTurn, cleanAnswerNotes, cleanSourceDiscoveryNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
-
-const indexLoads = new Map<string, Promise<SnapshotIndex>>();
-/** One local index build per snapshot, shared by reading and questions. No model call. */
-export function ensureWorkspaceIndex(project: string, snapshot: string): Promise<SnapshotIndex> {
-  const id = key(project,snapshot);
-  const existing = indexLoads.get(id);
-  if (existing) return existing;
-  const pending = (async () => {
-    const saved = await loadSnapshotIndex(project,snapshot);
-    if (saved) return saved;
-    const started = await startSnapshotIndexing(project,snapshot);
-    let pollDelayMs = 200;
-    for (;;) {
-      const progress = await getSnapshotIndexProgress(started.jobId);
-      if (!progress) throw new Error('The local code index could not be read. Try again.');
-      if (progress.status !== 'running') {
-        const result = await loadSnapshotIndex(project,snapshot);
-        if (!result) throw new Error(progress.message || 'The local code index could not be built. Try again.');
-        return result;
-      }
-      // Indexing is an owned bounded local job, not an inference request with a
-      // wall-clock budget. Keep waiting for its terminal state without polling
-      // the native job store at a fixed five calls per second indefinitely.
-      await new Promise((resolve) => setTimeout(resolve,pollDelayMs));
-      pollDelayMs = Math.min(1000, Math.ceil(pollDelayMs * 1.5));
-    }
-  })().finally(() => indexLoads.delete(id));
-  indexLoads.set(id,pending);
-  return pending;
-}
 
 const states = new Map<string, WorkspaceState>();
 const browserPreviewWriteBlocked = new Set<string>();
