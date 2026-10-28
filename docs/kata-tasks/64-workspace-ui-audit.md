@@ -406,3 +406,27 @@ crates, bundle metadata, and the DMG checksum verified. The executable SHA-256
 is `ee2384349810ec5a1024a11336d6fb40d13c03d18e3b6c94d20e519ed69c1114`.
 The broader screen, accessibility, and responsive audit remains open under
 `13yp` and `x21h`.
+
+## Stacked Guide and scene navigation — 29 October 2026
+
+A fresh screenshot of the packaged `pillow-rs` Guide showed the section
+Previous/progress/Next bar floating over the diagram while the scene title and
+scene controls had scrolled away. The reader intentionally kept story controls
+in normal flow for chat history, but that same rule was hiding scene navigation
+in the sequential Guide. The Guide now stacks its opaque section navigator at
+the top of the answer reader and its opaque scene toolbar directly below; other
+inline stories remain in normal flow. On compact narration rows, Replay, Play,
+and Stop use fixed minimum hit areas and a wider gap so their borders do not
+crowd each other.
+
+The rebuilt app was reopened on the existing `pillow-rs` `canvas.rs` Guide. The
+section and scene navigation bars were both visible with no overlap; scene
+controls stayed grouped beside the scene count/dots, and Replay/Play/Stop were
+visibly separated. `npm run build`, license validation, app/DMG bundling,
+metadata verification, DMG checksum, and `git diff --check` passed. The
+executable SHA-256 is
+`98a5b719f3de6e7c366c08134db45f9c7bd37ba792b7d76409cf8e5c89c772cec`; the DMG
+SHA-256 is
+`3449f76f02e21c3cc8fe28847c762af8187c0d64ddb74d113c05968437667617`. No saved
+repository content or explanation was changed. The broader screen-by-screen,
+accessibility, and responsive audit remains open under `13yp` and `x21h`.

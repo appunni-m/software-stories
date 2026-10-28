@@ -54,9 +54,9 @@
 .is-story-audio .walkthrough-panel-heading > div { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { max-width: 100%; font-size: 12px; white-space: normal; overflow-wrap: anywhere; text-align: right; }
 .is-story-audio .walkthrough-playback { grid-area: playback; min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 6px; margin: 0; border: 0; padding: 0; }
-.is-story-audio .walkthrough-playback-buttons { min-width: 0; display: flex; align-items: center; gap: 3px; }
-.is-story-audio .walkthrough-playback-buttons button { min-height: 24px; padding-inline: 5px; }
-.is-story-audio .walkthrough-playback-buttons .walkthrough-play-control { min-width: 58px; }
+.is-story-audio .walkthrough-playback-buttons { min-width: 0; display: flex; align-items: center; gap: 7px; }
+.is-story-audio .walkthrough-playback-buttons button { min-width: 30px; min-height: 28px; flex: 0 0 auto; padding-inline: 6px; }
+.is-story-audio .walkthrough-playback-buttons .walkthrough-play-control { min-width: 68px; }
 .is-story-audio .walkthrough-duration { margin-left: 2px; white-space: nowrap; }
 .is-story-audio .walkthrough-seek-label { min-width: 24px; display: block; }
 .is-story-audio .walkthrough-seek-label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -96,7 +96,7 @@
   .is-story-audio .walkthrough-panel-heading { justify-content: flex-start; }
   .is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { text-align: left; }
   .is-story-audio .walkthrough-playback { grid-template-columns: minmax(0,1fr); gap: 4px; }
-  .is-story-audio .walkthrough-playback-buttons { width: 100%; flex-wrap: wrap; gap: 4px; }
+  .is-story-audio .walkthrough-playback-buttons { width: 100%; flex-wrap: wrap; gap: 7px; }
   .is-story-audio .walkthrough-duration { margin-left: auto; }
   .is-story-audio .walkthrough-seek-label input { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
   .story-stage { height: clamp(260px, 42vh, 520px); }
@@ -111,7 +111,7 @@ html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-templat
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading { justify-content:flex-start; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { text-align:left; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-playback { grid-template-columns:minmax(0,1fr); gap:4px; }
-html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-playback-buttons { width:100%; flex-wrap:wrap; gap:4px; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-playback-buttons { width:100%; flex-wrap:wrap; gap:7px; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-duration { margin-left:auto; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-seek-label input { display:block; width:100%; min-width:0; box-sizing:border-box; }
 html[data-app-zoom-compact="true"] .story-stage { height:clamp(260px,42vh,520px); }
