@@ -366,3 +366,17 @@ and Next sit clearly apart from the fixed Guide/Flow/history tabs.
 
 `npm run build` and `git diff --check` pass. The open packaged app has not been
 rebuilt or restarted for visual confirmation; keep `13yp` and `x21h` open.
+
+## Packaged button-position check — 29 October 2026
+
+Rebuilt the unsigned macOS app and DMG with the latest Guide spacing changes.
+License checks and metadata verification passed; the DMG checksum was verified.
+The executable SHA-256 is
+`5edb510afd679ab57f7eb45e5cee02bf6f3f226a25c4a354c0514a0c9a80bb10`.
+In the reopened packaged workspace, the Guide slide Previous/progress/Next row
+and the answer-section Previous/progress/Next row are visibly separated and
+aligned. The selected `pillow-rs` scene rendered a blank React Flow canvas, so
+the source-linked relationship-label/button spacing was not visible in this
+state. No repository content or saved answer was edited, and no screenshot
+containing source was retained. Keep `13yp` and `x21h` open for the remaining
+visual, accessibility, and screen-by-screen acceptance.
