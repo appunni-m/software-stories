@@ -1047,7 +1047,7 @@ function App() {
 
   useEffect(() => {
     const route = navigation.current;
-    if ((route.workspace !== 'atlas' && route.workspace !== 'code-lens') || !route.projectId || !route.snapshotId || !route.relativePath) {
+    if (route.workspace !== 'atlas' || !route.projectId || !route.snapshotId || !route.relativePath) {
       setSourceDocument(null);
       setSourceError(null);
       setSourceLoading(false);
@@ -1383,7 +1383,6 @@ function App() {
       const openBesideWorkspace = targetSnapshotId === origin.current.snapshotId
         && (origin.current.workspace === 'guide-plan'
           || origin.current.workspace === 'changes'
-          || origin.current.workspace === 'code-lens'
           || origin.current.workspace === 'chapter-studio');
       const destination: WorkspaceRoute = {
         ...origin.current,
@@ -1839,7 +1838,7 @@ function App() {
       <div className="app-body">
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
-            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' || currentWorkspace === 'code-lens' ? 'Explorer' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' ? 'Explorer' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
             <div className="toolbar-right">
               <button className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />
@@ -1930,22 +1929,6 @@ function App() {
                 onCreateSnapshot={() => { void createSnapshot(); }}
                 busy={snapshotBusy}
                 limits={currentCapture?.limits ?? captureLimits}
-              />
-            ) : currentWorkspace === 'code-lens' ? (
-              <CodeLensEmptyState
-                projectId={navigation.current.projectId}
-                snapshotId={navigation.current.snapshotId}
-                manifest={snapshotManifest?.summary.snapshotId === navigation.current.snapshotId ? snapshotManifest : null}
-                onGoAtlas={() => navigation.back.at(-1)?.workspace === 'atlas' ? navigationActions.back() : chooseWorkspace('atlas')}
-                onOpenFile={openCapturedFile}
-                onRequestExplanation={reviewFileWithProvider}
-                onRequestRangeExplanation={explainCodeLensRangeWithProvider}
-                source={sourceDocument}
-                sourceRange={navigation.current.sourceRange ?? null}
-                sourceRangeIssue={navigation.current.sourceRangeIssue ?? null}
-                loading={sourceLoading}
-                error={sourceError}
-                selectedPath={navigation.current.relativePath ?? null}
               />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Guide Plan…</span></div>
@@ -3887,7 +3870,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         <footer><button className="text-button" aria-pressed={showSkipped} onClick={() => { setShowSkipped((value) => !value); setFocusedTreeIndex(null); }}>{showSkipped ? 'Hide skipped and excluded paths' : 'Show skipped and excluded paths'}</button></footer>
       </section>
 
-      <CodeLensEmptyState
+      <CapturedSourcePanel
         inline
         projectId={projectId}
         snapshotId={snapshotId}
@@ -5056,14 +5039,13 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
   );
 }
 
-const CODE_LENS_SOURCE_WINDOW_LINES = 200;
-const CODE_LENS_SOURCE_LINE_CHARACTERS = 16_000;
+const SOURCE_WINDOW_LINES = 200;
+const SOURCE_LINE_CHARACTERS = 16_000;
 
-function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
+function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
-  onGoAtlas?: () => void;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onRequestExplanation: (path: string) => void;
   onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
@@ -5153,11 +5135,11 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
   const firstDisplayedLine = sourceLineCount > 0
     ? Math.max(1, Math.min(sourceLineCount, sourceWindowStart ?? defaultWindowStart)) : 1;
   const defaultWindowEnd = rangeEnd === null || showCompleteSource ? sourceLineCount : Math.min(sourceLineCount, rangeEnd + contextAfter);
-  const lastDisplayedLine = Math.min(sourceLineCount, firstDisplayedLine + CODE_LENS_SOURCE_WINDOW_LINES - 1,
+  const lastDisplayedLine = Math.min(sourceLineCount, firstDisplayedLine + SOURCE_WINDOW_LINES - 1,
     sourceWindowStart === null && !showCompleteSource ? defaultWindowEnd : sourceLineCount);
   const displayedWindow = useMemo(
     () => source ? capturedSourceLineWindow(source.contents, firstDisplayedLine, lastDisplayedLine, {
-      maxLineCharacters: CODE_LENS_SOURCE_LINE_CHARACTERS,
+      maxLineCharacters: SOURCE_LINE_CHARACTERS,
       focusRange: citation.status === 'verified' ? citation.textRange : undefined,
       lineIndex: sourceLineIndex ?? undefined,
     }) : { lines: [], ranges: [], omittedBefore: [], omittedAfter: [] },
@@ -5165,7 +5147,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
   );
   const displayedLines = displayedWindow.lines;
   const highlightedLines = useMemo(
-    () => source && displayedLines.length <= CODE_LENS_SOURCE_WINDOW_LINES && displayedLines.every((line) => line.length <= 16_000)
+    () => source && displayedLines.length <= SOURCE_WINDOW_LINES && displayedLines.every((line) => line.length <= SOURCE_LINE_CHARACTERS)
       ? highlightSourceLines(source.path, displayedLines) : null,
     [source?.path, displayedWindow],
   );
@@ -5341,7 +5323,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
           </code>
         </pre>
         {sourceLineCount > 0 && (firstDisplayedLine > 1 || lastDisplayedLine < sourceLineCount) && <nav className="source-window-controls" aria-label="Captured source pages">
-          <button className="text-button" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - CODE_LENS_SOURCE_WINDOW_LINES))}>Previous lines</button>
+          <button className="text-button" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - SOURCE_WINDOW_LINES))}>Previous lines</button>
           <span>Lines {firstDisplayedLine}–{lastDisplayedLine} of {sourceLineCount}</span>
           <button className="text-button" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</button>
         </nav>}
@@ -5371,7 +5353,6 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onOpen
       <div className="step-pill"><span>FILES</span> SOURCE</div>
       <h2>Choose a file to see its source and explanation.</h2>
       <p>Source opens from the selected snapshot and is checked against its saved hash. The live working copy is not substituted.</p>
-      {!inline && onGoAtlas && <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>}
       <div className="state-note"><HardDrive size={14} /> No source file is selected.</div>
     </div>
   );

@@ -5,14 +5,14 @@ import ts from 'typescript';
 import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
 import { loadShellStartupData, WORKSPACE_COPY, workspaceHeading } from '../src/lib/shell.ts';
 
-const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'];
+const allWorkspaces = ['atlas', 'guide-plan', 'chapter-studio', 'changes'];
 
 describe('desktop shell acceptance contract', () => {
   it('names the captured conversation workspace consistently without relabeling tools or empty states', () => {
     for (const workspace of allWorkspaces) {
       assert.equal(workspaceHeading(workspace, false), WORKSPACE_COPY[workspace]);
       const copy = workspaceHeading(workspace, true);
-      if (['atlas', 'code-lens', 'guide-plan'].includes(workspace)) {
+      if (['atlas', 'guide-plan'].includes(workspace)) {
         assert.equal(copy.title, 'Explore this codebase.');
         assert.match(copy.subtitle, /question.*guide.*flow.*source/);
       } else {

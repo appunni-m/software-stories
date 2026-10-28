@@ -7,11 +7,6 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
     title: 'Choose a file. See what it does and where the code proves it.',
     subtitle: 'Browse the captured snapshot, read an explanation, and open its cited lines beside the source.',
   },
-  'code-lens': {
-    eyebrow: 'EXPLORER · SOURCE',
-    title: 'Read the source behind this explanation.',
-    subtitle: 'Open the exact captured lines, inspect the whole file, or create an explanation for it.',
-  },
   'guide-plan': {
     eyebrow: 'CODE EXPLORATION',
     title: 'Ask about this codebase.',
@@ -37,7 +32,7 @@ const EXPLORATION_COPY = {
 
 /** The captured conversation view replaces these former standalone pages. */
 export function workspaceHeading(workspace: Workspace, hasCapturedSnapshot: boolean) {
-  return hasCapturedSnapshot && ['atlas', 'code-lens', 'guide-plan'].includes(workspace)
+  return hasCapturedSnapshot && ['atlas', 'guide-plan'].includes(workspace)
     ? EXPLORATION_COPY : WORKSPACE_COPY[workspace];
 }
 

@@ -157,7 +157,7 @@ describe('Code Lens source rendering helpers', () => {
     ];
     for (const [sourceRange, expectedIssue] of malformedAnchors) {
       const route = navigateToRoute({ current: { workspace: 'atlas', projectId: 'p', snapshotId: 's' }, back: [], forward: [] }, {
-        workspace: 'code-lens', projectId: 'p', snapshotId: 's', relativePath: 'src/main.ts', sourceRange,
+        workspace: 'atlas', projectId: 'p', snapshotId: 's', relativePath: 'src/main.ts', sourceRange,
       });
       const result = resolveCodeLensCitation(route.current.sourceRange, route.current.sourceRangeIssue, 'a'.repeat(64), 10);
       assert.equal(route.current.sourceRangeIssue, expectedIssue);

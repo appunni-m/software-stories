@@ -106,7 +106,7 @@ const index = {
   ],
 };
 
-describe('Atlas to Code Lens repository journey', () => {
+describe('Atlas integrated source journey', () => {
   it('keeps a supported test relationship, exact evidence citation, and Atlas selection across Back', () => {
     const rows = buildInventory(manifest);
     const tree = flattenInventoryTree(buildInventoryTree(rows));
@@ -152,24 +152,24 @@ describe('Atlas to Code Lens repository journey', () => {
       mapViewport: { x: -64, y: 28, scale: 1.35 },
       focusTarget: 'atlas-open-edge:test-covers-decode',
     });
-    const codeLens = navigateToRoute(selectedAtlas, {
-      workspace: 'code-lens',
+    const sourceRoute = navigateToRoute(selectedAtlas, {
+      workspace: 'atlas',
       projectId: manifest.summary.projectId,
       snapshotId: edge.snapshotId,
       relativePath: edge.evidence.path,
       sourceRange: {
         ...codeLensRangeFromIndexedAnchor({ ...edge.evidence, sourceSha256: edge.evidence.sha256 }),
       },
-      focusTarget: 'heading:code-lens',
+      focusTarget: 'workspace-source',
     });
 
-    assert.equal(codeLens.current.relativePath, 'tests/decode.test.ts');
-    assert.equal(codeLens.current.snapshotId, manifest.summary.snapshotId);
-    assert.equal(sourceRangeMatchesHash(codeLens.current.sourceRange, sourceHashes['tests/decode.test.ts']), true);
-    assert.deepEqual({ startByte: codeLens.current.sourceRange.startByte, endByteExclusive: codeLens.current.sourceRange.endByteExclusive }, {
+    assert.equal(sourceRoute.current.relativePath, 'tests/decode.test.ts');
+    assert.equal(sourceRoute.current.snapshotId, manifest.summary.snapshotId);
+    assert.equal(sourceRangeMatchesHash(sourceRoute.current.sourceRange, sourceHashes['tests/decode.test.ts']), true);
+    assert.deepEqual({ startByte: sourceRoute.current.sourceRange.startByte, endByteExclusive: sourceRoute.current.sourceRange.endByteExclusive }, {
       startByte: edge.evidence.startByte, endByteExclusive: edge.evidence.endByte,
     });
-    const citation = resolveCodeLensCitation(codeLens.current.sourceRange, undefined, sourceHashes['tests/decode.test.ts'], splitCapturedSourceLines(testSource).length, testSource);
+    const citation = resolveCodeLensCitation(sourceRoute.current.sourceRange, undefined, sourceHashes['tests/decode.test.ts'], splitCapturedSourceLines(testSource).length, testSource);
     assert.equal(citation.status, 'verified');
     assert.equal(testSource.slice(citation.textRange.start, citation.textRange.end), [
       "  it('trims input', () => {",
@@ -177,7 +177,7 @@ describe('Atlas to Code Lens repository journey', () => {
       '  });',
     ].join('\n'));
     const sourceLines = splitCapturedSourceLines(testSource);
-    assert.deepEqual(sourceLines.slice(codeLens.current.sourceRange.startLine - 1, codeLens.current.sourceRange.endLine), [
+    assert.deepEqual(sourceLines.slice(sourceRoute.current.sourceRange.startLine - 1, sourceRoute.current.sourceRange.endLine), [
       "  it('trims input', () => {",
       "    expect(decode(' value ')).toBe('value');",
       '  });',

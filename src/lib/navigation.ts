@@ -1,4 +1,4 @@
-export const WORKSPACES = ['atlas', 'code-lens', 'guide-plan', 'chapter-studio', 'changes'] as const;
+export const WORKSPACES = ['atlas', 'guide-plan', 'chapter-studio', 'changes'] as const;
 
 export type Workspace = (typeof WORKSPACES)[number];
 
@@ -63,6 +63,10 @@ function sameRoute(left: WorkspaceRoute, right: WorkspaceRoute): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function isWorkspace(value: unknown): value is Workspace {
+  return typeof value === 'string' && (WORKSPACES as readonly string[]).includes(value);
+}
+
 /**
  * Return a canonical inclusive line range, or undefined when the input is
  * absent or malformed. Extra input properties are intentionally discarded.
@@ -124,6 +128,7 @@ function normalizeRoute(route: WorkspaceRoute): WorkspaceRoute {
 }
 
 export function navigateToRoute(state: NavigationState, route: WorkspaceRoute): NavigationState {
+  if (!isWorkspace(route?.workspace)) return state;
   const normalizedRoute = normalizeRoute(route);
   if (sameRoute(state.current, normalizedRoute)) return state;
   return {
@@ -135,6 +140,7 @@ export function navigateToRoute(state: NavigationState, route: WorkspaceRoute): 
 
 /** Update in-place player context without making every section or scroll step a history entry. */
 export function replaceCurrentRoute(state: NavigationState, route: WorkspaceRoute): NavigationState {
+  if (!isWorkspace(route?.workspace)) return state;
   const normalizedRoute = normalizeRoute(route);
   if (sameRoute(state.current, normalizedRoute)) return state;
   return { ...state, current: normalizedRoute };
@@ -145,6 +151,7 @@ export function navigateToWorkspace(
   workspace: Workspace,
   returnFocusTarget?: string,
 ): NavigationState {
+  if (!isWorkspace(workspace)) return state;
   if (state.current.workspace === workspace) return state;
   const stateWithOriginFocus = returnFocusTarget
     ? { ...state, current: { ...state.current, focusTarget: returnFocusTarget } }
