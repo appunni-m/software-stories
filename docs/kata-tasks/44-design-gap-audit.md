@@ -7,7 +7,7 @@ priority: 1
 labels: product, design, audit, ux
 ---
 
-> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The new shell is a design preview; existing native behavior and prior observations below remain historical/implementation evidence, not proof of the new design.
+> **Current workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The interactive preview remains illustrative; the production app now implements this workspace with repository-backed data. Historical observations below remain dated evidence and do not prove the current packaged build matches the approved design. The packaged audit and outstanding UI findings are tracked in [workspace UI audit](64-workspace-ui-audit.md).
 
 ## Native workspace refinement — 2026-10-16
 
