@@ -1284,10 +1284,7 @@ impl ServerProcess {
                 .and_then(Value::as_bool)
                 != Some(false)
             {
-                return Err(
-                    "Codex could not apply explanation-only settings. Reconnect to try again."
-                        .to_owned(),
-                );
+                return Err("This Codex version did not apply Code Atlas's read-only restrictions. Update Codex before connecting; no generation was started.".to_owned());
             }
         }
         if config
@@ -1295,10 +1292,7 @@ impl ServerProcess {
             .and_then(Value::as_bool)
             != Some(true)
         {
-            return Err(
-                "Codex could not disable host skill discovery for this explanation. Reconnect to try again."
-                    .to_owned(),
-            );
+            return Err("This Codex version could not disable host skill discovery. Update Codex before connecting; no generation was started.".to_owned());
         }
         let profile = config
             .pointer(&format!("/permissions/{PERMISSION_PROFILE}"))

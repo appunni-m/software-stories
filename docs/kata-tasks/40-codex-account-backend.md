@@ -66,9 +66,11 @@ Startup now verifies every configured Codex feature override that disables
 skill search, workspace dependencies, remote plugins, shell snapshots and
 skill-MCP installation. It also requires host-skill discovery to be explicitly
 disabled. A runtime that ignores any one of these settings cannot proceed to
-account review or a model turn. Source inspection only; no tests, build, app
-launch, runtime probe, login or model request ran. Native packaged
-configuration and account acceptance remain open.
+account review or a model turn. Its failure message now directs the user to
+update an incompatible Codex runtime instead of retrying the same connection.
+Source inspection only; no tests, build, app launch, runtime probe, login or
+model request ran. Native packaged configuration and account acceptance remain
+open.
 
 ## User outcome
 The user connects an eligible ChatGPT account once and generates chapters through Codex without configuring a direct API key for each workflow.
