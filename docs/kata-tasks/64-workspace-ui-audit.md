@@ -248,6 +248,26 @@ been observed in that exact native layout. No model request, snapshot refresh,
 or saved-answer edit occurred. The full screenshot matrix, accessibility and
 responsive checks remain open; keep `13yp` and `x21h` open.
 
+## Stale window and relationship-button spacing — 28 October 2026
+
+The currently open native window still rendered an older package: the
+**Explain this code** action floated over selected source, and the compact
+relationship view repeated its **Image input** source in each row while labels
+crowded the endpoint buttons. Current source already places selection actions
+in the source-path row and groups shared sources. This follow-up widens the
+compact-reader reflow to 820 px, adds spacing between endpoints, and gives the
+relationship label its own row with a downward connector at that width.
+
+`npm run bundle:macos` completed the frontend build, license check, unsigned
+app/DMG packaging, metadata verification, and DMG checksum verification. The
+new executable SHA-256 is
+`a193dcf4444e22ab244ab704afa40fb49931cb9d070cba26ef90338faa03877a`.
+Packaged visual verification is pending: the current window's safe-close
+handshake reports a rejected conversation save, so it was left open and no
+replacement was launched over it. The screenshot was inspected live but not
+retained. Keep `13yp` and `x21h` open until the fresh process and compact
+relationship layout are checked without disturbing the saved workspace.
+
 ## Fresh-process packaged Guide confirmation — 28 October 2026
 
 Correction and stronger identity evidence: the first post-build UI observation
