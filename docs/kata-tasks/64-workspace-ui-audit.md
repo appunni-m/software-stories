@@ -169,3 +169,20 @@ updated to match the current source-review flow, keyboard mappings, and compact
 snapshot-refresh control. The reflow suite was not rerun, and the packaged
 workspace was not rebuilt or visually rechecked for this change. Keep x21h,
 13yp, and the broader UI acceptance open.
+
+## Cold-open graph scene remains blank — 28 October 2026
+
+On the rebuilt packaged app (binary SHA-256
+`ccec56cc498407ac0edad083ef6a1198d344d141268441049cd7df0e6e940433`), the
+saved `pillow-rs` Guide for `canvas.rs` initially opened to scene 1, “Image
+variants choose their drawing storage,” with only the dotted React Flow canvas
+visible even though **Scene details & source** listed four cited image-variant
+nodes. Clicking **Fit View** did not reveal them. Scene 2 rendered its three-step
+HTML composition correctly; returning to scene 1 made the source-linked graph
+appear. After quitting and relaunching the packaged app, scene 1 rendered on its
+first view. The blank-canvas symptom is therefore not yet a reproducible cold-
+open failure; its cause could not be distinguished from a transient reader/view
+state. No inference, capture, or saved-content changes were made. Screenshots
+were inspected live but not saved durably. Keep packaged acceptance open and
+verify first-entry rendering on multiple saved graph scenes before treating the
+symptom as resolved.
