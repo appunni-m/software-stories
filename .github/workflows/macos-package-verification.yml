@@ -80,6 +80,15 @@ jobs:
         if: steps.scope.outputs.verify == 'true'
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Restore Rust dependency cache
+        if: steps.scope.outputs.verify == 'true'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcaf7c3e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          add-job-id-key: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install the pinned license inventory tool
         if: steps.scope.outputs.verify == 'true'
         run: |
