@@ -256,3 +256,20 @@ screenshot was inspected live and not retained. This adds a same-process
 multi-section view-switch check only; the original Outline reproducer,
 third-level and sibling isolation, exact scroll, restart, revision fallback,
 malformed-state and accessibility gates remain open. Keep `erzc` open.
+
+## Packaged section restore after restart — 29 October 2026
+
+In the rebuilt unsigned Code Atlas 0.1.0 app, the existing `pillow-rs`
+`main@e843f864fc` Guide for `canvas.rs` had four saved sections. I selected
+section 2, switched Guide → Flow → Guide, and opened the Explorations
+activity; section 2 remained selected throughout. After quitting and reopening
+the same app bundle, the workspace restored the Explorations activity, Guide,
+section 2 of 4, and the same `canvas.rs` source. I then returned the app to its
+prior Explorer activity and section 1. No question, provider request, answer
+edit, snapshot refresh, or narration was started.
+
+The packaged app was built from the current checkout with the header alignment
+fix. The check establishes one restart path for a multi-section answer in this
+snapshot; it does not exercise nested or sibling branches, exact scroll offset,
+revision fallback, corrupt state through the UI, Flow viewport or visual-focus
+restoration, or accessibility. Keep `erzc` open for those gates.
