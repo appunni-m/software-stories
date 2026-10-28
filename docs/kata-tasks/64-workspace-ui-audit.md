@@ -217,6 +217,13 @@ conversation tests pass (70/70); `npm run build` and the macOS app/DMG bundle
 complete successfully. The packaged executable SHA-256 is
 `477c707ce17dcf5adc9e1ff13b6139fbe5f4bc13544b06fa7bf326c1b85b20ea`.
 
-Correction, 28 October: Activity Monitor's process inspector confirms the
-running executable path is the rebuilt bundle at
-`/Users/lazytrot/work/software-stories/src-tauri/target/release/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop`; its SHA-256 matches the bundle above. The packaged app opened Fontdone `main@5249b72371` and shows **Load latest changes**. Its current reader reports “Saved conversation unavailable,” so there is no populated Flow view in which to inspect the new edge-label layout. Do not infer the app launched the old binary from shell process output. No snapshot refresh, generation, or saved-content change was performed. Keep `13yp` and `x21h` open.
+Follow-up, 28 October: the stale reader-layout recovery fix was included in a
+new local package. The rebuilt executable at
+`/Users/lazytrot/work/software-stories/src-tauri/target/release/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop` has SHA-256
+`34a3cfa25534af1400c3a39e27d4c1ac8906436205935a7b67739c65fb1ebdcd`. Opening
+Fontdone `main@5249b72371` now loads its existing Guide and 27-question
+conversation instead of reporting that the whole saved conversation is
+unavailable. The selected `glyf.rs` answer and source range `554–574` are
+visible; several individual older answers still have unavailable or stale
+visual states. The Flow edge-label layout itself was not rechecked. No snapshot
+refresh, generation, or answer edit was performed. Keep `13yp` and `x21h` open.

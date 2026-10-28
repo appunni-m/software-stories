@@ -227,8 +227,16 @@ require the current layout version.
 
 The focused native conversation suite passes **25/25**, including a v4
 regression that preserves the question/status, removes stale presentation
-positions, and byte-compares the durable record before and after loading. The
-old packaged app remains open; rebuild and reopen it to confirm Fontdone's
-saved answers become available in the app. No provider request, snapshot
-refresh, or saved-content edit was made. Keep `erzc` open pending packaged
-confirmation and the remaining navigation matrix.
+positions, and byte-compares the durable record before and after loading.
+The rebuilt app was reopened from
+`/Users/lazytrot/work/software-stories/src-tauri/target/release/bundle/macos/Code Atlas.app`;
+its executable SHA-256 is
+`34a3cfa25534af1400c3a39e27d4c1ac8906436205935a7b67739c65fb1ebdcd`. The
+Fontdone `main@5249b72371` Guide now loads the existing conversation and its
+27 questions. A saved three-section `glyf.rs` answer is visible at section 1
+of 3 with captured source range `554–574`; the whole-conversation unavailable
+error is gone. Some separate historical answers remain unavailable, which
+this reader-position recovery does not repair. No provider request, snapshot
+refresh, or answer edit was made. The stale-layout regression is confirmed in
+the packaged app; keep `erzc` open for the remaining nested, restart, fallback,
+and accessibility matrix.

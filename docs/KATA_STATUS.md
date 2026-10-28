@@ -23,6 +23,19 @@ check does not constitute full design acceptance or a signed release. Build and
 release details are in
 [the 0.1.0 readiness draft](releases/0.1.0-draft.md).
 
+## Stale reader-layout recovery — 28 October 2026
+
+Commit `df4741b` treats stale Guide/Flow viewport metadata as disposable
+presentation state while preserving the saved conversation. The focused native
+conversation suite passed **25/25**; the unsigned app/DMG build, metadata
+check, and checksum verification passed. The rebuilt executable SHA-256 is
+`34a3cfa25534af1400c3a39e27d4c1ac8906436205935a7b67739c65fb1ebdcd`.
+Reopening Fontdone `main@5249b72371` in that bundle loaded the saved
+27-question conversation and selected three-section answer instead of the
+whole-conversation unavailable error. Separate historical answers remain
+unavailable, and this does not complete the broader reader-position or design
+acceptance matrices. No Kata issue was closed.
+
 ## 25 October incremental-work checkpoint
 
 One explicitly authorized Code Lens request for Fontdone
