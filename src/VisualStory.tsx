@@ -203,9 +203,11 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     if (visual && node) {
       const anchorId = node.evidenceAnchorIds.find((id) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${id}`);
       const targetAnchor = anchors.find((item) => item.anchorId === anchorId);
-      const sourceValue = visual.presentation.scenes.flatMap((item) => item.elements).find((element) =>
+      const visualScenes = visual.presentation.scenes;
+      const visualNodes = visual.nodes;
+      const sourceValue = visualScenes.flatMap((item) => item.elements).find((element) =>
         element.valueOrigin === 'source' && element.nodeIndex !== null
-        && visual.nodes[element.nodeIndex]?.nodeId === node.nodeId
+        && visualNodes[element.nodeIndex]?.nodeId === node.nodeId
         && Boolean(targetAnchor?.excerpt.includes(element.value)))?.value
         ?? (node.sourceAnchorId === anchorId ? node.sourceValue : undefined);
       setFocusedNode(node.nodeId); setFocusedEdge(null); setFocusedSourceValue(sourceValue);
