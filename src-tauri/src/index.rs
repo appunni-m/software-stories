@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v5";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v6";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -248,6 +248,7 @@ struct CallCandidate {
 
 struct ImportCandidate {
     path: String,
+    language: SupportedLanguage,
     module_specifier: Option<String>,
     unresolved_reason: Option<String>,
     bindings: Vec<ImportBinding>,
@@ -2248,6 +2249,7 @@ fn import_candidate(
     if language == SupportedLanguage::Rust {
         return Some(ImportCandidate {
             path: path.to_owned(),
+            language,
             module_specifier: None,
             unresolved_reason: Some("rust_use_path_not_resolved_in_m0".to_owned()),
             bindings: Vec::new(),
@@ -2258,10 +2260,16 @@ fn import_candidate(
 
     if language == SupportedLanguage::Python {
         let module_specifier = python_module_specifier(node, source);
+        let unresolved_reason = match module_specifier.as_deref() {
+            Some(specifier) if specifier.starts_with('.') => None,
+            Some(_) => Some("python_absolute_module_resolution_not_supported".to_owned()),
+            None => Some("python_module_specifier_not_supported".to_owned()),
+        };
         return Some(ImportCandidate {
             path: path.to_owned(),
+            language,
             module_specifier,
-            unresolved_reason: Some("python_module_resolution_not_supported".to_owned()),
+            unresolved_reason,
             bindings: import_bindings(node, source, language),
             anchor: anchor(path, source_sha256, node),
             is_require_call: false,
@@ -2271,6 +2279,7 @@ fn import_candidate(
     if language == SupportedLanguage::Go {
         return Some(ImportCandidate {
             path: path.to_owned(),
+            language,
             module_specifier: go_module_specifier(node, source),
             unresolved_reason: Some("go_package_resolution_not_supported".to_owned()),
             bindings: import_bindings(node, source, language),
@@ -2293,6 +2302,7 @@ fn import_candidate(
     };
     Some(ImportCandidate {
         path: path.to_owned(),
+        language,
         unresolved_reason: if specifier.is_some() {
             None
         } else {
@@ -2619,9 +2629,12 @@ fn resolve_imports(
     for candidate in candidates {
         let (target_path, reason) = match (&candidate.module_specifier, candidate.unresolved_reason)
         {
-            (Some(specifier), None) => {
-                resolve_relative_import(&candidate.path, specifier, captured_paths)
-            }
+            (Some(specifier), None) => match candidate.language {
+                SupportedLanguage::Python => {
+                    resolve_python_relative_import(&candidate.path, specifier, captured_paths)
+                }
+                _ => resolve_relative_import(&candidate.path, specifier, captured_paths),
+            },
             (_, Some(reason)) => (None, reason),
             _ => (None, "module_specifier_not_resolved".to_owned()),
         };
@@ -2711,6 +2724,74 @@ fn resolve_relative_import(
                     .map(|extension| format!("{base}/index.{extension}")),
             )
             .collect()
+    };
+    let found = candidates
+        .into_iter()
+        .filter(|candidate| captured_paths.contains(candidate))
+        .collect::<BTreeSet<_>>();
+    match found.len() {
+        1 => (found.into_iter().next(), String::new()),
+        0 => (None, "relative_module_not_captured_in_snapshot".to_owned()),
+        _ => (None, "relative_module_resolution_is_ambiguous".to_owned()),
+    }
+}
+
+fn resolve_python_relative_import(
+    importer: &str,
+    specifier: &str,
+    captured_paths: &BTreeSet<String>,
+) -> (Option<String>, String) {
+    let level = specifier.bytes().take_while(|byte| *byte == b'.').count();
+    if level == 0 {
+        return (
+            None,
+            "python_absolute_module_resolution_not_supported".to_owned(),
+        );
+    }
+
+    let module = &specifier[level..];
+    if !module.is_empty()
+        && module
+            .split('.')
+            .any(|part| part.is_empty() || part.contains('/') || part.contains('\\'))
+    {
+        return (None, "python_relative_module_name_invalid".to_owned());
+    }
+
+    let mut package = importer.split('/').collect::<Vec<_>>();
+    package.pop();
+    if package.is_empty() {
+        return (
+            None,
+            "python_relative_import_package_context_unproven".to_owned(),
+        );
+    }
+
+    for depth in 0..level {
+        if package.is_empty() {
+            return (None, "relative_import_escapes_snapshot_root".to_owned());
+        }
+        let package_path = package.join("/");
+        if !captured_paths.contains(&format!("{package_path}/__init__.py")) {
+            return (
+                None,
+                "python_relative_import_package_context_unproven".to_owned(),
+            );
+        }
+        if depth + 1 < level {
+            package.pop();
+        }
+    }
+
+    let package_path = package.join("/");
+    let module_path = module.replace('.', "/");
+    let candidates = if module_path.is_empty() {
+        vec![format!("{package_path}/__init__.py")]
+    } else {
+        vec![
+            format!("{package_path}/{module_path}.py"),
+            format!("{package_path}/{module_path}/__init__.py"),
+        ]
     };
     let found = candidates
         .into_iter()
@@ -3018,6 +3099,65 @@ mod tests {
     }
 
     #[test]
+    fn python_relative_imports_resolve_only_with_proven_package_context() {
+        let mut captured_paths = [
+            "pkg/__init__.py",
+            "pkg/shared.py",
+            "pkg/sub/__init__.py",
+            "pkg/sub/consumer.py",
+            "pkg/sub/helpers.py",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", ".helpers", &captured_paths),
+            (Some("pkg/sub/helpers.py".to_owned()), String::new())
+        );
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", "..shared", &captured_paths),
+            (Some("pkg/shared.py".to_owned()), String::new())
+        );
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", ".", &captured_paths),
+            (Some("pkg/sub/__init__.py".to_owned()), String::new())
+        );
+
+        captured_paths.insert("pkg/sub/helpers/__init__.py".to_owned());
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", ".helpers", &captured_paths),
+            (None, "relative_module_resolution_is_ambiguous".to_owned())
+        );
+        captured_paths.remove("pkg/sub/__init__.py");
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", ".helpers", &captured_paths),
+            (
+                None,
+                "python_relative_import_package_context_unproven".to_owned()
+            )
+        );
+        assert_eq!(
+            resolve_python_relative_import("pkg/consumer.py", "..shared", &captured_paths),
+            (None, "relative_import_escapes_snapshot_root".to_owned())
+        );
+        assert_eq!(
+            resolve_python_relative_import("consumer.py", ".helpers", &captured_paths),
+            (
+                None,
+                "python_relative_import_package_context_unproven".to_owned()
+            )
+        );
+        assert_eq!(
+            resolve_python_relative_import("pkg/sub/consumer.py", "pricing", &captured_paths),
+            (
+                None,
+                "python_absolute_module_resolution_not_supported".to_owned()
+            )
+        );
+    }
+
+    #[test]
     fn python_and_go_parsers_produce_bounded_anchored_structure() {
         let python_source = concat!(
             "from pricing import normalize as clean\n",
@@ -3101,7 +3241,7 @@ mod tests {
         );
         assert_eq!(
             python.imports[0].unresolved_reason.as_deref(),
-            Some("python_module_resolution_not_supported")
+            Some("python_absolute_module_resolution_not_supported")
         );
         assert_eq!(
             &python_source.as_bytes()
