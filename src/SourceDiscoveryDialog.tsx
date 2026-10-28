@@ -22,6 +22,10 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const [retry, setRetry] = useState(0);
   const [needsConnection, setNeedsConnection] = useState(false);
   const connectionState = useConnectionState();
+  // Parent JSX callbacks may be recreated during ordinary renders; changing
+  // the receiver must not restart an in-flight index/discovery request.
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   const dialog = useRef<HTMLElement>(null);
   const active = useRef<string | null>(null);
   const prepared = useRef<string | null>(null);
@@ -60,7 +64,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
           if (!current) return;
           const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&!file.secretLike).map((file)=>file.path);
           const saved=readSourceDiscoveryResult(scope,availablePaths);
-          if (saved.status === 'available') { onReady(saved.result); return; }
+          if (saved.status === 'available') { onReadyRef.current(saved.result); return; }
           if (saved.status === 'unavailable') {
             const issue = saved.issue === 'unsupported' ? 'The saved code selection uses an unsupported format.'
               : saved.issue === 'stale-path' ? 'A saved code path is no longer present in this snapshot.'
@@ -109,7 +113,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       prepared.current = value.reviewId; setReview(value);
       if (autoDiscover) {
         preparing.current = false;
-        await discover(value);
+        await discover(value, () => current);
       }
     })().catch((failure) => { if (current) setError(errorMessageOr(failure, 'The code index could not be prepared.')); })
       .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
@@ -122,17 +126,22 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         finishWait = null;
         resolve?.();
       }
-      if (active.current) void cancelCodexChapterRequest(active.current).catch(() => {});
+      const activeId = active.current;
+      active.current = null;
+      if (activeId) void cancelCodexChapterRequest(activeId).catch(() => {});
       if (prepared.current) void discardSourceDiscovery(prepared.current).catch(() => {});
     };
-  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, onReady, autoDiscover]);
-  async function discover(selectedReview: SourceDiscoveryReview | null = review) {
+  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, autoDiscover]);
+  async function discover(
+    selectedReview: SourceDiscoveryReview | null = review,
+    isCurrent: () => boolean = () => mounted.current,
+  ) {
     if (!selectedReview || active.current) return;
     setBusy(true); setError(null); setPhase(autoDiscover ? 'Preparing your explanation…' : 'Finding the files related to your question…');
     active.current = selectedReview.reviewId;
     try {
       const result = await sendSourceDiscovery(selectedReview);
-      if (!mounted.current) return;
+      if (!isCurrent()) return;
       if (!result.selectedFiles.length && !result.rangeTargets?.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
       const cacheableResult = result.rangeTargets?.length ? null : {
         selectedFiles: result.selectedFiles,
@@ -142,10 +151,13 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         window.dispatchEvent(new CustomEvent(SOURCE_DISCOVERY_SAVED_EVENT, { detail: scope }));
       }
       active.current = null;
-      onReady(result, selectedReview);
+      onReadyRef.current(result, selectedReview);
     } catch (failure) {
-      if (mounted.current) { setError(errorMessageOr(failure, 'Code discovery could not finish.')); setReview(null); }
-    } finally { active.current = null; if (mounted.current) setBusy(false); }
+      if (isCurrent()) { setError(errorMessageOr(failure, 'Code discovery could not finish.')); setReview(null); }
+    } finally {
+      if (active.current === selectedReview.reviewId) active.current = null;
+      if (isCurrent()) setBusy(false);
+    }
   }
   if (needsConnection) return <CodexChapterDialog mode="settings" native={isNativeRuntime()} onClose={() => {
     if (!connectionState.status?.authenticated) { onClose(); return; }

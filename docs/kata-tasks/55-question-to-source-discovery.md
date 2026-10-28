@@ -129,3 +129,14 @@ gap categories and their evidence are unchanged; this is a user-facing
 clarification, not a claim of improved retrieval coverage. No tests or build
 ran; the broader multi-repository recall, overflow, restart, consent and
 packaged acceptance remains open.
+
+## Keep discovery work stable across parent renders — 28 October 2026
+
+The discovery effect no longer depends on the inline `onReady` callback from
+its parent. Callback changes update a ref, while each discovery result is bound
+to the effect instance that started it. Cleanup requests cancellation and
+invalidates late results before they can update the new scope. This prevents
+ordinary workspace re-renders from discarding a prepared review and repeating
+the metadata/model-selection operation. Source-only change; no tests, build,
+provider request, or packaged race qualification ran. Multi-project recall,
+restart, consent, multi-window and packaged acceptance remain open.
