@@ -178,3 +178,21 @@ qualify code added after that revision, signing/notarization, a clean-account
 install, or a published release. The repository still has no release tag or
 published GitHub release, and the local Mac reports zero valid Developer ID
 signing identities. Keep `e42a` and the release milestone open.
+
+## Current CI and release state — 2026-10-28
+
+GitHub's latest package-verification run is [#1275](https://github.com/appunni-m/software-stories/actions/runs/40698437236),
+which passed for code commit `1e2744b`. Run [#1274](https://github.com/appunni-m/software-stories/actions/runs/40695083941)
+also passed; run #1272 was cancelled while queued, not failed during a build.
+The workflow preserves the active macOS build and allows only the newest pending
+run for a branch, so rapid pushes can replace older queued work. Documentation-
+only changes do not trigger package verification because the workflow ignores
+`docs/**`; the latest successful package run therefore covers the current code
+state, while this note is not a package artifact identity.
+
+The GitHub releases endpoint has no published release, and `git ls-remote --tags
+origin` returned no tags. The unsigned package workflow is not the signed
+release workflow. A public 0.1.0 release still needs the Apple Developer ID and
+notarization credentials, a signed/notarized artifact, clean-account install
+acceptance, and the remaining product/accessibility gates. This is a live
+checkpoint, not release approval.
