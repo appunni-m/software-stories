@@ -58,6 +58,7 @@ import {
   MoveUp,
   Network,
   Pencil,
+  RefreshCw,
   Search,
   Save,
   ShieldCheck,
@@ -209,18 +210,22 @@ const projectResultTitles: Record<ProjectOpenStatus, string> = {
   recentProjectUnavailable: 'This recent project is unavailable',
 };
 
-function captureOutcomeNotice(progress: SnapshotProgress): AppNoticeInput | null {
+function captureOutcomeNotice(progress: SnapshotProgress, loadLatestChanges = false): AppNoticeInput | null {
   if (progress.status === 'running') return null;
 
   const outcomes: Record<Exclude<SnapshotProgress['status'], 'running'>, Pick<AppNoticeInput, 'title' | 'message' | 'tone'>> = {
     complete: {
-      title: 'New snapshot saved',
-      message: 'Your selected snapshot did not change. Choose the new snapshot from the header when you are ready.',
+      title: loadLatestChanges ? 'Latest changes loaded' : 'New snapshot saved',
+      message: loadLatestChanges
+        ? 'A fresh copy is now open. Your previous snapshots and explanations are still available.'
+        : 'Your selected snapshot did not change. Choose the new snapshot from the header when you are ready.',
       tone: 'info',
     },
     partial: {
-      title: 'Partial snapshot saved',
-      message: 'Review its skipped paths, then choose the new snapshot from the header when you are ready.',
+      title: loadLatestChanges ? 'Latest changes loaded with skipped files' : 'Partial snapshot saved',
+      message: loadLatestChanges
+        ? 'The new copy is open. Review skipped paths in snapshot details; previous snapshots and explanations remain available.'
+        : 'Review its skipped paths, then choose the new snapshot from the header when you are ready.',
       tone: 'warning',
     },
     cancelled: {
@@ -322,6 +327,7 @@ function App() {
   const [knownProjects, setKnownProjects] = useState<Record<string, RecentProject>>({});
   const [snapshotsByProject, setSnapshotsByProject] = useState<Record<string, SnapshotSummary[]>>({});
   const [captureByProject, setCaptureByProject] = useState<Record<string, SnapshotProgress>>({});
+  const latestCaptureTargetRef = useRef<{ projectId: string; snapshotId: string | null } | null>(null);
   const [readCaptureNotificationKeys, setReadCaptureNotificationKeys] = useState<string[]>([]);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotHistoryLoad, setSnapshotHistoryLoad] = useState<SnapshotHistoryLoad | null>(null);
@@ -887,7 +893,7 @@ function App() {
     }
   };
 
-  const createSnapshot = async () => {
+  const createSnapshot = async (loadLatestChanges = false) => {
     if (!currentProject) return;
     if (!isNativeRuntime()) {
       setNotice({
@@ -896,15 +902,23 @@ function App() {
       });
       return;
     }
+    const projectId = currentProject.projectId;
+    if (loadLatestChanges && currentCapture?.status === 'running') return;
+    if (loadLatestChanges) latestCaptureTargetRef.current = { projectId, snapshotId: null };
     setSnapshotBusy(true);
     try {
-      const start = await startSnapshot(currentProject.projectId);
+      const start = await startSnapshot(projectId);
+      if (loadLatestChanges && latestCaptureTargetRef.current?.projectId === projectId
+        && latestCaptureTargetRef.current.snapshotId === null) {
+        latestCaptureTargetRef.current = { projectId, snapshotId: start.snapshotId };
+      }
       const progress = await getSnapshotProgress(start.snapshotId);
       if (progress) {
-        setCaptureByProject((current) => ({ ...current, [currentProject.projectId]: progress }));
+        setCaptureByProject((current) => ({ ...current, [projectId]: progress }));
       }
     } catch (error) {
-      setNotice({projectId:currentProject.projectId,
+      if (latestCaptureTargetRef.current?.projectId === projectId) latestCaptureTargetRef.current = null;
+      setNotice({projectId,
         title: 'Snapshot could not start',
         message: 'The local capture service did not respond.',
         tone: 'error',
@@ -1108,8 +1122,25 @@ function App() {
     let unlisten: (() => void) | undefined;
     void listen<SnapshotProgress>('snapshot-progress', ({ payload }) => {
       setCaptureByProject((current) => ({ ...current, [payload.projectId]: payload }));
-      const outcome = captureOutcomeNotice(payload);
+      const latestTarget = latestCaptureTargetRef.current;
+      const isRequestedLatest = latestTarget?.projectId === payload.projectId
+        && (latestTarget.snapshotId === null || latestTarget.snapshotId === payload.snapshotId);
+      const outcome = captureOutcomeNotice(payload, isRequestedLatest);
       if (outcome) void noticeHistory.publish(outcome);
+      if (isRequestedLatest && payload.status !== 'running') {
+        latestCaptureTargetRef.current = null;
+        if ((payload.status === 'complete' || payload.status === 'partial') && payload.summary) {
+          setSnapshotMenuOpen(false);
+          setNavigation((state) => state.current.projectId === payload.projectId
+            ? navigateToRoute(state, {
+              workspace: state.current.workspace,
+              projectId: payload.projectId,
+              snapshotId: payload.summary!.snapshotId,
+              focusTarget: `heading:${state.current.workspace}`,
+            })
+            : state);
+        }
+      }
       if (payload.summary) {
         setSnapshotsByProject((current) => {
           const previous = current[payload.projectId] ?? [];
@@ -1843,6 +1874,21 @@ function App() {
               </div>
             )}
           </div>
+          {currentProject && selectedSnapshot && isNativeRuntime() && (
+            <AppButton
+              intent="secondary"
+              className="snapshot-refresh-button"
+              size="1"
+              disabled={snapshotBusy || currentCapture?.status === 'running'}
+              onClick={() => { void createSnapshot(true); }}
+              title="Capture the current repository and open the new copy. Earlier snapshots stay available."
+              aria-label={currentCapture?.status === 'running' || snapshotBusy ? 'Loading latest changes' : 'Load latest changes'}
+              aria-busy={snapshotBusy || currentCapture?.status === 'running'}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              <span>{snapshotBusy || currentCapture?.status === 'running' ? 'Loading…' : 'Load latest changes'}</span>
+            </AppButton>
+          )}
         </div>
 
 
@@ -1931,7 +1977,7 @@ function App() {
               }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>
-                <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onCaptureAgain={() => { void createSnapshot(); }} onOpenFile={openCapturedFile} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
+              <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onOpenFile={openCapturedFile} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
                   ...state.current,
                   workspace: 'chapter-studio',
                   projectId: revision.projectId,
@@ -3211,7 +3257,7 @@ function SnapshotCaptureResult({ progress, onRetry }: { progress: SnapshotProgre
   );
 }
 
-function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPath, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onCaptureAgain, onOpenFile, onAtlasSelection, onAtlasViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
+function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPath, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onAtlasSelection, onAtlasViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
   manifest: SnapshotManifest;
   atlasSelection?: WorkspaceRoute['atlasSelection'];
   mapViewport?: AtlasViewport;
@@ -3221,7 +3267,6 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
   sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
   sourceLoading: boolean;
   sourceError: string | null;
-  onCaptureAgain: () => void;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void;
   onAtlasViewportChange: (mapViewport: AtlasViewport) => void;
@@ -3258,7 +3303,6 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
           <div className="snapshot-identity-row"><span>Snapshot ID</span><code>{summary.snapshotId}</code><span>Parent</span><code>{summary.parentSnapshotId ?? 'First capture'}</code></div>
           <div className="snapshot-dirty-state"><GitBranch size={15} /><span>Git index: <strong>{summary.indexState}</strong></span><span>Working tree: <strong>{summary.worktreeState}</strong></span><span>HEAD: <code>{summary.head?.slice(0, 12) ?? 'unborn'}</code></span></div>
           <CapturePolicy limits={manifest.captureLimits} />
-          <button className="secondary-button" onClick={onCaptureAgain}>Capture current code</button>
           </details>
           <span>Read-only source · saved on this Mac</span>
         </div>

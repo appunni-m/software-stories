@@ -54,6 +54,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-button { color: var(--muted); font-size: 12px; }
 .snapshot-button svg { color: var(--dim); }
 .snapshot-picker-wrap { position: relative; min-width: 0; }
+.snapshot-refresh-button { flex: 0 0 auto; min-height: 35px !important; gap: 6px !important; white-space: nowrap; }
+.snapshot-refresh-button > svg { flex: 0 0 auto; }
 .snapshot-menu { position: absolute; top: 42px; left: 0; z-index: 8; width: 355px; max-height: 470px; overflow: auto; padding: 7px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface-raised); box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 60%, transparent); }
 .snapshot-menu > button { width: 100%; min-height: 66px; display: flex; align-items: center; gap: 10px; padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
 .snapshot-menu > button:hover, .snapshot-menu > button[aria-current="true"] { background: var(--blue-soft); color: var(--text); }
@@ -1432,7 +1434,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .dw-tool-content .git-comparison-id {display:none;}
 .dw-tool-content .file-flow p,.dw-tool-content .chapter-studio-card p {color:var(--muted);font-size:13px;line-height:1.8;}
 .developer-workspace .file-flow > p {color:var(--muted);font-size:13px;}
-@media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size: 12px;max-width:150px;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
+@media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size: 12px;max-width:150px;}.topbar .snapshot-refresh-button{width:34px;min-width:34px;padding-inline:0;}.topbar .snapshot-refresh-button > span{display:none;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
 /* Secondary tools inherit the same readable control scale as the workspace. */
 .dw-tool-content :is(.chapter-studio-card,.chapter-studio-section) {border-radius:8px;}
 .dw-tool-content .walkthrough-kicker {font-size:12px;line-height:1.65;}
@@ -1560,6 +1562,8 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-button > span {
   overflow:hidden;
   text-overflow:ellipsis;
 }
+html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
+html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {display:none;}
 html[data-app-zoom-compact="true"] .topbar .topbar-actions {
   grid-column:1;
   grid-row:2;
