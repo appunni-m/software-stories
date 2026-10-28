@@ -196,3 +196,19 @@ not verified. Because the root answer has one section, this does not verify
 multi-section parent-position restoration; third-level/sibling independence,
 exact scroll, restart, revision fallback, malformed state in the packaged app,
 visual-node/edge restoration, and accessibility remain open.
+
+## Cross-activity and repository-switch position check — 28 October 2026
+
+In the running native app, Fontdone `main@5249b72371` was on the saved
+six-slide repository Guide **How does this project work, from its entry points
+through its main paths?**, slide 2 of 6, with `src/tt/glyf.rs` open. I switched
+among Search, Explorations and Explorer, then opened `pillow-rs` and returned to
+Fontdone. The Guide reopened at slide 2 of 6 with `glyf.rs` still selected. No
+question, provider request, answer edit, or narration was started. I then
+restored the original `pillow-rs` workspace, file and Guide view.
+
+The running executable revision was not verified. This adds a same-process
+cross-activity and repository-switch observation; it does not cover app
+restart, exact scroll offset, third-level/sibling positions, revision fallback,
+malformed persisted state, independent Flow viewport, source-linked visual
+focus, or accessibility. Keep `erzc` open.
