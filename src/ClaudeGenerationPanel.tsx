@@ -1,5 +1,6 @@
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 import { useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -279,11 +280,11 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         onChange={(event) => setConsent(event.target.checked)} />
         I reviewed this exact source, prompt and settings. Send it through my existing Claude account; its usage limits and terms apply. This does not authorize tools or a different billing route.
       </label>
-      <button className="primary-button" disabled={!native || !available || !consent || busy !== null}
-        onClick={() => { void generate(); }}>Generate with Claude Agent</button>
+      <AppButton intent="primary" disabled={!native || !available || !consent || busy !== null}
+        onClick={() => { void generate(); }}>Generate with Claude Agent</AppButton>
     </>}
     {busy === 'send' && <><p role="status">{progress?.message ?? 'Waiting for Claude and local result validation…'}</p>
-      <button className="secondary-button" disabled={cancelling} onClick={() => { void cancel(); }}>{cancelling ? 'Stopping…' : 'Cancel generation'}</button></>}
+      <AppButton intent="secondary" disabled={cancelling} onClick={() => { void cancel(); }}>{cancelling ? 'Stopping…' : 'Cancel generation'}</AppButton></>}
     <div ref={output} tabIndex={-1} role="group" aria-label="Claude generation result">
       {result?.kind === 'chapter' && <>
         <GenerationRecord origin={result.value.revision.generationOrigin} />
@@ -300,19 +301,19 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
           </div>)}
           <details><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details>
         </article>)}
-        {!saved && <button className="primary-button" disabled={busy !== null || result.value.validation.status !== 'valid'}
-          onClick={() => { void save(); }}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button>}
+        {!saved && <AppButton intent="primary" disabled={busy !== null || result.value.validation.status !== 'valid'}
+          onClick={() => { void save(); }}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</AppButton>}
       </>}
       {result?.kind === 'range' && <><h4>Selected code explained</h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
         <p><InlineCodeText text={claim.prose}/></p><blockquote>{claim.citation.quote}</blockquote>
-        <button className="text-button" disabled={!onOpenCodeLensCitation} onClick={() => onOpenCodeLensCitation?.(claim.citation)}>
-          Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>
+        <AppButton intent="quiet" disabled={!onOpenCodeLensCitation} onClick={() => onOpenCodeLensCitation?.(claim.citation)}>
+          Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</AppButton>
       </article>)}</>}
       {result?.kind === 'hunk' && <><h4><InlineCodeText text={result.value.title}/></h4>{result.value.claims.map((claim) => <article key={claim.claimId}>
         <span className="chapter-claim-category">{claim.category}</span><p><InlineCodeText text={claim.prose}/></p>{claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}
         <blockquote>{claim.citation.quote}</blockquote>
-        <button className="text-button" disabled={!onOpenPrChangeCitation} onClick={() => onOpenPrChangeCitation?.(claim.citation)}>
-          Open {claim.citation.side} evidence · hunk {claim.citation.hunkIndex + 1}</button>
+        <AppButton intent="quiet" disabled={!onOpenPrChangeCitation} onClick={() => onOpenPrChangeCitation?.(claim.citation)}>
+          Open {claim.citation.side} evidence · hunk {claim.citation.hunkIndex + 1}</AppButton>
       </article>)}</>}
       {result?.kind === 'guide' && <><h4><InlineCodeText text={result.value.revision.title}/></h4>
         <p>Saved in PR Guide history as an unaccepted draft. Close this dialog to review and accept individual claims.</p>
@@ -327,8 +328,8 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       {error && <p className="provider-error-text" role="alert">{error}</p>}
       {note && <p role="status">{note}</p>}
     </div>
-    {attempted && busy === null && <button className="secondary-button" onClick={() => { void reset(); }}>
-      {result?.kind === 'chapter' && !saved ? 'Discard preview and review again' : 'Review another request'}</button>}
+    {attempted && busy === null && <AppButton intent="secondary" onClick={() => { void reset(); }}>
+      {result?.kind === 'chapter' && !saved ? 'Discard preview and review again' : 'Review another request'}</AppButton>}
     <p className="provider-small-note">Failures keep Claude selected. Accepted chapter and guide history change only through their separate acceptance flows.</p>
   </section>;
 }

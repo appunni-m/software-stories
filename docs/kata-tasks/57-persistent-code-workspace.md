@@ -64,3 +64,7 @@ The conflict-resolution Back, bulk choice, and continue actions now use `AppButt
 ## Stale draft rebase action — 28 October 2026
 
 The stale-draft comparison's Rebase action now uses the shared secondary intent. Its visibility, callback and revision context remain unchanged. No tests/build or packaged acceptance ran.
+
+## Claude generation review actions — 28 October 2026
+
+Claude generation's Generate, Cancel, Save draft, citation navigation and Review another request actions now use shared primary, secondary and quiet intents. Existing disabled conditions, generation/recovery callbacks, labels, citations and saved-draft lifecycle are unchanged. This is shared UI control work only; it adds no Claude runtime capability. No tests/build or packaged acceptance ran.
