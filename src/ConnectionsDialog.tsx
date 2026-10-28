@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Tabs } from '@radix-ui/themes';
 import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { AppSelect } from './design/AppSelect';
@@ -25,11 +26,14 @@ export function ConnectionsDialog({ native, initialSection = 'explanations', onC
   }, [busy]);
   return <div className="provider-overlay"><section className="provider-dialog connections-dialog" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="connections-title">
     <header className="provider-dialog-header"><div><h2 id="connections-title">Connections</h2><p>Set up once. Your choices apply across repositories and answers.</p></div><AppButton intent="icon" aria-label="Close connections" disabled={busy} onClick={onClose}><X size={17}/></AppButton></header>
-    <nav className="connections-nav" aria-label="Connection categories">
-      <button aria-pressed={section === 'explanations'} disabled={busy} onClick={() => setSection('explanations')}><PlugZap size={16}/>Explanations</button>
-      <button aria-pressed={section === 'voice'} disabled={busy} onClick={() => setSection('voice')}><Volume2 size={16}/>Voice</button>
-    </nav>
-    {section === 'explanations' ? <CodexChapterDialog mode="settings" native={native} embeddedSettings onSettingsBusyChange={setBusy} onClose={onClose}/> : <VoiceSettings native={native} onBusyChange={setBusy}/>}
+    <Tabs.Root value={section} onValueChange={(value) => setSection(value as 'explanations' | 'voice')}>
+      <Tabs.List className="connections-nav" aria-label="Connection categories">
+        <Tabs.Trigger value="explanations" disabled={busy}><PlugZap size={16}/>Explanations</Tabs.Trigger>
+        <Tabs.Trigger value="voice" disabled={busy}><Volume2 size={16}/>Voice</Tabs.Trigger>
+      </Tabs.List>
+      <Tabs.Content value="explanations"><CodexChapterDialog mode="settings" native={native} embeddedSettings onSettingsBusyChange={setBusy} onClose={onClose}/></Tabs.Content>
+      <Tabs.Content value="voice"><VoiceSettings native={native} onBusyChange={setBusy}/></Tabs.Content>
+    </Tabs.Root>
     <footer className="provider-dialog-footer"><span className="provider-small-note">Saved on this Mac</span><div className="provider-draft-actions"><AppButton intent="secondary" disabled={busy} onClick={onChooseBackend}>Change AI connection</AppButton><AppButton intent="primary" disabled={busy} onClick={onClose}>Done</AppButton></div></footer>
   </section></div>;
 }

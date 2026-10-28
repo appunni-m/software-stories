@@ -1479,9 +1479,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .connections-dialog { width: min(700px, 100%); }
 .connections-dialog .provider-dialog-header h2 { margin-top: 0; }
 .connections-nav { display: flex; gap: 8px; padding: 14px 24px; border-bottom: 1px solid var(--border); }
-.connections-nav button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; }
-.connections-nav button[aria-pressed="true"] { background: var(--surface-raised); color: var(--text); border-color: var(--border-strong); }
-.connections-nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.connections-nav [role="tab"] { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; }
+.connections-nav [role="tab"][data-state="active"] { background: var(--surface-raised); color: var(--text); border-color: var(--border-strong); }
+.connections-nav [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .connections-embedded { min-height: 0; overflow-y: auto; }
 .connections-account .provider-key-card { border: 0; background: transparent; }
 .connections-account .provider-key-card > summary { display: none; }

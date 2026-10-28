@@ -44,3 +44,7 @@ The manual Agent Handoff dialog's close, prepare, copy, import-validation, backe
 ## Connection settings action migration — 28 October 2026
 
 The Connections dialog's close and footer actions, plus Pocket setup/repair/cancel and Google key actions, now use `AppButton`. The Google key Save action explicitly remains a form submit; Remove remains a non-submit action. Existing credential storage, voice selection, handlers and state are unchanged. The navigation categories remain their current controls pending a broader interaction/accessibility review. No tests/build or packaged acceptance ran.
+
+## Connection category tabs — 28 October 2026
+
+Replaced the Connections dialog's `aria-pressed` navigation buttons with Radix Tabs, matching the main exploration's Guide/Flow/history tab implementation. Active styling now follows the tab's `data-state`, and the library supplies tab semantics and arrow-key navigation. Category state, busy disabling, and the existing Connections/Voice contents remain the same. No tests/build or packaged keyboard/focus check ran.
