@@ -51,6 +51,16 @@ The header Connections window owns Explanations and Voice. Engine/account/model/
 
 Installed observation: existing origin-v1 answers/diagram now load; clicking Validation selects captured lines 2–4. A new explicit empty-list retry saved an origin-v2 file chapter and new diagram; subtotal node selected captured line 12. Shared Connections and direct local Listen were inspected in the actual app. Two sections and a second answer used the same global voice. Retain remaining UI gaps: graph accessibility currently exposes library edge-selection/delete instructions despite a reading surface; some diagram nodes lack button semantics; the hidden legacy landmark copy is outdated; prose backticks need a safe inline-code renderer; branch “answers” counts include failed questions. These need explicit keyboard/accessibility and content-rendering work without changing saved evidence.
 
+## Diagram semantics — source correction, 28 October 2026
+
+Current source uses explicit read-only React Flow descriptions and labeled native
+controls inside visual/flow nodes; HTML-scene nodes also expose button semantics
+and Enter/Space activation. The shared screen-reader hint now describes the
+actual code-detail controls instead of referring to a nonexistent “source
+button.” This corrects a copy mismatch and records the source-level semantics;
+it does not establish packaged keyboard, VoiceOver, or focus behavior. Keep
+those acceptance checks open.
+
 ## Fontdone findings — October 17
 
 The [large-repository acceptance run](../acceptance/2026-10-17-fontdone.md) reproduced remaining user-facing inconsistencies:
