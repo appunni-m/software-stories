@@ -459,3 +459,18 @@ contains local source. The packaged executable SHA-256 was
 `d92ca3eae9b52b437fc07eb8f00df11ccfe347437393bb73a97c50a0f1a2b171`.
 First-run, nested follow-ups, notification outcomes, theme/accessibility, and a
 completed Changes result still need their own evidence under `13yp` and `x21h`.
+
+## Header and Guide button alignment — 29 October 2026
+
+Reopened the rebuilt app at 2880×1688 on the existing `pillow-rs`
+`main@e843f864fc` Guide. The header's **Load latest changes** control now sits
+on the same vertical center as the repository, connection, and appearance
+controls. The **Previous / Section / Next section** row is fully visible below
+the Guide/Flow/history tabs, and the code-selection actions stay in the source
+path row. The header reset explicitly clears the shared secondary-button
+margin; the sticky reader navigator now keeps a small inset and lower stacking
+priority so it cannot crowd the view tabs. No repository snapshot, saved answer,
+or narration was changed. The rebuilt executable SHA-256 is
+`4059e01548a752d6005bd2d465457f8af988f6d03a4875cd218059a2814a293c`.
+Broader screen-by-screen, accessibility, responsive, and nested-exploration
+acceptance remains open under `13yp` and `x21h`.

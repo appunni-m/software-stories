@@ -1422,7 +1422,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar .brand-mark {height:27px;width:27px;border:0;border-radius:6px;}
 .topbar .brand-name {font-size:14px;font-weight:650;letter-spacing:-.04em;}
 .topbar .project-controls {flex:0 1 auto;min-width:0;gap:8px;}
-.topbar .snapshot-refresh-button {margin:0;}
+.topbar .snapshot-refresh-button {align-self:center;margin:0!important;}
 .topbar .topbar-actions {display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-left:auto;}
 .topbar .tools-button {min-height:30px;height:30px;}
 .workspace-footer {font-size: 12px;min-height:23px;flex-basis:23px;}
