@@ -37,3 +37,22 @@ cover a third exploration level, sibling position independence, exact scroll,
 restart, changed/deleted revision fallback, malformed persisted state through
 the packaged app, visual-node/edge restoration, or accessibility. Keep Kata
 `erzc` open for those acceptance gates.
+
+## Original three-section draft lookup — 28 October 2026
+
+In the running Code Atlas 0.1.0 app, Fontdone `main@5249b72371`, local Chat
+history search for `Outline::is_empty` returned two question groups and no
+matching saved-explanation library entries. Opening both question results
+showed one-section answers, not revision
+`revision:d06cc73d-1f1a-4ffa-a6e5-2f0bacf6300d` from the original reproducer.
+Searching the artifact title `Outline data model and emptiness check` returned
+one level-2 question with an unavailable saved explanation and no section
+reader. The required section-two state could not be reached from the current
+saved history; no retry, model request, audio, or saved-content mutation was
+made. The installed binary revision and durable screenshot were not verified.
+
+This is a blocked reproducer lookup, not evidence that the position bug is
+fixed. The original revision must be recovered or a matching preserved copy
+made available before its Back/root/branch/restart path can be checked. Keep
+Kata `erzc` open; deterministic source tests and other saved-guide checks do
+not replace that exact-revision acceptance.
