@@ -217,9 +217,6 @@ conversation tests pass (70/70); `npm run build` and the macOS app/DMG bundle
 complete successfully. The packaged executable SHA-256 is
 `477c707ce17dcf5adc9e1ff13b6139fbe5f4bc13544b06fa7bf326c1b85b20ea`.
 
-Native visual verification remains pending: computer use reopened the running
-installed app at `/Users/lazytrot/Applications/Code Atlas.app` (binary SHA-256
-`adec1e64e5d1783b5b531256af0c3005743af472e30c167fd4313cde8597af83`) instead
-of the rebuilt bundle. The rebuilt layout has not yet been visually inspected
-in the packaged app. No repository snapshot, saved explanation, or user source
-was changed. Keep `13yp` and `x21h` open.
+Correction, 28 October: Activity Monitor's process inspector confirms the
+running executable path is the rebuilt bundle at
+`/Users/lazytrot/work/software-stories/src-tauri/target/release/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop`; its SHA-256 matches the bundle above. The packaged app opened Fontdone `main@5249b72371` and shows **Load latest changes**. Its current reader reports “Saved conversation unavailable,” so there is no populated Flow view in which to inspect the new edge-label layout. Do not infer the app launched the old binary from shell process output. No snapshot refresh, generation, or saved-content change was performed. Keep `13yp` and `x21h` open.

@@ -125,7 +125,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
         "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":4}],
-        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":4}]
+        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":FLOW_DIAGRAM_LAYOUT_VERSION}]
     });
     s
 }
@@ -231,7 +231,7 @@ fn flow_diagram_layout_requires_the_current_layout_version() {
     let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
     let before = fs::read(f.path()).unwrap();
 
-    for version in [json!(1), json!(2), json!(3), Value::Null] {
+    for version in [json!(1), json!(2), json!(3), json!(4), Value::Null] {
         let mut unsupported = s.clone();
         if version.is_null() {
             unsupported["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
@@ -257,7 +257,7 @@ fn flow_diagram_layout_requires_the_current_layout_version() {
 }
 
 #[test]
-fn opening_unsupported_reader_layouts_rejects_without_changing_record_bytes() {
+fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() {
     let f = Fixture::new();
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
@@ -269,12 +269,21 @@ fn opening_unsupported_reader_layouts_rejects_without_changing_record_bytes() {
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
-    let error = load(&f.0, "project", "snapshot").unwrap_err();
-    assert!(error.contains("unsupported"));
+    let restored = load(&f.0, "project", "snapshot")
+        .unwrap()
+        .expect("stale optional reader layouts must not hide saved answers");
+    let turn = &restored.state["explorations"][0]["turns"][0];
+    assert_eq!(
+        turn["question"],
+        "What happens to the font bytes?\nShow the failure path."
+    );
+    assert_eq!(turn["status"], "stopped");
+    assert_eq!(turn["presentation"]["stories"], json!([]));
+    assert_eq!(turn["presentation"]["diagrams"], json!([]));
     assert_eq!(
         fs::read(f.path()).unwrap(),
         original_bytes,
-        "rejecting an unsupported layout must preserve its durable record"
+        "reader-position recovery must not rewrite the durable conversation"
     );
 }
 

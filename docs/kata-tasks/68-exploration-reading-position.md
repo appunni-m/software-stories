@@ -212,3 +212,23 @@ cross-activity and repository-switch observation; it does not cover app
 restart, exact scroll offset, third-level/sibling positions, revision fallback,
 malformed persisted state, independent Flow viewport, source-linked visual
 focus, or accessibility. Keep `erzc` open.
+
+## Stale Flow layout no longer hides saved conversations — 28 October 2026
+
+Native inspection of the rebuilt app opened Fontdone `main@5249b72371` but
+reported **Saved conversation unavailable**. The source cause was a Flow
+viewport-layout version bump: the loader rejected the whole conversation
+before its existing recovery sanitizer could discard obsolete reader
+positions. The saved conversation's `layoutVersion: 4` predates current
+version 5. Reader layout state is optional UI metadata, so load now discards
+incompatible Guide/Flow positions in memory and validates the remaining
+conversation. It does not rewrite the original record; normal saves still
+require the current layout version.
+
+The focused native conversation suite passes **25/25**, including a v4
+regression that preserves the question/status, removes stale presentation
+positions, and byte-compares the durable record before and after loading. The
+old packaged app remains open; rebuild and reopen it to confirm Fontdone's
+saved answers become available in the app. No provider request, snapshot
+refresh, or saved-content edit was made. Keep `erzc` open pending packaged
+confirmation and the remaining navigation matrix.
