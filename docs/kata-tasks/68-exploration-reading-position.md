@@ -240,3 +240,19 @@ this reader-position recovery does not repair. No provider request, snapshot
 refresh, or answer edit was made. The stale-layout regression is confirmed in
 the packaged app; keep `erzc` open for the remaining nested, restart, fallback,
 and accessibility matrix.
+
+## Guide section through Guide / Flow / history round trip — 29 October 2026
+
+In the running native app on Fontdone `main@5249b72371`, the existing answer
+“Explain what glyf.rs:564–583 does and how it works.” was at section 1 of 3.
+After selecting section 2, switching Guide → Flow → Chat history → Guide
+returned to section 2. I then restored section 1 and returned the workspace to
+its original Changes view. No question, provider request, answer edit, source
+transmission, or narration was started.
+
+The app was bound to the target bundle path, but its process predates the
+current package build and its loaded source revision was not verified. The
+screenshot was inspected live and not retained. This adds a same-process
+multi-section view-switch check only; the original Outline reproducer,
+third-level and sibling isolation, exact scroll, restart, revision fallback,
+malformed-state and accessibility gates remain open. Keep `erzc` open.

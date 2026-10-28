@@ -76,3 +76,20 @@ matching `is_empty` reproducer. This round trip does not test a verified Flow
 node/edge, a third level, sibling isolation, exact scroll, app restart,
 revision fallback, malformed state or accessibility. The installed binary's
 source revision remains unknown. Keep Kata `erzc` open.
+
+## Guide section through all exploration tabs — 29 October 2026
+
+In the running native app on Fontdone `main@5249b72371`, the existing answer
+“Explain what glyf.rs:564–583 does and how it works.” opened at section 1 of 3.
+Selecting section 2, switching Guide → Flow → Chat history → Guide, and
+returning showed section 2 still selected. I returned the reader to section 1
+and restored the workspace to its previous Changes view. No inference,
+narration, source transmission, or answer edit occurred.
+
+The inspected process was bound to the target bundle path but started before
+the latest package build; the loaded executable revision is unverified. The
+screenshot was inspected live and not retained. This is one same-process
+view-switch regression check, not full packaged acceptance. It does not cover
+the original Outline section-two reproducer, Back/root/branch paths with a
+multi-section parent, siblings, exact scroll, restart, revision fallback,
+malformed state, or accessibility. Keep Kata `erzc` open.
