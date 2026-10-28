@@ -281,6 +281,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       style: track.style,
       lexicon: track.lexicon,
     }, draft));
+  const localAudioNeedsPreparation = localNarration
+    && pocketStatus?.ready === true
+    && !savedAudioMatchesDraft
+    && prewarmState === 'idle';
 
   const updateDraft = (update: (value: NarrationPreferences) => NarrationPreferences) => {
     const next = update(draftRef.current);
@@ -746,7 +750,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track && savedAudioMatchesDraft && currentTime <= 0 ? ' is-ready' : track ? '' : prewarmState === 'checking' || prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track && savedAudioMatchesDraft && currentTime <= 0 ? narrationAvailabilityLabel('ready') : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track && savedAudioMatchesDraft && currentTime <= 0 ? ' is-ready' : track ? '' : prewarmState === 'checking' || prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track && savedAudioMatchesDraft && currentTime <= 0 ? narrationAvailabilityLabel('ready') : track ? 'Paused' : localAudioNeedsPreparation ? 'First listen creates audio' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
       <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>
@@ -784,8 +788,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       <div className="walkthrough-playback">
         <div className="walkthrough-playback-buttons">
           <button type="button" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || Boolean(voiceConnectionIssue)} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></button>
-          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || (!isPlaying && Boolean(voiceConnectionIssue))} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : 'Play narration'}>
-            {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : 'Play'}
+          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || (!isPlaying && Boolean(voiceConnectionIssue))} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : localAudioNeedsPreparation ? 'Create narration and play' : 'Play narration'}>
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : localAudioNeedsPreparation ? 'Create & play' : 'Play'}
           </button>
           <button type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
           <span className="walkthrough-duration" role="group" aria-label={`Elapsed ${formatTime(currentTime)}, duration ${duration > 0 ? narrationDurationLabel(duration) : 'loading'}`}>

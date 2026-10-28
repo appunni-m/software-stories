@@ -54,7 +54,7 @@ export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 
     value ? sentence(`Shown value: ${value}`) : '',
     node.detail ? sentence(`Meaning: ${node.detail}`) : '',
     origin,
-    'Open supporting code',
+    'Show code details and source links',
   ].filter(Boolean).join('. ');
 }
 
