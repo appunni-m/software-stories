@@ -109,6 +109,7 @@ function searchSnippet(text:string,queryTerms:readonly string[],maxLength=360):s
 interface SearchUpdates {
   hits:(hits:SourceMatch[],append:boolean)=>void; limited:(limited:boolean)=>void;
   nextOffset:(nextOffset:number|null)=>void;
+  coverage?:(unavailableFiles:number,omissions:IndexLimitOmissions)=>void;
   busy:(busy:boolean)=>void; error:(error:string|null)=>void;
 }
 interface SearchRuntime {
@@ -123,7 +124,7 @@ export function searchCapturedSource(
   runtime:SearchRuntime,
 ):()=>void {
   const offset=request.offset??0;
-  if(offset===0){updates.hits([],false);updates.limited(false);updates.nextOffset(null);}
+  if(offset===0){updates.hits([],false);updates.limited(false);updates.nextOffset(null);updates.coverage?.(0,{sourceByteLimitedFiles:0,rangeLimitedFiles:0,files:[],filesTruncated:false});}
   updates.error(null);updates.busy(false);
   const length=[...request.query].length;
   if(!request.native||length<(request.mode==='regex'?1:2)||length>240)return()=>{};
@@ -135,7 +136,7 @@ export function searchCapturedSource(
   const timer=defer(()=>{dispatched=true;void(async()=>{
     try{
       const result=await runtime.invoke('search_workspace_source',{projectId:request.projectId,snapshotId:request.snapshotId,query:request.query,mode:request.mode,requestId,offset}) as {matches:SourceMatch[];limited:boolean;nextOffset?:number|null;unavailableFiles:number;indexLimitOmissions:IndexLimitOmissions};
-      if(active){updates.hits(result.matches,offset>0);updates.limited(result.limited);updates.nextOffset(result.nextOffset??null);}
+      if(active){updates.hits(result.matches,offset>0);updates.limited(result.limited);updates.nextOffset(result.nextOffset??null);updates.coverage?.(result.unavailableFiles,result.indexLimitOmissions);}
     }catch(error){if(active)updates.error(request.mode==='regex'?errorMessageOr(error,'This regular expression could not be searched.'):'Captured source search is unavailable. File and symbol results are still shown.');}
     finally{if(active)updates.busy(false);}
   })();});

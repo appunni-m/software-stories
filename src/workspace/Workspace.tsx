@@ -37,7 +37,7 @@ import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
-import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode } from './codeSearch';
+import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode, type IndexLimitOmissions } from './codeSearch';
 import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
 import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { commitDateLabel, commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
@@ -73,11 +73,29 @@ interface CapturedSourceSearchState {
   hits:{path:string;line:number;text:string}[];
   limited:boolean;
   nextOffset:number|null;
+  unavailableFiles:number;
+  indexLimitOmissions:IndexLimitOmissions;
   busy:boolean;
   error:string|null;
 }
 function sourceSearchStateFor(previous:CapturedSourceSearchState,key:string,searching=false):CapturedSourceSearchState {
-  return previous.key===key?previous:{key,hits:[],limited:false,nextOffset:null,busy:searching,error:null};
+  return previous.key===key?previous:{key,hits:[],limited:false,nextOffset:null,unavailableFiles:0,indexLimitOmissions:{sourceByteLimitedFiles:0,rangeLimitedFiles:0,files:[],filesTruncated:false},busy:searching,error:null};
+}
+
+function SearchCoverageNote({unavailableFiles,omissions}:{unavailableFiles:number;omissions:IndexLimitOmissions}) {
+  if(unavailableFiles===0&&omissions.sourceByteLimitedFiles===0&&omissions.rangeLimitedFiles===0)return null;
+  return <details className="dw-search-coverage">
+    <summary>Local search may be incomplete</summary>
+    <p>A missing result does not prove the code is absent. Local search can only check captured text and indexed ranges.</p>
+    <ul>
+      {unavailableFiles>0&&<li>{unavailableFiles} captured {unavailableFiles===1?'file is':'files are'} unavailable.</li>}
+      {omissions.sourceByteLimitedFiles>0&&<li>{omissions.sourceByteLimitedFiles} {omissions.sourceByteLimitedFiles===1?'file reached':'files reached'} the local source-index size limit.</li>}
+      {omissions.rangeLimitedFiles>0&&<li>{omissions.rangeLimitedFiles} {omissions.rangeLimitedFiles===1?'file reached':'files reached'} the per-file range-index limit.</li>}
+    </ul>
+    {omissions.files.length>0&&<ul className="dw-search-coverage-paths">{omissions.files.map((file)=>
+      <li key={`${file.path}:${file.reason}`}><code>{file.path}</code><span>{file.reason==='localRangeLimit'?'Range limit':'Source-index size limit'}</span></li>)}</ul>}
+    {omissions.filesTruncated&&<small>Additional affected paths are not listed.</small>}
+  </details>;
 }
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
@@ -211,7 +229,7 @@ export function DeveloperWorkspace(props:Props) {
       props.onRememberSearch?.(repositorySearch,repositoryRegex?'regex':'code','files');
     }
   },[workspace,activity,repositorySearch,repositoryRegex,props.onRememberSearch]);
-  const [sourceSearchState,setSourceSearchState] = useState<CapturedSourceSearchState>({key:'',hits:[],limited:false,nextOffset:null,busy:false,error:null});
+  const [sourceSearchState,setSourceSearchState] = useState<CapturedSourceSearchState>({key:'',hits:[],limited:false,nextOffset:null,unavailableFiles:0,indexLimitOmissions:{sourceByteLimitedFiles:0,rangeLimitedFiles:0,files:[],filesTruncated:false},busy:false,error:null});
   const [searchOffset,setSearchOffset] = useState(0);
   const [openFolders,setOpenFoldersState] = useState<Set<string>>(()=>new Set(readExpandedExplorerFolders(projectId,snapshotId)));
   const setOpenFolders=(folders:Set<string>)=>{
@@ -718,6 +736,7 @@ export function DeveloperWorkspace(props:Props) {
   const sourceSearchLength=[...term].length;
   const capturedSearchPending=isNativeRuntime()&&sourceSearchLength>=(searchMode==='regex'?1:2)&&sourceSearchLength<=240;
   const currentSourceSearch=sourceSearchStateFor(sourceSearchState,sourceSearchKey,capturedSearchPending);
+  const currentSearchHasCoverageGaps=currentSourceSearch.unavailableFiles>0||currentSourceSearch.indexLimitOmissions.sourceByteLimitedFiles>0||currentSourceSearch.indexLimitOmissions.rangeLimitedFiles>0;
   function exploreSearch(searchQuery:string,matches:CodeSearchHit[]){
     const intent=searchExploration(searchQuery.trim(),searchMode,matches);
     const references=new Map<string,Context>();
@@ -735,6 +754,7 @@ export function DeveloperWorkspace(props:Props) {
       return {...current,hits:[...current.hits,...hits.filter((hit)=>{const key=JSON.stringify([hit.path,hit.line,hit.text]);if(seen.has(key))return false;seen.add(key);return true;})]};
     }),limited:(limited)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),limited})),
       nextOffset:(nextOffset)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),nextOffset})),
+      coverage:(unavailableFiles,indexLimitOmissions)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),unavailableFiles,indexLimitOmissions})),
       error:(error)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),error})),
       busy:(busy)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),busy}))},{invoke}),[term,searchMode,projectId,snapshotId,searchOffset,sourceSearchKey]);
   const results=useMemo(()=>workspaceSearchResults({query:term,mode:searchMode,files:rows,symbols:index?.symbols??[],source,captured:currentSourceSearch.hits}),[term,searchMode,rows,index,source,currentSourceSearch.hits]);
@@ -925,7 +945,7 @@ export function DeveloperWorkspace(props:Props) {
           <header><strong>{showChanges?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong><div className="dw-sidebar-header-actions"><Tooltip content="Repository sharing"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label="Repository sharing" onClick={()=>setSharingOpen(true)}><ShieldCheck size={15}/></IconButton></Tooltip>{(tool||narrowPane==='explorer')&&<Button className="dw-sidebar-back" size="1" variant="ghost" color="gray" aria-label="Back to explanation" onClick={()=>returnToGuide('explanation')}><ArrowLeft size={13}/>Back</Button>}</div></header>
           {showChanges?<><div className="dw-sidebar-section">Commit history <span>{commits.length ? `${commits.length} recent`:''}</span><Button size="1" variant="ghost" disabled={gitBusy} onClick={()=>setGitReload((value)=>value+1)}>Refresh</Button></div><div className="dw-commits" role="group" aria-label="Recent commits. Use Up and Down arrows to move between commits.">{gitBusy&&<p role="status">Loading commits… <Button size="1" variant="ghost" onClick={()=>{gitRequest.current?.abort();setGitBusy(false);setGitStopped(true);}}>Stop</Button></p>}{gitStopped&&<p role="status">Loading stopped.{commits.length>0?' Your previous history is still available.':''}</p>}{gitError&&<p role="alert">{gitError}</p>}{commitHistoryEmpty&&<p role="status">{commitHistoryEmpty}</p>}{commits.map((c)=><button key={c.oid} ref={(button)=>{if(button)commitButtons.current.set(c.oid,button);else commitButtons.current.delete(c.oid);}} className="dw-commit" disabled={!c.parents.length} tabIndex={c.oid===rovingCommitId?0:-1} title={c.parents.length?`${c.subject}\n${c.oid}`:`${c.subject} — initial commit; parent comparison unavailable`} onFocus={()=>setFocusedCommitId(c.oid)} onKeyDown={(event)=>{if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;event.preventDefault();const direction=event.key==='ArrowDown'?1:-1;const currentIndex=commits.findIndex((commit)=>commit.oid===c.oid);const nextIndex=nextFocusableCommitIndex(commits,currentIndex,direction);const next=commits[nextIndex];if(next&&nextIndex!==currentIndex)commitButtons.current.get(next.oid)?.focus();}} onClick={()=>{if(!c.parents.length)return;onCompare(c.parents[0],c.oid);setNarrowPane('explanation');onWorkspace('changes');}}><span className={`dw-commit-line ${c.parents.length>1?'merge':''}`}><GitCommitHorizontal size={16}/></span><span><strong>{c.subject||'Untitled commit'}</strong><small>{c.author}{commitDateLabel(c.timestamp)&&<> · <time dateTime={c.timestamp}>{commitDateLabel(c.timestamp)}</time></>} · {c.oid.slice(0,7)}{c.parents.length>1?' · merge':!c.parents.length?' · initial commit':''}</small></span></button>)}</div></>:activity==='history'?<ul className="dw-explorations" role="tree" aria-label="Explorations">{renderExplorations(null)}</ul>:<>
             <div className="dw-sidebar-search"><TextField.Root ref={search} size="1" value={activity==='search'?repositorySearch:fileFilter} placeholder={activity==='search'?(repositoryRegex?'Code pattern…':'Files, symbols, code…'):'Find a file…'} maxLength={activity==='search'?240:4096} aria-label={activity==='search'?'Search repository':'Filter files'} onFocus={()=>{setSearchFocused(false);setSearchOffset(0);}} onChange={(e)=>{if(activity==='search'){setRepositorySearch(e.target.value);setSearchOffset(0);}else setFileFilter(e.target.value);}} onKeyDown={(event)=>{if(activity==='search'&&event.altKey&&event.code==='KeyR'){event.preventDefault();toggleRepositoryRegex();setSearchOffset(0);return;}if(activity==='files'&&event.key==='Enter'&&openQuickMatch(fileFilter)){event.preventDefault();return;}if(activity==='search'&&event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){if(!currentSourceSearch.busy&&!currentSourceSearch.error&&!currentSourceSearch.limited&&currentSourceSearch.nextOffset===null&&results.length===1){event.preventDefault();openFile(results[0]);return;}if(!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)){event.preventDefault();exploreSearch(repositorySearch,results);}}}}><TextField.Slot><Search size={13}/></TextField.Slot>{activity==='search'&&<TextField.Slot side="right"><Tooltip content="Use regular expression (⌥R)"><IconButton type="button" size="1" variant="ghost" color={repositoryRegex?'blue':'gray'} aria-label="Use regular expression" aria-pressed={repositoryRegex} onClick={()=>{toggleRepositoryRegex();setSearchOffset(0);}}><span aria-hidden="true">.*</span></IconButton></Tooltip></TextField.Slot>}</TextField.Root></div>
-            {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small>{currentSourceSearch.busy&&<p role="status">{results.length?'Checking captured code for more matches…':'Searching captured code…'}</p>}{repositorySearch.trim()&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length>0&&<p className="dw-search-count" role="status">{searchResultsSummary}</p>}{currentSourceSearch.error&&<p role="status">{currentSourceSearch.error}</p>}{repositorySearch&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length===0&&<p>No matching code in this search.</p>}{searchResultGroups.map(({path,hits})=>{
+            {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{currentSourceSearch.busy&&<p role="status">{results.length?'Checking captured code for more matches…':'Searching captured code…'}</p>}{repositorySearch.trim()&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length>0&&<p className="dw-search-count" role="status">{searchResultsSummary}</p>}{currentSourceSearch.error&&<p role="status">{currentSourceSearch.error}</p>}{repositorySearch&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length===0&&<p>{currentSearchHasCoverageGaps?'No local match; search coverage is incomplete.':'No matching code in this search.'}</p>}{searchResultGroups.map(({path,hits})=>{
               const visibleHits=hits.slice(0,2);
               const remainingHits=hits.slice(2);
               const renderHit=(hit:CodeSearchHit,index:number)=><button className="dw-search-file-match" key={`${hit.from??'file'}:${index}`} onClick={()=>openFile(hit)}><strong>{hit.from===undefined?'File match':`Line ${hit.from}${hit.to&&hit.to!==hit.from?`–${hit.to}`:''}`}</strong><span>{hit.text}</span></button>;
@@ -955,7 +975,7 @@ export function DeveloperWorkspace(props:Props) {
           </div>
           {connectionNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><Button size="1" variant="soft" onClick={onSettings}>Connections</Button></div>}
           {draftNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{draftNotice}</p><Button size="1" variant="ghost" onClick={()=>setDraftNotice(null)}>Dismiss</Button></div>}
-          {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?(results.length?'Checking for more code matches…':'Searching code…'):currentSourceSearch.error?'Search unavailable':results.length?'In your code':'No matching code in this search'}</small>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
+          {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?(results.length?'Checking for more code matches…':'Searching code…'):currentSourceSearch.error?'Search unavailable':results.length?'In your code':currentSearchHasCoverageGaps?'No local match · coverage is incomplete':'No matching code in this search'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
         </div>
         {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
