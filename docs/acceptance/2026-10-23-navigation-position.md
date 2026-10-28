@@ -56,3 +56,23 @@ fixed. The original revision must be recovered or a matching preserved copy
 made available before its Back/root/branch/restart path can be checked. Keep
 Kata `erzc` open; deterministic source tests and other saved-guide checks do
 not replace that exact-revision acceptance.
+
+## Code Lens section and Flow round trip — 28 October 2026
+
+In the running Code Atlas 0.1.0 app, Fontdone `main@5249b72371`, executable
+SHA-256 `adec1e64e5d1783b5b531256af0c3005743af472e30c167fd4313cde8597af83`,
+the saved Code Lens answer for `glyf.rs:564–583` advanced from section 1/3 to
+section 2/3. Switching Guide → Flow → Guide retained section 2/3; Flow reported
+no verified diagram for that section. Opening an existing level-2 exploration
+from the `Outline::is_empty` answer and returning with Back restored the parent
+Code Lens answer at section 2/3. No request, narration, answer edit or source
+transmission occurred. The original pillow-rs workspace was restored after
+the check.
+
+The child path was labeled “Explain When is_empty returns true in more detail,”
+but its single Guide question showed the saved `glyf.rs:564–583` answer at
+section 4/4. This may be pre-existing child content; it is not accepted as a
+matching `is_empty` reproducer. This round trip does not test a verified Flow
+node/edge, a third level, sibling isolation, exact scroll, app restart,
+revision fallback, malformed state or accessibility. The installed binary's
+source revision remains unknown. Keep Kata `erzc` open.
