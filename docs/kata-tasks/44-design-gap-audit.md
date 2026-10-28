@@ -212,3 +212,28 @@ live but not saved. No question, answer, receipt, notification, or snapshot was
 changed; no provider request was sent. This verifies one populated Chat history
 state only. Keep `x21h` and parent `13yp` open pending review of other screens,
 first-run states, themes/zoom, and accessibility.
+
+### Packaged Search and Changes spot check — 28 October 2026
+
+Built and installed the current `main` checkout (`1b72521`) with
+`CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos`. The installed
+Code Atlas 0.1.0 executable SHA-256 is
+`5e084a1978895f46acdfa1c4d2ac3ab92905e99c868a3a1dc5244b5504cef174`; the app
+and DMG metadata/checksum verifier passed. No test suite or provider request
+was run for this checkpoint.
+
+The packaged app restored Fontdone `main@5249b72371`:
+
+- Search for `memory_face` reported 49 matches across 23 files, with more
+  matches available. The old indefinite “Searching” state is no longer shown.
+- Changes shows the local `7c48b706482b` → `5249b7237194` comparison and two
+  changed files. The README text hunk is inspectable; the oversized TSV is
+  labeled, and static relationship coverage is explicitly partial.
+- The Explorer/source pane and composer remain present beside the Changes
+  content. The Guide, Flow, and history remain in the exploration workspace.
+
+This is a populated-state spot check, not screen-by-screen design acceptance.
+The screenshot was inspected live but not saved as a durable artifact. First-run
+and error states, nested restoration, other theme/zoom settings, keyboard,
+VoiceOver, contrast, and motion remain uninspected. Keep `x21h` and parent `13yp`
+open.
