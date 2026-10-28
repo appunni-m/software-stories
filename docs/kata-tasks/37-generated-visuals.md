@@ -1139,3 +1139,19 @@ horizontally scrollable track while the FRONT/BACK direction markers remain
 visible. This is a source-only semantic-layout correction. No tests or
 packaged visual review ran; generated scene quality, keyboard/reflow
 accessibility, and human comprehension acceptance remain open.
+
+## Match visual variety to behavior changes — 28 October 2026
+
+The current story policy is now `ai-html-compositions-v63`. Its composition
+review explicitly compares available preceding scenes: retain a visual form
+while the same behavior or data structure continues, and use another supported
+form when a behavior change becomes clearer that way. Repeating one generic
+row/cards/arrow skeleton with swapped labels is not meaningful variety, and
+visuals must not change for decoration. This tightens the prompt against the
+repeated two-card/arrow pattern seen in the historical Fontdone draft; it does
+not establish the quality of a newly generated visual. Existing saved revisions
+and audio are untouched. The focused Rust prompt suite passes 10/10 after its
+contract assertions were aligned with the current instruction wording, and
+`git diff --check` passes. No packaged or production app build, provider
+request, or content refresh ran. Real-source generation, source-click review,
+accessibility, offline export and human comprehension remain open.
