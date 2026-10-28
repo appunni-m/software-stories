@@ -148,3 +148,18 @@ screenshot were not verified. It does not exercise a multi-section answer,
 exact scroll offset, sibling/nested-level independence, restart, revision
 fallback, corrupt state or accessibility. Keep `erzc` open for the remaining
 acceptance matrix.
+
+## Additional packaged Guide/Flow/child position check — 28 October 2026
+
+In the running Code Atlas 0.1.0 app on Fontdone `main@5249b72371`, a saved
+two-slide Guide was advanced to slide 2 of 2, switched Guide → Flow → Guide,
+and remained on slide 2. Opening the saved level-2 child “Explain When
+is_empty returns true in more detail” and returning with Back restored the
+parent's slide 2 and previously selected `src/outline.rs`; the child had
+opened `src/font.rs`. No question, provider request, answer, or narration was
+started. The installed executable's source revision was not verified.
+
+This covers one same-process section/tab and child/Back path. Third-level and
+sibling independence, exact scroll, restart, revision fallback, malformed
+state in the packaged app, visual-node/edge restoration and accessibility
+remain open. See the combined [navigation acceptance record](../acceptance/2026-10-23-navigation-position.md).

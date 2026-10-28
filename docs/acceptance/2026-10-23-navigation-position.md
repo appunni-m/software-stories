@@ -20,3 +20,20 @@ The check used the app accessibility tree after each interaction. It confirmed t
 ## Limits
 
 This is one packaged same-process position check against a four-section answer. It does not verify the originally reported three-section draft, a third exploration level, sibling-specific scroll offsets, exact pixel scroll restoration, independent Flow diagram selection/viewport, app restart, changed/deleted revision fallback, malformed persisted state through the app, keyboard/VoiceOver/reflow/contrast/motion, or a binary-to-source commit match. The automated state and persistence regressions remain necessary evidence for the relevant local cases. Keep Kata `erzc` open.
+
+## Additional packaged same-process check — 28 October 2026
+
+In the running Code Atlas 0.1.0 app on Fontdone `main@5249b72371`, a saved
+two-slide Guide was advanced to slide 2 of 2. Guide → Flow → Guide retained
+slide 2. From the repository's saved-explorations list, I opened the existing
+child “Explain When is_empty returns true in more detail” (level 2), then used
+Back one exploration. The parent still showed slide 2 of 2 and restored its
+previously selected `src/outline.rs` source; the child had shown `src/font.rs`.
+No question, provider request, answer, or narration was started. The app stayed
+open. The installed binary's source revision was not verified.
+
+This adds one saved-child/Back path and one Guide/Flow/Guide path. It does not
+cover a third exploration level, sibling position independence, exact scroll,
+restart, changed/deleted revision fallback, malformed persisted state through
+the packaged app, visual-node/edge restoration, or accessibility. Keep Kata
+`erzc` open for those acceptance gates.
