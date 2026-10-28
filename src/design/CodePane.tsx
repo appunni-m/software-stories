@@ -250,7 +250,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     const from = view.state.doc.line(Math.min(reveal.from ?? 1, view.state.doc.lines)).from;
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;
     view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: 24 }) });
-  }, [reveal, path, contents, theme]);
+  }, [reveal, path, contents]);
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path || !reveal.from) return;
@@ -266,7 +266,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     const observer = new MutationObserver(restoreCitation);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-app-zoom'] });
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [reveal, path, contents, theme]);
+  }, [reveal, path, contents]);
   return <section className="preview-code-pane" aria-label="Code" data-focus-key="workspace-source" tabIndex={-1}>
     <div className="preview-editor-tab"><Code2 size={14} /><span>{path.split('/').at(-1)}</span><Tooltip content="Close code pane"><IconButton size="1" variant="ghost" aria-label="Close code pane" onClick={onClose}><X size={14} /></IconButton></Tooltip></div>
     <div className="preview-code-path">{path.split('/').join('  /  ')}</div>
