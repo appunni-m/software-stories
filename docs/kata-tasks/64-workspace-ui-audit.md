@@ -320,3 +320,22 @@ verification. The rebuilt executable SHA-256 is
 The open `pillow-rs` app window was left untouched because its close-save
 handshake is still rejecting an update. Packaged visual confirmation in a
 fresh process remains pending; keep `13yp` and `x21h` open.
+
+## Compact preview button placement follow-up — 29 October 2026
+
+A fresh live CUA screenshot of the open `pillow-rs` Guide still showed the
+relationship label colliding with its source buttons. The screen also showed
+the older floating **Explain this code** action, so the open process is not
+evidence for the current source layout. The compact preview now defaults to
+two endpoint columns with the relationship label between them; a horizontal
+three-column row is only enabled when the preview itself is at least 720 px
+wide. Very narrow previews still stack the endpoints and label. This fallback
+does not depend on a container query to avoid the observed overlap.
+
+`CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos` completed: TypeScript
+check, Vite build, license and metadata checks, unsigned app/DMG bundling, and
+DMG checksum verification passed. The new executable SHA-256 is
+`a39be2640c7a15e739d403ce1814e2d0d3fd8d1d3da918d7783954c6d5300cc7`.
+`git diff --check` passed. No test suite, AI request, snapshot refresh, or
+saved explanation edit was performed. I did not close the existing app window;
+fresh-process visual confirmation remains pending. Keep `13yp` and `x21h` open.
