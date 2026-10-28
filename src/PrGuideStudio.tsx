@@ -4,6 +4,7 @@ import { providerFailureMessage } from './lib/errorMessage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { AppButton } from './design/AppButton';
 import { InlineCodeText } from './InlineCodeText';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import type { ClaudeOperationReviewMode } from './lib/claudeReview';
@@ -553,21 +554,21 @@ export function PrGuideStudio({
           : `The original file and hunk ${matchingRecovery.mode.target.hunkIndex + 1} are preserved.`} Local validation checked the comparison and patch hashes. Choose current model settings, review the exact request and confirm again. Nothing resumes automatically.</p>
         {matchingRecovery.mode.kind === 'pr-guide' && <>
           <p>A response may already have saved a draft. Review this comparison’s PR Guide history below before requesting another generation.</p>
-          {historyError && <button className="secondary-button" onClick={() => { void refreshHistory(); }}>Reload saved guides</button>}
+          {historyError && <AppButton intent="custom" className="secondary-button" onClick={() => { void refreshHistory(); }}>Reload saved guides</AppButton>}
           <label className="provider-checkbox"><input type="checkbox" checked={recoveryHistoryChecked} disabled={historyLoading || Boolean(historyError)} onChange={(event) => setRecoveryHistoryChecked(event.target.checked)} />I checked the saved guides and want a new request review.</label>
         </>}
-        <button className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || Boolean(claudeMode)
+        <AppButton intent="custom" className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || Boolean(claudeMode)
           || (matchingRecovery.mode.kind === 'pr-guide' && (!recoveryHistoryChecked || historyLoading || Boolean(historyError)))}
           onClick={() => {
             clearReview(); setBackend(matchingRecovery.backend);
             if (matchingRecovery.mode.kind === 'pr-guide') setSelectedKeys(matchingRecovery.mode.selectedChanges.map(changeKey));
             if (matchingRecovery.backend === 'codex') setCodexMode(matchingRecovery.mode);
             else setClaudeMode(matchingRecovery.mode);
-          }}>Review original scope with {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'}</button>
+          }}>Review original scope with {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'}</AppButton>
       </section>}
       {!accountOnly && backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
       {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Preview a guide or hunk request with Claude’s supported settings and the exact local diff. Automatic Claude generation remains unfinished; this review sends no source to an agent.</p>
-        <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
+        <AppButton intent="custom" className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</AppButton></div></div>}
       <details className="pr-guide-included-files" open={accountOnly ? eligibleChanges.length === 0 : true}><summary>{selectedChanges.length} changed {selectedChanges.length===1?'file':'files'} included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete, bounded source diff for a PR Guide.</p> : eligibleChanges.map((change) => {
@@ -583,13 +584,13 @@ export function PrGuideStudio({
               </label>
               <div className="pr-guide-hunk-actions" role="group" aria-label={`Explain a hunk in ${pathLabel}`}>
                 {change.hunks.map((_, hunkIndex) => (
-                  <button
+                  <AppButton intent="custom"
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
                     disabled={backend === 'handoff' || (backend === 'api' && !hasApiSelection) || building || sending || decisionBusy || Boolean(requestReview)}
                     onClick={() => explainHunk(change, hunkIndex)}
-                  ><Sparkles size={13} /> {backend === 'claude-agent' ? 'Preview hunk request' : 'Explain hunk'} {hunkIndex + 1}</button>
+                  ><Sparkles size={13} /> {backend === 'claude-agent' ? 'Preview hunk request' : 'Explain hunk'} {hunkIndex + 1}</AppButton>
                 ))}
               </div>
             </div>
@@ -606,8 +607,8 @@ export function PrGuideStudio({
           </div>)}
         </div>
       </details>}
-      {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> {accountOnly?'Explain changes':'Review with Codex'}</button></div>}
-      {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
+      {backend === 'codex' && <div className="pr-guide-actions"><AppButton intent="custom" className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> {accountOnly?'Explain changes':'Review with Codex'}</AppButton></div>}
+      {backend === 'claude-agent' && <div className="pr-guide-actions"><AppButton intent="custom" className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</AppButton></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
         <p className="pr-guide-muted" role="status">
           {informationLoading ? 'Loading Direct API connection…'
@@ -615,12 +616,12 @@ export function PrGuideStudio({
               : selectedModel ? `Using ${disclosure?.displayName} · ${selectedModel.displayName}${hasApiKey ? ' · API key saved in Keychain' : ' · API key not set up'}`
                 : 'No provider and model saved. Choose them once in Connections in the header.'}
         </p>
-        <button className="secondary-button" type="button" onClick={onOpenProviderSettings} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)}>
+        <AppButton intent="custom" className="secondary-button" type="button" onClick={onOpenProviderSettings} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)}>
           {hasApiSelection ? 'Change API connection' : 'Set up API connection'}
-        </button>
-        <button className="primary-button" type="button" onClick={() => { void handleBuildReview(); }} disabled={!canBuild}>
+        </AppButton>
+        <AppButton intent="custom" className="primary-button" type="button" onClick={() => { void handleBuildReview(); }} disabled={!canBuild}>
           <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact provider request'}
-        </button>
+        </AppButton>
       </div>
       {!hasApiKey && hasApiSelection && <p className="pr-guide-muted" role="status">Add this provider’s API key in Connections before sending. Keys stay in macOS Keychain.</p>}
       {directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'} and was left untouched. Choose a provider in Connections to replace it.</p>}
@@ -719,12 +720,12 @@ export function PrGuideStudio({
           </div>
           {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">
-            {!hasApiKey && <button type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</button>}
-            <button type="button" className="secondary-button" onClick={() => clearReview()} disabled={sending}>Discard this review</button>
-            <button type="button" className="primary-button" onClick={() => { void handleSend(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}>
+            {!hasApiKey && <AppButton intent="custom" type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</AppButton>}
+            <AppButton intent="custom" type="button" className="secondary-button" onClick={() => clearReview()} disabled={sending}>Discard this review</AppButton>
+            <AppButton intent="custom" type="button" className="primary-button" onClick={() => { void handleSend(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}>
               <Send size={15} /> {sending ? 'Sending reviewed request…' : 'Send reviewed request'}
-            </button>
-            {sending && <button type="button" className="secondary-button" onClick={() => { void handleCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Cancelling…' : 'Cancel request'}</button>}
+            </AppButton>
+            {sending && <AppButton intent="custom" type="button" className="secondary-button" onClick={() => { void handleCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Cancelling…' : 'Cancel request'}</AppButton>}
           </div>
           {cancelStatus && <p className="pr-guide-muted" role="status">{cancelStatus}</p>}
         </section>
@@ -749,7 +750,7 @@ export function PrGuideStudio({
       )}
 
       <section className="pr-guide-history" aria-labelledby="pr-guide-history-title">
-        <div className="pr-guide-subheading"><div><span className="git-changes-kicker">THIS COMMIT PAIR ONLY</span><h3 id="pr-guide-history-title">PR Guide history</h3></div><button className="icon-button" type="button" onClick={() => { void refreshHistory(); }} aria-label="Refresh PR Guide history"><RotateCcw size={15} /></button></div>
+        <div className="pr-guide-subheading"><div><span className="git-changes-kicker">THIS COMMIT PAIR ONLY</span><h3 id="pr-guide-history-title">PR Guide history</h3></div><AppButton intent="custom" className="icon-button" type="button" onClick={() => { void refreshHistory(); }} aria-label="Refresh PR Guide history"><RotateCcw size={15} /></AppButton></div>
         {historyLoading && <p role="status">Loading local history…</p>}
         {historyError && <p className="git-error-note" role="alert">{historyError}</p>}
         {!historyLoading && history.length === 0 && !historyError && <p className="pr-guide-muted">No PR Guide revisions exist for this comparison yet.</p>}
@@ -762,7 +763,7 @@ export function PrGuideStudio({
             <li key={revision.revisionId}>
               <span className={`pr-guide-lifecycle lifecycle-${decision?.lifecycle ?? revision.lifecycle}`}>{statusLabel}</span>
               <div><strong><InlineCodeText text={revision.title}/></strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small></div>
-              {revision.lifecycle === 'draft' && !decision && <button type="button" className="secondary-button" disabled={decisionBusy || building || sending} onClick={() => openDraft(revision)}>Review draft</button>}
+              {revision.lifecycle === 'draft' && !decision && <AppButton intent="custom" type="button" className="secondary-button" disabled={decisionBusy || building || sending} onClick={() => openDraft(revision)}>Review draft</AppButton>}
             </li>
           );
         })}</ol>}
@@ -822,11 +823,11 @@ function GuideDraftReview({
       ))}
       <div className="pr-guide-actions pr-guide-decision-actions">
         <span>{includedClaimIds.length} of {claimCount} claims included</span>
-        <button type="button" className="primary-button" disabled={busy || includedClaimIds.length === 0} onClick={onAccept}><Check size={15} /> {busy ? 'Saving decision…' : 'Accept selected claims'}</button>
+        <AppButton intent="custom" type="button" className="primary-button" disabled={busy || includedClaimIds.length === 0} onClick={onAccept}><Check size={15} /> {busy ? 'Saving decision…' : 'Accept selected claims'}</AppButton>
       </div>
       <label className="pr-guide-rejection-reason">Reason for rejecting this draft<textarea value={rejectionReason} disabled={busy} maxLength={4_000} onChange={(event) => onRejectionReasonChange(event.target.value)} /></label>
       {error && <p className="git-error-note" role="alert">{error}</p>}
-      <button type="button" className="secondary-button" disabled={busy || !rejectionReason.trim()} onClick={onReject}>Reject this PR Guide draft</button>
+      <AppButton intent="custom" type="button" className="secondary-button" disabled={busy || !rejectionReason.trim()} onClick={onReject}>Reject this PR Guide draft</AppButton>
     </section>
   );
 }
@@ -953,7 +954,7 @@ function PrChangeExplanationPanel({
     <section className="pr-guide-request-review pr-change-explanation" aria-labelledby="pr-change-explanation-title">
       <div className="pr-guide-subheading">
         <div><span className="git-changes-kicker">TRANSIENT HUNK EXPLANATION</span><h3 id="pr-change-explanation-title">Explain {labelChange(change)} · hunk {hunkIndex + 1}</h3></div>
-        <button type="button" className="secondary-button" onClick={onClose} disabled={sending}>Close</button>
+        <AppButton intent="custom" type="button" className="secondary-button" onClick={onClose} disabled={sending}>Close</AppButton>
       </div>
       <p className="pr-guide-muted">This request explains one selected hunk and returns temporary claims linked to the exact base/head source. It does not create PR Guide history or change Git refs.</p>
       {building && <p className="pr-guide-muted" role="status">Building the exact local hunk review…</p>}
@@ -993,9 +994,9 @@ function PrChangeExplanationPanel({
           </div>
           {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">
-            {!hasApiKey && <button type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</button>}
-            <button type="button" className="primary-button" onClick={() => { void send(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}><Send size={15} /> {sending ? 'Sending reviewed hunk…' : 'Send reviewed request'}</button>
-            {sending && <button type="button" className="secondary-button" onClick={() => { void cancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Cancelling…' : 'Cancel request'}</button>}
+            {!hasApiKey && <AppButton intent="custom" type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</AppButton>}
+            <AppButton intent="custom" type="button" className="primary-button" onClick={() => { void send(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}><Send size={15} /> {sending ? 'Sending reviewed hunk…' : 'Send reviewed request'}</AppButton>
+            {sending && <AppButton intent="custom" type="button" className="secondary-button" onClick={() => { void cancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Cancelling…' : 'Cancel request'}</AppButton>}
           </div>
           {cancelRequested && <p className="pr-guide-muted" role="status">Cancellation was requested. The provider may already have received the request.</p>}
         </>

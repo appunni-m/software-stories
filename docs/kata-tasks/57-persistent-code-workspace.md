@@ -80,3 +80,7 @@ Codex dialog controls now use shared icon, primary, secondary and quiet intents 
 ## Changes view keyboard tabs — 28 October 2026
 
 The compact Changes surface now uses Radix Tabs for Diff and PR Guide, including roving arrow-key navigation and tab/panel semantics. Both panels remain mounted while one is hidden so switching views retains in-progress PR Guide state. Active styling follows the Radix `data-state` attribute. No tests/build or packaged keyboard/accessibility review ran.
+
+## PR Guide action migration — 28 October 2026
+
+PR Guide recovery, hunk review, provider request, history refresh, saved-draft, and accept/reject actions now use the shared `AppButton` wrapper while retaining their existing classes, labels, disabled states, callbacks, and explicit non-submit behavior. Rich citation links remain native buttons so their multi-line cited content and source-navigation semantics stay intact. No tests/build or packaged interaction review ran; the full UI and accessibility gates remain open.
