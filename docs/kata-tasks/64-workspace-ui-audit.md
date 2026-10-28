@@ -130,3 +130,23 @@ header now contains only the active tool label and its relevant Back action.
 This removes the settings affordance from the code-navigation rail without
 changing the snapshot/account grant contract. No test, build, or packaged menu
 and revoke check ran; keep `na54` open.
+
+## Load latest repository changes — 28 October 2026
+
+The workspace header now places **Load latest changes** beside the selected
+snapshot. It captures the current working tree as a new immutable snapshot,
+opens that snapshot, and leaves earlier snapshots available. The currently
+open source file is retained when its path exists in the refreshed snapshot.
+The control is unavailable while a capture is already running.
+
+The rebuilt packaged app exposes the control in the Explorer header with the
+help text “Capture the current repository and open the new copy. Earlier
+snapshots stay available.” A disposable repository check changed a source file
+after the first capture, refreshed, and confirmed that the new snapshot showed
+the updated bytes while the earlier snapshot still showed the original bytes.
+The repository itself was unchanged by capture. The user's existing `pillow-rs`
+snapshot was left selected; no refresh was run against its source.
+
+This qualifies the explicit refresh action and its immutable snapshot behavior.
+It does not close the screen-by-screen design, keyboard, accessibility, or
+responsive acceptance; keep `na54` open.
