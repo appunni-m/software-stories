@@ -2,6 +2,8 @@
 
 Snapshot: **28 October 2026**, read from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
+Latest package state: GitHub run [#1232](https://github.com/appunni-m/software-stories/actions/runs/40643781420) completed successfully for code commit `e0a4008` at 06:36 UTC. Current `main` is `b150626`; its later change is docs-only and excluded from the package workflow. No GitHub release or tag exists; the unsigned CI pass does not clear signing, notarization or clean-install gates.
+
 ## 28 October package and workspace checkpoint
 
 The source cleanup in `f745f77` removed the unreachable standalone Code Lens
