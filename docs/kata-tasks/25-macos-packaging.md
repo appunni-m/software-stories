@@ -200,11 +200,11 @@ checkpoint, not release approval.
 ## CI and release checkpoint — 2026-10-28 16:34 UTC
 
 Run [#1278](https://github.com/appunni-m/software-stories/actions/runs/40723838544)
-completed successfully for `df4741b`. Run
+passed for `df4741b`. Run
 [#1279](https://github.com/appunni-m/software-stories/actions/runs/40727123247)
-is still in progress for `2f6d9d9`; the current source commit is not yet
-verified by GitHub Actions. The local build and unsigned bundle inspection
-passed for that commit, but they do not replace the hosted run. GitHub's release
-endpoint returned no published releases, and `git ls-remote --tags origin`
-returned no tags. The first release still requires signing, notarization,
-clean-account installation, and product/accessibility acceptance.
+also completed successfully for `2f6d9d9`; its “Build and inspect unsigned
+bundles” job passed. The local app/DMG build, metadata inspection, and checksum
+verification also passed for that commit. GitHub's release endpoint returned no
+published releases, and `git ls-remote --tags origin` returned no tags. The
+first release still requires signing, notarization, clean-account installation,
+and product/accessibility acceptance.

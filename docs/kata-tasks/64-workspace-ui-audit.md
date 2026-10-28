@@ -247,3 +247,18 @@ new compact duplicate-ID case is covered by the focused check but has not yet
 been observed in that exact native layout. No model request, snapshot refresh,
 or saved-answer edit occurred. The full screenshot matrix, accessibility and
 responsive checks remain open; keep `13yp` and `x21h` open.
+
+## Fresh-process packaged Guide confirmation — 28 October 2026
+
+Correction and stronger identity evidence: the first post-build UI observation
+came from a process launched before the target executable was rewritten. I
+restarted the target app after the bundle's 22:01 local modification; the new
+process started at 22:11. Its window screenshot (captured through CUA and
+visible in the task history) showed the `66efce0` executable with the saved
+`pillow-rs` `main@e843f864fc` workspace, selected `canvas.rs` beside the Guide,
+and one **Image input** branching to four labeled outcomes. The player was
+idle and **Load latest changes** was visible. No snapshot refresh, generation,
+audio playback, or answer mutation occurred. This confirms the full visual in a
+fresh process; it still does not qualify the compact stacked-answer preview or
+the remaining Guide/Flow/Search/Changes, keyboard, accessibility, and reflow
+matrix. Keep `13yp` and `x21h` open.

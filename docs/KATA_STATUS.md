@@ -2,7 +2,7 @@
 
 Snapshot: **28 October 2026**, read from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
-Latest completed package run: [#1278](https://github.com/appunni-m/software-stories/actions/runs/40723838544) passed for `df4741b`. Run [#1279](https://github.com/appunni-m/software-stories/actions/runs/40727123247) is in progress for `2f6d9d9`; do not count it as verified until it completes. These unsigned package checks are not public releases. GitHub currently has no published release or tag; signing, notarization, and clean-install gates remain open.
+Latest completed package run: [#1279](https://github.com/appunni-m/software-stories/actions/runs/40727123247) passed for `2f6d9d9`; its “Build and inspect unsigned bundles” job succeeded. These unsigned package checks are not public releases. GitHub currently has no published release or tag; signing, notarization, and clean-install gates remain open.
 
 ## 28 October package and workspace checkpoint
 
