@@ -227,3 +227,23 @@ unavailable. The selected `glyf.rs` answer and source range `554–574` are
 visible; several individual older answers still have unavailable or stale
 visual states. The Flow edge-label layout itself was not rechecked. No snapshot
 refresh, generation, or answer edit was performed. Keep `13yp` and `x21h` open.
+
+## Duplicate source identities in compact Guide previews — 28 October 2026
+
+The compact preview grouped relationships only when they reused the same
+internal node ID. Generated visuals can represent the same cited code location
+with separate node IDs, leaving duplicate source labels in the preview. It now
+groups those nodes only when both the normalized label and exact captured
+source location (path, SHA-256, and byte range) match. Different or unknown
+source locations remain separate. The focused layout checks pass (4/4), the
+frontend build passes, and `npm run bundle:macos` produced verified unsigned
+app and DMG bundles. The executable SHA-256 is
+`66efce0b7badba4a40872a5943af291428a322549e62e056ccdeb3ff80e9e5df`.
+
+The rebuilt app was reopened and its saved `canvas.rs` Guide showed one
+**Image input** node branching to four labeled, clickable outcomes. That is the
+full interactive visual rather than the compact stacked-answer preview, so the
+new compact duplicate-ID case is covered by the focused check but has not yet
+been observed in that exact native layout. No model request, snapshot refresh,
+or saved-answer edit occurred. The full screenshot matrix, accessibility and
+responsive checks remain open; keep `13yp` and `x21h` open.

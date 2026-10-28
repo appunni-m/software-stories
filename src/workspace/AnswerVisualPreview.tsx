@@ -86,7 +86,7 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   const visibleNodes = visual.nodes.filter((node) => visibleIds.has(node.nodeId));
   const shownEdges = edges.slice(0, 4);
   const nodeById = new Map(visibleNodes.map((node) => [node.nodeId, node]));
-  const sourceBranch = sharedSourceBranch(shownEdges);
+  const sourceBranch = sharedSourceBranch(shownEdges, visibleNodes, anchorsById ?? new Map());
   const branchSource = sourceBranch ? nodeById.get(sourceBranch.sourceNodeId) : undefined;
 
   return <div className="dw-answer-visual-preview dw-answer-visual-preview-graph" role="group"
