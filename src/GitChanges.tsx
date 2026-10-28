@@ -1,4 +1,5 @@
 import { lazy, Suspense, useContext, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { Tabs } from '@radix-ui/themes';
 import { AlertTriangle, ArrowDownUp, FileCode2, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
@@ -313,12 +314,12 @@ function ComparisonResults({
       {comparison.changes.length === 0 && comparison.status !== 'chooseAgain' && comparison.status !== 'error' ? (
         <p className="git-no-changes">These commits have no file changes in the comparison result.</p>
       ) : comparison.changes.length > 0 && compact ? (
-        <div className="git-compact-comparison">
-          <div className="git-compact-surfaces">
-            <button type="button" aria-pressed={compactSurface === 'diff'} onClick={() => setCompactSurface('diff')}>Diff</button>
-            <button type="button" aria-pressed={compactSurface === 'pr-guide'} onClick={() => setCompactSurface('pr-guide')}>PR Guide</button>
-          </div>
-          <div className="git-compact-browser" hidden={compactSurface !== 'diff'}>
+        <Tabs.Root className="git-compact-comparison" value={compactSurface} onValueChange={(value) => setCompactSurface(value as 'diff' | 'pr-guide')}>
+          <Tabs.List className="git-compact-surfaces" aria-label="Change views">
+            <Tabs.Trigger value="diff">Diff</Tabs.Trigger>
+            <Tabs.Trigger value="pr-guide">PR Guide</Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content forceMount value="diff" className="git-compact-browser">
             <nav className="git-compact-files" aria-label="Changed files">
               <header><strong>Files changed</strong><span>{comparison.changes.length}</span></header>
               {comparison.changes.map((change) => {
@@ -346,9 +347,9 @@ function ComparisonResults({
                 onToggle={() => undefined}
               /> : <p className="git-no-changes">Select a changed file to inspect its diff.</p>}
             </section>
-          </div>
-          <div className="git-compact-pr-guide" hidden={compactSurface !== 'pr-guide'}>{prGuide}</div>
-        </div>
+          </Tabs.Content>
+          <Tabs.Content forceMount value="pr-guide" className="git-compact-pr-guide">{prGuide}</Tabs.Content>
+        </Tabs.Root>
       ) : (
         <div className="git-change-list" role="group" aria-label="Changed files">
           {comparison.changes.map((change) => {

@@ -76,3 +76,7 @@ Claude's fixed file-scope Remove action, exact-request preview/refresh action, a
 ## Codex account and generation actions — 28 October 2026
 
 Codex dialog controls now use shared icon, primary, secondary and quiet intents for close, account setup, model refresh, source review, citations and draft/generation lifecycle actions. The executable form's Save action explicitly remains a submit button; all other actions retain button behavior. Existing auth, review, consent, selection, and generation handlers are unchanged. No tests/build or packaged acceptance ran.
+
+## Changes view keyboard tabs — 28 October 2026
+
+The compact Changes surface now uses Radix Tabs for Diff and PR Guide, including roving arrow-key navigation and tab/panel semantics. Both panels remain mounted while one is hidden so switching views retains in-progress PR Guide state. Active styling follows the Radix `data-state` attribute. No tests/build or packaged keyboard/accessibility review ran.
