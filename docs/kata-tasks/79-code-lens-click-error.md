@@ -12,7 +12,7 @@ related: design-parity, exploration-history, t08
 Clicking a captured source file or Code Lens control either opens the exact source/range or presents a recoverable, actionable error. It must not crash the workspace or silently send source to an agent.
 
 ## Report to reproduce
-The user reported that clicking Code Lens on a file threw an error. The Fontdone snapshot is `main@5249b72371`. Exact original file path, clicked control, and error text remain unknown, so the original report is not yet confirmed.
+The user reported that clicking Code Lens on a file threw an error. The Fontdone snapshot is `main@5249b72371`. The original clicked control and file remain unknown. The user separately supplied this validator message: `Claim in section 'section:4cf1f1eb-3dda-4b65-8af4-d3218b8c09c1' does not name its declared identifier 'record_pipeline_operation_path' in the explanation.` It matches the claim-validation error handled by `src/lib/errorMessage.ts`, but the user did not confirm it came from the Code Lens click. Treat the original click exception as unconfirmed.
 
 ## Reproduced Code Lens generation failure — 24 Oct 2026
 With the user’s one-request authorization, selected `src/tt/glyf.rs:564–583` and chose **Explain this code**. The app asked “Explain what `glyf.rs:564–583` does and how it works.” Codex completed after about 124 seconds, but none of three proposed sections passed native evidence validation. The saved answer ended as `failed` with `noPublishedSections`; no explanation section was published. The UI showed only “This question could not be completed.” The app stayed open and did not crash. This reproduces an unhelpful failure result in the selected-code flow, not the original click exception. No additional provider request is authorized.
