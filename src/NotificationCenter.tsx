@@ -104,9 +104,9 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
         aria-labelledby={titleId} onOpenAutoFocus={() => { actionOpened.current = false; }}
         onCloseAutoFocus={(event) => { if (actionOpened.current) event.preventDefault(); }}>
         <header className="notification-panel-header"><strong id={titleId}>Notifications</strong><div className="notification-panel-header-actions">
-          {onMarkAllRead && <button type="button" className="notification-mark-all" onClick={onMarkAllRead}>Mark all read</button>}
-          {issue === 'full' && onDismissRead && <button type="button" className="notification-mark-all" aria-label="Dismiss read notifications to make room" title="Saved explanations and drafts stay on this Mac" onClick={onDismissRead}>Dismiss read</button>}
-          <Popover.Close asChild><button type="button" className="notification-close" aria-label="Close notifications"><X size={16} /></button></Popover.Close>
+          {onMarkAllRead && <AppButton intent="custom" className="notification-mark-all" onClick={onMarkAllRead}>Mark all read</AppButton>}
+          {issue === 'full' && onDismissRead && <AppButton intent="custom" className="notification-mark-all" aria-label="Dismiss read notifications to make room" title="Saved explanations and drafts stay on this Mac" onClick={onDismissRead}>Dismiss read</AppButton>}
+          <Popover.Close asChild><AppButton intent="custom" className="notification-close" aria-label="Close notifications"><X size={16} /></AppButton></Popover.Close>
         </div></header>
         {summary.status && <p className="notification-empty">{summary.status}</p>}
         {groups.length === 0 ? availability === 'ready' && <p className="notification-empty">You’re all caught up.</p> : <ul className="notification-list">

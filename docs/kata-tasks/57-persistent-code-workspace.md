@@ -52,3 +52,7 @@ Replaced the Connections dialog's `aria-pressed` navigation buttons with Radix T
 ## Initial connection chooser actions — 28 October 2026
 
 The one-time AI connection chooser and unsupported-connection notice now use `AppButton` for close, Open Connections, Codex, direct API, Claude and Antigravity actions. Existing visibility/availability checks and callbacks are unchanged. This is a shared-control migration only; it does not claim that manual Claude/Antigravity handoff is an integrated agent backend. No tests/build or packaged screen acceptance ran.
+
+## Notification panel header actions — 28 October 2026
+
+The notification panel's Mark all read, Dismiss read and Close controls now use the shared `AppButton` wrapper while retaining their existing classes, accessible labels, title text, callbacks and Radix popover close behavior. No notification data or storage behavior changed. No tests/build or packaged visual/accessibility acceptance ran.
