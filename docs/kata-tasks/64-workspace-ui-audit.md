@@ -70,3 +70,14 @@ The snapshot, source range, question tree, selected view and saved draft did sur
 Computer use found valid native section IDs discarded by the reader, leaving a stopped draft hidden despite successful local storage. The reader/native ID contract is fixed and a regression uses real native notices; installed restart restored the draft and its exact source citation without inference. A later manual retry kept prior cards visible and allowed nested navigation while work continued.
 
 Flow initially selected an older draft without a diagram and substituted unrelated file relationships despite a generated question diagram being available. The checkout now prefers that answer's evidenced diagram only when there is no explicit selection, preserves the user's choice as sections arrive, and does not substitute unrelated relationships for an existing explanation. The visual footer also incorrectly called a draft accepted; that claim is removed. [Exact observations and qualification boundaries](../acceptance/2026-10-17-progressive-reader-integration.md#fresh-fontdone-retry-useful-delivery-mechanics-incomplete-content). Retain installed default-selection, keyboard/focus/VoiceOver and complete UI acceptance as open gates.
+
+## Narrow activity return action — 28 October 2026
+
+Source review confirmed that at widths of 680px or less, opening Explorer, Search,
+Explorations, or Changes hides the reading workspace. The sidebar's **Back**
+action was rendered only for secondary tools, leaving these normal activity
+screens without a visible route back to the explanation. It now appears whenever
+the activity sidebar replaces the reader; activating it restores the Guide
+workspace, and leaving Changes also restores the Files activity selection. This
+is a source-level correction; packaged narrow-window navigation and the full
+screen-by-screen UI acceptance remain open.
