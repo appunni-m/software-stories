@@ -8,6 +8,7 @@ import { validStoredScenePresentation } from '../lib/scenePresentation';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import { sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode } from '../lib/visualStory';
 import { plainInlineCodeText } from '../lib/inlineCode';
+import { sharedSourceBranch } from '../lib/answerVisualLayout';
 
 /** Keep earlier stacked answers visual without mounting their players or full canvases. */
 export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefreshVisual }: {
@@ -85,11 +86,29 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   const visibleNodes = visual.nodes.filter((node) => visibleIds.has(node.nodeId));
   const shownEdges = edges.slice(0, 4);
   const nodeById = new Map(visibleNodes.map((node) => [node.nodeId, node]));
+  const sourceBranch = sharedSourceBranch(shownEdges);
+  const branchSource = sourceBranch ? nodeById.get(sourceBranch.sourceNodeId) : undefined;
 
   return <div className="dw-answer-visual-preview dw-answer-visual-preview-graph" role="group"
     aria-label={`Source-linked relationship preview: ${plainInlineCodeText(firstScene.title)}`}>
     <strong>{plainInlineCodeText(firstScene.title)}</strong>
-    {shownEdges.length > 0 ? <ul>{shownEdges.map((edge) => {
+    {sourceBranch && branchSource ? <div className="dw-answer-visual-fork" aria-label="One source with multiple outcomes">
+      <AppButton intent="custom" size="1" type="button" className="dw-answer-visual-fork-source"
+        onClick={() => openNode(visual, branchSource.nodeId)} aria-label={`Open source for ${plainInlineCodeText(branchSource.label)}`}>
+        <InlineCodeText text={branchSource.label} />
+      </AppButton>
+      <ul aria-label={`${plainInlineCodeText(branchSource.label)} outcomes`}>{sourceBranch.edges.map((edge) => {
+        const to = nodeById.get(edge.toNodeId);
+        if (!to) return null;
+        return <li key={edge.edgeId}>
+          <span className="dw-answer-visual-fork-label"><InlineCodeText text={edge.label} /></span>
+          <ArrowRight size={13} aria-hidden="true" />
+          <AppButton intent="custom" size="1" type="button" onClick={() => openNode(visual, to.nodeId)} aria-label={`Open source for ${plainInlineCodeText(to.label)}`}>
+            <InlineCodeText text={to.label} />
+          </AppButton>
+        </li>;
+      })}</ul>
+    </div> : shownEdges.length > 0 ? <ul>{shownEdges.map((edge) => {
       const from = nodeById.get(edge.fromNodeId);
       const to = nodeById.get(edge.toNodeId);
       if (!from || !to) return null;

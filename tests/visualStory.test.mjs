@@ -317,7 +317,8 @@ describe('visual story scenes', () => {
     assert.equal(sourceValuesByVisualNode(conflicting).has('error'), false);
 
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
-    assert.match(component, /const focusSourceValue = focus\?\.sourceValue \?\? \(focus \? sourceValues\.get\(focus\.nodeId\) : undefined\)/u);
+    assert.match(component, /const focusSourceValue = focusedSourceValue \?\? focus\?\.sourceValue \?\? \(focus \? sourceValues\.get\(focus\.nodeId\) : undefined\)/u,
+      'an explicitly selected source value wins before scene-authored source values');
     assert.match(component, /sourceAnchorForVisualNode\(focusAnchor, focus, focusSourceValue\)/u);
   });
 

@@ -186,3 +186,21 @@ state. No inference, capture, or saved-content changes were made. Screenshots
 were inspected live but not saved durably. Keep packaged acceptance open and
 verify first-entry rendering on multiple saved graph scenes before treating the
 symptom as resolved.
+
+## Shared-source relationship previews — 28 October 2026
+
+The live packaged Guide showed four outgoing relationships that repeated the
+same **Image input** source node in every row. The source link was clickable,
+but the repeated origin obscured the fact that the visual represented one
+input branching to several format outcomes. The compact Guide renderer now
+shows a shared source once and lays its outcomes out as labeled, source-linked
+branches. Single-edge and mixed-source relationship lists retain their prior
+layout; narrow Guide panes stack the branch source above its outcomes.
+
+Focused visual and reflow checks pass (63/63), `npm run build` passes, and
+`npm run bundle:macos` produced the app and DMG with verified metadata and DMG
+checksum. The packaged binary SHA-256 is
+`443fbe48ae1c2eaab2f5c2a4c78951b76079d7ab58c45c93d012167a79f43126`. The
+existing app process stayed open, so this change has not yet been rendered in
+the rebuilt native app. The live screenshot was inspected but not retained as
+a durable file; keep `13yp` and `x21h` open.
