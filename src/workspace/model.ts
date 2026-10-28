@@ -140,6 +140,17 @@ export function historyEntry(
   return { text: text[turn.status], action: 'Open question' };
 }
 
+export function historySearchResultSummary(questionGroupCount: number, savedExplanationCount: number): string | null {
+  const matches: string[] = [];
+  if (questionGroupCount > 0) {
+    matches.push(`${questionGroupCount} matching question${questionGroupCount === 1 ? '' : 's'}`);
+  }
+  if (savedExplanationCount > 0) {
+    matches.push(`${savedExplanationCount} saved explanation${savedExplanationCount === 1 ? '' : 's'}`);
+  }
+  return matches.length > 0 ? matches.join(' · ') : null;
+}
+
 /** Keep queued questions visibly distinct from the one active model turn. */
 export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'guide' | 'publishedSections'>): string | null {
   if (turn.status === 'queued') return 'Waiting for the current question to finish…';

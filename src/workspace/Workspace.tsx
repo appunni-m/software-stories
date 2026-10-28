@@ -23,7 +23,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, shouldRestoreFocusedAnswerAnchor, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, historySearchResultSummary, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, shouldRestoreFocusedAnswerAnchor, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, resolveWorkspaceConversationConflict, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, useWorkspaceConversationConflict, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import { codexSelectionIsSupported } from '../lib/codexConnection';
@@ -269,6 +269,7 @@ export function DeveloperWorkspace(props:Props) {
     : [];
   const historyTurnMatchCount=historySections.reduce((count,section)=>count+section.turns.length,0);
   const historyQuestionGroupCount=historySections.reduce((count,section)=>count+section.groups.length,0);
+  const historyMatchSummary=historySearchTerm?historySearchResultSummary(historyQuestionGroupCount,matchingSavedExplanations.length):null;
   const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, availableRevisionIds);
   const branchesByTurn = useMemo(()=>{
     const grouped=new Map<string,Exploration[]>();
@@ -991,7 +992,7 @@ export function DeveloperWorkspace(props:Props) {
                       {historySearch&&<TextField.Slot side="right"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label="Clear history search" onClick={()=>setHistorySearch('')}><X size={13}/></IconButton></TextField.Slot>}
                     </TextField.Root>
                   </div>
-                  {historySearchTerm&&<p className="dw-history-match-count" role="status">{historyQuestionGroupCount} question group{historyQuestionGroupCount===1?'':'s'} · {matchingSavedExplanations.length} saved explanation{matchingSavedExplanations.length===1?'':'s'}</p>}
+                  {historyMatchSummary&&<p className="dw-history-match-count" role="status">{historyMatchSummary}</p>}
                   {matchingSavedExplanations.length>0&&<div className="dw-library dw-history-matches" aria-label="Matching saved explanations">
                     <strong>Saved explanations</strong>
                     {matchingSavedExplanations.map((revision)=><button key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></button>)}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, explorationSummaryCounts, focusAnswerSection, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, explorationSummaryCounts, focusAnswerSection, historyEntry, historySearchResultSummary, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 
 test('exploration summaries report current questions separately from child branches',()=>{
@@ -27,6 +27,12 @@ test('history never calls an empty or unavailable outcome a saved explanation',(
     if(status==='stopped'||status==='interrupted')assert.match(entry.text,/before an explanation was saved/);
   }
   assert.match(historyEntry({...turn('one'),status:'working'},available).text,/Working/);
+});
+test('history search counts only result types that actually matched',()=>{
+  assert.equal(historySearchResultSummary(2,0),'2 matching questions');
+  assert.equal(historySearchResultSummary(1,1),'1 matching question · 1 saved explanation');
+  assert.equal(historySearchResultSummary(0,2),'2 saved explanations');
+  assert.equal(historySearchResultSummary(0,0),null);
 });
 test('history preserves partial results only when an exact saved revision is available',()=>{
   const available=new Set(['revision:existing']);

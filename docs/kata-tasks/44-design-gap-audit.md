@@ -304,6 +304,23 @@ account identifier in the header. Base/head editing, selecting another
 commit, empty/error states, and the rest of the screen matrix were not checked.
 Keep `x21h` and `13yp` open.
 
+### History search count clarity — 28 October 2026
+
+In the packaged Fontdone workspace, searching `Outline::is_empty` showed
+“2 question groups · 0 saved explanations” above two question results whose
+cards each offered **Open explanation**. The count mixed question matches with
+the separate saved-answer library and made the visible results harder to
+interpret. `historySearchResultSummary` now labels only nonzero categories and
+uses “matching questions” for grouped question results.
+
+The focused four-case summary regression passes, as does `npm run build`. A
+broader run of `tests/workspace.test.mjs` still fails unrelated older
+expectations; for example, its progress-copy assertion expects “Building your
+explanation…” while the current progressive reader says “Your first section is
+taking shape…”. The summary change is source/build qualified only and is not
+installed in the native app. Keep `x21h` and `13yp` open for packaged review
+and the remaining screen matrix.
+
 ### Long changed-path source correction — 28 October 2026
 
 The changed-file heading now keeps paths on one line with an ellipsis in a
