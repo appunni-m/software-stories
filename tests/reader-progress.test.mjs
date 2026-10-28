@@ -61,6 +61,7 @@ test('focused graph progress keeps its current layout and exact section position
 
 test('Flow viewport restoration accepts only the current layout version',()=>{
   assert.deepEqual(cleanReaderProgress({diagrams:[diagram]}).diagrams,[diagram]);
+  assert.deepEqual(cleanReaderProgress({diagrams:[{...diagram,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION-1}]}).diagrams,[]);
   assert.deepEqual(cleanReaderProgress({diagrams:[{...diagram,layoutVersion:1}]}).diagrams,[]);
   assert.deepEqual(cleanReaderProgress({diagrams:[(({layoutVersion,...old})=>old)(diagram)]}).diagrams,[]);
 });

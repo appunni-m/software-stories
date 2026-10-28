@@ -147,3 +147,34 @@ test('dense graph edge labels move into stable lanes instead of stacking on cros
     }
   }
 });
+
+test('branch labels stay out of source and target node bounds', () => {
+  const branchNodes = ['input', 'gray', 'color', 'luma', 'other'].map((nodeId) => ({nodeId}));
+  const branchEdges = [
+    {edgeId: 'gray', fromNodeId: 'input', toNodeId: 'gray', label: 'gray / gray-alpha match'},
+    {edgeId: 'color', fromNodeId: 'input', toNodeId: 'color', label: 'RGB / RGBA match'},
+    {edgeId: 'luma', fromNodeId: 'input', toNodeId: 'luma', label: '16-bit luma match'},
+    {edgeId: 'other', fromNodeId: 'input', toNodeId: 'other', label: 'no dedicated arm'},
+  ];
+  const positions = new Map([
+    ['input', {x: 0, y: 0}],
+    ['gray', {x: 340, y: -130}],
+    ['color', {x: 340, y: 130}],
+    ['luma', {x: 340, y: 390}],
+    ['other', {x: 340, y: 650}],
+  ]);
+
+  const labels = layoutFlowEdgeLabels(branchNodes, branchEdges, positions);
+  assert.equal(labels.size, branchEdges.length);
+  for (const edge of branchEdges) {
+    const point = labels.get(edge.edgeId);
+    const width = Math.min(190, Math.max(64, edge.label.length * 6.4 + 20));
+    const height = Math.ceil(Math.max(1, edge.label.length * 6.4) / 176) * 15 + 8;
+    for (const node of branchNodes) {
+      const nodePoint = positions.get(node.nodeId);
+      const overlaps = Math.abs(point.x - (nodePoint.x + 125)) < (width + 250) / 2 + 8 &&
+        Math.abs(point.y - (nodePoint.y + 60)) < (height + 120) / 2 + 8;
+      assert.equal(overlaps, false, `edge label ${edge.label} overlaps node ${node.nodeId}`);
+    }
+  }
+});

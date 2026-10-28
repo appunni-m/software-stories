@@ -204,3 +204,22 @@ checksum. The packaged binary SHA-256 is
 existing app process stayed open, so this change has not yet been rendered in
 the rebuilt native app. The live screenshot was inspected but not retained as
 a durable file; keep `13yp` and `x21h` open.
+
+## Flow edge labels colliding with nodes — 28 October 2026
+
+A live Flow view showed relationship labels crossing node cards in a branching
+diagram. Edge-label placement now checks candidate positions against other
+labels and the diagram's node bounds, trying additional lanes and choosing the
+candidate with the fewest node overlaps if the bounded search cannot find a
+clear position. A focused branching-layout assertion covers source and target
+card clearance. Flow layout, reader progress, Flow presentation, and native
+conversation tests pass (70/70); `npm run build` and the macOS app/DMG bundle
+complete successfully. The packaged executable SHA-256 is
+`477c707ce17dcf5adc9e1ff13b6139fbe5f4bc13544b06fa7bf326c1b85b20ea`.
+
+Native visual verification remains pending: computer use reopened the running
+installed app at `/Users/lazytrot/Applications/Code Atlas.app` (binary SHA-256
+`adec1e64e5d1783b5b531256af0c3005743af472e30c167fd4313cde8597af83`) instead
+of the rebuilt bundle. The rebuilt layout has not yet been visually inspected
+in the packaged app. No repository snapshot, saved explanation, or user source
+was changed. Keep `13yp` and `x21h` open.

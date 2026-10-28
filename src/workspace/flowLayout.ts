@@ -4,6 +4,12 @@ export interface FlowPoint { x: number; y: number }
 
 interface LabeledFlowEdge extends Pick<LinkedVisualEdge, 'edgeId' | 'fromNodeId' | 'toNodeId' | 'label'> {}
 
+const FLOW_NODE_WIDTH = 250;
+// Node labels can wrap to several lines. Reserve their maximum expected height
+// when placing edge labels so a diagram remains readable before React Flow has
+// measured each DOM node.
+const FLOW_NODE_HEIGHT = 120;
+
 function rankAcyclicProjection(
   nodes: Pick<LinkedVisualNode, 'nodeId'>[],
   edges: Pick<LinkedVisualEdge, 'fromNodeId' | 'toNodeId'>[],
@@ -134,6 +140,14 @@ export function layoutFlowEdgeLabels(
 ): Map<string, FlowPoint> {
   const nodeOrder = new Map(nodes.map((node, index) => [node.nodeId, index]));
   const placed: { point: FlowPoint; width: number; height: number }[] = [];
+  const nodeRects = nodes.flatMap((node) => {
+    const point = positions.get(node.nodeId);
+    return point ? [{
+      center: { x: point.x + FLOW_NODE_WIDTH / 2, y: point.y + FLOW_NODE_HEIGHT / 2 },
+      width: FLOW_NODE_WIDTH,
+      height: FLOW_NODE_HEIGHT,
+    }] : [];
+  });
   const labels = new Map<string, FlowPoint>();
 
   for (const edge of edges) {
@@ -143,8 +157,8 @@ export function layoutFlowEdgeLabels(
 
     // Flow nodes are 250px wide; their visual center is close enough for
     // placing a detached edge label, while React Flow still routes the edge.
-    const start = { x: from.x + 125, y: from.y + 60 };
-    const end = { x: to.x + 125, y: to.y + 60 };
+    const start = { x: from.x + FLOW_NODE_WIDTH / 2, y: from.y + FLOW_NODE_HEIGHT / 2 };
+    const end = { x: to.x + FLOW_NODE_WIDTH / 2, y: to.y + FLOW_NODE_HEIGHT / 2 };
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const length = Math.hypot(dx, dy);
@@ -155,10 +169,11 @@ export function layoutFlowEdgeLabels(
     const height = Math.ceil(Math.max(1, edge.label.length * 6.4) / 176) * 15 + 8;
     const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     let chosen = midpoint;
+    let leastOverlap = Number.POSITIVE_INFINITY;
 
     // Try alternating sides and wider lanes until this label clears the ones
     // already placed. The bounded search keeps malformed diagrams predictable.
-    for (let lane = 0; lane < 12; lane += 1) {
+    for (let lane = 0; lane < 24; lane += 1) {
       const magnitude = baseOffset + Math.floor((lane + 1) / 2) * 26;
       const side = lane === 0 ? 1 : lane % 2 === 1 ? -1 : 1;
       const candidate = {
@@ -169,7 +184,15 @@ export function layoutFlowEdgeLabels(
         Math.abs(candidate.x - other.point.x) < (width + other.width) / 2 + 10 &&
         Math.abs(candidate.y - other.point.y) < (height + other.height) / 2 + 8,
       );
-      if (!overlaps) {
+      const intersectingNodes = nodeRects.reduce((count, node) => count + Number(
+        Math.abs(candidate.x - node.center.x) < (width + node.width) / 2 + 8 &&
+        Math.abs(candidate.y - node.center.y) < (height + node.height) / 2 + 8,
+      ), 0);
+      if (intersectingNodes < leastOverlap) {
+        chosen = candidate;
+        leastOverlap = intersectingNodes;
+      }
+      if (!overlaps && intersectingNodes === 0) {
         chosen = candidate;
         break;
       }

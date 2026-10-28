@@ -2,7 +2,7 @@
 export interface SectionIdentity { revisionId:string; sectionId:string; sectionRevisionId:string }
 export interface FlowViewport { x:number; y:number; zoom:number }
 export const FOCUSED_STORY_LAYOUT_VERSION = 4 as const;
-export const FLOW_DIAGRAM_LAYOUT_VERSION = 4 as const;
+export const FLOW_DIAGRAM_LAYOUT_VERSION = 5 as const;
 export interface StoryProgress extends SectionIdentity {
   sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport;
   focusedNodeId?:string; focusedEdgeId?:string; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
