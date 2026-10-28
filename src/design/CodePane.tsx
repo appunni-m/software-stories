@@ -178,6 +178,18 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
+function sourceEditorTheme(theme: 'dark' | 'light'): Extension {
+  return EditorView.theme({
+    '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' },
+    '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' },
+    '.cm-content': { padding: '16px 0' },
+    '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' },
+    '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' },
+    '&.cm-focused': { outline: 'none' },
+  }, { dark: theme === 'dark' });
+}
+
 export function CodePane({ path, contents, sha256, theme, reveal, canExplain = true, onExplain, onAttach, onClose }: {
   path: string; contents: string; sha256?: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
   canExplain?: boolean;
@@ -185,17 +197,20 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
 }) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView | null>(null);
+  const editorTheme = useRef<Compartment | null>(null);
+  const currentTheme = useRef(theme); currentTheme.current = theme;
   const [selection, setSelection] = useState<CodeContext | null>(null);
   const callback = useRef(onExplain); callback.current = onExplain;
   const canExplainNow = useRef(canExplain); canExplainNow.current = canExplain;
   useEffect(() => {
     if (!host.current) return;
     const language = new Compartment();
+    const appearance = new Compartment();
+    editorTheme.current = appearance;
     const view = new EditorView({ parent: host.current, state: EditorState.create({
       doc: contents, extensions: [
         EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), drawSelection(), highlightActiveLine(),
-        language.of([]), syntaxHighlighting(colors),
-        EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
+        language.of([]), appearance.of(sourceEditorTheme(currentTheme.current)), syntaxHighlighting(colors),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}`, 'aria-readonly': 'true' }),
         keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (!canExplainNow.current || r.empty) return false; callback.current(codeSelectionContext(path, sha256, v.state.doc.lineAt(r.from).number, v.state.doc.lineAt(Math.max(r.from,r.to-1)).number)); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
@@ -216,8 +231,17 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
         // Source remains readable as plain text if an optional parser fails to load.
       });
     }
-    return () => { editor.current = null; view.destroy(); };
-  }, [path, contents, sha256, theme]);
+    return () => {
+      if (editor.current === view) editor.current = null;
+      if (editorTheme.current === appearance) editorTheme.current = null;
+      view.destroy();
+    };
+  }, [path, contents, sha256]);
+  useEffect(() => {
+    const view = editor.current;
+    const appearance = editorTheme.current;
+    if (view && appearance) view.dispatch({ effects: appearance.reconfigure(sourceEditorTheme(theme)) });
+  }, [theme]);
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path) return;
