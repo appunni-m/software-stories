@@ -68,3 +68,7 @@ The stale-draft comparison's Rebase action now uses the shared secondary intent.
 ## Claude generation review actions — 28 October 2026
 
 Claude generation's Generate, Cancel, Save draft, citation navigation and Review another request actions now use shared primary, secondary and quiet intents. Existing disabled conditions, generation/recovery callbacks, labels, citations and saved-draft lifecycle are unchanged. This is shared UI control work only; it adds no Claude runtime capability. No tests/build or packaged acceptance ran.
+
+## Claude request preparation actions — 28 October 2026
+
+Claude's fixed file-scope Remove action, exact-request preview/refresh action, and request-preview discard action now use shared quiet/secondary intents. File selection limits, request preview fingerprinting, consent boundaries and callbacks are unchanged. No tests/build or packaged acceptance ran.

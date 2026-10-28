@@ -9,6 +9,7 @@ import {
   matchesClaudeOperationReview, prepareClaudeOperationReview, type ClaudeOperationReviewMode,
 } from './lib/claudeReview';
 import { ClaudeGenerationPanel, type ClaudeResultCallbacks } from './ClaudeGenerationPanel';
+import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
 
 type Selection = Pick<ClaudeGenerationSettings, 'modelId' | 'effort' | 'maxTurns'>;
@@ -302,7 +303,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
           <summary>{sectionUpdate ? 'Fixed section-repair source' : 'Selected captured source'} · {paths.length} files · {selectedBytes.toLocaleString()}/250,000 current source bytes</summary>
           {sectionUpdate && <p>Only the selected section will be requested. Its declared file scope is fixed for preservation checks. Previous source and section text are context only; current source is citable, and the native byte limit counts both snapshots.</p>}
           <ul className="provider-section-path-list">{paths.map((path) => <li key={path}><code>{path}</code>{path === targetPath ? ' · target' : ''}
-            {!sectionUpdate && !plannedChapter && path !== targetPath && <button className="text-button" disabled={locked} onClick={() => changePath(path, false)}>Remove</button>}</li>)}</ul>
+            {!sectionUpdate && !plannedChapter && path !== targetPath && <AppButton intent="quiet" disabled={locked} onClick={() => changePath(path, false)}>Remove</AppButton>}</li>)}</ul>
           <label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} disabled={locked} /></label>
           <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
             <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || !!plannedChapter || file.path === targetPath
@@ -335,7 +336,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
         {scope.kind === 'pr-change' && <p>Original hunk {scope.target.hunkIndex + 1} only.</p>}
         <p>Preview preparation rereads existing local Git objects and rejects changed refs, unavailable hunks or excluded evidence. It starts no agent. Return to Changes to alter this selection.</p>
       </section>}
-      <button className="secondary-button" disabled={locked || !modelReady || !sourceReady || !recoveryReady} onClick={() => { void prepare(); }}>{busy ? 'Preparing local preview…' : review ? 'Refresh request preview' : 'Preview exact request'}</button>
+      <AppButton intent="secondary" disabled={locked || !modelReady || !sourceReady || !recoveryReady} onClick={() => { void prepare(); }}>{busy ? 'Preparing local preview…' : review ? 'Refresh request preview' : 'Preview exact request'}</AppButton>
       {review && <>
         <div ref={summary} className="provider-request-summary" tabIndex={-1} role="group" aria-label="Exact local Claude request">
           <div><span>Operation</span><strong>{claudeOperationLabel(scope)}</strong></div>
@@ -349,7 +350,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
         <details className="provider-index-preview"><summary>Exact declarations and relationships</summary><pre>{JSON.stringify({ symbols: review.selectedSymbols, relationships: review.selectedRelationships, truncated: review.indexEvidenceTruncated }, null, 2)}</pre></details>
         <details className="provider-prompt-preview"><summary>Exact prompt, settings and output schema</summary><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></details>
         <div className="provider-fingerprint"><span>Local review identity</span><code>{review.fingerprint}</code><small>Changing source, settings or connection discards this preview. This is not consent to send source.</small></div>
-        <button className="text-button" disabled={busy || generationHeld || setupBusy} onClick={releaseReview}>Discard request preview</button>
+        <AppButton intent="quiet" disabled={busy || generationHeld || setupBusy} onClick={releaseReview}>Discard request preview</AppButton>
         <ClaudeGenerationPanel key={review.reviewId} native={native} mode={scope} review={review}
           available={connection?.generation.available === true && recoveryReady && !setupBusy}
           unavailableMessage={setupBusy ? 'Finish choosing the installation file before starting a request.'
