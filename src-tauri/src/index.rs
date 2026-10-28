@@ -2793,15 +2793,48 @@ fn resolve_python_relative_import(
             format!("{package_path}/{module_path}/__init__.py"),
         ]
     };
-    let found = candidates
-        .into_iter()
-        .filter(|candidate| captured_paths.contains(candidate))
-        .collect::<BTreeSet<_>>();
+    let mut found = BTreeSet::new();
+    let mut namespace_package_path = false;
+    for candidate in candidates {
+        if !captured_paths.contains(&candidate) {
+            continue;
+        }
+        if python_target_has_regular_package_context(&package_path, &candidate, captured_paths) {
+            found.insert(candidate);
+        } else {
+            namespace_package_path = true;
+        }
+    }
     match found.len() {
         1 => (found.into_iter().next(), String::new()),
+        0 if namespace_package_path => (
+            None,
+            "python_namespace_package_resolution_not_supported".to_owned(),
+        ),
         0 => (None, "relative_module_not_captured_in_snapshot".to_owned()),
         _ => (None, "relative_module_resolution_is_ambiguous".to_owned()),
     }
+}
+
+fn python_target_has_regular_package_context(
+    package_path: &str,
+    target_path: &str,
+    captured_paths: &BTreeSet<String>,
+) -> bool {
+    let prefix = format!("{package_path}/");
+    let Some(relative_target) = target_path.strip_prefix(&prefix) else {
+        return false;
+    };
+    let components = relative_target.split('/').collect::<Vec<_>>();
+    let mut directory = package_path.to_owned();
+    for component in &components[..components.len().saturating_sub(1)] {
+        directory.push('/');
+        directory.push_str(component);
+        if !captured_paths.contains(&format!("{directory}/__init__.py")) {
+            return false;
+        }
+    }
+    true
 }
 
 fn resolve_calls(
@@ -3122,6 +3155,30 @@ mod tests {
         assert_eq!(
             resolve_python_relative_import("pkg/sub/consumer.py", ".", &captured_paths),
             (Some("pkg/sub/__init__.py".to_owned()), String::new())
+        );
+        captured_paths.insert("pkg/sub/namespace/feature.py".to_owned());
+        assert_eq!(
+            resolve_python_relative_import(
+                "pkg/sub/consumer.py",
+                ".namespace.feature",
+                &captured_paths
+            ),
+            (
+                None,
+                "python_namespace_package_resolution_not_supported".to_owned()
+            )
+        );
+        captured_paths.insert("pkg/sub/namespace/__init__.py".to_owned());
+        assert_eq!(
+            resolve_python_relative_import(
+                "pkg/sub/consumer.py",
+                ".namespace.feature",
+                &captured_paths
+            ),
+            (
+                Some("pkg/sub/namespace/feature.py".to_owned()),
+                String::new()
+            )
         );
 
         captured_paths.insert("pkg/sub/helpers/__init__.py".to_owned());
