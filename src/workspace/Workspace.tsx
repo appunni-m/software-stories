@@ -85,6 +85,17 @@ function matchesHistorySearch(query: string, values: Array<string | null | undef
   return !query || values.some((value) => value?.toLocaleLowerCase().includes(query));
 }
 
+function groupHistoryRetries(turns: readonly Turn[]): { key: string; turns: Turn[] }[] {
+  const groups = new Map<string, { key: string; turns: Turn[] }>();
+  for (const turn of turns) {
+    const key = turn.question.trim().replace(/\s+/g, ' ').toLocaleLowerCase() || turn.id;
+    const group = groups.get(key);
+    if (group) group.turns.push(turn);
+    else groups.set(key, { key, turns: [turn] });
+  }
+  return [...groups.values()];
+}
+
 function SavedWorkspace(props:Props){
   const {projectId,snapshotId}=props.manifest.summary;
   const availability=useConversationAvailability(projectId,snapshotId);
@@ -225,18 +236,19 @@ export function DeveloperWorkspace(props:Props) {
   const visibleTurns = visibleConversationTurns(state, current, availableRevisionIds, chaptersLoading);
   const historySearchTerm=historySearch.trim().toLocaleLowerCase();
   const historyExplorations=historySearchTerm?state.explorations:path;
-  const historySections=historyExplorations.map((exploration)=>({
-    exploration,
-    turns:exploration.turns.filter((turn)=>{
+  const historySections=historyExplorations.map((exploration)=>{
+    const turns=exploration.turns.filter((turn)=>{
       const entry=historyEntry(turn,availableRevisionIds,chaptersLoading);
       return matchesHistorySearch(historySearchTerm,[turn.question,questionSummaryText(turn.question),entry.text]);
-    }),
-  })).filter(({turns})=>!historySearchTerm||turns.length>0);
+    });
+    return {exploration,turns,groups:groupHistoryRetries(turns)};
+  }).filter(({turns})=>!historySearchTerm||turns.length>0);
   const matchingSavedExplanations=historySearchTerm
     ? chapters.filter((revision)=>matchesHistorySearch(historySearchTerm,[revision.title,revision.lifecycle,...revision.sections.map((section)=>section.title)]))
       .sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs)
     : [];
   const historyTurnMatchCount=historySections.reduce((count,section)=>count+section.turns.length,0);
+  const historyQuestionGroupCount=historySections.reduce((count,section)=>count+section.groups.length,0);
   const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, availableRevisionIds);
   const branchesByTurn = useMemo(()=>{
     const grouped=new Map<string,Exploration[]>();
@@ -678,6 +690,16 @@ export function DeveloperWorkspace(props:Props) {
   const graph=useMemo(()=>index?projectProvenRelationshipGraph(index,manifest,new Set(rows.map((r)=>r.path))):null,[index,manifest,rows]);
   const featuredTurn=visibleTurns.find((turn)=>turn.id===featuredTurnId);
   const historyTurnId=current.focusedTurnId??featuredTurnId;
+  function renderHistoryTurn(exploration:Exploration,turn:Turn){
+    const entry=historyEntry(turn,availableRevisionIds,chaptersLoading);
+    const isCurrent=exploration.id===current.id&&turn.id===historyTurnId;
+    return <article key={turn.id} className={isCurrent?'is-current':''}>
+      <details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details>
+      <p><InlineCodeText text={entry.text}/></p>
+      <button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>
+      {turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}
+    </article>;
+  }
   function openDestination(destination:HotspotDestination) {
     if(destination.kind==='atlasFile' && rows.some((r)=>r.path===destination.path)) openFile({path:destination.path});
     else if(destination.kind==='atlasSymbol') {
@@ -903,19 +925,26 @@ export function DeveloperWorkspace(props:Props) {
                     <TextField.Slot><Search size={13}/></TextField.Slot>
                     {historySearch&&<TextField.Slot side="right"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label="Clear history search" onClick={()=>setHistorySearch('')}><X size={13}/></IconButton></TextField.Slot>}
                   </TextField.Root>
-                  {historySearchTerm&&<p className="dw-history-match-count" role="status">{historyTurnMatchCount} question{historyTurnMatchCount===1?'':'s'} · {matchingSavedExplanations.length} saved explanation{matchingSavedExplanations.length===1?'':'s'}</p>}
+                  {historySearchTerm&&<p className="dw-history-match-count" role="status">{historyQuestionGroupCount} question group{historyQuestionGroupCount===1?'':'s'} · {matchingSavedExplanations.length} saved explanation{matchingSavedExplanations.length===1?'':'s'}</p>}
                   {matchingSavedExplanations.length>0&&<div className="dw-library dw-history-matches" aria-label="Matching saved explanations">
                     <strong>Saved explanations</strong>
                     {matchingSavedExplanations.map((revision)=><button key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></button>)}
                   </div>}
-                  {historySections.map(({exploration,turns})=><section key={exploration.id}>
+                  {historySections.map(({exploration,groups})=><section key={exploration.id}>
                     <button className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{exploration.id==='root'?projectName:<InlineCodeText text={exploration.title}/>}<small>Level {ancestors(state,exploration.id).length}</small></button>
-                    {turns.map((turn)=>{const entry=historyEntry(turn,availableRevisionIds,chaptersLoading);const isCurrent=exploration.id===current.id&&turn.id===historyTurnId;return <article key={turn.id} className={isCurrent?'is-current':''}>
-                      <details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details>
-                      <p><InlineCodeText text={entry.text}/></p>
-                      <button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>
-                      {turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}
-                    </article>;})}
+                    {groups.map((group)=>{
+                      const currentTurn=exploration.id===current.id?group.turns.find((turn)=>turn.id===historyTurnId):undefined;
+                      const latestTurn=group.turns.at(-1)!;
+                      const visibleTurn=currentTurn??latestTurn;
+                      const entry=historyEntry(visibleTurn,availableRevisionIds,chaptersLoading);
+                      if(group.turns.length===1)return renderHistoryTurn(exploration,visibleTurn);
+                      return <div key={group.key} className={`dw-history-retry-group${currentTurn?' is-current':''}`}>
+                        <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong><span>{group.turns.length}{historySearchTerm?' matching':''} attempts</span></div>
+                        <p><InlineCodeText text={entry.text}/></p>
+                        <button className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest attempt'}</small></button>
+                        <details className="dw-history-retries"><summary>Show all attempts</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
+                      </div>;
+                    })}
                   </section>)}
                   {historySearchTerm&&!historyTurnMatchCount&&!matchingSavedExplanations.length&&<p className="dw-history-empty" role="status">No questions or saved explanations match this search.</p>}
                   {!historySearchTerm&&!path.some((exploration)=>exploration.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}

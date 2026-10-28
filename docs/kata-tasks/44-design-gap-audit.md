@@ -155,17 +155,20 @@ This is a concrete density and retrieval gap in the populated workspace. Keep ev
 
 The installed bundle at `~/Applications/Code Atlas.app` reports version `0.1.0`; its packaged metadata contains schema versions but no source revision. A second running process comes from the workspace's debug-bundle path, whose on-disk `Contents/Info.plist` is absent. The live accessibility capture did not expose a process ID or executable path, so the visible window cannot be attributed to either bundle. Treat the observed build identity as unknown; the version in the installed bundle alone is not evidence that it supplied the inspected window. No screenshot was saved.
 
-### Search large exploration history — source change, 28 October 2026
+### Search and group exploration history — source change, 28 October 2026
 
 The Chat history view now has a small search field. While a query is present it
 matches questions and outcome summaries across all explorations in the current
 snapshot, and matches saved answers by chapter or section title. Matching saved
-answers appear immediately, with a result count and a clear action. Clearing
-the query returns to the existing ancestry history and collapsed saved-answer
-library. Search is local and transient; it changes no stored questions, answers,
-receipts, or ordering.
+answers appear immediately, with a result count and a clear action. Identical
+questions after case and whitespace normalization are grouped within each
+exploration. The current or latest attempt remains directly openable; earlier
+attempts and their diagnostics are available under **Show all attempts**.
+Clearing the query returns to the ancestry history and collapsed saved-answer
+library. Search and grouping are local presentation state; they change no
+stored questions, answers, receipts, or source order.
 
 `npm run build` passes for the frontend. This source change is not installed or
-checked in the packaged app yet. Retry grouping, diagnostics density, status
-filtering, other activity views, first-run parity, themes/zoom, and
-accessibility remain open. Keep `x21h` open.
+checked in the packaged app yet. Status filtering, remaining diagnostics
+density, other activity views, first-run parity, themes/zoom, and accessibility
+remain open. Keep `x21h` open.
