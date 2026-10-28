@@ -339,3 +339,18 @@ DMG checksum verification passed. The new executable SHA-256 is
 `git diff --check` passed. No test suite, AI request, snapshot refresh, or
 saved explanation edit was performed. I did not close the existing app window;
 fresh-process visual confirmation remains pending. Keep `13yp` and `x21h` open.
+
+## Compact relationship buttons follow-up — 29 October 2026
+
+The previous compact layout still placed source and destination buttons side
+by side, with their relationship label below. This made it hard to tell which
+label connected which buttons. Compact relationship rows now read vertically:
+source button, relationship label and down arrow, then destination button.
+The horizontal three-column layout remains available when the visual card is
+at least 720 px wide. Shared-source branches also stack their outcome label,
+arrow, and destination at narrower widths.
+
+`npm run build` passed (TypeScript and Vite). No test suite, snapshot refresh,
+AI request, or saved explanation edit was performed. The app was not rebuilt or
+restarted, so the packaged visual result remains unverified; keep `13yp` and
+`x21h` open.

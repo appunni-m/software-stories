@@ -130,10 +130,11 @@
 .dw-answer-visual-preview-graph > strong {font-size:12px;font-weight:600;}
 .dw-answer-visual-preview-graph ul {display:grid;gap:var(--space-1);margin:0;padding:0;list-style:none;}
 .dw-answer-visual-preview-graph li {display:grid;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:var(--space-1) var(--space-2);}
+.dw-answer-visual-preview-graph > ul > li {grid-template-columns:minmax(0,1fr);gap:var(--space-1);}
 .dw-answer-visual-preview-graph > ul > li > button:first-child {grid-column:1;grid-row:1;}
-.dw-answer-visual-preview-graph > ul > li > .dw-answer-visual-edge {grid-column:1 / -1;grid-row:2;justify-content:flex-start;flex-direction:column;text-align:left;padding-inline:0;}
+.dw-answer-visual-preview-graph > ul > li > .dw-answer-visual-edge {grid-column:1;grid-row:2;align-items:flex-start;justify-content:flex-start;flex-direction:column;text-align:left;padding-inline:0;}
 .dw-answer-visual-preview-graph > ul > li > .dw-answer-visual-edge svg {transform:rotate(90deg);}
-.dw-answer-visual-preview-graph > ul > li > button:last-child {grid-column:2;grid-row:1;}
+.dw-answer-visual-preview-graph > ul > li > button:last-child {grid-column:1;grid-row:3;}
 .dw-answer-visual-preview-graph button {box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow-wrap:anywhere;white-space:normal;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:var(--space-1) var(--space-2);font:inherit;text-align:left;cursor:pointer;}
 .dw-answer-visual-preview-empty button {min-width:0;overflow-wrap:anywhere;white-space:normal;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:var(--space-1) var(--space-2);font:inherit;text-align:left;cursor:pointer;}
 .dw-answer-visual-preview-graph button:hover,.dw-answer-visual-preview-empty button:hover {border-color:var(--accent);}
@@ -363,6 +364,8 @@
 @container answer-visual (max-width: 620px) {
   .dw-answer-visual-fork {grid-template-columns:minmax(0,1fr);gap:var(--space-2);}
   .dw-answer-visual-fork-source {justify-self:start;max-width:100%;}
+  .dw-answer-visual-preview-graph .dw-answer-visual-fork li {grid-template-columns:minmax(0,1fr);gap:var(--space-1);}
+  .dw-answer-visual-preview-graph .dw-answer-visual-fork li > svg {transform:rotate(90deg);justify-self:start;}
 }
 @container answer-visual (max-width: 380px) {
   .dw-answer-visual-preview-graph > ul > li {grid-template-columns:minmax(0,1fr);}
