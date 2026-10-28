@@ -2,6 +2,7 @@
 .story-sticky-controls { position: sticky; top: 0; z-index: 10; background: var(--surface); }
 .story-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 42px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
 .story-scene-title { flex: 1 1 150px; min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.story-scene-progress { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .story-scene-count { color: var(--muted); font-size: 12px; }
 .story-scene-navigation { display: flex; align-items: center; gap: 2px; }
 .story-scene-navigation button { display: grid; place-items: center; width: 24px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
@@ -88,9 +89,8 @@
   .story-source-actions { grid-column: 1; grid-row: auto; justify-self: stretch; justify-content: flex-start; align-items: center; max-width: 100%; }
   .story-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 4px 8px; padding: 6px 8px; }
   .story-scene-title { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
-  .story-scene-count { grid-column: 1; grid-row: 2; }
-  .story-scene-navigation { grid-column: 2; grid-row: 2; justify-self: center; }
-  .story-map-toggle { grid-column: 3; grid-row: 2; justify-self: end; white-space: nowrap; }
+  .story-scene-progress { grid-column: 1; grid-row: 2; justify-self: start; }
+  .story-map-toggle { grid-column: 2; grid-row: 2; justify-self: end; white-space: nowrap; }
   .story-playbar { grid-template-columns: minmax(0,1fr); align-items: start; gap: 2px; padding: 4px 8px; }
   .story-playbar .is-story-audio { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "status status" "playback playback" "read edit"; row-gap: 4px; }
   .is-story-audio .walkthrough-panel-heading { justify-content: flex-start; }
@@ -103,9 +103,8 @@
 }
 html[data-app-zoom-compact="true"] .story-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 8px; padding:6px 8px; }
 html[data-app-zoom-compact="true"] .story-scene-title { grid-column:1 / -1; white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
-html[data-app-zoom-compact="true"] .story-scene-count { grid-column:1; grid-row:2; }
-html[data-app-zoom-compact="true"] .story-scene-navigation { grid-column:2; grid-row:2; justify-self:center; }
-html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:3; grid-row:2; justify-self:end; white-space:nowrap; }
+html[data-app-zoom-compact="true"] .story-scene-progress { grid-column:1; grid-row:2; justify-self:start; }
+html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:2; grid-row:2; justify-self:end; white-space:nowrap; }
 html[data-app-zoom-compact="true"] .story-playbar { grid-template-columns:minmax(0,1fr); align-items:start; gap:2px; padding:4px 8px; }
 html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"status status" "playback playback" "read edit"; row-gap:4px; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading { justify-content:flex-start; }

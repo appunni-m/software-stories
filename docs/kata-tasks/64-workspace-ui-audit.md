@@ -493,3 +493,22 @@ repository state. It does not cover empty or initial-commit repositories,
 custom ref persistence, alternate commit selection, the full diff/navigation
 matrix, or accessibility/reflow. Keep the cross-screen audit open under
 `13yp` and `x21h`.
+
+## Guide navigation button grouping — 29 October 2026
+
+The packaged `pillow-rs` Guide showed its **Previous / Section / Next section**
+controls spread across the full reader width, and **Scene 1 of 2** was separated
+from its scene arrows and dots. Both sets now stay together: section controls
+form a centered group, while the scene count sits beside its arrows and dots;
+**Full map** remains at the right edge. Narrow-pane and zoom-compact layouts use
+the same grouping.
+
+`npm run bundle:macos` passed, including frontend compilation, license and
+bundle-metadata checks, app/DMG bundling, and DMG checksum verification. The
+reopened app showed the centered section controls and the grouped scene count
+and navigation on the same `pillow-rs` `main@e843f864fc` Guide. `canvas.rs`,
+section 1 of 4, scene 1 of 2 remained selected; no question was sent and no
+saved explanation was changed. Executable SHA-256:
+`53b61abee6178df3e0a71046f9c926ec22f1d214a9ee5713df08906096dc2591`.
+DMG SHA-256:
+`b47056aa0fea67cf752f25e7803f0745c516da56cf6806df8eddf2da787caf7f`.
