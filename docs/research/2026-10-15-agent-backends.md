@@ -1,6 +1,6 @@
 # Coding-agent backends: practical implementation decision
 
-Reviewed October 15, 2026 from current official documentation and repository source. No agent runtime was launched, no login was initiated and no tests were run. These are implementation recommendations, not accepted app capabilities.
+Initially reviewed October 15, 2026; official account-route sources rechecked October 28, 2026. No agent runtime was launched, no login was initiated and no tests were run during the recheck. These are implementation recommendations, not accepted app capabilities.
 
 ## Current product gap
 
@@ -13,7 +13,7 @@ Provide two visible backend categories: **Coding agent** and **Direct API**. A c
 | Backend | Recommended integration | Account usage | Next task |
 | --- | --- | --- | --- |
 | Codex | Official app-server over Rust-managed stdio | Documented ChatGPT plan route for eligible open-source applications; no direct API key needed for that route | `z3an`: source implementation present; acceptance and expanded operations pending |
-| Claude Agent, powered by Claude Code | Official Agent SDK worker; documented headless subprocess is an alternative | Subscription usage is documented, but current third-party product-login guidance conflicts between official pages | `8gqw`: implement adapter and resolve distribution/auth eligibility |
+| Claude Agent, powered by Claude Code | Official Agent SDK worker; documented headless subprocess is an alternative | Claude-plan usage is documented for eligible tools, but developers need prior approval to offer plan login/limits in a third-party product. API-key or supported cloud credentials are a separate route. | `8gqw`: keep subscription access gated; resolve approval or an explicitly selected API/cloud route |
 | Antigravity | Official Python SDK only for an explicitly selected Gemini API-key or Gemini Enterprise / Google Cloud route. Do not embed the consumer account route through ACP or CLI | Google explicitly prohibits third-party software/services accessing Antigravity; the documented SDK auth is API-key or Cloud credentials | `m00g`: keep consumer login unavailable; SDK implementation remains gated on explicit route selection |
 
 ## Codex source implementation and current limits
@@ -38,7 +38,7 @@ The protocol exposes model/effort, approval/sandbox policies, structured output,
 
 Account-route preview restrictions include unsupported hosted connector/tool-search paths; narration is outside this integration. Keep those controls unavailable and handle quota errors without switching to paid API credentials. [Preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 
-## Claude Agent: feasible, with an unresolved account-policy conflict
+## Claude Agent: source adapter exists; subscription access requires prior approval
 
 ### Protocol and process supervision source delta
 
@@ -100,3 +100,9 @@ Codex and Claude now both restore journal-owned chapter/section/range/Git scope 
 ## Official account-route recheck — October 16, 2026
 
 The [Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), including its October 7 update, still describes subscription-limit usage for the SDK, headless CLI and third-party apps. The [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) still says products offering claude.ai login/rate limits need prior approval. These pages do not resolve this product's exact integration/distribution eligibility. Subscription use is not technically impossible; the product route remains unqualified. Resolve that conflict and record applicable evidence before publishing a native qualification profile. No runtime, login, SDK probe or model request ran during this documentation recheck.
+
+## Official account-route recheck — October 28, 2026
+
+The Help Center's current [Claude-plan SDK article](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) says SDK, `claude -p`, and third-party app usage still draw from subscription limits. Its October 7 note distinguishes API-key operation: monthly API credits cover SDK/CLI use with a key from a linked Console organization. The current [account-login guidance](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account) says third-party developers should use API-key or supported cloud authentication; Anthropic may allow certain third-party tools for paid subscribers with usage credits enabled, may charge those credits, and prohibits misrepresenting the client or routing third-party traffic against subscription limits. The [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) is explicit that, unless previously approved, developers must not offer claude.ai login or subscription limits in their products, including products built on the SDK.
+
+Together these sources establish a conditional plan-usage route, not blanket permission for Code Atlas. No product-specific approval is recorded here, so the consumer subscription route remains unavailable. API-key or supported-cloud authentication is a separate opt-in route and does not satisfy subscription-backed agent support. No credentials were collected and no runtime, login, SDK probe or model request was run during this recheck.
