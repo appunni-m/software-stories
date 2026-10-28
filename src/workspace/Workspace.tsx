@@ -982,7 +982,7 @@ export function DeveloperWorkspace(props:Props) {
                   </section>
                 )}
               </Tabs.Content>
-              <Tabs.Content value="flow">{flowRequestStatus&&<div className="dw-conversation-warning dw-flow-request-state" aria-label="Question status"><MessageSquare size={15}/><p><strong>{questionSummaryText(flowRequestStatus.question)}</strong><span role="status" aria-live="polite">{flowRequestMessage}</span></p><Button size="1" variant="soft" onClick={()=>setView('guide')}>Open in Guide</Button></div>}{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><AppSelect id="answer-flow-section" ariaLabel="Explanation" size="1" value={latestRevision?.revisionId??''} clearLabel="Choose an explanation…" options={flowRevisions.map((revision)=>({value:revision.revisionId,label:plainInlineCodeText(revision.sections[0]?.title??revision.title)}))} onValueChange={(revisionId)=>{const revision=flowRevisions.find((r)=>r.revisionId===revisionId);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}/></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
+              <Tabs.Content value="flow">{flowRequestStatus&&<div className="dw-conversation-warning dw-flow-request-state" aria-label="Question status"><MessageSquare size={15}/><p><strong>{questionSummaryText(flowRequestStatus.question)}</strong><span role="status" aria-live="polite">{flowRequestMessage}</span></p><Button size="1" variant="soft" onClick={()=>setView('guide')}>Open in Guide</Button></div>}{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><AppSelect id="answer-flow-section" ariaLabel="Explanation" size="1" value={latestRevision?.revisionId??''} clearLabel="Choose an explanation…" options={flowRevisions.map((revision)=>({value:revision.revisionId,label:plainInlineCodeText(revision.sections[0]?.title??revision.title)}))} onValueChange={(revisionId)=>{const revision=flowRevisions.find((r)=>r.revisionId===revisionId);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}/></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))} onOpenGuide={(sectionId)=>{if(selectedTurn&&sectionId)saveSection(selectedTurn.id,'guide',latestRevision.revisionId,sectionId);setView('guide');}}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}</Tabs.Content>
               <Tabs.Content value="history">
                 <div className="dw-history">
                   <div className="dw-history-search-sticky">
@@ -1263,21 +1263,52 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
     ) : <p>This saved explanation has no sections.</p>}
   </div></article>;
 }
-function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,theme,onOpen}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void}){
+function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,theme,onOpen,onOpenGuide}:{revision:ChapterRevision;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void;onOpenGuide:(sectionId:string|null)=>void}){
   const diagrams=revision.sections.map((s)=>inspectInteractiveVisual(revision,s));
   const availableDiagramCount=diagrams.filter((diagram)=>diagram.status==='available').length;
   const remembered=sectionPosition(revision.revisionId,revision.sections,saved);
-  const selected=diagrams[remembered]?.status==='available'?remembered:Math.max(0,diagrams.findIndex((d)=>d.status==='available'));
+  const firstAvailable=diagrams.findIndex((diagram)=>diagram.status==='available');
+  const selected=diagrams[remembered]?.status==='available'?remembered:firstAvailable>=0?firstAvailable:remembered;
   const result=diagrams[selected];
+  const section=revision.sections[selected]??revision.sections[0];
   const available=diagrams.some((d)=>d.status==='available');
-  if(!available)return <div className="dw-flow-empty"><Network size={23}/><h2>No evidenced diagram in this explanation</h2><p>Use the source links in Guide to inspect the implementation. A graph is shown only when it has verified evidence.</p></div>;
+  if(!available){
+    return <section className="dw-flow-empty" aria-labelledby="dw-flow-empty-title">
+      <div className="dw-flow-empty-intro">
+        <Network size={22} aria-hidden="true"/>
+        <div>
+          {section&&<span className="dw-flow-empty-kicker"><InlineCodeText text={section.title}/></span>}
+          <h2 id="dw-flow-empty-title">No verified diagram for this section</h2>
+          <p>This section has no source-validated visual. Open its cited code below, or read the narration in Guide.</p>
+        </div>
+      </div>
+      {section&&section.claims.length>0&&<details className="dw-flow-empty-evidence">
+        <summary>Show source-backed details · {section.claims.length}</summary>
+        <ol>
+          {section.claims.map((claim)=><li key={claim.claimId}>
+            <p><InlineCodeText text={claim.prose}/></p>
+            {claim.anchors.length>0?<div className="dw-flow-empty-citations">
+              {claim.anchors.map((anchor)=><button type="button" key={anchor.anchorId} aria-label={`Open cited code ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`} onClick={()=>onOpen(anchor)}>
+                <Code2 size={12} aria-hidden="true"/>
+                <span>{anchor.path}:{anchor.startLine}{anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}</span>
+              </button>)}
+            </div>:<span className="dw-flow-empty-no-citation">No source citation is attached to this claim.</span>}
+          </li>)}
+        </ol>
+      </details>}
+      <div className="dw-flow-empty-actions">
+        <Button size="2" variant="soft" onClick={()=>onOpenGuide(section?.sectionId??null)}>
+          <BookOpen size={14} aria-hidden="true"/>Read this section in Guide
+        </Button>
+      </div>
+    </section>;
+  }
   if(result?.status!=='available')return null;
   const identity={revisionId:revision.revisionId,sectionId:revision.sections[selected].sectionId,sectionRevisionId:revision.sections[selected].sectionRevisionId};
   const savedProgress=progress?.find(p=>sameSection(p,identity));
   const viewport=savedProgress?.viewport;
   const {visual,anchorsById}=result;
   const sourceValues=sourceValuesByVisualNode(visual);
-  const section=revision.sections[selected];
   if(!section)return null;
   const selectedNode=savedProgress?.focusedNodeId?visual.nodes.find((node)=>node.nodeId===savedProgress.focusedNodeId):undefined;
   const selectedAnchors=selectedNode?selectedNode.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];

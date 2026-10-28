@@ -48,20 +48,34 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /const linearSteps=linearFlowSteps\(visual\)/);
   assert.match(source, /const unlinkedNodes=unlinkedFlowNodes\(visual\)/);
   assert.match(source, /const sourceValues=sourceValuesByVisualNode\(visual\)/);
-  assert.match(source, /sourceAnchorForVisualNode\(anchor,node,node\.sourceValue\?\?sourceValues\.get\(node\.nodeId\)\)/);
-  assert.match(source, /n\.sourceAnchorId&&n\.evidenceAnchorIds\.includes\(n\.sourceAnchorId\)/);
-  assert.match(source, /onClick=\{\(\)=>openNodeSource\(n,anchor\)\}/);
+  assert.match(source, /sourceAnchorForVisualNode\(evidenceAnchor,node,node\.sourceValue\?\?sourceValues\.get\(node\.nodeId\)\)/);
+  assert.match(source, /node\.sourceAnchorId&&node\.evidenceAnchorIds\.includes\(node\.sourceAnchorId\)/);
+  assert.match(source, /onClick=\{\(\)=>selectNode\(node\.nodeId\)\}/);
+  assert.match(source, /<CodeDetail title=\{selectedNode\.label\} claims=\{selectedClaims\} anchors=\{selectedAnchors\} onOpen=\{onOpen\}/);
   assert.match(source, /onClick=\{\(\)=>onOpen\(anchor\)\}/);
   assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
-  assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{visual\.title\}`\}/);
-  assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: \$\{node\.label\}\. Open source \$\{sourceLabel\}`\}/);
-  assert.match(source, /className="dw-unlinked-flow" aria-label=\{`Source points in \$\{visual\.title\}`\}/);
-  assert.match(source, /className="dw-unlinked-flow-point" aria-label=\{`Open source for \$\{node\.label\} at \$\{sourceLabel\}`\}/);
+  assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{plainInlineCodeText\(visual\.title\)\}`\}/);
+  assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: show code detail for \$\{plainInlineCodeText\(node\.label\)\}\. Cited source \$\{sourceLabel\}`\}/);
+  assert.match(source, /className="dw-unlinked-flow" aria-label=\{`Source points in \$\{plainInlineCodeText\(visual\.title\)\}`\}/);
+  assert.match(source, /className="dw-unlinked-flow-point" aria-label=\{`Show code detail for \$\{plainInlineCodeText\(node\.label\)\} at \$\{sourceLabel\}`\}/);
   assert.match(source, /aria-label=\{`Read-only code relationship diagram: \$\{nodes\.length\} nodes`\}/);
   assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}:\$\{FLOW_DIAGRAM_LAYOUT_VERSION\}`\}/);
   assert.match(source, /function EvidenceFlowCanvas\(/);
   assert.match(source, /viewportClipsNodeBounds\(bounds,flow\.getViewport\(\),size\.width,size\.height,28\)/);
   assert.match(styles, /\.dw-linear-flow-step:focus-visible/);
+});
+
+test('Flow without a verified visual keeps the selected section, cited source and Guide path available', () => {
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  assert.match(source, /const selected=diagrams\[remembered\]\?\.status==='available'\?remembered:firstAvailable>=0\?firstAvailable:remembered/);
+  assert.match(source, /No verified diagram for this section/);
+  assert.match(source, /Show source-backed details/);
+  assert.match(source, /onClick=\{\(\)=>onOpen\(anchor\)\}/);
+  assert.match(source, /Read this section in Guide/);
+  assert.match(source, /onOpenGuide=\{\(sectionId\)=>\{if\(selectedTurn&&sectionId\)saveSection\(selectedTurn\.id,'guide',latestRevision\.revisionId,sectionId\);setView\('guide'\);\}\}/);
+  assert.match(styles, /\.dw-flow-empty-evidence/);
+  assert.match(styles, /@media \(max-width:520px\)/);
 });
 
 test('Flow stays focused on its selected diagram while saved questions live in Chat history', () => {
