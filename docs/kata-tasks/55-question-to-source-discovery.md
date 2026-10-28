@@ -140,3 +140,15 @@ ordinary workspace re-renders from discarding a prepared review and repeating
 the metadata/model-selection operation. Source-only change; no tests, build,
 provider request, or packaged race qualification ran. Multi-project recall,
 restart, consent, multi-window and packaged acceptance remain open.
+
+## Keep automatic discovery in the background — 28 October 2026
+
+Automatic discovery no longer blocks the workspace with a preparation modal.
+Its in-progress status appears in the notification center as renderer-local
+state and disappears when discovery completes or its owning view closes; it
+does not create a saved notification or dismissal record per run. Missing
+connection setup and actionable discovery errors still use their existing
+dialogs. The exact selected-source review and fresh consent remain in the
+subsequent explanation request. This is a source-only UX change; no tests,
+build, model request, or packaged keyboard/focus qualification ran. Retrieval,
+restart, multi-window, consent and packaged acceptance remain open.

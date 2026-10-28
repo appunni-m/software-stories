@@ -33,15 +33,26 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const preparing = useRef(false);
   useModalFocusTrap(dialog);
   useEffect(() => {
-    if (needsConnection) return;
+    const backgroundDiscovery = autoDiscover && !error;
+    if (needsConnection || backgroundDiscovery) return;
     const previous = document.activeElement as HTMLElement | null;
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    dialog.current?.focus();
     document.addEventListener('keydown', escape);
     return () => { document.removeEventListener('keydown', escape); if (previous?.isConnected) previous.focus(); };
-  }, [onClose, needsConnection]);
+  }, [onClose, needsConnection, autoDiscover, error]);
   useEffect(() => {
     mounted.current = true;
     let current = true;
+    const progressOccurrenceId = autoDiscover ? crypto.randomUUID() : null;
+    let progressPublished = false;
+    const resolveProgress = () => {
+      if (!progressOccurrenceId || !progressPublished) return;
+      progressPublished = false;
+      window.dispatchEvent(new CustomEvent('code-atlas:workspace-progress-resolved', { detail: {
+        projectId: scope.projectId, snapshotId: scope.snapshotId, occurrenceId: progressOccurrenceId,
+      } }));
+    };
     let timer: ReturnType<typeof setTimeout> | undefined;
     let finishWait: (() => void) | null = null;
     let pollDelayMs = 200;
@@ -81,6 +92,14 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       const connection = await ensureCodexConnection(retry > 0);
       if (!current) return;
       if (!connection.status.authenticated) { setNeedsConnection(true); return; }
+      if (progressOccurrenceId) {
+        progressPublished = true;
+        window.dispatchEvent(new CustomEvent('code-atlas:workspace-progress', { detail: {
+          title: 'Preparing your answer',
+          message: 'Finding relevant code in this snapshot. You can keep exploring; file contents are reviewed separately before sharing.',
+          projectId: scope.projectId, snapshotId: scope.snapshotId, occurrenceId: progressOccurrenceId,
+        } }));
+      }
       let indexReady = false;
       try {
         const existing = await loadSnapshotIndex(scope.projectId, scope.snapshotId);
@@ -113,9 +132,12 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       prepared.current = value.reviewId; setReview(value);
       if (autoDiscover) {
         preparing.current = false;
-        await discover(value, () => current);
+        await discover(value, () => current, resolveProgress);
       }
-    })().catch((failure) => { if (current) setError(errorMessageOr(failure, 'The code index could not be prepared.')); })
+    })().catch((failure) => {
+      resolveProgress();
+      if (current) setError(errorMessageOr(failure, 'The code index could not be prepared.'));
+    })
       .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
     return () => {
       current = false; mounted.current = false;
@@ -126,6 +148,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         finishWait = null;
         resolve?.();
       }
+      resolveProgress();
       const activeId = active.current;
       active.current = null;
       if (activeId) void cancelCodexChapterRequest(activeId).catch(() => {});
@@ -135,6 +158,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   async function discover(
     selectedReview: SourceDiscoveryReview | null = review,
     isCurrent: () => boolean = () => mounted.current,
+    onFinished?: () => void,
   ) {
     if (!selectedReview || active.current) return;
     setBusy(true); setError(null); setPhase(autoDiscover ? 'Preparing your explanation…' : 'Finding the files related to your question…');
@@ -157,12 +181,14 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     } finally {
       if (active.current === selectedReview.reviewId) active.current = null;
       if (isCurrent()) setBusy(false);
+      onFinished?.();
     }
   }
   if (needsConnection) return <CodexChapterDialog mode="settings" native={isNativeRuntime()} onClose={() => {
     if (!connectionState.status?.authenticated) { onClose(); return; }
     setNeedsConnection(false); setRetry((value) => value + 1);
   }} />;
+  if (autoDiscover && !error) return null;
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
     <div className="provider-dialog-content">

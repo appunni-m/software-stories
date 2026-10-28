@@ -261,6 +261,9 @@ function App() {
   const [previewRefreshing, setPreviewRefreshing] = useState(false);
   const [answerRestoration, setAnswerRestoration] = useState<WorkspaceAnswerRestoration | null>(null);
   const [notificationChapterHistory, setNotificationChapterHistory] = useState<{ projectId: string; snapshotId: string; revisionIds: string[] } | null>(null);
+  const [discoveryProgress, setDiscoveryProgress] = useState<Array<{
+    projectId: string; snapshotId: string; occurrenceId: string; title: string; message: string; read: boolean;
+  }>>([]);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const unavailableFileLocationsRef = useRef(new Set<string>());
@@ -283,8 +286,26 @@ function App() {
       const detail=(event as CustomEvent<{projectId:string;snapshotId:string;occurrenceId:string}>).detail;
       if(detail)noticeHistory.resolveOccurrence(detail.projectId,detail.snapshotId,detail.occurrenceId);
     };
+    const progress=(event:Event)=>{
+      const detail=(event as CustomEvent<{
+        projectId?:unknown;snapshotId?:unknown;occurrenceId?:unknown;title?:unknown;message?:unknown;
+      }>).detail;
+      if(typeof detail?.projectId!=='string'||typeof detail.snapshotId!=='string'||typeof detail.occurrenceId!=='string'
+        ||typeof detail.title!=='string'||typeof detail.message!=='string')return;
+      setDiscoveryProgress(current=>[...current.filter(item=>item.occurrenceId!==detail.occurrenceId),{
+        projectId:detail.projectId as string,snapshotId:detail.snapshotId as string,occurrenceId:detail.occurrenceId as string,
+        title:detail.title as string,message:detail.message as string,read:false,
+      }]);
+    };
+    const progressResolved=(event:Event)=>{
+      const detail=(event as CustomEvent<{projectId:string;snapshotId:string;occurrenceId:string}>).detail;
+      if(detail)setDiscoveryProgress(current=>current.filter(item=>item.projectId!==detail.projectId
+        ||item.snapshotId!==detail.snapshotId||item.occurrenceId!==detail.occurrenceId));
+    };
     window.addEventListener('code-atlas:workspace-notice',notify);window.addEventListener('code-atlas:workspace-notice-resolved',resolved);
-    return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);};
+    window.addEventListener('code-atlas:workspace-progress',progress);window.addEventListener('code-atlas:workspace-progress-resolved',progressResolved);
+    return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);
+      window.removeEventListener('code-atlas:workspace-progress',progress);window.removeEventListener('code-atlas:workspace-progress-resolved',progressResolved);};
   }, [setNotice,noticeHistory]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1535,7 +1556,7 @@ function App() {
     refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable });
   const hasUnreadNotifications = notificationsAvailability === 'ready'
     && (visibleQuestionUpdates.some((outcome) => !outcome.read) || noticeHistoryState.items.some((item) => !item.read)
-      || captureNotifications.some((item) => !item.read));
+      || captureNotifications.some((item) => !item.read) || discoveryProgress.some((item)=>!item.read));
   const markAllNotificationsRead = () => {
     const unreadQuestions = visibleQuestionUpdates.filter((outcome) => !outcome.read);
     const unreadQuestionsByScope = new Map<string, typeof unreadQuestions>();
@@ -1559,6 +1580,7 @@ function App() {
     if (captureKeys.length) {
       setReadCaptureNotificationKeys((current) => [...current.filter((key) => !captureKeys.includes(key)), ...captureKeys].slice(-50));
     }
+    setDiscoveryProgress(current=>current.map(item=>({...item,read:true})));
   };
 
   const questionOutcomesByGroupKey = new Map<string, (typeof visibleQuestionUpdates)[number][]>();
@@ -1594,6 +1616,11 @@ function App() {
   }));
 
   const workspaceNotifications: WorkspaceNotification[] = [
+    ...discoveryProgress.map((item):WorkspaceNotification=>({
+      id:`discovery:${item.occurrenceId}`,projectId:item.projectId,snapshotId:item.snapshotId,title:item.title,message:item.message,
+      tone:'info',bucket:'updates',groupBucket:'updates',groupKey:notificationGroupKey('source-discovery',item.projectId,item.snapshotId,item.occurrenceId),
+      countLabel:'tasks',read:item.read,
+    })),
     ...captureNotificationItems,
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => {
       const projectId = outcome.projectId;
