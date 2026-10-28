@@ -66,9 +66,33 @@ The planner now returns only a cited outline and persists it before any narratio
 - [x] Make every planned slide a one-section job with a native-enforced per-slide publication bound.
 - [x] Save the outline before opening generation, retry a failed outline once automatically, and preserve a later explicit outline retry.
 - [x] Retry a failed/empty slide once automatically with a fresh owner, then continue unrelated eligible topics while preserving a user-triggered continuation.
-- [ ] Expose slide-level pending, working, ready and failed states, with a maximum five-slide ready/active audio runway; verify that the outline and first validated slide appear without waiting for later jobs.
-- [ ] Add an explicit slide-only retry action. It must use a fresh run ID and leave the outline, successful slides and unrelated pending slides unchanged.
+- [x] Expose per-slide pending/working/ready/incomplete states and bound the ready/active runway to five slides in the saved native guide contract and reader.
+- [x] Add an explicit slide-only retry action with a fresh run identity; it leaves the outline, successful slides and unrelated pending units intact.
+- [ ] In the packaged app, verify the outline and first validated slide appear without waiting for later jobs, and qualify slide-only retry at a full runway boundary.
 - [ ] Verify the five-slide audio runway, slide-only retry, no-timeout continuation, Stop, permission revocation, changed Codex runtime, close/reopen and late callbacks against a real packaged app and a large captured repository.
+
+## Slide retry and runway regression — 28 October 2026
+
+The source already exposes persisted unit states in the Guide outline and limits
+retry admission to one terminally incomplete unit with an available slot in the
+five-slide runway. The reader's **Retry slide** action sends that exact unit key
+to `retry_repository_guide_unit`; the native command takes a fresh run UUID,
+leaves the outline and other units intact, and retains the original attempt.
+
+Added focused native regressions for retry admission (terminal failure, Stop,
+active owner, attempt limit, full runway and one consumed slide) and for a retry
+appending a fresh attempt without replaying the plan, opening or another unit.
+The same Guide suite exposed a stale test expecting an error when opening an
+unsupported guide in its own snapshot. The reader contract reports that saved
+record as unavailable instead; the assertion now checks the count and confirms
+that the original bytes stay unchanged. Focused result: **27 passed, 0 failed,
+1 live-account probe ignored**. The changed Rust file passes standalone
+rustfmt; workspace-wide `cargo fmt --check` still reports unrelated existing
+formatting differences in other files.
+
+This is source and deterministic state-machine evidence only. Packaged retry,
+initial/first-slide visibility, five-slide playback, large-repository content,
+audio, accessibility and restart/failure acceptance remain open.
 
 ## User-controlled guide lifetime and visible recovery — 21 October 2026
 

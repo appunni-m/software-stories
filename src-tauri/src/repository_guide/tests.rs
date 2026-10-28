@@ -163,6 +163,101 @@ fn playback_receipt_is_durable_while_a_guide_worker_owns_the_runway() {
 }
 
 #[test]
+fn one_slide_retry_requires_a_terminal_failure_and_a_free_runway_slot() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    record.status = Status::Partial;
+    let first_failure = attempt(&record, Outcome::Partial);
+    record.units[0].attempts.push(first_failure);
+
+    assert!(unit_retryable(&record, 0));
+    assert!(!unit_retryable(&record, 1), "a pending unit is not a retry");
+
+    let mut active = record.clone();
+    active.active_run_id = Some(Uuid::new_v4().to_string());
+    assert!(
+        !unit_retryable(&active, 0),
+        "a retry cannot overlap its owner"
+    );
+
+    let mut stopped = record.clone();
+    stopped.status = Status::Stopped;
+    assert!(!unit_retryable(&stopped, 0), "Stop remains final");
+
+    let mut exhausted = record.clone();
+    for _ in 1..MAX_ATTEMPTS {
+        let extra_failure = attempt(&exhausted, Outcome::Partial);
+        exhausted.units[0].attempts.push(extra_failure);
+    }
+    assert!(
+        !unit_retryable(&exhausted, 0),
+        "the attempt budget is retained"
+    );
+
+    let mut full_runway = record;
+    for _ in 0..GUIDE_SLIDE_BUFFER {
+        let completed_slide = attempt(&full_runway, Outcome::Complete);
+        full_runway.opening_continuations.push(completed_slide);
+    }
+    assert!(!unit_retryable(&full_runway, 0));
+    let consumed_revision = full_runway.opening_continuations[0]
+        .summary
+        .as_ref()
+        .unwrap()
+        .sections[0]
+        .revision_id
+        .clone();
+    full_runway.consumed_slide_revisions.push(consumed_revision);
+    assert!(
+        unit_retryable(&full_runway, 0),
+        "a consumed slide frees one slot"
+    );
+}
+
+#[test]
+fn explicit_slide_retry_appends_a_fresh_attempt_without_replaying_other_work() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    record.status = Status::Partial;
+    let question = record.plan.as_ref().unwrap().units[0].question.clone();
+    let mut failed = attempt(&record, Outcome::Partial);
+    failed.question = question.clone();
+    failed.summary.as_mut().unwrap().question = question.clone();
+    record.units[0].attempts.push(failed);
+
+    let failed_attempt = serde_json::to_value(&record.units[0].attempts[0]).unwrap();
+    let untouched_unit = serde_json::to_value(&record.units[1]).unwrap();
+    let saved_plan = serde_json::to_value(&record.plan).unwrap();
+    let saved_opening = serde_json::to_value(&record.opening).unwrap();
+    store::create(&f.storage, &record).unwrap();
+    let current = store::read(&f.storage, &record.id).unwrap();
+    let retry_run_id = Uuid::new_v4().to_string();
+
+    let retried = begin_unit(&f.storage, &current, 0, &retry_run_id, &question).unwrap();
+
+    assert_eq!(
+        retried.active_run_id.as_deref(),
+        Some(retry_run_id.as_str())
+    );
+    assert_eq!(retried.units[0].attempts.len(), 2);
+    assert_eq!(
+        serde_json::to_value(&retried.units[0].attempts[0]).unwrap(),
+        failed_attempt
+    );
+    assert_eq!(retried.units[0].attempts[1].run_id, retry_run_id);
+    assert!(retried.units[0].attempts[1].summary.is_none());
+    assert_eq!(
+        serde_json::to_value(&retried.units[1]).unwrap(),
+        untouched_unit
+    );
+    assert_eq!(serde_json::to_value(&retried.plan).unwrap(), saved_plan);
+    assert_eq!(
+        serde_json::to_value(&retried.opening).unwrap(),
+        saved_opening
+    );
+}
+
+#[test]
 fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units() {
     let f = Fixture::new();
     let mut record = fresh_record(&f);
@@ -733,16 +828,15 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     assert_eq!(reservations[0].guide_id, selected.id);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
-    assert!(
-        list_saved_guides(
-            &f.storage,
-            &unrelated.project_id,
-            &unrelated.snapshot_id,
-            &manager,
-        )
-        .is_err(),
-        "the selected old guide remains unsupported"
-    );
+    let (unsupported, unavailable_count) = list_saved_guides_with_count(
+        &f.storage,
+        &unrelated.project_id,
+        &unrelated.snapshot_id,
+        &manager,
+    )
+    .expect("an unsupported saved guide is reported as unavailable");
+    assert!(unsupported.is_empty());
+    assert_eq!(unavailable_count, 1);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 }
 
