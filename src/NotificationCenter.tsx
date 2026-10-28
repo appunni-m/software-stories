@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, CircleAlert, Info, X } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 import { groupNotifications, notificationSummary, partitionNotificationGroups, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
 import './NotificationCenter.css';
 
@@ -41,11 +42,11 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   const earlierUpdateGroups = scopedGroups.earlierSnapshots.filter((group) => group.bucket === 'updates');
   const otherAttentionGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'attention');
   const otherUpdateGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'updates');
-  const renderActions = (item: WorkspaceNotification, actions = item.actions) => actions?.length ? <div className="notification-item-actions">{actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
+  const renderActions = (item: WorkspaceNotification, actions = item.actions) => actions?.length ? <div className="notification-item-actions">{actions.map((action) => <AppButton intent="quiet" key={action.label} disabled={action.disabled} onClick={() => {
     actionOpened.current = Boolean(action.opensDialog || action.movesFocus);
     setOpen(false);
     action.run();
-  }}><InlineCodeText text={action.label}/></button>)}</div> : null;
+  }}><InlineCodeText text={action.label}/></AppButton>)}</div> : null;
   const renderAttempt = (item: WorkspaceNotification) => <li key={item.id} className={`notification-attempt tone-${item.tone ?? 'info'}`}>
     <div className="notification-item-title"><strong><InlineCodeText text={item.title}/></strong>{item.read !== undefined && <span className={`notification-read ${item.read ? 'is-read' : 'is-new'}`}>{item.read ? 'Read' : 'New'}</span>}</div>
     <p><InlineCodeText text={item.message}/></p>
@@ -91,11 +92,11 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   };
   return <Popover.Root open={open} onOpenChange={setOpen} modal={false}>
     <Popover.Trigger asChild>
-      <button ref={trigger} type="button" className="notification-trigger" data-focus-key="notifications" aria-label={summary.label} aria-busy={availability === 'loading'} title={summary.label}>
+      <AppButton ref={trigger} intent="custom" className="notification-trigger" data-focus-key="notifications" aria-label={summary.label} aria-busy={availability === 'loading'} title={summary.label}>
         <Bell size={17} />
         {summary.badge && <span className="notification-count" aria-hidden="true">{summary.badge}</span>}
         {summary.marker && <span className={`notification-status-marker status-${summary.marker}`} aria-hidden="true" />}
-      </button>
+      </AppButton>
     </Popover.Trigger>
     <span className="notification-announcement" role="status" aria-live="polite" aria-atomic="true">{summary.announcement}</span>
     <Popover.Portal container={trigger.current?.closest<HTMLElement>('.radix-themes') ?? undefined}>

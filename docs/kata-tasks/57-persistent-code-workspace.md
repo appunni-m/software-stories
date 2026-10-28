@@ -17,8 +17,14 @@ Use the current design contract in docs/design/WORKSPACE_EXPLORATION.md and the 
 The explorer stays mounted in Guide, Flow and history. Chat stays visible during independent code/content scrolling. Opening/closing a source pane does not reset explanation state. Full-width content is possible by closing source. Settings only open on demand. At 1280x800 the majority of space is real code/content; no workflow hero, phase checklist or permanent metadata column. Light/dark themes share readable tokens and a 4/8/12/16/24/32 spacing scale. Verify keyboard split resizing, 200% zoom/reflow and large explorer responsiveness. Record packaged screenshots against the same preview; relabeled navigation alone does not pass.
 
 ## Current status
-Interactive sample preview and reusable notification popover exist. Production shell migration is pending. No native layout parity is claimed.
+The production app now uses a persistent activity-bar workspace with captured Explorer source, Search, Changes and nested Explorations; Guide, Flow and chat history are views within each exploration. The interactive preview remains illustrative. Shared controls are only partly migrated, and packaged layout parity, focus/zoom behavior and the full screen matrix remain unqualified.
 
 ## 16 October workspace migration
 
 Production migration now consumes real immutable inventory/source in a shared activity-bar workspace; packaged acceptance is being recorded in the new UI audit task na54.
+
+## Shared action primitive — 28 October 2026
+
+Added `src/design/AppButton.tsx`, a forward-ref Radix Themes button wrapper with a safe `type="button"` default and shared primary, secondary, quiet and icon intents. The connection and notification header triggers use its custom style path; repository-discovery and planning actions use the primary/secondary intents, notification actions use quiet, and the planning close control and chapter-recovery reload use icon/secondary. Existing labels, handlers, discovery consent boundaries, notification focus behavior and spacing classes remain intact.
+
+The rest of the app still contains native and one-off button implementations. This source change does not establish packaged visual or accessibility parity; the broader component inventory, keyboard/split behavior, zoom/reflow and app screenshots remain open.

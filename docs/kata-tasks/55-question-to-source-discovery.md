@@ -118,3 +118,14 @@ return-to-Explorer path only. The running bundle's source revision and a
 durable screenshot were not verified; Rust/TypeScript retrieval recall,
 missing-index fallback, restart, consent, and multi-window acceptance remain
 open.
+
+## Distinguish discovery coverage causes — 28 October 2026
+
+The UI previously used the same label for two separate unreadable-source causes
+and for two separate missing-index causes. Coverage notes now distinguish
+captured non-text paths, files the local code map could not read, files left
+unmapped when indexing stopped, and files absent from the saved map. The native
+gap categories and their evidence are unchanged; this is a user-facing
+clarification, not a claim of improved retrieval coverage. No tests or build
+ran; the broader multi-repository recall, overflow, restart, consent and
+packaged acceptance remains open.

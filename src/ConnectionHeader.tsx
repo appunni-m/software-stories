@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, CircleAlert, LoaderCircle, PlugZap } from 'lucide-react';
+import { AppButton } from './design/AppButton';
 import { initializeConnection, useConnectionState } from './lib/connectionStore';
 import { codexSelectionIsSupported } from './lib/codexConnection';
 import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, type GenerationBackend, type DirectApiSelection, type DirectApiSelectionIssue } from './lib/generationPreferences';
@@ -56,8 +57,8 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
       : `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
         : `${handoffAgentName} handoff selected. Agent setup and model settings stay in that app.`;
-  return <button className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
+  return <AppButton intent="custom" className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
     aria-label={`${label}. ${details} Open Connections.`} title={`${details} Voice settings are also in Connections.`}>
     <Icon size={15} /><span className="connection-header-value">{label}</span>
-  </button>;
+  </AppButton>;
 }

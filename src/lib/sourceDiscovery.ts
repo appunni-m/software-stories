@@ -5,13 +5,13 @@ export type DiscoveryCoverageGapCategory = 'largeFiles' | 'unreadableSource' | '
 export interface DiscoveryCoverageGap { category: DiscoveryCoverageGapCategory; count: number; examples: string[]; message: string }
 export const SOURCE_DISCOVERY_COVERAGE_LABELS: Record<DiscoveryCoverageGapCategory, string> = {
   largeFiles: 'large files',
-  unreadableSource: 'unreadable source files',
+  unreadableSource: 'captured code paths with non-text contents',
   unsupportedLanguage: 'files without a local parser',
   indexLimit: 'files beyond local index limits',
   partialParse: 'partially mapped files',
-  unavailableSource: 'unreadable source files',
-  incompleteIndex: 'files missing from the local map',
-  unindexedFiles: 'files missing from the local map',
+  unavailableSource: 'files the local code map could not read',
+  incompleteIndex: 'files left unmapped when indexing stopped',
+  unindexedFiles: 'files absent from the saved code map',
 };
 export type SourceDiscoveryIndexStatus = 'complete' | 'partial' | 'cancelled' | 'missing' | 'unreadable';
 export interface SourceDiscoveryReview {

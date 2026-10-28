@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, X } from 'lucide-react';
+import { AppButton } from './design/AppButton';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, SOURCE_DISCOVERY_COVERAGE_LABELS, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -182,8 +183,8 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
       {error && autoDiscover && <p className="provider-small-note">No file contents are sent during this discovery step. Return to the code view to refine your question or search captured files yourself.</p>}
-    </div><footer className="provider-dialog-footer"><button className="secondary-button" onClick={onClose}>{active.current ? 'Cancel discovery' : autoDiscover && error ? 'Back to code' : 'Cancel'}</button>
-      {error ? <button className="primary-button" onClick={() => setRetry((value) => value + 1)}>Try again</button> : !autoDiscover && <button className="primary-button" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</button>}
+    </div><footer className="provider-dialog-footer"><AppButton intent="secondary" onClick={onClose}>{active.current ? 'Cancel discovery' : autoDiscover && error ? 'Back to code' : 'Cancel'}</AppButton>
+      {error ? <AppButton intent="primary" onClick={() => setRetry((value) => value + 1)}>Try again</AppButton> : !autoDiscover && <AppButton intent="primary" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</AppButton>}
     </footer>
   </section></div>;
 }

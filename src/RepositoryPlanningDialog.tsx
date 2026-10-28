@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { AppButton } from './design/AppButton';
 import { readGenerationBackend, repositoryPlanningBackend } from './lib/generationPreferences';
 import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
 import { sourceDiscoveryLimitNotes, type LargeFileDiscoveryHandoff, type SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -84,9 +85,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   if (needsRepositoryDiscovery && backend === 'claude-agent') {
     return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>
       <header className="provider-dialog-header"><div><h2 id="claude-discovery-title">Repository discovery isn’t available for Claude yet</h2><p>{scope.question}</p></div>
-        <button className="icon-button" onClick={onClose} aria-label="Close planning"><X size={17} /></button></header>
+        <AppButton intent="icon" onClick={onClose} aria-label="Close planning"><X size={17} /></AppButton></header>
       <div className="provider-dialog-content"><p>Your question is unchanged. Switch to Codex in Connections to have Code Atlas find the relevant files automatically.</p></div>
-      <footer className="provider-dialog-footer"><button className="secondary-button" onClick={onClose}>Close</button><button className="primary-button" onClick={openConnections}>Change connection</button></footer>
+      <footer className="provider-dialog-footer"><AppButton intent="secondary" onClick={onClose}>Close</AppButton><AppButton intent="primary" onClick={openConnections}>Change connection</AppButton></footer>
     </section></div>;
   }
   const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
@@ -111,7 +112,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
         <p>The original question and files were restored locally. A result may already be saved even if the earlier reply was lost. Close this dialog to inspect Learning plans before another request. Your recovery notice stays available.</p>
         <label className="provider-consent"><input type="checkbox" checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>
       </section>}
-      {unsupportedSavedConnection && <button className="primary-button" disabled={!native || !checkedEarlier} onClick={openConnections}>Open Connections</button>}
+      {unsupportedSavedConnection && <AppButton intent="primary" disabled={!native || !checkedEarlier} onClick={openConnections}>Open Connections</AppButton>}
       {!native && <p role="status">Coding agents run in the macOS app. This browser preview cannot start an agent or read saved native plans.</p>}
       {scope.recoveryBackend && <p>The restored request stays with its original agent. Its connection cannot be changed while recovering it.</p>}
     </div>

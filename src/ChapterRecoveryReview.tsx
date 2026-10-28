@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppButton } from './design/AppButton';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { recordedRecoveryLabel } from './lib/chapterOrigin';
@@ -85,6 +86,6 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
         onChange={(event) => { setChecked(event.target.checked); callback.current(event.target.checked); }} />
         I checked earlier results and want a fresh request review.</label>
     </>}
-    <button className="secondary-button" disabled={locked || loading} onClick={() => setReload((value) => value + 1)}>Reload local results</button>
+    <AppButton intent="secondary" disabled={locked || loading} onClick={() => setReload((value) => value + 1)}>Reload local results</AppButton>
   </section>;
 }
