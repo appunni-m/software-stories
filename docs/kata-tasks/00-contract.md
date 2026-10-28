@@ -7,7 +7,7 @@ labels: container, product, contract
 blocked_by:
 ---
 
-> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The new shell is a design preview; existing native behavior and prior observations below remain historical/implementation evidence, not proof of the new design.
+> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. This shell exists in source and in the packaged app inspected on 29 October; that observation proves only the displayed build and state. Task `13yp` tracks remaining design parity and native acceptance, including source changes made after that build.
 
 ## Product outcome
 Code Atlas is a Mac-first desktop app that helps a developer understand an unfamiliar local repository quickly and accurately. Its default guide explains every eligible file individually, links every code-behavior claim to exact captured source, and lets readers inspect and navigate at their own pace.
@@ -37,10 +37,14 @@ All implementation issues inherit the screen states, source/evidence rules, fail
 ## Done evidence
 The product blueprint, technical boundaries, approved design proposals, milestone breakdown, and issue links are versioned here and tracked in Kata. The former Atlas / Code Lens / Walkthrough concept images are historical and are not the current primary-navigation contract. Task `13yp` records the remaining source-to-package parity work; it is not closed by these documents or by source-only edits.
 
-## Pending work — 2026-10-15
+## Pending work recorded 15 October 2026
 
 Pending: repo-level quality, local Pocket narration, section/revision/export acceptance, native reliability/release, local PR acceptance and verified agent adapters. See detailed child tasks; no feature milestone is closed by this static review.
 
-## Core delivery gaps — October 15
+## Core delivery gaps recorded 15 October 2026 — historical snapshot
 
-The product review added generated visuals (`j53m`), repository narratives (`6qk9`) and qualified language support (`7xx7`). Chapter generation currently emits no visual payload, and existing file/overview generation is not evidence of a complete mixed-language narrative. Agent runtime delivery is split into Codex (`z3an`), Claude Agent (`8gqw`) and Antigravity (`m00g`); none is implemented in the app yet. Follow [the current pending work index](../PENDING_WORK.md) and [agent evaluation](../research/2026-10-15-agent-backends.md).
+At that review, chapter generation emitted no visual payload, and file/overview generation did not prove a complete mixed-language narrative. Agent runtime work was split into Codex (`z3an`), Claude Agent (`8gqw`) and Antigravity (`m00g`). These statements describe the 15 October review, not the current implementation.
+
+## Current delivery status — 29 October 2026
+
+Chapter-generation source now supports visual payloads (chapter schema v5, visual schema v3); task `j53m` still owns source-grounding, representation quality and packaged acceptance. Codex and Claude Agent source adapters exist, but neither has passed its runtime and packaged acceptance gates. Claude automatic generation remains unavailable behind an empty release-qualification registry; the Antigravity automatic adapter remains unimplemented. No agent runtime is release-qualified. Complete repository narratives and language-quality qualification remain open in `6qk9` and `7xx7`. See the [current pending-work index](../PENDING_WORK.md) and [backend capability matrix](../research/ai-backend-capability-matrix.md) for scoped evidence and remaining acceptance.
