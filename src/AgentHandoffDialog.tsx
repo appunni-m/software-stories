@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileCode2, X } from 'lucide-react';
 import { providerFailureMessage } from './lib/errorMessage';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
 import {
   buildAgentHandoffReview, discardGeneratedChapterDraft, discardProviderRequestReview,
@@ -178,7 +179,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
   return <div className="provider-overlay"><section className="provider-dialog" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="handoff-title">
     <header className="provider-dialog-header"><div><div className="step-pill"><span>CODING AGENT</span> MANUAL HANDOFF</div><h2 id="handoff-title">Explain with your agent</h2>
       <p>Review a task, run it in your agent, then import the explanation. No API key is needed in Code Atlas.</p></div>
-      <button className="icon-button" disabled={busy !== null} onClick={onClose} aria-label="Close agent handoff"><X size={17} /></button></header>
+      <AppButton intent="icon" disabled={busy !== null} onClick={onClose} aria-label="Close agent handoff"><X size={17} /></AppButton></header>
     <div className="provider-dialog-content">
       <section className="provider-review-card"><h3>1. Choose your agent</h3>
         <label className="provider-model-select">Agent<AppSelect ariaLabel="Coding agent" size="1" value={agent} disabled={locked} options={agents.map((value)=>({value:value.id,label:value.name}))} onValueChange={(value)=>{const next=value as HandoffAgent;releaseReview();setAgent(next);onAgentChange(next);}}/></label>
@@ -195,19 +196,19 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
               onChange={() => { releaseReview(); setPaths((values) => values.includes(file.path) ? values.filter((value) => value !== file.path) : [...values, file.path]); }} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small></label>)}{!visibleFiles.length && manifest && <p>No eligible files match this search.</p>}</div>
           <p className="provider-small-note">Showing up to 100 matching files. Search to narrow the list. Selected paths: {paths.join(', ') || 'none'}.</p>
           {paths.length > 0 && !sourceReady && manifest && <p className="provider-error-text">The target or a selected file is unavailable, or the selection exceeds 12 files or 250,000 bytes. Remove supporting files, or choose an eligible captured target.</p>}
-          <button className="secondary-button" disabled={locked || !sourceReady} onClick={() => { void build(); }}>{review ? 'Rebuild local task' : 'Prepare local task'}</button>
+          <AppButton intent="secondary" disabled={locked || !sourceReady} onClick={() => { void build(); }}>{review ? 'Rebuild local task' : 'Prepare local task'}</AppButton>
           {review && <><p>Review expires at {new Date(review.expiresAtUnixMs).toLocaleTimeString()}. Keep this dialog open while using the agent. Restarting the app requires a new task.</p>
             {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>SHA-256 {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
             <details className="provider-prompt-preview"><summary>Exact instructions, evidence and response schema</summary><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></details>
             <div className="provider-fingerprint"><span>Task fingerprint</span><code>{review.fingerprint}</code></div>
             {!preview && <><div className="provider-consent-list"><label><input type="checkbox" checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span>I reviewed this exact source and want to copy it for use in {agentName}. Clipboard contents can be read or retained by my system’s clipboard tools. Pasting shares the code under that agent’s account and terms.</span></label></div>
-              <button className="primary-button" disabled={busy !== null || !consent} onClick={() => { void copy(); }}>Copy reviewed task</button></>}
+              <AppButton intent="primary" disabled={busy !== null || !consent} onClick={() => { void copy(); }}>Copy reviewed task</AppButton></>}
           </>}
         </section>
         {taskText && <section className="provider-review-card"><h3>3. Run in {agentName} and import</h3><p>Paste the complete task into your agent. Ask it to return only the JSON response. Stop or cancel generation in that agent if needed. Closing this dialog does not stop its work.</p>
           <details><summary>Task text for manual copying</summary><textarea className="agent-handoff-text" aria-label="Reviewed task text" readOnly value={taskText} onFocus={(event) => event.currentTarget.select()} /></details>
           <label>Complete JSON response<textarea className="agent-handoff-text" value={response} maxLength={1_000_000} disabled={busy !== null} placeholder="Paste the response including handoffId, fingerprint and chapter" onChange={(event) => setResponse(event.target.value)} /></label>
-          <button className="primary-button" disabled={busy !== null || !response.trim()} onClick={() => { void importResult(); }}>Validate imported explanation</button>
+          <AppButton intent="primary" disabled={busy !== null || !response.trim()} onClick={() => { void importResult(); }}>Validate imported explanation</AppButton>
         </section>}
         {preview && <section className="provider-response"><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : 'SOURCE VALIDATED · UNSAVED PREVIEW'}</span><h3><InlineCodeText text={preview.revision.title}/></h3>
           <p>Source citations passed local checks. Explanation quality still needs your review. Agent identity, model, reasoning and permission settings are unverified.</p>
@@ -218,7 +219,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
       </>}
       {busy && <p role="status" aria-live="polite">{busy}</p>}{error && <p className="provider-error-text" role="alert">{error}</p>}{note && <p className="provider-status-note" role="status">{note}</p>}
     </div>
-    <footer className="provider-dialog-footer"><div className="provider-draft-actions"><button className="secondary-button" disabled={busy !== null} onClick={onChooseBackend}>Change backend{preview && !saved ? ' and discard preview' : ''}</button><button className="secondary-button" disabled={busy !== null} onClick={onClose}>{preview && !saved ? 'Close and discard preview' : 'Done'}</button></div>
-      {preview && !saved && <button className="primary-button" disabled={busy !== null || preview.validation.status !== 'valid'} onClick={() => { void save(); }}>Save unaccepted draft</button>}</footer>
+    <footer className="provider-dialog-footer"><div className="provider-draft-actions"><AppButton intent="secondary" disabled={busy !== null} onClick={onChooseBackend}>Change backend{preview && !saved ? ' and discard preview' : ''}</AppButton><AppButton intent="secondary" disabled={busy !== null} onClick={onClose}>{preview && !saved ? 'Close and discard preview' : 'Done'}</AppButton></div>
+      {preview && !saved && <AppButton intent="primary" disabled={busy !== null || preview.validation.status !== 'valid'} onClick={() => { void save(); }}>Save unaccepted draft</AppButton>}</footer>
   </section></div>;
 }

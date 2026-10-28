@@ -36,3 +36,11 @@ The Offline Export trigger, close action, select/clear control, and footer actio
 ## Flow and validation action migration — 28 October 2026
 
 The Flow relationship controls and Chapter Studio validation actions also use `AppButton`; their flow-specific classes, quiet-action styling, labels, disabled states, and source-navigation handlers are retained. The shared wrapper now covers actions across the reader, Flow, validation review, discovery/planning, connection/notification, recovery, and offline export surfaces. The remaining native controls and one-off styles have not been inventoried exhaustively. No tests/build or packaged visual/accessibility acceptance ran; task remains open.
+
+## Agent handoff action migration — 28 October 2026
+
+The manual Agent Handoff dialog's close, prepare, copy, import-validation, backend-change, and save-draft actions now use the shared wrapper with their existing intent classes and handlers. This standardizes controls but does not make manual handoff equivalent to a connected coding-agent backend. No tests/build or packaged acceptance ran.
+
+## Connection settings action migration — 28 October 2026
+
+The Connections dialog's close and footer actions, plus Pocket setup/repair/cancel and Google key actions, now use `AppButton`. The Google key Save action explicitly remains a form submit; Remove remains a non-submit action. Existing credential storage, voice selection, handlers and state are unchanged. The navigation categories remain their current controls pending a broader interaction/accessibility review. No tests/build or packaged acceptance ran.

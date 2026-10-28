@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { AppSelect } from './design/AppSelect';
+import { AppButton } from './design/AppButton';
 import { providerFailureMessage } from './lib/errorMessage';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -23,13 +24,13 @@ export function ConnectionsDialog({ native, initialSection = 'explanations', onC
     return () => document.removeEventListener('keydown', key, true);
   }, [busy]);
   return <div className="provider-overlay"><section className="provider-dialog connections-dialog" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="connections-title">
-    <header className="provider-dialog-header"><div><h2 id="connections-title">Connections</h2><p>Set up once. Your choices apply across repositories and answers.</p></div><button className="icon-button" aria-label="Close connections" disabled={busy} onClick={onClose}><X size={17}/></button></header>
+    <header className="provider-dialog-header"><div><h2 id="connections-title">Connections</h2><p>Set up once. Your choices apply across repositories and answers.</p></div><AppButton intent="icon" aria-label="Close connections" disabled={busy} onClick={onClose}><X size={17}/></AppButton></header>
     <nav className="connections-nav" aria-label="Connection categories">
       <button aria-pressed={section === 'explanations'} disabled={busy} onClick={() => setSection('explanations')}><PlugZap size={16}/>Explanations</button>
       <button aria-pressed={section === 'voice'} disabled={busy} onClick={() => setSection('voice')}><Volume2 size={16}/>Voice</button>
     </nav>
     {section === 'explanations' ? <CodexChapterDialog mode="settings" native={native} embeddedSettings onSettingsBusyChange={setBusy} onClose={onClose}/> : <VoiceSettings native={native} onBusyChange={setBusy}/>}
-    <footer className="provider-dialog-footer"><span className="provider-small-note">Saved on this Mac</span><div className="provider-draft-actions"><button className="secondary-button" disabled={busy} onClick={onChooseBackend}>Change AI connection</button><button className="primary-button" disabled={busy} onClick={onClose}>Done</button></div></footer>
+    <footer className="provider-dialog-footer"><span className="provider-small-note">Saved on this Mac</span><div className="provider-draft-actions"><AppButton intent="secondary" disabled={busy} onClick={onChooseBackend}>Change AI connection</AppButton><AppButton intent="primary" disabled={busy} onClick={onClose}>Done</AppButton></div></footer>
   </section></div>;
 }
 
@@ -101,14 +102,14 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
     {settings.backend === 'pocket-tts' ? <>
       <div className="connections-status"><CheckCircle2 size={17}/><div><strong>{busy ? 'Preparing voice…' : status?.ready ? 'Ready to listen' : 'Prepare local voice'}</strong><p>Alba · English · text stays on this Mac</p></div></div>
       {!status?.ready && <p>One download prepares the voice. Listening has no provider usage fee.</p>}
-      {(!status?.ready || busy) && <button className="primary-button" disabled={!native || busy || status?.busy || !status?.setupAvailable} onClick={() => { void prepare(); }}>{busy ? 'Preparing…' : 'Prepare voice'}</button>}
-      {busy && <button className="secondary-button" onClick={() => { if (setupId.current) void cancelProviderRequest(setupId.current).catch(() => setError('Could not stop setup.')); }}>Cancel setup</button>}
-      <details><summary>Voice details and troubleshooting</summary><p>{status?.message ?? 'Checking availability…'}</p><p>Alba MacKenna voice · CC BY 4.0.</p><a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>{status?.ready && <button className="secondary-button" disabled={busy || status.busy || !status.setupAvailable} onClick={() => { void prepare(); }}>Repair voice setup</button>}</details>
+      {(!status?.ready || busy) && <AppButton intent="primary" disabled={!native || busy || status?.busy || !status?.setupAvailable} onClick={() => { void prepare(); }}>{busy ? 'Preparing…' : 'Prepare voice'}</AppButton>}
+      {busy && <AppButton intent="secondary" onClick={() => { if (setupId.current) void cancelProviderRequest(setupId.current).catch(() => setError('Could not stop setup.')); }}>Cancel setup</AppButton>}
+      <details><summary>Voice details and troubleshooting</summary><p>{status?.message ?? 'Checking availability…'}</p><p>Alba MacKenna voice · CC BY 4.0.</p><a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>{status?.ready && <AppButton intent="secondary" disabled={busy || status.busy || !status.setupAvailable} onClick={() => { void prepare(); }}>Repair voice setup</AppButton>}</details>
     </> : <>
       <p>Only narration text is sent to Google after you review and approve it. Free-tier limits, data use and possible charges depend on your Google project.</p>
       <label className="walkthrough-narration-field">Voice<AppSelect ariaLabel="Google narration voice" size="1" value={settings.googleVoice} disabled={!native || busy} options={(disclosure?.voices ?? ['Kore', 'Charon', 'Puck', 'Aoede']).map((voice)=>({value:voice,label:voice}))} onValueChange={(googleVoice)=>save({googleVoice})}/></label>
       <details><summary>Delivery style</summary><label className="walkthrough-narration-field">Style<input value={settings.googleStyle} disabled={busy} maxLength={160} onChange={(event) => save({ googleStyle: event.target.value })} placeholder="Optional, e.g. calm and conversational"/></label></details>
-      <form onSubmit={(event) => { event.preventDefault(); void changeKey(); }}><label className="walkthrough-narration-field">{credential?.apiKeyConfigured ? 'Replace Google API key' : 'Google API key'}<input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" spellCheck={false} disabled={!native || busy}/></label><div className="provider-key-actions"><button className="secondary-button" type="submit" disabled={!native || busy || !key.trim()}>Save key</button>{credential?.apiKeyConfigured && <button className="text-button" type="button" disabled={busy} onClick={() => { void changeKey(true); }}>Remove key</button>}</div></form>
+      <form onSubmit={(event) => { event.preventDefault(); void changeKey(); }}><label className="walkthrough-narration-field">{credential?.apiKeyConfigured ? 'Replace Google API key' : 'Google API key'}<input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" spellCheck={false} disabled={!native || busy}/></label><div className="provider-key-actions"><AppButton intent="secondary" type="submit" disabled={!native || busy || !key.trim()}>Save key</AppButton>{credential?.apiKeyConfigured && <AppButton intent="quiet" type="button" disabled={busy} onClick={() => { void changeKey(true); }}>Remove key</AppButton>}</div></form>
       <p>{credential?.apiKeyConfigured ? 'Key saved in macOS Keychain.' : 'No Google key saved.'} {disclosure && <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get a Google key</a>}</p>
     </>}
     {message && <p role="status">{message}</p>}{error && <p className="provider-error-text" role="alert">{error}</p>}
