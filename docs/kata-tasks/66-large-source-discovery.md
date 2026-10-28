@@ -83,3 +83,16 @@ discovery-level omissions across navigation and restart; it does not identify
 which omitted files or byte ranges are semantically relevant, or qualify local
 range-search recall. Source-only change; no tests, build, agent request or
 packaged-app acceptance ran. Keep the full acceptance above open.
+
+## Do not advertise unreadable large paths as range targets — 28 October 2026
+
+Static review found that `discovery_coverage_gaps` checked the 250 KB size
+threshold before source readability. A code-like path with binary or invalid
+UTF-8 content could therefore be labeled `largeFiles`, whose message says a
+separate bounded range lookup can recover it, even though large non-text paths
+are excluded from `rangeOnlyFiles` and the source reader cannot return them as
+code. The gap classification now reports `unreadableSource` first and only
+uses `largeFiles` for readable captured text. This improves the explanation of
+the omission; it does not change candidate inclusion, source limits, retrieval
+recall, or generated-answer quality. No tests, build, profile, provider request
+or packaged qualification ran; keep the acceptance task open.

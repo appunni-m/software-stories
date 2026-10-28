@@ -240,3 +240,9 @@ This adds a second captured-file range to the local review-click check. It does
 not identify the original clicked control or exception, exercise every source
 entry point, or verify the installed executable's source revision. Keep the
 original report unconfirmed and `mhqx` open.
+
+## Static current-path trace — 28 October 2026
+
+The current source path was inspected without an app run. In `src/design/CodePane.tsx`, selection state is built from CodeMirror's selected line bounds and source hash; **Explain this code** invokes the workspace callback only when that button is clicked. `Workspace.explain` binds the selection to the displayed captured source, checks snapshot, path, inventory membership, hash and range, builds a bounded preview, and opens the local review. Its handler does not dispatch a provider request. The separate **Ask about this code** action revalidates the review, checks the saved Codex connection, and then enters the ordinary question/grant flow. Optional syntax-loader errors are caught and leave source readable as plain text.
+
+No source change is justified from this trace: the reported click target and exception are still unknown, and the inspected code has explicit guards for the captured-source review route. No tests, build, app launch or provider request ran. The original failure remains unconfirmed; retain the packaged route matrix and ask for the exact error only if a new reproduction is needed. Keep `mhqx` open.

@@ -567,18 +567,18 @@ fn discovery_coverage_gaps(
             continue;
         }
 
-        let gap = if file.size_bytes > 250_000 {
-            Some((
-                "largeFiles",
-                "These captured files are larger than this discovery request can include. Their exact ranges need a separate bounded source lookup.",
-            ))
-        } else if !matches!(
+        let gap = if !matches!(
             file.content_kind,
             CapturedContentKind::Text | CapturedContentKind::Unknown
         ) {
             Some((
                 "unreadableSource",
                 "These code paths were captured, but their contents are not readable text for this discovery request.",
+            ))
+        } else if file.size_bytes > 250_000 {
+            Some((
+                "largeFiles",
+                "These captured files are larger than this discovery request can include. Their exact ranges need a separate bounded source lookup.",
             ))
         } else if has_index {
             match indexed_files.get(file.path.as_str()) {
