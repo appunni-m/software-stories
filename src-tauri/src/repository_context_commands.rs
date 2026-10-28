@@ -802,7 +802,8 @@ mod tests {
                 query: query.to_owned(),
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
-                // Match the owned search_code broad-discovery page size.
+                // Profile the native search maximum; the Codex tool owner caps
+                // file-discovery responses at eight paths to limit context.
                 limit: 32,
                 offset,
             };

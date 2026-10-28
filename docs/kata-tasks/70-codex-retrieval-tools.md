@@ -44,22 +44,22 @@ The general progressive-answer prompt now tells the agent to use one focused `re
 
 ## Broad file-page sizing — 28 October 2026
 
-The MCP description previously told Codex to page file discovery in batches of
-at most eight even though the native search page supports 32. The owned tool
-contract now recommends a 32-path first page for broad file discovery, while
-keeping the existing 256-candidate window and requiring source reads before
-claims. The catalog regression verifies the 32-result schema and wording.
+The native search service can return up to 32 local results, while the owned
+Codex tool wrapper deliberately caps file-discovery responses at eight paths.
+This keeps the model's discovery context bounded after a preserved broad
+Fontdone run spent 239,661 of 256,000 metadata bytes while reading only three
+implementation files. The Codex tool schema and all system prompts must state
+the eight-path cap consistently; the schema maximum of 32 is shared with range
+and structural tools and does not override the native file-discovery bound.
 
-In one ignored local-service Fontdone profile, a 32-path first page contained
-all seven independently expected paths for each of two broad queries; scoped
-search over those paths recovered 12/12 expected ranges. With the earlier
-eight-path cap, the first page contained only 4/7 paths and 32 pages were
-needed to enumerate all seven. Broad range first-page recall remains 1/12, and
-the first 32-path response has not been exercised through the real Codex
-account. This reduces the observed discovery pagination requirement without
-establishing that the agent follows the handoff or produces a complete answer.
-Keep the task open for an authorized real Codex run, independent content review,
-budget/recovery matrices, and packaged acceptance.
+A separate ignored local-service Fontdone profile used 32 paths directly and
+found all seven independently expected paths on its first page; the eight-path
+service profile found 4/7 on its first page. This is a local retrieval
+comparison, not Codex agent behavior, and does not justify widening the model
+response without measuring delivered metadata and answer quality. Broad range
+first-page recall remains 1/12. Keep the task open for an authorized real
+Codex run, independent content review, budget/recovery matrices, and packaged
+acceptance.
 
 ## Retrieval foundation checkpoint — 17 October
 

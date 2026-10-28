@@ -233,9 +233,10 @@ earlier attempt without the V6 syntax index was discarded. Details and the
 limits are in [the acceptance record](../acceptance/2026-10-17-range-retrieval.md#current-source-fontdone-profile-with-the-owned-file-page-cap--28-october-2026).
 Keep `a699`, `0wdn`, and `gk46` open.
 
-The subsequent 32-result profile in the same acceptance record returned all
-seven independently expected paths on the first file-discovery page for both
-queries, with 12/12 expected ranges recoverable by scoped service searches.
-This improves the discovery handoff but does not improve broad range first-page
-recall (still 1/12) or prove automatic agent behavior. It remains an un-packaged
-local-service measurement.
+The subsequent native-service profile requested 32 results directly and
+returned all seven independently expected paths on its first file-discovery
+page for both queries, with 12/12 expected ranges recoverable by scoped service
+searches. The owned Codex wrapper still caps file-discovery replies at eight
+paths; this service-level measurement does not improve broad range first-page
+recall (still 1/12) or prove automatic agent behavior. It remains an
+un-packaged local-service measurement.

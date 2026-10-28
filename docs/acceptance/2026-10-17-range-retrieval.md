@@ -275,10 +275,11 @@ answer quality. Keep `a699`, `gk46`, and dependent generation tasks open.
 
 ## Fontdone broad file discovery with a 32-path page — 28 October 2026
 
-The Codex MCP contract previously documented an eight-path cap even though the
-native search service accepts 32 results. The tool now recommends one
-32-result page for broad file discovery, and the ignored Fontdone service
-profile uses that same page size. This run used the same isolated saved
+The native search service accepts 32 results, while the owned Codex MCP wrapper
+caps file-discovery replies at eight paths to bound model context. This ignored
+Fontdone service profile bypasses that wrapper and measures the native service
+at 32 results; it does not qualify the model-facing page size. This run used
+the same isolated saved
 `main@5249b72371` snapshot plus V6 syntax index described above; no app storage
 was changed and no model, Codex, speech, or Fontdone code was run.
 
@@ -291,9 +292,9 @@ and 160,263 bytes for query two; those are serialized local-service responses
 over the full 256-result window, not the size of the first page or one model
 context. Discovery across all eight pages took 1,479 ms and 1,412 ms.
 
-The change makes the seven expected paths available in the first local
-discovery response in this fixture. It does not establish that Codex invokes
-the tool with limit 32, that a generated explanation reads or uses those paths,
+The native-service profile makes the seven expected paths available in its
+first discovery response in this fixture. It does not establish that Codex
+receives those 32 paths, that a generated explanation reads or uses those paths,
 or that broad range ranking is sufficient: the broad range first page still
 finds 1/12 expected ranges and the 256-result range window finds 6/12 for each
 query. Agent answer quality and packaged acceptance remain open. This is a
