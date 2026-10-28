@@ -291,7 +291,7 @@ export function DeveloperWorkspace(props:Props) {
   const groupedGuideAttemptCount=allGuideAttemptGroups.reduce((count,group)=>count+group.turns.length-1,0);
   const showGuideStackControl=visibleGuideQuestionCount<allGuideQuestionCount||groupedGuideAttemptCount>0||guideStackExpanded;
   const groupedGuideAttemptSummary=groupedGuideAttemptCount>0
-    ?` ${groupedGuideAttemptCount} repeated attempt${groupedGuideAttemptCount===1?' is':'s are'} grouped.`
+    ?' Repeated questions are grouped under their answers.'
     :'';
   const guideStackStatus=guideStackExpanded
     ?`Showing all ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
@@ -957,11 +957,11 @@ export function DeveloperWorkspace(props:Props) {
                   {guideAttemptGroups.map((group)=>{
                     if(group.otherTurns.length===0)return renderAnswer(group.representative);
                     const groupedBranches=group.turns.flatMap((turn)=>branchesByTurn.get(turn.id)??[]);
-                    const activeOtherAttempts=group.otherTurns.some(isActiveQuestion);
+                    const activeOtherAttemptCount=group.otherTurns.filter(isActiveQuestion).length;
                     return <div className="dw-guide-attempt-group" key={group.key}>
                       {renderAnswer(group.representative,groupedBranches)}
-                      <details className="dw-guide-attempt-history" open={activeOtherAttempts}>
-                        <summary>Show {group.otherTurns.length} other attempt{group.otherTurns.length===1?'':'s'}</summary>
+                      <details className="dw-guide-attempt-history">
+                        <summary>Show {group.otherTurns.length} other answer{group.otherTurns.length===1?'':'s'}{activeOtherAttemptCount>0?` · ${activeOtherAttemptCount} in progress`:''}</summary>
                         {group.otherTurns.map((turn)=>renderAnswer(turn,[],true))}
                       </details>
                     </div>;
