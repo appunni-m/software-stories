@@ -163,3 +163,19 @@ This covers one same-process section/tab and child/Back path. Third-level and
 sibling independence, exact scroll, restart, revision fallback, malformed
 state in the packaged app, visual-node/edge restoration and accessibility
 remain open. See the combined [navigation acceptance record](../acceptance/2026-10-23-navigation-position.md).
+
+## Explorer activity preserves saved answer position — 28 October 2026
+
+In the running Code Atlas window on Fontdone `main@5249b72371`, the root
+Explorations view showed the saved four-section answer “Explain what
+glyf.rs:564–583 does and how it works.” at section 4 of 4. I moved to section
+3, switched to the Explorer activity, and returned to Explorations. The answer
+remained at section 3 of 4. I then restored the original section 4 position.
+No question, provider request, or narration was started. The app's executable
+revision was not verified.
+
+This verifies one same-process answer-position restoration across the Explorer
+activity and restores the user's previous reading position. It does not verify
+restart, exact scroll, a return from a child, third-level/sibling state,
+revision fallback, malformed state in the packaged app, or accessibility;
+keep `erzc` open.
