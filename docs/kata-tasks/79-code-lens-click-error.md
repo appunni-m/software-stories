@@ -210,3 +210,18 @@ the saved Guide stayed available. No error, crash, provider review, or model
 request occurred. This is a successful Explorer-selection check, not a
 reproduction of the original Code Lens click exception or the selected-code
 review flow. Keep the original report unconfirmed and the issue open.
+
+## Current packaged source and review check — 28 October 2026
+
+On the installed `main` build (version `0.1.0`, executable SHA-256
+`969c7414504f7cb1398c127bd6be3bc64c703efd144cdb6b7685bf7a835568e4`), opened
+the saved Fontdone answer and clicked its captured `src/font.rs:4053–4078`
+citation. The source pane showed the captured range while Guide and the saved
+answer remained available. **Explain this code** opened the local “Review your
+code question” dialog with the same path and range; I canceled before dispatch.
+The app returned to the same source and Guide state. Selecting
+`src/outline.rs` from Explorer also opened captured source normally. No error,
+crash, source transmission, or provider request occurred. This verifies local
+navigation and the review boundary only; it does not reproduce the original
+click exception. The user-reported control/error is still unknown, so keep
+`mhqx` open.
