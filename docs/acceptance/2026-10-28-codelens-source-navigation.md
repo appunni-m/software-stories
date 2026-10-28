@@ -31,3 +31,20 @@ unknown. It does not reproduce the selected-code generation action, verify a
 request review, or identify the installed binary's source commit. No screenshot
 was saved. Keep Kata `mhqx` open for the original click error and remaining
 source-navigation cases.
+
+## Selected-code review boundary — 28 October 2026
+
+The currently installed Code Atlas app was identified by its running executable
+path `/Users/lazytrot/Applications/Code Atlas.app/Contents/MacOS/code-atlas-desktop`,
+version `0.1.0`, and executable SHA-256
+`adec1e64e5d1783b5b531256af0c3005743af472e30c167fd4313cde8597af83`. The app
+metadata does not identify its source revision. In Fontdone partial snapshot
+`main@5249b72371`, Explorer opened `src/tt/glyf.rs` without an error. Opening the
+saved citation selected captured lines 554–574. **Explain this code** opened a
+local review for that exact path/range. The dialog stated “Nothing is sent until
+you choose Ask about this code,” showed the selected source preview, and warned
+that account quota applies if the request is sent. I canceled; the app returned
+to the same selected source and Guide, stayed open, and the question count
+remained 27. No **Ask about this code** action, provider request, source change,
+or narration occurred. The original user-reported click control and exception
+remain unknown; keep `mhqx` open.

@@ -246,3 +246,20 @@ original report unconfirmed and `mhqx` open.
 The current source path was inspected without an app run. In `src/design/CodePane.tsx`, selection state is built from CodeMirror's selected line bounds and source hash; **Explain this code** invokes the workspace callback only when that button is clicked. `Workspace.explain` binds the selection to the displayed captured source, checks snapshot, path, inventory membership, hash and range, builds a bounded preview, and opens the local review. Its handler does not dispatch a provider request. The separate **Ask about this code** action revalidates the review, checks the saved Codex connection, and then enters the ordinary question/grant flow. Optional syntax-loader errors are caught and leave source readable as plain text.
 
 No source change is justified from this trace: the reported click target and exception are still unknown, and the inspected code has explicit guards for the captured-source review route. No tests, build, app launch or provider request ran. The original failure remains unconfirmed; retain the packaged route matrix and ask for the exact error only if a new reproduction is needed. Keep `mhqx` open.
+
+## Current packaged selected-code review — 28 October 2026
+
+In the installed Code Atlas 0.1.0 app (executable SHA-256
+`adec1e64e5d1783b5b531256af0c3005743af472e30c167fd4313cde8597af83`), Fontdone
+`main@5249b72371`, opening the saved `glyf.rs:564–583` answer citation selected
+captured `src/tt/glyf.rs:554–574`. **Explain this code** opened the review with
+the same path/range; its preview showed captured source and the dialog stated
+that nothing is sent until **Ask about this code** is chosen. I canceled before
+dispatch. The app returned to the same source and Guide, stayed open, and the
+question count remained 27. No source was sent, no provider request was made,
+and narration remained off. The app's bundle metadata does not identify its
+source revision. See [the native acceptance record](../acceptance/2026-10-28-codelens-source-navigation.md).
+
+This verifies the local selected-code review boundary and one saved citation
+path. It still does not identify the original clicked control/error, reproduce
+the exception, or exhaust the source-navigation matrix. Keep `mhqx` open.
