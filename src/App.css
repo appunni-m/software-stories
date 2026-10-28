@@ -147,7 +147,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--border); }
 .walkthrough-panel-heading h3 { margin: 5px 0 0; color: var(--text); font-size: 12px; letter-spacing: -.015em; }
 .walkthrough-transcript { margin-top: 15px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.walkthrough-evidence-count { flex: 0 0 auto; color: var(--muted); font: 12px var(--mono); }
 .walkthrough-transcript { background: linear-gradient(140deg, var(--surface), var(--surface)); }
 .walkthrough-transcript-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 12px/1.35 system-ui, sans-serif; }
 .walkthrough-transcript-scroll { max-height: 190px; overflow: auto; margin-top: 8px; padding: 3px 4px; scrollbar-color: var(--muted) transparent; }
@@ -246,7 +245,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 /* Reader text keeps evidence, references, and navigation comfortable to inspect. */
 .walkthrough-kicker { font-size: 12px; }
 .walkthrough-panel-heading h3 { font-size: 13px; }
-.walkthrough-evidence-count { font-size: 12px; }
 .walkthrough-transcript-state { font-size: 12px; }
 .walkthrough-transcript-scroll p { font-size: 14px; line-height: 1.7; }
 
