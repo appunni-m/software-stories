@@ -238,3 +238,25 @@ This proves that replaying a cached Pocket clip releases its playback review so
 a later review can be admitted. It does not qualify real synthesis, packaged
 preparing-to-ready timing, offline restart, cancellation or failure under
 load, or listening quality; those acceptance gates remain open.
+
+## Current focused prewarm regression run — 28 October 2026
+
+At source revision `650164e`, the focused renderer/workspace suites passed:
+`node --experimental-strip-types --test tests/narrationPrewarm.test.mjs
+tests/workspace-narration-prewarm.test.mjs` — **9 passed**. They verify that
+published sections do not wait for local synthesis, progressive sections are
+adopted and warmed before their investigation finishes, cloud Voice starts no
+background synthesis, matching authored scripts deduplicate, and failures do
+not strand later bounded work.
+
+The focused native suite passed:
+`cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+narration::tests::` — **33 passed, 0 failed, 803 filtered out**. This includes
+the delayed-worker/cache-hit path, matching-cache reuse, runtime/output-format
+fingerprints, queue ordering and bounds, cancellation, shutdown, worker panic
+recovery, and playback-review cleanup. Existing dead-code warnings remain.
+
+These runs did not build or open a bundle, generate audio, measure the exact
+packaged status transition or first-section latency, or conduct a listening
+review. Offline restart and packaged queue pressure/cancellation acceptance
+remain open; keep the issue open.
