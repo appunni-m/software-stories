@@ -255,6 +255,8 @@ struct ParsedGitSymbol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ParseLanguage {
+    Go,
+    Python,
     Rust,
     TypeScript,
     Tsx,
@@ -269,6 +271,8 @@ impl ParseLanguage {
             .map(str::to_ascii_lowercase)
             .as_deref()
         {
+            Some("go") => Some(Self::Go),
+            Some("py") | Some("pyi") | Some("pyw") => Some(Self::Python),
             Some("rs") => Some(Self::Rust),
             Some("ts") | Some("mts") | Some("cts") => Some(Self::TypeScript),
             Some("tsx") => Some(Self::Tsx),
@@ -279,6 +283,8 @@ impl ParseLanguage {
 
     fn grammar(self) -> Language {
         match self {
+            Self::Go => tree_sitter_go::LANGUAGE.into(),
+            Self::Python => tree_sitter_python::LANGUAGE.into(),
             Self::Rust => tree_sitter_rust::LANGUAGE.into(),
             Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
@@ -613,7 +619,7 @@ fn add_cross_file_relationships(
     match (&base_index, &head_index) {
         (Ok(_), Ok(_)) if !base_partial && !head_partial && !relationship_evidence_limited => GitRelationshipImpact {
             status: GitRelationshipImpactStatus::Complete,
-            message: "High-confidence static imports, calls, and test references are attached when they target a changed path or declaration. Analysis covers the shipped Rust, TypeScript, TSX, and JavaScript parsers; dynamic or unresolved edges are omitted, and no runtime impact is inferred.".to_owned(),
+            message: "High-confidence static imports, calls, and test references are attached when they target a changed path or declaration. Analysis covers the shipped Rust, TypeScript, TSX, JavaScript, Python, and Go parsers; Python module imports, Go package imports, and other dynamic or unresolved edges may be omitted, and no runtime impact is inferred.".to_owned(),
         },
         (Ok(_), Ok(_)) if relationship_evidence_limited => GitRelationshipImpact {
             status: GitRelationshipImpactStatus::Partial,
@@ -789,7 +795,8 @@ fn build_revision_index(
     );
     let parser_limited = index.status == SnapshotIndexStatus::Cancelled
         || index.files.iter().any(|file| {
-            file.language.is_some() && !matches!(file.status, index::IndexFileStatus::Indexed)
+            (file.language.is_some() || crate::source_discovery::is_code_path(&file.path))
+                && !matches!(file.status, index::IndexFileStatus::Indexed)
         });
     Ok(RevisionIndex {
         index,
@@ -1934,6 +1941,19 @@ fn parse_git_symbols(
 
 fn git_symbol_kind(kind: &str, language: ParseLanguage) -> Option<&'static str> {
     match language {
+        ParseLanguage::Go => match kind {
+            "function_declaration" => Some("function"),
+            "method_declaration" => Some("method"),
+            "type_spec" => Some("type"),
+            "var_spec" => Some("variable"),
+            "const_spec" => Some("constant"),
+            _ => None,
+        },
+        ParseLanguage::Python => match kind {
+            "function_definition" => Some("function"),
+            "class_definition" => Some("class"),
+            _ => None,
+        },
         ParseLanguage::Rust => match kind {
             "function_item" | "function_signature" => Some("function"),
             "struct_item" | "union_item" => Some("struct"),

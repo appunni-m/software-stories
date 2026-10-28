@@ -39,9 +39,24 @@ Use temporary base/head commits to cover ambiguous/missing/invalid refs; add/edi
 
 ## Pending work — 2026-10-15
 
-- [ ] Fix shared indexer lexical shadowing/export ambiguity before treating high-confidence relationships as dependable evidence.
+- [x] Use the shared indexer's conservative lexical shadowing/export resolution. The targeted parser-binding task `129x` is closed with Rust/TypeScript/TSX/JavaScript and separate base/head regressions; this is not a claim of full language semantics.
 - [ ] Keep existing bounded base/head parser evidence implementation; verify both immutable sides with add/edit/delete/rename/binary/uncertain and capped cases.
 - [ ] Record exact relationship anchors, deterministic truncation and complete/partial/unavailable labels without runtime-impact claims.
 - [ ] Complete packaged Changes acceptance and unchanged refs/index/worktree/history evidence after prerequisites.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
+
+## Python and Go revision-index parity — 2026-10-28
+
+Source review found that the separate Git revision index filtered to Rust,
+TypeScript, TSX and JavaScript even though the shared snapshot index and this
+contract include Python and Go. The Git path parser now admits `.py`, `.pyi`,
+`.pyw` and `.go` into both changed-file declaration extraction and the bounded
+base/head revision indexes. The complete-analysis message names all six shipped
+grammars and preserves the known unresolved Python module and Go package import
+boundary. The revision result also becomes partial when a source-like path is
+not indexed, including a language without a shipped parser, instead of
+silently presenting the remaining indexed files as complete. This is a
+source-only correction; no tests or build ran. Keep the temporary-repository,
+deterministic anchor, unchanged-worktree and packaged Changes acceptance gates
+open.
