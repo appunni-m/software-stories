@@ -1026,6 +1026,19 @@ audio playback, or human comprehension review ran. `j53m` remains open for
 generated-content quality, source navigation, narration, accessibility, export,
 and representative-repository acceptance.
 
+## Reader-facing section titles — 28 October 2026
+
+The packaged Fontdone Guide showed a saved section titled “PFR0: direct
+handoff.” It names a format token and classification but does not tell the
+reader what behavior to follow. Story policy `ai-html-compositions-v62` now
+requires section and scene titles to name the source-backed behavior or learning
+question in plain language, preserving an exact token in a natural phrase only
+when it is central to the user's question. This changes future generation
+requests and their fingerprints; it does not rewrite saved sections. No fresh
+provider request, tests, build, audio playback or comprehension review ran.
+Keep `j53m` open until current-schema generated examples confirm the titles help
+readers follow the implementation.
+
 ## Current packaged visual availability failure — 28 October 2026
 
 In the open packaged app on Fontdone `main@5249b72371`, Guide shows multiple

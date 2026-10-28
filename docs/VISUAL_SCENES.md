@@ -61,10 +61,12 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v61`, teaching policy `meaning-first-v31`, and reader
+`ai-html-compositions-v62`, teaching policy `meaning-first-v31`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
-outcomes, and gives each scene one behavior to make visible. Scene narration
+outcomes, and gives each scene one behavior to make visible. Section and scene
+titles name that behavior or learning question in plain language rather than
+using a bare format tag or terse classification. Scene narration
 allows up to three short sentences and 520 UTF-8 bytes; native admission rejects
 longer speech and offers a bounded correction. If a behavior needs more room,
 split it into ordered claims/scenes without omitting outcomes. The complete
