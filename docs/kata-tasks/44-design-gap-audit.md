@@ -192,3 +192,23 @@ it does not send a provider request or remove the saved record. This is a
 source-only correction. It has not been built, installed, or checked in the
 packaged app, and the other activity, first-run, theme, zoom, and accessibility
 gaps remain. Keep `x21h` and parent `13yp` open.
+
+### Sticky history search overlap — packaged correction, 28 October 2026
+
+In the packaged Fontdone history view, scrolling moved retry rows beneath the
+sticky search field. The input itself did not fully cover the rows at its lower
+edge, so one line of question text remained visible through the field. Moving
+stickiness to an opaque wrapper around the input and its spacing keeps the
+scrolling history behind a solid surface. The earlier field-only CSS adjustment
+did not fully fix this overlap.
+
+`CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos` passed: frontend
+build, release compile, app/DMG bundling, metadata verification, and DMG
+checksum. Installed bundle executable SHA-256 matches the built app
+(`969c7414504f7cb1398c127bd6be3bc64c703efd144cdb6b7685bf7a835568e4`). In the
+reopened packaged app, Fontdone `main@5249b72371` restored and the scrolled
+history search covered the question rows cleanly. The screenshot was inspected
+live but not saved. No question, answer, receipt, notification, or snapshot was
+changed; no provider request was sent. This verifies one populated Chat history
+state only. Keep `x21h` and parent `13yp` open pending review of other screens,
+first-run states, themes/zoom, and accessibility.

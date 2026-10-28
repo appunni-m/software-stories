@@ -218,7 +218,8 @@
 .dw-unlinked-flow-point:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
 .dw-unlinked-flow-point strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
 .dw-unlinked-flow-point small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
-.dw-history-search {position:sticky;top:0;z-index:2;width:100%;margin-bottom:var(--space-3);background:var(--surface);}
+.dw-history-search-sticky {position:sticky;top:0;z-index:4;isolation:isolate;padding-bottom:var(--space-3);background:var(--canvas);}
+.developer-workspace .dw-history-search {width:100%;background:var(--canvas);background-clip:border-box;}
 .dw-history-match-count {margin:0 0 var(--space-3);color:var(--muted);font-size:12px;line-height:1.5;}
 .dw-history-matches > strong {display:block;margin-bottom:var(--space-2);color:var(--muted);font-size:12px;font-weight:600;}
 .dw-history-empty {padding:var(--space-4) 0;color:var(--muted);font-size:13px;}
