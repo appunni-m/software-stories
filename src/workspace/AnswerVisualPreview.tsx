@@ -5,6 +5,7 @@ import { InlineCodeText } from '../InlineCodeText';
 import type { ChapterRevision, ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec } from '../lib/commands';
 import { validStoredScenePresentation } from '../lib/scenePresentation';
 import { inspectInteractiveVisual } from '../lib/visuals';
+import { sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode } from '../lib/visualStory';
 import { plainInlineCodeText } from '../lib/inlineCode';
 
 /** Keep earlier stacked answers visual without mounting their players or full canvases. */
@@ -20,13 +21,25 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   const firstScene = visual && validStoredScenePresentation(visual.presentation, visual.nodes, section.claims)
     ? visual.presentation.scenes[0]
     : undefined;
+  const anchors = anchorsById ? [...anchorsById.values()] : [];
 
-  const openNode = (visual: EvidenceLinkedVisualSpec, nodeId: string) => {
+  const evidenceAnchorForNode = (node: EvidenceLinkedVisualSpec['nodes'][number], sourceValue?: string) => {
+    const value = sourceValue ?? node.sourceValue;
+    const exactValueAnchor = value
+      ? anchors.find((anchor) => node.evidenceAnchorIds.includes(anchor.anchorId) && anchor.excerpt.includes(value))
+      : undefined;
+    return exactValueAnchor ?? sourceEvidenceAnchorForVisualNode(anchors, node);
+  };
+  const sourceAnchorIdForNode = (nodeId: string, sourceValue?: string) => {
+    const node = visual?.nodes.find((candidate) => candidate.nodeId === nodeId);
+    return node ? evidenceAnchorForNode(node, sourceValue)?.anchorId : undefined;
+  };
+
+  const openNode = (visual: EvidenceLinkedVisualSpec, nodeId: string, sourceValue?: string) => {
     const node = visual.nodes.find((candidate) => candidate.nodeId === nodeId);
     if (!node || !anchorsById) return;
-    const evidenceIds = [node.sourceAnchorId, ...node.evidenceAnchorIds].filter((id): id is string => Boolean(id));
-    const anchor = evidenceIds.map((id) => anchorsById.get(id)).find((candidate): candidate is ChapterSourceAnchor => candidate !== undefined);
-    if (anchor) onOpenAnchor(anchor);
+    const evidenceAnchor = evidenceAnchorForNode(node, sourceValue);
+    if (evidenceAnchor) onOpenAnchor(sourceAnchorForVisualNode(evidenceAnchor, node, sourceValue ?? node.sourceValue));
   };
 
   if (!visual || !firstScene) {
@@ -54,7 +67,8 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   if (firstScene.mode === 'composition') {
     return <div className="dw-answer-visual-preview dw-answer-visual-preview-composition" role="group"
       aria-label={`Visual preview: ${plainInlineCodeText(firstScene.title)}`}>
-      <HtmlScene scene={firstScene} visual={visual} onOpenNode={(nodeId) => openNode(visual, nodeId)} />
+      <HtmlScene scene={firstScene} visual={visual} onOpenNode={(nodeId, sourceValue) => openNode(visual, nodeId, sourceValue)}
+        sourceAnchorIdForNode={sourceAnchorIdForNode} />
     </div>;
   }
 

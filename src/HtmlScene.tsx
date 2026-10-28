@@ -9,9 +9,10 @@ import './html-scene.css';
 /** The AI composes HTML from bounded layout/data primitives. React owns every
  * tag, style and event; model strings never become executable DOM or CSS.
  */
-export function HtmlScene({ scene, visual, onOpenNode, focusedNode, showTitle = true }: {
+export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchorIdForNode, showTitle = true }: {
   scene: PresentationScene; visual: EvidenceLinkedVisualSpec;
   onOpenNode: (id: string, sourceValue?: string) => void; focusedNode?: string | null;
+  sourceAnchorIdForNode?: (id: string, sourceValue?: string) => string | undefined;
   /** Hide the in-canvas heading when a persistent reader toolbar already names the scene. */
   showTitle?: boolean;
 }) {
@@ -82,6 +83,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, showTitle = 
     const originLabel = e.valueOrigin === 'source' ? 'Source value' : e.valueOrigin === 'illustration' ? 'Illustrative example' : null;
     const value = e.value;
     const sourceValue = e.valueOrigin === 'source' ? value : undefined;
+    const focusAnchorId = sourceAnchorIdForNode?.(node.nodeId, sourceValue) ?? node.sourceAnchorId ?? node.evidenceAnchorIds[0];
     let body: ReactNode = value ? <span className="html-scene-value">{e.valueOrigin === 'source' ? value : <InlineCodeText text={value}/>}</span> : null;
     if (e.kind === 'bytes') body = <span className="html-byte-strip">{value.trim().split(/\s+/u).map((cell, i) => <span key={i}><b>{cell}</b><small>{i}</small></span>)}</span>;
     if (e.kind === 'matrix') {
@@ -97,7 +99,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, showTitle = 
     return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ? plainInlineCodeText(node.detail) : undefined}
       aria-pressed={focusedNode === node.nodeId}
-      data-focus-key={`reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`}
+      data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, value, e.valueOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue); } }}>
       <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>

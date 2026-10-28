@@ -1103,3 +1103,17 @@ in the packaged current build without dispatching a request or rewriting a
 saved answer. It does not qualify a newly generated current-schema visual,
 source-click review, playback, accessibility, export, or comprehension. Keep
 `j53m` open.
+
+## Source-value navigation in composed scenes — 28 October 2026
+
+Composed HTML visuals now carry each source-valued cue through node selection
+and resolve its cited anchor only from that node's existing evidence IDs. When
+the value occurs uniquely inside the verified excerpt, the Code pane opens the
+narrowed range; otherwise it retains the validated citation. Returning from
+source uses the same evidence anchor to restore the focused visual node and
+matching source value. The compact answer preview uses the same resolution.
+No evidence IDs or schema fields were added. `git diff --check` passed; no
+build, tests, packaged click-through, provider request, or audio playback ran.
+This fixes source navigation wiring only. Generated visual quality, current
+schema output, accessibility/reflow, audio, export fidelity, and human
+comprehension remain open; keep `j53m` open.
