@@ -484,6 +484,30 @@ pub fn validate(
     Ok(())
 }
 
+/// Apply additional visible-content requirements to fresh AI proposals.
+/// Saved chapters use `validate` above so tightened generation policy does not
+/// invalidate already-persisted reader content.
+pub(crate) fn validate_generated(
+    presentation: &ScenePresentation,
+    nodes: &[VisualNode],
+    claims: &[ChapterClaim],
+) -> Result<(), String> {
+    validate(presentation, nodes, claims)?;
+    for scene in &presentation.scenes {
+        if scene.mode == SceneMode::Composition
+            && !scene
+                .elements
+                .iter()
+                .any(|element| !element.kind.container() && !element.kind.decorative())
+        {
+            return Err(
+                "A composition scene needs at least one visible content node linked to its claim. No visual was saved.".into(),
+            );
+        }
+    }
+    Ok(())
+}
+
 /// A narrated graph scene must remain readable in the focused reader view.
 /// It shows nodes cited by the scene's claim plus one edge of context; when no
 /// node cites that claim, the reader falls back to the full graph.

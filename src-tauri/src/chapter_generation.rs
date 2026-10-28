@@ -143,7 +143,7 @@ fn canonicalize_visual_proposal(
         .presentation
         .as_ref()
         .ok_or_else(|| "A visual diagram needs the current scene presentation.".to_owned())?;
-    crate::scene_presentation::validate(presentation, &nodes, claims)?;
+    crate::scene_presentation::validate_generated(presentation, &nodes, claims)?;
     crate::scene_presentation::validate_graph_density(presentation, &nodes, &edges, claims)?;
     let kind = match proposed.kind {
         GeneratedVisualKind::None => unreachable!("none visuals returned before conversion"),
