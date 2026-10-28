@@ -199,3 +199,36 @@ overlap leaves no unique next-page sentinel, and stops at the configured cap.
 It is deterministic unit evidence only. Cancellation/corruption boundaries,
 packaged storage pressure, broad Fontdone recall, and agent answer quality
 remain unqualified; keep `a699`, `0wdn`, and `gk46` open.
+
+The cache-retention suite also passed on the same source revision:
+
+```text
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context::cache::tests
+16 passed; 0 failed; 1 ignored; 820 filtered out
+```
+
+This executes deterministic LRU/byte-quota eviction, reader pinning, old
+generation leases, bounded maintenance, symlink rejection, interrupted cleanup,
+and refused-publication preservation. The ignored entry is the cross-process
+lease helper, which is invoked by the passing disposable lease test. These are
+local native tests; packaged disk-pressure behavior and the broader retrieval
+gates remain open.
+
+### Current Fontdone profile using the owned file-page size — 28 October 2026
+
+The current ignored local-service profile ran against the isolated saved
+Fontdone `main@5249b72371` snapshot with its V6 syntax index. It reports 1,621
+indexed files, 3,462 ranges, 153 syntax files and 1,468 text-fallback files.
+Named expected ranges are 12/12 globally and scoped. Broad first range pages
+find 1/12, and the 256-result windows find 6/12 for each query. Eight-result
+file pages find 4/7 expected paths on their first page; 32 pages followed by
+scoped range search find 7/7 paths and 12/12 ranges for each query. Discovery
+takes 6,066 ms / 4,541 ms and serializes 160,166 / 160,287 bytes over all
+bounded responses. `memory_face` first search including index preparation is
+2,617 ms and the warm search is 580 ms.
+
+This direct local-service profile makes no model request and does not measure an
+agent's pagination decisions, packaged behavior, or explanation quality. An
+earlier attempt without the V6 syntax index was discarded. Details and the
+limits are in [the acceptance record](../acceptance/2026-10-17-range-retrieval.md#current-source-fontdone-profile-with-the-owned-file-page-cap--28-october-2026).
+Keep `a699`, `0wdn`, and `gk46` open.

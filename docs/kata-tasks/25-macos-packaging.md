@@ -166,3 +166,15 @@ and most red-looking run entries were queue cancellations. Do not call the
 current commit verified until #1267 finishes. The unsigned package workflow
 still is not a signed/notarized release, and clean-account installation remains
 open.
+
+## CI completion — 2026-10-28 11:45 UTC
+
+GitHub Actions run [#1267](https://github.com/appunni-m/software-stories/actions/runs/40680552632)
+completed successfully for code commit `8da4add3bdbc1e9f71eb0103b19d5e5cb063eb2c`.
+The `Build and inspect unsigned bundles` job passed through runner setup, Rust
+cache restore, dependency installation, license inventory, unsigned macOS bundle
+build, and inspection. This resolves the prior in-progress CI note; it does not
+qualify code added after that revision, signing/notarization, a clean-account
+install, or a published release. The repository still has no release tag or
+published GitHub release, and the local Mac reports zero valid Developer ID
+signing identities. Keep `e42a` and the release milestone open.

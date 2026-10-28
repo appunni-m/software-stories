@@ -240,3 +240,35 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --lib \
 | Retrieval cache / copied syntax-index directory after the run | 14 MiB / 234 MiB (index directory includes other saved snapshots) |
 
 This confirms the local service can discover all seven expected files and recover all twelve pinned ranges when it pages file discovery and scopes range searches. It also reconfirms weak global first-page recall and an incomplete first-page discovery result. The test invokes local services directly; it does not prove that an agent automatically follows the multi-step path, that the packaged app works offline, or that an explanation is accurate or useful. These are debug-profile observations, not user-facing latency or token measurements. Keep `a699`, `gk46`, and guide-quality tasks open.
+
+## Current-source Fontdone profile with the owned file-page cap — 28 October 2026
+
+Ran the ignored native-service profile with its file-discovery helper set to the
+same eight-result page size exposed by the owned `search_code` operation. The
+fixture is an isolated copy of Fontdone `main@5249b72371` snapshot data and its
+V6 syntax index at `/private/tmp/code-atlas-a699-post-default-20261025`; the
+running app's data was not changed. An earlier profile attempt against this copy
+without the V6 syntax index reported zero syntax files and is discarded. The
+corrected run used the copied V6 index. No model, Codex, speech request, or
+Fontdone code execution was involved.
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / source bytes / ranges | 1,621 / 19,296,074 / 3,462 |
+| Syntax / text-fallback files | 153 / 1,468 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| `memory_face` first search including index preparation / warm search | 2,617 ms / 580 ms |
+| Named expected ranges | 12/12 globally and 12/12 file-scoped |
+| Broad range first page | 1/12 for each query |
+| Broad range pages within the 256-result window | 6/12 for each query |
+| File discovery first page | 4/7 expected paths for each query |
+| File discovery across 32 eight-result pages, then scoped search | 7/7 paths and 12/12 ranges for both queries |
+| First query discovery time / serialized bytes | 6,066 ms / 160,166 bytes |
+| Second query discovery time / serialized bytes | 4,541 ms / 160,287 bytes |
+
+This measures direct local-service paging and scoped retrieval. It does not show
+that an agent automatically performs 32 file-discovery calls, that global
+first-page ranking is useful, or that a generated explanation is complete.
+Result-byte totals span bounded service responses and are not one model context.
+The profile also does not qualify packaged search, cancellation/corruption, or
+answer quality. Keep `a699`, `gk46`, and dependent generation tasks open.
