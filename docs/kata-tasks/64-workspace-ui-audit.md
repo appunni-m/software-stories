@@ -606,3 +606,24 @@ verified executable SHA-256 is
 `d86df9d68c8bb7919943d8ba48046eba1ba6af53e84cdd8d6fa6a9b7e274e6a2`, matching
 the packaged bundle. This is a focused notification fix; the wider screen and
 accessibility acceptance under `x21h` and `13yp` remains open.
+
+## Connections dialog account controls — 29 October 2026
+
+Opening **Connections** in the packaged workspace showed its tabs and footer,
+but the Explanations panel was blank even though Codex was connected. Source
+inspection found the authenticated account details inside a closed `<details>`
+element whose summary is intentionally hidden in the embedded Connections
+panel. The content therefore had no visible disclosure control. The source fix
+keeps that account section open while embedded; the standalone generation
+dialog retains its collapsed-details behavior.
+
+The rebuilt app was installed and reopened on the existing `pillow-rs`
+workspace. Explanations now shows the connected-account status and an explicit
+Model settings disclosure; opening it shows the saved GPT-6-Luna/max controls.
+The Voice tab shows Pocket TTS as ready on this Mac, and the footer actions stay
+aligned below the content. No connection or voice preference was changed and no
+AI/TTS request was sent. The screenshot was inspected live and not archived
+because it exposes account details. The verified executable SHA-256 is
+`1328dc1fd4dba061fa3ff185ba671a58219b31af7b0d100c582c9a05b2649a44`. No test
+suite was run; the broader `x21h`/`13yp` screen and accessibility acceptance
+remains open.
