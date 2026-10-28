@@ -12,7 +12,7 @@
 .html-scene-column { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
 .html-scene-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; }
 .html-scene-panel { padding: 20px; border: 1px solid var(--scene-color); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
-.html-scene-stack { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 30px 12px 12px; border-inline: 2px solid var(--scene-color); border-bottom: 2px solid var(--scene-color); border-radius: 0 0 12px 12px; }
+.html-scene-stack { position: relative; display: flex; flex-direction: column-reverse; gap: 6px; padding: 30px 12px 12px; border-inline: 2px solid var(--scene-color); border-bottom: 2px solid var(--scene-color); border-radius: 0 0 12px 12px; }
 .html-scene-stack::before { content: 'NEXT TO POP'; position: absolute; top: 8px; inset-inline-start: 12px; color: var(--muted); font: 600 12px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; }
 .html-scene-timeline { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); align-items: stretch; gap: 14px; padding-top: 30px; }
 .html-scene-timeline::before { content: ''; position: absolute; top: 11px; left: 4%; right: 4%; height: 2px; background: var(--border-strong); }
@@ -64,7 +64,8 @@
 .html-scene-tree { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-inline-start: 12px; padding-inline-start: 20px; border-inline-start: 1px solid var(--scene-color); }
 .html-scene-tree > * { position: relative; }
 .html-scene-tree > *::before { content: ''; position: absolute; top: 24px; inset-inline-start: -20px; width: 12px; border-top: 1px solid var(--scene-color); }
-.html-scene-queue { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 8px; padding: 30px 48px; border-block: 2px solid var(--scene-color); }
+.html-scene-queue { position: relative; display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: stretch; gap: 8px; padding: 30px 48px 14px; border-block: 2px solid var(--scene-color); overflow-x: auto; overscroll-behavior-inline: contain; }
+.html-scene-queue > [role="button"] { flex: 0 0 min(220px, 65cqw); max-width: 220px; }
 .html-scene-queue::before, .html-scene-queue::after { position: absolute; top: 7px; color: var(--muted); font: 600 12px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; }
 .html-scene-queue::before { content: 'FRONT'; inset-inline-start: 4px; }
 .html-scene-queue::after { content: 'BACK'; inset-inline-end: 4px; }
