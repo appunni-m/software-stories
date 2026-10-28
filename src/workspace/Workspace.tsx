@@ -30,7 +30,7 @@ import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
@@ -284,8 +284,18 @@ export function DeveloperWorkspace(props:Props) {
   const guideTurns=guideStackTurns(visibleTurns,
     [current.focusedTurnId,featuredTurnId??undefined,...branchesByTurn.keys()],guideStackExpanded);
   const guideAttemptGroups=groupGuideAttempts(guideTurns,featuredTurnId);
-  const hiddenGuideTurnCount=visibleTurns.length-guideTurns.length;
-  const guideStackLabels=guideStackCopy(guideTurns.length,visibleTurns.length,guideStackExpanded);
+  const allGuideAttemptGroups=groupQuestionAttempts(visibleTurns);
+  const visibleGuideQuestionCount=guideAttemptGroups.length;
+  const allGuideQuestionCount=allGuideAttemptGroups.length;
+  const guideQuestionNoun=allGuideQuestionCount===1?'question':'questions';
+  const groupedGuideAttemptCount=allGuideAttemptGroups.reduce((count,group)=>count+group.turns.length-1,0);
+  const showGuideStackControl=visibleGuideQuestionCount<allGuideQuestionCount||groupedGuideAttemptCount>0||guideStackExpanded;
+  const groupedGuideAttemptSummary=groupedGuideAttemptCount>0
+    ?` ${groupedGuideAttemptCount} repeated attempt${groupedGuideAttemptCount===1?' is':'s are'} grouped.`
+    :'';
+  const guideStackStatus=guideStackExpanded
+    ?`Showing all ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
+    :`Showing ${visibleGuideQuestionCount} of ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`;
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
@@ -708,6 +718,14 @@ export function DeveloperWorkspace(props:Props) {
       error:(error)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),error})),
       busy:(busy)=>setSourceSearchState((previous)=>({...sourceSearchStateFor(previous,sourceSearchKey),busy}))},{invoke}),[term,searchMode,projectId,snapshotId,searchOffset,sourceSearchKey]);
   const results=useMemo(()=>workspaceSearchResults({query:term,mode:searchMode,files:rows,symbols:index?.symbols??[],source,captured:currentSourceSearch.hits}),[term,searchMode,rows,index,source,currentSourceSearch.hits]);
+  const searchResultGroups=useMemo(()=>{
+    const grouped=new Map<string,CodeSearchHit[]>();
+    for(const hit of results){const matches=grouped.get(hit.path)??[];matches.push(hit);grouped.set(hit.path,matches);}
+    return [...grouped].map(([path,hits])=>({path,hits}));
+  },[results]);
+  const searchResultsSummary=results.length>=80||(currentSourceSearch.limited&&currentSourceSearch.nextOffset===null)
+    ?searchLimitMessage(results.length)
+    :`${searchResultsMessage(results.length,currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null).replace(/\.$/,'')} across ${searchResultGroups.length} ${searchResultGroups.length===1?'file':'files'}.`;
   const graph=useMemo(()=>index?projectProvenRelationshipGraph(index,manifest,new Set(rows.map((r)=>r.path))):null,[index,manifest,rows]);
   const featuredTurn=visibleTurns.find((turn)=>turn.id===featuredTurnId);
   const historyTurnId=current.focusedTurnId??featuredTurnId;
@@ -885,7 +903,17 @@ export function DeveloperWorkspace(props:Props) {
           <header><strong>{showChanges?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong><div className="dw-sidebar-header-actions"><Tooltip content="Repository sharing"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label="Repository sharing" onClick={()=>setSharingOpen(true)}><ShieldCheck size={15}/></IconButton></Tooltip>{tool&&<Button className="dw-sidebar-back" size="1" variant="ghost" color="gray" aria-label="Back to explanation" onClick={()=>returnToGuide('explanation')}><ArrowLeft size={13}/>Back</Button>}</div></header>
           {showChanges?<><div className="dw-sidebar-section">Commit history <span>{commits.length ? `${commits.length} recent`:''}</span><Button size="1" variant="ghost" disabled={gitBusy} onClick={()=>setGitReload((value)=>value+1)}>Refresh</Button></div><div className="dw-commits" role="group" aria-label="Recent commits. Use Up and Down arrows to move between commits.">{gitBusy&&<p role="status">Loading commits… <Button size="1" variant="ghost" onClick={()=>{gitRequest.current?.abort();setGitBusy(false);setGitStopped(true);}}>Stop</Button></p>}{gitStopped&&<p role="status">Loading stopped.{commits.length>0?' Your previous history is still available.':''}</p>}{gitError&&<p role="alert">{gitError}</p>}{commitHistoryEmpty&&<p role="status">{commitHistoryEmpty}</p>}{commits.map((c)=><button key={c.oid} ref={(button)=>{if(button)commitButtons.current.set(c.oid,button);else commitButtons.current.delete(c.oid);}} className="dw-commit" disabled={!c.parents.length} tabIndex={c.oid===rovingCommitId?0:-1} title={c.parents.length?`${c.subject}\n${c.oid}`:`${c.subject} — initial commit; parent comparison unavailable`} onFocus={()=>setFocusedCommitId(c.oid)} onKeyDown={(event)=>{if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;event.preventDefault();const direction=event.key==='ArrowDown'?1:-1;const currentIndex=commits.findIndex((commit)=>commit.oid===c.oid);const nextIndex=nextFocusableCommitIndex(commits,currentIndex,direction);const next=commits[nextIndex];if(next&&nextIndex!==currentIndex)commitButtons.current.get(next.oid)?.focus();}} onClick={()=>{if(!c.parents.length)return;onCompare(c.parents[0],c.oid);setNarrowPane('explanation');onWorkspace('changes');}}><span className={`dw-commit-line ${c.parents.length>1?'merge':''}`}><GitCommitHorizontal size={16}/></span><span><strong>{c.subject||'Untitled commit'}</strong><small>{c.author}{commitDateLabel(c.timestamp)&&<> · <time dateTime={c.timestamp}>{commitDateLabel(c.timestamp)}</time></>} · {c.oid.slice(0,7)}{c.parents.length>1?' · merge':!c.parents.length?' · initial commit':''}</small></span></button>)}</div></>:activity==='history'?<ul className="dw-explorations" role="tree" aria-label="Explorations">{renderExplorations(null)}</ul>:<>
             <div className="dw-sidebar-search"><TextField.Root ref={search} size="1" value={activity==='search'?repositorySearch:fileFilter} placeholder={activity==='search'?(repositoryRegex?'Code pattern…':'Files, symbols, code…'):'Find a file…'} maxLength={activity==='search'?240:4096} aria-label={activity==='search'?'Search repository':'Filter files'} onFocus={()=>{setSearchFocused(false);setSearchOffset(0);}} onChange={(e)=>{if(activity==='search'){setRepositorySearch(e.target.value);setSearchOffset(0);}else setFileFilter(e.target.value);}} onKeyDown={(event)=>{if(activity==='search'&&event.altKey&&event.code==='KeyR'){event.preventDefault();toggleRepositoryRegex();setSearchOffset(0);return;}if(activity==='files'&&event.key==='Enter'&&openQuickMatch(fileFilter)){event.preventDefault();return;}if(activity==='search'&&event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){if(!currentSourceSearch.busy&&!currentSourceSearch.error&&!currentSourceSearch.limited&&currentSourceSearch.nextOffset===null&&results.length===1){event.preventDefault();openFile(results[0]);return;}if(!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)){event.preventDefault();exploreSearch(repositorySearch,results);}}}}><TextField.Slot><Search size={13}/></TextField.Slot>{activity==='search'&&<TextField.Slot side="right"><Tooltip content="Use regular expression (⌥R)"><IconButton type="button" size="1" variant="ghost" color={repositoryRegex?'blue':'gray'} aria-label="Use regular expression" aria-pressed={repositoryRegex} onClick={()=>{toggleRepositoryRegex();setSearchOffset(0);}}><span aria-hidden="true">.*</span></IconButton></Tooltip></TextField.Slot>}</TextField.Root></div>
-            {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small>{currentSourceSearch.busy&&<p role="status">Searching…</p>}{repositorySearch.trim()&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length>0&&<p className="dw-search-count" role="status">{results.length>=80||(currentSourceSearch.limited&&currentSourceSearch.nextOffset===null)?searchLimitMessage(results.length):searchResultsMessage(results.length,currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null)}</p>}{currentSourceSearch.error&&<p role="status">{currentSourceSearch.error}</p>}{repositorySearch&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length===0&&<p>No matching code in this search.</p>}{results.map((r,i)=><button key={i} onClick={()=>openFile(r)}><FileCode2 size={14}/><span><strong>{r.text}</strong><small>{r.path}{r.from?`:${r.from}`:''}</small></span></button>)}{currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null&&results.length<80&&<Button size="1" variant="soft" disabled={currentSourceSearch.busy} onClick={()=>{const offset=currentSourceSearch.nextOffset;if(offset!==null)setSearchOffset(offset);}}>Load more matches</Button>}{!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<Button size="1" variant="soft" onClick={()=>exploreSearch(repositorySearch,results)}><MessageSquare size={13}/>Explore with AI</Button>}</>}</div>:<><div className="dw-sidebar-section">{projectName}</div><WorkspaceExplorer paths={sourcePaths} query={fileFilter} selectedPath={state.file} expanded={openFolders} onExpandedChange={setOpenFolders} onOpen={(path)=>openFile({path})} treeRef={explorer}/></>}
+            {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small>{currentSourceSearch.busy&&<p role="status">Searching…</p>}{repositorySearch.trim()&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length>0&&<p className="dw-search-count" role="status">{searchResultsSummary}</p>}{currentSourceSearch.error&&<p role="status">{currentSourceSearch.error}</p>}{repositorySearch&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length===0&&<p>No matching code in this search.</p>}{searchResultGroups.map(({path,hits})=>{
+              const visibleHits=hits.slice(0,2);
+              const remainingHits=hits.slice(2);
+              const renderHit=(hit:CodeSearchHit,index:number)=><button className="dw-search-file-match" key={`${hit.from??'file'}:${index}`} onClick={()=>openFile(hit)}><strong>{hit.from===undefined?'File match':`Line ${hit.from}${hit.to&&hit.to!==hit.from?`–${hit.to}`:''}`}</strong><span>{hit.text}</span></button>;
+              return <section className="dw-search-file-group" key={path}>
+                <div className="dw-search-file-heading"><FileCode2 size={13}/><strong title={path}>{path}</strong><small>{hits.length} {hits.length===1?'match':'matches'}</small></div>
+                <div className="dw-search-file-matches">{visibleHits.map(renderHit)}
+                  {remainingHits.length>0&&<details className="dw-search-more-matches"><summary>Show {remainingHits.length} more match{remainingHits.length===1?'':'es'}</summary>{remainingHits.map(renderHit)}</details>}
+                </div>
+              </section>;
+            })}{currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null&&results.length<80&&<Button size="1" variant="soft" disabled={currentSourceSearch.busy} onClick={()=>{const offset=currentSourceSearch.nextOffset;if(offset!==null)setSearchOffset(offset);}}>Load more matches</Button>}{!generationPaused&&shouldOfferExploreWithAI(repositorySearch,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<Button size="1" variant="soft" onClick={()=>exploreSearch(repositorySearch,results)}><MessageSquare size={13}/>Explore with AI</Button>}</>}</div>:<><div className="dw-sidebar-section">{projectName}</div><WorkspaceExplorer paths={sourcePaths} query={fileFilter} selectedPath={state.file} expanded={openFolders} onExpandedChange={setOpenFolders} onOpen={(path)=>openFile({path})} treeRef={explorer}/></>}
           </>}
         </aside>
       </Panel><Separator className="dw-separator" aria-label="Resize repository sidebar"/>
@@ -918,10 +946,10 @@ export function DeveloperWorkspace(props:Props) {
               <Tabs.Content value="guide">
                 {visibleTurns.length > 0 ? (
                   <>
-                  {(hiddenGuideTurnCount>0||guideStackExpanded)&&<div className="dw-guide-stack-control" role="group" aria-label="Guide question history">
-                    <span>{guideStackLabels.status}</span>
+                  {showGuideStackControl&&<div className="dw-guide-stack-control" role="group" aria-label="Guide question history">
+                    <span role="status" aria-live="polite">{guideStackStatus}</span>
                     <Button size="1" variant="ghost" onClick={()=>setExpandedGuideStackKey(guideStackExpanded?null:guideStackKey)}>
-                      {guideStackLabels.action}
+                      {guideStackExpanded?'Show recent questions':`Show all ${allGuideQuestionCount} ${guideQuestionNoun}`}
                     </Button>
                   </div>}
                   {guideAttemptGroups.map((group)=>{

@@ -174,8 +174,19 @@
 .dw-suggestions > button > span,.dw-search-results > button > span {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .dw-suggestions small,.dw-search-results small {display:block;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-search-results {padding:var(--space-3);}
+.dw-search-file-group {margin-top:var(--space-2);}
+.dw-search-file-heading {display:flex;align-items:center;gap:var(--space-2);min-width:0;padding:var(--space-1) var(--space-2);color:var(--muted);font-size:12px;}
+.dw-search-file-heading > strong {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+.dw-search-file-heading > small {display:inline;flex:none;color:var(--dim);font-size:12px;}
+.dw-search-file-matches {display:grid;gap:var(--space-1);padding-left:var(--space-4);}
+.dw-search-file-match {display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--space-2);width:100%;border:0;border-radius:5px;background:transparent;padding:var(--space-1) var(--space-2);color:var(--text);text-align:left;cursor:pointer;}
+.dw-search-file-match:hover {background:var(--surface-hover);}
+.dw-search-file-match > strong {color:var(--dim);font-size:12px;font-weight:500;white-space:nowrap;}
+.dw-search-file-match > span {min-width:0;overflow:hidden;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap;}
+.dw-search-more-matches > summary {padding:var(--space-1) var(--space-2);color:var(--dim);font-size:12px;cursor:pointer;}
 .dw-search-results .dw-search-count {margin:var(--space-2) 0 var(--space-1);color:var(--dim);font-size:12px;line-height:1.4;}
 .dw-search-results strong {font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dw-search-results .dw-search-file-heading > strong {font-weight:600;}
 .dw-search-results .rt-Button {margin-top:var(--space-3);}
 .dw-commits {overflow:auto;padding:var(--space-2) var(--space-2) var(--space-5);}
 .dw-commits p {padding:var(--space-3);color:var(--muted);font-size:12px;}
