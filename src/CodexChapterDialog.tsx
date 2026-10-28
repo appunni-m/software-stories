@@ -5,6 +5,7 @@ import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import { GenerationRecord } from './GenerationRecord';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
 import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
@@ -666,7 +667,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
             <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed source context and uses your account’s plan quota.</p></div>
-          <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
+          <AppButton intent="icon" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></AppButton>
         </header>}
         <div className="provider-dialog-content">
           {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
@@ -682,19 +683,19 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 <details><summary>Advanced · Codex installation</summary><form className="provider-key-form" onSubmit={(event) => { event.preventDefault(); void configure(); }}>
                   <label htmlFor="codex-executable">Codex executable · absolute path</label>
                   <input id="codex-executable" value={executablePath} onChange={(event) => setExecutablePath(event.target.value)} maxLength={4096} placeholder="/opt/homebrew/bin/codex" spellCheck={false} autoComplete="off" disabled={locked || otherRun || Boolean(login)} />
-                  <div className="provider-key-actions"><button type="button" className="secondary-button" disabled={locked || otherRun || Boolean(login)} onClick={() => { void chooseExecutable(); }}>{busy === 'choose-file' ? 'Choosing…' : 'Choose executable…'}</button>
-                    <button type="submit" className="secondary-button" disabled={locked || otherRun || Boolean(login) || !executablePath.trim()}>{busy === 'configure' ? 'Saving…' : 'Save executable'}</button>
+                  <div className="provider-key-actions"><AppButton intent="secondary" disabled={locked || otherRun || Boolean(login)} onClick={() => { void chooseExecutable(); }}>{busy === 'choose-file' ? 'Choosing…' : 'Choose executable…'}</AppButton>
+                    <AppButton intent="secondary" type="submit" disabled={locked || otherRun || Boolean(login) || !executablePath.trim()}>{busy === 'configure' ? 'Saving…' : 'Save executable'}</AppButton>
                     <a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex installation guide ↗</a></div>
                 </form></details>
                 <div className="provider-key-actions">
-                  {!status?.authenticated && <button className="primary-button" disabled={locked || otherRun || Boolean(login)} onClick={() => { void connect(); }}>{busy === 'login' ? 'Connecting…' : 'Connect Codex'}</button>}
-                  <button className="secondary-button" disabled={busy !== null} onClick={() => { void refresh(); }}>{busy === 'status' ? 'Refreshing…' : 'Refresh account'}</button>
-                  {status?.authenticated && <button className="secondary-button" disabled={locked || otherRun} onClick={() => { void logout(); }}>Disconnect account</button>}
+                  {!status?.authenticated && <AppButton intent="primary" disabled={locked || otherRun || Boolean(login)} onClick={() => { void connect(); }}>{busy === 'login' ? 'Connecting…' : 'Connect Codex'}</AppButton>}
+                  <AppButton intent="secondary" disabled={busy !== null} onClick={() => { void refresh(); }}>{busy === 'status' ? 'Refreshing…' : 'Refresh account'}</AppButton>
+                  {status?.authenticated && <AppButton intent="secondary" disabled={locked || otherRun} onClick={() => { void logout(); }}>Disconnect account</AppButton>}
                 </div>
-                {login && <div className="provider-status-note"><a href={loginHref(login.authUrl) ?? undefined} target="_blank" rel="noreferrer">Continue ChatGPT sign-in in your browser ↗</a><p>After sign-in, select Refresh account.</p><button className="secondary-button" disabled={busy !== null} onClick={() => { void cancelLogin(); }}>Cancel sign-in</button></div>}
+                {login && <div className="provider-status-note"><a href={loginHref(login.authUrl) ?? undefined} target="_blank" rel="noreferrer">Continue ChatGPT sign-in in your browser ↗</a><p>After sign-in, select Refresh account.</p><AppButton intent="secondary" disabled={busy !== null} onClick={() => { void cancelLogin(); }}>Cancel sign-in</AppButton></div>}
                 <p className="provider-small-note">Your connection, model and reasoning are reused across files, projects and app restarts. Codex manages sign-in securely. Disconnect pauses automatic reuse until you connect again.</p>
             {status?.authenticated && <details className="provider-disclosure-card" open={Boolean(modelAvailabilityMessage)}><summary>Model settings · {selectedModel?.displayName ?? 'Choose a model'} · {selection.effort}</summary><section aria-labelledby="codex-model-title">
-              <div className="provider-section-heading"><div><span>ACCOUNT MODELS</span><h3 id="codex-model-title">Model and reasoning</h3></div><button className="secondary-button" onClick={() => { void discoverModels(); }} disabled={locked || otherRun || Boolean(login)}>{busy === 'models' ? 'Loading…' : 'Load / refresh models'}</button></div>
+              <div className="provider-section-heading"><div><span>ACCOUNT MODELS</span><h3 id="codex-model-title">Model and reasoning</h3></div><AppButton intent="secondary" onClick={() => { void discoverModels(); }} disabled={locked || otherRun || Boolean(login)}>{busy === 'models' ? 'Loading…' : 'Load / refresh models'}</AppButton></div>
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<AppSelect ariaLabel="Codex model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked || !models.length} clearLabel={models.length ? 'Choose a model…' : 'Load models first…'} options={models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={changeModel}/></label>
               <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={(effort)=>{if(locked || !selectedModel?.supportedReasoningEfforts.includes(effort))return;releaseReview();const next={...selection,effort};setSelection(next);remember(next.modelId,next.effort);}}/></label>
@@ -743,7 +744,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </>}
                 <p className="provider-small-note">Review the captured code above before sending. Files that look private or cannot be read are left out.</p>
               </div>}
-              <button className="secondary-button" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</button>
+              <AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
@@ -773,7 +774,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 <ol className="code-lens-explanation-claims">{prChangeResult.claims.map((claim) => <li key={claim.claimId}>
                   <span className="chapter-claim-category">{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code behavior'}</span><p><InlineCodeText text={claim.prose}/></p>
                   {claim.inferenceBasis && <p>Basis: <InlineCodeText text={claim.inferenceBasis}/></p>}
-                  {onOpenPrChangeCitation && <button className="text-button" onClick={() => onOpenPrChangeCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</button>}
+                  {onOpenPrChangeCitation && <AppButton intent="quiet" onClick={() => onOpenPrChangeCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</AppButton>}
                   <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
                 </li>)}</ol><small>{prChangeResult.modelVersion ?? prChangeResult.modelId}</small>
               </section>}
@@ -782,7 +783,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 <p>Every claim cites an exact, unique quote inside your selection. Nothing was saved to chapter history.</p>
                 <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => <li key={claim.claimId}>
                   <p><InlineCodeText text={claim.prose}/></p>
-                  {onOpenCodeLensCitation && <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>}
+                  {onOpenCodeLensCitation && <AppButton intent="quiet" onClick={() => onOpenCodeLensCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</AppButton>}
                   <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
                 </li>)}</ol>
                 <small>{codeLensResult.modelVersion ?? codeLensResult.modelId}</small>
@@ -809,13 +810,13 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           {mode === 'settings' && onChooseBackend && <p className="provider-small-note">Change backend returns to the available generation options. Saved plans and PR Guides remain local; switching discards an unsaved chapter preview or temporary explanation.</p>}
         </div>
         {!embeddedSettings && <footer className="provider-dialog-footer">
-          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button>{mode === 'settings' && onChooseBackend && <button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button>}</div>
-          {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
+          <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</AppButton>{mode === 'settings' && onChooseBackend && <AppButton intent="secondary" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</AppButton>}</div>
+          {native && mode !== 'settings' && (busy === 'send' ? <AppButton intent="secondary" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</AppButton>
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
-            : codeLensResult || prChangeResult ? <button className="secondary-button" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</button>
-            : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
-              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
+            : codeLensResult || prChangeResult ? <AppButton intent="secondary" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</AppButton>
+            : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</AppButton></div>
+              : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
         </footer>}
       </section>
     </div>

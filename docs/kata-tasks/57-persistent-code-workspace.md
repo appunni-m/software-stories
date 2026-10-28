@@ -72,3 +72,7 @@ Claude generation's Generate, Cancel, Save draft, citation navigation and Review
 ## Claude request preparation actions — 28 October 2026
 
 Claude's fixed file-scope Remove action, exact-request preview/refresh action, and request-preview discard action now use shared quiet/secondary intents. File selection limits, request preview fingerprinting, consent boundaries and callbacks are unchanged. No tests/build or packaged acceptance ran.
+
+## Codex account and generation actions — 28 October 2026
+
+Codex dialog controls now use shared icon, primary, secondary and quiet intents for close, account setup, model refresh, source review, citations and draft/generation lifecycle actions. The executable form's Save action explicitly remains a submit button; all other actions retain button behavior. Existing auth, review, consent, selection, and generation handlers are unchanged. No tests/build or packaged acceptance ran.
