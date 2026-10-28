@@ -10,10 +10,11 @@ check, and checksum verification passed; the rebuilt app opened the existing
 Fontdone snapshot without starting a provider request. GitHub run #1226 failed
 because those removed controls still had three stale `onGoAtlas` references;
 `f745f77` removes them. Runs #1227, #1228, and #1229 then completed
-successfully. Run #1230 for `2a58384` is still in its unsigned macOS bundle
-step as of 05:34 UTC; it has no conclusion yet. The docs-only status correction
-in `3d0c7fb` is excluded from that build workflow. These package checks do not
-constitute a signed release. Build and release details are in
+successfully. Run #1230 for `2a58384` completed successfully at 05:38 UTC,
+including unsigned bundle construction, metadata inspection, and checksum
+verification. The later docs-only commits are excluded from that build
+workflow. These package checks do not constitute a signed release. Build and
+release details are in
 [the 0.1.0 readiness draft](releases/0.1.0-draft.md).
 
 ## 25 October incremental-work checkpoint
