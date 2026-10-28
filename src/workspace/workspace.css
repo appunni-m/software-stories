@@ -47,6 +47,7 @@
 .dw-path button[aria-current] {color:var(--text);}
 .dw-tool-label {margin-left:auto;}
 .dw-composer {position:relative;padding:var(--space-2) var(--space-4) var(--space-3);flex-shrink:0;border-bottom:1px solid var(--border);}
+.dw-composer-actions {align-items:center;flex-wrap:wrap;}
 .dw-conversation-warning {display:flex;align-items:flex-start;gap:var(--space-2);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;line-height:1.55;}
 .dw-conversation-warning svg {flex:0 0 auto;margin-top:1px;color:var(--accent);}
 .dw-conversation-warning p {flex:1;margin:0;min-width:0;}
@@ -456,6 +457,7 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-guide-coverage strong { color: var(--amber-12); font-size: 12px; }
 .dw-guide-coverage span { overflow-wrap: anywhere; }
 @media(max-width:680px){.dw-guide-slide-nav{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--space-2)}.dw-guide-slide-nav>span{grid-column:1/-1;grid-row:1}.dw-guide-slide-nav>button:first-of-type{grid-column:1;grid-row:2}.dw-guide-slide-nav>button:last-of-type{grid-column:2;grid-row:2}}
+@container guide-pane (max-width:520px){.dw-guide-slide-nav{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--space-2)}.dw-guide-slide-nav>span{grid-column:1/-1;grid-row:1}.dw-guide-slide-nav>button:first-of-type{grid-column:1;grid-row:2}.dw-guide-slide-nav>button:last-of-type{grid-column:2;grid-row:2}}
 @container guide-pane (max-width:700px){.dw-answer-scroll:has(.dw-guide-slide-nav) .visual-story>.story-sticky-controls{top:72px}}
 
 /* The sidebar replaces the reader only at narrow widths; always offer a way back. */

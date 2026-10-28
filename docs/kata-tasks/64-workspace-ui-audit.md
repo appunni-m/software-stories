@@ -529,3 +529,21 @@ changed. Executable SHA-256:
 `7afe02c741efbcca77000cfb89aeee66ecb31c1d7b532b189d26cc2ddd2578d8`.
 DMG SHA-256:
 `32218d539ab4666819844db415daaa88f514c8a39788282a0a441954f90ff342`.
+
+## Keep Guide actions visible in a narrow pane — 29 October 2026
+
+Guide section navigation now reflows inside the Guide pane itself: the section
+counter gets its own row and Previous/Next share the next row. This works when
+the file and source panes are resized, even if the overall window remains wide.
+The Guide me / Show flow / Show source actions also wrap instead of colliding.
+
+`npm run tauri -- build --no-sign --bundles app` completed. The rebuilt app was
+opened on the existing `pillow-rs` Guide; after narrowing the Guide pane, the
+section controls remained visible in two rows, then returned to their original
+layout when the pane was widened. No test suite was run, and no repository
+snapshot, saved answer, or narration was changed. The screenshot was inspected
+live and not archived. Executable SHA-256:
+`69a29bef6728990291caa65ba2ed108fa0be634ecd11f192f001bf3a78104403`.
+
+This addresses the narrow-pane placement defect only; the broader packaged UI
+acceptance tracked by `13yp` remains open.

@@ -260,3 +260,15 @@ These runs did not build or open a bundle, generate audio, measure the exact
 packaged status transition or first-section latency, or conduct a listening
 review. Offline restart and packaged queue pressure/cancellation acceptance
 remain open; keep the issue open.
+
+## Queue before reader notification — 29 October 2026
+
+Commit `b39e6e5` moves the best-effort local Pocket enqueue in `adoptSection`
+to immediately after the native section save and before `updateWorkspace`
+notifies subscribed readers. Static review found that the old order allowed a
+newly rendered player to ask for preparation status before the section had
+entered the bounded queue, briefly observing idle and stopping its poll. Enqueue
+still does not await synthesis, and failures remain optional. `git diff --check`
+passed; no tests, build, packaged run, or listening check was performed for
+this change. Keep the delayed-worker, cache-hit, cancellation/failure, offline
+restart, latency, and packaged-transition acceptance open.
