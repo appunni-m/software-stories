@@ -1135,6 +1135,7 @@ order. That put the oldest entry beside the “next to pop” label. Stack child
 now render newest-first so the visual, keyboard and screen-reader orders all
 start at the next item to pop. Queue entries previously wrapped into multiple
 rows in a narrow pane, obscuring their front-to-back order; they now stay on one
-horizontally scrollable track. This is a source-only semantic-layout
-correction. No tests or packaged visual review ran; generated scene quality,
-keyboard/reflow accessibility, and human comprehension acceptance remain open.
+horizontally scrollable track while the FRONT/BACK direction markers remain
+visible. This is a source-only semantic-layout correction. No tests or
+packaged visual review ran; generated scene quality, keyboard/reflow
+accessibility, and human comprehension acceptance remain open.

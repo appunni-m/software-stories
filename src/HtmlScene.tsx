@@ -79,6 +79,13 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
           {children.map((child, childIndex) => <div key={`branch-item-${childIndices[childIndex]}`} className="html-scene-branch-item">{child}</div>)}
         </div>;
       }
+      if (e.kind === 'queue') {
+        return <div key={index} className={className} role="group" aria-label={label}>
+          <span className="html-scene-queue-front" aria-hidden="true">FRONT</span>
+          <div className="html-scene-queue-track">{children}</div>
+          <span className="html-scene-queue-back" aria-hidden="true">BACK</span>
+        </div>;
+      }
       return <div key={index} className={className} role={label ? 'group' : undefined} aria-label={label}>{children}</div>;
     }
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
