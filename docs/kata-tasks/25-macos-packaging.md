@@ -113,3 +113,7 @@ The history-search UI correction was pushed as `fd4c013`. Package run [#1233](ht
 ## CI and release checkpoint — 2026-10-28 07:02 UTC
 
 Package run [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) completed successfully at 07:01 UTC for `fd4c013`. This confirms the unsigned macOS app/DMG packaging and inspection after the history-search correction. GitHub reports no release and `git ls-remote --tags origin` returned no tag refs. Signing, notarization, a clean-account install, and the signed release-candidate workflow remain unqualified.
+
+## CI and release checkpoint — 2026-10-28 07:07 UTC
+
+The source changes `549cc84`, `bc0539f`, and `f021800` plus the release note `2b1e7ce` were pushed to `main`. Package run [#1234](https://github.com/appunni-m/software-stories/actions/runs/40648040451) is queued for `2b1e7ce`; the result is not known yet. Run #1233 remains the latest completed package check and passed for `fd4c013`. There is still no public release or tag; signing, notarization, and clean-account installation remain open.

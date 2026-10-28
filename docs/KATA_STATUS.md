@@ -2,7 +2,7 @@
 
 Snapshot: **28 October 2026**, read from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
-Latest package state: run [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) passed at 07:01 UTC for `fd4c013`. This is unsigned macOS packaging verification, not a public release. No GitHub release or tag exists; signing, notarization and clean-install gates remain open.
+Latest completed package run: [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) passed at 07:01 UTC for `fd4c013`. Run #1234 is queued for source commit `2b1e7ce`; its result is pending. These unsigned package checks are not public releases. No GitHub release or tag exists; signing, notarization and clean-install gates remain open.
 
 ## 28 October package and workspace checkpoint
 
