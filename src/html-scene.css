@@ -12,7 +12,7 @@
 .html-scene-column { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
 .html-scene-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; }
 .html-scene-panel { padding: 20px; border: 1px solid var(--scene-color); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
-.html-scene-stack { position: relative; display: flex; flex-direction: column-reverse; gap: 6px; padding: 30px 12px 12px; border-inline: 2px solid var(--scene-color); border-bottom: 2px solid var(--scene-color); border-radius: 0 0 12px 12px; }
+.html-scene-stack { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 30px 12px 12px; border-inline: 2px solid var(--scene-color); border-bottom: 2px solid var(--scene-color); border-radius: 0 0 12px 12px; }
 .html-scene-stack::before { content: 'NEXT TO POP'; position: absolute; top: 8px; inset-inline-start: 12px; color: var(--muted); font: 600 12px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; }
 .html-scene-timeline { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); align-items: stretch; gap: 14px; padding-top: 30px; }
 .html-scene-timeline::before { content: ''; position: absolute; top: 11px; left: 4%; right: 4%; height: 2px; background: var(--border-strong); }

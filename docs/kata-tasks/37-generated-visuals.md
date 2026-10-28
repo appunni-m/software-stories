@@ -1130,11 +1130,11 @@ comprehension acceptance remain open.
 ## Preserve FIFO/LIFO meaning at render time — 28 October 2026
 
 A renderer audit found that stack entries were authored oldest-to-newest, as the
-visual contract requires, but CSS displayed them in that same top-to-bottom
-order. That put the oldest entry beside the “next to pop” label. The stack now
-renders in reverse visual order so the newest entry appears at the top. Queue
-entries previously wrapped into multiple rows in a narrow pane, obscuring their
-front-to-back order; they now stay on one horizontally scrollable track. This
-is a source-only semantic-layout correction. No build, tests, or packaged visual
-review ran; generated scene quality, keyboard/reflow accessibility, and human
-comprehension acceptance remain open.
+visual contract requires, but the UI displayed them in that same top-to-bottom
+order. That put the oldest entry beside the “next to pop” label. Stack children
+now render newest-first so the visual, keyboard and screen-reader orders all
+start at the next item to pop. Queue entries previously wrapped into multiple
+rows in a narrow pane, obscuring their front-to-back order; they now stay on one
+horizontally scrollable track. This is a source-only semantic-layout
+correction. No tests or packaged visual review ran; generated scene quality,
+keyboard/reflow accessibility, and human comprehension acceptance remain open.
