@@ -6,6 +6,7 @@ import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, M
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { CodeDetail } from '../design/CodeDetail';
+import { AppButton } from '../design/AppButton';
 import { AppSelect } from '../design/AppSelect';
 import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
@@ -756,7 +757,7 @@ export function DeveloperWorkspace(props:Props) {
     return <article key={turn.id} className={isCurrent?'is-current':''}>
       <details className="dw-history-question"><summary><strong><InlineCodeText text={questionSummaryText(turn.question)}/></strong></summary><p><InlineCodeText text={turn.question}/></p></details>
       <p><InlineCodeText text={entry.text}/></p>
-      <button className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</button>
+      <AppButton intent="custom" className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,turn.id,isCurrent?historyTurnId:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/>{isCurrent&&<small className="dw-history-current">Current</small>}</AppButton>
       {turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}
     </article>;
   }
@@ -939,7 +940,7 @@ export function DeveloperWorkspace(props:Props) {
         </aside>
       </Panel><Separator className="dw-separator" aria-label="Resize repository sidebar"/>
       <Panel id="reading-workspace" minSize="320px"><section className="dw-main" aria-label="Code exploration">
-        <nav className="dw-path" aria-label="Exploration path"><IconButton size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path.map((e,i)=><span key={e.id}>{i>0&&<ChevronRight size={12}/>}<button aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)}>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}</button></span>)}{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">{workspace==='changes'?'Changes':workspace==='chapter-studio'?'Edit explanation':'Player'}</span>}</nav>
+        <nav className="dw-path" aria-label="Exploration path"><IconButton size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path.map((e,i)=><span key={e.id}>{i>0&&<ChevronRight size={12}/>}<AppButton intent="custom" aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)}>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}</AppButton></span>)}{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">{workspace==='changes'?'Changes':workspace==='chapter-studio'?'Edit explanation':'Player'}</span>}</nav>
         {conversationUnavailable&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p><strong>Saved conversation unavailable.</strong> Your saved work has not been changed. You can browse and search this snapshot; new questions cannot be saved.</p></div>}
         {conversationConflict&&<div className="dw-conversation-warning dw-conversation-conflict" role="alert">
           <MessageSquare size={16}/><div><strong>Changes in two windows</strong><p>Separate edits will merge. Choose which value to keep for {conversationConflict.overlappingChanges} overlapping change{conversationConflict.overlappingChanges===1?'':'s'}. New questions are paused until this is saved.</p>{conflictResolutionError&&<p className="dw-error" role="status">{conflictResolutionError}</p>}</div>
@@ -992,9 +993,9 @@ export function DeveloperWorkspace(props:Props) {
                     <h1>What would you like to understand?</h1>
                     <p>{conversationUnavailable ? 'Browse or search the captured code to inspect it.' : 'Ask above, or start with the selected file.'}</p>
                     {!generationPaused && source && (
-                      <button className="dw-text-action" onClick={() => explain({ path: source.path, sha256: source.sha256 })}>
+                      <AppButton intent="custom" className="dw-text-action" onClick={() => explain({ path: source.path, sha256: source.sha256 })}>
                         Explain {source.path.split('/').at(-1)}
-                      </button>
+                      </AppButton>
                     )}
                   </section>
                 )}
@@ -1011,10 +1012,10 @@ export function DeveloperWorkspace(props:Props) {
                   {historyMatchSummary&&<p className="dw-history-match-count" role="status">{historyMatchSummary}</p>}
                   {matchingSavedExplanations.length>0&&<div className="dw-library dw-history-matches" aria-label="Matching saved explanations">
                     <strong>Saved explanations</strong>
-                    {matchingSavedExplanations.map((revision)=><button key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></button>)}
+                    {matchingSavedExplanations.map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}
                   </div>}
                   {historySections.map(({exploration,groups})=><section key={exploration.id}>
-                    <button className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{exploration.id==='root'?projectName:<InlineCodeText text={exploration.title}/>}<small>Level {ancestors(state,exploration.id).length}</small></button>
+                    <AppButton intent="custom" className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{exploration.id==='root'?projectName:<InlineCodeText text={exploration.title}/>}<small>Level {ancestors(state,exploration.id).length}</small></AppButton>
                     {groups.map((group)=>{
                       const currentTurn=exploration.id===current.id?group.turns.find((turn)=>turn.id===historyTurnId):undefined;
                       const latestTurn=group.turns.at(-1)!;
@@ -1024,14 +1025,14 @@ export function DeveloperWorkspace(props:Props) {
                       return <div key={group.key} className={`dw-history-retry-group${currentTurn?' is-current':''}`}>
                         <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong><span>{group.turns.length}{historySearchTerm?' matching':''} attempts</span></div>
                         <p><InlineCodeText text={entry.text}/></p>
-                        <button className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest attempt'}</small></button>
+                        <AppButton intent="custom" className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest attempt'}</small></AppButton>
                         <details className="dw-history-retries"><summary>Show all attempts</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
                       </div>;
                     })}
                   </section>)}
                   {historySearchTerm&&!historyTurnMatchCount&&!matchingSavedExplanations.length&&<p className="dw-history-empty" role="status">No questions or saved explanations match this search.</p>}
                   {!historySearchTerm&&!path.some((exploration)=>exploration.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}
-                  {!historySearchTerm&&chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((revision)=><button key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></button>)}</details>}
+                  {!historySearchTerm&&chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}</details>}
                 </div>
                 {chapters.some((revision)=>revision.lifecycle==='accepted'&&revision.sections.length>0)&&<div className="dw-history-export"><OfflineExport projectId={projectId} revisions={chapters}/></div>}
               </Tabs.Content>
@@ -1199,7 +1200,7 @@ function AnswerStorage(){
 function ExplorationBranchLinks({branches,onGo}:{branches:Exploration[];onGo:(id:string)=>void}){
   const recent=branches.slice(-5).reverse();
   const earlier=branches.slice(0,-5).reverse();
-  const renderLink=(exploration:Exploration)=><button className="dw-branch-link" key={exploration.id} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={exploration.title}/></span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>;
+  const renderLink=(exploration:Exploration)=><AppButton intent="custom" className="dw-branch-link" key={exploration.id} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={exploration.title}/></span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></AppButton>;
   return <>{recent.map(renderLink)}{earlier.length>0&&<details className="dw-branch-archive"><summary>Show {earlier.length} earlier explorations</summary><div>{earlier.map(renderLink)}</div></details>}</>;
 }
 function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
@@ -1238,7 +1239,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
       <div className="dw-answer-heading">{compact?<span>Explanation</span>:revision.sections.length>1&&<span>Section {position+1} of {revision.sections.length}</span>}{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(revision.title)}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip></div></div>
       {versions.length>1&&original&&<div className="dw-answer-version"><span>Version</span><AppSelect ariaLabel={`Answer version for ${plainInlineCodeText(original.title)}`} size="1" value={revision.revisionId} options={versions.map((r,index)=>({value:r.revisionId,label:`${index===0?'Original':'Accepted'} · r${r.revisionNumber}${index===versions.length-1?' · latest accepted':''}`}))} onValueChange={(revisionId)=>onVersion(original.revisionId,revisionId)}/>{revision.revisionId!==versions.at(-1)?.revisionId&&<span className="dw-answer-version-status">Updated version available</span>}</div>}
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
-      <h3>{compact?<button type="button" className="dw-answer-expand" aria-label={`Open ${plainInlineCodeText(section.title)} in Guide`} onClick={()=>onFocus(revision.revisionId,section.sectionId)}><InlineCodeText text={section.title}/><ChevronRight size={16}/></button>:<InlineCodeText text={section.title}/>}</h3>
+      <h3>{compact?<AppButton intent="custom" className="dw-answer-expand" aria-label={`Open ${plainInlineCodeText(section.title)} in Guide`} onClick={()=>onFocus(revision.revisionId,section.sectionId)}><InlineCodeText text={section.title}/><ChevronRight size={16}/></AppButton>:<InlineCodeText text={section.title}/>}</h3>
       {!compact ? <>
         <VisualStory
           key={`${revision.revisionId}:${section.sectionRevisionId}`}
