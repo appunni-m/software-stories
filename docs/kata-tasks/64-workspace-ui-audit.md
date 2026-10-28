@@ -380,3 +380,29 @@ the source-linked relationship-label/button spacing was not visible in this
 state. No repository content or saved answer was edited, and no screenshot
 containing source was retained. Keep `13yp` and `x21h` open for the remaining
 visual, accessibility, and screen-by-screen acceptance.
+
+## Sticky Guide navigation follow-up — 29 October 2026
+
+The reopened Guide exposed a separate position defect: the section navigation
+could be restored partly above the answer reader's scrollport, leaving its
+Previous and Next controls clipped against the Guide/Flow/history bar. The
+navigation now sticks to the top of the answer reader while scrolling, keeping
+section controls reachable without changing the saved answer or its scroll
+position. Source change is in `src/workspace/workspace.css`.
+
+The scene Previous/Next arrows were also flanking the multi-row narration
+player. Their vertical position followed the whole player height, making the
+scene controls look detached and crowding playback. Moved scene navigation
+beside the scene count/dots in the toolbar; narration now gets a full-width
+playback row. Compact and narrow layouts use the same grouping.
+
+Packaged visual confirmation: the rebuilt app reopened at pillow-rs
+`main@e843f864fc`. Scrolling the Guide kept Previous / section count / Next
+visible below the Guide/Flow/history bar. Scene arrows now sit beside the scene
+count and dots, while narration uses its own full-width row. The top-of-section
+view also shows the section row in normal flow without overlap. `npm run build`
+and `npm run bundle:macos` passed; notices for 148 npm packages and 391 Cargo
+crates, bundle metadata, and the DMG checksum verified. The executable SHA-256
+is `ee2384349810ec5a1024a11336d6fb40d13c03d18e3b6c94d20e519ed69c1114`.
+The broader screen, accessibility, and responsive audit remains open under
+`13yp` and `x21h`.

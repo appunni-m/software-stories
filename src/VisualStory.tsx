@@ -392,7 +392,11 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       <div className="story-toolbar">
         <span className="story-scene-title" title={plainInlineCodeText(scene.title)}><InlineCodeText text={scene.title}/></span>
         <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
-        <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
+        <div className="story-scene-navigation" role="group" aria-label="Scene navigation">
+          <button className="story-scene-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
+          <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
+          <button className="story-scene-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+        </div>
         {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
       </div>
     </div>
@@ -462,14 +466,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       </div>
     </div>}
     <div className="story-playbar">
-      <button className="story-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
       <NarrationPlayer key={`${section.sectionRevisionId}:${scene.id}:${manualVisit}`} compact
         projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section}
         clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
         restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
         onPlaybackPositionChange={(position) => { savePosition(scene.id, position, undefined, true); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
         onPlaybackStarted={onSectionPlaybackStarted} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
-      <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
     </div>
     {!visual && <div className="story-focus-bar"><span><InlineCodeText text={focus?.label ?? (anchor ? 'Captured code' : section.title)}/></span>
       {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
