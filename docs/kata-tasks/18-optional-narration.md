@@ -70,3 +70,14 @@ accepted chapter. Native cache-preview matching, actual browser playback and
 human technical-pronunciation/pacing review remain pending. See [scoped evidence
 and remaining export checks](../acceptance/2026-10-17-offline-visual-scenes.md).
 Keep this task open.
+
+## Explicit local-audio cancellation — source checkpoint, 29 October 2026
+
+The player's confirmed **Cancel audio** action now stops a matching Pocket
+prewarm whether it is still queued or already running. Its cancellation reaches
+the managed worker; incomplete audio is discarded, while the transcript and
+previous cache remain available. Ordinary navigation and player unmount still
+allow useful background prewarming to finish and populate the exact cache
+entry. The confirmation text distinguishes those actions. Source inspection
+only; no tests, build, app launch or synthesis ran. Packaged cancellation,
+replay and human listening acceptance remain open.

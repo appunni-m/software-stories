@@ -581,7 +581,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setCancelConfirmation(false);
     setCancelStatus(null);
     try {
-      const stopped = await cancelProviderRequest(review.reviewId);
+      const stopped = await cancelProviderRequest(review.reviewId, {
+        cancelLocalPreparation: localNarration,
+      });
       if (!mountedRef.current) return;
       setCancelStatus(stopped
         ? (localNarration ? 'Cancellation requested. Waiting for local synthesis to stop; no returned audio will be accepted.' : 'Cancellation was requested locally. Google may already have received the reviewed narration text; no returned audio will be accepted.')
@@ -866,7 +868,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
                   {cancelConfirmation && (
                     <div className="provider-cancel-confirm" role="group" aria-labelledby="narration-cancel-title" aria-describedby="narration-cancel-description">
                       <strong id="narration-cancel-title">Cancel this narration request?</strong>
-                      <p id="narration-cancel-description">{localNarration ? 'Code Atlas will stop the local playback request. Background audio preparation may continue and cache this clip.' : 'Code Atlas will try to stop its HTTPS request. Google may already have received the reviewed speech text, and charges may still apply.'} Any returned audio will be discarded; your transcript and previous audio remain available.</p>
+                      <p id="narration-cancel-description">{localNarration ? 'Code Atlas will stop Pocket TTS preparation for this clip. Any incomplete audio will be discarded.' : 'Code Atlas will try to stop its HTTPS request. Google may already have received the reviewed speech text, and charges may still apply.'} Any returned audio will be discarded; your transcript and previous audio remain available.</p>
                       <div>
                         <AppButton intent="secondary" type="button" onClick={() => setCancelConfirmation(false)}>Keep waiting</AppButton>
                         <AppButton intent="danger" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</AppButton>

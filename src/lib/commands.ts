@@ -1294,8 +1294,14 @@ export async function discardProviderRequestReview(reviewId: string): Promise<vo
   await invoke<void>('discard_provider_request_review', { reviewId });
 }
 
-export async function cancelProviderRequest(reviewId: string): Promise<boolean> {
-  return invoke<boolean>('cancel_provider_request', { reviewId });
+export async function cancelProviderRequest(
+  reviewId: string,
+  options: { cancelLocalPreparation?: boolean } = {},
+): Promise<boolean> {
+  return invoke<boolean>('cancel_provider_request', {
+    reviewId,
+    cancelLocalPreparation: options.cancelLocalPreparation ?? false,
+  });
 }
 
 export async function sendProviderRequest(input: {

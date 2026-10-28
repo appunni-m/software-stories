@@ -398,6 +398,41 @@ impl NarrationPrewarmQueue {
         cancelled
     }
 
+    /// Stop synthesis for an explicitly cancelled playback request. Ordinary
+    /// navigation cancellation leaves useful background prewarming alone.
+    fn cancel_preparation(&self, cache_key: &str) -> bool {
+        let mut cancellation = None;
+        let mut work = None;
+        let cancelled = {
+            let Ok(mut queue) = self.0.lock() else {
+                return false;
+            };
+            if !queue
+                .entries
+                .get(cache_key)
+                .is_some_and(|entry| entry.state == NarrationPrewarmState::Preparing)
+            {
+                return false;
+            }
+            if let Some(position) = queue.pending.iter().position(|key| key == cache_key) {
+                queue.pending.remove(position);
+            }
+            let Some(entry) = queue.entries.get_mut(cache_key) else {
+                return false;
+            };
+            entry.state = NarrationPrewarmState::Unavailable;
+            entry.updates.send_replace(NarrationPrewarmState::Unavailable);
+            cancellation = entry.cancellation.take();
+            work = entry.work.take();
+            true
+        };
+        drop(work);
+        if let Some(cancellation) = cancellation {
+            let _ = cancellation.send(());
+        }
+        cancelled
+    }
+
     fn finish(&self, cache_key: &str, state: NarrationPrewarmState) {
         if let Ok(mut queue) = self.0.lock() {
             if let Some(entry) = queue.entries.get_mut(cache_key) {
@@ -602,6 +637,14 @@ impl PendingNarrationReviews {
         Ok(pending)
     }
 
+    fn cache_key_for_cancellation(&self, review_id: &str) -> Option<String> {
+        self.0
+            .lock()
+            .ok()?
+            .get(review_id)
+            .map(|pending| pending.review.cache_key.clone())
+    }
+
     pub fn remove(&self, review_id: &str) {
         if let Ok(mut reviews) = self.0.lock() {
             reviews.remove(review_id);
@@ -770,6 +813,16 @@ pub fn cancel_pending_local_audio(
         return false;
     };
     queue.cancel_pending(&review.cache_key)
+}
+
+pub fn cancel_local_preparation_for_review(
+    reviews: &PendingNarrationReviews,
+    queue: &NarrationPrewarmQueue,
+    review_id: &str,
+) -> bool {
+    reviews
+        .cache_key_for_cancellation(review_id)
+        .is_some_and(|cache_key| queue.cancel_preparation(&cache_key))
 }
 
 pub fn local_audio_preparation_status(

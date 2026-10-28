@@ -1202,9 +1202,19 @@ fn discard_provider_request_review(
 #[tauri::command(rename_all = "camelCase")]
 fn cancel_provider_request(
     cancellations: State<'_, provider::ProviderRequestCancellations>,
+    narration_reviews: State<'_, narration::PendingNarrationReviews>,
+    narration_prewarms: State<'_, narration::NarrationPrewarmQueue>,
     review_id: String,
+    cancel_local_preparation: bool,
 ) -> bool {
-    cancellations.cancel(&review_id)
+    let cancelled_request = cancellations.cancel(&review_id);
+    let cancelled_preparation = cancel_local_preparation
+        && narration::cancel_local_preparation_for_review(
+            &narration_reviews,
+            &narration_prewarms,
+            &review_id,
+        );
+    cancelled_request || cancelled_preparation
 }
 
 #[tauri::command(rename_all = "camelCase")]
