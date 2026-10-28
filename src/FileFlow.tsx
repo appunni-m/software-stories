@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, FileCode2 } from 'lucide-react';
+import { AppButton } from './design/AppButton';
 import type { SnapshotIndex } from './lib/commands';
 import type { SourceLineRange } from './lib/navigation';
 import type { ProvenGraphEdge } from './lib/atlas';
@@ -41,9 +42,9 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
       : focusedSymbol
         ? 'Verified static links that touch this code. Click a node to open its captured source.'
         : 'No indexed symbol matches these selected lines. File-level links are available below.'}</p>
-    {hasSourceSelection && <button className="text-button" onClick={() => setFileWideFocus(showingFileWide ? null : focusKey)}>
+    {hasSourceSelection && <AppButton intent="quiet" onClick={() => setFileWideFocus(showingFileWide ? null : focusKey)}>
       {showingFileWide ? 'Return to selected code' : `Show file connections (${fileLinked.length})`}
-    </button>}
+    </AppButton>}
     {loading ? <p role="status">Reading the local code index…</p>
       : visible.length === 0 ? <p>{focusedSymbol && !showingFileWide
           ? `No verified calls, imports, or test references touch ${focusedSymbol.name}.`
@@ -53,19 +54,19 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
             const to = symbols.get(edge.targetId);
             if (!from || !to) return null;
             return <article className="file-flow-route" key={edge.relationship.relationshipId}>
-              <button onClick={() => onOpenFile(from.path, edge.snapshotId, codeLensRangeFromIndexedAnchor(from.anchor))}>
+              <AppButton intent="custom" onClick={() => onOpenFile(from.path, edge.snapshotId, codeLensRangeFromIndexedAnchor(from.anchor))}>
                 <FileCode2 size={14} /><span><strong>{from.name}</strong><code>{from.path}:{from.anchor.startLine}</code></span>
-              </button>
-              <button className="file-flow-connector" aria-label={`Inspect ${edge.relationship.kind} evidence at ${edge.evidence.path}:${edge.evidence.startLine}`}
+              </AppButton>
+              <AppButton intent="custom" className="file-flow-connector" aria-label={`Inspect ${edge.relationship.kind} evidence at ${edge.evidence.path}:${edge.evidence.startLine}`}
                 onClick={() => onOpenFile(edge.evidence.path, edge.snapshotId, {
                   startLine: edge.evidence.startLine, endLine: edge.evidence.endLine, sourceSha256: edge.evidence.sha256,
                   startByte: edge.evidence.startByte, endByteExclusive: edge.evidence.endByte,
-                })}><ArrowDown size={16} /><span>{edge.relationship.kind === 'testReference' ? 'tests' : edge.relationship.kind}</span></button>
-              <button onClick={() => onOpenFile(to.path, edge.snapshotId, codeLensRangeFromIndexedAnchor(to.anchor))}>
+                })}><ArrowDown size={16} /><span>{edge.relationship.kind === 'testReference' ? 'tests' : edge.relationship.kind}</span></AppButton>
+              <AppButton intent="custom" onClick={() => onOpenFile(to.path, edge.snapshotId, codeLensRangeFromIndexedAnchor(to.anchor))}>
                 <FileCode2 size={14} /><span><strong>{to.name}</strong><code>{to.path}:{to.anchor.startLine}</code></span>
-              </button>
+              </AppButton>
             </article>;
           })}</div>}
-    {linked.length > 12 && <button className="text-button" onClick={() => {if(onShowAllChange)onShowAllChange(!showAll);else setExpanded(!showAll);}}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</button>}
+    {linked.length > 12 && <AppButton intent="quiet" onClick={() => {if(onShowAllChange)onShowAllChange(!showAll);else setExpanded(!showAll);}}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</AppButton>}
   </section>;
 }

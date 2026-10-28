@@ -32,3 +32,7 @@ The rest of the app still contains native and one-off button implementations. Th
 ## Offline export action migration — 28 October 2026
 
 The Offline Export trigger, close action, select/clear control, and footer actions now use the shared `AppButton` wrapper. Existing style classes, labels, handlers and disabled states are preserved; the trigger now also explicitly uses `type="button"`. This is a component-consistency increment only. No test/build or packaged visual/accessibility acceptance ran, and the wider migration remains open.
+
+## Flow and validation action migration — 28 October 2026
+
+The Flow relationship controls and Chapter Studio validation actions also use `AppButton`; their flow-specific classes, quiet-action styling, labels, disabled states, and source-navigation handlers are retained. The shared wrapper now covers actions across the reader, Flow, validation review, discovery/planning, connection/notification, recovery, and offline export surfaces. The remaining native controls and one-off styles have not been inventoried exhaustively. No tests/build or packaged visual/accessibility acceptance ran; task remains open.

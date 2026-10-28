@@ -1,6 +1,7 @@
 import type { ChapterRevision, ChapterSourceAnchor, ChapterValidationIssue } from './lib/commands';
 import { presentChapterIssues } from './lib/chapterValidationPresentation';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 
 export function ChapterValidationIssues({ revision, issues, busy, canRepair, onReview, onRepair }: {
   revision: ChapterRevision;
@@ -18,8 +19,8 @@ export function ChapterValidationIssues({ revision, issues, busy, canRepair, onR
       <p><strong><InlineCodeText text={finding.title}/>.</strong> <InlineCodeText text={finding.message}/></p>
       {finding.source && <code>{finding.source}</code>}
       <div className="chapter-issue-actions">
-        {finding.target && <button className="text-button" disabled={busy} onClick={() => onReview(finding.target!.sectionId, finding.target!.claimId)}>{finding.target.claimId ? 'Review claim' : 'Review section'}</button>}
-        {finding.repairAnchor && canRepair && <button className="text-button" disabled={busy} onClick={() => onRepair(finding.repairAnchor!)}>Repair citation</button>}
+        {finding.target && <AppButton intent="quiet" disabled={busy} onClick={() => onReview(finding.target!.sectionId, finding.target!.claimId)}>{finding.target.claimId ? 'Review claim' : 'Review section'}</AppButton>}
+        {finding.repairAnchor && canRepair && <AppButton intent="quiet" disabled={busy} onClick={() => onRepair(finding.repairAnchor!)}>Repair citation</AppButton>}
       </div>
       <details><summary>Technical details</summary>
         <p><InlineCodeText text={finding.issue.message}/></p>
