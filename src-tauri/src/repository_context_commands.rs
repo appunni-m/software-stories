@@ -802,8 +802,8 @@ mod tests {
                 query: query.to_owned(),
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
-                // Match the owned search_code file-discovery page cap.
-                limit: 8,
+                // Match the owned search_code broad-discovery page size.
+                limit: 32,
                 offset,
             };
             let started = Instant::now();

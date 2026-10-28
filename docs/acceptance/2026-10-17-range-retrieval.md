@@ -272,3 +272,29 @@ first-page ranking is useful, or that a generated explanation is complete.
 Result-byte totals span bounded service responses and are not one model context.
 The profile also does not qualify packaged search, cancellation/corruption, or
 answer quality. Keep `a699`, `gk46`, and dependent generation tasks open.
+
+## Fontdone broad file discovery with a 32-path page — 28 October 2026
+
+The Codex MCP contract previously documented an eight-path cap even though the
+native search service accepts 32 results. The tool now recommends one
+32-result page for broad file discovery, and the ignored Fontdone service
+profile uses that same page size. This run used the same isolated saved
+`main@5249b72371` snapshot plus V6 syntax index described above; no app storage
+was changed and no model, Codex, speech, or Fontdone code was run.
+
+The first 32-path page contained all seven independently expected paths for
+both broad queries, and scoped searches over those paths recovered all 12/12
+expected ranges. Under the former eight-path page, the first page contained
+4/7 expected paths for each query, and 32 pages were needed to enumerate all
+seven. The eight 32-path pages together returned 160,142 bytes for query one
+and 160,263 bytes for query two; those are serialized local-service responses
+over the full 256-result window, not the size of the first page or one model
+context. Discovery across all eight pages took 1,479 ms and 1,412 ms.
+
+The change makes the seven expected paths available in the first local
+discovery response in this fixture. It does not establish that Codex invokes
+the tool with limit 32, that a generated explanation reads or uses those paths,
+or that broad range ranking is sufficient: the broad range first page still
+finds 1/12 expected ranges and the 256-result range window finds 6/12 for each
+query. Agent answer quality and packaged acceptance remain open. This is a
+single local-service profile with no variance estimate.

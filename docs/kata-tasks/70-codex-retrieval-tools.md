@@ -42,6 +42,25 @@ Workspace owned-tool retrieval is implemented in source, with deterministic test
 
 The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. File-discovery results now expose the distinct query terms that contributed to each path's rank, so the agent can see the lexical basis instead of inferring it from an opaque score. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
 
+## Broad file-page sizing — 28 October 2026
+
+The MCP description previously told Codex to page file discovery in batches of
+at most eight even though the native search page supports 32. The owned tool
+contract now recommends a 32-path first page for broad file discovery, while
+keeping the existing 256-candidate window and requiring source reads before
+claims. The catalog regression verifies the 32-result schema and wording.
+
+In one ignored local-service Fontdone profile, a 32-path first page contained
+all seven independently expected paths for each of two broad queries; scoped
+search over those paths recovered 12/12 expected ranges. With the earlier
+eight-path cap, the first page contained only 4/7 paths and 32 pages were
+needed to enumerate all seven. Broad range first-page recall remains 1/12, and
+the first 32-path response has not been exercised through the real Codex
+account. This reduces the observed discovery pagination requirement without
+establishing that the agent follows the handoff or produces a complete answer.
+Keep the task open for an authorized real Codex run, independent content review,
+budget/recovery matrices, and packaged acceptance.
+
 ## Retrieval foundation checkpoint — 17 October
 
 Native search/read/cancel and structural definition/relationship/map commands now exist; see the [measured limitations](../acceptance/2026-10-17-range-retrieval.md). Broad single-query lexical retrieval found only 2/12 expected declarations. Named global retrieval missed FFI/C adapter declarations that file-scoped search recovered. The owned agent must inspect the module map, vary queries/scopes and follow validated relationships without asking the reader to select references. This is not implemented or enabled in Codex yet. `a699` remains the open prerequisite; retain the existing account/model constraints and qualify the complete evidence ledger before transmission.
