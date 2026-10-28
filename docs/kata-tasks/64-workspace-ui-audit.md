@@ -81,3 +81,16 @@ the activity sidebar replaces the reader; activating it restores the Guide
 workspace, and leaving Changes also restores the Files activity selection. This
 is a source-level correction; packaged narrow-window navigation and the full
 screen-by-screen UI acceptance remain open.
+
+## Remove redundant one-section controls — 28 October 2026
+
+The sequential Guide already owns Previous/Next navigation across published
+slides. Its child section renderer also displayed a second disabled `1 / 1`
+bar for every one-section revision. The revision-local navigator is now shown
+only when a revision actually contains multiple sections, and its counter uses
+the explicit `Section n of m` label. This reduces duplicate controls without
+changing the outer Guide slide sequence.
+
+No test, build or packaged interaction check ran in this source-only increment.
+Native growing-answer, citation-return, narrow-layout and high-zoom checks
+remain open under the existing acceptance task.
