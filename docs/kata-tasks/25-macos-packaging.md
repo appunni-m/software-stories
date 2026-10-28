@@ -109,3 +109,7 @@ Package-verification run [#1232](https://github.com/appunni-m/software-stories/a
 ## CI and release checkpoint — 2026-10-28 06:46 UTC
 
 The history-search UI correction was pushed as `fd4c013`. Package run [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) started at 06:45 UTC and is still in progress, currently restoring the Rust dependency cache; its conclusion is unknown. Run #1232 remains successful for the prior code state `e0a4008`. GitHub still has no published release or tag, so the first-release status is unchanged: signing, notarization, and clean-account acceptance remain open.
+
+## CI and release checkpoint — 2026-10-28 07:02 UTC
+
+Package run [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) completed successfully at 07:01 UTC for `fd4c013`. This confirms the unsigned macOS app/DMG packaging and inspection after the history-search correction. GitHub reports no release and `git ls-remote --tags origin` returned no tag refs. Signing, notarization, a clean-account install, and the signed release-candidate workflow remain unqualified.
