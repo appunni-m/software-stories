@@ -264,3 +264,11 @@ focus visibility, VoiceOver, zoom/reflow, contrast and motion were not checked.
 The native screenshot was viewed at 2880×1688 but is not retained as a file. This
 observation adds no durable screenshot evidence and does not satisfy the
 screen-by-screen acceptance matrix. Keep `x21h` and `13yp` open.
+
+### Packaged Flow fallback and source return — 28 October 2026
+
+Built commit `50e2551` with `CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos`. The frontend build, unsigned macOS app bundle, package metadata verification, and DMG checksum passed. Installed the bundle into the existing Code Atlas app without retaining another backup; the installed executable SHA-256 matches the build: `bfe5202bb49e8a2655560aa93afe5b7b7c99bfd9f47a62368c8e30d7cb52e63d`.
+
+On Fontdone `main@5249b72371`, Flow for “Rebuilding and transforming component points” now shows a section-specific no-verified-diagram state instead of an empty pane. Expanding its details reveals two source-backed claims with buttons for `src/tt/glyf.rs:564–582`. Opening one selects that exact captured range while retaining the Flow view and answer. “Read this section in Guide” opens the matching Code Lens answer at section 1 of 4. The saved Codex connection reconnected; no provider request was sent.
+
+The native screenshot was inspected live at 2880×1688 but was not retained as a file. This qualifies this one populated Flow fallback and navigation path only. First-run/error states, other modes, high zoom, themes, VoiceOver, contrast, and motion remain uninspected; keep `x21h` and `13yp` open.

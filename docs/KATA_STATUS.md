@@ -13,7 +13,11 @@ because those removed controls still had three stale `onGoAtlas` references;
 successfully. Run #1230 for `2a58384` completed successfully at 05:38 UTC,
 including unsigned bundle construction, metadata inspection, and checksum
 verification. The later docs-only commits are excluded from that build
-workflow. These package checks do not constitute a signed release. Build and
+workflow. A separate local build of `50e2551` also passed the frontend and
+unsigned app build, metadata verification, and DMG checksum; its installed
+executable matched the built bundle. The packaged Flow fallback and exact-source
+return were inspected on Fontdone, with no provider request. That single-state
+check does not constitute full design acceptance or a signed release. Build and
 release details are in
 [the 0.1.0 readiness draft](releases/0.1.0-draft.md).
 
