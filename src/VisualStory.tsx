@@ -372,7 +372,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
-      {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
+      {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode} showTitle={false}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
         aria-label={`Read-only visual explanation: ${plainInlineCodeText(visual.title)}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y

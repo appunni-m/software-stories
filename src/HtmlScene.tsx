@@ -9,9 +9,11 @@ import './html-scene.css';
 /** The AI composes HTML from bounded layout/data primitives. React owns every
  * tag, style and event; model strings never become executable DOM or CSS.
  */
-export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
+export function HtmlScene({ scene, visual, onOpenNode, focusedNode, showTitle = true }: {
   scene: PresentationScene; visual: EvidenceLinkedVisualSpec;
   onOpenNode: (id: string, sourceValue?: string) => void; focusedNode?: string | null;
+  /** Hide the in-canvas heading when a persistent reader toolbar already names the scene. */
+  showTitle?: boolean;
 }) {
   const draw = (index: number): ReactNode => {
     const e = scene.elements[index];
@@ -104,7 +106,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     </div>;
   };
   return <section className="html-scene" aria-label={plainInlineCodeText(scene.title)}>
-    <h4><InlineCodeText text={scene.title}/></h4>
+    {showTitle && <h4><InlineCodeText text={scene.title}/></h4>}
     <div className="html-scene-body">{draw(0)}</div>
   </section>;
 }
