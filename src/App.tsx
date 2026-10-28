@@ -3871,7 +3871,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
       </section>
 
       <CapturedSourcePanel
-        inline
         projectId={projectId}
         snapshotId={snapshotId}
         manifest={manifest}
@@ -3882,7 +3881,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         loading={sourceLoading}
         error={sourceError}
         onOpenFile={onOpenFile}
-        onRequestExplanation={onRequestExplanation}
         onRequestRangeExplanation={onRequestRangeExplanation}
       />
       <FileExplanationPanel
@@ -5042,12 +5040,11 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
 const SOURCE_WINDOW_LINES = 200;
 const SOURCE_LINE_CHARACTERS = 16_000;
 
-function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
+function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
-  onRequestExplanation: (path: string) => void;
   onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
   source: SnapshotSource | null;
   sourceRange: SourceLineRange | null;
@@ -5055,7 +5052,6 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
   loading: boolean;
   error: string | null;
   selectedPath: string | null;
-  inline?: boolean;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
   const [sourceWindowStart, setSourceWindowStart] = useState<number | null>(null);
@@ -5190,17 +5186,16 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
 
   if (selectedPath && !isNativeRuntime()) {
     return (
-      <div className={`empty-workspace simple-empty${inline ? ' source-inline-state' : ''}`} role="status" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
+      <div className="empty-workspace simple-empty source-inline-state" role="status" data-focus-key="files-source" tabIndex={-1}>
         <div className="empty-state-icon code-icon"><HardDrive size={22} /></div>
         <div className="step-pill"><span>LOCAL SOURCE</span> MAC APP REQUIRED</div>
         <h2>Open this file in the Code Atlas Mac app</h2>
         <p>The browser preview cannot read local snapshots. No source was loaded.</p>
-        {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>}
       </div>
     );
   }
   if (selectedPath && (loading || (!source && !error))) {
-    return <div className={`empty-workspace snapshot-loading${inline ? ' source-inline-state' : ''}`} role="status" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
+    return <div className="empty-workspace snapshot-loading source-inline-state" role="status" data-focus-key="files-source" tabIndex={-1}><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
   }
   if (selectedPath && error) {
     const capturedFile = manifest?.files.find((file) => file.path === selectedPath);
@@ -5231,24 +5226,21 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
             ? 'The selected snapshot has no captured or skipped entry for this path. The live repository was not checked.'
             : error;
     return (
-      <div className={`empty-workspace simple-empty source-error${inline ? ' source-inline-state' : ''}`} role="alert" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
+      <div className="empty-workspace simple-empty source-error source-inline-state" role="alert" data-focus-key="files-source" tabIndex={-1}>
         <div className="empty-state-icon code-icon"><TriangleAlert size={22} /></div>
         <div className="step-pill"><span>SNAPSHOT</span> SOURCE UNAVAILABLE</div>
         <h2>{unavailableTitle}</h2>
         <p>{unavailableMessage} Code Atlas did not fall back to the live repository.</p>
-        {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
       </div>
     );
   }
   if (selectedPath && source) {
     return (
-      <div className={`empty-workspace source-view${inline ? ' source-view-inline' : ''}`} data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
+      <div className="empty-workspace source-view source-view-inline" data-focus-key="files-source" tabIndex={-1}>
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
             {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
-            {!inline && <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>}
-            {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
           </div>
         </div>
         <div className="source-provenance">
@@ -5263,9 +5255,6 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
         </div>}
         {!citationHashMismatch && invalidAnchorReason && <div className="source-range-focus is-invalid" role="alert">
           <span><strong>Invalid or unavailable anchor</strong><small>{invalidAnchorReason} No lines are highlighted; the captured source remains available for inspection.</small></span>
-        </div>}
-        {!inline && !sourceRange && !sourceRangeIssue && <div className="source-range-focus is-unanchored" role="status">
-          <span><strong>No citation anchor</strong><small>No source range was supplied. Browse the captured file in bounded windows with its original line numbers.</small></span>
         </div>}
         {visibleSourceRange && <div className="source-range-focus" role="status">
           <span><strong>Citation focus</strong><code>{source.path}:{visibleSourceRange.startLine}-{visibleSourceRange.endLine}</code>
@@ -5327,7 +5316,6 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
           <span>Lines {firstDisplayedLine}–{lastDisplayedLine} of {sourceLineCount}</span>
           <button className="text-button" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</button>
         </nav>}
-        {!inline && <p className="source-safety-note"><HardDrive size={13} /> Loaded from immutable local snapshot storage and checked against the manifest hash. The live working tree was not read.</p>}
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
           <details>
             <summary><span><strong id="code-lens-related-title">Related files and tests</strong><small>{relationshipLoading ? 'Loading the local index…' : `${resolvedRelationships.length} resolved · ${unresolvedRelationships.length} unresolved`}</small></span></summary>
@@ -5348,7 +5336,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
     );
   }
   return (
-    <div className={`empty-workspace simple-empty${inline ? ' source-inline-state' : ''}`} data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
+    <div className="empty-workspace simple-empty source-inline-state" data-focus-key="files-source" tabIndex={-1}>
       <div className="empty-state-icon code-icon"><Code2 size={24} /></div>
       <div className="step-pill"><span>FILES</span> SOURCE</div>
       <h2>Choose a file to see its source and explanation.</h2>
