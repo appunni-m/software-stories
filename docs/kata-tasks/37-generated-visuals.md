@@ -1117,3 +1117,12 @@ build, tests, packaged click-through, provider request, or audio playback ran.
 This fixes source navigation wiring only. Generated visual quality, current
 schema output, accessibility/reflow, audio, export fidelity, and human
 comprehension remain open; keep `j53m` open.
+
+## TypeScript build guard correction — 28 October 2026
+
+Package run #1234 failed at TypeScript compilation because the source-citation
+focus effect dereferenced the optional visual model after deriving an optional
+node from it. The effect now requires both `visual` and `node` before reading
+scene values. `npm run build` passed after the guard. This fixes a compile
+regression only; source-click, generated visual quality, accessibility and
+comprehension acceptance remain open.

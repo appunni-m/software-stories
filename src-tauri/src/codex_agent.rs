@@ -1646,30 +1646,54 @@ impl ServerProcess {
             }
             let method = message.get("method").and_then(Value::as_str).unwrap_or("");
             let params = message.get("params").unwrap_or(&Value::Null);
-            if let Some(other_thread) = params.get("threadId").and_then(Value::as_str) {
-                if other_thread != thread_id {
+            let turn_scoped = matches!(
+                method,
+                "turn/started"
+                    | "turn/completed"
+                    | "item/started"
+                    | "item/completed"
+                    | "item/agentMessage/delta"
+                    | "item/reasoning/summaryTextDelta"
+                    | "item/reasoning/summaryPartAdded"
+                    | "item/reasoning/textDelta"
+                    | "thread/tokenUsage/updated"
+                    | "error"
+            );
+            if turn_scoped {
+                // App-server notifications are only authoritative after both
+                // owners are known. In particular, a completion before the
+                // turn/start acknowledgement must not stand in for that ack.
+                if params.get("threadId").and_then(Value::as_str) != Some(thread_id) {
                     continue;
                 }
-            }
-            // A notification can precede the turn/start response. Defer only
-            // scoped turn events until that response establishes ownership;
-            // stale events from a previous correction cannot fail this turn.
-            // receive() already charges these frames to the operation byte
-            // limit, so deferral does not create an unbounded event buffer.
-            if turn_id.is_none()
-                && params.get("threadId").and_then(Value::as_str) == Some(thread_id)
-                && (params.get("turnId").and_then(Value::as_str).is_some()
-                    || params.pointer("/turn/id").and_then(Value::as_str).is_some())
+                let event_turn_id = if matches!(method, "turn/started" | "turn/completed") {
+                    params.pointer("/turn/id").and_then(Value::as_str)
+                } else {
+                    params.get("turnId").and_then(Value::as_str)
+                };
+                let Some(event_turn_id) = event_turn_id else {
+                    return Err("Codex returned a turn event without its turn ID. The response was discarded; reconnect before trying again.".to_owned());
+                };
+                if let Some(current_turn_id) = turn_id.as_deref() {
+                    if event_turn_id != current_turn_id {
+                        continue;
+                    }
+                } else {
+                    // A notification may precede the turn/start response.
+                    // Defer only fully scoped turn events until its response
+                    // establishes ownership. The receive path has already
+                    // charged each frame to the operation byte limit.
+                    before_ack.push_back(message);
+                    continue;
+                }
+            } else if params
+                .get("threadId")
+                .and_then(Value::as_str)
+                .is_some_and(|other_thread| other_thread != thread_id)
             {
-                before_ack.push_back(message);
+                // Global account/model notifications need not name a thread,
+                // but an event explicitly scoped to another thread is stale.
                 continue;
-            }
-            if let (Some(current), Some(other)) =
-                (&turn_id, params.get("turnId").and_then(Value::as_str))
-            {
-                if other != current {
-                    continue;
-                }
             }
             runtime_events::observe(
                 trace,

@@ -302,3 +302,19 @@ pass the original local checks. Non-chapter operations do not show the notice.
 This makes the existing repair behavior visible before the user consents; it
 does not qualify correction reliability or the packaged Codex route. No tests
 or build ran.
+
+### Require exact turn ownership for Codex notifications — source checkpoint, 2026-10-28
+
+Static review found that the turn loop rejected an explicitly different thread
+or turn but accepted missing identifiers. In particular, a `turn/completed`
+notification with no established `turn/start` acknowledgement could be
+treated as the active result because the completion path had no turn ID to
+compare. Turn-scoped notifications now require the exact owned thread and
+turn; fully scoped notifications arriving before the acknowledgement remain
+deferred and are checked again once the returned turn ID is known. Stale or
+unscoped item/completion events cannot seed or complete the active result. A
+same-thread turn event missing its turn ID now fails immediately with a
+controlled error instead of leaving a user-controlled run waiting for a
+completion it cannot safely match. This tightens local protocol correlation
+only; it does not qualify a runtime version or operation acceptance. No tests,
+build, app launch, login, runtime probe or model request ran.

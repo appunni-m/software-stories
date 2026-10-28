@@ -200,7 +200,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   useEffect(() => {
     const node = visual?.nodes.find((candidate) => candidate.evidenceAnchorIds.some((anchorId) =>
       activeFocusTarget === `reader-visual-citation:${candidate.nodeId}:${anchorId}`));
-    if (node) {
+    if (visual && node) {
       const anchorId = node.evidenceAnchorIds.find((id) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${id}`);
       const targetAnchor = anchors.find((item) => item.anchorId === anchorId);
       const sourceValue = visual.presentation.scenes.flatMap((item) => item.elements).find((element) =>

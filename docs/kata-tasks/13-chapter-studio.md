@@ -26,3 +26,7 @@ Changing source code, silent acceptance, and direct editing of an accepted revis
 
 ## Done evidence
 Create, edit, validate, accept, reject, and repair a chapter; verify the old payload and accepted revision remain unchanged and every invalid anchor blocks acceptance.
+
+## Source-only evidence (2026-10-28)
+- `src/App.tsx:4277-4292` skips saved-history reads outside the native runtime. `src/App.tsx:4386-4387` now reports that state as unavailable; `src/lib/chapterStudioStatus.ts:14,28,44-50` maps unconfirmed history to unavailable and permits generation only after a ready read proves the target is missing or stale.
+- `src/App.tsx:4698-4707,4751-4753,4792-4793` disables overview generation outside the Mac app and tells users to load history there before deciding a file is missing.

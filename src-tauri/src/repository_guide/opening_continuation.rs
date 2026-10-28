@@ -125,7 +125,7 @@ fn intent(record: &Record) -> Result<workspace_generation::progressive::GuideInt
         unit_key: "opening".into(),
         unit_number: 0,
         unit_count: plan.units.len(),
-        research_boundaries: plan.omissions.clone(),
+        research_boundaries: super::guide_research_boundaries(&plan.omissions),
         opening_continuation: Some(workspace_generation::progressive::OpeningContinuation {
             previous_run_id: previous.run_id.clone(),
             incomplete_topics: summary.incomplete_topics.clone(),

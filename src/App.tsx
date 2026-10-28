@@ -4194,6 +4194,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   onGenerateOverview: () => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
+  const nativeRuntime = isNativeRuntime();
   const draftStorageKey = `code-atlas:chapter-studio-draft:${projectId}:${snapshotId}`;
   const [initialDraftState] = useState(() => {
     try {
@@ -4213,7 +4214,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     return () => { studioMounted.current = false; };
   }, []);
   const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
-  const [loading, setLoading] = useState(isNativeRuntime());
+  const [loading, setLoading] = useState(nativeRuntime);
   const [loadError, setLoadError] = useState<string | null>(null);
   const chapterHistory = useRef<ChapterHistory | null>(null);
   const [selectedTargetKey, setSelectedTargetKey] = useState(restoredDraft?.targetKey ?? '');
@@ -4274,7 +4275,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   }, [candidate, draftStorageKey, editing, pendingDraft, preservedDraftReason, projectId, selectedRevisionId, selectedTargetKey, snapshotId]);
 
   useEffect(() => {
-    if (!isNativeRuntime()) return;
+    if (!nativeRuntime) return;
     setLoading(true);
     setLoadError(null);
     const history = createChapterHistory({
@@ -4288,7 +4289,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     chapterHistory.current = history;
     void history.refresh();
     return () => { history.dispose(); if (chapterHistory.current === history) chapterHistory.current = null; };
-  }, [projectId]);
+  }, [nativeRuntime, projectId]);
 
   const targets = useMemo<ChapterStudioTarget[]>(() => {
     const result: ChapterStudioTarget[] = [];
@@ -4382,7 +4383,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
-  const historyAvailability = loadError ? 'unavailable' : loading ? 'loading' : 'ready';
+  const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
   const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
   const freshnessKey = selectedRevision?.lifecycle === 'accepted' && selectedRevision.snapshotId !== snapshotId
@@ -4695,7 +4696,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <p>Choose a file, check its cited lines, and edit one section at a time.</p>
           </div>
           <div className="chapter-studio-top-actions">
-            <button className="primary-button" onClick={onGenerateOverview} disabled={editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
+            <button className="primary-button" onClick={onGenerateOverview} disabled={!nativeRuntime || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={!nativeRuntime ? 'Open the Mac app to check saved chapter history before generating an overview.' : preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
             <button className="secondary-button" onClick={onGoPlan}><ListChecks size={14} /> Guide</button>
             <span className="chapter-studio-snapshot">Snapshot <code>{snapshotId.slice(-12)}</code></span>
           </div>
@@ -4703,7 +4704,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
         {loading && <p className="coverage-feedback" role="status">Loading repository chapters and revision history…</p>}
         {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => { setLoadError(null); setLoading(true); void chapterHistory.current?.refresh(); }}>Retry</button></p>}
-        {!isNativeRuntime() && <p className="coverage-feedback" role="status">Chapter editing is available in the Mac app, where revisions are stored locally.</p>}
+        {!nativeRuntime && <p className="coverage-feedback" role="status">Chapter editing is available in the Mac app, where revisions are stored locally.</p>}
         {pendingDraft && <div className="coverage-storage-warning chapter-pending-draft" role="status">
           <span><strong>Unsaved edit paused.</strong> {pendingDraftBase
             ? `“${pendingDraft.candidate.title}” was edited from r${pendingDraftBase.revisionNumber}. Restore it on its original chapter, or discard it.`
@@ -4749,7 +4750,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 >
                   <span className={`chapter-studio-target-status status-${rowStatus}`}>{rowStatus}</span>
                   <code title={label}>{label}</code>
-                  <small>{latest ? <><InlineCodeText text={latest.title}/> · r{latest.revisionNumber}</> : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history could not be read' : 'No chapter for this snapshot'}</small>
+                  <small>{latest ? <><InlineCodeText text={latest.title}/> · r{latest.revisionNumber}</> : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history unavailable' : 'No chapter for this snapshot'}</small>
                 </button>;
               })}
               {visibleTargets.length === 0 && <p className="chapter-studio-no-results">No chapter targets match that search.</p>}
@@ -4788,7 +4789,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   <ChapterRevisionComparison before={previousRevision} after={selectedRevision} />
                 </details>}
 
-                {status === 'loading' || status === 'unavailable' ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{status === 'loading' ? 'Checking saved chapter history.' : 'Saved chapter history is unavailable.'}</strong><p>{status === 'loading' ? 'This file will be marked as needing an explanation only after its saved history is checked.' : 'Retry the history read above before creating a chapter, so an existing explanation is not mistaken for a missing one.'}</p></div>
+                {status === 'loading' || status === 'unavailable' ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{status === 'loading' ? 'Checking saved chapter history.' : 'Saved chapter history is unavailable.'}</strong><p>{status === 'loading' ? 'This file will be marked as needing an explanation only after its saved history is checked.' : nativeRuntime ? 'Retry the history read above before creating a chapter, so an existing explanation is not mistaken for a missing one.' : 'Open Chapter Studio in the Mac app to load saved history before deciding whether this file needs an explanation.'}</p></div>
                     : selectedTarget.missing ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{selectedTarget.overview ? 'No repository overview has been saved for this snapshot.' : 'This file has no chapter in the selected snapshot.'}</strong><p>Start with the captured source; the generated draft stays local until you choose to save it.</p></div>
                     : selectedRevision && activeDocument ? <>
                       {status === 'stale' && <div className="chapter-studio-stale"><TriangleAlert size={17} /><div><strong>This selected revision belongs to an older snapshot.</strong><p>Its citations stay pinned to snapshot {selectedRevision.snapshotId.slice(-12)}. Open a citation to inspect that exact captured code, or choose a current revision in the history above.</p></div></div>}
@@ -4804,7 +4805,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           <span className="chapter-validation-summary">{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision is read-only.' : selectedRevision.lifecycle === 'rejected' ? `Rejected · ${selectedRevision.decisionNote ?? 'Reason not recorded'}` : `Evidence status: ${selectedRevision.validationStatus}`}</span>
                           <div className="chapter-review-actions">
                             <button className="secondary-button" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</button>
-                            {freshnessKey && isNativeRuntime() && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
+                            {freshnessKey && nativeRuntime && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
                               {selectedFreshness?.loading ? 'Assessing…' : selectedFreshness?.report ? 'Reassess freshness' : 'Assess freshness'}
                             </button>}
                             {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before restoring an older revision.' : 'Create a new draft from this earlier content and revalidate it against the current snapshot.'}><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
@@ -4886,7 +4887,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               <h4>{sectionTitle}</h4>
                               <span className={`chapter-review-status status-${sectionResult.status}`}>{labels[sectionResult.status]}</span>
                               <span className="chapter-review-status">Evidence {sectionResult.evidenceState}</span>
-                              {sectionResult.status === 'stale' && section && isNativeRuntime() && <button
+                              {sectionResult.status === 'stale' && section && nativeRuntime && <button
                                 className="secondary-button"
                                 disabled={busy || Boolean(pendingDraft) || sectionPaths.length === 0 || sectionPaths.length > 12}
                                 onClick={() => onRegenerateSection(selectedRevision, section, sectionPaths)}

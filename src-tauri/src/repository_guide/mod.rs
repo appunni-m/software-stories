@@ -49,6 +49,8 @@ const MAX_INITIAL_UNITS: usize = 5;
 pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_TOTAL_UNITS + 1;
 const MAX_OMISSIONS: usize = 64;
 const MAX_OMISSION_BYTES: usize = 240;
+// Progressive guide intent accepts at most eight research boundaries.
+const MAX_GUIDE_RESEARCH_BOUNDARIES: usize = 8;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
 /// Keep the number of ready, unconsumed guide slides bounded.
@@ -206,6 +208,27 @@ fn valid_omissions(omissions: &[String]) -> bool {
         text(omission, 1, MAX_OMISSION_BYTES)
             && seen.insert(normalize_topic(omission))
     })
+}
+
+/// Keep every omission in the saved plan while bounding per-slide prompt
+/// context to the progressive GuideIntent limit. The final boundary tells the
+/// researcher that the remaining saved omissions are still uncovered.
+fn guide_research_boundaries(omissions: &[String]) -> Vec<String> {
+    if omissions.len() <= MAX_GUIDE_RESEARCH_BOUNDARIES {
+        return omissions.to_vec();
+    }
+
+    let exact_boundary_count = MAX_GUIDE_RESEARCH_BOUNDARIES - 1;
+    let mut boundaries = omissions
+        .iter()
+        .take(exact_boundary_count)
+        .cloned()
+        .collect::<Vec<_>>();
+    let remaining = omissions.len().saturating_sub(exact_boundary_count);
+    boundaries.push(format!(
+        "{remaining} additional pending topics remain uncovered outside this slide."
+    ));
+    boundaries
 }
 
 fn normalize_topic(topic: &str) -> String {
@@ -934,7 +957,7 @@ fn unit_intent(
         unit_key: unit.key.clone(),
         unit_number: index + 2,
         unit_count: plan.units.len() + 1,
-        research_boundaries: plan.omissions.clone(),
+        research_boundaries: guide_research_boundaries(&plan.omissions),
         opening_continuation: None,
     })
 }
@@ -1075,7 +1098,7 @@ fn run_initial_opening(
         unit_key: "opening".into(),
         unit_number: 1,
         unit_count: plan.units.len() + 1,
-        research_boundaries: plan.omissions.clone(),
+        research_boundaries: guide_research_boundaries(&plan.omissions),
         opening_continuation: None,
     };
     let run_id = opening.run_id.clone();
