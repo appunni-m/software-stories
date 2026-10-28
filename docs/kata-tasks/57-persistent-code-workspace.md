@@ -109,7 +109,17 @@ disabled state, active-scene indicator, sizing classes, and existing actions
 remain in place. This extends the shared-control migration to the visible
 scene toolbar without changing navigation or saved reader progress.
 
-`npm run build` passes TypeScript and the production Vite build. No test suite
-or native package rebuild ran for this component-only increment. Packaged
-keyboard, focus, and visual acceptance remains open with the broader
-workspace audit.
+The first packaged check caught that **Full map** stretched into the left
+column after moving to `AppButton`. A dedicated grid slot now keeps the shared
+button right-aligned. `CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos`
+passed frontend compilation, release build, metadata validation,
+app/DMG bundling, and checksum verification. The installed `pillow-rs` Guide
+shows centered scene navigation and **Full map** at the right edge; the
+selected `canvas.rs` answer and narration remain in place. No question or
+provider request was sent, and no test suite ran. Packaged keyboard/focus
+review and broader workspace acceptance remain open.
+
+Installed executable SHA-256:
+`31bd63e308eae89b0990b269368a97e1766f5372e9fb02346b84acbf506ecaa7`.
+DMG SHA-256:
+`c28ea0867735d3ac9324cea9c4d85b98c08d2f0f0ad264cf6020e39c7d512226`.

@@ -401,7 +401,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
             <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></IconButton>
           </div>
         </div>
-        {canShowFullMap && <AppButton intent="secondary" className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</AppButton>}
+        {canShowFullMap && <div className="story-map-toggle-slot"><AppButton intent="secondary" className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</AppButton></div>}
       </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>

@@ -30,3 +30,20 @@ Create, edit, validate, accept, reject, and repair a chapter; verify the old pay
 ## Source-only evidence (2026-10-28)
 - `src/App.tsx:4277-4292` skips saved-history reads outside the native runtime. `src/App.tsx:4386-4387` now reports that state as unavailable; `src/lib/chapterStudioStatus.ts:14,28,44-50` maps unconfirmed history to unavailable and permits generation only after a ready read proves the target is missing or stale.
 - `src/App.tsx:4698-4707,4751-4753,4792-4793` disables overview generation outside the Mac app and tells users to load history there before deciding a file is missing.
+
+## Stale-base recovery source checkpoint (2026-10-29)
+
+Current source now offers an explicit three-way rebase for an unsaved edit when
+a newer same-target revision arrives. `src/lib/chapterRebase.ts` carries
+non-overlapping edits forward, keeps claims/citations/visuals atomic, and
+requires a choice for overlapping edits. `src/ChapterRebaseReview.tsx` shows
+the competing content and keeps Continue disabled until conflicts are
+resolved; `src/App.tsx:4550-4558` selects the newer base and retains the merged
+candidate as an unsaved draft. Cancel/back does not save it. This supersedes
+the older source note that stale-base recovery only preserved a candidate and
+offered read-only comparison.
+
+This is source inspection, not completion evidence. The packaged recovery
+journey, cross-snapshot missing/stale/unavailable matrix, and native background
+publication/history-read interleavings still need their separately listed
+acceptance. No test suite or provider operation ran for this source review.

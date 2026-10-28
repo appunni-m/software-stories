@@ -14,7 +14,8 @@
 .story-scene-dots button { width: 24px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; }
 .story-scene-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
-.story-map-toggle { grid-column: 3; justify-self: end; white-space: nowrap; }
+.story-map-toggle-slot { grid-column: 3; justify-self: end; display: flex; min-width: max-content; }
+.story-map-toggle-slot > .story-map-toggle { min-height: 30px; margin: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised); color: var(--text); font: inherit; font-size: 12px; font-weight: 500; box-shadow: none; }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
 .story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
 .visual-story > .story-stage:not(.story-html-stage) { overflow: hidden; border-radius: 0 0 7px 7px; }
@@ -91,7 +92,7 @@
   .story-toolbar { grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 4px 8px; padding: 6px 8px; }
   .story-scene-title { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
   .story-scene-progress { grid-column: 2; grid-row: 2; justify-self: center; }
-  .story-map-toggle { grid-column: 3; grid-row: 2; justify-self: end; white-space: nowrap; }
+  .story-map-toggle-slot { grid-column: 3; grid-row: 2; justify-self: end; }
   .story-playbar { grid-template-columns: minmax(0,1fr); align-items: start; gap: 2px; padding: 4px 8px; }
   .story-playbar .is-story-audio { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "status status" "playback playback" "read edit"; row-gap: 4px; }
   .is-story-audio .walkthrough-panel-heading { justify-content: flex-start; }
@@ -105,7 +106,7 @@
 html[data-app-zoom-compact="true"] .story-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:4px 8px; padding:6px 8px; }
 html[data-app-zoom-compact="true"] .story-scene-title { grid-column:1 / -1; white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
 html[data-app-zoom-compact="true"] .story-scene-progress { grid-column:2; grid-row:2; justify-self:center; }
-html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:3; grid-row:2; justify-self:end; white-space:nowrap; }
+html[data-app-zoom-compact="true"] .story-map-toggle-slot { grid-column:3; grid-row:2; justify-self:end; }
 html[data-app-zoom-compact="true"] .story-playbar { grid-template-columns:minmax(0,1fr); align-items:start; gap:2px; padding:4px 8px; }
 html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"status status" "playback playback" "read edit"; row-gap:4px; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading { justify-content:flex-start; }
