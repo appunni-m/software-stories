@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowDownUp, FileCode2, GitBranch, GitCommitHorizontal, 
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
 import { GitHistoryEmptyContext } from './workspace/gitHistoryContext';
+import { AppButton } from './design/AppButton';
 import {
   compareLocalGitRevisions,
   cancelLocalGitComparison,
@@ -142,7 +143,7 @@ export function GitChangesScreen({
         <GitBranch size={23} />
         <h2>Open a repository to compare versions.</h2>
         <p>The comparison uses versions already on this Mac. It will not switch branches, fetch from a remote, or change your working files.</p>
-        <button className="primary-button" onClick={onOpenRepository}>Open repository</button>
+        <AppButton intent="custom" className="primary-button" onClick={onOpenRepository}>Open repository</AppButton>
       </div>
     );
   }
@@ -184,9 +185,9 @@ export function GitChangesScreen({
               aria-label="Starting Git version"
             />
           </label>
-          <button type="button" className="git-swap-button" disabled={busy} onClick={swapRefs} aria-label="Swap starting and ending versions" title="Swap versions">
+          <AppButton intent="custom" type="button" className="git-swap-button" disabled={busy} onClick={swapRefs} aria-label="Swap starting and ending versions" title="Swap versions">
             <ArrowDownUp size={16} />
-          </button>
+          </AppButton>
           <label>
             Ending version
             <input
@@ -204,11 +205,11 @@ export function GitChangesScreen({
               aria-label="Ending Git version"
             />
           </label>
-          {busy ? <button key="stop" type="button" className="secondary-button git-compare-button" onClick={stopComparison}>
+          {busy ? <AppButton intent="custom" key="stop" type="button" className="secondary-button git-compare-button" onClick={stopComparison}>
             <RefreshCw size={15} className="git-spin" /> Stop comparison
-          </button> : <button key="compare" className="primary-button git-compare-button" type="submit" disabled={!canCompare}>
+          </AppButton> : <AppButton intent="custom" key="compare" className="primary-button git-compare-button" type="submit" disabled={!canCompare}>
             <RefreshCw size={15} /> Compare versions
-          </button>}
+          </AppButton>}
         </form>
         <p className="git-safety-note"><strong>No checkout, fetch, or Git write.</strong> Comparison reads existing local objects only. The result is bounded; skipped or uncertain evidence is labeled.</p>
         {!isNativeRuntime() && (
@@ -463,7 +464,7 @@ function ChangeDisclosure({ change, relationshipImpact, canOpenCapturedSource = 
                   : 'No bounded text hunk is available for this path.'}
               </p>
               {canOpenCapturedSource && capturedSnapshotId && onOpenCapturedSource
-                ? <button className="text-button git-no-changes-action" onClick={() => onOpenCapturedSource(path, capturedSnapshotId)}><FileCode2 size={13} /> Open captured source</button>
+                ? <AppButton intent="custom" className="text-button git-no-changes-action" onClick={() => onOpenCapturedSource(path, capturedSnapshotId)}><FileCode2 size={13} /> Open captured source</AppButton>
                 : change.classification === 'oversized'
                   ? <p className="git-no-changes-next">{capturedHeadMatches
                     ? 'This capture has no readable text for this file. Try a smaller revision or inspect another changed file.'

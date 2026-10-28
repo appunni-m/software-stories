@@ -84,3 +84,7 @@ The compact Changes surface now uses Radix Tabs for Diff and PR Guide, including
 ## PR Guide action migration — 28 October 2026
 
 PR Guide recovery, hunk review, provider request, history refresh, saved-draft, and accept/reject actions now use the shared `AppButton` wrapper while retaining their existing classes, labels, disabled states, callbacks, and explicit non-submit behavior. Rich citation links remain native buttons so their multi-line cited content and source-navigation semantics stay intact. No tests/build or packaged interaction review ran; the full UI and accessibility gates remain open.
+
+## Git Changes actions — 28 October 2026
+
+The repository-open, ref-swap, compare/stop, and captured-source actions now use `AppButton` while preserving their existing classes and callbacks; the compare action remains the form submit, and every other action remains a non-submit button. Specialized changed-file selectors and hunk disclosure controls remain native elements. No tests/build or packaged Changes review ran.
