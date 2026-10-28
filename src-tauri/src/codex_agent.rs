@@ -1746,6 +1746,7 @@ impl ServerProcess {
                         for item in items {
                             let kind = item.get("type").and_then(Value::as_str).unwrap_or("");
                             if kind=="mcpToolCall" && input.retrieval.is_some() {
+                                validate_owned_tool_completion_metadata(item)?;
                                 input.retrieval.as_ref().ok_or("Missing captured-code session.")?.lock().map_err(|_|"Captured-code tools are unavailable.")?.completion_item(item)?;
                                 continue;
                             } else if !matches!(kind, "userMessage" | "agentMessage" | "plan" | "reasoning" | "contextCompaction") {
@@ -2572,6 +2573,17 @@ fn unexpected_item_error(kind: &str) -> String {
     )
 }
 
+fn validate_owned_tool_completion_metadata(item: &Value) -> Result<(), String> {
+    // item/completed is checked by Session::event. The final turn item list is
+    // a second protocol surface and must retain the same owned app context.
+    if item.get("appContext").is_some_and(|value| !value.is_null())
+        || item.get("pluginId").is_some_and(|value| !value.is_null())
+    {
+        return Err("Codex completed a tool outside the captured-code session.".into());
+    }
+    Ok(())
+}
+
 fn thread_start_parameters(
     model: &str,
     stage: &Path,
@@ -2935,6 +2947,25 @@ mod tests {
         assert!(
             validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err()
         );
+    }
+
+    #[test]
+    fn final_owned_tool_items_reject_foreign_app_context_metadata() {
+        assert!(validate_owned_tool_completion_metadata(&json!({})).is_ok());
+        assert!(
+            validate_owned_tool_completion_metadata(&json!({"appContext":null,"pluginId":null}))
+                .is_ok()
+        );
+        for item in [
+            json!({"appContext":{"id":"foreign-app"}}),
+            json!({"pluginId":"foreign-plugin"}),
+        ] {
+            assert!(
+                validate_owned_tool_completion_metadata(&item)
+                    .unwrap_err()
+                    .contains("outside the captured-code session")
+            );
+        }
     }
 
     #[test]

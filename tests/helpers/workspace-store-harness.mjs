@@ -55,7 +55,18 @@ export function workspaceStoreHarness(invoke,options={}) {
     './narrationPrewarm': {
       localNarrationPrewarmInputs: options.localNarrationPrewarmInputs ?? (() => []),
     },
-    './localNarrationQueue': { localNarrationPrewarmer: { enqueue: () => {} } },
+    './localNarrationQueue': { localNarrationPrewarmer: { enqueue: (inputs) => {
+      // Tests can observe each fire-and-forget prewarm request without loading
+      // the real native worker queue or making audio synthesis calls.
+      for (const input of inputs) {
+        try {
+          const result = options.prewarmLocalNarration?.(input);
+          if (result && typeof result.then === 'function') void result.catch(() => {});
+        } catch {
+          // Optional local narration must not fail workspace adoption.
+        }
+      }
+    } } },
   };
   const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/narrationQueue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/inventory.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();

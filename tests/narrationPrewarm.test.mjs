@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import { localNarrationPrewarmInputs } from '../src/workspace/narrationPrewarm.ts';
+import { createNarrationPrewarmQueue } from '../src/workspace/narrationQueue.ts';
 
 const revision = {
   schemaVersion: 5,
@@ -36,6 +37,29 @@ it('prewarms the same authored scene scripts and saved pronunciation edits as th
   assert.deepEqual(inputs.map(input => input.spokenText), ['The prefix chooses a reader.', 'That reader handles pfr data.']);
   assert.deepEqual(inputs.map(input => input.voice), ['alba', 'alba']);
   assert.deepEqual(inputs[1].lexicon, [{ name: 'pfr', sayAs: 'P F R', include: true }]);
+});
+
+it('coalesces scripts when saved pronunciation entries are disabled', async () => {
+  const baseKey = 'code-atlas:narration:v2:project:one:chapter:one:revision:one:section:one';
+  const disabled = localNarrationPrewarmInputs(revision, local, read({ [baseKey]: JSON.stringify({
+    backend: 'pocket-tts', spokenText: revision.sections[0].spokenText, voice: 'alba', style: '',
+    lexicon: [{ name: '', sayAs: '', include: false }],
+  }) }));
+  const plain = localNarrationPrewarmInputs(revision, local, () => null);
+  assert.deepEqual(disabled, plain, 'unused pronunciation rows must not change the prepared audio identity');
+
+  const prepared = [];
+  const queue = createNarrationPrewarmQueue({
+    prepare: async input => {
+      prepared.push(input);
+      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+    },
+    status: async () => assert.fail('ready audio should not be polled'),
+  });
+  assert.equal(queue.enqueue(disabled), plain.length);
+  assert.equal(queue.enqueue(plain), 0, 'equivalent authored scenes should not occupy duplicate queue slots');
+  await queue.flush();
+  assert.equal(prepared.length, plain.length);
 });
 
 it('never builds automatic narration work for a cloud Voice connection', () => {

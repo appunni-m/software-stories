@@ -330,3 +330,17 @@ shutdown checks still guard publication. This is deterministic native test
 evidence only; it does not prove a fresh app-server operation remains active
 past ten minutes, packaged progress, latency, restart recovery, or answer
 quality. No Codex account or provider request was used. Keep `3bz5` open.
+
+## Partial manifest job-state alignment — 28 October 2026
+
+A valid final manifest may finish the persisted answer as `Partial` while the
+Codex operation itself returns successfully. The workspace job success path
+previously marked every such operation `Completed`, disagreeing with the
+answer record and restart reconciliation. It now maps the inspected terminal
+answer outcome to the matching job state, including `Partial` to
+`PartiallyCompleted`; a focused native regression passed at the current source
+revision (`cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+final_answer_outcome_maps_to_the_matching_terminal_job_state`, 1/1). This is
+source-level lifecycle evidence only. No provider request or packaged app run
+was made, and the latency, reader/navigation, restart, accessibility, content
+quality and audio acceptance gates remain open. Keep `3bz5` open.

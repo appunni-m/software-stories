@@ -109,6 +109,31 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
 }
 
 #[test]
+fn final_answer_outcome_maps_to_the_matching_terminal_job_state() {
+    assert_eq!(
+        terminal_job_state(&Outcome::Complete).unwrap(),
+        super::super::jobs::JobState::Completed
+    );
+    assert_eq!(
+        terminal_job_state(&Outcome::Partial).unwrap(),
+        super::super::jobs::JobState::PartiallyCompleted
+    );
+    assert_eq!(
+        terminal_job_state(&Outcome::Stopped).unwrap(),
+        super::super::jobs::JobState::Stopped
+    );
+    assert_eq!(
+        terminal_job_state(&Outcome::Failed).unwrap(),
+        super::super::jobs::JobState::Failed
+    );
+    assert_eq!(
+        terminal_job_state(&Outcome::Interrupted).unwrap(),
+        super::super::jobs::JobState::Interrupted
+    );
+    assert!(terminal_job_state(&Outcome::Working).is_err());
+}
+
+#[test]
 fn failed_local_preparation_is_exportable_without_answer_or_source_content() {
     let f = Fixture::new();
     let mut input = input(&f);

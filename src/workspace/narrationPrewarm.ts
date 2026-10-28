@@ -20,7 +20,10 @@ export function localNarrationPrewarmInputs(
           spokenText: preferences.spokenText,
           voice: preferences.voice,
           style: preferences.style,
-          lexicon: preferences.lexicon,
+          // Disabled entries do not affect the canonical script or audio
+          // fingerprint. Drop them before client queue admission so they
+          // cannot consume a separate deduplication slot.
+          lexicon: preferences.lexicon.filter((entry) => entry.include),
         });
       }
     } catch {

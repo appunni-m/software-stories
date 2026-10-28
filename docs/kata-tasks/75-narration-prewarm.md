@@ -219,3 +219,7 @@ admitted. The test has been added but not run in this checkpoint; a full Rust
 build was deferred to avoid recreating the 5.1 GB local target cache just
 removed for disk recovery. Packaged timing, offline restart, queue cancellation
 and failure under load, and listening-quality acceptance remain open.
+
+## Disabled pronunciation queue deduplication — 28 October 2026
+
+Prewarm input construction now removes pronunciation rows marked `include: false` before client queue admission. Native fingerprinting ignores those rows, but the renderer's validation could classify a disabled empty row as an invalid lexicon and assign an otherwise identical script a separate queue key. That wasted one of the bounded prewarm slots. A regression compares inputs with and without a disabled empty row and verifies that the queue admits only one copy of each authored scene. The initial direct test launch exposed a Node 24 resolution failure for an extensionless runtime import; that import now names `narration.ts` explicitly. The paired workspace tests then exposed a stale harness stub that swallowed injected prewarm callbacks; it now records those callbacks without loading or starting the real native worker. The focused prewarm and workspace files pass together: 9/9. No synthesis or packaged check ran. Keep the issue open for queue cancellation/failure, offline restart, latency, and listening acceptance.

@@ -1,5 +1,5 @@
 import type { NarrationPrewarmStatus, NarrationSynthesisInput, ProviderCommandResult } from '../lib/commands';
-import { applyPronunciationLexicon } from '../lib/narration';
+import { applyPronunciationLexicon } from '../lib/narration.ts';
 
 export interface NarrationPrewarmQueue {
   enqueue(inputs: readonly NarrationSynthesisInput[]): number;

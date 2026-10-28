@@ -68,6 +68,17 @@ fn application_timing_result(
     })
 }
 
+fn terminal_job_state(outcome: &Outcome) -> Result<super::jobs::JobState, String> {
+    match outcome {
+        Outcome::Complete => Ok(super::jobs::JobState::Completed),
+        Outcome::Partial => Ok(super::jobs::JobState::PartiallyCompleted),
+        Outcome::Stopped => Ok(super::jobs::JobState::Stopped),
+        Outcome::Failed => Ok(super::jobs::JobState::Failed),
+        Outcome::Interrupted => Ok(super::jobs::JobState::Interrupted),
+        Outcome::Working => Err("The answer has no terminal outcome.".into()),
+    }
+}
+
 fn record_application_timing(
     storage: &Path,
     summary: &Summary,
@@ -570,16 +581,16 @@ pub(crate) fn run_with_starting_ranges_at(
         Ok(Ok(())) => {
             // Cleanup cannot hide a durable result or provoke another inference.
             let summary = sections::inspect(storage, &input.run_id)?.summary();
+            let job_state = terminal_job_state(&summary.outcome)?;
             record_application_timing(
                 storage,
                 &summary,
                 crate::generation_timing::ApplicationObservation::Live,
                 Some(u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX)),
             );
-            let _ = super::jobs::finish(storage, &input.run_id, super::jobs::JobState::Completed)
-                .map_err(|error| {
-                    eprintln!("Workspace generation job completion could not be saved: {error}")
-                });
+            let _ = super::jobs::finish(storage, &input.run_id, job_state).map_err(|error| {
+                eprintln!("Workspace generation job completion could not be saved: {error}")
+            });
             let _ = journal.discard(storage, &input.run_id);
             Ok(summary)
         }

@@ -176,3 +176,7 @@ The new version-2 scene Fontdone run delivers all 61 calls and 80,833 distinct s
 ## Discovery page bound — 27 October 2026
 
 General workspace answers, repository-guide planning, and progressive answers now request `search_code` file-discovery pages of at most eight results and follow `nextOffset` only to close a concrete caller or route gap. The native search owner enforces the eight-result maximum for file discovery; range search and definition pages retain the 32-result cap. This responds to the preserved broad Fontdone run that spent 239,661 of 256,000 metadata bytes while reading only three implementation files. No tests, build, or provider request ran; no reduction in context use is measured. Keep broad Fontdone retrieval and answer-quality acceptance open.
+
+## Final tool-completion ownership — 28 October 2026
+
+The Codex adapter already rejected non-null `appContext` or `pluginId` on each `item/completed` tool event. The duplicate tool item carried in `turn/completed.items` was checked against the admitted result and digest but did not repeat those ownership checks. The final-item path now rejects that foreign metadata before accepting the duplicate, with a focused regression for both fields and the valid absent/null form. The focused Rust test passed (1 passed; 833 filtered out). This only closes the event-consistency gap; it does not qualify large-repository discovery, useful partial answers, latency, packaged invocation, or the remaining identity/cancellation/restart acceptance.
