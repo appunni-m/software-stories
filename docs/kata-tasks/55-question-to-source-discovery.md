@@ -104,3 +104,17 @@ summary are sent to the saved AI connection to identify relevant files; file
 contents are reviewed separately. It adds no file-picking step. This copy-only
 source change was not built or tested; the consent, recall, restart,
 multi-window and packaged acceptance above remain open.
+
+## Packaged no-result search handoff — 28 October 2026
+
+In the running Code Atlas app on Fontdone `main@5249b72371` (partial capture),
+the local Search activity was given the unique query `zzqzxvbnm987654321`.
+It showed **No matching code in this search** and an explicit **Explore with
+AI** button. I did not activate the AI action, so this check sent no question
+and used no provider quota. Restoring the previous `memory_face` query returned
+captured source results; switching back to Explorer restored the previously
+selected `src/tt/glyf.rs` file. This confirms one packaged no-result and
+return-to-Explorer path only. The running bundle's source revision and a
+durable screenshot were not verified; Rust/TypeScript retrieval recall,
+missing-index fallback, restart, consent, and multi-window acceptance remain
+open.
