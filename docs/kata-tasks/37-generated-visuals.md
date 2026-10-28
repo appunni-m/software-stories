@@ -1155,3 +1155,25 @@ contract assertions were aligned with the current instruction wording, and
 `git diff --check` passes. No packaged or production app build, provider
 request, or content refresh ran. Real-source generation, source-click review,
 accessibility, offline export and human comprehension remain open.
+
+
+## Distinguish pattern alternatives from ordered candidate search — 29 October 2026
+
+The current visual policy is `ai-html-compositions-v64`. For a mutually
+exclusive enum, match, switch, or pattern match, the authoring prompt now asks
+for one visible input and a branch of matched cases with their results; a
+compact table is allowed when many cases are easier to scan that way. This
+keeps alternatives distinct from a first-match selector, whose visible
+fall-through is only correct when the source actually tries the next candidate
+after a miss. The composition review calls out this check explicitly. The
+source screenshot in the current workspace illustrates why the distinction
+matters: a small input-to-format dispatch can be shown as alternatives without
+turning every result into a graph node.
+
+The scene schema and app-owned renderer are unchanged; no arbitrary HTML,
+JavaScript, WebGL, or 3-D execution was added. This is a generation-policy
+change for future requests and does not rewrite saved guides. Static source and
+documentation review only; no tests, build, provider request, generated-content
+refresh, audio, or packaged visual review ran. Keep `j53m` open for real-source
+visual quality, source navigation, accessibility/reflow, export, and human
+comprehension acceptance.

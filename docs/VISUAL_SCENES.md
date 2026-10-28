@@ -12,7 +12,7 @@ The current graph layout and workspace navigation remain available.
 | Which bytes identify a format | Indexed byte strip, highlighted signature, code value |
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
 | How a code-proven point or vector is mapped | Coordinate-free point-flow: symbolic point markers around the actual operation, with no invented positions |
-| How a mode or enum selects a handler | Table mapping each value to its selected route |
+| How mutually exclusive enum/match arms choose a result | Branch showing the input once and each matched case beside its result; use a table for many cases |
 | Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
 | One guard decides success or failure | Branch showing the guard and each supported outcome |
 | Independent validation guards run in a function | Separate scenes, one guard at a time; narration explains that passing lets the input continue |
@@ -61,7 +61,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v63`, teaching policy `meaning-first-v31`, and reader
+`ai-html-compositions-v64`, teaching policy `meaning-first-v31`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
@@ -79,7 +79,11 @@ entire section has no useful visual. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
 guards become separate scenes; first-match candidate dispatch uses a selector.
 For a branch, show the guard once and give each outcome a distinct, specific
-label and result. Keep nested guards visible when the scene remains clear, or
+label and result. A mutually exclusive enum, match, switch, or pattern match
+uses a branch of matched cases and results; it does not imply candidate
+fall-through. A compact table may show a dense mapping. Use a selector only for
+source-ordered candidates where a miss proceeds to the next candidate. Keep
+nested guards visible when the scene remains clear, or
 continue in a later scene that names the path condition; do not compress
 multiple subcases into one outcome card.
 LIFO stacks are authored oldest/bottom first and rendered/read newest/top first,
