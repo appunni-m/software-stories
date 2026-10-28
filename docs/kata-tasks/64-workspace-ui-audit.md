@@ -147,6 +147,11 @@ the updated bytes while the earlier snapshot still showed the original bytes.
 The repository itself was unchanged by capture. The user's existing `pillow-rs`
 snapshot was left selected; no refresh was run against its source.
 
+On 28 October, the active native Code Atlas window was inspected with `pillow-rs`
+open: **Load latest changes** is visible beside the snapshot selector. The
+browser preview cannot read a local repository, so this action is available in
+the native Mac app.
+
 This qualifies the explicit refresh action and its immutable snapshot behavior.
 It does not close the screen-by-screen design, keyboard, accessibility, or
 responsive acceptance; keep `na54` open.

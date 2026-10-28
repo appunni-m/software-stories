@@ -55,6 +55,16 @@ On the current `main` checkout, `cargo test --manifest-path src-tauri/Cargo.toml
 
 Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explanation lifecycle bugs); no tests or builds ran for that October 15 implementation commit. The focused 64 MiB boundary follow-up above passed. The task remains open for the acceptance cases above.
 
+## Focused transport and snapshot checks — 2026-10-28
+
+At `d7ec632` on the macOS source checkout, three focused native tests passed:
+
+- `RUSTC_WRAPPER= cargo test --locked --manifest-path src-tauri/Cargo.toml --lib loopback_transport_rejects_redirects_without_a_second_request` — 1 passed. The production-configured direct API transports reject 301/302/303/307/308 without sending a second request.
+- `RUSTC_WRAPPER= cargo test --locked --manifest-path src-tauri/Cargo.toml --lib narration_transport_rejects_redirects_without_a_second_request` — 1 passed. The production narration transport rejects the same redirect statuses without forwarding the reviewed script or credentials.
+- `RUSTC_WRAPPER= cargo test --locked --manifest-path src-tauri/Cargo.toml --lib earlier_file_changed_while_later_file_is_read_preserves_snapshot_history` — 1 passed. A file changed after its capture read is detected while a later file is read; the inconsistent capture publishes no snapshot and preserves the earlier history and manifest.
+
+Each command ran one test with 836 filtered out. Existing Rust warnings reported an unread Claude session field and an unconstructed unsupported-platform variant. These focused source-level checks do not complete the broader race, recovery, provider, narration UI, native accessibility, or packaged acceptance matrix; keep this task open.
+
 ## Additional October 15 integration acceptance — pending
 
 ### Native agent installation-file selection — pending
