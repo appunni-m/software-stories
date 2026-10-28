@@ -1136,6 +1136,10 @@ function App() {
               workspace: state.current.workspace,
               projectId: payload.projectId,
               snapshotId: payload.summary!.snapshotId,
+              // Keep the open file so the user can see its newly captured
+              // contents. Ranges are deliberately dropped because their
+              // source hash belongs to the previous snapshot.
+              relativePath: state.current.relativePath,
               focusTarget: `heading:${state.current.workspace}`,
             })
             : state);
