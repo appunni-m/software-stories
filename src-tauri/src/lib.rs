@@ -323,14 +323,17 @@ fn start_snapshot_indexing(
     let _project = sessions.get(&project_id)?;
     let storage_dir = app_data_directory(&app)?;
     let manifest = snapshot::load_snapshot_manifest(&storage_dir, &project_id, &snapshot_id)?;
-    let (initial_progress, cancellation) =
-        jobs.begin(&project_id, &snapshot_id, manifest.files.len())?;
+    let (initial_progress, cancellation, created) =
+        jobs.begin_or_join(&project_id, &snapshot_id, manifest.files.len())?;
     let start = index::IndexStart {
         job_id: initial_progress.job_id.clone(),
         project_id: project_id.clone(),
         snapshot_id: snapshot_id.clone(),
-        status: index::IndexJobStatus::Running,
+        status: initial_progress.status.clone(),
     };
+    if !created {
+        return Ok(start);
+    }
     let _ = app.emit("index-progress", initial_progress.clone());
     let app_for_task = app.clone();
     let jobs_for_task = (*jobs).clone();

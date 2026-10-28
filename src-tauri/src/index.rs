@@ -375,16 +375,37 @@ impl SnapshotIndexJobs {
         snapshot_id: &str,
         files_total: usize,
     ) -> Result<(IndexProgress, Arc<AtomicBool>), String> {
+        let (progress, cancellation, created) =
+            self.begin_or_join(project_id, snapshot_id, files_total)?;
+        if !created {
+            return Err("This snapshot is already being indexed.".to_owned());
+        }
+        Ok((progress, cancellation))
+    }
+
+    /// Start indexing this snapshot, or join its active job if another window
+    /// already started it. The caller must spawn work only when `created` is
+    /// true; otherwise it should poll the returned job ID.
+    pub fn begin_or_join(
+        &self,
+        project_id: &str,
+        snapshot_id: &str,
+        files_total: usize,
+    ) -> Result<(IndexProgress, Arc<AtomicBool>, bool), String> {
         let mut jobs = self
             .0
             .lock()
             .map_err(|_| "The parser job store is temporarily unavailable.".to_owned())?;
-        if jobs.values().any(|job| {
+        if let Some(job) = jobs.values().find(|job| {
             job.progress.project_id == project_id
                 && job.progress.snapshot_id == snapshot_id
                 && job.progress.status == IndexJobStatus::Running
         }) {
-            return Err("This snapshot is already being indexed.".to_owned());
+            return Ok((
+                job.progress.clone(),
+                Arc::clone(&job.cancellation),
+                false,
+            ));
         }
         while jobs.len() >= MAX_RETAINED_JOBS {
             let removable = jobs
@@ -421,7 +442,7 @@ impl SnapshotIndexJobs {
                 cancellation: Arc::clone(&cancellation),
             },
         );
-        Ok((progress, cancellation))
+        Ok((progress, cancellation, true))
     }
 
     pub fn update(&self, progress: IndexProgress) {

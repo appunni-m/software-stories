@@ -160,6 +160,8 @@ per-project/snapshot index promise. Discovery waits for the reader's active
 index job instead of racing a second `start_snapshot_indexing` call (which the
 native job store rejects) and proceeding with less relationship context. The
 shared helper still falls back to immutable captured inventory when indexing
-is absent or unreadable. Cross-window job sharing and packaged large-repository
-recall remain unqualified. Source-only change; no tests, build, provider request
-or app acceptance ran.
+is absent or unreadable. The native command now returns the existing active job
+to another window and starts a worker only for the window that created it, so
+the per-renderer promise is no longer the sole duplicate-work guard.
+Packaged multi-window and large-repository recall remain unqualified.
+Source-only change; no tests, build, provider request or app acceptance ran.
