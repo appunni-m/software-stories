@@ -7,44 +7,54 @@ labels: container, product, contract
 blocked_by:
 ---
 
-> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. This shell exists in source and in the packaged app inspected on 29 October; that observation proves only the displayed build and state. Task `13yp` tracks remaining design parity and native acceptance, including source changes made after that build.
+> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The workspace is implemented in source and has been inspected in a packaged app; that observation covers only its displayed build and state. Task `13yp` tracks remaining design parity and native acceptance.
 
 ## Product outcome
-Code Atlas is a Mac-first desktop app that helps a developer understand an unfamiliar local repository quickly and accurately. Its default guide explains every eligible file individually, links every code-behavior claim to exact captured source, and lets readers inspect and navigate at their own pace.
+
+Code Atlas is a Mac-first desktop app for quickly understanding a local codebase. A developer asks a question or opens a file, then follows a concise, visual answer into exact source and deeper implementation detail. Explanations use captured code as truth, show evidence, and let the reader control narration and pace.
 
 ## Product shape
-One persistent VS Code-style workspace shares the selected project and immutable source snapshot. Its left activity bar contains **Explorer**, **Search**, **Changes**, and **Explorations**. A pinned chat composer stays above the content. Each exploration keeps **Guide**, **Flow**, and **Chat history** as views of the same conversation; source details open inline beside the active Guide or Flow view.
 
-- **Explorer:** searchable repository tree and captured source. Selecting code or opening a citation keeps the current exploration in view; file explanation is a chat action at that level. The relationship map is optional context in Flow.
-- **Search:** local search of captured paths, symbols, and source, with an **Explore with AI** action when the user wants an answer.
-- **Changes:** local commit history and read-only base/head comparison with changed files, diff, and evidence.
-- **Explorations:** the nested question history, with Back and root navigation restoring each level's saved view and source position.
+One persistent, VS Code style workspace serves the repository and every exploration:
 
-Guide is an answer style: repository orientation can be a multi-section exploration, and file-level explanations appear as cards alongside code. The reader exposes deliberate Previous/Continue controls, source evidence, and optional narration. File coverage, Chapter Studio, settings, and map details remain contextual workflows, not additional primary destinations. The current authority is [`docs/design/WORKSPACE_EXPLORATION.md`](../design/WORKSPACE_EXPLORATION.md); [`docs/design/PROPOSED_SIMPLIFICATION.md`](../design/PROPOSED_SIMPLIFICATION.md) and its Guide / Files / Changes navigation are historical. Task `13yp` tracks implementation and packaged-app parity.
+- **Header:** current repository and snapshot, one-time connection status, appearance, search, and notifications. Connection details live in connection settings and should not be requested for each question.
+- **Activity bar and explorer:** persistent Explorer, Search, Changes, and Explorations entry points; the file tree stays available while the reader follows an answer.
+- **Pinned chat:** Guide me and Show the flow actions sit above the chat input. Search runs locally alongside typing; matching source appears directly, with Explore with AI available when a generated answer is useful.
+- **Exploration content:** Guide, Flow, and Chat history are views of the same question and its answer. Guide presents visual and narrated cards, with prose collapsed when the visual carries the explanation. Flow shows verified relationships at the current level. Inline code details can open from either view.
+- **Nested questions:** each follow-up is a child answer card. Back and the root breadcrumb return to an ancestor and restore its view and position. The parent shows real child links and counts.
+- **Contextual surfaces:** Changes, Chapter Studio, and the interactive player are available when relevant to the current repository or answer; they are not extra setup steps in the main reading flow.
+
+The authoritative interaction details are in [the workspace contract](../design/WORKSPACE_EXPLORATION.md). The browser preview illustrates the design; packaged behavior must be qualified separately. Task `13yp` tracks native implementation and packaged-app parity.
 
 ## Global interaction rules
-- Every captured path appears in Guide's file-by-file coverage with one visible disposition and reason where applicable.
-- Eligible files get an independent substantive chapter by default. Initial release has no automatic grouping or bulk generation; user-created groups never hide member files.
-- Every code-behavior claim resolves to exact path, range, excerpt, hash, and selected snapshot. Inferences are labeled. Static relationships are not described as runtime facts.
-- Every walkthrough section has Previous and deliberate Continue behavior. Hotspots have validated destinations. Back from source restores section and playback position.
-- Each section/chapter revision is immutable after acceptance. Editing creates a new revision and only invalidates dependencies whose inputs changed.
-- AI use is optional. The user explicitly chooses a supported direct model API or a separate coding-agent runtime; Google Gemini is one API option. Exact approved context, backend identity, applicable terms, and any multi-call behavior are reviewed before an outbound run. Opening a view or review screen sends nothing. TTS remains a separately disclosed capability.
-- No local model requirement, hosted source proxy, telemetry, repository writes, script execution, paid fallback, silent regeneration, or automatic acceptance.
+
+- The Explorer lists captured paths. File and range explanations are available on demand; repository-level discovery selects relevant source automatically. Do not require a user-maintained reference-file checklist or create an explanation chapter for every path by default.
+- Code is the source of truth. Documentation can suggest locations; flag it when evidence shows it is stale or deprecated. Claims about behavior link to exact captured source and snapshot. Inferences are labeled; static relationships are not described as runtime facts.
+- The reader controls progression through Guide cards and narration. Source links open the cited range while preserving the selected answer and playback position. Back restores the selected ancestor without regeneration.
+- Each accepted answer or chapter revision is immutable. Editing creates a new revision and invalidates only content whose declared inputs changed.
+- Configure a connection once. Show its current state in the header; expose model, reasoning, and approval preferences in connection settings. Direct model APIs and coding-agent runtimes are distinct choices. A request sends only after explicit user intent and applicable source authorization.
+- Keep indexing, code discovery, route planning, evidence validation, and asset reuse in the background. Normal reading views show useful progress and actionable outcomes, not internal orchestration details.
+- No hosted source proxy, telemetry, repository writes, script execution, paid fallback, silent regeneration, or automatic acceptance.
 
 ## Shared acceptance baseline
+
 All implementation issues inherit the screen states, source/evidence rules, failure behavior, and exclusions in [`docs/PRODUCT_BLUEPRINT.md`](../PRODUCT_BLUEPRINT.md) and [`docs/TECHNICAL_PLAN.md`](../TECHNICAL_PLAN.md). When an issue conflicts with those contracts, update the product contract and affected issues before implementation continues.
 
 ## Done evidence
-The product blueprint, technical boundaries, approved design proposals, milestone breakdown, and issue links are versioned here and tracked in Kata. The former Atlas / Code Lens / Walkthrough concept images are historical and are not the current primary-navigation contract. Task `13yp` records the remaining source-to-package parity work; it is not closed by these documents or by source-only edits.
 
-## Pending work recorded 15 October 2026
+The product blueprint, technical boundaries, approved design proposals, milestone breakdown, and issue links are versioned here and tracked in Kata. The former Atlas / Code Lens / Walkthrough concept images are historical and are not the current primary-navigation contract. Task `13yp` records remaining source-to-package parity and is not closed by documents or source-only edits.
 
-Pending: repo-level quality, local Pocket narration, section/revision/export acceptance, native reliability/release, local PR acceptance and verified agent adapters. See detailed child tasks; no feature milestone is closed by this static review.
+## Historical pending work recorded 15 October 2026
 
-## Core delivery gaps recorded 15 October 2026 — historical snapshot
-
-At that review, chapter generation emitted no visual payload, and file/overview generation did not prove a complete mixed-language narrative. Agent runtime work was split into Codex (`z3an`), Claude Agent (`8gqw`) and Antigravity (`m00g`). These statements describe the 15 October review, not the current implementation.
+That review listed repo-level quality, local Pocket narration, section/revision/export acceptance, native reliability/release, local PR acceptance and verified agent adapters. Its issue list and recommendations are historical; use live Kata and the [current task status snapshot](../KATA_STATUS.md) for current status.
 
 ## Current delivery status — 29 October 2026
 
-Chapter-generation source now supports visual payloads (chapter schema v5, visual schema v3); task `j53m` still owns source-grounding, representation quality and packaged acceptance. Codex and Claude Agent source adapters exist, but neither has passed its runtime and packaged acceptance gates. Claude automatic generation remains unavailable behind an empty release-qualification registry; the Antigravity automatic adapter remains unimplemented. No agent runtime is release-qualified. Complete repository narratives and language-quality qualification remain open in `6qk9` and `7xx7`. See the [current pending-work index](../PENDING_WORK.md) and [backend capability matrix](../research/ai-backend-capability-matrix.md) for scoped evidence and remaining acceptance.
+- The persistent code/chat/exploration workspace and its file, search, source, Guide, Flow, history, Changes and notification surfaces exist in source. Packaged review covers specific builds and states only; remaining design and native acceptance are open in `13yp`, `3rcd`, and `x21h`.
+- Repository Guides plan a bounded route and publish independently validated slides, with up to five ready slides buffered. Complete-repository quality, first useful answer timing, failure recovery and packaged navigation remain open in `3bz5`, `gk46`, `q0sm`, `6qk9`, and `a1sm`.
+- Local Pocket TTS, distinct cache identity and generation-time narration prewarming exist in source. Voice quality, cache reuse and packaged listening acceptance remain open in `dbmd`, `tp6r`, `70x5`, and `q6g3`.
+- Chapter-generation source supports visual payloads (chapter schema v5, visual schema v3). Source grounding, representation quality, comprehension and packaged acceptance remain open in `j53m`; language and narrative qualification remain open in `7xx7` and `6qk9`.
+- Codex and Claude Agent adapters exist in source, but no coding-agent runtime is release-qualified. Codex runtime/operation acceptance remains open in `z3an` and `tpta`; Claude automatic generation remains unavailable behind its empty release-qualification registry (`8gqw`); the Antigravity automatic adapter remains unimplemented (`m00g`). Manual handoff does not qualify as an integrated adapter.
+- The first Mac release is not ready to ship. Packaging, signing, notarization and clean-install acceptance remain open in `e42a` and `48yv`.
+
+These are dated implementation-status notes, not acceptance claims. Each linked task retains its own closure evidence.

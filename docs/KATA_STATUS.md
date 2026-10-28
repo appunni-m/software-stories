@@ -1,8 +1,8 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **28 October 2026**, read from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **29 October 2026**, refreshed from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed; 30 open issues are currently ready under Kata dependencies.** All 81 IDs, statuses and priorities match the live project, and all 81 linked task definitions exist in this checkout. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
-Latest completed package run: [#1279](https://github.com/appunni-m/software-stories/actions/runs/40727123247) passed for `2f6d9d9`; its “Build and inspect unsigned bundles” job succeeded. These unsigned package checks are not public releases. GitHub currently has no published release or tag; signing, notarization, and clean-install gates remain open.
+Package run recorded at the 28 October checkpoint: [#1279](https://github.com/appunni-m/software-stories/actions/runs/40727123247) passed for `2f6d9d9`; its “Build and inspect unsigned bundles” job succeeded. This time-bound unsigned package check is not a public release and is not asserted to be the latest run. The 29 October source/docs commits `8bf97a4` and `2bae565` were pushed without a build in this turn. Signing, notarization, and clean-install gates remain open.
 
 ## 28 October package and workspace checkpoint
 
@@ -97,7 +97,7 @@ The latest checkout connects [progressive generation to the reader](acceptance/2
 
 ## All task records
 
-The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 28 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
+The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 29 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
 
 | Ref | Status | Priority | Definition |
 |---|---|---:|---|
