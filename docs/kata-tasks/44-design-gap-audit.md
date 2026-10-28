@@ -180,3 +180,15 @@ stored questions, answers, receipts, or source order.
 checked in the packaged app yet. Status filtering, remaining diagnostics
 density, other activity views, first-run parity, themes/zoom, and accessibility
 remain open. Keep `x21h` open.
+
+### Notification recovery action — source change, 28 October 2026
+
+An earlier packaged notification showed an explanation needing attention but
+disabled **Open explanation**, leaving no way to inspect the saved recovery
+state from that notice. The action now reads **Review recovery** and opens the
+local recovery dialog even when the preview is unavailable. That dialog shows
+the validation/load failure and retains the explicit discard action; opening
+it does not send a provider request or remove the saved record. This is a
+source-only correction. It has not been built, installed, or checked in the
+packaged app, and the other activity, first-run, theme, zoom, and accessibility
+gaps remain. Keep `x21h` and parent `13yp` open.

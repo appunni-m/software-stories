@@ -1690,7 +1690,7 @@ function App() {
       groupKey: preview.projectId && preview.snapshotId ? notificationGroupKey('preview',preview.projectId,preview.snapshotId,preview.title,preview.targetPath??'',preview.unavailableReason?'unavailable':'ready') : undefined,
       bucket: notificationBucketForOutcome(preview.unavailableReason ? 'warning' : 'info'), countLabel: 'drafts',
       message: previewNotificationMessage(preview, preview.projectId ? knownProjects[preview.projectId]?.displayName : undefined), tone: preview.unavailableReason ? 'warning' : 'info',
-      actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), opensDialog: true, run: () => {
+      actions: [{ label: preview.unavailableReason ? 'Review recovery' : 'Open explanation', opensDialog: true, run: () => {
         recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');
         setRecoveredPreviewId(preview.generationId);
       } }, { label: 'Discard preview', run: () => { void discardPendingPreview(preview); } }],
