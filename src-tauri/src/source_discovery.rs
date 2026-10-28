@@ -993,6 +993,82 @@ mod tests {
             assert!(!is_code_path(path));
         }
     }
+
+    #[test]
+    fn large_unreadable_code_paths_are_not_advertised_as_range_retrievable() {
+        let files = vec![
+            snapshot::CapturedFile {
+                path: "src/large_text.rs".to_owned(),
+                kind: InventoryPathKind::File,
+                size_bytes: 250_001,
+                sha256: "text-hash".to_owned(),
+                blob_path: "objects/text".to_owned(),
+                content_kind: CapturedContentKind::Text,
+                secret_like: false,
+            },
+            snapshot::CapturedFile {
+                path: "src/large_binary.rs".to_owned(),
+                kind: InventoryPathKind::File,
+                size_bytes: 300_001,
+                sha256: "binary-hash".to_owned(),
+                blob_path: "objects/binary".to_owned(),
+                content_kind: CapturedContentKind::Binary,
+                secret_like: false,
+            },
+            snapshot::CapturedFile {
+                path: "src/large_invalid.rs".to_owned(),
+                kind: InventoryPathKind::File,
+                size_bytes: 350_001,
+                sha256: "invalid-hash".to_owned(),
+                blob_path: "objects/invalid".to_owned(),
+                content_kind: CapturedContentKind::InvalidEncoding,
+                secret_like: false,
+            },
+        ];
+        let manifest = SnapshotManifest {
+            schema_version: 1,
+            summary: snapshot::SnapshotSummary {
+                snapshot_id: "snapshot".to_owned(),
+                project_id: "project".to_owned(),
+                parent_snapshot_id: None,
+                created_at_unix_ms: 0,
+                branch: Some("main".to_owned()),
+                head: None,
+                index_state: snapshot::GitChangeState::Clean,
+                worktree_state: snapshot::GitChangeState::Clean,
+                status: snapshot::CaptureStatus::Complete,
+                files_captured: files.len(),
+                paths_skipped: 0,
+                total_bytes: files.iter().map(|file| file.size_bytes).sum(),
+                paths_visited: files.len() as u64,
+                policy_version: "capture-policy-v1".to_owned(),
+            },
+            repository_root: "/repo".to_owned(),
+            selected_path: "/repo".to_owned(),
+            capture_limits: snapshot::CaptureLimits::default(),
+            directories: Vec::new(),
+            files,
+            skipped: Vec::new(),
+        };
+
+        let gaps = discovery_coverage_gaps(&manifest, &HashMap::new(), false);
+        let unreadable = gaps
+            .iter()
+            .find(|gap| gap.category == "unreadableSource")
+            .expect("large binary and invalid-encoding code paths are unreadable");
+        assert_eq!(unreadable.count, 2);
+        assert_eq!(
+            unreadable.examples,
+            ["src/large_binary.rs", "src/large_invalid.rs"]
+        );
+        let large_text = gaps
+            .iter()
+            .find(|gap| gap.category == "largeFiles")
+            .expect("large readable code paths can be recovered by range search");
+        assert_eq!(large_text.count, 1);
+        assert_eq!(large_text.examples, ["src/large_text.rs"]);
+    }
+
     #[test]
     fn discovery_uses_captured_index_and_marks_only_explicit_deprecation() {
         use crate::chapter_generation::tests::Fixture;

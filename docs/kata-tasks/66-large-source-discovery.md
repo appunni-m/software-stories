@@ -96,3 +96,19 @@ uses `largeFiles` for readable captured text. This improves the explanation of
 the omission; it does not change candidate inclusion, source limits, retrieval
 recall, or generated-answer quality. No tests, build, profile, provider request
 or packaged qualification ran; keep the acceptance task open.
+
+### Regression for unreadable large-path disclosure — 28 October 2026
+
+A focused regression now verifies the coverage-gap order: a readable
+implementation above the whole-file request limit is categorized as
+`largeFiles`, while equally large binary and invalid-encoding implementation
+files are categorized as `unreadableSource`. The fixture also checks the
+reported counts and example paths. This prevents discovery from promising a
+text-range lookup for bytes its reader cannot decode.
+
+`RUSTC_WRAPPER= cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+large_unreadable_code_paths_are_not_advertised_as_range_retrievable` passed
+(1 passed, 837 filtered out). Existing Claude dead-code warnings were emitted.
+This verifies the disclosure classification only; broad Fontdone recall,
+selected ranges, provider answer quality, cancellation and packaged behavior
+remain open.
