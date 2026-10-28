@@ -1698,7 +1698,7 @@ function App() {
 
   return (
     <Theme asChild appearance={appearance} accentColor="blue" grayColor="slate" radius="medium">
-    <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
+    <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${!currentProject && currentWorkspace === 'atlas' && readiness === 'ready' ? ' is-first-run' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
       <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen}/>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {repositoryContextAnnouncement}

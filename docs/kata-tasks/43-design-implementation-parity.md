@@ -35,6 +35,14 @@ The screenshot was inspected live but is not saved as a durable file. This verif
 
 The installed Fontdone workspace displayed long Rust statements as wrapped fragments in the source pane, weakening the editor-like reading experience and hiding original line shape. The source editor now leaves CodeMirror soft wrapping disabled so long code lines can be inspected with the editor's horizontal scroll. The focused editor contract check passes **2/2**, and `npm run build` passes with the existing large-bundle warning. This is a source-level correction only: the installed bundle still shows the prior wrapping behavior, and the full packaged/zoom/keyboard matrix remains open. Keep `13yp` open.
 
+## Focus the empty-repository welcome — 2026-10-28
+
+When no repository is open, the initial Explorer route now receives an `is-first-run` shell state. The generic Workspace / Explorer toolbar is hidden, the workspace heading remains available to assistive technology while leaving visual focus on the welcome, and the welcome card is centered within the available content width. The top project picker remains the persistent repository action.
+
+Source evidence: `src/App.tsx` applies the state only when there is no current project, the active workspace is Explorer, and workspace restoration is complete. `src/App.css` hides the route toolbar and visually clips (rather than removes) its labelled heading only for that state. The dedicated `AtlasEmptyState` and its open-repository action are unchanged.
+
+No build, test, app launch, or screenshot was run. This addresses the source-visible first-run hierarchy only; native layout, recent-project/error states, themes, zoom/reflow, keyboard/focus presentation, and the required packaged screenshot matrix remain unverified. Keep `13yp` open.
+
 
 ## User outcome
 

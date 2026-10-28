@@ -89,6 +89,10 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .eyebrow-mark { width: 6px; height: 6px; border-radius: 2px; background: var(--accent); transform: rotate(45deg); }
 .workspace-heading h1 { max-width: 730px; margin: 14px 0 9px; font: 600 clamp(25px, 3vw, 37px)/1.17 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -.045em; color: var(--text); }
 .workspace-heading p { max-width: 680px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.is-first-run .workspace-toolbar { display: none; }
+.is-first-run .workspace-content { padding: 16px clamp(18px, 3vw, 44px); }
+.is-first-run .workspace-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.is-first-run .atlas-empty { width: min(100%, 1040px); margin-inline: auto; }
 .empty-workspace { flex: 1; min-height: 390px; }
 .atlas-empty { display: flex; flex-direction: column; justify-content: center; gap: 17px; padding: 28px 0 20px; }
 .empty-main-card { min-height: 330px; display: grid; grid-template-columns: minmax(260px, .93fr) 1.07fr; overflow: hidden; border: 1px solid var(--blue-border); border-radius: 14px; background: linear-gradient(120deg, var(--surface-raised) 0%, var(--surface-raised) 55%, var(--surface-raised) 100%); box-shadow: 0 16px 50px color-mix(in srgb, var(--shadow) 13%, transparent); }
