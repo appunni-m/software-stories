@@ -74,8 +74,8 @@ interface CapturedSourceSearchState {
   busy:boolean;
   error:string|null;
 }
-function sourceSearchStateFor(previous:CapturedSourceSearchState,key:string):CapturedSourceSearchState {
-  return previous.key===key?previous:{key,hits:[],limited:false,nextOffset:null,busy:false,error:null};
+function sourceSearchStateFor(previous:CapturedSourceSearchState,key:string,searching=false):CapturedSourceSearchState {
+  return previous.key===key?previous:{key,hits:[],limited:false,nextOffset:null,busy:searching,error:null};
 }
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
@@ -697,7 +697,9 @@ export function DeveloperWorkspace(props:Props) {
   const term=(composerSearchActive?query:activity==='search'?repositorySearch:query).trim();
   const searchMode:CodeSearchMode=!composerSearchActive&&activity==='search'&&repositoryRegex?'regex':'code';
   const sourceSearchKey=JSON.stringify([projectId,snapshotId,term,searchMode]);
-  const currentSourceSearch=sourceSearchStateFor(sourceSearchState,sourceSearchKey);
+  const sourceSearchLength=[...term].length;
+  const capturedSearchPending=isNativeRuntime()&&sourceSearchLength>=(searchMode==='regex'?1:2)&&sourceSearchLength<=240;
+  const currentSourceSearch=sourceSearchStateFor(sourceSearchState,sourceSearchKey,capturedSearchPending);
   function exploreSearch(searchQuery:string,matches:CodeSearchHit[]){
     const intent=searchExploration(searchQuery.trim(),searchMode,matches);
     const references=new Map<string,Context>();
