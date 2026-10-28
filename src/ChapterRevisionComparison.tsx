@@ -1,4 +1,5 @@
 import type {ChapterRevision} from './lib/commands';
+import {AppButton} from './design/AppButton';
 import {compareChapterRevisions,revisionChangeContext,type RevisionChange,type RevisionChangeEntity} from './lib/revisionHistory';
 
 interface DiffValue {
@@ -60,7 +61,7 @@ export function StaleChapterDraftNotice({baseRevisionNumber,latestRevisionNumber
       <strong>r{latestRevisionNumber} was saved while you were editing from r{baseRevisionNumber}.</strong>
       <p>Your edits are still on screen, and Save is paused. Rebase carries over changes made in only one version and asks you to choose where both versions changed the same field. Nothing is saved until you review and save the new draft. Cancel discards these unsaved edits.</p>
     </div>
-    {onRebase&&<button className="secondary-button" type="button" onClick={onRebase}>Rebase onto r{latestRevisionNumber}</button>}
+    {onRebase&&<AppButton intent="secondary" onClick={onRebase}>Rebase onto r{latestRevisionNumber}</AppButton>}
   </div>;
 }
 

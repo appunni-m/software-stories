@@ -60,3 +60,7 @@ The notification panel's Mark all read, Dismiss read and Close controls now use 
 ## Chapter draft recovery actions — 28 October 2026
 
 The conflict-resolution Back, bulk choice, and continue actions now use `AppButton` quiet/primary intents; the saved-preview review action in Chapter Recovery uses the quiet intent. Existing labels, enablement, choices, callbacks and chapter revision behavior are unchanged. No tests/build or packaged acceptance ran.
+
+## Stale draft rebase action — 28 October 2026
+
+The stale-draft comparison's Rebase action now uses the shared secondary intent. Its visibility, callback and revision context remain unchanged. No tests/build or packaged acceptance ran.
