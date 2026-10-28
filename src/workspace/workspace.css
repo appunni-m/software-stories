@@ -146,8 +146,8 @@
 .dw-answer-visual-preview-graph .dw-answer-visual-fork button {height:auto;}
 .dw-answer-visual-points {display:flex;flex-wrap:wrap;gap:var(--space-1);}
 .dw-answer-visual-preview-graph small,.dw-answer-visual-no-links,.dw-answer-visual-preview-empty {color:var(--muted);font-size:12px;}
-.dw-answer-visual-preview-empty {display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);flex-wrap:wrap;}
-.dw-answer-visual-actions {display:flex;align-items:center;justify-content:flex-end;gap:var(--space-1);flex-wrap:wrap;}
+.dw-answer-visual-preview-empty {display:grid;grid-template-columns:minmax(0,1fr);justify-items:start;align-items:start;gap:var(--space-2);}
+.dw-answer-visual-actions {display:flex;align-items:center;justify-content:flex-start;gap:var(--space-1);flex-wrap:wrap;max-width:100%;}
 .dw-answer-visual-actions button {display:flex;align-items:center;gap:var(--space-1);color:var(--accent-strong);}
 .dw-answer-visual-actions button svg {flex:none;}
 .dw-answer-note {font-size:12px;line-height:1.6;color:var(--muted);border-left:2px solid var(--dim);padding-left:var(--space-3);overflow-wrap:anywhere;}
@@ -306,10 +306,11 @@
 .developer-workspace .preview-editor-tab {height:39px;display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;padding:0 var(--space-3);font-size:12px;border-bottom:1px solid var(--border);}
 .developer-workspace .preview-editor-tab > svg {color:var(--accent);}
 .developer-workspace .preview-editor-tab > button {margin-left:auto;}
-.developer-workspace .preview-code-path {padding:var(--space-2) var(--space-4) 0;font-size:12px;color:var(--dim);}
+.developer-workspace .preview-code-path {display:flex;flex-wrap:wrap;align-items:center;gap:4px var(--space-3);min-width:0;min-height:34px;padding:4px var(--space-3) 2px var(--space-4);font-size:12px;color:var(--dim);}
+.developer-workspace .preview-code-path-label {flex:1 1 120px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .developer-workspace .preview-editor {flex:1;min-height:0;overflow:hidden;padding-top:var(--space-1);}
 .developer-workspace .preview-editor-footer {display:flex;justify-content:space-between;gap:var(--space-2);border-top:1px solid var(--border);padding:var(--space-2) var(--space-3);font-size:12px;color:var(--dim);}
-.developer-workspace .preview-selection-tools {position:absolute;bottom:46px;left:var(--space-4);display:flex;gap:var(--space-2);padding:var(--space-2);background:var(--surface);box-shadow:0 4px 20px color-mix(in srgb,var(--shadow) 25%,transparent);border:1px solid var(--border);border-radius:7px;z-index:2;}
+.developer-workspace .preview-selection-tools {position:static;display:flex;flex:0 1 auto;flex-wrap:wrap;align-items:center;gap:var(--space-2);max-width:100%;margin-left:auto;padding:0;background:transparent;box-shadow:none;border:0;border-radius:0;z-index:auto;}
 @media(max-width:950px){.dw-answer-scroll{padding:var(--space-4) var(--space-3) var(--space-6);}.dw-answer-card{padding:var(--space-3);}.dw-composer{padding-left:var(--space-3);padding-right:var(--space-3);}.dw-flow-canvas{height:min(60vh,480px);min-height:300px;}}
 @media(max-width:680px){.dw-conversation-warning{flex-wrap:wrap;padding:var(--space-2) var(--space-3);}.dw-conversation-warning .rt-Button{margin-left:auto;}}
 @media(max-width:680px){.dw-answer-card-unavailable{padding:var(--space-2) var(--space-3);}.dw-answer-card-unavailable .rt-Button{margin-left:auto;}}

@@ -1421,7 +1421,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .has-snapshot .workspace-toolbar {display:none;}
 .topbar .brand-mark {height:27px;width:27px;border:0;border-radius:6px;}
 .topbar .brand-name {font-size:14px;font-weight:650;letter-spacing:-.04em;}
-.topbar .project-controls {flex:1;}
+.topbar .project-controls {flex:0 1 auto;min-width:0;gap:8px;}
 .topbar .topbar-actions {display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-left:auto;}
 .topbar .tools-button {min-height:30px;height:30px;}
 .workspace-footer {font-size: 12px;min-height:23px;flex-basis:23px;}
@@ -1434,7 +1434,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .dw-tool-content .git-comparison-id {display:none;}
 .dw-tool-content .file-flow p,.dw-tool-content .chapter-studio-card p {color:var(--muted);font-size:13px;line-height:1.8;}
 .developer-workspace .file-flow > p {color:var(--muted);font-size:13px;}
-@media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size: 12px;max-width:150px;}.topbar .snapshot-refresh-button{width:34px;min-width:34px;padding-inline:0;}.topbar .snapshot-refresh-button > span{display:none;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
+@media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{flex:1 1 100%;min-width:70px;}.topbar .project-button{font-size: 12px;max-width:150px;}.topbar .snapshot-refresh-button{width:34px;min-width:34px;padding-inline:0;}.topbar .snapshot-refresh-button > span{display:none;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
 /* Secondary tools inherit the same readable control scale as the workspace. */
 .dw-tool-content :is(.chapter-studio-card,.chapter-studio-section) {border-radius:8px;}
 .dw-tool-content .walkthrough-kicker {font-size:12px;line-height:1.65;}

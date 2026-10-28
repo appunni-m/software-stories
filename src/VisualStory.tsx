@@ -435,18 +435,20 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         <Background gap={24} /><Controls showInteractive={false} />
       </ReactFlow>
     </div> : <div className="story-source-stage">
-      <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}`} role="group"
+      <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}${(canRefreshSavedVisual && onRefreshVisual) || anchor ? ' has-actions' : ''}`} role="group"
         aria-label={savedVisualNeedsRefresh ? 'Saved visual needs refreshing' : savedVisualUnavailable ? 'Saved visual unavailable' : 'No visual saved for this section'}>
-        <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : savedVisualUnavailable ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
-        <small>{savedVisualNeedsRefresh
-          ? canRefreshSavedVisual
-            ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
-            : 'This saved visual cannot be shown here. Narration and source links are still available.'
-          : savedVisualUnavailable
+        <div className="story-no-visual-copy">
+          <span>{savedVisualNeedsRefresh ? 'Visual needs refreshing' : savedVisualUnavailable ? 'Saved visual unavailable' : 'No visual saved for this section'}</span>
+          <small>{savedVisualNeedsRefresh
             ? canRefreshSavedVisual
               ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
-              : 'This saved visual cannot be displayed. Narration and source links are still available.'
-          : 'This saved section has narration and source links, but no visual representation.'}</small>
+              : 'This saved visual cannot be shown here. Narration and source links are still available.'
+            : savedVisualUnavailable
+              ? canRefreshSavedVisual
+                ? 'Narration and source links still work. Create a fresh visual explanation; this saved version stays in history.'
+                : 'This saved visual cannot be displayed. Narration and source links are still available.'
+            : 'This saved section has narration and source links, but no visual representation.'}</small>
+        </div>
         {(canRefreshSavedVisual || anchor) && <div className="story-source-actions">
           {canRefreshSavedVisual && onRefreshVisual && <button type="button" className="story-refresh-visual" aria-label="Create a fresh visual explanation" onClick={onRefreshVisual}>
             <Sparkles size={13} aria-hidden="true" /><span>Refresh visual</span>

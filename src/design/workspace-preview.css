@@ -58,10 +58,11 @@ html, body, #root { height: 100%; }
 .preview-editor-tab { height: 39px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 0 13px; font-size: 12px; border-bottom: 1px solid var(--border); }
 .preview-editor-tab > svg { color: var(--accent); }
 .preview-editor-tab > button { margin-left: auto; }
-.preview-code-path { padding: 9px 16px 0; font-size: 12px; color: var(--dim); }
+.preview-code-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; min-height: 34px; padding: 4px 12px 2px 16px; font-size: 12px; color: var(--dim); }
+.preview-code-path-label { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preview-editor { flex: 1; min-height: 0; overflow: hidden; padding-top: 4px; }
 .preview-editor-footer { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding: 7px 12px; font-size: 12px; color: var(--dim); }
-.preview-selection-tools { position: absolute; bottom: 50px; left: 35px; display: flex; gap: 6px; padding: 6px; background: var(--surface); box-shadow: 0 4px 20px color-mix(in srgb, var(--shadow) 25%, transparent); border: 1px solid var(--border); border-radius: 7px; z-index: 2; }
+.preview-selection-tools { position: static; display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; margin-left: auto; }
 .preview-explanation { display: flex; flex-direction: column; height: 100%; background: var(--guide-bg); }
 .preview-explanation > .rt-BaseTabList { flex-shrink: 0; padding-left: 14px; height: 39px; }
 .preview-explanation .rt-BaseTabListTriggerInner { gap: 6px; font-size: 12px; }

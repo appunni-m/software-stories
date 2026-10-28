@@ -269,12 +269,14 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
   }, [reveal, path, contents]);
   return <section className="preview-code-pane" aria-label="Code" data-focus-key="workspace-source" tabIndex={-1}>
     <div className="preview-editor-tab"><Code2 size={14} /><span>{path.split('/').at(-1)}</span><Tooltip content="Close code pane"><IconButton size="1" variant="ghost" aria-label="Close code pane" onClick={onClose}><X size={14} /></IconButton></Tooltip></div>
-    <div className="preview-code-path">{path.split('/').join('  /  ')}</div>
+    <div className="preview-code-path">
+      <span className="preview-code-path-label">{path.split('/').join('  /  ')}</span>
+      {selection && <div className="preview-selection-tools" onMouseDown={(event) => event.preventDefault()}>
+        <Button size="1" disabled={!canExplain} title={canExplain ? undefined : 'The saved conversation is unavailable.'} aria-label="Explain this code" onClick={() => onExplain(selection)}><MessageSquarePlus size={13} /><span>Explain this code</span></Button>
+        <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" disabled={!canExplain} aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
+      </div>}
+    </div>
     <div ref={host} className="preview-editor" />
-    {selection && <div className="preview-selection-tools" onMouseDown={(event) => event.preventDefault()}>
-      <Button size="1" disabled={!canExplain} title={canExplain ? undefined : 'The saved conversation is unavailable.'} onClick={() => onExplain(selection)}><MessageSquarePlus size={13} />Explain this code</Button>
-      <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" disabled={!canExplain} aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
-    </div>}
     <footer className="preview-editor-footer"><span>{sourceLanguage(path)}</span><span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span></footer>
   </section>;
 }

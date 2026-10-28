@@ -262,3 +262,24 @@ audio playback, or answer mutation occurred. This confirms the full visual in a
 fresh process; it still does not qualify the compact stacked-answer preview or
 the remaining Guide/Flow/Search/Changes, keyboard, accessibility, and reflow
 matrix. Keep `13yp` and `x21h` open.
+
+## Button placement correction — 28 October 2026
+
+Reworked the selected-code actions so **Explain this code** and **Add selection
+to chat** live in the source path row instead of floating over selected lines
+or the editor footer. The repository/snapshot controls no longer stretch the
+refresh action into a visually isolated header group. In both the full Guide
+visual fallback and the compact stacked-answer preview, refresh and source
+buttons now sit on a separate row below the status text.
+
+Evidence: `npm run bundle:macos` completed, including the frontend TypeScript
+build, license metadata check, unsigned app and DMG packaging, and DMG checksum
+verification. The rebuilt executable SHA-256 is
+`af81e2bf60a0593788eafd4941de0244dee4c1665f5a6d40dcc8230fe2459ea5`. After
+restarting that exact bundle, the Fontdone `main@5249b72371` Guide showed the
+selection actions in the source path row and the compact preview's status and
+actions in separate rows. The live screenshot is visible in task history; it
+was not saved because it includes captured source. No test suite was run, no
+snapshot refresh or AI request was made, and no saved answer was edited. Keep
+the broad packaged, responsive, keyboard, and accessibility acceptance open;
+this single Guide state does not close `13yp` or `x21h`.
