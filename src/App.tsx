@@ -4,6 +4,7 @@ import { ChapterCitationEditor } from './ChapterCitationEditor';
 import { ChapterValidationIssues } from './ChapterValidationIssues';
 import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { AppSelect } from './design/AppSelect';
+import { AppButton } from './design/AppButton';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
@@ -2162,8 +2163,8 @@ function ProviderDialog(props: ProviderDialogProps) {
     <section className="provider-dialog" ref={chooserRef} role="dialog" aria-modal="true" aria-labelledby="connection-unavailable-title" tabIndex={-1}>
       <header className="provider-dialog-header"><div><h2 id="connection-unavailable-title">This connection can’t do this action yet</h2>
         <p>Change your AI connection once from Connections in the header. The current request has not been sent.</p></div>
-        <button className="icon-button" onClick={props.onClose} aria-label="Close connection notice"><X size={17} /></button></header>
-      <div className="provider-dialog-content"><button className="primary-button" onClick={openConnections}>Open Connections</button></div>
+        <AppButton intent="icon" onClick={props.onClose} aria-label="Close connection notice"><X size={17} /></AppButton></header>
+      <div className="provider-dialog-content"><AppButton intent="primary" onClick={openConnections}>Open Connections</AppButton></div>
     </section>
   </div>;
   return <div className="provider-overlay">
@@ -2172,12 +2173,12 @@ function ProviderDialog(props: ProviderDialogProps) {
         <div>
           <h2 id="backend-choice-title">Choose your AI connection</h2>
           <p>Choose once. You can change it from the header whenever you need.</p></div>
-        <button className="icon-button" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></button>
+        <AppButton intent="icon" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></AppButton>
       </header>
       <div className="provider-dialog-content">
         <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
           <p>Use the Codex account already signed in on this Mac. Your model and reasoning preference are remembered; no API key is needed.</p>
-          <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
+          <AppButton intent="primary" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</AppButton>
           {!agentOperation && <p role="status">Codex isn’t available for this kind of explanation yet.</p>}
         </section>
         <details className="provider-alternatives">
@@ -2185,18 +2186,18 @@ function ProviderDialog(props: ProviderDialogProps) {
           <div className="provider-alternatives-grid">
             <section className="provider-review-card"><h3>Direct API</h3>
               <p>Connect Gemini, OpenAI, or Anthropic with your own API key. Provider usage and billing rules apply.</p>
-              <button className="secondary-button" onClick={() => choose('api')}>Choose a direct API</button>
+              <AppButton intent="secondary" onClick={() => choose('api')}>Choose a direct API</AppButton>
             </section>
             <section className="provider-review-card"><h3>Claude Code</h3>
               <p>Copy a reviewed task into Claude Code, then bring its answer back here to check it against the source.</p>
               <div className="provider-alternative-actions">
-                <button className="secondary-button" onClick={() => choose('claude-setup')}>Set up Claude Agent</button>
-                <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
+                <AppButton intent="secondary" onClick={() => choose('claude-setup')}>Set up Claude Agent</AppButton>
+                <AppButton intent="secondary" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</AppButton>
               </div>
             </section>
             <section className="provider-review-card"><h3>Antigravity</h3>
               <p>Prepare a reviewed task to copy into Antigravity, then validate the answer here. Google does not allow third-party apps to use a consumer Antigravity login.</p>
-              <button className="secondary-button" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Use Antigravity handoff</button>
+              <AppButton intent="secondary" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Use Antigravity handoff</AppButton>
               <p className="provider-small-note"><a href="https://www.antigravity.google/docs/faq" target="_blank" rel="noreferrer">Google Antigravity account rules</a></p>
             </section>
             {!handoffOperation && <p role="status">Agent handoff is available for file chapters and repository overviews.</p>}

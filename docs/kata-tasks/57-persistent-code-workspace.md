@@ -48,3 +48,7 @@ The Connections dialog's close and footer actions, plus Pocket setup/repair/canc
 ## Connection category tabs — 28 October 2026
 
 Replaced the Connections dialog's `aria-pressed` navigation buttons with Radix Tabs, matching the main exploration's Guide/Flow/history tab implementation. Active styling now follows the tab's `data-state`, and the library supplies tab semantics and arrow-key navigation. Category state, busy disabling, and the existing Connections/Voice contents remain the same. No tests/build or packaged keyboard/focus check ran.
+
+## Initial connection chooser actions — 28 October 2026
+
+The one-time AI connection chooser and unsupported-connection notice now use `AppButton` for close, Open Connections, Codex, direct API, Claude and Antigravity actions. Existing visibility/availability checks and callbacks are unchanged. This is a shared-control migration only; it does not claim that manual Claude/Antigravity handoff is an integrated agent backend. No tests/build or packaged screen acceptance ran.
