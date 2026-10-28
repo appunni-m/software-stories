@@ -1808,12 +1808,14 @@ function App() {
               data-focus-key="snapshot-button"
               disabled={!currentProject || currentSnapshots.length === 0}
               onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen((open) => !open); }}
-              aria-label={selectedSnapshot ? `Choose snapshot. Selected ${formatSnapshotDate(selectedSnapshot.createdAtUnixMs)}` : 'No snapshot selected'}
+              aria-label={selectedSnapshot ? `Choose snapshot. Selected ${formatSnapshotDate(selectedSnapshot.createdAtUnixMs)}${selectedSnapshot.status === 'partial' ? ', partial capture' : ''}` : 'No snapshot selected'}
+              title={selectedSnapshot?.status === 'partial' ? 'Partial capture · some paths were skipped' : undefined}
               aria-expanded={snapshotMenuOpen}
               aria-haspopup="menu"
             >
               <GitBranch size={14} />
               <span>{selectedSnapshot ? `${selectedSnapshot.branch ?? 'Detached'} · ${selectedSnapshot.head?.slice(0, 7) ?? selectedSnapshot.snapshotId.slice(-7)}` : currentSnapshots.length ? 'Choose snapshot' : 'No snapshot'}</span>
+              {selectedSnapshot?.status === 'partial' && <TriangleAlert size={13} className="snapshot-partial-indicator" aria-hidden="true" />}
               {currentSnapshots.length > 0 && <ChevronDown size={13} className="muted-icon" />}
             </button>
             {snapshotMenuOpen && (
