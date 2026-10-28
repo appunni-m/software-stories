@@ -237,3 +237,30 @@ The screenshot was inspected live but not saved as a durable artifact. First-run
 and error states, nested restoration, other theme/zoom settings, keyboard,
 VoiceOver, contrast, and motion remain uninspected. Keep `x21h` and parent `13yp`
 open.
+
+### Guide/Flow and keyboard spot check — 28 October 2026
+
+On the same installed build and Fontdone snapshot, the packaged Guide showed
+the saved repository guide with six slides ready, the current position at slide
+2, and a notice that the next slide builds as the reader reads or listens. One
+older Code Lens answer remains visible as an unavailable saved explanation;
+another saved visual is explicitly marked as needing refresh. This is saved
+content state, not evidence that the current generator failed or that audio was
+requested.
+
+The selected Flow answer, “Rebuilding and transforming component points,” had
+no verified diagram. Flow stated that it would not show an unevidenced graph
+and directed the reader to source links in Guide. This is an honest empty state,
+but it leaves substantial blank space for this answer; the source pane showed
+`src/tt/gasp.rs` while the selected saved Code Lens answer concerned
+`src/tt/glyf.rs`. The user had separately selected `gasp.rs` in Explorer, so
+this observation alone does not establish a navigation defect. A native
+keyboard-only Tab traversal reached the header controls, Explorer/Search/
+Changes/Explorations activity items, repository-sharing action, file filter and
+selected row, composer/attachment, source-pane control, and Guide/Flow/history
+tab group without sending a question or opening a provider request. Activation,
+focus visibility, VoiceOver, zoom/reflow, contrast and motion were not checked.
+
+The native screenshot was viewed at 2880×1688 but is not retained as a file. This
+observation adds no durable screenshot evidence and does not satisfy the
+screen-by-screen acceptance matrix. Keep `x21h` and `13yp` open.
