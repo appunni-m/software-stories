@@ -92,3 +92,11 @@ The repository-open, ref-swap, compare/stop, and captured-source actions now use
 ## Agent setup and discovery actions — 28 October 2026
 
 Claude setup, source discovery, and repository planning now use `AppButton` for their close, setup, catalog, back, retry, and cancellation actions. Submit buttons remain explicit form submits; other actions keep the shared non-submit default. Existing status, consent, enablement, and callbacks are unchanged. No tests/build or packaged dialog review ran.
+
+## Direct API settings and review actions — 28 October 2026
+
+Direct API settings, request review, citation navigation, and cancellation actions now use `AppButton`. Added a shared danger intent for the existing cancel-confirm action. Key saving and catalog-style forms retain explicit submit semantics; other controls stay non-submit. The selected provider, disclosures, consent, source scope, callbacks and state transitions are unchanged. No tests/build or packaged dialog review ran.
+
+## Narration player actions — 28 October 2026
+
+Narration editing, playback, review, cached playback, connection shortcuts, and cancellation controls now use `AppButton` while retaining the player-specific classes, labels, disable conditions and callbacks. Playback/lexicon controls keep their tailored styling; cancel confirmation uses the shared danger intent. Audio caching, synthesis, consent and playback behavior are unchanged. No tests/build or packaged player review ran.

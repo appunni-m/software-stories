@@ -43,6 +43,7 @@ import {
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
 import { localNarrationPrewarmState } from './workspace/localNarrationQueue';
+import { AppButton } from './design/AppButton';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
@@ -777,21 +778,21 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
                 <label>Exact name<input value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
                 <label>Say it as<input value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
                 <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
-                <button type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></button>
+                <AppButton intent="custom" type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></AppButton>
               </div>
             ))}
-            {draft.lexicon.length < 12 && <button type="button" className="walkthrough-add-pronunciation" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</button>}
+            {draft.lexicon.length < 12 && <AppButton intent="custom" type="button" className="walkthrough-add-pronunciation" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</AppButton>}
           </details>
         </div>
       </details>
 
       <div className="walkthrough-playback">
         <div className="walkthrough-playback-buttons">
-          <button type="button" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || Boolean(voiceConnectionIssue)} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></button>
-          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || (!isPlaying && Boolean(voiceConnectionIssue))} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : localAudioNeedsPreparation ? 'Create narration and play' : 'Play narration'}>
+          <AppButton intent="custom" type="button" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || Boolean(voiceConnectionIssue)} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></AppButton>
+          <AppButton intent="custom" type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim() || (!isPlaying && Boolean(voiceConnectionIssue))} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : localAudioNeedsPreparation ? 'Create narration and play' : 'Play narration'}>
             {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : localAudioNeedsPreparation ? 'Create & play' : 'Play'}
-          </button>
-          <button type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
+          </AppButton>
+          <AppButton intent="custom" type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></AppButton>
           <span className="walkthrough-duration" role="group" aria-label={`Elapsed ${formatTime(currentTime)}, duration ${duration > 0 ? narrationDurationLabel(duration) : 'loading'}`}>
             {formatTime(currentTime)} / {narrationDurationLabel(duration)}
           </span>
@@ -801,13 +802,13 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <input type="range" min={0} max={duration || 0} step={0.05} value={Math.min(currentTime, duration || 0)} disabled={!track || !duration} onChange={(event) => seek(Number(event.target.value))} />
         </label>
       </div>
-      {localNarration && providerRequestBusy && <button type="button" className="text-button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</button>}
+      {localNarration && providerRequestBusy && <AppButton intent="quiet" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</AppButton>}
       {track && !savedAudioMatchesDraft && <p className="walkthrough-narration-prior-audio" role="status">Previous audio is kept for its reviewed transcript. New edits do not change it unless you generate another recording.</p>}
 
       {!localNarration && <div className="walkthrough-narration-review-actions">
-        <button type="button" className="secondary-button" onClick={() => { void makeReview(); }} disabled={reviewBusy || requestBusy || Boolean(voiceConnectionIssue) || !disclosure || !draft.spokenText.trim() || spokenTextUtf8Bytes > 16000}>
+        <AppButton intent="secondary" type="button" onClick={() => { void makeReview(); }} disabled={reviewBusy || requestBusy || Boolean(voiceConnectionIssue) || !disclosure || !draft.spokenText.trim() || spokenTextUtf8Bytes > 16000}>
           {reviewBusy ? 'Reviewing locally…' : 'Review exact speech request'}
-        </button>
+        </AppButton>
         {review && <span className="walkthrough-narration-fingerprint"><Check size={12} /> Request reviewed · {review.fingerprint.slice(0, 12)}</span>}
       </div>}
 
@@ -846,29 +847,29 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             </nav>
           </div>}
           {review.cachedAudioAvailable ? (
-            <button type="button" className="primary-button" disabled={requestBusy || Boolean(voiceConnectionIssue)} onClick={() => { void loadCache(review, true); }}><Play size={14} /> {requestBusy ? 'Loading cached audio…' : 'Play local cached audio'}</button>
+            <AppButton intent="primary" type="button" disabled={requestBusy || Boolean(voiceConnectionIssue)} onClick={() => { void loadCache(review, true); }}><Play size={14} /> {requestBusy ? 'Loading cached audio…' : 'Play local cached audio'}</AppButton>
           ) : (
             <>
               {!localNarration && <><label className="walkthrough-narration-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I checked this key's project tier and billing status in Google AI Studio, reviewed Google's data-use and eligibility terms, meet those requirements, and authorize sending this exact text to Gemini.</label>
               <div className="walkthrough-narration-key-status" role="status">
                 <span>{informationError ?? (credential?.apiKeyConfigured ? 'Gemini key is stored in macOS Keychain.' : 'No Gemini API key is saved.')} Code Atlas cannot verify the key's project tier or quota.</span>
-                <button type="button" className="text-button" onClick={openVoiceConnections}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</button>
+                <AppButton intent="quiet" type="button" onClick={openVoiceConnections}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</AppButton>
               </div>
               </>}
-              <button type="button" className="primary-button" disabled={Boolean(voiceConnectionIssue) || (localNarration ? !pocketStatus?.ready : !consent || !credential?.apiKeyConfigured) || requestBusy} onClick={() => { void synthesize(); }}>
+              <AppButton intent="primary" type="button" disabled={Boolean(voiceConnectionIssue) || (localNarration ? !pocketStatus?.ready : !consent || !credential?.apiKeyConfigured) || requestBusy} onClick={() => { void synthesize(); }}>
                 <Play size={14} /> {requestBusy ? 'Generating audio…' : localNarration ? prewarmState === 'preparing' ? 'Play when ready' : 'Generate locally and play' : 'Synthesize and play this section'}
-              </button>
+              </AppButton>
               {providerRequestBusy && (
                 <div className="walkthrough-narration-cancel">
-                  <button type="button" className="secondary-button" disabled={cancelBusy} onClick={() => setCancelConfirmation(true)}>Cancel request</button>
+                  <AppButton intent="secondary" type="button" disabled={cancelBusy} onClick={() => setCancelConfirmation(true)}>Cancel request</AppButton>
                   {cancelStatus && <p role="status">{cancelStatus}</p>}
                   {cancelConfirmation && (
                     <div className="provider-cancel-confirm" role="group" aria-labelledby="narration-cancel-title" aria-describedby="narration-cancel-description">
                       <strong id="narration-cancel-title">Cancel this narration request?</strong>
                       <p id="narration-cancel-description">{localNarration ? 'Code Atlas will stop the local playback request. Background audio preparation may continue and cache this clip.' : 'Code Atlas will try to stop its HTTPS request. Google may already have received the reviewed speech text, and charges may still apply.'} Any returned audio will be discarded; your transcript and previous audio remain available.</p>
                       <div>
-                        <button type="button" className="secondary-button" onClick={() => setCancelConfirmation(false)}>Keep waiting</button>
-                        <button type="button" className="danger-button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</button>
+                        <AppButton intent="secondary" type="button" onClick={() => setCancelConfirmation(false)}>Keep waiting</AppButton>
+                        <AppButton intent="danger" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</AppButton>
                       </div>
                     </div>
                   )}
@@ -879,7 +880,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         </div>
       )}
       {preferenceWarning && <p className="walkthrough-narration-note" role="status">{preferenceWarning}</p>}
-      {voiceConnectionIssue && <p className="walkthrough-narration-note" role="status">{voiceConnectionIssue} <button type="button" className="text-button" onClick={openVoiceConnections}>Open Connections</button></p>}
+      {voiceConnectionIssue && <p className="walkthrough-narration-note" role="status">{voiceConnectionIssue} <AppButton intent="quiet" type="button" onClick={openVoiceConnections}>Open Connections</AppButton></p>}
       {!disclosure && informationError && <p className="walkthrough-narration-note" role="status">{informationError}</p>}
       {error && <p className="walkthrough-narration-error" role="alert"><AlertCircle size={14} /> {error}</p>}
     </section>

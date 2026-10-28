@@ -2703,11 +2703,11 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
             <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'Connections'}</h2>
             <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Uses the saved direct API connection. Inspect the exact snapshot context before sending.') : 'Choose a provider and model once. API keys stay in macOS Keychain.'}</p>
           </div>
-          <button className="icon-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
+          <AppButton intent="icon" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></AppButton>
         </header>
 
         {!reviewMode && <div className="provider-key-actions">
-          <button className="secondary-button" disabled={keyBusy || sending || saveBusy} onClick={onChooseBackend}>Change AI connection</button>
+          <AppButton intent="secondary" disabled={keyBusy || sending || saveBusy} onClick={onChooseBackend}>Change AI connection</AppButton>
         </div>}
 
         {!native ? (
@@ -2726,7 +2726,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
             </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
             {!reviewMode && directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
             {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
-              <p>{connectionProblem}</p><button className="primary-button" onClick={openConnections}>Open Connections</button>
+              <p>{connectionProblem}</p><AppButton intent="primary" onClick={openConnections}>Open Connections</AppButton>
             </section>}
             {reviewMode && providerId && disclosure && selectedModel && credential === null && <p className="provider-small-note" role="status">Checking the saved API connection…</p>}
             {disclosure && !reviewMode && <details className="provider-key-card" open={!hasApiKey}>
@@ -2746,8 +2746,8 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     disabled={!credentialInfo?.keychainAvailable || keyBusy}
                   />
                   <div className="provider-key-actions">
-                    <button className="primary-button" type="submit" disabled={!credentialInfo?.keychainAvailable || keyDraft.length === 0 || keyBusy}>{keyBusy ? 'Saving…' : 'Save to Keychain'}</button>
-                    {hasApiKey && <button className="secondary-button" type="button" onClick={() => { void handleRemoveKey(); }} disabled={keyBusy}>Remove saved key</button>}
+                    <AppButton intent="primary" type="submit" disabled={!credentialInfo?.keychainAvailable || keyDraft.length === 0 || keyBusy}>{keyBusy ? 'Saving…' : 'Save to Keychain'}</AppButton>
+                    {hasApiKey && <AppButton intent="secondary" type="button" onClick={() => { void handleRemoveKey(); }} disabled={keyBusy}>Remove saved key</AppButton>}
                     <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get an API key ↗</a>
                   </div>
                 </form>
@@ -2806,7 +2806,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                   <div className="provider-cancel-confirm" role="group" aria-labelledby="provider-cancel-title" aria-describedby="provider-cancel-description">
                     <strong id="provider-cancel-title">Cancel this request?</strong>
                     <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. {disclosure?.displayName ?? 'The provider'} may already have received the selected source. Any returned response will be discarded.</p>
-                    <div><button className="secondary-button" onClick={() => setCancelConfirmation(false)}>Keep waiting</button><button className="danger-button" onClick={() => { void handleConfirmCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</button></div>
+                    <div><AppButton intent="secondary" onClick={() => setCancelConfirmation(false)}>Keep waiting</AppButton><AppButton intent="danger" onClick={() => { void handleConfirmCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</AppButton></div>
                   </div>
                 )}
                 {cancelStatus && <p className="provider-small-note" role="status">{cancelStatus}</p>}
@@ -2916,9 +2916,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => (
                       <li key={claim.claimId}>
                         <p><InlineCodeText text={claim.prose}/></p>
-                        <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}>
+                        <AppButton intent="quiet" onClick={() => onOpenCodeLensCitation(claim.citation)}>
                           <FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}
-                        </button>
+                        </AppButton>
                         <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
                       </li>
                     ))}</ol>
@@ -2938,20 +2938,20 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
         )}
 
         <footer className="provider-dialog-footer">
-          <button className="secondary-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</button>
+          <AppButton intent="secondary" onClick={handleClose} disabled={keyBusy || sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</AppButton>
           {reviewMode && (
             sending ? (
-              <button className="secondary-button" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
+              <AppButton intent="secondary" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
                 {cancelBusy || cancelRequested.current ? 'Cancelling…' : 'Cancel request'}
-              </button>
+              </AppButton>
             ) : codeLensResult ? (
               <span className="provider-saved-status" role="status"><Check size={15} /> Range explanation ready</span>
             ) : sendResult ? (
-              savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</button><button className="primary-button" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</button></div>
+              savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</AppButton></div>
             ) : (
-              <button className="primary-button" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult || codeLensResult)}>
+              <AppButton intent="primary" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult || codeLensResult)}>
                 <Sparkles size={15} /> Send this request
-              </button>
+              </AppButton>
             )
           )}
         </footer>

@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Button as RadixButton, type ButtonProps as RadixButtonProps } from '@radix-ui/themes';
 
-export type AppButtonIntent = 'primary' | 'secondary' | 'quiet' | 'icon' | 'custom';
+export type AppButtonIntent = 'primary' | 'secondary' | 'quiet' | 'icon' | 'danger' | 'custom';
 
 export type AppButtonProps = Omit<RadixButtonProps, 'variant'> & {
   intent?: AppButtonIntent;
@@ -12,6 +12,7 @@ const intentStyles: Record<Exclude<AppButtonIntent, 'custom'>, { variant: 'solid
   secondary: { variant: 'surface', className: 'secondary-button' },
   quiet: { variant: 'ghost', className: 'text-button' },
   icon: { variant: 'ghost', className: 'icon-button' },
+  danger: { variant: 'surface', className: 'danger-button' },
 };
 
 /** Shared accessible action primitive; keep existing visual variants during migration. */
