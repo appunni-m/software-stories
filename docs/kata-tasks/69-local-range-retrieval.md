@@ -183,3 +183,19 @@ search command both expose this summary. Excluded and secret-filtered paths
 remain aggregate-only. This response-only change does not alter the persisted
 index schema or raise the search or source budgets. No tests, build, profile,
 or packaged qualification ran; the retrieval acceptance gates remain open.
+
+## Overlap pagination regression — 28 October 2026
+
+The existing regression for ranked/literal candidate overlap and page-sentinel
+expansion now passes on `8da4add3bdbc1e9f71eb0103b19d5e5cb063eb2c`:
+
+```text
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib overlapping_ranked_and_literal_windows_expand_until_a_page_sentinel_or_cap
+1 passed; 0 failed; 836 filtered out
+```
+
+This verifies that a page continues widening bounded candidate prefixes when
+overlap leaves no unique next-page sentinel, and stops at the configured cap.
+It is deterministic unit evidence only. Cancellation/corruption boundaries,
+packaged storage pressure, broad Fontdone recall, and agent answer quality
+remain unqualified; keep `a699`, `0wdn`, and `gk46` open.

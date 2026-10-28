@@ -135,3 +135,34 @@ is in progress for `a798861`. The docs-only `dbf3bcd` push is ignored by the
 package workflow. The repository still has no tag or published release, and
 `security find-identity -v -p codesigning` returns zero valid identities.
 Keep release acceptance open.
+
+## CI failure and queue diagnosis — 2026-10-28 11:39 UTC
+
+The latest 100 package-workflow runs contain 69 successes, 27 cancellations,
+3 failures, and 1 in-progress run. The cancellations are newer pushes replacing
+the single pending run under the configured concurrency group; they are not
+compile failures. The three failures have distinct causes:
+
+- Run [#1192](https://github.com/appunni-m/software-stories/actions/runs/40606128208)
+  failed before the job began because the pinned `Swatinem/rust-cache` commit
+  did not exist. The pin was corrected to the `v2.9.2` commit, and run #1193
+  succeeded.
+- Run [#1226](https://github.com/appunni-m/software-stories/actions/runs/40634517834)
+  reached the frontend build and failed TypeScript because `onGoAtlas` was
+  undefined in the removed Code Lens workspace. Later full package runs #1265
+  and #1266 succeeded.
+- Run [#1234](https://github.com/appunni-m/software-stories/actions/runs/40648040451)
+  reached the frontend build and failed TypeScript because the visual-citation
+  focus effect dereferenced an optional `visual`. The source was subsequently
+  corrected; runs #1265 and #1266 also passed after that correction.
+
+Current `main` at `8da4add3bdbc1e9f71eb0103b19d5e5cb063eb2c` has package run
+[#1267](https://github.com/appunni-m/software-stories/actions/runs/40680552632)
+in progress. Its runner setup, cache restore, dependency install and license
+inventory completed; the unsigned bundle build is still running. Thus CI has
+not shown one persistent failure: two recent red builds were real transient
+TypeScript errors subsequently fixed, one was a bad action pin already fixed,
+and most red-looking run entries were queue cancellations. Do not call the
+current commit verified until #1267 finishes. The unsigned package workflow
+still is not a signed/notarized release, and clean-account installation remains
+open.
