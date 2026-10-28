@@ -142,7 +142,10 @@ describe('owned local Git comparison client', () => {
 
   it('shows an unchanged path once and preserves both sides for renames', () => {
     const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
-    assert.match(screen, /change\.basePath === change\.headPath\s*\?\s*<span className="git-change-same-path"><code>\{path\}<\/code><\/span>/);
-    assert.match(screen, /<code>\{change\.basePath \?\? '∅'\}<\/code><span aria-hidden="true">→<\/span><code>\{change\.headPath \?\? '∅'\}<\/code>/);
+    const styles = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
+    assert.match(screen, /const renderPath = \(value: string \| null, fallback: string\) => \{[\s\S]*title=\{accessiblePath\} aria-label=\{accessiblePath\}/);
+    assert.match(screen, /change\.basePath === change\.headPath\s*\?\s*<span className="git-change-same-path">\{renderPath\(path, 'Unknown path'\)\}<\/span>/);
+    assert.match(screen, /\{renderPath\(change\.basePath, 'No path in starting version'\)\}<span aria-hidden="true">→<\/span>\{renderPath\(change\.headPath, 'No path in ending version'\)\}/);
+    assert.match(styles, /\.git-change-paths code \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/);
   });
 });

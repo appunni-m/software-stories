@@ -272,3 +272,44 @@ Built commit `50e2551` with `CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bund
 On Fontdone `main@5249b72371`, Flow for “Rebuilding and transforming component points” now shows a section-specific no-verified-diagram state instead of an empty pane. Expanding its details reveals two source-backed claims with buttons for `src/tt/glyf.rs:564–582`. Opening one selects that exact captured range while retaining the Flow view and answer. “Read this section in Guide” opens the matching Code Lens answer at section 1 of 4. The saved Codex connection reconnected; no provider request was sent.
 
 The native screenshot was inspected live at 2880×1688 but was not retained as a file. This qualifies this one populated Flow fallback and navigation path only. First-run/error states, other modes, high zoom, themes, VoiceOver, contrast, and motion remain uninspected; keep `x21h` and `13yp` open.
+
+### Packaged Changes changed-file status — 28 October 2026
+
+Observed the installed Code Atlas 0.1.0 app on Fontdone
+`main@5249b72371`. Its executable SHA-256 is
+`bfe5202bb49e8a2655560aa93afe5b7b7c99bfd9f47a62368c8e30d7cb52e63d`, matching
+the package identity recorded for the build from `50e2551` above. The current
+checkout is `64e5f6f`; that commit adds documentation only.
+
+The Changes activity showed the local comparison
+`7c48b706482b` → `5249b7237194`, 80 recent commits, and two changed files. The
+workspace kept its composer and selected source visible beside the comparison.
+Selecting `doc/FILE_RETENTION_INVENTORY.tsv` retained the view and showed the
+explicit 524,288-byte evidence limit, zero readable hunks, and a next step to
+inspect a smaller revision or another file. The separate comparison banner
+said relationship coverage is partial, may omit callers, and does not infer
+runtime impact. The `README.md` row was labeled unsupported with one textual
+hunk. Returning to the exploration restored Guide; reopening Search restored
+the existing `memory_face` query and then showed 79 results across 22 files.
+No provider request or saved-content/source mutation occurred.
+
+At the inspected 2880×1688 size, the long TSV path wraps across multiple lines
+inside the changed-file card. Truncating long paths while preserving their full
+accessible names would make the list easier to scan. This is a concrete visual
+deviation to link to `13yp`; it does not by itself establish the full Changes
+layout or interaction acceptance.
+
+The screenshot was inspected live but not retained; it displayed the connected
+account identifier in the header. Base/head editing, selecting another
+commit, empty/error states, and the rest of the screen matrix were not checked.
+Keep `x21h` and `13yp` open.
+
+### Long changed-path source correction — 28 October 2026
+
+The changed-file heading now keeps paths on one line with an ellipsis in a
+narrow pane. Each rendered path retains its complete title and accessible
+name; renamed files keep separate starting/ending path names. The focused
+`gitComparisonController` suite passes 12/12 and `npm run build` passes. This
+is source-level evidence only: the installed package above still contains the
+wrapping style, and no replacement native bundle was built for this CSS/markup
+change. Keep packaged Changes acceptance and the full screen audit open.

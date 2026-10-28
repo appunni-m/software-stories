@@ -395,12 +395,16 @@ function canOpenCapturedSource(
 function ChangeDisclosure({ change, relationshipImpact, canOpenCapturedSource = false, capturedHeadMatches = false, capturedSnapshotId, onOpenCapturedSource, expanded, interactive = true, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; canOpenCapturedSource?: boolean; capturedHeadMatches?: boolean; capturedSnapshotId?: string; onOpenCapturedSource?: (path: string, snapshotId: string) => void; expanded: boolean; interactive?: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
   const path = change.headPath ?? change.basePath ?? 'Unknown path';
   const cardRef = useRef<HTMLElement>(null);
+  const renderPath = (value: string | null, fallback: string) => {
+    const accessiblePath = value ?? fallback;
+    return <code title={accessiblePath} aria-label={accessiblePath}>{value ?? '∅'}</code>;
+  };
   const heading = <>
     <span className="git-change-kind">{change.kind}</span>
     <span className="git-change-paths">
       {change.basePath === change.headPath
-        ? <span className="git-change-same-path"><code>{path}</code></span>
-        : <><code>{change.basePath ?? '∅'}</code><span aria-hidden="true">→</span><code>{change.headPath ?? '∅'}</code></>}
+        ? <span className="git-change-same-path">{renderPath(path, 'Unknown path')}</span>
+        : <>{renderPath(change.basePath, 'No path in starting version')}<span aria-hidden="true">→</span>{renderPath(change.headPath, 'No path in ending version')}</>}
     </span>
     <span className={`git-evidence-classification classification-${change.classification}`}>{formatClassification(change.classification)}</span>
     <span className="git-change-count">{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</span>

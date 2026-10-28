@@ -1036,8 +1036,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-change-kind, .git-evidence-classification { width: fit-content; padding: 3px 5px; border: 1px solid var(--border-strong); border-radius: 4px; color: var(--muted); font: 12px var(--mono); text-transform: uppercase; }
 .git-change-kind { color: var(--accent); border-color: var(--border-strong); background: var(--surface-raised); }
 .git-evidence-classification.classification-binary, .git-evidence-classification.classification-oversized, .git-evidence-classification.classification-parserUncertain, .git-evidence-classification.classification-unsupported { color: var(--warning); border-color: var(--warning-border); background: var(--surface-raised); }
-.git-change-paths { min-width: 0; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.git-change-paths code { overflow-wrap: anywhere; color: var(--text); font: 12px var(--mono); }
+.git-change-paths { min-width: 0; display: flex; align-items: center; gap: 7px; flex-wrap: nowrap; }
+.git-change-paths code { min-width: 0; max-width: 100%; overflow: hidden; color: var(--text); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .git-change-paths > span[aria-hidden="true"] { color: var(--muted); }
 .git-change-same-path { display: contents; }
 .git-change-count { color: var(--muted); font: 12px var(--mono); white-space: nowrap; }

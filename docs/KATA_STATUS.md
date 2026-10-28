@@ -505,3 +505,22 @@ Fontdone Code Lens run published three scenes with ready narration but ended
 partial, naming point-attachment success and invalid-index behavior as
 uncovered. That result is recorded in the generated-visuals task and does not
 qualify the v46 prompt. No follow-up generation was made.
+
+## 28 October packaged Changes follow-up
+
+On Fontdone `main@5249b72371`, the installed Code Atlas Changes view showed the
+local `7c48b706482b` → `5249b7237194` comparison, two changed files, and explicit
+partial static-relationship and 524,288-byte file-limit notices. Selecting the
+oversized TSV preserved the comparison and offered an actionable next step;
+returning to the exploration and reopening Search restored the Guide and the
+existing `memory_face` query. The installed executable hash matched the
+previously verified `50e2551` package. The long TSV path wraps in its result
+card. No screenshot was retained, and the full Changes/design acceptance is
+still open. See the [design gap audit](kata-tasks/44-design-gap-audit.md).
+
+The long changed-path wrapping observed in that package now has a source
+correction: narrow diff headings truncate visually while retaining the full
+path as the accessible name, including separate names for rename sides. The
+focused comparison suite passes 12/12 and the frontend build passes. The
+correction is not packaged yet, so the native screenshot observation above
+still describes the older installed style.
