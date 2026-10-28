@@ -512,3 +512,20 @@ saved explanation was changed. Executable SHA-256:
 `53b61abee6178df3e0a71046f9c926ec22f1d214a9ee5713df08906096dc2591`.
 DMG SHA-256:
 `b47056aa0fea67cf752f25e7803f0745c516da56cf6806df8eddf2da787caf7f`.
+
+## Center scene controls in the Guide toolbar — 29 October 2026
+
+The first alignment pass still left **Scene 1 of 2** and its previous/next
+controls at the left side of a compact Guide pane. The scene count, arrows, and
+dots now occupy the center column at both regular and compact widths; **Full
+map** stays right-aligned. The scene title remains left-aligned on its own row
+when the pane is compact.
+
+`npm run bundle:macos` completed, and the installed app was reopened on the
+existing `pillow-rs` `main@e843f864fc` Guide. The live screenshot showed the
+scene navigation centered beneath the title and **Full map** at the right.
+No test suite was run. No repository snapshot, saved answer, or narration was
+changed. Executable SHA-256:
+`7afe02c741efbcca77000cfb89aeee66ecb31c1d7b532b189d26cc2ddd2578d8`.
+DMG SHA-256:
+`32218d539ab4666819844db415daaa88f514c8a39788282a0a441954f90ff342`.
