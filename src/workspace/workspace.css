@@ -129,11 +129,13 @@
 .dw-answer-visual-preview-graph {display:grid;gap:var(--space-2);font-size:12px;}
 .dw-answer-visual-preview-graph > strong {font-size:12px;font-weight:600;}
 .dw-answer-visual-preview-graph ul {display:grid;gap:var(--space-1);margin:0;padding:0;list-style:none;}
-.dw-answer-visual-preview-graph li {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:var(--space-1);}
-.dw-answer-visual-preview-graph button,.dw-answer-visual-preview-empty button {min-width:0;overflow-wrap:anywhere;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:var(--space-1) var(--space-2);font:inherit;text-align:left;cursor:pointer;}
+.dw-answer-visual-preview-graph li {display:grid;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);align-items:center;gap:var(--space-1);}
+.dw-answer-visual-preview-graph button {box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow-wrap:anywhere;white-space:normal;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:var(--space-1) var(--space-2);font:inherit;text-align:left;cursor:pointer;}
+.dw-answer-visual-preview-empty button {min-width:0;overflow-wrap:anywhere;white-space:normal;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:var(--space-1) var(--space-2);font:inherit;text-align:left;cursor:pointer;}
 .dw-answer-visual-preview-graph button:hover,.dw-answer-visual-preview-empty button:hover {border-color:var(--accent);}
 .dw-answer-visual-preview-graph button:focus-visible,.dw-answer-visual-preview-empty button:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
-.dw-answer-visual-edge {display:flex;align-items:center;gap:var(--space-1);color:var(--muted);font-size:12px;}
+.dw-answer-visual-edge {display:flex;min-width:0;max-width:100%;align-items:center;justify-content:center;flex-wrap:wrap;gap:var(--space-1);color:var(--muted);font-size:12px;text-align:center;overflow-wrap:anywhere;}
+.dw-answer-visual-edge code {min-width:0;white-space:normal;overflow-wrap:anywhere;}
 .dw-answer-visual-points {display:flex;flex-wrap:wrap;gap:var(--space-1);}
 .dw-answer-visual-preview-graph small,.dw-answer-visual-no-links,.dw-answer-visual-preview-empty {color:var(--muted);font-size:12px;}
 .dw-answer-visual-preview-empty {display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);flex-wrap:wrap;}
@@ -318,6 +320,17 @@
   .dw-section-controls {flex-wrap:wrap;}
   .dw-section-controls > span {flex:1 1 50px;}
   .visual-story {width:100%;max-width:100%;}
+  .dw-answer-visual-preview-graph li {grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .dw-answer-visual-preview-graph li > button:first-child {grid-column:1;grid-row:1;}
+  .dw-answer-visual-preview-graph li > .dw-answer-visual-edge {grid-column:1 / -1;grid-row:2;}
+  .dw-answer-visual-preview-graph li > button:last-child {grid-column:2;grid-row:1;}
+}
+@container guide-pane (max-width: 420px) {
+  .dw-answer-visual-preview-graph li {grid-template-columns:minmax(0,1fr);}
+  .dw-answer-visual-preview-graph li > button:first-child {grid-column:1;grid-row:1;}
+  .dw-answer-visual-preview-graph li > .dw-answer-visual-edge {grid-column:1;grid-row:2;}
+  .dw-answer-visual-preview-graph li > button:last-child {grid-column:1;grid-row:3;}
+  .dw-answer-visual-preview-graph li > .dw-answer-visual-edge svg {transform:rotate(90deg);}
 }
 /* Native webview zoom scales the page without narrowing CSS viewport units, so
    container queries alone cannot detect that a Guide needs a compact layout. */

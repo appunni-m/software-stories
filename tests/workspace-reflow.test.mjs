@@ -8,25 +8,28 @@ const css=readFileSync(new URL('../src/workspace/workspace.css',import.meta.url)
 
 test('opening and closing code always reveals its corresponding narrow pane',()=>{
   matches(workspace,/const setCodeOpen = \(open:boolean\) => \{\s*setNarrowPane\(open\?'source':'explanation'\);/);
-  matches(workspace,/aria-label=\{narrowPane==='source'\?'Show explanation':'Show source'\} onClick=\{\(\)=>\{if\(narrowPane==='source'\)setNarrowPane\('explanation'\);else setCodeOpen\(true\);\}\}/);
+  matches(workspace,/aria-label=\{narrowPane==='source'\?'Show explanation':'Show source'\} onClick=\{\(\)=>\{if\(narrowPane==='source'\)setNarrowPane\('explanation'\);else\{setCodeOpen\(true\);setNarrowPane\('source'\);\}\}\}/);
 });
 
 test('explaining selected code saves its exact source reveal for this exploration',()=>{
   matches(workspace,/function openFile\(context:Context\) \{ update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);setReveal\(context\);/);
-  matches(workspace,/function explain\(context:Context\)\{const selected=\{\.\.\.context,sha256:source\?\.path===context\.path\?source\.sha256:context\.sha256\};openFile\(selected\);ask\(/);
+  matches(workspace,/function explain\(context:Context\)\{[\s\S]*?const selected=bindSelectionToDisplayedSource\(context,source\);[\s\S]*?setCodeRequestReview\(\{context:selected,question,snapshotId,sourceSha256:source\.sha256,[\s\S]*?sourceExcerpt,excerptTruncated\}\);/);
+  matches(workspace,/function acceptCodeRequestReview\(\)\{[\s\S]*?if\(!isCurrentCodeRequestReview\(review\)\)/);
+  matches(workspace,/openFile\(review\.context\);\s*ask\(review\.question,current\.view==='flow'\?'flow':'guide',\[review\.context\]\);/);
   matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
 });
 
 test('view and composer shortcuts reveal their targets before focusing',()=>{
-  matches(workspace,/const setView = \(view:View\) => \{setNarrowPane\('explanation'\);/);
+  matches(workspace,/const setView = \(view:View\) => \{setNarrowPane\('explanation'\);update\(/);
   matches(workspace,/function focusComposer\(\)\{setNarrowPane\('explanation'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>composer.current\?\.focus\(\)\);\}/);
   matches(workspace,/if\(mod&&k==='l'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);focusComposer\(\);\}/);
-  matches(workspace,/function attach\(context:Context\)[^\n]*focusComposer\(\);\}/);
+  matches(workspace,/function attach\(context:Context\) \{[\s\S]*?setAttachments\(\(all\)=>\[\.\.\.all,context\]\);focusComposer\(\);/);
 });
 
-test('search commands reveal the sidebar and narrow navigation has a direct return',()=>{
-  matches(workspace,/const find=\(\)=>\{setActivity\('search'\);setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>search.current\?\.focus\(\)\);\};/);
-  matches(workspace,/if\(mod&&\(k==='p'\|\|k==='k'\|\|\(event.shiftKey&&k==='f'\)\)\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);find\(\);\}/);
+test('search commands reveal their distinct tools and narrow navigation has a direct return',()=>{
+  matches(workspace,/const findInRepository=\(\)=>\{setActivity\('search'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
+  matches(workspace,/const quickOpen=\(\)=>\{setActivity\('files'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
+  matches(workspace,/if\(mod&&event.shiftKey&&k==='f'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);findInRepository\(\);\}[\s\S]*?else if\(mod&&k==='p'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);quickOpen\(\);\}[\s\S]*?else if\(mod&&k==='k'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);onWorkspace\('atlas'\);\}/);
   matches(workspace,/const returnToGuide = \(pane:'explorer'\|'explanation'\) => \{[\s\S]*?setNarrowPane\(pane\);\s*onWorkspace\('guide-plan'\);\s*\};/);
   matches(workspace,/className="dw-sidebar-back"[^\n]*aria-label="Back to explanation"[^\n]*onClick=\{\(\)=>returnToGuide\('explanation'\)\}/);
   matches(css,/\.developer-workspace \.dw-sidebar-back\s*\{display:none;\}/);
@@ -48,7 +51,8 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls\s*\{[^}]*grid-row:1;[^}]*flex-wrap:wrap;/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*grid-row:2;[^}]*flex-wrap:wrap;/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.search-control > span,[\s\S]*?\.topbar \.search-control kbd \{display:none;\}/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);
 });
 
 test('native high zoom shows one workspace pane at a time with a return path',()=>{
@@ -57,4 +61,12 @@ test('native high zoom shows one workspace pane at a time with a return path',()
   matches(css,/html\[data-app-zoom-compact="true"\] \.dw-narrow-explorer \.dw-panels > #repository-sidebar \{display:flex!important;flex:1 1 100%!important;min-width:0!important;max-width:none!important;\}/);
   matches(css,/html\[data-app-zoom-compact="true"\] \.dw-narrow-explorer \.dw-panels > #reading-workspace \{display:none!important;\}/);
   matches(css,/html\[data-app-zoom-compact="true"\] \.developer-workspace \.dw-sidebar-back \{display:inline-flex;\}/);
+});
+
+test('source-linked relationship previews wrap labels in wide and narrow Guide panes',()=>{
+  matches(css,/\.dw-answer-visual-preview-graph li \{[^}]*min-width:0;[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1fr\)/);
+  matches(css,/\.dw-answer-visual-preview-graph button \{[^}]*width:100%;[^}]*white-space:normal;/);
+  matches(css,/\.dw-answer-visual-edge \{[^}]*min-width:0;[^}]*flex-wrap:wrap;/);
+  matches(css,/@container guide-pane \(max-width: 700px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge \{grid-column:1 \/ -1;grid-row:2;\}/);
+  matches(css,/@container guide-pane \(max-width: 420px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge svg \{transform:rotate\(90deg\);\}/);
 });

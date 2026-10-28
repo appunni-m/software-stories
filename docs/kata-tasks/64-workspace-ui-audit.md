@@ -155,3 +155,17 @@ the native Mac app.
 This qualifies the explicit refresh action and its immutable snapshot behavior.
 It does not close the screen-by-screen design, keyboard, accessibility, or
 responsive acceptance; keep `na54` open.
+
+## Source-linked preview overflow — source correction, 28 October 2026
+
+The small relationship previews embedded in stacked Guide answers now constrain
+source-node and relationship-label widths. Labels wrap inside the relationship
+column, and Guide-pane container queries place the relationship between
+side-by-side nodes at compact widths and stack the three items in very narrow
+panes. The separate empty-preview action retains its natural width.
+
+Evidence: npm run build and git diff --check pass. The reflow assertions were
+updated to match the current source-review flow, keyboard mappings, and compact
+snapshot-refresh control. The reflow suite was not rerun, and the packaged
+workspace was not rebuilt or visually rechecked for this change. Keep x21h,
+13yp, and the broader UI acceptance open.
