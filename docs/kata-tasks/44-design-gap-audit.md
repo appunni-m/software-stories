@@ -321,6 +321,24 @@ taking shape…”. The summary change is source/build qualified only and is not
 installed in the native app. Keep `x21h` and `13yp` open for packaged review
 and the remaining screen matrix.
 
+### Packaged history count correction — 28 October 2026
+
+Built the unsigned macOS app and DMG from `dbf3bcd` with
+`npm run bundle:macos`; notice/license, frontend, optimized Rust build,
+embedded metadata and DMG checksum verification all passed. Replaced the
+installed app and reopened the existing Fontdone `main@5249b72371` workspace.
+After entering the same `Outline::is_empty` search, the reader showed exactly
+“2 matching questions”; it no longer showed “0 saved explanations.” The
+selected `src/ffi/handles.rs` source pane and saved conversations were still
+present. No explanation, answer, narration or provider request was started.
+The installed executable SHA-256 is
+`1f8e0ccd3c35f35a6c9310886181ea5699346f45ef20772e3f96a532bee510fc`.
+
+This verifies one packaged history-count inconsistency against the current
+source. The app is unsigned, and this does not complete other activity, theme,
+zoom, keyboard, VoiceOver or accessibility reviews. Keep `x21h` and `13yp`
+open.
+
 ### Long changed-path source correction — 28 October 2026
 
 The changed-file heading now keeps paths on one line with an ellipsis in a

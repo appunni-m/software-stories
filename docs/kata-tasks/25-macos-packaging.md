@@ -117,3 +117,21 @@ Package run [#1233](https://github.com/appunni-m/software-stories/actions/runs/4
 ## CI and release checkpoint — 2026-10-28 07:07 UTC
 
 The source changes `549cc84`, `bc0539f`, and `f021800` plus the release note `2b1e7ce` were pushed to `main`. Package run [#1234](https://github.com/appunni-m/software-stories/actions/runs/40648040451) failed during the frontend build at `src/VisualStory.tsx:206,208`: the source-citation focus effect dereferenced the optional visual model after deriving an optional node from it. The effect now requires both `visual` and `node` before reading scene values. The local production frontend build and Rust library compile check pass with this source fix; a new package run is needed to verify it on GitHub. Run #1233 passed for `fd4c013`. There is still no public release or tag; signing, notarization, and clean-account installation remain open.
+
+## Local package and UI check — 2026-10-28 07:53 UTC
+
+`npm run bundle:macos` completed from `dbf3bcd`: license inventory, frontend
+build, optimized Rust release build, embedded metadata verification, app/DMG
+bundling, and DMG checksum verification all passed. The unsigned app was
+installed and opened the existing Fontdone `main@5249b72371` workspace. The
+history search fix is visible in the packaged app. This verifies one local
+packaging/UI path; it does not qualify signing, notarization, clean-account
+installation, offline behavior, or the full app acceptance matrix.
+
+GitHub package run [#1237](https://github.com/appunni-m/software-stories/actions/runs/40650011025)
+completed successfully for `f45db3b`; run
+[#1238](https://github.com/appunni-m/software-stories/actions/runs/40651183982)
+is in progress for `a798861`. The docs-only `dbf3bcd` push is ignored by the
+package workflow. The repository still has no tag or published release, and
+`security find-identity -v -p codesigning` returns zero valid identities.
+Keep release acceptance open.
