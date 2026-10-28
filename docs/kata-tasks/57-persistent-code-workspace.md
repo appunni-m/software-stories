@@ -100,3 +100,16 @@ Direct API settings, request review, citation navigation, and cancellation actio
 ## Narration player actions — 28 October 2026
 
 Narration editing, playback, review, cached playback, connection shortcuts, and cancellation controls now use `AppButton` while retaining the player-specific classes, labels, disable conditions and callbacks. Playback/lexicon controls keep their tailored styling; cancel confirmation uses the shared danger intent. Audio caching, synthesis, consent and playback behavior are unchanged. No tests/build or packaged player review ran.
+
+## Guide scene navigation controls — 29 October 2026
+
+The visual Guide's previous/next scene buttons and scene dots now use Radix
+`IconButton`; **Full map** uses the shared `AppButton`. Their accessible names,
+disabled state, active-scene indicator, sizing classes, and existing actions
+remain in place. This extends the shared-control migration to the visible
+scene toolbar without changing navigation or saved reader progress.
+
+`npm run build` passes TypeScript and the production Vite build. No test suite
+or native package rebuild ran for this component-only increment. Packaged
+keyboard, focus, and visual acceptance remains open with the broader
+workspace audit.

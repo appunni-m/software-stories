@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { IconButton } from '@radix-ui/themes';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Sparkles } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
 import { CodeDetail } from './design/CodeDetail';
+import { AppButton } from './design/AppButton';
 import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
@@ -394,12 +396,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         <div className="story-scene-progress">
           <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
           <div className="story-scene-navigation" role="group" aria-label="Scene navigation">
-            <button className="story-scene-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
-            <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
-            <button className="story-scene-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+            <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></IconButton>
+            <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <IconButton className="story-scene-dot" key={item.id} size="1" variant="ghost" color="gray" aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span aria-hidden="true" /></IconButton>)}</div>
+            <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></IconButton>
           </div>
         </div>
-        {canShowFullMap && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
+        {canShowFullMap && <AppButton intent="secondary" className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id, undefined, undefined, true);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</AppButton>}
       </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
