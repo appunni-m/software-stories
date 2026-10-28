@@ -155,6 +155,14 @@ This is a concrete density and retrieval gap in the populated workspace. Keep ev
 
 The installed bundle at `~/Applications/Code Atlas.app` reports version `0.1.0`; its packaged metadata contains schema versions but no source revision. A second running process comes from the workspace's debug-bundle path, whose on-disk `Contents/Info.plist` is absent. The live accessibility capture did not expose a process ID or executable path, so the visible window cannot be attributed to either bundle. Treat the observed build identity as unknown; the version in the installed bundle alone is not evidence that it supplied the inspected window. No screenshot was saved.
 
+### Packaged history search and retry grouping — 28 October 2026
+
+Built the clean `main` checkout at `10a40ffa75603136279f8eafa98045dd22747705` with `CARGO_INCREMENTAL=0 npm run bundle:macos`. The TypeScript/Vite production build, unsigned macOS app bundle, metadata verifier and DMG checksum all passed. Replaced `~/Applications/Code Atlas.app`; the installed executable hash matches the build (`ba265121e47818a6e5514cc5485c8d0683e207c76b34dca4ebfd9f0e38da2425`). Removed the generated Rust target cache afterward; no additional app backup was created.
+
+The packaged app restored Fontdone `main@5249b72371`, the selected `src/tt/glyf.rs` source pane, and the saved Codex GPT-6 Luna/max connection. In Chat history, the accessibility tree now exposes **Search chat history** and groups repeated prompts into collapsible attempt groups; the populated root shows groups of 2, 36, and 27 attempts, with the current/latest attempt directly openable and prior attempts under **Show all attempts**. The 215 saved explanations remain under one collapsed library. No question, answer, receipt, notification, or source snapshot was changed, and no provider request was sent.
+
+This verifies one populated packaged history state and the executable identity. The screenshot was inspected live but not saved as an audit attachment. Search matching, nested explorations, other activity screens, first-run states, themes/zoom, keyboard traversal, VoiceOver, and the complete design gap ledger remain open; keep `x21h` open.
+
 ### Search and group exploration history — source change, 28 October 2026
 
 The Chat history view now has a small search field. While a query is present it
