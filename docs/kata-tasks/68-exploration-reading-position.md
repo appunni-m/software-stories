@@ -179,3 +179,20 @@ activity and restores the user's previous reading position. It does not verify
 restart, exact scroll, a return from a child, third-level/sibling state,
 revision fallback, malformed state in the packaged app, or accessibility;
 keep `erzc` open.
+
+## Saved child return to its parent Guide — 28 October 2026
+
+In the running packaged Code Atlas app on Fontdone `main@5249b72371`, opened
+the existing **Explain When `is_empty` returns true in more detail** branch
+from its root Guide card. The saved child opened at Level 2 with its Guide
+answer visible at section 4 of 4 and `src/font.rs` selected. Back returned to
+the root with Guide still selected, the original one-section
+`Outline::is_empty` card and its saved child link visible, and
+`src/ffi/handles.rs` restored. This reused saved work; no question, provider
+request, answer, or narration was started.
+
+The app remained open. Its executable revision and a durable screenshot were
+not verified. Because the root answer has one section, this does not verify
+multi-section parent-position restoration; third-level/sibling independence,
+exact scroll, restart, revision fallback, malformed state in the packaged app,
+visual-node/edge restoration, and accessibility remain open.
