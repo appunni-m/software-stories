@@ -11,11 +11,11 @@ labels: agents, source, quality
 
 A question about a large repository follows the relevant code even when one implementation file is larger than a single model request. The reader does not have to split files or guess a smaller question.
 
-## Reproducer and confirmed boundary
+## Historical reproducer and confirmed boundary
 
-Fontdone at `5249b723719445813b8771a602ea5b96891d4450` has a captured, indexed `src/font.rs` of 375,700 bytes. `source_discovery::metadata` excludes every file larger than 250,000 bytes before asking the agent to select sources. Opening that file as a fixed target therefore fails eligibility. The 613,652-byte `src/ffi/handles.rs` and 1,032,893-byte C adapter implementation also exceed the indexer's file limit. Capturing a file is not the same as making it available to question generation.
+On Fontdone `5249b723719445813b8771a602ea5b96891d4450`, captured `src/font.rs` is 375,700 bytes. The October 17 implementation excluded files larger than 250,000 bytes from source discovery, so a fixed target could not enter question generation. The 613,652-byte `src/ffi/handles.rs` and 1,032,893-byte C adapter also exceeded the parser/index file limit. The native replacement build reproduced the original `src/font.rs` eligibility error after connection recovery; the source itself opened correctly. This was separate from stale-runtime failures on the initial queued questions.
 
-The native replacement build independently reproduced this after connection recovery: an attached `src/font.rs` question failed with “This target is not eligible captured implementation code. Choose a code file in the snapshot.” The source itself opened correctly. This failure is distinct from the stale-runtime failures observed on the initial queued questions.
+That eligibility failure is no longer the current source state: the October 27 discovery handoff keeps readable captured files above 250 KB as range-only candidates, and the guide reads bounded immutable ranges instead of staging the whole target. The parserless files still need large-repository retrieval and answer-quality qualification; see the dated source progress below. Capturing a file alone still does not prove the agent can find, explain and cite the relevant ranges.
 
 ## Required behavior
 
