@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ArrowRight, Code2, Sparkles } from 'lucide-react';
+import { AppButton } from '../design/AppButton';
 import { HtmlScene } from '../HtmlScene';
 import { InlineCodeText } from '../InlineCodeText';
 import type { ChapterRevision, ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec } from '../lib/commands';
@@ -54,12 +55,12 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
         : canRefresh ? 'This saved visual cannot be shown.'
         : unavailable ? 'This visual cannot be previewed here.' : 'No visual was saved for this section.'}</span>
       {(canRefresh || anchor) && <div className="dw-answer-visual-actions">
-        {canRefresh && onRefreshVisual && <button type="button" onClick={onRefreshVisual} aria-label={`Create a fresh visual explanation for ${plainInlineCodeText(section.title)}`}>
+        {canRefresh && onRefreshVisual && <AppButton intent="custom" size="1" type="button" onClick={onRefreshVisual} aria-label={`Create a fresh visual explanation for ${plainInlineCodeText(section.title)}`}>
           <Sparkles size={13} aria-hidden="true" />Create a fresh visual
-        </button>}
-        {anchor && <button type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
+        </AppButton>}
+        {anchor && <AppButton intent="custom" size="1" type="button" onClick={() => onOpenAnchor(anchor)} aria-label={`Open cited code in ${anchor.path} at line ${anchor.startLine}`}>
           <Code2 size={13} />{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}
-        </button>}
+        </AppButton>}
       </div>}
     </div>;
   }
@@ -93,16 +94,16 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
       const to = nodeById.get(edge.toNodeId);
       if (!from || !to) return null;
       return <li key={edge.edgeId}>
-        <button type="button" onClick={() => openNode(visual, from.nodeId)} aria-label={`Open source for ${plainInlineCodeText(from.label)}`}>
+        <AppButton intent="custom" size="1" type="button" onClick={() => openNode(visual, from.nodeId)} aria-label={`Open source for ${plainInlineCodeText(from.label)}`}>
           <InlineCodeText text={from.label} />
-        </button>
+        </AppButton>
         <span className="dw-answer-visual-edge"><InlineCodeText text={edge.label} /><ArrowRight size={13} aria-hidden="true" /></span>
-        <button type="button" onClick={() => openNode(visual, to.nodeId)} aria-label={`Open source for ${plainInlineCodeText(to.label)}`}>
+        <AppButton intent="custom" size="1" type="button" onClick={() => openNode(visual, to.nodeId)} aria-label={`Open source for ${plainInlineCodeText(to.label)}`}>
           <InlineCodeText text={to.label} />
-        </button>
+        </AppButton>
       </li>;
-    })}</ul> : visibleNodes.length > 0 ? <div className="dw-answer-visual-points">{visibleNodes.slice(0, 4).map((node) => <button type="button" key={node.nodeId}
-      onClick={() => openNode(visual, node.nodeId)} aria-label={`Open source for ${plainInlineCodeText(node.label)}`}><InlineCodeText text={node.label} /></button>)}</div>
+    })}</ul> : visibleNodes.length > 0 ? <div className="dw-answer-visual-points">{visibleNodes.slice(0, 4).map((node) => <AppButton intent="custom" size="1" type="button" key={node.nodeId}
+      onClick={() => openNode(visual, node.nodeId)} aria-label={`Open source for ${plainInlineCodeText(node.label)}`}><InlineCodeText text={node.label} /></AppButton>)}</div>
       : <span className="dw-answer-visual-no-links">No direct relationships are attached to this scene.</span>}
     {edges.length > shownEdges.length && <small>{edges.length - shownEdges.length} more source links in the full view</small>}
   </div>;
