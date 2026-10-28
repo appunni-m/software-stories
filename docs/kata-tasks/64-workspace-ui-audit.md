@@ -547,3 +547,62 @@ live and not archived. Executable SHA-256:
 
 This addresses the narrow-pane placement defect only; the broader packaged UI
 acceptance tracked by `13yp` remains open.
+
+## Explorer and Changes recheck — 29 October 2026
+
+On the same installed executable at 2880×1688, the populated
+`pillow-rs` `main@e843f864fc` Explorer/Guide showed the header actions,
+Guide/Flow/history tabs, section Previous/progress/Next controls, scene
+count/arrows/dots, and **Full map** without overlap. In Changes, commit history
+and the local compare card were present, but its ref fields were disabled and
+**Stop comparison** was visible while the main pane still asked the reader to
+select a commit and showed no result. I returned to Explorer/Guide without
+changing refs, source, snapshot, answer, or narration. The screenshot was
+inspected live and not archived because it contains repository source. This
+records an unresolved Changes state, not a completed comparison; the remaining
+screen matrix and packaged acceptance under `x21h`/`13yp` stay open.
+
+## Search pane recheck — 29 October 2026
+
+From the same populated Explorer/Guide, Search retained the existing local
+query `NativeDrawCanvas` and showed matches across captured files, including 23
+matches in `canvas.rs`, while indicating that more captured-code matches were
+still being checked. Long paths were visually shortened in the results pane;
+the selected source and Guide remained beside the results. I did not start an
+AI explanation. The screenshot was inspected live and not archived because it
+contains repository source. This is one populated-query state only; no-results,
+partial-index, keyboard-shortcut, Explore with AI, and 200% reflow states remain
+uninspected.
+
+## Flow view recheck — 29 October 2026
+
+The same exploration's Flow tab preserved the selected `canvas.rs` source and
+rendered its saved eight-node relationship diagram in the explanation pane.
+The Guide/Flow/history tabs stayed at the top, and zoom/fit controls remained
+inside the diagram's lower-left corner. The visible graph fit within its pane;
+I did not select a node or trigger an explanation. This is a single populated
+diagram state, not a dense-graph, no-visual, keyboard, accessibility, or
+200%-zoom review. No saved answer or repository data changed.
+
+## Chat history view recheck — 29 October 2026
+
+The same Guide's Chat history showed its question grouped under the repository
+and level, labeled **Partially completed**, with an **Open explanation** action.
+Search is available at the top; Diagnostics and the four saved explanations
+remain collapsed until requested. This is the current root question only, not
+a nested branch or notification-origin return. I did not open diagnostics or
+change any saved state.
+
+## Notification action alignment — 29 October 2026
+
+The packaged build now uses the shared quiet-button treatment for notification
+actions, with a stable minimum target height and spacing between actions. A
+single notification shows one **New** state badge; grouped notifications retain
+their event count and unread count. I opened the panel in the installed
+`pillow-rs` workspace and visually checked the header and several action rows.
+The actions remained aligned and readable at the current window size. I closed
+the panel without activating an action; the unread total remained 38. The
+verified executable SHA-256 is
+`d86df9d68c8bb7919943d8ba48046eba1ba6af53e84cdd8d6fa6a9b7e274e6a2`, matching
+the packaged bundle. This is a focused notification fix; the wider screen and
+accessibility acceptance under `x21h` and `13yp` remains open.

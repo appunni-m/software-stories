@@ -47,6 +47,5 @@
 .notification-attempt .notification-attempt-detail { margin-left: 0; }
 .notification-attempt .notification-item-actions { margin-left: 0; }
 .notification-item-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin: var(--space-3) 0 0 var(--space-5); }
-.notification-item-actions button { padding: var(--space-1) var(--space-2); color: var(--accent); border: 1px solid var(--border); background: transparent; border-radius: 5px; font: inherit; cursor: pointer; }
-.notification-item-actions button:hover { background: var(--surface-hover); }
-.notification-item-actions button:disabled { opacity: .5; cursor: default; }
+.notification-item-actions .text-button { flex: 0 0 auto; min-height: 28px; margin: 0; padding: var(--space-1) var(--space-2); white-space: nowrap; }
+.notification-item-actions .text-button:disabled { opacity: .5; cursor: default; }

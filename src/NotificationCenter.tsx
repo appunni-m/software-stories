@@ -65,7 +65,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
         {latest.tone === 'error' || latest.tone === 'warning' ? <CircleAlert size={16} /> : <Info size={16} />}
         <strong><InlineCodeText text={latest.title}/></strong>
         {group.items.length > 1 && <span className="notification-group-count">{group.items.length} {group.countLabel}</span>}
-        {group.unreadCount > 0 && <span className="notification-read is-new">{group.unreadCount} new</span>}
+        {group.items.length > 1 && group.unreadCount > 0 && <span className="notification-read is-new">{group.unreadCount} new</span>}
         {group.items.length === 1 && <span className={`notification-read ${group.unreadCount > 0 ? 'is-new' : 'is-read'}`}>{group.unreadCount > 0 ? 'New' : 'Read'}</span>}
       </div>
       <p><InlineCodeText text={latest.message}/></p>
