@@ -303,3 +303,20 @@ was not saved because it includes captured source. No test suite was run, no
 snapshot refresh or AI request was made, and no saved answer was edited. Keep
 the broad packaged, responsive, keyboard, and accessibility acceptance open;
 this single Guide state does not close `13yp` or `x21h`.
+
+## Compact relationship-card reflow — 28 October 2026
+
+A live `pillow-rs` Guide showed relationship endpoints overlapping their
+connector labels in the stacked-answer preview. The previous responsive rule
+measured the whole Guide pane, which can remain wide while a preview is
+constrained by its card. The relationship preview now measures its own width:
+at compact widths it lays source and destination buttons on separate columns
+and moves the connector to its own row; very narrow previews stack all three.
+
+`CARGO_INCREMENTAL=0 npm run bundle:macos` passed the TypeScript/Vite build,
+license and metadata checks, unsigned app/DMG packaging, and DMG checksum
+verification. The rebuilt executable SHA-256 is
+`1308378cd93b1f4d0cf8e65abcd618bca3f4560da4451b995c5837767eff6af9`.
+The open `pillow-rs` app window was left untouched because its close-save
+handshake is still rejecting an update. Packaged visual confirmation in a
+fresh process remains pending; keep `13yp` and `x21h` open.
