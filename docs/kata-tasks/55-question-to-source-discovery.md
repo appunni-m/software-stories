@@ -165,3 +165,11 @@ to another window and starts a worker only for the window that created it, so
 the per-renderer promise is no longer the sole duplicate-work guard.
 Packaged multi-window and large-repository recall remain unqualified.
 Source-only change; no tests, build, provider request or app acceptance ran.
+
+## Make index panics terminal — 28 October 2026
+
+The native indexing worker now catches an unwind from the parser, marks its
+shared job failed, clears the current path, and emits a retryable message. This
+prevents all renderers joining that job from polling a permanent running state;
+no partial index is saved. Source-only change; no tests or build ran. Parser
+panic recovery and cross-window retry still need native acceptance.

@@ -341,23 +341,41 @@ fn start_snapshot_indexing(
     tauri::async_runtime::spawn_blocking(move || {
         let mut last_emitted_at = Instant::now();
         let mut last_emitted_files = 0_usize;
-        let result = index::build_snapshot_index(
-            &storage_dir,
-            &manifest,
-            &job_id,
-            &cancellation,
-            |update| {
-                jobs_for_task.update(update.clone());
-                let should_emit = update.status != index::IndexJobStatus::Running
-                    || update.files_processed.saturating_sub(last_emitted_files) >= 32
-                    || last_emitted_at.elapsed() >= Duration::from_millis(120);
-                if should_emit {
-                    last_emitted_at = Instant::now();
-                    last_emitted_files = update.files_processed;
-                    let _ = app_for_task.emit("index-progress", update.clone());
+        let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            index::build_snapshot_index(
+                &storage_dir,
+                &manifest,
+                &job_id,
+                &cancellation,
+                |update| {
+                    jobs_for_task.update(update.clone());
+                    let should_emit = update.status != index::IndexJobStatus::Running
+                        || update.files_processed.saturating_sub(last_emitted_files) >= 32
+                        || last_emitted_at.elapsed() >= Duration::from_millis(120);
+                    if should_emit {
+                        last_emitted_at = Instant::now();
+                        last_emitted_files = update.files_processed;
+                        let _ = app_for_task.emit("index-progress", update.clone());
+                    }
+                },
+            )
+        }));
+        let result = match built {
+            Ok(result) => result,
+            Err(_) => {
+                if let Some(mut failed) = jobs_for_task.get(&job_id) {
+                    failed.status = index::IndexJobStatus::Failed;
+                    failed.current_path = None;
+                    failed.message = Some(
+                        "Indexing stopped unexpectedly. No partial index was saved; try again."
+                            .to_owned(),
+                    );
+                    jobs_for_task.update(failed.clone());
+                    let _ = app_for_task.emit("index-progress", failed);
                 }
-            },
-        );
+                return;
+            }
+        };
         let save_error = if cancellation.load(std::sync::atomic::Ordering::Relaxed)
             || result.status == index::SnapshotIndexStatus::Cancelled
         {
