@@ -85,7 +85,7 @@ function matchesHistorySearch(query: string, values: Array<string | null | undef
   return !query || values.some((value) => value?.toLocaleLowerCase().includes(query));
 }
 
-function groupHistoryRetries(turns: readonly Turn[]): { key: string; turns: Turn[] }[] {
+function groupQuestionAttempts(turns: readonly Turn[]): { key: string; turns: Turn[] }[] {
   const groups = new Map<string, { key: string; turns: Turn[] }>();
   for (const turn of turns) {
     const key = turn.question.trim().replace(/\s+/g, ' ').toLocaleLowerCase() || turn.id;
@@ -94,6 +94,26 @@ function groupHistoryRetries(turns: readonly Turn[]): { key: string; turns: Turn
     else groups.set(key, { key, turns: [turn] });
   }
   return [...groups.values()];
+}
+
+function isActiveQuestion(turn: Turn): boolean {
+  return turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
+}
+
+function groupGuideAttempts(turns: readonly Turn[], featuredTurnId: string | null) {
+  const order = new Map<string, number>();
+  turns.forEach((turn, index) => order.set(turn.id, index));
+  return groupQuestionAttempts(turns).map((group) => {
+    const featured = group.turns.find((turn) => turn.id === featuredTurnId);
+    const active = [...group.turns].reverse().find(isActiveQuestion);
+    const representative = featured ?? active ?? group.turns.at(-1)!;
+    return {
+      ...group,
+      representative,
+      otherTurns: group.turns.filter((turn) => turn.id !== representative.id),
+      representativeOrder: order.get(representative.id) ?? 0,
+    };
+  }).sort((left, right) => left.representativeOrder - right.representativeOrder);
 }
 
 function SavedWorkspace(props:Props){
@@ -241,7 +261,7 @@ export function DeveloperWorkspace(props:Props) {
       const entry=historyEntry(turn,availableRevisionIds,chaptersLoading);
       return matchesHistorySearch(historySearchTerm,[turn.question,questionSummaryText(turn.question),entry.text]);
     });
-    return {exploration,turns,groups:groupHistoryRetries(turns)};
+    return {exploration,turns,groups:groupQuestionAttempts(turns)};
   }).filter(({turns})=>!historySearchTerm||turns.length>0);
   const matchingSavedExplanations=historySearchTerm
     ? chapters.filter((revision)=>matchesHistorySearch(historySearchTerm,[revision.title,revision.lifecycle,...revision.sections.map((section)=>section.title)]))
@@ -263,6 +283,7 @@ export function DeveloperWorkspace(props:Props) {
   const guideStackExpanded=expandedGuideStackKey===guideStackKey;
   const guideTurns=guideStackTurns(visibleTurns,
     [current.focusedTurnId,featuredTurnId??undefined,...branchesByTurn.keys()],guideStackExpanded);
+  const guideAttemptGroups=groupGuideAttempts(guideTurns,featuredTurnId);
   const hiddenGuideTurnCount=visibleTurns.length-guideTurns.length;
   const guideStackLabels=guideStackCopy(guideTurns.length,visibleTurns.length,guideStackExpanded);
   const [chapterError,setChapterError] = useState<string|null>(null);
@@ -739,10 +760,10 @@ export function DeveloperWorkspace(props:Props) {
     : null;
   const latestRevision=chooseFlowRevision(flowRevisions,selectedTurn?.reading?.flow?.revisionId,
     (revision)=>revision.sections.some((section)=>inspectInteractiveVisual(revision,section).status==='available'));
-  const renderAnswer=(turn:Turn)=><Answer
+  const renderAnswer=(turn:Turn,branchOverride?:Exploration[],hideQuestion=false)=><Answer
     key={turn.id} chapters={chapters} turn={turn} loading={chaptersLoading} compact={turn.id!==featuredTurnId}
     revision={chapters.find((revision)=>revision.revisionId===turn.revisionId)}
-    branches={branchesByTurn.get(turn.id)??[]}
+    branches={branchOverride??branchesByTurn.get(turn.id)??[]} hideQuestion={hideQuestion}
     onGo={go} onOpen={(anchor)=>openFile(fromAnchor(anchor))} onDestination={openDestination}
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)} onRetryGuideUnit={retryGuideUnit}
@@ -903,7 +924,18 @@ export function DeveloperWorkspace(props:Props) {
                       {guideStackLabels.action}
                     </Button>
                   </div>}
-                  {guideTurns.map(renderAnswer)}
+                  {guideAttemptGroups.map((group)=>{
+                    if(group.otherTurns.length===0)return renderAnswer(group.representative);
+                    const groupedBranches=group.turns.flatMap((turn)=>branchesByTurn.get(turn.id)??[]);
+                    const activeOtherAttempts=group.otherTurns.some(isActiveQuestion);
+                    return <div className="dw-guide-attempt-group" key={group.key}>
+                      {renderAnswer(group.representative,groupedBranches)}
+                      <details className="dw-guide-attempt-history" open={activeOtherAttempts}>
+                        <summary>Show {group.otherTurns.length} other attempt{group.otherTurns.length===1?'':'s'}</summary>
+                        {group.otherTurns.map((turn)=>renderAnswer(turn,[],true))}
+                      </details>
+                    </div>;
+                  })}
                   </>
                 ) : (
                   <section className="dw-welcome">
@@ -1037,7 +1069,7 @@ function Answer(props:AnswerProps){
     ?omissionSummary??'Some planned topics were not completed.'
     :null;
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
-    <QuestionDisclosure question={turn.question}/>
+    {!props.hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds as you read or listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
