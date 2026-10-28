@@ -802,7 +802,8 @@ mod tests {
                 query: query.to_owned(),
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
-                limit: 32,
+                // Match the owned search_code file-discovery page cap.
+                limit: 8,
                 offset,
             };
             let started = Instant::now();
