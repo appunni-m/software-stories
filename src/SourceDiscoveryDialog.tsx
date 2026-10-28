@@ -159,7 +159,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   }} />;
   if (autoDiscover && !error) return null;
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
-    <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><button className="icon-button" onClick={onClose} aria-label="Close code discovery"><X size={18} /></button></header>
+    <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><AppButton intent="icon" onClick={onClose} aria-label="Close code discovery"><X size={18} /></AppButton></header>
     <div className="provider-dialog-content">
       {busy ? <>
         <p role="status" className="discovery-progress"><LoaderCircle size={18} />{phase}</p>

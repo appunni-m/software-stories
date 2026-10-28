@@ -104,7 +104,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
   return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-agent-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="plan-agent-title">Use the connection in your header</h2><p>{scope.question}</p></div>
-      <button className="icon-button" onClick={onClose} aria-label={planned ? 'Close chapter explanation' : 'Close planning'}><X size={17} /></button></header>
+      <AppButton intent="icon" onClick={onClose} aria-label={planned ? 'Close chapter explanation' : 'Close planning'}><X size={17} /></AppButton></header>
     <div className="provider-dialog-content">
       <p>{scope.selectedPaths.length} captured files. {planned ? 'This action creates one unaccepted chapter for the accepted step.' : 'This action creates an unaccepted reading plan.'} Source review and account consent stay with the selected connection.</p>
       {unsupportedSavedConnection && <p className="provider-small-note" role="status">{savedConnectionName} is not available for this action. Change the AI connection once from the Connections control in the header.</p>}

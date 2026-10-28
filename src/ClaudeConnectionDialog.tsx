@@ -10,6 +10,7 @@ import { ClaudeOperationReview } from './ClaudeOperationReview';
 import { claudeReviewScopeKey, isClaudeChapterScope, type ClaudeOperationReviewMode } from './lib/claudeReview';
 import type { ClaudeResultCallbacks } from './ClaudeGenerationPanel';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
+import { AppButton } from './design/AppButton';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
@@ -194,7 +195,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         <div><div className="step-pill"><span>CLAUDE AGENT</span> SETUP CHECK</div>
           <h2 id="claude-setup-title">Claude Agent</h2>
           <p>Check the installed runtime, choose supported settings and review the exact request. Installation and catalog checks exclude repository source.</p></div>
-        <button className="icon-button" aria-label="Close Claude setup" onClick={onClose}><X size={17} /></button>
+        <AppButton intent="icon" aria-label="Close Claude setup" onClick={onClose}><X size={17} /></AppButton>
       </header>
       <div className="provider-dialog-content">
         {!native && <div className="provider-preview-only" role="status"><HardDrive size={18} /><p>CLI inspection runs in the macOS app. This browser preview cannot launch it.</p></div>}
@@ -207,8 +208,8 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
             <label className="provider-model-select">Claude CLI executable · absolute path
               <input value={path} onChange={(event) => { if (!active.current) { setPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
             </label>
-            <div className="provider-key-actions"><button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('claudeExecutable'); }}>{choosingFile === 'claudeExecutable' ? 'Choosing…' : 'Choose Claude executable…'}</button>
-              <button className="primary-button" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</button>
+            <div className="provider-key-actions"><AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('claudeExecutable'); }}>{choosingFile === 'claudeExecutable' ? 'Choosing…' : 'Choose Claude executable…'}</AppButton>
+              <AppButton intent="primary" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</AppButton>
               <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer">Official installation guide ↗</a></div>
           </form>
           <p className="provider-small-note">The app runs the documented version and authentication-status commands in private temporary storage. Account/network metadata may be accessed by the vendor CLI. This check does not start a model turn or enable generation.</p>
@@ -220,13 +221,13 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
               <label className="provider-model-select">Node executable · absolute path
                 <input value={nodePath} onChange={(event) => { if (!active.current) { setNodePath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/opt/homebrew/bin/node" spellCheck={false} autoComplete="off" disabled={busy} />
               </label>
-              <button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('nodeExecutable'); }}>{choosingFile === 'nodeExecutable' ? 'Choosing…' : 'Choose Node executable…'}</button>
+              <AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('nodeExecutable'); }}>{choosingFile === 'nodeExecutable' ? 'Choosing…' : 'Choose Node executable…'}</AppButton>
               <label className="provider-model-select">Installed SDK module · absolute path to sdk.mjs
                 <input value={sdkPath} onChange={(event) => { if (!active.current) { setSdkPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/absolute/installation/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs" spellCheck={false} autoComplete="off" disabled={busy} />
               </label>
-              <button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('claudeSdkModule'); }}>{choosingFile === 'claudeSdkModule' ? 'Choosing…' : 'Choose SDK module…'}</button>
+              <AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('claudeSdkModule'); }}>{choosingFile === 'claudeSdkModule' ? 'Choosing…' : 'Choose SDK module…'}</AppButton>
               <p className="provider-small-note">Check catalog starts the selected executables and SDK in private temporary storage. It may contact the vendor using the existing account. The app supplies no repository source or user prompt. Only use installation paths you trust. No API fallback or login is offered.</p>
-              <button className="secondary-button" type="submit" disabled={!native || busy || !path.trim() || !nodePath.trim() || !sdkPath.trim()}>{busyKind === 'catalog' ? 'Checking catalog…' : 'Check catalog'}</button>
+              <AppButton intent="secondary" type="submit" disabled={!native || busy || !path.trim() || !nodePath.trim() || !sdkPath.trim()}>{busyKind === 'catalog' ? 'Checking catalog…' : 'Check catalog'}</AppButton>
             </form>
           </details>
         </section>
@@ -273,9 +274,9 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         <p className="provider-small-note">This build has no qualified Claude generation profile. Automatic support remains unavailable pending runtime and workflow acceptance. Closing cancels a run and discards unsaved chapter previews; saved drafts remain in history. Direct API authentication is a separate choice.</p>
       </div>
       <footer className="provider-dialog-footer"><div className="provider-draft-actions">
-        <button className="secondary-button" onClick={onClose}>Close</button>
-        <button className="secondary-button" onClick={onChooseBackend}>Back to agents</button>
-      </div>{busyKind !== null && <button className="secondary-button" onClick={() => { void cancel(); }}>Cancel check</button>}</footer>
+        <AppButton intent="secondary" onClick={onClose}>Close</AppButton>
+        <AppButton intent="secondary" onClick={onChooseBackend}>Back to agents</AppButton>
+      </div>{busyKind !== null && <AppButton intent="secondary" onClick={() => { void cancel(); }}>Cancel check</AppButton>}</footer>
     </section>
   </div>;
 }

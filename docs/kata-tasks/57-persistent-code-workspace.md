@@ -88,3 +88,7 @@ PR Guide recovery, hunk review, provider request, history refresh, saved-draft, 
 ## Git Changes actions — 28 October 2026
 
 The repository-open, ref-swap, compare/stop, and captured-source actions now use `AppButton` while preserving their existing classes and callbacks; the compare action remains the form submit, and every other action remains a non-submit button. Specialized changed-file selectors and hunk disclosure controls remain native elements. No tests/build or packaged Changes review ran.
+
+## Agent setup and discovery actions — 28 October 2026
+
+Claude setup, source discovery, and repository planning now use `AppButton` for their close, setup, catalog, back, retry, and cancellation actions. Submit buttons remain explicit form submits; other actions keep the shared non-submit default. Existing status, consent, enablement, and callbacks are unchanged. No tests/build or packaged dialog review ran.
