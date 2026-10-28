@@ -71,8 +71,8 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
         <strong><InlineCodeText text={preview.title || 'Saved preview'}/></strong>{preview.unavailableReason && <p><InlineCodeText text={preview.unavailableReason}/></p>}
         {!preview.unavailableReason && <p>{recordedRecoveryLabel(preview.generationOrigin, requestId, backend, plannedTarget)}{preview.originContentMatches === true ? ' · original content digest matches' : ''}</p>}
         <GenerationRecord origin={preview.generationOrigin} />
-        <button className="text-button" disabled={locked || !!preview.unavailableReason || !onOpenPreview}
-          onClick={() => onOpenPreview?.(preview.generationId)}>Review saved preview</button>
+        <AppButton intent="quiet" disabled={locked || !!preview.unavailableReason || !onOpenPreview}
+          onClick={() => onOpenPreview?.(preview.generationId)}>Review saved preview</AppButton>
       </li>)}</ul> : <p>No matching pending chapter previews were found.</p>}
       {saved.length ? <details open><summary>{saved.length} saved chapter revisions for this target</summary>
         <ul>{saved.slice(0, 20).map((revision) => <li key={revision.revisionId}><InlineCodeText text={revision.title}/> · {revision.lifecycle} · revision {revision.revisionNumber}

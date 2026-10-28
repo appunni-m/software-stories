@@ -56,3 +56,7 @@ The one-time AI connection chooser and unsupported-connection notice now use `Ap
 ## Notification panel header actions — 28 October 2026
 
 The notification panel's Mark all read, Dismiss read and Close controls now use the shared `AppButton` wrapper while retaining their existing classes, accessible labels, title text, callbacks and Radix popover close behavior. No notification data or storage behavior changed. No tests/build or packaged visual/accessibility acceptance ran.
+
+## Chapter draft recovery actions — 28 October 2026
+
+The conflict-resolution Back, bulk choice, and continue actions now use `AppButton` quiet/primary intents; the saved-preview review action in Chapter Recovery uses the quiet intent. Existing labels, enablement, choices, callbacks and chapter revision behavior are unchanged. No tests/build or packaged acceptance ran.
