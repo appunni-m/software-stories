@@ -35,7 +35,7 @@ import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
-import { searchCapturedSource, searchExploration, searchLimitMessage, searchResultsMessage, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode } from './codeSearch';
+import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode } from './codeSearch';
 import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
 import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { commitDateLabel, commitHistoryEmptyMessage, nextFocusableCommitIndex } from './gitCommitNavigation';
@@ -723,9 +723,11 @@ export function DeveloperWorkspace(props:Props) {
     for(const hit of results){const matches=grouped.get(hit.path)??[];matches.push(hit);grouped.set(hit.path,matches);}
     return [...grouped].map(([path,hits])=>({path,hits}));
   },[results]);
+  const searchMatchNoun=results.length===1?'match':'matches';
+  const searchFileNoun=searchResultGroups.length===1?'file':'files';
   const searchResultsSummary=results.length>=80||(currentSourceSearch.limited&&currentSourceSearch.nextOffset===null)
-    ?searchLimitMessage(results.length)
-    :`${searchResultsMessage(results.length,currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null).replace(/\.$/,'')} across ${searchResultGroups.length} ${searchResultGroups.length===1?'file':'files'}.`;
+    ?`Search limit reached (${results.length} ${searchMatchNoun} found). Refine your search to find more.`
+    :`${results.length} ${searchMatchNoun} found across ${searchResultGroups.length} ${searchFileNoun}${currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null?'; more matches available':''}.`;
   const graph=useMemo(()=>index?projectProvenRelationshipGraph(index,manifest,new Set(rows.map((r)=>r.path))):null,[index,manifest,rows]);
   const featuredTurn=visibleTurns.find((turn)=>turn.id===featuredTurnId);
   const historyTurnId=current.focusedTurnId??featuredTurnId;
