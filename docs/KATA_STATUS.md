@@ -1,6 +1,16 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **25 October 2026**, read from live project `code-atlas-rebuild`. **79 records: 51 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **28 October 2026**, read from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+
+## 28 October package and workspace checkpoint
+
+The source cleanup in `f745f77` removed the unreachable standalone Code Lens
+workspace and its page-only controls. The local unsigned app/DMG build, metadata
+check, and checksum verification passed; the rebuilt app opened the existing
+Fontdone snapshot without starting a provider request. GitHub run #1226 failed
+because those removed controls still had three stale `onGoAtlas` references;
+`f745f77` removes them. Package run #1227 for that commit completed
+successfully. Build and release details are in [the 0.1.0 readiness draft](releases/0.1.0-draft.md).
 
 ## 25 October incremental-work checkpoint
 
@@ -63,7 +73,7 @@ The latest checkout connects [progressive generation to the reader](acceptance/2
 
 ## All task records
 
-The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 23 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
+The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 28 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
 
 | Ref | Status | Priority | Definition |
 |---|---|---:|---|
@@ -117,6 +127,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `ps02` | open | 1 | [Measure each generation stage and time to the first validated answer](kata-tasks/71-generation-timing-traces.md) |
 | `yk6c` | open | 1 | [Let agents cite native evidence references without copying source quotes](kata-tasks/72-agent-evidence-references.md) |
 | `3bz5` | open | 1 | [Publish validated answer sections while the owned agent continues](kata-tasks/73-progressive-answer-sections.md) |
+| `tt1s` | closed | 1 | [Present multi-section answers one section at a time in Guide](kata-tasks/81-single-section-guide-player.md) |
 | `pn1n` | closed | 1 | [Build the shared Mac shell and typed application boundary](kata-tasks/02-desktop-shell.md) |
 | `7te9` | closed | 1 | [Show every repository path and its capture disposition](kata-tasks/05-file-inventory.md) |
 | `c11x` | closed | 1 | [Build a supported-language symbol and relationship index](kata-tasks/06-symbol-index.md) |
@@ -135,6 +146,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `a9v9` | open | 2 | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) |
 | `qjm3` | open | 2 | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) |
 | `8gqw` | open | 2 | [Implement automatic Claude Agent generation across required operations](kata-tasks/41-claude-agent-backend.md) |
+| `0vd8` | closed | 2 | [Open Changes on a useful default commit comparison](kata-tasks/80-default-changes-comparison.md) |
 | `cc7g` | closed | 2 | [Ensure macOS Quit exits the packaged app process](kata-tasks/78-macos-quit-lifecycle.md) |
 | `k9yd` | closed | 2 | [Bound remaining local metadata and existing-object reads](kata-tasks/33-bounded-metadata.md) |
 | `bwdx` | closed | 3 | [Add an optional repository orientation chapter](kata-tasks/15-optional-overview.md) |
