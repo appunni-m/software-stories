@@ -105,3 +105,7 @@ The repository has no published GitHub release and no release tag. The signed-ca
 ## CI and release checkpoint — 2026-10-28 06:37 UTC
 
 Package-verification run [#1232](https://github.com/appunni-m/software-stories/actions/runs/40643781420) completed successfully for code commit `e0a4008`. Current `main` is `b150626`, whose only change after that run is documentation; the workflow excludes `docs/**`, so the successful package check covers the current code. GitHub currently reports no published releases, and `git ls-remote --tags origin` returned no tag refs. The successful unsigned bundle check is not a signed or notarized release. Developer ID/notarization credentials and clean-account installation acceptance remain release blockers.
+
+## CI and release checkpoint — 2026-10-28 06:46 UTC
+
+The history-search UI correction was pushed as `fd4c013`. Package run [#1233](https://github.com/appunni-m/software-stories/actions/runs/40645757025) started at 06:45 UTC and is still in progress, currently restoring the Rust dependency cache; its conclusion is unknown. Run #1232 remains successful for the prior code state `e0a4008`. GitHub still has no published release or tag, so the first-release status is unchanged: signing, notarization, and clean-account acceptance remain open.
