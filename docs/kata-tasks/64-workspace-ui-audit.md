@@ -354,3 +354,15 @@ arrow, and destination at narrower widths.
 AI request, or saved explanation edit was performed. The app was not rebuilt or
 restarted, so the packaged visual result remains unverified; keep `13yp` and
 `x21h` open.
+
+## Guide controls alignment follow-up — 29 October 2026
+
+The live `pillow-rs` Guide showed relationship labels touching or overlapping
+their source buttons. The edge label used `width: 100%` plus horizontal padding
+without `box-sizing: border-box`, so its rendered width could exceed its grid
+column. The edge now includes padding in its assigned width. Added vertical
+breathing room around the Guide slide/section navigation so Previous, progress,
+and Next sit clearly apart from the fixed Guide/Flow/history tabs.
+
+`npm run build` and `git diff --check` pass. The open packaged app has not been
+rebuilt or restarted for visual confirmation; keep `13yp` and `x21h` open.
