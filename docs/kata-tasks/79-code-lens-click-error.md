@@ -225,3 +225,18 @@ crash, source transmission, or provider request occurred. This verifies local
 navigation and the review boundary only; it does not reproduce the original
 click exception. The user-reported control/error is still unknown, so keep
 `mhqx` open.
+
+## Selected-code review on a different captured file — 28 October 2026
+
+In the open Fontdone workspace on the selected `main@5249b72371` snapshot,
+opening the saved citation for `src/api.rs:685–709` showed the captured range
+in the Code pane. **Explain this code** opened “Review your code question,”
+displayed that exact path and range, and stated that nothing would be sent
+unless **Ask about this code** was chosen. I canceled; the app returned to the
+same source and saved Guide without an error. No provider request or narration
+started.
+
+This adds a second captured-file range to the local review-click check. It does
+not identify the original clicked control or exception, exercise every source
+entry point, or verify the installed executable's source revision. Keep the
+original report unconfirmed and `mhqx` open.
