@@ -474,3 +474,22 @@ or narration was changed. The rebuilt executable SHA-256 is
 `4059e01548a752d6005bd2d465457f8af988f6d03a4875cd218059a2814a293c`.
 Broader screen-by-screen, accessibility, responsive, and nested-exploration
 acceptance remains open under `13yp` and `x21h`.
+
+## Changes opens on the current commit comparison — 29 October 2026
+
+In the installed build above, I opened Changes from the populated
+`pillow-rs` `main@e843f864fc` workspace. The activity showed the local commit
+history and automatically compared local HEAD `c5104cbaaefbd359c88746801a1fd60e52a1f6d1`
+with its first parent `e843f864fcbdf6b53feead608f7ab53025541d8e`, without
+selecting a commit. The first accessibility read caught the comparison still
+running; the next read showed a completed result. The result accurately says
+**Partial comparison**, lists the 128-file cap and 111 omitted changes, and
+labels indexed cross-file relationships as partial. The comparison is read-only;
+no provider operation or working-tree change occurred. I returned the app to
+its original Explorer/Guide view and kept `canvas.rs`, section 1 of 4, selected.
+
+This resolves the previously unverified populated Changes entry path for this
+repository state. It does not cover empty or initial-commit repositories,
+custom ref persistence, alternate commit selection, the full diff/navigation
+matrix, or accessibility/reflow. Keep the cross-screen audit open under
+`13yp` and `x21h`.
