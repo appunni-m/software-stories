@@ -427,7 +427,22 @@ export function DeveloperWorkspace(props:Props) {
     }
     return()=>{closed=true;unlisten?.();};
   },[projectId,snapshotId,onAnswerRestoration]);
-  useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId]);
+  useEffect(()=>{
+    let active=true;
+    if(!isNativeRuntime()){
+      setIndex(null);
+      setIndexError('Local code relationships are available in the Code Atlas Mac app.');
+      setIndexBusy(false);
+      return()=>{active=false;};
+    }
+    setIndexBusy(true);
+    setIndexError(null);
+    void ensureWorkspaceIndex(projectId,snapshotId)
+      .then((value)=>{if(active){setIndex(value);setIndexError(null);}})
+      .catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));})
+      .finally(()=>{if(active)setIndexBusy(false);});
+    return()=>{active=false;};
+  },[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:sourcePaths[0],explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:sourcePaths[0]}:e)}));},[state.file,sourcePaths]);
   useEffect(()=>{
     if(!routePath)return;
