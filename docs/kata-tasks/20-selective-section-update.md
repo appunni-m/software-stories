@@ -55,3 +55,22 @@ section, compare unaffected IDs/payloads/audio/visual fingerprints, and exercise
 Stop/rejection/failure and shared dependencies in the packaged app. The new
 ordinary Fontdone file chapter is not this selective-repair qualification.
 Keep the task open.
+
+## Multiple stale sections source audit — 28 October 2026
+
+Static inspection found that both `provider::build_section_update_context` and
+`chapter_generation::prepare_section_update` reject the selected repair when
+any other section is neither `Current` nor `SafeToCarry`. Draft preparation
+also remaps every carried citation to the new snapshot and fails when a changed
+anchor cannot be verified. This protects the current single-snapshot chapter
+contract, but it means a guide with two stale sections cannot be repaired one
+section at a time from the same accepted revision: each request is blocked by
+the other stale section.
+
+Do not remove these checks by themselves. The product needs an explicit repair
+session or section-level snapshot/freshness representation so one section can
+be regenerated at a time, other affected sections remain visibly stale and
+unchanged, and no invalid current-snapshot chapter can be accepted. Keep the
+accepted chapter immutable throughout. No source change, test, build, provider
+request, or app run was made for this audit; packaged selective-repair
+acceptance remains pending.
