@@ -430,3 +430,14 @@ SHA-256 is
 `3449f76f02e21c3cc8fe28847c762af8187c0d64ddb74d113c05968437667617`. No saved
 repository content or explanation was changed. The broader screen-by-screen,
 accessibility, and responsive audit remains open under `13yp` and `x21h`.
+
+## Snapshot refresh button alignment — 29 October 2026
+
+The live workspace header showed “Load latest changes” sitting lower than the
+repository and connection controls. The shared secondary-button style adds a
+top margin intended for page actions; the snapshot refresh control now resets
+that margin with a header-scoped selector so it aligns with the other controls.
+This targeted CSS correction does not change snapshot behavior or stored
+repository data. The packaged app was rebuilt and reopened at the existing
+`pillow-rs` workspace; the refresh button now shares the header row's vertical
+alignment with the repository and connection controls.
