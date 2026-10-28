@@ -57,13 +57,24 @@ export function GitChangesScreen({
   const [headRef, setHeadRef] = useState(initialHeadRef);
   const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
   const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(false);
+  const previousComparisonResult = useRef(comparison?.result);
+  const collapseAfterSuccessfulComparison = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
 
   useEffect(() => {
     if (busy) setComparisonOptionsOpen(true);
-  }, [busy]);
+    if (comparison?.result && comparison.result !== previousComparisonResult.current) {
+      if (busy) collapseAfterSuccessfulComparison.current = true;
+      else setComparisonOptionsOpen(false);
+    }
+    if (!busy && collapseAfterSuccessfulComparison.current) {
+      setComparisonOptionsOpen(false);
+      collapseAfterSuccessfulComparison.current = false;
+    }
+    previousComparisonResult.current = comparison?.result;
+  }, [busy, comparison?.result]);
 
   useEffect(() => {
     setBaseRef(initialBaseRef);
