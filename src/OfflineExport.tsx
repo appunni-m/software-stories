@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, Download, FileCode2, X } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
+import { AppButton } from './design/AppButton';
 import { invoke } from '@tauri-apps/api/core';
 import {
   buildNarrationRequestReview,
@@ -252,7 +253,9 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
 
   return (
     <>
-      <button
+      <AppButton
+        intent="custom"
+        type="button"
         ref={triggerRef}
         className="offline-export-trigger"
         onClick={() => {
@@ -265,7 +268,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
         aria-label="Export accepted chapters for offline reading"
       >
         <Download size={13} /> <span>Offline export</span>
-      </button>
+      </AppButton>
       {open && (
         <div className="provider-overlay offline-export-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
           <section
@@ -284,7 +287,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                 <h2 id="offline-export-title">Export for offline reading</h2>
                 <p id="offline-export-description">Choose accepted chapter revisions, review the source material that will travel with them, then download one self-contained HTML file.</p>
               </div>
-              <button className="icon-button" onClick={close} disabled={exporting} aria-label="Close offline export"><X size={16} /></button>
+              <AppButton intent="icon" onClick={close} disabled={exporting} aria-label="Close offline export"><X size={16} /></AppButton>
             </header>
 
             <div className="provider-dialog-content offline-export-content">
@@ -296,7 +299,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
               <section className="offline-export-chapters" aria-labelledby="offline-export-chapters-title">
                 <div className="offline-export-section-heading">
                   <div><span className="provider-kicker">ACCEPTED REVISIONS</span><h3 id="offline-export-chapters-title">Choose chapters</h3></div>
-                  {exportableRevisions.length > 0 && <button className="text-button" onClick={() => { setSelectedRevisionIds(selectedRevisionIds.length === exportableIds.length ? [] : exportableIds); setPrivacyReviewed(false); }}> {selectedRevisionIds.length === exportableIds.length ? 'Clear selection' : 'Select all'} </button>}
+                  {exportableRevisions.length > 0 && <AppButton intent="quiet" onClick={() => { setSelectedRevisionIds(selectedRevisionIds.length === exportableIds.length ? [] : exportableIds); setPrivacyReviewed(false); }}> {selectedRevisionIds.length === exportableIds.length ? 'Clear selection' : 'Select all'} </AppButton>}
                 </div>
                 {acceptedRevisions.length === 0 ? <p className="offline-export-empty">There are no accepted chapter revisions to export.</p> : (
                   <div className="offline-export-option-list">
@@ -389,7 +392,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
 
             <footer className="provider-dialog-footer offline-export-footer">
               <span>{selected.length} accepted {selected.length === 1 ? 'chapter' : 'chapters'} · {includeExcerpts ? `${preview.includedExcerptCount} excerpts` : 'excerpts omitted'}{includeNarrationAudio ? ` · ${cachedNarration.length} audio tracks` : ''}</span>
-              <div><button className="secondary-button" onClick={close} disabled={exporting}>Cancel</button><button className="primary-button" onClick={() => void download()} disabled={!privacyReviewed || selected.length === 0 || exporting || (includeNarrationAudio && narrationCacheScan === 'loading')}>{exporting ? 'Preparing…' : 'Download HTML'} <Download size={14} /></button></div>
+              <div><AppButton intent="secondary" onClick={close} disabled={exporting}>Cancel</AppButton><AppButton intent="primary" onClick={() => void download()} disabled={!privacyReviewed || selected.length === 0 || exporting || (includeNarrationAudio && narrationCacheScan === 'loading')}>{exporting ? 'Preparing…' : 'Download HTML'} <Download size={14} /></AppButton></div>
             </footer>
           </section>
         </div>

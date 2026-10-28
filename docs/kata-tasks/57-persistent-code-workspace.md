@@ -28,3 +28,7 @@ Production migration now consumes real immutable inventory/source in a shared ac
 Added `src/design/AppButton.tsx`, a forward-ref Radix Themes button wrapper with a safe `type="button"` default and shared primary, secondary, quiet and icon intents. The connection and notification header triggers use its custom style path; repository-discovery and planning actions use the primary/secondary intents, notification actions use quiet, and the planning close control and chapter-recovery reload use icon/secondary. Existing labels, handlers, discovery consent boundaries, notification focus behavior and spacing classes remain intact.
 
 The rest of the app still contains native and one-off button implementations. This source change does not establish packaged visual or accessibility parity; the broader component inventory, keyboard/split behavior, zoom/reflow and app screenshots remain open.
+
+## Offline export action migration — 28 October 2026
+
+The Offline Export trigger, close action, select/clear control, and footer actions now use the shared `AppButton` wrapper. Existing style classes, labels, handlers and disabled states are preserved; the trigger now also explicitly uses `type="button"`. This is a component-consistency increment only. No test/build or packaged visual/accessibility acceptance ran, and the wider migration remains open.
