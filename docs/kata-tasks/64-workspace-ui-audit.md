@@ -441,3 +441,21 @@ This targeted CSS correction does not change snapshot behavior or stored
 repository data. The packaged app was rebuilt and reopened at the existing
 `pillow-rs` workspace; the refresh button now shares the header row's vertical
 alignment with the repository and connection controls.
+
+## Packaged Flow / Search / Changes spot-check — 29 October 2026
+
+Inspected the rebuilt Code Atlas 0.1.0 app from commit `d107bc4` at
+2880×1688, using `pillow-rs` `main@e843f864fc` (partial snapshot) and the
+existing `canvas.rs` answer. Flow retained the answer and showed its saved
+visual; **Fit View** brought the full diagram into the pane. Search restored
+the local query `NativeDrawCanvas`, reported matches in captured files, and
+kept the selected source visible. No question was sent.
+
+Changes restored a local comparison from `e843f864…` to `c5104c…`, but its ref
+fields were disabled and **Stop comparison** was visible while no result was
+shown. I left that state untouched; this does not establish a successful
+comparison. The screenshot was inspected live but not retained because it
+contains local source. The packaged executable SHA-256 was
+`d92ca3eae9b52b437fc07eb8f00df11ccfe347437393bb73a97c50a0f1a2b171`.
+First-run, nested follow-ups, notification outcomes, theme/accessibility, and a
+completed Changes result still need their own evidence under `13yp` and `x21h`.
