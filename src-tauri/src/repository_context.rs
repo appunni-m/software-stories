@@ -40,6 +40,7 @@ const MAX_CANDIDATES: usize = 256;
 const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
 const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
+const MAX_INDEX_OMISSION_PATHS: usize = 8;
 pub(crate) const MAX_RANGE_BYTES: usize = 32_768;
 
 /// Broad, unscoped natural-language searches work better as file discovery;
@@ -166,6 +167,73 @@ pub(crate) struct Coverage {
     pub(crate) text_fallback_files: usize,
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct IndexLimitOmissions {
+    pub(crate) source_byte_limited_files: usize,
+    pub(crate) range_limited_files: usize,
+    pub(crate) files: Vec<IndexLimitOmission>,
+    pub(crate) files_truncated: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct IndexLimitOmission {
+    pub(crate) path: String,
+    pub(crate) reason: String,
+}
+
+fn index_limit_omissions(
+    files: &[FileCoverage],
+    budget: &Budget<'_>,
+) -> Result<IndexLimitOmissions, String> {
+    let mut summary = IndexLimitOmissions::default();
+    let mut range_limited = Vec::new();
+    let mut source_byte_limited = Vec::new();
+    for (index, file) in files.iter().enumerate() {
+        if index % 128 == 0 {
+            budget.check()?;
+        }
+        match file.reason.as_deref() {
+            Some("localRangeLimit") => {
+                summary.range_limited_files += 1;
+                if range_limited.len() < MAX_INDEX_OMISSION_PATHS
+                    && safe_path(&file.path)
+                    && !snapshot::looks_secret_like(&file.path, &[])
+                {
+                    range_limited.push(IndexLimitOmission {
+                        path: file.path.clone(),
+                        reason: "localRangeLimit".to_owned(),
+                    });
+                }
+            }
+            Some("localSourceByteLimit") => {
+                summary.source_byte_limited_files += 1;
+                if source_byte_limited.len() < MAX_INDEX_OMISSION_PATHS
+                    && safe_path(&file.path)
+                    && !snapshot::looks_secret_like(&file.path, &[])
+                {
+                    source_byte_limited.push(IndexLimitOmission {
+                        path: file.path.clone(),
+                        reason: "localSourceByteLimit".to_owned(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    summary.files = range_limited
+        .into_iter()
+        .chain(source_byte_limited)
+        .take(MAX_INDEX_OMISSION_PATHS)
+        .collect();
+    summary.files_truncated = summary.files.len()
+        < summary
+            .range_limited_files
+            .saturating_add(summary.source_byte_limited_files);
+    Ok(summary)
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildStats {
@@ -285,6 +353,7 @@ pub(crate) struct SearchResult {
     pub(crate) limited: bool,
     pub(crate) next_offset: Option<usize>,
     pub(crate) coverage: Coverage,
+    pub(crate) index_limit_omissions: IndexLimitOmissions,
     pub(crate) reused_generation: bool,
     pub(crate) build: BuildStats,
     pub(crate) elapsed_ms: u64,
@@ -944,10 +1013,17 @@ fn prepare_cached(
             }
             chunks
         };
-        coverage.chunks = local_chunks.len();
         if metadata.ranges.len().saturating_add(local_chunks.len()) > MAX_CHUNKS {
-            return Err("The captured text exceeds the local code range limit.".to_owned());
+            // Keep the generation useful when a valid snapshot exceeds the
+            // aggregate range budget. This file remains in the inventory with
+            // an explicit reason, while later files may still fit the budget.
+            // Since it is not admitted below, an incremental base's postings
+            // for this path are removed by the normal deleted-file pass.
+            coverage.reason = Some("localRangeLimit".to_owned());
+            metadata.files.push(coverage);
+            continue;
         }
+        coverage.chunks = local_chunks.len();
         let file_key =
             incremental::file_key(&file.path, &source.sha256, &coverage.parser, &symbols)?;
         let keys = local_chunks
@@ -1784,6 +1860,7 @@ fn search_pattern(
         limited,
         next_offset: None,
         coverage: prepared.metadata.coverage.clone(),
+        index_limit_omissions: index_limit_omissions(&prepared.metadata.files, budget)?,
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
@@ -2003,6 +2080,7 @@ pub(crate) fn search_files_with_mode_page(
             limited: false,
             next_offset: None,
             coverage: prepared.metadata.coverage.clone(),
+            index_limit_omissions: index_limit_omissions(&prepared.metadata.files, budget)?,
             reused_generation: prepared.reused_generation,
             build: prepared.metadata.build.clone(),
             elapsed_ms: started.elapsed().as_millis() as u64,
@@ -2394,6 +2472,7 @@ pub(crate) fn search_files_with_mode_page(
         limited,
         next_offset,
         coverage: prepared.metadata.coverage.clone(),
+        index_limit_omissions: index_limit_omissions(&prepared.metadata.files, budget)?,
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
@@ -2841,6 +2920,7 @@ fn search_ranked(
         limited,
         next_offset: None,
         coverage: prepared.metadata.coverage.clone(),
+        index_limit_omissions: index_limit_omissions(&prepared.metadata.files, budget)?,
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,

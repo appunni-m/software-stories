@@ -3,6 +3,11 @@ import { errorMessageOr } from '../lib/errorMessage.ts';
 export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
+export interface IndexLimitOmission { path:string; reason:'localRangeLimit'|'localSourceByteLimit' }
+export interface IndexLimitOmissions {
+  sourceByteLimitedFiles:number; rangeLimitedFiles:number;
+  files:IndexLimitOmission[]; filesTruncated:boolean;
+}
 
 const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works','explain','find','help','show','tell']);
 
@@ -129,7 +134,7 @@ export function searchCapturedSource(
   updates.busy(true);
   const timer=defer(()=>{dispatched=true;void(async()=>{
     try{
-      const result=await runtime.invoke('search_workspace_source',{projectId:request.projectId,snapshotId:request.snapshotId,query:request.query,mode:request.mode,requestId,offset}) as {matches:SourceMatch[];limited:boolean;nextOffset?:number|null};
+      const result=await runtime.invoke('search_workspace_source',{projectId:request.projectId,snapshotId:request.snapshotId,query:request.query,mode:request.mode,requestId,offset}) as {matches:SourceMatch[];limited:boolean;nextOffset?:number|null;unavailableFiles:number;indexLimitOmissions:IndexLimitOmissions};
       if(active){updates.hits(result.matches,offset>0);updates.limited(result.limited);updates.nextOffset(result.nextOffset??null);}
     }catch(error){if(active)updates.error(request.mode==='regex'?errorMessageOr(error,'This regular expression could not be searched.'):'Captured source search is unavailable. File and symbol results are still shown.');}
     finally{if(active)updates.busy(false);}

@@ -464,6 +464,7 @@ pub(crate) struct WorkspaceSearchResult {
     limited: bool,
     next_offset: Option<usize>,
     unavailable_files: usize,
+    index_limit_omissions: context::IndexLimitOmissions,
 }
 
 #[derive(Serialize)]
@@ -523,6 +524,7 @@ pub(crate) async fn search_workspace_source(
             limited: result.limited,
             next_offset: result.next_offset,
             unavailable_files: result.coverage.files_unavailable,
+            index_limit_omissions: result.index_limit_omissions,
         })
     })
     .await

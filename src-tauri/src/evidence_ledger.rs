@@ -143,6 +143,7 @@ pub(crate) struct SearchMetadata<'a> {
     #[serde(rename = "nextOffset")]
     next_offset: Option<usize>,
     coverage: &'a context::Coverage,
+    index_limit_omissions: &'a context::IndexLimitOmissions,
 }
 
 #[derive(Serialize)]
@@ -173,6 +174,7 @@ impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
             limited: result.limited,
             next_offset: result.next_offset,
             coverage: &result.coverage,
+            index_limit_omissions: &result.index_limit_omissions,
         }
     }
 }

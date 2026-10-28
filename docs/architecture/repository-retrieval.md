@@ -35,6 +35,7 @@ Structural pages contain at most 32 items; continuation offsets cannot exceed 10
 ## Search and publication
 
 - Tantivy indexes source tokens, original identifiers, snake/camel/acronym components, path terms and declarations where syntax metadata exists. Exact declarations rank before exact identifier mentions, then lexical candidates, with score/path/byte ordering. Candidate sets are capped; truncation is reported. Equal-score selection beyond the candidate cap still needs boundary qualification.
+- Search results include `indexLimitOmissions` with full counts for `localRangeLimit` and `localSourceByteLimit`, plus at most eight corresponding safe paths and their reasons. Range-limited paths are listed first; `filesTruncated` marks an incomplete path list. Excluded and secret-filtered paths are not disclosed in this list; `coverage.filesUnavailable` remains the aggregate for all unavailable files. The small path list bounds repeated metadata in an agent's response budget.
 - The ripgrep project's Rust libraries locate matching snippet lines inside retrieved ranges, including parser-unavailable files. A full repository regex/substr fallback when lexical search is unsuitable is still pending.
 - Native path-only secret filtering also runs before reads; the retrieval policy version is `atlas-ranges-v1-identifiers-v1-policy-v2`, invalidating older cache generations.
 - A generation fingerprint binds the complete manifest, saved syntax index, chunking/tokenizer version and schema. For unchanged files, the bounded content-addressed layout cache reuses chunk boundaries and Tantivy copies existing postings when source digest, parser identity and declaration identity match. Every eligible source blob is still re-read and hash-verified. Changed files replace postings; deleted or newly excluded files lose theirs. Each completed generation is normalized to one Tantivy segment, keeping broad BM25 ordering stable across cold and incremental builds. The 21 October Fontdone profile reused 3,409 documents and replaced 53 for a one-file change; broader change shapes and packaged behavior remain unqualified.
@@ -48,7 +49,7 @@ Structural pages contain at most 32 items; continuation offsets cannot exceed 10
 | Captured paths admitted to a build | 25,000 |
 | Verified source bytes per build | 100 MiB; existing capture limits also apply |
 | Syntax parser input per file / total | 1 MiB / 50 MiB |
-| Indexed ranges | 50,000, each at most 8,192 bytes |
+| Indexed ranges | 50,000, each at most 8,192 bytes; files that do not fit are marked unavailable in index metadata with `localRangeLimit` while the capped generation remains searchable |
 | Index metadata / one chunk-cache record | 64 MiB / 4 MiB |
 | Query | 2–240 characters, up to 32 derived terms; workspace UI currently caps 120 characters |
 | Candidate sets | At most 256 each for lexical, exact identifier and exact declaration searches |

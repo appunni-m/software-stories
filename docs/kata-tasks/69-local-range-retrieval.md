@@ -162,3 +162,24 @@ limits, the 250,000-byte model-operation budget, snapshot/hash validation,
 secret filtering and cancellation checks are unchanged. Source-only change;
 no tests, build, profile or packaged qualification ran. Broad recall and the
 remaining acceptance gates stay open; do not claim a recall improvement.
+
+## Preserve a capped index when one file exceeds the range budget — 28 October 2026
+
+Index preparation no longer aborts the complete generation when adding one
+file would exceed the 50,000-range cap. It leaves that file in the inventory
+with reason `localRangeLimit`, omits its ranges, and continues so later files
+that fit can still be indexed. An incremental base's postings for an omitted
+file are removed by the existing cleanup pass. The cap is unchanged. This is
+a source-only correction; no tests, build, profile, or packaged qualification
+ran. Keep broad recall and the remaining acceptance gates open.
+
+## Expose bounded index-limit omissions — 28 October 2026
+
+Search responses now include full counts for the `localRangeLimit` and
+`localSourceByteLimit` reasons, plus up to eight safe affected paths with their
+reason. Range-limited paths are listed first and `filesTruncated` indicates
+when more path details remain. The owned Codex search response and workspace
+search command both expose this summary. Excluded and secret-filtered paths
+remain aggregate-only. This response-only change does not alter the persisted
+index schema or raise the search or source budgets. No tests, build, profile,
+or packaged qualification ran; the retrieval acceptance gates remain open.
