@@ -4896,6 +4896,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           const assetIds = Array.from(new Set(selectedFreshness.report!.reverseDependencies
                             .filter((dependency) => dependency.dependentSectionIds.includes(sectionResult.sectionId))
                             .flatMap((dependency) => dependency.assetIds)));
+                          const visualFingerprints = assetIds.filter((assetId) => assetId.startsWith('visual:'));
+                          const hotspotIds = assetIds.filter((assetId) => assetId.startsWith('hotspot:'));
+                          const otherAssetIds = assetIds.filter((assetId) =>
+                            !assetId.startsWith('visual:') && !assetId.startsWith('hotspot:'));
                           return <article className="chapter-studio-section chapter-freshness-section" key={sectionResult.sectionId}>
                             <div className="chapter-section-title-row">
                               <h4>{sectionTitle}</h4>
@@ -4910,7 +4914,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             </div>
                             {sectionResult.reasons.length > 0 && <ul className="chapter-freshness-reasons">
                               {sectionResult.reasons.map((reason, index) => <li key={`${reason.code}:${reason.path ?? ''}:${index}`}>
-                                <code>{reason.code}</code> {reason.message}{reason.path && <> <code>{reason.path}</code></>}
+                                {reason.message}{reason.path && <> <code>{reason.path}</code></>}
                               </li>)}
                             </ul>}
                             {sectionResult.sourceChanges.length > 0 && <div className="chapter-freshness-changes">
@@ -4933,8 +4937,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             </div>}
                             {dependentSections.length > 0 && <p className="chapter-freshness-clear"><strong>Other sections share changed evidence:</strong> {dependentSections.map((id, index) => <span key={id}>{index > 0 ? ', ' : ''}<InlineCodeText text={activeDocument.sections.find((item) => item.sectionId === id)?.title ?? id}/></span>)}. Each section is reviewed and updated separately.</p>}
                             <div className="chapter-freshness-assets">
-                              <strong>Asset input fingerprints</strong>
-                              {assetIds.length > 0 ? <ul>{assetIds.map((assetId) => <li key={assetId}><code>{assetId}</code></li>)}</ul> : <span>No visual or hotspot assets reference this section's changed evidence.</span>}
+                              <strong>Assets linked to changed evidence</strong>
+                              {visualFingerprints.length > 0
+                                ? <><span>Visual asset fingerprints</span><ul>{visualFingerprints.map((fingerprint) => <li key={fingerprint}><code>{fingerprint}</code></li>)}</ul></>
+                                : <span>No visual asset references this section's changed evidence.</span>}
+                              {hotspotIds.length > 0 && <><span>Source-link IDs</span><ul>{hotspotIds.map((hotspotId) => <li key={hotspotId}><code>{hotspotId}</code></li>)}</ul></>}
+                              {otherAssetIds.length > 0 && <><span>Other asset IDs</span><ul>{otherAssetIds.map((assetId) => <li key={assetId}><code>{assetId}</code></li>)}</ul></>}
                               {sectionResult.narrationScriptSha256
                                 ? <span>Narration script SHA-256 <code>{sectionResult.narrationScriptSha256}</code>. Audio cache keys also include the chosen model, voice, style, and format.</span>
                                 : <span>No narration script is attached to this section.</span>}
