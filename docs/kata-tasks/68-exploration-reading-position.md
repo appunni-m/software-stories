@@ -137,8 +137,10 @@ in Chat history with the saved answer “Explain what glyf.rs:564–583 does and
 how it works.” marked current and `src/tt/glyf.rs` open. I opened the existing
 child **Explore remaining topics**; its Guide opened with `src/api.rs`. Back
 returned to the parent with Chat history still selected, the same saved answer
-still marked current, and `src/tt/glyf.rs` restored. No question, provider
-request, or narration was started, and no saved record was changed.
+still marked current, and `src/tt/glyf.rs` restored. No question or provider
+request was started, and narration did not play. Navigation state moved to the
+child and returned; no question, answer, receipt, or source snapshot was
+edited.
 
 This confirms one same-process child/Back restoration path for the exact
 answer, tab, and source file. The running executable revision and a durable
