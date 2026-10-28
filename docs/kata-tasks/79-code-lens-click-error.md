@@ -263,3 +263,18 @@ source revision. See [the native acceptance record](../acceptance/2026-10-28-cod
 This verifies the local selected-code review boundary and one saved citation
 path. It still does not identify the original clicked control/error, reproduce
 the exception, or exhaust the source-navigation matrix. Keep `mhqx` open.
+
+## Current installed-build Code Lens selection click — 29 October 2026
+
+In the installed app built from `eeb2c11` (executable SHA-256
+`4059e01548a752d6005bd2d465457f8af988f6d03a4875cd218059a2814a293c`),
+`pillow-rs` `main@e843f864fc` had `canvas.rs` selected at captured lines
+28–51. Clicking **Explain this code** opened the local review with the exact
+question and captured path/range, and stated “Nothing is sent until you choose
+Ask about this code.” I canceled; no provider request was made, the app stayed
+open, and the Guide/source selection remained intact. No error appeared.
+
+This current-build check confirms that specific click opens its review safely.
+It does not reproduce the user's original exception because the original
+control and error text remain unknown. Keep `mhqx` open; do not infer that this
+one path proves every Code Lens entry point.
