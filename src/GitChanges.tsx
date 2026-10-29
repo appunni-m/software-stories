@@ -297,12 +297,9 @@ function ComparisonResults({
       onRecoveryReviewReady={onRecoveryReviewReady}
     />
   </Suspense>;
-  const compactViews = compact && comparison.changes.length > 0 ? (
-    <Tabs.Root className="git-compact-comparison" value={compactSurface} onValueChange={(value) => setCompactSurface(value as 'diff' | 'pr-guide')}>
-      <Tabs.List className="git-compact-surfaces" aria-label="Change views">
-        <Tabs.Trigger value="diff">Diff</Tabs.Trigger>
-        <Tabs.Trigger value="pr-guide">PR Guide</Tabs.Trigger>
-      </Tabs.List>
+  const hasCompactTabs = compact && comparison.changes.length > 0;
+  const compactViews = hasCompactTabs ? (
+    <>
       <Tabs.Content forceMount value="diff" className="git-compact-browser">
         <nav className="git-compact-files" aria-label="Changed files">
           <header><strong>Files changed</strong><span>{comparison.changes.length}</span></header>
@@ -333,16 +330,20 @@ function ComparisonResults({
         </section>
       </Tabs.Content>
       <Tabs.Content forceMount value="pr-guide" className="git-compact-pr-guide">{prGuide}</Tabs.Content>
-    </Tabs.Root>
+    </>
   ) : null;
 
-  return (
+  const renderResults = (showCompactTabs: boolean) => (
     <section className={`git-comparison-results${compact && comparison.changes.length > 0 ? ' git-comparison-results-compact' : ''}`} aria-labelledby="git-results-title">
       <header className="git-results-header">
         <div>
           <span className="git-changes-kicker">{isPartial ? 'PARTIAL RESULT' : 'COMPARE RESULTS'}</span>
           <h2 id="git-results-title">{resultLabel}</h2>
         </div>
+        {showCompactTabs && <Tabs.List className="git-compact-surfaces" aria-label="Change views">
+          <Tabs.Trigger value="diff">Diff</Tabs.Trigger>
+          <Tabs.Trigger value="pr-guide">PR Guide</Tabs.Trigger>
+        </Tabs.List>}
       </header>
       {compactViews}
       {(comparison.comparisonId || (comparison.base && comparison.head)) && <details className="git-version-details">
@@ -387,6 +388,12 @@ function ComparisonResults({
       {compact && comparison.changes.length > 0 ? null : prGuide}
     </section>
   );
+
+  return hasCompactTabs ? (
+    <Tabs.Root className="git-compact-comparison" value={compactSurface} onValueChange={(value) => setCompactSurface(value as 'diff' | 'pr-guide')}>
+      {renderResults(true)}
+    </Tabs.Root>
+  ) : renderResults(false);
 }
 
 function CommitIdentity({ label, ref }: { label: string; ref: { requested: string; objectId: string } }) {
