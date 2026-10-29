@@ -1317,3 +1317,16 @@ active Guide and source panes legible; appearance was restored to System. This
 does not qualify contrast, motion, zoom, VoiceOver, actions, or the complete
 settings journey. Detailed observations and boundaries are in
 `docs/acceptance/2026-10-29-workspace-native-check.md`; keep `13yp` open.
+
+### Changes comparison return path — 29 October 2026
+
+The installed Changes activity opened directly on Fontdone `HEAD
+5249b72371` versus its first parent `7c48b70648`. Selecting `7c48b70648`
+showed its first-parent diff from `f3096b4e4c91`. A manually entered local
+`f3096b4e4c91` → `5249b72371` range remained selected after returning to the
+Guide and reopening Changes. Selecting HEAD restored the default; Back then
+restored the root Guide and `src/outline.rs`. Unsupported README text remained
+inspectable, the oversized inventory correctly had no hunk, and partial static
+relationship coverage was disclosed. Empty and initial repositories are not
+qualified. No Git state or repository contents were changed; details are in
+`docs/acceptance/2026-10-29-workspace-native-check.md`.
