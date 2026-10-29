@@ -835,7 +835,7 @@ html[data-app-zoom-compact="true"] .topbar .theme-control-trigger {min-width:0;m
 .recent-menu-copy strong, .recent-menu-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-menu-copy strong { font-size: 12px; font-weight: 650; }
 .recent-menu-copy small { margin-top: 4px; color: var(--muted); font: 12px var(--mono); }
-.recent-remove-button { width: 32px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.recent-remove-button { width: 32px; height: auto; min-height: 58px; align-self: stretch; box-sizing: border-box; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
 .recent-remove-button:hover, .recent-remove-button:focus-visible { color: var(--danger); background: var(--danger-soft); }
 .project-preflight { justify-content: center; }
 .project-preflight-card { width: min(860px, 100%); padding: clamp(23px, 3vw, 38px); border: 1px solid var(--blue-border); border-radius: 14px; background: linear-gradient(135deg, var(--surface-raised), var(--surface-raised) 62%, var(--surface-raised)); box-shadow: 0 16px 50px color-mix(in srgb, var(--shadow) 13%, transparent); }

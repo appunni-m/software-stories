@@ -1789,24 +1789,24 @@ function App() {
             <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? (recentsPending ? 'Opening workspace…' : 'Open a local repository')}</span>
             <ChevronDown size={14} className="muted-icon" />
           </AppButton>
-          {projectOpening && <button className="icon-button" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></button>}
+          {projectOpening && <AppButton intent="icon" size="1" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></AppButton>}
           {projectMenuOpen && (
             <div className="project-menu" role="menu" aria-label="Repositories and snapshots">
               <div className="menu-label">LOCAL REPOSITORIES</div>
-              <button
+              <AppButton intent="custom" size="1"
                 role="menuitem"
                 data-focus-key="action:pick-repository"
                 disabled={projectBusy}
                 onClick={() => { void openLocalRepository(); }}
               >
                 <FolderOpen size={16} /> <span>Choose a local repository…</span>
-              </button>
-              {currentProject && <><div className="menu-rule" /><div className="menu-label">CURRENT SNAPSHOT</div><button
+              </AppButton>
+              {currentProject && <><div className="menu-rule" /><div className="menu-label">CURRENT SNAPSHOT</div><AppButton intent="custom" size="1"
                   role="menuitem"
                   data-focus-key="action:repository-sharing"
                   disabled={!selectedSnapshot || snapshotManifest?.summary.snapshotId !== selectedSnapshot.snapshotId}
                   onClick={() => { setProjectMenuOpen(false); setRepositorySharingOpen(true); }}
-                ><ShieldCheck size={16} /> <span>Repository sharing…</span></button></>}
+                ><ShieldCheck size={16} /> <span>Repository sharing…</span></AppButton></>}
               <div className="menu-rule" />
               <div className="menu-label">RECENT PROJECTS</div>
               {recentProjects.length === 0 ? (
@@ -1815,7 +1815,7 @@ function App() {
                 <div className="recent-menu-list">
                   {recentProjects.map((project) => (
                     <div className="recent-menu-row" key={project.projectId}>
-                      <button
+                      <AppButton intent="custom" size="1"
                         role="menuitem"
                         data-focus-key={`recent:${project.projectId}`}
                         disabled={projectBusy}
@@ -1828,8 +1828,8 @@ function App() {
                           <small>{project.repositoryRoot}</small>
                           <small>{project.branch ?? 'Detached or unborn HEAD'} · {project.head?.slice(0, 10) ?? 'No commit yet'}</small>
                         </span>
-                      </button>
-                      <button
+                      </AppButton>
+                      <AppButton intent="custom" size="1"
                         className="recent-remove-button"
                         role="menuitem"
                         disabled={projectBusy}
@@ -1838,7 +1838,7 @@ function App() {
                         title="Remove from Recents"
                       >
                         <X size={14} />
-                      </button>
+                      </AppButton>
                     </div>
                   ))}
                 </div>
@@ -1866,7 +1866,7 @@ function App() {
               <div className="snapshot-menu" role="menu" aria-label="Repository snapshots">
                 <div className="menu-label">IMMUTABLE SNAPSHOTS · {currentSnapshots.length}</div>
                 {currentSnapshots.map((summary) => (
-                  <button role="menuitem" key={summary.snapshotId} onClick={() => selectSnapshot(summary)} aria-current={summary.snapshotId === navigation.current.snapshotId ? 'true' : undefined}>
+                  <AppButton intent="custom" size="1" role="menuitem" key={summary.snapshotId} onClick={() => selectSnapshot(summary)} aria-current={summary.snapshotId === navigation.current.snapshotId ? 'true' : undefined}>
                     <HardDrive size={15} />
                     <span className="snapshot-menu-copy">
                       <strong>{formatSnapshotDate(summary.createdAtUnixMs)} · {summary.status === 'partial' ? 'Partial' : 'Complete under policy'}</strong>
@@ -1874,7 +1874,7 @@ function App() {
                       <small>{summary.filesCaptured.toLocaleString()} files · {formatBytes(summary.totalBytes)} · {summary.pathsSkipped.toLocaleString()} skipped</small>
                     </span>
                     {summary.snapshotId === navigation.current.snapshotId && <Check size={14} className="snapshot-menu-check" />}
-                  </button>
+                  </AppButton>
                 ))}
               </div>
             )}
