@@ -222,3 +222,19 @@ The repository hygiene check found that `.gitignore` already excludes dotenv and
 ## CI and release follow-up — 2026-10-29 09:10 UTC
 
 Package run [#1340](https://github.com/appunni-m/software-stories/actions/runs/40843203439) completed successfully for code commit `5ca2f492`. The new UI code commit `f0969c3ed11c0bfb7c5c5be3c0b1320fff21de1b` has run [#1341](https://github.com/appunni-m/software-stories/actions/runs/40847457421) in progress. Checkout, package-input detection, and Node/Rust setup passed; Rust cache restore was running at 09:10 UTC. This documentation-only follow-up does not alter the package inputs. There are still no remote tags or published GitHub releases; first-release signing, notarization, and clean-account/product acceptance remain open.
+
+## Current CI and first-release status — 2026-10-29 11:28 UTC
+
+Package run [#1351](https://github.com/appunni-m/software-stories/actions/runs/40864420437)
+for source commit `25dbbf2` is **in progress** at the unsigned macOS bundle
+build step. The previous run [#1350](https://github.com/appunni-m/software-stories/actions/runs/40862945907)
+completed successfully for `d99e357`. Current `main` is docs-only commit
+`b4c56c5`; `.github/workflows/macos-package-verification.yml` ignores
+`docs/**`, so it does not start another package run.
+
+At this checkpoint, the GitHub releases endpoint returns no releases and the
+tags endpoint returns no tags. The first release is not published; the active
+CI lane only creates unsigned verification bundles. Signing/notarization,
+clean-account installation, and remaining product/accessibility acceptance
+are still required. Do not treat #1351 as passed until GitHub reports its final
+conclusion.
