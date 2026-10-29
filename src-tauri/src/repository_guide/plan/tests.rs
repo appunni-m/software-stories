@@ -241,7 +241,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
     assert!(instructions.contains("cited research outline only"));
-    assert!(instructions.contains("Return an opening-range lead followed"));
+    assert!(instructions.contains("Return the app-authored opening-range lead followed"));
     assert!(instructions.contains("The app authors this opening as a separate slide"));
     assert!(instructions.contains("do not call `propose_answer_section`"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
@@ -284,7 +284,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
         "Record every additional route that needs its own explanation as a concise, explicit pending omission"
     ));
     assert!(instructions.contains("the highest-value path through the requested scope"));
-    assert!(instructions.contains("Return an opening-range lead followed"));
+    assert!(instructions.contains("Return the app-authored opening-range lead followed"));
     assert!(instructions.contains("key `opening`"));
     assert!(instructions.contains("internal helper that receives an already constructed object"));
     assert!(instructions.contains("unique lowercase key using only letters, digits, and hyphens"));
@@ -297,7 +297,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
         "do a bounded route inventory from implementation, checked-in examples and build manifests"
     ));
     assert!(instructions.contains(
-        "Do not count a language as covered because another language's example reaches the same engine"
+        "do not count a language as covered because another language's example reaches the same engine"
     ));
     assert!(instructions.contains(
         "Give each materially different surface its own question or pending topic"
@@ -364,7 +364,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
         )
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-        "Follow nextOffset while another relevant caller or implementation path may change coverage"
+        "Follow nextOffset only while another page could close a concrete route or caller gap"
     ));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS

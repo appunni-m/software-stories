@@ -375,6 +375,8 @@ The progressive-generation tests still named an earlier visual policy phrase
 and tested guide record schema 8 as unsupported after schema 8 became current.
 Updated the assertions to follow the current prompt wording and reject prior
 and future schema versions instead. The focused progressive prompt and guide
-store regressions both pass; no Guide was generated and no provider request was
-made. Packaged latency, multi-slide playback, recovery, accessibility and
-content-quality acceptance remain open.
+store regressions both pass. The route-planner test also now checks the current
+app-authored opening-range wording, exact discovery guidance and `nextOffset`
+gap rule; `plan_instructions_keep_the_full_requested_scope` passes. No Guide
+was generated and no provider request was made. Packaged latency, multi-slide
+playback, recovery, accessibility and content-quality acceptance remain open.
