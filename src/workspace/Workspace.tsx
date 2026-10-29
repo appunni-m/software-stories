@@ -1219,7 +1219,11 @@ function AnswerStorage(){
 function ExplorationBranchLinks({branches,onGo}:{branches:Exploration[];onGo:(id:string)=>void}){
   const recent=branches.slice(-5).reverse();
   const earlier=branches.slice(0,-5).reverse();
-  const renderLink=(exploration:Exploration)=><AppButton intent="custom" className="dw-branch-link" key={exploration.id} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={exploration.title}/></span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></AppButton>;
+  const renderLink=(exploration:Exploration)=>{
+    const title=questionSummaryText(exploration.title);
+    const count=`${exploration.turns.length} question${exploration.turns.length===1?'':'s'}`;
+    return <AppButton intent="custom" className="dw-branch-link" key={exploration.id} title={`${plainInlineCodeText(title)} · ${count}`} aria-label={`${plainInlineCodeText(title)}, ${count}`} onClick={()=>onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span><InlineCodeText text={title}/></span><small>{count}</small><ChevronRight size={13}/></AppButton>;
+  };
   return <>{recent.map(renderLink)}{earlier.length>0&&<details className="dw-branch-archive"><summary>Show {earlier.length} earlier explorations</summary><div>{earlier.map(renderLink)}</div></details>}</>;
 }
 function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){

@@ -9,6 +9,7 @@ const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSecti
 export function questionSummaryText(question: string, maxCodePoints = 64): string {
   let text = question.replace(/\s+/g, ' ').trim();
   let generatedRequest = false;
+  let preserveVisualSubject = false;
   if (/^Explore these topics this walkthrough could not cover:/i.test(text)) {
     text = 'Explore remaining topics';
   }
@@ -16,6 +17,12 @@ export function questionSummaryText(question: string, maxCodePoints = 64): strin
   if (selectedSnapshotSubject) {
     text = selectedSnapshotSubject[1];
     generatedRequest = true;
+  }
+  const visualRefreshSubject = text.match(/^Create a fresh visual explanation for\s+["“](.+?)["”]\s+from the captured source\./i);
+  if (visualRefreshSubject) {
+    text = visualRefreshSubject[1];
+    generatedRequest = true;
+    preserveVisualSubject = true;
   }
   const generatedRequestPrefixes = [
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section (?:for|from) .+?\s+about\s+/i,
@@ -35,7 +42,7 @@ export function questionSummaryText(question: string, maxCodePoints = 64): strin
   if (generatedRequest) text = text.replace(/^(?:Explain (?:only )?|only (?:the )?|the )/i, '');
   // Generation prompts often continue with production constraints after the
   // topic. Keep the heading to its first sentence; exact wording stays below.
-  text = text.split(/(?<=[.!?])\s+|:\s+/u, 1)[0] ?? text;
+  if (!preserveVisualSubject) text = text.split(/(?<=[.!?])\s+|:\s+/u, 1)[0] ?? text;
   const characters = Array.from(text);
   const limit = Math.max(1, Math.floor(maxCodePoints));
   return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;
