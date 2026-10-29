@@ -270,3 +270,28 @@ license-tool install and `npm ci` succeeded. Keep this run open until GitHub
 reports its final result. Run #1351 passed but produced no downloadable
 artifact; signing, notarization and clean-account/product acceptance remain
 open.
+
+### Run #1352 final result — 2026-10-29 13:35 UTC
+
+Run [#1352](https://github.com/appunni-m/software-stories/actions/runs/40868247946)
+completed successfully for `488155e`, including unsigned bundle build and
+inspection. This resolves the earlier in-progress observation; no release
+artifact was uploaded.
+
+## CI clarification — 2026-10-29 13:34 UTC
+
+The latest 100 `macOS package verification` runs contain 81 successes, 18
+cancellations and no failed conclusions. Run
+[#1353](https://github.com/appunni-m/software-stories/actions/runs/40878422668)
+passed for `40468fe`. Run
+[#1354](https://github.com/appunni-m/software-stories/actions/runs/40881834792)
+for `0fbbaec` is still building its unsigned bundles; do not call it complete
+until GitHub records the final result. An inspected cancelled run had no jobs,
+which is consistent with the workflow replacing an older pending run in its
+single macOS concurrency lane, not a build failure. The earlier actual failures
+remain the distinct TypeScript and action-setup incidents recorded above; this
+recent-run sample does not erase them.
+
+There is still no published GitHub release or release tag. Package verification
+is unsigned and does not produce an installable artifact, so the first signed
+release remains pending signing/notarization credentials and product acceptance.
