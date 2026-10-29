@@ -2837,8 +2837,8 @@ fn search_ranked(
             .then_with(|| be.cmp(ae))
             .then_with(|| bsw.total_cmp(asw))
             .then_with(|| bsc.cmp(asc))
-            .then_with(|| bw.total_cmp(aw))
             .then_with(|| bc.cmp(ac))
+            .then_with(|| bw.total_cmp(aw))
             .then_with(|| bscore.total_cmp(ascore))
             .then_with(|| {
                 prepared.metadata.ranges[*a]

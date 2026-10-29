@@ -346,3 +346,23 @@ focused `broad_question_coverage_ignores_prompt_scaffolding` native regression
 passes (1 passed; 846 filtered out). This narrows broad-query noise; it does
 not change or qualify the preserved Fontdone recall measurements. Keep `a699`,
 `0wdn`, and `gk46` open.
+
+## Prefer multi-term evidence in broad range ranking — 29 October 2026
+
+Targeted triage of the existing repository-context suite exposed a real
+inconsistency: file discovery ranks distinct query-term coverage before inverse
+document frequency, but range retrieval did the reverse. A range matching only
+one rare word could therefore outrank a range matching four distinct, common
+terms. Natural-query range ordering now uses distinct body-term coverage
+before its summed IDF score when declaration signals tie. The ranking fixture
+also now supplies the required `end_byte` sort value, so its tie-cap tests
+exercise valid index documents instead of failing on malformed fixtures.
+
+Verification: `cargo test --manifest-path src-tauri/Cargo.toml --lib
+repository_context:: -- --quiet` passes 75 tests, with 3 ignored. This covers
+the targeted range-ranking regression and the surrounding repository-context
+tests; it is not a rerun of the full native suite. The recorded Fontdone
+first-page recall measurements are unchanged and need a fresh local profile to
+show whether this ranking change improves them. Agent selection, packaged
+search, and explanation quality remain unqualified. Keep `a699`, `0wdn`, and
+`gk46` open.

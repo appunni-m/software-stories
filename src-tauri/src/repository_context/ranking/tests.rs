@@ -7,6 +7,7 @@ fn tied_index(same_path: bool, count: usize) -> (Index, Vec<String>) {
     let key = schema.get_field("range_key").unwrap();
     let path = schema.get_field("source_path").unwrap();
     let start = schema.get_field("start_byte").unwrap();
+    let end = schema.get_field("end_byte").unwrap();
     let body = schema.get_field("body").unwrap();
     let exact = schema.get_field("exact").unwrap();
     let declaration = schema.get_field("declaration").unwrap();
@@ -27,6 +28,7 @@ fn tied_index(same_path: bool, count: usize) -> (Index, Vec<String>) {
         doc.add_text(key, identity);
         doc.add_text(path, file);
         doc.add_u64(start, offset);
+        doc.add_u64(end, offset + 1);
         doc.add_text(body, "render glyph bitmap");
         doc.add_text(exact, "renderglyphbitmap");
         doc.add_text(declaration, "renderglyphbitmap");
@@ -107,6 +109,7 @@ fn a_higher_score_beats_earlier_paths_and_missing_order_fields_fail() {
     doc.add_text(field(&index, "range_key").unwrap(), "winner");
     doc.add_text(field(&index, "source_path").unwrap(), "z/winner.rs");
     doc.add_u64(field(&index, "start_byte").unwrap(), 0);
+    doc.add_u64(field(&index, "end_byte").unwrap(), 1);
     doc.add_text(field(&index, "body").unwrap(), "render winner");
     writer.add_document(doc).unwrap();
     writer.commit().unwrap();
