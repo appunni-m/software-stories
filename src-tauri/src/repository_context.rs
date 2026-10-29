@@ -2515,13 +2515,14 @@ fn search_ranked(
     let identifier_key = identifier_query_key(query);
     // Only multiword natural-language searches need this second relevance
     // signal. Keep paths and identifier lookups on their established ranking,
-    // and cap query terms so coverage work stays bounded.
+    // and cap the content terms (after prompt scaffolding is removed) so
+    // coverage work stays bounded for long questions too.
     let coverage_words = coverage_terms(query, path, &words);
     let natural_query_coverage = identifier_key.is_none()
         && !query.contains('/')
         && !query.contains('\\')
         && query.split_whitespace().count() > 1
-        && (3..=12).contains(&words.len())
+        && (3..=12).contains(&coverage_words.len())
         && !coverage_words.is_empty();
     let include_path_terms = query.split_whitespace().count() <= 2
         || query.contains('/')

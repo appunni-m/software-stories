@@ -334,6 +334,43 @@ fn broad_range_search_reports_content_terms_not_question_scaffolding() {
 }
 
 #[test]
+fn broad_range_search_keeps_content_coverage_for_long_questions() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/render.rs",
+        "fn render_font_bytes_to_bitmap() { rasterize(); }\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "Could you please explain how the renderer handles the font bytes and returns bitmap pixels?",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    let hit = result
+        .matches
+        .iter()
+        .find(|hit| hit.range.path == "src/render.rs")
+        .expect("the implementation should match content terms in the full question");
+    let coverage = hit
+        .query_coverage
+        .as_ref()
+        .expect("filtered content-term coverage should remain enabled");
+    assert!(coverage.total_terms <= 12);
+    assert!(coverage.total_terms >= 3);
+    assert!(coverage.matched_terms.contains(&"font".to_owned()));
+    assert!(coverage.matched_terms.contains(&"bytes".to_owned()));
+    assert!(coverage.matched_terms.contains(&"bitmap".to_owned()));
+}
+
+#[test]
 fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     let mut fixture = Fixture::new();
     add_source(

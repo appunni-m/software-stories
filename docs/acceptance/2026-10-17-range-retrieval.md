@@ -428,3 +428,26 @@ single broad lexical range query is not a dependable repository explanation
 plan; the agent must use file discovery and then investigate concrete code
 operations. These are one-run local service measurements, not an agent or
 answer-quality pass. Keep `a699`, `gk46`, and guide-quality tasks open.
+
+## Keep content coverage for long natural-language questions — 30 October 2026
+
+Static review found the natural-language range-coverage gate counted every
+query token before removing prompt scaffolding. A long question could therefore
+disable coverage ranking even when it contained only a small, bounded set of
+content terms. The gate now applies its existing 3–12-term bound after
+`coverage_terms` filters scaffolding. Identifier and path searches retain their
+existing ranking path; the number of ranked terms remains capped at twelve.
+
+The focused regression uses a question longer than twelve unique terms and
+asserts that the returned source range reports the matched `font`, `bytes`, and
+`bitmap` content terms:
+
+```text
+RUSTC_WRAPPER= cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context::tests::broad_range_search_keeps_content_coverage_for_long_questions -- --exact
+1 passed; 0 failed; 0 ignored; 849 filtered out
+```
+
+This proves the filtered-term coverage path stays enabled for that fixture. It
+does not measure Fontdone recall or change the recorded 5/12 broad first-page
+results, and it does not qualify agent tool choice, packaged search, or answer
+quality. Keep `a699`, `0wdn`, and `gk46` open.
