@@ -1215,3 +1215,22 @@ source links were not followed, its explanation/audio were not reviewed, and
 no inference request or content edit occurred. It does not qualify visual
 source-grounding, comprehension, scene navigation, responsive layout, offline
 export or audio-to-visual synchronization; keep `j53m` open.
+
+## Packaged branch visual and source walkthrough — 30 October 2026
+
+In the running Code Atlas 0.1.0 app (executable SHA-256
+`07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`), Fontdone
+`main@5249b72371`, I inspected the saved `Outline::is_empty` scene. It renders
+as a source-backed decision composition: one `points`-empty OR zero-contours
+condition, followed by distinct true and false outcomes. Selecting the
+condition opens its code detail; its `src/outline.rs:49–51` citation opens that
+exact range, including `self.points.is_empty() || self.n_contours == 0`. The
+visible decision and both outcomes match the cited predicate. No request,
+answer edit, source transmission or narration playback occurred.
+
+This establishes one working, non-graph visual and citation path in a real
+saved chapter. The screenshot was reviewed live but not retained. It is not a
+human comprehension study or a quality pass across other code patterns. Voice
+quality, 200% zoom/reflow, keyboard and VoiceOver operation, offline export,
+selective visual invalidation, and varied real-generated chapters remain open;
+keep `j53m` open.
