@@ -3,8 +3,10 @@
 .story-toolbar { box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";grid-template-rows:auto auto;align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
 .story-scene-title { grid-area:title;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
 .story-scene-progress { grid-area:progress;justify-self:stretch;display:flex;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:min(100%,604px);width:100%;margin-inline:auto; }
+.story-scene-progress.has-multiple-scenes { display:grid; grid-template-columns:28px minmax(0,1fr) 28px; justify-content:stretch; }
 .story-scene-count { flex: 0 0 auto; color: var(--muted); font-size: 12px; white-space:nowrap; }
 .story-scene-position { display: flex; flex:0 1 auto; justify-content: center; align-items: center; gap: 8px; min-width: 0; max-width:100%; }
+.story-scene-progress.has-multiple-scenes > .story-scene-position { width:100%; max-width:100%; }
 .story-scene-arrow { display: grid; flex:0 0 28px; place-items: center; width: 28px; min-width: 0; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
 .story-scene-dots { display: flex; flex: 0 1 auto; flex-wrap: nowrap; justify-content: center; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }

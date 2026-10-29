@@ -393,7 +393,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     <div className="story-sticky-controls">
       <div className="story-toolbar">
         <span className="story-scene-title" title={plainInlineCodeText(scene.title)}><InlineCodeText text={scene.title}/></span>
-        <div className="story-scene-progress">
+        <div className={`story-scene-progress${scenes.length > 1 ? ' has-multiple-scenes' : ''}`}>
           {scenes.length > 1 && <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></IconButton>}
           <div className="story-scene-position">
             <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>

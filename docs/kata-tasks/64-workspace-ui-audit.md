@@ -35,6 +35,20 @@ When a file is open, its path stays selected in the new snapshot so the updated 
 
 Packaged acceptance must verify committed and uncommitted edits appear in the new snapshot; the currently open file stays selected and shows the new bytes; prior source, answers and citations remain available from the earlier snapshot; partial captures show skipped paths; failure/cancellation keeps the prior selection; changing repositories during capture never redirects the open workspace; and the header control remains usable with keyboard, VoiceOver and narrow/high-zoom layouts.
 
+## Header and scene navigation overflow — source correction, 29 October 2026
+
+The desktop header now moves connection, appearance, notification and help
+controls onto a second normal-flow row below 1560 CSS pixels. Narrower windows
+still switch to the full-width repository row. This avoids relying on the
+single-row intrinsic widths of a long repository, snapshot and action group.
+
+The scene pager now assigns fixed columns to its previous/next controls and a
+shrinkable middle column to the scene count and dots. Long scene sequences can
+scroll inside the dot strip instead of pushing the pager past the Guide pane.
+No test, build, or packaged review ran for this source correction; verify both
+layout breakpoints and a multi-scene answer in the packaged app before closing
+the navigation overflow finding.
+
 ## October 16 migration checkpoint
 The production workspace replaces normal Guide/Files routes and reuses native source, chapters, permission validation and generation. Automatic local indexing is shared between reading and questions so there is no extra Build index step in the normal path. Short natural follow-ups are accepted and retain recent question intent. Shared source controls correctly identify file languages; JavaScript/TSX variants use the existing syntax highlighter and selection shortcuts use inclusive end lines. Captured-source search and real local commit history are implemented. Browser proof images show stacked follow-ups, originating-turn child links and branch counts; they remain labelled sample design evidence. Frontend 127 tests / native 198 tests pass. The Mac was initially locked and has now been unlocked; packaged acceptance is in progress, not considered passed. Root-commit comparison, complete reading-position recovery and durable scheduling remain follow-up work in the workspace task set.
 
