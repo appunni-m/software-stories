@@ -249,3 +249,24 @@ upload an artifact (the run reports zero artifacts), so it is not an
 installable handoff. GitHub still reports zero tags and zero published
 releases. The tagged signed-release workflow, Apple signing/notarization
 secrets, clean-account install and product acceptance remain outstanding.
+
+## Keep reader-documentation pushes out of the package lane — 2026-10-29
+
+The unsigned package job now ignores changes limited to `README.md`,
+`CONTRIBUTING.md`, `SECURITY.md`, `docs/**`, `.gitignore`, or its own workflow
+file. The pull-request diff check uses the same exclusions, while `LICENSE`,
+`THIRD_PARTY_NOTICES.md`, app configuration, and source remain package inputs.
+Manual dispatch still forces verification. This avoids replacing a queued
+macOS package build for text that is not copied into the app. Static review,
+documentation inventory and `git diff --check` passed; no app build or test was
+run for this workflow/documentation change.
+
+## Live package run — 2026-10-29 11:57 UTC
+
+Run [#1352](https://github.com/appunni-m/software-stories/actions/runs/40868247946)
+for `488155e` remains in the unsigned bundle-build step; GitHub has not recorded
+a conclusion. Runner setup, package-input check, Node/Rust setup, cache restore,
+license-tool install and `npm ci` succeeded. Keep this run open until GitHub
+reports its final result. Run #1351 passed but produced no downloadable
+artifact; signing, notarization and clean-account/product acceptance remain
+open.

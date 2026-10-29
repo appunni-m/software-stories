@@ -5,11 +5,15 @@ on:
   push:
     branches:
       - main
-    # Do not let documentation-only pushes occupy the branch's single pending
-    # run and replace a queued package-input verification.
+    # These files are not copied into the app bundle. Do not let user/contributor
+    # docs occupy the branch's single pending package-input verification run.
     paths-ignore:
       - 'docs/**'
       - '.gitignore'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - '.github/workflows/macos-package-verification.yml'
   workflow_dispatch:
 
 permissions:
@@ -66,8 +70,14 @@ jobs:
             exit 0
           fi
 
-          if git diff --quiet "$base" "$head" -- . ':(exclude)docs/**' ':(exclude).gitignore'; then
-            echo "Only documentation or repository ignore rules changed; skipping the native package build."
+          if git diff --quiet "$base" "$head" -- . \
+            ':(exclude)docs/**' \
+            ':(exclude).gitignore' \
+            ':(exclude)README.md' \
+            ':(exclude)CONTRIBUTING.md' \
+            ':(exclude)SECURITY.md' \
+            ':(exclude).github/workflows/macos-package-verification.yml'; then
+            echo "Only reader documentation, repository ignore rules, or package-workflow configuration changed; skipping the native package build."
             echo "verify=false" >> "$GITHUB_OUTPUT"
           else
             echo "Package inputs changed or the diff check failed; package verification is required."
