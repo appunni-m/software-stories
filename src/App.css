@@ -64,7 +64,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar .project-button > span, .topbar .snapshot-button > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .topbar .project-button > svg, .topbar .snapshot-button > svg { flex:0 0 auto; }
 .topbar .snapshot-refresh-button { align-self:center; margin:0!important; }
-.topbar .connection-header { min-width:0; }
+.topbar .connection-header { min-width:0; justify-self:end; width:100%; }
 .topbar .connection-header-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .topbar .topbar-actions { gap:8px; }
 .snapshot-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; width: min(355px, calc(100vw - 24px)); max-height: min(470px, calc(100dvh - 24px)); overflow: auto; padding: 7px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface-raised); box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 60%, transparent); }
@@ -75,7 +75,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-menu-copy strong { color: var(--text); font-size: 12px; font-weight: 600; }
 .snapshot-menu-copy small { overflow: hidden; color: var(--muted); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .snapshot-menu-check { margin-left: auto; color: var(--accent); }
-.topbar-actions { grid-area: actions; display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.topbar-actions { grid-area: actions; display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; align-items: center; justify-content: end; gap: 8px; min-width: 0; max-width: 100%; }
+.topbar-actions > * { min-width: 0; }
 .help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .help-button:hover { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
 .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
@@ -95,12 +96,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   }
   .topbar .brand-lockup {display:none;}
   .topbar .project-controls {flex:1 1 auto;width:100%;}
-  .topbar .topbar-actions {flex:0 1 auto;width:100%;justify-content:flex-start;}
+  .topbar .topbar-actions {width:100%;grid-template-columns:minmax(0,min(42vw,260px)) auto auto auto;justify-content:start;gap:8px;}
   .topbar .project-button {flex:0 1 auto;max-width:min(40vw,360px);}
   .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(35vw,280px);}
   .topbar .snapshot-button {width:100%;max-width:100%;}
-  .topbar .connection-header {flex:0 1 auto;max-width:min(42vw,260px);}
-  .topbar .theme-control {flex:0 1 auto;max-width:160px;}
+  .topbar .connection-header {width:100%;max-width:min(42vw,260px);}
+  .topbar .theme-control {max-width:160px;}
 }
 @media (max-width: 800px) {
   .topbar .brand-name,
@@ -110,10 +111,19 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .project-button {max-width:min(40vw,260px);}
   .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
   .topbar .snapshot-refresh-button > span {display:none;}
-  .topbar .connection-header {max-width:min(42vw,220px);min-width:0;padding-inline:6px;flex:0 1 auto;}
+  .topbar .topbar-actions {grid-template-columns:minmax(0,min(42vw,220px)) auto auto auto;}
+  .topbar .connection-header {width:100%;max-width:min(42vw,220px);min-width:0;padding-inline:6px;}
   .topbar .connection-header svg {flex-shrink:0;}
   .topbar .connection-header-value {flex:1;}
-  .topbar .theme-control {max-width:120px;padding:0;}
+  .topbar .theme-control {max-width:120px;min-width:0;padding:0;}
+  .topbar .theme-control-trigger {min-width:0;max-width:100%;}
+}
+@media (max-width: 600px) {
+  .topbar .topbar-actions {grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:auto auto;grid-template-areas:"connection connection connection" "theme notifications help";justify-content:start;}
+  .topbar .connection-header {grid-area:connection;justify-self:start;width:100%;max-width:min(100%,230px);}
+  .topbar .theme-control {grid-area:theme;}
+  .topbar .notification-trigger {grid-area:notifications;}
+  .topbar .help-button {grid-area:help;}
 }
 html[data-app-zoom-compact="true"] .topbar {
   display:grid;
@@ -126,14 +136,16 @@ html[data-app-zoom-compact="true"] .topbar {
 }
 html[data-app-zoom-compact="true"] .topbar .brand-lockup {display:none;}
 html[data-app-zoom-compact="true"] .topbar .project-controls {flex:1 1 auto;width:100%;max-width:100%;gap:4px;}
-html[data-app-zoom-compact="true"] .topbar .topbar-actions {flex:0 1 auto;width:100%;max-width:100%;justify-content:flex-start;gap:4px;}
+html[data-app-zoom-compact="true"] .topbar .topbar-actions {width:100%;max-width:100%;grid-template-columns:minmax(0,min(42vw,260px)) auto auto auto;justify-content:start;gap:8px;}
 html[data-app-zoom-compact="true"] .topbar .project-button {max-width:min(62vw,520px);}
 html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(38vw,360px);}
 html[data-app-zoom-compact="true"] .topbar .snapshot-button {display:inline-flex;width:100%;max-width:100%;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {display:none;}
-html[data-app-zoom-compact="true"] .topbar .connection-header {max-width:min(42vw,260px);min-width:0;flex:0 1 auto;}
+html[data-app-zoom-compact="true"] .topbar .connection-header {width:100%;max-width:min(42vw,260px);min-width:0;}
 html[data-app-zoom-compact="true"] .topbar .connection-header-value {flex:1;}
+html[data-app-zoom-compact="true"] .topbar .theme-control {min-width:0;max-width:160px;}
+html[data-app-zoom-compact="true"] .topbar .theme-control-trigger {min-width:0;max-width:100%;}
 
 .app-body { flex: 1; min-height: 0; display: flex; }
 .sidebar { display: flex; flex-direction: column; min-height: calc(100vh - 68px); border-right: 1px solid var(--border); background: var(--surface); }

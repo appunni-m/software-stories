@@ -54,7 +54,9 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/\.topbar-actions\s*\{[^}]*grid-area:\s*actions;/);
   matches(shell,/\.project-controls\s*\{[^}]*grid-area:\s*project;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
-  matches(shell,/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/u);
+  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,1fr\) auto auto auto/u);
+  matches(shell,/\.topbar \.topbar-actions\s*\{[^}]*grid-template-columns:minmax\(0,min\(42vw,260px\)\) auto auto auto;[^}]*justify-content:start/u);
+  matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);

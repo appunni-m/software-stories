@@ -388,10 +388,12 @@ describe('visual story scenes', () => {
       'wide Guide panes must not pull scene navigation into the title row');
     assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*gap:8px/u,
+      'scene arrows must stay in fixed tracks around a shrinkable, scrollable scene strip');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
       'many scene controls should scroll within their row instead of expanding beyond the reader');
-    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:0 0 28px;[^}]*width:\s*28px;[^}]*min-width:\s*0/u,
+    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:none;[^}]*width:\s*28px;[^}]*min-width:\s*28px;[^}]*max-width:28px/u,
       'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);

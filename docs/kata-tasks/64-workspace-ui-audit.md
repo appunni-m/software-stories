@@ -1352,3 +1352,24 @@ separate row below the scene title. This saved visual has one scene, so the
 previous/next controls and multi-scene dot strip could not be checked. Narrow
 window and high-zoom reflow remain open under `13yp`; no source, snapshot,
 answer, receipt, audio, or provider request was changed.
+
+### Header and scene pager overflow — 30 October 2026
+
+The user clarified that both the top menu and Guide scene navigation still
+looked misplaced or overflowed. Native inspection reproduced the header action
+collision at 200% WebView zoom. The header action group now uses bounded grid
+tracks and dedicated compact-width rows; the theme and connection controls can
+shrink without forcing sibling actions past the viewport. The multi-scene
+pager now holds its arrows in fixed 28px tracks around a shrinkable, horizontally
+scrollable middle lane.
+
+`npm run build` and the optimized macOS app bundle succeeded. The rebuilt app
+was installed in place and its executable SHA-256
+(`4cdd5388820b7bf4640338129b3de5cd4cbc601b090deedba16d77ddcefa85c8`) matches
+the bundle. At normal zoom, the Fontdone header fits in one row at the inspected
+window size. At 200% zoom, repository controls and account actions occupy
+separate normal-flow rows without overlap; zoom was restored afterward. The
+selected saved explanation still has one scene, so the multi-scene arrows and
+dot-strip behavior were not visible in the packaged app. No provider request,
+audio generation, snapshot capture, or saved answer changed. Keep `x21h` and
+`13yp` open for populated multi-scene, narrow-window, and accessibility review.
