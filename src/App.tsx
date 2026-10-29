@@ -1929,12 +1929,12 @@ function App() {
           <div className="workspace-toolbar">
             <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' ? 'Explorer' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
             <div className="toolbar-right">
-              <button className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
+              <AppButton intent="icon" size="1" className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />
-              </button>
-              <button className="history-button" disabled={!canNavigateForward(navigation)} onClick={navigationActions.forward} aria-label="Go forward" title="Forward · ⌘]">
+              </AppButton>
+              <AppButton intent="icon" size="1" className="history-button" disabled={!canNavigateForward(navigation)} onClick={navigationActions.forward} aria-label="Go forward" title="Forward · ⌘]">
                 <ArrowRight size={15} />
-              </button>
+              </AppButton>
               <span className="toolbar-separator" />
               <span className="offline-indicator"><span /> Local</span>
             </div>
