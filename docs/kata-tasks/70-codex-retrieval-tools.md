@@ -38,6 +38,18 @@ Depends on [local range retrieval](69-local-range-retrieval.md). Prefer an app-o
 
 Workspace owned-tool retrieval is implemented in source, with deterministic tests, a successful small synthetic investigation, and the separately checked focused Fontdone predicate below. Broad Fontdone generation and packaged parent acceptance remain open. Earlier dated checkpoints describe the preceding fixed-evidence adapter; the current admission contract enables only the five owned tools.
 
+## Current file-discovery page contract — 29 October 2026
+
+The active `search_code` file-discovery page cap is now **32 paths**, matching
+the shared bounded page ceiling. Native search, the owned tool schema, request
+clamping, and prompt substitution all use
+`MAX_FILE_DISCOVERY_PAGE_SIZE = MAX_SEARCH_PAGE_SIZE`. The 27–28 October
+eight-path cap and the decision to limit discovery to eight are historical
+measurements/behavior, not the current contract. Widening the metadata page
+does not widen source reads: implementation text is still delivered only by
+bounded `read_code` calls and cumulative source budgets. Actual Codex context
+use and answer quality at 32 paths remain unqualified.
+
 ## Broad-question discovery instruction — 25 October 2026
 
 The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. File-discovery results now expose the distinct query terms that contributed to each path's rank, so the agent can see the lexical basis instead of inferring it from an opaque score. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
@@ -195,6 +207,9 @@ The new version-2 scene Fontdone run delivers all 61 calls and 80,833 distinct s
 ## Discovery page bound — 27 October 2026
 
 General workspace answers, repository-guide planning, and progressive answers now request `search_code` file-discovery pages of at most eight results and follow `nextOffset` only to close a concrete caller or route gap. The native search owner enforces the eight-result maximum for file discovery; range search and definition pages retain the 32-result cap. This responds to the preserved broad Fontdone run that spent 239,661 of 256,000 metadata bytes while reading only three implementation files. No tests, build, or provider request ran; no reduction in context use is measured. Keep broad Fontdone retrieval and answer-quality acceptance open.
+
+This checkpoint was superseded on 29 October when file discovery was widened to
+32 metadata paths per page, with source retrieval still bounded separately.
 
 ## Final tool-completion ownership — 28 October 2026
 

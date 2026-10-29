@@ -802,8 +802,8 @@ mod tests {
                 query: query.to_owned(),
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
-                // Profile the native search maximum; the Codex tool owner caps
-                // file-discovery responses at eight paths to limit context.
+                // Profile the native page maximum; the owned Codex tool now
+                // uses the same bounded 32-path file-discovery ceiling.
                 limit: 32,
                 offset,
             };
