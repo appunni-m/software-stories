@@ -898,3 +898,27 @@ The available saved visual has one scene, so it verifies the removal of
 redundant controls but does not visually exercise the new multi-scene edge
 placement at other pane widths. Keep broad responsive and multi-scene acceptance
 under `13yp`/`x21h` open.
+
+## Recenter Guide navigation buttons — 29 October 2026
+
+The edge-aligned scene arrows and section pager still separated each action
+from the progress it controls. Both navigation groups are now centered: scene
+Previous / count and dots / Next sit together under the scene title, and the
+section Previous / count / Next sit together after the section content. Narrow
+layouts keep the progress label above a centered pair of section buttons.
+
+`npm run build` passed. `npm run bundle:macos` passed, including notice checks,
+app and DMG bundling, metadata verification, and the DMG checksum. The rebuilt
+app was installed and reopened on the existing Fontdone `main@5249b72371`
+workspace with `src/tt/glyf.rs` and the saved Guide answer restored. The native
+screenshot shows the section controls clustered at the center of the Guide
+pane. Its saved visual has one scene, so multi-scene arrow placement and narrow
+pane reflow still need a populated visual for direct screenshot acceptance.
+No test suite, AI request, narration request, repository capture, or saved
+explanation change occurred. The build reported the existing Vite chunk-size
+warning and 36 Rust warnings.
+
+Installed executable SHA-256:
+`e37fbf64783e1b51dc27559d8849fa4f2f83f7656018b25707577ebabb432c36`.
+DMG SHA-256:
+`5a4f5777434514a05f19c6f01aafb5a07bea7bfa75c3f536e64e31df1e73c157`.
