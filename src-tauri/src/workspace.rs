@@ -181,6 +181,7 @@ pub(crate) struct GitCommit {
     subject: String,
     author: String,
     timestamp: String,
+    is_head: bool,
 }
 
 #[tauri::command(rename_all = "camelCase")]

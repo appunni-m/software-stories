@@ -1,4 +1,4 @@
-export interface GitCommit { oid: string; parents: string[]; subject: string; author: string; timestamp: string }
+export interface GitCommit { oid: string; parents: string[]; subject: string; author: string; timestamp: string; isHead: boolean }
 export interface GitHistoryTransport {
   read: (input: { projectId: string; requestId: string }) => Promise<GitCommit[]>;
   cancel: (requestId: string) => Promise<unknown>;

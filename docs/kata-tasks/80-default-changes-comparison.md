@@ -30,3 +30,17 @@ In the packaged Fontdone workspace, entering Changes showed the 80-commit histor
 
 ## Scope boundary
 This improves Changes entry only. It does not add remote GitHub data, full DAG editing, merge resolution, PR generation, or AI review.
+
+## Source checkpoint — 29 October 2026
+
+The default comparison now waits for a successful, completed history read and
+uses the explicitly identified checked-out `HEAD`, not the first parented row
+from `git log --all` (which can belong to another branch). The read-only
+history command includes detached `HEAD` when it is outside the first 80
+reachable entries, while retaining the all-ref commit rail. The rail marks
+`HEAD`; empty repositories, a missing current commit, and an initial `HEAD`
+receive specific guidance. Explicit comparison refs still bypass the default.
+
+This is source-level evidence only. The native Changes screen has not been
+reopened for this correction; do not close the task until its packaged
+acceptance cases are checked.
