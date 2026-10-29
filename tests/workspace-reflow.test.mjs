@@ -82,3 +82,7 @@ test('source-linked relationship previews wrap labels in wide and narrow Guide p
   matches(css,/@container guide-pane \(max-width: 700px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge \{grid-column:1 \/ -1;grid-row:2;\}/);
   matches(css,/@container guide-pane \(max-width: 420px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge svg \{transform:rotate\(90deg\);\}/);
 });
+
+test('Flow cards stack their title, meaning, and citation in the narrow reader pane',()=>{
+  matches(css,/\.dw-flow-panel \.rt-Button\.dw-linear-flow-step,\.dw-flow-panel \.rt-Button\.dw-unlinked-flow-point\s*\{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;text-align:left;white-space:normal;\}/u);
+});

@@ -291,6 +291,7 @@
 .dw-unlinked-flow-point:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
 .dw-unlinked-flow-point strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
 .dw-unlinked-flow-point small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
+.dw-flow-panel .rt-Button.dw-linear-flow-step,.dw-flow-panel .rt-Button.dw-unlinked-flow-point {display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;text-align:left;white-space:normal;}
 .dw-history-search-sticky {position:sticky;top:0;z-index:4;isolation:isolate;padding-bottom:var(--space-3);background:var(--canvas);}
 .developer-workspace .dw-history-search {width:100%;background:var(--canvas);background-clip:border-box;}
 .dw-history-match-count {margin:0 0 var(--space-3);color:var(--muted);font-size:12px;line-height:1.5;}
