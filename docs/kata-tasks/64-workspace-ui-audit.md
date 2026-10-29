@@ -982,3 +982,18 @@ Source-only update in `src/visual-story.css`, `src/workspace/workspace.css`, and
 `src/App.css`. No build, test, screenshot, or packaged runtime check ran. Verify
 the top header and a populated multi-scene Guide at the affected native window
 widths before claiming acceptance; `x21h` and `13yp` remain open.
+
+## Replacement build observation — 29 October 2026
+
+`npm run bundle:macos` completed for `6fe1350` with the existing license
+inventory and bundle metadata checks. The unsigned app and DMG were built and
+the DMG checksum/metadata verified. The app was replaced in place and reopened
+on the existing Fontdone snapshot. The top bar reflowed into two normal-flow
+rows with the repository and connection controls visible within the window;
+the prior top-level saved-chapter schema error no longer appeared, and an
+existing answer with its visual was available. Other saved answer parts still
+report unavailable. The saved reader state did not show the scene pager, so
+populated multi-scene placement and narrow-window acceptance remain open. No
+tests, provider request, narration request or repository-content change ran.
+The installed executable matches the built bundle:
+`346265301244249c77fde19f9fde2f4e1b46d8b1c9a13d82cfaa0bfacd62dfe6`.
