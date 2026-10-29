@@ -627,3 +627,20 @@ because it exposes account details. The verified executable SHA-256 is
 `1328dc1fd4dba061fa3ff185ba671a58219b31af7b0d100c582c9a05b2649a44`. No test
 suite was run; the broader `x21h`/`13yp` screen and accessibility acceptance
 remains open.
+
+## Changes comparison action placement — 29 October 2026
+
+The comparison form placed both version fields, the swap control, and the
+Compare/Stop action on a single row. The action consumed width that should be
+available to the version fields and became stretched across its row at narrower
+pane widths. The form now keeps the two version fields and swap control on one
+row and places the action beneath them, aligned to the right. At the narrowest
+layout, the ending field remains on its own row and the action stays right
+aligned. The rebuilt app was installed and inspected at 2880×1688 on the
+existing `pillow-rs` workspace: both long commit IDs remain readable in the
+wider fields, **Compare versions** sits on its own right-aligned row, and the
+partial comparison result remains below the form. I returned the app to
+Explorer/Guide afterward. No repository files, saved explanations, connection
+settings, or narration changed; no AI request was sent. Executable SHA-256:
+`3705ee558d7d9101a7efd1e3128e055b6aeb96e8336d999e865bb73360df51ab`. No test
+suite was run; `git diff --check` and the production app build completed.
