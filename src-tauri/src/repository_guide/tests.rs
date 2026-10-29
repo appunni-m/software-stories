@@ -720,6 +720,10 @@ fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_questio
         assert_eq!(value["unitCount"], 3);
         let question = continuation(&f.storage, &record, index).unwrap();
         assert!(question.starts_with(&record.plan.as_ref().unwrap().units[index].question));
+        assert!(question.contains(&format!(
+            "This is unit {} of a repository guide.",
+            index + 2
+        )));
     }
     assert!(unit_intent(&record, 2).is_err());
     record.plan = None;

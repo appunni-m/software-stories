@@ -902,7 +902,8 @@ fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String,
     let mut question = format!(
         "{}\nThis is unit {} of a repository guide. Investigate this unit's behavior only. The most recent preceding learning questions are context, not evidence: {}.",
         unit.question,
-        index + 1,
+        // The opening is section one; planned topics continue its numbering.
+        index + 2,
         previous_questions
     );
     question.push('\n');
