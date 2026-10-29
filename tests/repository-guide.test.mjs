@@ -149,7 +149,7 @@ test('a completed partial guide extends its saved outline in place',async()=>{
   assert.match(source,/guideSlideItemIndex===lastAvailableItemIndex/);
   assert.match(source,/branchLabel=\{canExtendOmissions\?'Explore uncovered topics'/);
   assert.match(source,/coverageSummary=\{guideCoverageSummary\?\?undefined\}/);
-  assert.match(source,/className="dw-guide-coverage" role="status"><strong>Partial guide<\/strong><span>Still uncovered:/);
+  assert.match(source,/details className="dw-guide-coverage" aria-label="Uncovered guide topics"><summary><strong>Partial guide<\/strong><span>See what remains<\/span><\/summary><p>Still uncovered:/);
   assert.match(source,/repositoryGuideCoverageLabel\(turn\.guide\)/);
   assert.match(source,/className="dw-guide-status" role="status">\{guideCoverageLabel\}/);
   assert.match(source,/dw-guide-outline-count/);

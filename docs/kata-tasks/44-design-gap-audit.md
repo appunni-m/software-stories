@@ -427,3 +427,12 @@ the rest. This gives the reader a shorter starting path while preserving access
 to every indexed relationship. Source review only; no tests or build were run,
 and packaged narrow/wide behavior remains unqualified. Keep `x21h` and `13yp`
 open.
+
+### Collapse incomplete Guide detail by default — source change, 29 October 2026
+
+The Guide now keeps the concise **Partial guide** status visible and puts the
+long uncovered-topic list inside a closed disclosure. This leaves the current
+visual and section controls in the reading focus while preserving the details
+on demand. The existing source-contract assertion was updated; no tests or
+build were run, and native narrow/wide behavior remains unqualified. Keep
+`x21h` and `13yp` open.
