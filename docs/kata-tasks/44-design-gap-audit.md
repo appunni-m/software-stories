@@ -44,10 +44,25 @@ A newcomer can open Code Atlas and find the intended starting point, inspect wha
 ## Relationship to existing work
 This is a separate, evidence-first design audit. It records exactly where the current app diverges from the approved screens and what those differences cost the user. Issue `13yp` owns implementation and packaged-app parity; this task does not replace or close it.
 
-## Design authority
-Use `docs/design/proposed-00-first-run.svg` through `proposed-04-changes.svg` and `docs/design/PROPOSED_SIMPLIFICATION.md`. The old Atlas / Code Lens / Walkthrough PNG concepts are historical. The primary labels Guide, Files, and Changes in `src/lib/shell.ts` already match the approved direction; do not treat relabeling as a design fix.
+## Historical design references — superseded 2026-10-16
 
-## Static source gap baseline — 2026-10-15
+The five SVG references and `PROPOSED_SIMPLIFICATION.md` below describe the
+15 October Guide / Files / Changes navigation proposal. On 16 October, the
+user approved the persistent VS Code-style workspace described in
+[`WORKSPACE_EXPLORATION.md`](../design/WORKSPACE_EXPLORATION.md), with Explorer,
+Search, Changes and Explorations on the activity bar; a pinned composer; and
+Guide, Flow and Chat history inside each exploration. The old SVGs may retain
+useful component-level ideas, but their navigation hierarchy and acceptance
+criteria are historical. Do not use them to direct current implementation.
+
+Current screen/state requirements and acceptance evidence live in the
+[workspace UI audit](64-workspace-ui-audit.md) and the live Kata issue `x21h`.
+Issue `13yp` owns implementation and packaged parity. Keep the source-only
+observations below as dated history; they do not establish current packaged
+behavior.
+
+## Historical static source gap baseline — 2026-10-15
+
 This baseline comes from reading the current checkout only. The app was not built, launched, or screenshot-reviewed for this task. Packaged-app behavior and build identity are therefore unverified. Treat the entries below as source-confirmed layout or flow differences, then verify what reaches the user in the packaged build.
 
 | Reference | Current source behavior | Concrete gap and user impact | Source evidence / status |
@@ -58,7 +73,13 @@ This baseline comes from reading the current checkout only. The app was not buil
 | Walkthrough (`proposed-03`) | `WalkthroughScreen` has a chapter/section rail, a long center column containing prose, evidence cards, file links, optional visual, narration, and transcript citations, plus a right rail with generic progress/help cards. Previous and Continue are rendered after all section content. | The design keeps a behavior diagram and source excerpt central, gives the right panel a section-specific key idea and term definitions, and keeps Previous/Continue visible at the bottom. Current controls can fall below long evidence/narration content; the right rail does not explain the selected section’s key idea or vocabulary. This undermines deliberate stop, inspect, and continue pacing. | `src/Walkthrough.tsx` (`WalkthroughScreen`, `EvidencePanel`, `VisualPanel`); `src/App.css` (`.walkthrough-section-actions`, `.walkthrough-side-notes`). Source-confirmed; common-window behavior unknown. |
 | Changes (`proposed-04`) | `GitChangesScreen` stacks a full-width base/head form above `ComparisonResults`. Results stack the changed-file disclosures and `PrGuideStudio`; plain-language generation is a separate provider-backed workflow. | The design keeps changed files, focused before/after code, a behavior explanation, and evidence links visible together. Current source does not provide that persistent comparison layout or an always-visible explanation of the selected change; the reader must work through stacked disclosures and the separate PR Guide path. | `src/GitChanges.tsx` (`GitChangesScreen`, `ComparisonResults`); `src/PrGuideStudio.tsx`; `src/App.css` (`.git-changes-workflow`). Source-confirmed; native presentation unknown. |
 
-## Required work
+## Historical required work — 2026-10-15
+
+The checklist in this section applied to the five-reference proposal and was
+superseded when the workspace direction changed on 16 October. It is preserved
+as historical context only; follow the current requirements in
+[`64-workspace-ui-audit.md`](64-workspace-ui-audit.md) and Kata `x21h`.
+
 1. Open the packaged Mac app and record its app version/build identity and window size. Capture the real first-run, Guide home, selected-file Files view, one Walkthrough section, and populated Changes comparison. Use the same viewport for the SVG reference and app capture.
 2. For each of the five references, classify the shipped screen as match, partial, deviation, or not inspectable. Attach the screenshot evidence and note the repository/snapshot/state used; never substitute the web preview or source labels for native evidence.
 3. Review and correct the source baseline table above. Record the exact screen element that differs, the user consequence, the responsible component/route, severity, and the smallest specific fix. Mark unknowns instead of guessing.
@@ -69,7 +90,12 @@ This baseline comes from reading the current checkout only. The app was not buil
 
 After this point-in-time baseline was recorded, the Guide no-overview source state changed: it now offers an optional repository-tour creation action through the existing exact-context review flow, keeps a per-file explanation action beside it, surfaces a saved current-snapshot draft for review, and offers an older accepted guide as an explicitly historical route. See the source implementation follow-up in `43-design-implementation-parity.md`. This updates source evidence only; it does not change the baseline's date or establish packaged-app parity. The five native screenshots and build/window metadata are still missing.
 
-## Acceptance criteria
+## Historical acceptance criteria — 2026-10-15
+
+These criteria applied to the earlier SVG navigation proposal. They are not
+the current UI acceptance gate; the current screen-by-screen matrix is in
+[`64-workspace-ui-audit.md`](64-workspace-ui-audit.md) and live Kata `x21h`.
+
 - One screen-by-screen gap ledger covers all five approved SVG references and includes the app build identity, viewport, evidence screenshot, source component, observed deviation, impact, priority, and proposed fix for each non-matching screen.
 - The ledger confirms both what already matches and what does not. It explicitly records that the Guide / Files / Changes labels and the selected-file tree/source/explanation composition exist in source, while distinguishing that from verified packaged-app parity.
 - The first-run state, no-overview Guide state, Files explanation hierarchy, Walkthrough controls/context panel, and Changes result layout are each directly compared against their specified design content and action hierarchy.
@@ -79,7 +105,7 @@ After this point-in-time baseline was recorded, the Guide no-overview source sta
 ## Exclusions
 Do not implement UI changes in this audit task, regenerate the design images, add product features, or treat source inspection as a native-app review. Do not close `13yp`.
 
-## Done evidence
+## Historical done evidence — 2026-10-15
 A dated gap ledger with five packaged-app screenshots, build/window metadata, corrections to the source baseline, prioritized specific fixes, and links from each fix to its implementation issue.
 
 ## Historical contract gap ledger — 16 October
