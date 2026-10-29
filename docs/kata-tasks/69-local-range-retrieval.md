@@ -335,3 +335,14 @@ than the 1/12 observation in the 25 October run, but still leaves seven spans
 unretrieved. The run is one local observation without a variance estimate and
 does not qualify Codex's tool choices or answer quality. Exact metrics and
 limits: [profile artifact](../acceptance/artifacts/2026-10-29-fontdone-incremental-profile.json).
+
+## Ignore one- and two-character tokens in broad-query coverage — 29 October 2026
+
+Natural-language query coverage now excludes tokens shorter than three bytes,
+matching the existing file-discovery candidate filter. This keeps common
+single-letter words from consuming a coverage bit or affecting relevance
+weights. Code-like and scoped searches still retain their exact terms. The
+focused `broad_question_coverage_ignores_prompt_scaffolding` native regression
+passes (1 passed; 846 filtered out). This narrows broad-query noise; it does
+not change or qualify the preserved Fontdone recall measurements. Keep `a699`,
+`0wdn`, and `gk46` open.

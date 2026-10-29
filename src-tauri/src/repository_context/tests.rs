@@ -286,7 +286,7 @@ fn natural_range_search_exposes_verified_query_coverage() {
 
 #[test]
 fn broad_question_coverage_ignores_prompt_scaffolding() {
-    let query = "How does the font get from bytes into bitmap";
+    let query = "How does a font get from bytes into bitmap";
     let words = terms(query);
     assert_eq!(
         coverage_terms(query, None, &words),

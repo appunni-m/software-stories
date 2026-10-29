@@ -545,7 +545,8 @@ fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<Str
     words
         .iter()
         .filter(|word| {
-            !crate::source_discovery::QUERY_STOPWORDS
+            word.len() > 2
+                && !crate::source_discovery::QUERY_STOPWORDS
                 .iter()
                 .any(|stopword| word.eq_ignore_ascii_case(stopword))
         })
