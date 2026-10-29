@@ -238,3 +238,14 @@ CI lane only creates unsigned verification bundles. Signing/notarization,
 clean-account installation, and remaining product/accessibility acceptance
 are still required. Do not treat #1351 as passed until GitHub reports its final
 conclusion.
+
+## Package verification result — 2026-10-29 11:43 UTC
+
+Run [#1351](https://github.com/appunni-m/software-stories/actions/runs/40864420437)
+completed successfully for `25dbbf2`; its single job completed unsigned macOS
+bundle build and inspection. This resolves the pending CI result for the
+header/scene-navigation source change. The verification workflow does not
+upload an artifact (the run reports zero artifacts), so it is not an
+installable handoff. GitHub still reports zero tags and zero published
+releases. The tagged signed-release workflow, Apple signing/notarization
+secrets, clean-account install and product acceptance remain outstanding.

@@ -57,8 +57,9 @@ Fontdone `main@5249b72371` shows the repository controls and account actions
 in two rows with no visible header overflow. This binary has not been matched
 to source commit `25dbbf2`. The open answer has one scene (`1 of 1`), so this
 inspection does not exercise the multi-scene pager. Package verification
-run #1351 for `25dbbf2` is still in progress; keep the audit open until the
-multi-scene control and build identity are verified.
+run #1351 for `25dbbf2` completed successfully, but this workflow uploads no
+bundle and the installed binary is not matched to the source commit. Keep the
+audit open until the multi-scene control and build identity are verified.
 
 ## October 16 migration checkpoint
 The production workspace replaces normal Guide/Files routes and reuses native source, chapters, permission validation and generation. Automatic local indexing is shared between reading and questions so there is no extra Build index step in the normal path. Short natural follow-ups are accepted and retain recent question intent. Shared source controls correctly identify file languages; JavaScript/TSX variants use the existing syntax highlighter and selection shortcuts use inclusive end lines. Captured-source search and real local commit history are implemented. Browser proof images show stacked follow-ups, originating-turn child links and branch counts; they remain labelled sample design evidence. Frontend 127 tests / native 198 tests pass. The Mac was initially locked and has now been unlocked; packaged acceptance is in progress, not considered passed. Root-commit comparison, complete reading-position recovery and durable scheduling remain follow-up work in the workspace task set.
