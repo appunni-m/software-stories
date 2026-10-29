@@ -2,9 +2,9 @@
 .story-sticky-controls { position: static; z-index: auto; background: var(--surface); }
 .story-toolbar { box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;gap:4px 10px;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
 .story-scene-title { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.story-scene-progress { grid-column: 1 / -1; grid-row: 2; display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; width: 100%; }
+.story-scene-progress { grid-column: 1 / -1; grid-row: 2; display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; max-width: 100%; width: 100%; }
 .story-scene-count { color: var(--muted); font-size: 12px; }
-.story-scene-position { display: grid; grid-template-columns: max-content minmax(0,1fr); flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.story-scene-position { display: grid; grid-template-columns: max-content minmax(0,1fr); flex: 0 1 540px; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .story-scene-arrow { display: grid; place-items: center; flex: 0 0 28px; width: 28px; min-width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
 .story-scene-dots { display: flex; flex-wrap: nowrap; justify-content: flex-start; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }

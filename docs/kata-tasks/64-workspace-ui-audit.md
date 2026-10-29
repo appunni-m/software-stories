@@ -997,3 +997,21 @@ populated multi-scene placement and narrow-window acceptance remain open. No
 tests, provider request, narration request or repository-content change ran.
 The installed executable matches the built bundle:
 `346265301244249c77fde19f9fde2f4e1b46d8b1c9a13d82cfaa0bfacd62dfe6`.
+
+## Follow-up: keep header labels and scene navigation within their tracks — 29 October 2026
+
+The user still reports that the scene navigation and top header overflow.
+Source review found remaining intrinsic-sizing paths: the section pager's
+center grid track used `max-content`; long repository/snapshot labels and
+exploration links could retain their flex min-content width. The pager now gives
+all three controls bounded tracks; scene arrows and dots stay in a centered,
+capped strip; header labels may shrink and ellipsize; long exploration titles
+wrap inside their card. `npm run tauri -- build --no-sign --bundles app`
+completed. The app was replaced in place, reopened on Fontdone
+`main@5249b72371`, and its installed executable SHA-256 matches the built one:
+`585471e4919cccc7d51bb990f727b07f80716e80536fb43affa1bf4f7084f957`. The
+current screenshot shows the top header within the window and a long nested
+exploration title wrapping within its card. Keep narrow-window and populated
+multi-scene acceptance open: the selected saved answer has only one scene and
+the active app window remained full-width during this review. No test suite or
+provider request ran; existing saved content was not changed.
