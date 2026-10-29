@@ -283,3 +283,18 @@ snapshot and incomplete search label were retained; this is not exhaustive
 repository coverage or evidence for broad-query recall, cancellation, index
 corruption, parserless fixtures, or answer quality. Keep `a699`, `0wdn`, and
 `gk46` open.
+
+## Align owned-agent file discovery with the measured native page — 29 October 2026
+
+The owned Codex `search_code` tool now permits up to 32 file-hint results per
+page, matching the local search service. Previously the wrapper returned at
+most eight paths even though the isolated Fontdone service profile showed all
+seven reviewed expected paths on the first 32-path page. File hints contain no
+source code; the existing source and wire budgets are unchanged. A focused MCP
+catalog regression passed after the cap change (1 passed; 843 filtered out).
+
+This removes the wrapper's artificial eight-path truncation. It does not prove
+Codex will use every hint, read all required ranges, or produce an accurate
+repository explanation. The corresponding Fontdone agent run and remaining
+large-file, cancellation, corruption, offline, and packaging gates remain
+open under `a699` and `gk46`.

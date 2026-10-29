@@ -34,7 +34,10 @@ pub(crate) const MAX_INPUT: usize = 8192;
 pub(crate) const PROPOSAL_TOOL: &str = "propose_answer_section";
 pub(crate) const MAX_PROPOSAL_INPUT: usize = 34_000;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
-pub(crate) const MAX_FILE_DISCOVERY_PAGE_SIZE: usize = 8;
+// File discovery returns only bounded path/range metadata, not source. Keep it
+// at the shared search-page ceiling so broad questions can find their relevant
+// files without paging through the candidate window one small batch at a time.
+pub(crate) const MAX_FILE_DISCOVERY_PAGE_SIZE: usize = MAX_SEARCH_PAGE_SIZE;
 pub(crate) fn tool_names() -> Vec<&'static str> {
     TOOL_NAMES.to_vec()
 }

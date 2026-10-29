@@ -371,3 +371,22 @@ coverage. This verifies one packaged named-definition lookup and source read;
 it does not qualify broad query recall, offline/disconnected operation,
 cancellation, corruption, disk pressure, parserless fallback behavior, or
 answer quality. Keep the wider retrieval and agent qualification open.
+
+## Expose the measured file-discovery page to the owned agent — 29 October 2026
+
+The native file-discovery service already supports pages of up to 32 paths,
+but the owned Codex tool capped file hints at eight. The owner now advertises
+and enforces the same 32-result ceiling as other search pages. These results
+contain path, range, and relevance metadata; source is still delivered only by
+bounded `read_code` calls. The 250,000-byte source budget and 128 KiB MCP reply
+bound are unchanged.
+
+The existing 28 October Fontdone service profile found all seven independently
+reviewed expected paths on its first 32-path page, then recovered all 12/12
+expected ranges with scoped searches. The focused MCP catalog regression passed
+after this change (1 passed; 843 filtered out) and confirms the advertised
+limit follows the owner cap. No agent or model request was run, so actual
+Codex use of the larger hint page, source-read quality, and broad explanation
+quality remain unqualified. The direct-service profile is evidence for the
+search ranking only; it is not a packaged-agent pass. Keep `a699` and `gk46`
+open.
