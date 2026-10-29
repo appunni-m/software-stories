@@ -1,8 +1,8 @@
 .visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .story-sticky-controls { position: static; inset: auto; z-index: auto; width: 100%; max-width: 100%; background: var(--surface); }
-.story-toolbar { box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";grid-template-rows:auto auto;align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
+.story-toolbar { position:static;inset:auto;box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";grid-template-rows:auto auto;align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
 .story-scene-title { grid-area:title;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
-.story-scene-progress { grid-area:progress;justify-self:stretch;display:flex;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:min(100%,604px);width:100%;margin-inline:auto; }
+.story-scene-progress { position:static;inset:auto;grid-area:progress;justify-self:stretch;display:flex;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:min(100%,604px);width:100%;margin-inline:auto; }
 .story-scene-progress.has-multiple-scenes { display:grid; grid-template-columns:28px minmax(0,1fr) 28px; justify-content:center; justify-self:stretch; align-items:center; gap:8px; }
 .story-scene-count { flex: 0 0 auto; color: var(--muted); font-size: 12px; white-space:nowrap; }
 .story-scene-position { display: flex; flex:0 1 auto; justify-content: center; align-items: center; gap: 8px; min-width: 0; max-width:100%; }
