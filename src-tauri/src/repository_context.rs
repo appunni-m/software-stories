@@ -974,7 +974,7 @@ fn prepare_cached(
                 s.files
                     .iter()
                     .find(|f| f.path == file.path && f.source_sha256 == file.sha256)
-            });
+        });
         coverage.parser = indexed_file.and_then(|file| file.parser.clone());
         coverage.status = indexed_file.map(|file| file.status.clone());
         let key = digest(&json(&(
@@ -2651,7 +2651,9 @@ fn search_ranked(
             .or_insert((exact, declaration, score));
     }
     let mut term_coverage = HashMap::<usize, u32>::new();
+    let mut symbol_term_coverage = HashMap::<usize, u32>::new();
     let mut coverage_term_weights = vec![0.0f32; coverage_words.len()];
+    let mut symbol_term_weights = vec![0.0f32; coverage_words.len()];
     let mut coverage_limited = false;
     if natural_query_coverage {
         let in_scope = |candidate: &str| {
@@ -2674,6 +2676,28 @@ fn search_ranked(
         let symbol_field = field(&prepared.index, "symbol")?;
         for (term_index, word) in coverage_words.iter().enumerate() {
             budget.check()?;
+            let mut symbol_terms = english_stems(&prepared.index, word)?;
+            symbol_terms.insert(word.clone());
+            let symbol_query = scoped(
+                Box::new(BooleanQuery::union(
+                    symbol_terms
+                        .iter()
+                        .map(|term| term_query(symbol_field, term))
+                        .collect(),
+                )),
+                &prepared.index,
+                path,
+            )?;
+            let (symbol_matches, symbol_count) =
+                ranking::candidates_with_limit(&searcher, &symbol_query, MAX_CHUNKS).map_err(
+                    |_| "Code search failed. Try rebuilding its local index.".to_owned(),
+                )?;
+            coverage_limited |= symbol_count > MAX_CHUNKS;
+            let symbol_document_frequency = (symbol_count as f32).min(coverage_range_count);
+            symbol_term_weights[term_index] = ((coverage_range_count + 1.0)
+                / (symbol_document_frequency + 1.0))
+                .ln()
+                .max(0.0);
             let mut clauses = vec![
                 (Occur::Should, term_query(body_field, word)),
                 (
@@ -2738,6 +2762,36 @@ fn search_ranked(
                     term_bit,
                 );
             }
+            for (index, (score, address)) in symbol_matches.into_iter().enumerate() {
+                if index % 128 == 0 {
+                    budget.check()?;
+                }
+                let range_id = if let Some(range_id) = candidate_address_ids.get(&address) {
+                    *range_id
+                } else {
+                    let doc = searcher
+                        .doc::<TantivyDocument>(address)
+                        .map_err(|_| "A code search result is unavailable.".to_owned())?;
+                    let id = doc
+                        .get_first(range_key)
+                        .and_then(|value| value.as_str())
+                        .and_then(|key| prepared.ranges_by_key.get(key).copied())
+                        .ok_or("The code search index is invalid.")?;
+                    if id >= prepared.metadata.ranges.len() {
+                        return Err("The code search index is invalid.".to_owned());
+                    }
+                    candidate_address_ids.insert(address, id);
+                    id
+                };
+                *symbol_term_coverage.entry(range_id).or_default() |= term_bit;
+                merge_query_term_candidate(
+                    &mut candidates,
+                    &mut term_coverage,
+                    range_id,
+                    score,
+                    term_bit,
+                );
+            }
         }
         coverage_limited |= candidates.len() > MAX_CANDIDATES;
     }
@@ -2753,12 +2807,35 @@ fn search_ranked(
                     (coverage_mask & (1u32 << term_index) != 0).then_some(*weight)
                 })
                 .sum::<f32>();
-            (id, (exact, declaration, weighted_coverage, coverage, score))
+            let symbol_mask = symbol_term_coverage.get(&id).copied().unwrap_or_default();
+            let symbol_coverage = symbol_mask.count_ones() as usize;
+            let weighted_symbol_coverage = symbol_term_weights
+                .iter()
+                .enumerate()
+                .filter_map(|(term_index, weight)| {
+                    (symbol_mask & (1u32 << term_index) != 0).then_some(*weight)
+                })
+                .sum::<f32>();
+            (
+                id,
+                (
+                    exact,
+                    declaration,
+                    weighted_symbol_coverage,
+                    symbol_coverage,
+                    weighted_coverage,
+                    coverage,
+                    score,
+                ),
+            )
         })
         .collect::<Vec<_>>();
-    ranked.sort_by(|(a, (ae, ad, aw, ac, ascore)), (b, (be, bd, bw, bc, bscore))| {
+    ranked.sort_by(
+        |(a, (ae, ad, asw, asc, aw, ac, ascore)), (b, (be, bd, bsw, bsc, bw, bc, bscore))| {
         bd.cmp(ad)
             .then_with(|| be.cmp(ae))
+            .then_with(|| bsw.total_cmp(asw))
+            .then_with(|| bsc.cmp(asc))
             .then_with(|| bw.total_cmp(aw))
             .then_with(|| bc.cmp(ac))
             .then_with(|| bscore.total_cmp(ascore))
@@ -2773,7 +2850,8 @@ fn search_ranked(
                     .cmp(&prepared.metadata.ranges[*b].start_byte)
             })
             .then_with(|| a.cmp(b))
-    });
+        },
+    );
     if path.is_none() {
         let mut leading_paths = BTreeSet::new();
         for (id, _) in ranked.iter().take(MAX_CANDIDATES) {
@@ -2791,10 +2869,10 @@ fn search_ranked(
         };
         let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
             .into_iter()
-            .partition(|(_, (_, declaration, _, _, _))| *declaration);
+            .partition(|(_, (_, declaration, _, _, _, _, _))| *declaration);
         let (exact, other): (Vec<_>, Vec<_>) = remaining
             .into_iter()
-            .partition(|(_, (exact, _, _, _, _))| *exact);
+            .partition(|(_, (exact, _, _, _, _, _, _))| *exact);
         let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
         ranked = diversify_by_path_limited(declarations, &path_for, path_limit)
             .into_iter()
@@ -2837,7 +2915,7 @@ fn search_ranked(
         let starts = line_starts(&captured.contents);
         for position in positions {
             budget.check()?;
-            let (id, (exact_identifier, declaration_match, _, _, score)) = selected[position];
+            let (id, (exact_identifier, declaration_match, _, _, _, _, score)) = selected[position];
             let range = &prepared.metadata.ranges[id];
             if range.path != path {
                 return Err("The code search index is invalid.".to_owned());

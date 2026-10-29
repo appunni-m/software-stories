@@ -244,3 +244,24 @@ searches. The owned Codex wrapper still caps file-discovery replies at eight
 paths; this service-level measurement does not improve broad range first-page
 recall (still 1/12) or prove automatic agent behavior. It remains an
 un-packaged local-service measurement.
+
+## Symbol-aware ranking checkpoint — 29 October 2026
+
+Broad local range search now gives separate weight to terms found in indexed
+declaration names and terms found only in source bodies. In a focused regression,
+a declaration matching the requested behavior outranks an unrelated body that
+contains every query term. The focused test passed (1 passed; 843 filtered
+out), and the ignored Fontdone service profile passed against an isolated copy
+of `main@5249b72371` with its V6 syntax index.
+
+First-page broad-query recall improved from 1/12 to 5/12 for each of the two
+queries. Recall across the bounded 256-result window improved from 6/12 to
+10/12 for the first query and 7/12 for the second. Named identifier lookup
+remains 12/12, and discovery followed by file-scoped search still recovers
+12/12. The ranking does not yet make a broad first page complete. It also does
+not show that Codex automatically performs discovery and scoped retrieval or
+that explanations are accurate. See the dated measurement and exact command in
+the [acceptance record](../acceptance/2026-10-17-range-retrieval.md#symbol-aware-range-ranking-on-fontdone--29-october-2026).
+
+Keep `a699`, `0wdn`, and `gk46` open; the remaining source, packaging, bounds,
+cancellation, parserless-file and agent-quality acceptance has not passed.

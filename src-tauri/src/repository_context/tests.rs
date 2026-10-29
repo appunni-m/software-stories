@@ -514,6 +514,48 @@ fn broad_range_search_prefers_distinct_query_coverage_over_one_rare_term() {
     );
 }
 
+#[test]
+fn broad_range_search_prefers_query_terms_in_indexed_declarations_over_body_noise() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/00-unrelated.rs",
+        "fn unrelated() { let note = \"font bytes rendered glyph bitmap entry parsing outline hinting rasterization\"; }\n",
+    );
+    add_source(
+        &mut fixture,
+        "src/99-rendered-glyph.rs",
+        "fn render_loaded_glyph() { parse_outline(); }\n",
+    );
+
+    let syntax = index::build_snapshot_index(
+        &fixture.storage,
+        &fixture.manifest,
+        "broad-declaration-ranking",
+        &AtomicBool::new(false),
+        |_| {},
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, Some(&syntax), &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
+        None,
+        1,
+        &budget,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    assert_eq!(
+        result.matches[0].range.path, "src/99-rendered-glyph.rs",
+        "a declaration name that matches the requested behavior should outrank an unrelated code body containing all query words"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn file_discovery_observes_cancellation_after_verifying_a_captured_blob() {

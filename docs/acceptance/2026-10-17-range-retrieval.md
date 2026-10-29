@@ -299,3 +299,47 @@ or that broad range ranking is sufficient: the broad range first page still
 finds 1/12 expected ranges and the 256-result range window finds 6/12 for each
 query. Agent answer quality and packaged acceptance remain open. This is a
 single local-service profile with no variance estimate.
+
+## Symbol-aware range ranking on Fontdone — 29 October 2026
+
+The local ranker now searches indexed declaration names separately from source
+body text and orders broad-query results by exact/declaration matches, weighted
+symbol coverage, then body-term coverage and the existing BM25 score. A focused
+synthetic regression places all query words in an unrelated body but only the
+behavioral declaration name in the relevant function; the relevant declaration
+must rank first. Search budgets, page bounds, stored ranges and result schema
+are unchanged.
+
+The focused regression passed:
+
+```text
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context::tests::broad_range_search_prefers_query_terms_in_indexed_declarations_over_body_noise -- --exact
+1 passed; 0 failed; 843 filtered out
+```
+
+The ignored Fontdone local-service profile also passed against a disposable
+copy of Fontdone `main@5249b72371` and its syntax index, stored at
+`/private/tmp/code-atlas-a699-current-20261029`. No live app data, model,
+Codex, TTS, or Fontdone code was used.
+
+| Measurement | Before ranking change | After ranking change |
+| --- | ---: | ---: |
+| Broad range first-page recall, query 1 | 1/12 | 5/12 |
+| Broad range first-page recall, query 2 | 1/12 | 5/12 |
+| Broad range recall in the 256-result window, query 1 | 6/12 | 10/12 |
+| Broad range recall in the 256-result window, query 2 | 6/12 | 7/12 |
+| Expected files discovered on first page | 4/7 with eight-path pages; 7/7 with a direct 32-path service page | 7/7 with a direct 32-path service page |
+| File discovery followed by scoped range search | 12/12 expected ranges | 12/12 expected ranges |
+| Paged broad range search time, query 1 / query 2 | 9,820 / 9,492 ms | 9,094 / 10,434 ms |
+
+The post-change profile preserves 1,621 indexed files, 19,296,074 source bytes,
+3,462 ranges, 153 syntax files and 1,468 text-fallback files; named identifier
+recall remains 12/12. The complete profile log is
+`/private/tmp/code-atlas-a699-symbol-ranking-20261029.log`.
+
+Symbol-aware ranking improves broad global retrieval, but still puts only 5/12
+reviewed ranges from each broad query on the first page; the 256-result window
+misses two and five ranges respectively. The measured file-first plus scoped
+retrieval path recovers 12/12 locally, but automatic agent use of that path and
+explanation quality are not qualified. These are single-run debug measurements,
+not latency guarantees. Keep `a699`, `gk46` and guide-quality acceptance open.

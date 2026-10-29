@@ -875,6 +875,46 @@ mod tests {
                 .filter(|expected| found(&first_page, expected))
                 .map(|expected| expected.id.as_str())
                 .collect::<Vec<_>>();
+            let mut expected_rankings =
+                std::collections::BTreeMap::<String, serde_json::Value>::new();
+            let record_expected_rankings = |page: &context::SearchResult,
+                                            page_number: usize,
+                                            page_offset: usize,
+                                            rankings: &mut std::collections::BTreeMap<
+                String,
+                serde_json::Value,
+            >| {
+                for (position, hit) in page.matches.iter().enumerate() {
+                    for expected in &corpus.expected {
+                        if hit.range.path == expected.path
+                            && hit.range.source_sha256 == expected.source_sha256
+                            && hit.range.start_byte <= expected.start_byte
+                            && hit.range.end_byte >= expected.end_byte
+                        {
+                            rankings.entry(expected.id.clone()).or_insert_with(|| {
+                                serde_json::json!({
+                                    "id": expected.id,
+                                    "page": page_number,
+                                    "rank": page_offset + position + 1,
+                                    "path": hit.range.path,
+                                    "line": hit.line,
+                                    "rangeStartLine": hit.range.start_line,
+                                    "rangeEndLine": hit.range.end_line,
+                                    "enclosing": hit.range.enclosing.as_ref().map(|symbol| &symbol.qualified_name),
+                                    "parent": hit.range.parent.as_ref().map(|symbol| &symbol.qualified_name),
+                                    "parser": hit.range.parser.as_ref().map(|parser| &parser.grammar),
+                                    "score": hit.score,
+                                    "queryCoverage": hit.query_coverage.as_ref().map(|coverage| serde_json::json!({
+                                        "matchedTerms": &coverage.matched_terms,
+                                        "totalTerms": coverage.total_terms
+                                    }))
+                                })
+                            });
+                        }
+                    }
+                }
+            };
+            record_expected_rankings(&first_page, 1, 0, &mut expected_rankings);
             let directory_scoped = ["src", "fontdone-c-abi/src"]
                 .into_iter()
                 .map(|scope| {
@@ -916,6 +956,7 @@ mod tests {
                         recovered.push(expected.id.as_str());
                     }
                 }
+                record_expected_rankings(&page, pages, offset, &mut expected_rankings);
                 next_offset = page.next_offset;
             }
             let scoped_recall = corpus
@@ -972,13 +1013,23 @@ mod tests {
             let first_page_hits = first_page
                 .matches
                 .iter()
+                .take(12)
                 .map(|hit| {
                     serde_json::json!({
                         "path": hit.range.path,
                         "line": hit.line,
+                        "rangeStartLine": hit.range.start_line,
+                        "rangeEndLine": hit.range.end_line,
+                        "enclosing": hit.range.enclosing.as_ref().map(|symbol| &symbol.qualified_name),
+                        "parent": hit.range.parent.as_ref().map(|symbol| &symbol.qualified_name),
+                        "parser": hit.range.parser.as_ref().map(|parser| &parser.grammar),
                         "score": hit.score,
                         "exactIdentifier": hit.exact_identifier,
-                        "declarationMatch": hit.declaration_match
+                        "declarationMatch": hit.declaration_match,
+                        "queryCoverage": hit.query_coverage.as_ref().map(|coverage| serde_json::json!({
+                            "matchedTerms": &coverage.matched_terms,
+                            "totalTerms": coverage.total_terms
+                        }))
                     })
                 })
                 .collect::<Vec<_>>();
@@ -995,7 +1046,8 @@ mod tests {
                     "limited": limited,
                     "expectedCount": corpus.expected.len(),
                     "namedGlobalRecall": format!("{named}/{}", corpus.expected.len()),
-                    "firstPageHits": first_page_hits
+                    "firstPageHits": first_page_hits,
+                    "expectedRankings": expected_rankings.into_values().collect::<Vec<_>>()
                 })
             );
         }
