@@ -368,3 +368,13 @@ final_answer_outcome_maps_to_the_matching_terminal_job_state`, 1/1). This is
 source-level lifecycle evidence only. No provider request or packaged app run
 was made, and the latency, reader/navigation, restart, accessibility, content
 quality and audio acceptance gates remain open. Keep `3bz5` open.
+
+## Refresh stale source-contract assertions — 29 October 2026
+
+The progressive-generation tests still named an earlier visual policy phrase
+and tested guide record schema 8 as unsupported after schema 8 became current.
+Updated the assertions to follow the current prompt wording and reject prior
+and future schema versions instead. The focused progressive prompt and guide
+store regressions both pass; no Guide was generated and no provider request was
+made. Packaged latency, multi-slide playback, recovery, accessibility and
+content-quality acceptance remain open.

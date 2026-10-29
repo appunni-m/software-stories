@@ -1190,3 +1190,12 @@ stored guides are not rewritten. The focused prompt-contract test passes; its
 Rust test target compiles. No packaged app build or provider request ran. This
 does not close `j53m`'s real-source visual, accessibility, export or
 comprehension gates.
+
+## Align prompt metadata assertion with current shared policy — 29 October 2026
+
+The Chapter Studio metadata regression still expected teaching policy v30
+while the shared generator has advanced to v31. Updated the source-contract
+assertion; `metadata_uses_actual_shared_prompts_and_is_deterministic` passes
+(1 passed). This verifies the actual prompt/version remains bound in metadata;
+it does not evaluate generated visuals or human comprehension. Keep `j53m`
+open for the original packaged and content-quality acceptance.

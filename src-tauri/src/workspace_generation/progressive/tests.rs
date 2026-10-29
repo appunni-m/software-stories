@@ -691,7 +691,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v30:"));
+    assert!(instructions.contains("Teaching policy v31:"));
     assert!(instructions.contains(
         "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
     ));
@@ -724,7 +724,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         "Use a graph only when those forms cannot show a genuinely non-linear relationship"
     ));
     assert!(instructions.contains(
-        "Before proposing another section for the same answer, compare its behavior, guard, consequence and visual focus"
+        "Before proposing another section for the same answer, compare its focus with the sections already published in this answer"
     ));
     assert!(
         instructions
@@ -768,7 +768,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     ));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
-    assert!(instructions.contains("Point to a visible cue only as a brief landmark"));
+    assert!(instructions.contains("Point to a visible behavior-specific label"));
     assert!(instructions.contains("State the decision rule before examples"));
     assert!(instructions.contains("explain every outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));

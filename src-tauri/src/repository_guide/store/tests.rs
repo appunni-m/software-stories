@@ -347,7 +347,7 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
     create(&f.storage, &record).unwrap();
     let location = path(&f.storage, &record.id).unwrap();
     let current = serde_json::to_value(&record).unwrap();
-    for version in [0, 1, 2, 3, 4, 5, 6, 8] {
+    for version in [0, 1, 2, 3, 4, 5, 6, 7, 9] {
         let mut unsupported = current.clone();
         unsupported["schemaVersion"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&unsupported).unwrap();
