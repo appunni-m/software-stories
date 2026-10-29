@@ -90,13 +90,13 @@ html, body, #root { height: 100%; }
 .preview-calculation > span, .preview-calculation > svg { color: var(--dim); font-size: 16px; }
 .preview-calculation-result { color: var(--accent); }
 .preview-visual-caption { margin: 0 16px 18px; color: var(--muted); font-size: 12px; line-height: 1.7; }
-.preview-player { display: grid;grid-template-columns:28px max-content minmax(0,1fr) auto;grid-template-areas:"play count steps next";align-items:center;min-width:0;width:100%;gap:8px;border-top:1px solid var(--border);padding:8px 12px;font-size:12px;color:var(--muted); }
-.preview-player > .rt-IconButton { grid-area:play;flex:0 0 28px;width:28px;min-width:28px;height:28px; }
-.preview-player > span { grid-area:count;flex:0 0 auto; }
-.preview-player-dots { grid-area:steps;display: flex; flex: 1 1 64px; justify-content: center; gap: 4px; min-width: 0; max-width: 100%; width:100%;margin: 0; overflow-x: auto; }
-.preview-player-dots button { width: 17px; height: 4px; padding: 0; border: 0; border-radius: 2px; background: var(--border-strong); cursor: pointer; }
+.preview-player { display:flex;flex-flow:row wrap;align-items:center;min-width:0;width:100%;gap:8px;border-top:1px solid var(--border);padding:8px 12px;font-size:12px;color:var(--muted); }
+.preview-player > .rt-IconButton { flex:0 0 28px;width:28px;min-width:28px;height:28px; }
+.preview-player > span { flex:0 0 auto; }
+.preview-player-dots { display: flex; flex: 1 1 64px; justify-content: center; gap: 4px; min-width: 0; max-width: 100%; width:auto;margin: 0; overflow-x: auto; }
+.preview-player-dots button { flex:0 0 17px;width: 17px; height: 4px; padding: 0; border: 0; border-radius: 2px; background: var(--border-strong); cursor: pointer; }
 .preview-player-dots button[aria-current] { background: var(--accent); }
-.preview-player .rt-Button { grid-area:next;flex:0 0 auto;min-width:0;margin:0;justify-self:end;font-size:12px;white-space:nowrap; }
+.preview-player .rt-Button { flex:0 0 auto;min-width:0;margin:0 0 0 auto;font-size:12px;white-space:nowrap; }
 .preview-answer-card h3 { font-size: 12px; margin: 21px 0 4px; font-weight: 600; }
 .preview-card-footer { border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 15px; margin-top: 18px; }
 .preview-card-footer button { background: none; border: 0; padding: 0; font-size: 12px; color: var(--accent); display: flex; gap: 6px; align-items: center; text-align: left; cursor: pointer; }
@@ -128,7 +128,7 @@ html, body, #root { height: 100%; }
 @media (max-width: 1050px) { .preview-titlebar {gap:8px;padding-inline:12px;} .preview-title-project {display:none;} .preview-answer-scroll { padding: 20px 16px 40px; } .preview-answer-card { padding: 16px; } .preview-calculation { padding-left: 10px; padding-right: 10px; } }
 @media (max-width: 800px) { .preview-titlebar {gap:8px;padding-inline:10px;} .preview-connected { display: none; } .preview-quick-open {max-width:360px;margin:0;} .preview-title-actions {gap:6px;} .preview-statusbar > span:nth-child(3) { display: none; } .preview-composer { padding-left: 12px; padding-right: 12px; } }
 @media (max-width: 520px) { .preview-titlebar {row-gap:6px;gap:6px;padding-inline:8px;} .preview-brand {order:0;} .preview-title-actions {order:1;gap:4px;} .preview-quick-open {order:2;flex-basis:100%;max-width:none;padding-inline:7px;} .preview-quick-open kbd { display: none; } .preview-player { gap: 6px; padding-inline: 8px; } }
-@container preview-scene (max-width: 360px) { .preview-player {grid-template-columns:28px max-content minmax(0,1fr);grid-template-areas:"play count steps" "next next next";gap:6px;padding-inline:8px;} .preview-player .rt-Button {justify-self:end;} }
+@container preview-scene (max-width: 360px) { .preview-player {gap:6px;padding-inline:8px;} .preview-player-dots {min-width:0;} }
 @media (max-width: 380px) { .preview-quick-open-label { display: none; } }
 @media (prefers-reduced-motion: reduce) { .workspace-preview *, .workspace-preview *::before, .workspace-preview *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 

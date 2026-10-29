@@ -1200,7 +1200,9 @@ width at common desktop sizes; its compact breakpoint did not begin until
 1180px. Keep the repository identity and controls on the first row, then place
 account actions on a second normal-flow row through 1560px. The narrow layout
 continues to use full-width repository and action rows. The design preview's
-fixed grid header now wraps its controls by available width as well.
+fixed grid header now wraps its controls by available width as well. Its visual
+step player also uses wrapping flow controls, with a bounded, horizontally
+scrollable dot strip and the Next action wrapping when space runs out.
 
 The scene pager now uses a bounded flex row: previous and next controls keep
 their 28px slots, the scene count stays readable, and the dot strip takes the
