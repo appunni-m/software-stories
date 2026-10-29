@@ -444,3 +444,14 @@ production build after the File Flow and Guide disclosure refinements. Vite
 reported the existing 500 kB chunk-size warning. No tests ran; this did not
 rebuild or install the Mac package, and the visual/responsive acceptance remains
 open.
+
+### Unsigned Mac package after UI refinements — 29 October 2026
+
+`npm run bundle:macos` completed at repository HEAD `e7d83a7`, including the
+license inventory, TypeScript/Vite build, optimized Rust release build, app and
+DMG packaging, metadata verification, and DMG checksum. Rust emitted 37
+existing warnings; no tests ran. The app executable SHA-256 is
+`93bf52eb22e5e0e87e1979cc92f43c030e805243d98438da9f7114020efa0cf5`; the DMG
+SHA-256 is `72567f0d1e2bdb473ec46b32b9e038a8e3b421b8e2973790f4683ecce28a610a`.
+This package was not installed or opened, so the new visuals and responsive
+behavior have no native acceptance yet. Keep `x21h` and `13yp` open.
