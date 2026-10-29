@@ -54,24 +54,24 @@ use and answer quality at 32 paths remain unqualified.
 
 The general progressive-answer prompt now tells the agent to use one focused `resultKind:files` search for a broad question without a supplied file/symbol, then scope `resultKind:ranges` searches to the returned paths and batch only the needed reads. Narrow questions and supplied ranges start directly at their source. The prompt explicitly says not to page the repository before reading implementation; file discovery remains a lead, not claim evidence. File-discovery results now expose the distinct query terms that contributed to each path's rank, so the agent can see the lexical basis instead of inferring it from an opaque score. The focused contract regression passes. No new provider request was made. This source instruction does not yet prove that a real broad Fontdone run follows the sequence or produces a complete answer; keep the task open.
 
-## Broad file-page sizing — 28 October 2026
+## Broad file-page sizing — 28 October 2026 (historical; superseded 29 October)
 
-The native search service can return up to 32 local results, while the owned
-Codex tool wrapper deliberately caps file-discovery responses at eight paths.
-This keeps the model's discovery context bounded after a preserved broad
-Fontdone run spent 239,661 of 256,000 metadata bytes while reading only three
-implementation files. The Codex tool schema and all system prompts must state
-the eight-path cap consistently; the schema maximum of 32 is shared with range
-and structural tools and does not override the native file-discovery bound.
+At this checkpoint, the native search service could return up to 32 local
+results while the owned Codex tool wrapper capped file-discovery responses at
+eight paths. That cap was introduced after a preserved broad Fontdone run spent
+239,661 of 256,000 metadata bytes while reading only three implementation
+files. At the time, the schema and prompts were required to state the eight-path
+cap consistently.
 
 A separate ignored local-service Fontdone profile used 32 paths directly and
 found all seven independently expected paths on its first page; the eight-path
-service profile found 4/7 on its first page. This is a local retrieval
-comparison, not Codex agent behavior, and does not justify widening the model
-response without measuring delivered metadata and answer quality. Broad range
-first-page recall remains 1/12. Keep the task open for an authorized real
-Codex run, independent content review, budget/recovery matrices, and packaged
-acceptance.
+service profile found 4/7 on its first page. This remains a local retrieval
+comparison, not Codex agent behavior. On 29 October the owned tool cap was
+raised to 32 to match the shared bounded page ceiling; see the current contract
+above. The old experiment does not establish delivered metadata size or answer
+quality at that cap. Broad range first-page recall remains 1/12. Keep the task
+open for an authorized real Codex run, independent content review,
+budget/recovery matrices, and packaged acceptance.
 
 ## Retrieval foundation checkpoint — 17 October
 
