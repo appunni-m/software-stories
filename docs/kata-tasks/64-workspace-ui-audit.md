@@ -1232,3 +1232,26 @@ the packaged multi-scene result. `npm run build` and `git diff --check` pass;
 no test suite or native bundle was run for this correction. Inspect a populated
 multi-scene Guide and the header at the user's actual window size before
 closing this finding.
+
+## Follow-up: keep desktop and scene navigation in their intended tracks — 29 October 2026
+
+The source breakpoint had moved back to 1540px, so a normal 1440px Mac window
+was forced into the compact two-row header. It now stays in the desktop layout
+until 1180px. The Guide's centered scene track now activates at a 560px pane
+width, with the scene dots constrained to a horizontally scrollable track.
+Narrower panes still stack the title, map action, and scene controls in normal
+flow.
+
+`CI=true npm run tauri -- build --no-sign --bundles app` completed once, and
+the rebuilt app was installed and reopened on the existing Fontdone
+`main@5249b72371` workspace. The native screenshot shows the desktop header
+contained on one row, and the selected file and saved Guide history were
+restored. The selected saved visual has one scene, so arrows and dots are not
+rendered; its scene title and count are present in the accessibility tree but
+were not visually legible in the screenshot. Multi-scene placement therefore
+remains unqualified. No test suite, provider request, narration generation,
+repository capture, or saved explanation change occurred. Installed
+executable SHA-256:
+`247424a61b721be7a348cdce132418be86c0da54c4a2fa0e45c985f624d2f91a`.
+Keep this item open under `x21h` and `13yp` pending a populated multi-scene
+review.
