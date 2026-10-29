@@ -97,7 +97,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   }
   .topbar .brand-lockup {display:none;}
   .topbar .project-controls {flex:1 1 auto;width:100%;}
-  .topbar .topbar-actions {display:grid;width:100%;grid-template-columns:auto auto auto auto;justify-content:end;gap:8px;}
+  .topbar .topbar-actions {display:flex;flex-flow:row wrap;width:100%;justify-content:flex-start;gap:8px;}
   .topbar .project-button {flex:0 1 auto;max-width:min(40cqi,360px);}
   .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(35cqi,280px);}
   .topbar .snapshot-button {width:100%;max-width:100%;}
@@ -112,7 +112,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .project-button {max-width:min(40cqi,260px);}
   .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
   .topbar .snapshot-refresh-button > span {display:none;}
-  .topbar .topbar-actions {grid-template-columns:minmax(0,1fr) auto auto auto;}
   .topbar .connection-header {width:100%;max-width:min(42cqi,220px);min-width:0;padding-inline:6px;}
   .topbar .connection-header svg {flex-shrink:0;}
   .topbar .connection-header-value {flex:1;}
@@ -120,24 +119,19 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .theme-control-trigger {min-width:0;max-width:100%;}
 }
 @container app-topbar (max-width: 600px) {
-  .topbar .topbar-actions {grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:auto auto;grid-template-areas:"connection connection connection" "theme notifications help";justify-content:start;}
-  .topbar .connection-header {grid-area:connection;justify-self:start;width:100%;max-width:min(100%,230px);}
-  .topbar .theme-control {grid-area:theme;}
-  .topbar .notification-trigger {grid-area:notifications;}
-  .topbar .help-button {grid-area:help;}
+  .topbar .topbar-actions {justify-content:flex-start;}
+  .topbar .connection-header {flex:1 1 100%;justify-self:auto;width:100%;max-width:min(100%,230px);}
 }
 html[data-app-zoom-compact="true"] .topbar {
-  display:grid;
-  grid-template-columns:minmax(0,1fr);
-  grid-template-areas:"project" "actions";
-  grid-template-rows:auto auto;
-  align-items:start;
+  display:flex;
+  flex-flow:row wrap;
+  align-items:center;
   gap:3px;
   padding:4px 8px;
 }
 html[data-app-zoom-compact="true"] .topbar .brand-lockup {display:none;}
 html[data-app-zoom-compact="true"] .topbar .project-controls {flex:1 1 auto;width:100%;max-width:100%;gap:4px;}
-html[data-app-zoom-compact="true"] .topbar .topbar-actions {display:grid;width:100%;max-width:100%;grid-template-columns:minmax(0,1fr) auto auto auto;justify-content:start;gap:8px;}
+html[data-app-zoom-compact="true"] .topbar .topbar-actions {display:flex;flex-flow:row wrap;width:100%;max-width:100%;justify-content:flex-start;gap:8px;}
 html[data-app-zoom-compact="true"] .topbar .project-button {max-width:min(62cqi,520px);}
 html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(38cqi,360px);}
 html[data-app-zoom-compact="true"] .topbar .snapshot-button {display:inline-flex;width:100%;max-width:100%;}
