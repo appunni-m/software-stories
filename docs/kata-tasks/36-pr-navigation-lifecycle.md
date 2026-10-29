@@ -27,3 +27,25 @@ Background auto-generation, remote PR writes and retrying billable calls without
 
 ## Done evidence
 Documented lifecycle decision, implementation where needed and later native navigation/cancellation evidence; current evidence is static only.
+
+## Preserve submitted PR Guide sends across navigation — 2026-10-30
+
+Lifecycle decision: after the user chooses **Send**, keep the operation owned by
+the native command. Navigation fences all late renderer callbacks, while native
+validation saves a successful result as an unaccepted draft under the reviewed
+comparison identity before returning it. Reopening that same comparison reloads
+its local draft history. This makes a late validated result recoverable without
+allowing it to mutate a different comparison's UI.
+
+Static review found an admission race: component unmount discarded the request
+review even after **Send** had begun, so navigation could delete the review
+before the native command consumed it. Unmount now discards only unsent previews;
+the send path releases its review after the command resolves, including early
+failures where it was never consumed. This is safe after successful consumption
+and does not cancel or retry a provider request.
+
+On the macOS checkout based at `663fd94` with the changes above, the focused PR
+Guide lifecycle and operation-fence suites passed (**10/10**), and
+`npm run build` passed. No provider request or native app run occurred. Delayed
+navigation success/failure, history identity and decisions in the packaged app
+remain unqualified; keep the task open.

@@ -78,3 +78,18 @@ test('an empty PR Guide shows why every changed file was excluded', () => {
   assert.ok(source.includes('open={eligibleChanges.length === 0}>'));
   assert.ok(source.includes('Review the exclusion reasons below, then open Diff to inspect each change.'));
 });
+
+test('leaving during a sent PR request cannot delete its review before native admission', () => {
+  const mountStart = source.indexOf('operationFenceRef.current?.mount(operationScopeRef.current)');
+  const mountEnd = source.indexOf('\n  useEffect(() => {\n    if (comparison.status', mountStart);
+  const mountLifecycle = source.slice(mountStart, mountEnd);
+  assert.ok(mountLifecycle.includes("if (reviewId && !operationFenceRef.current?.isActive('send'))"));
+  assert.ok(mountLifecycle.includes('its validated late result is retained in that comparison\'s history'));
+
+  const sendStart = source.indexOf('async function handleSend()');
+  const sendEnd = source.indexOf('\n  async function handleCancel()', sendStart);
+  const send = source.slice(sendStart, sendEnd);
+  const cleanup = send.indexOf('void discardProviderRequestReview(sendReview.reviewId)');
+  const finallyBlock = send.lastIndexOf('finally {');
+  assert.ok(cleanup > finallyBlock, 'the send operation must release an unconsumed review after completion');
+});

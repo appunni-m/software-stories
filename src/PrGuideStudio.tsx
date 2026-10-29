@@ -232,7 +232,10 @@ export function PrGuideStudio({
       const reviewId = requestReviewRef.current?.reviewId;
       // Unsent previews are disposable. A sent request is already bound to this comparison;
       // its validated late result is retained in that comparison's history by the native store.
-      if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
+      // Do not race native send admission by deleting its review before it consumes it.
+      if (reviewId && !operationFenceRef.current?.isActive('send')) {
+        void discardProviderRequestReview(reviewId).catch(() => {});
+      }
     };
   }, []);
 
@@ -396,6 +399,9 @@ export function PrGuideStudio({
       setConsent(NO_CONSENT);
       setRequestError({ kind: 'networkUnavailable', message: 'The result could not be confirmed. Check this comparison’s PR Guide history before sending a new reviewed request.' });
     } finally {
+      // The native command consumes the review before contacting the provider. This is
+      // idempotent after success, and releases it when send fails before consumption.
+      void discardProviderRequestReview(sendReview.reviewId).catch(() => {});
       if (operationFenceRef.current?.isCurrent(operation)) {
         operationFenceRef.current.finish(operation);
         sendOperationRef.current = null;
