@@ -1015,3 +1015,25 @@ exploration title wrapping within its card. Keep narrow-window and populated
 multi-scene acceptance open: the selected saved answer has only one scene and
 the active app window remained full-width during this review. No test suite or
 provider request ran; existing saved content was not changed.
+
+## Follow-up: explicit header and scene-navigation tracks — 29 October 2026
+
+The user reported that the scene pager and top header still looked misplaced
+and overflowed. The final header layout now uses named grid areas: at ordinary
+wide widths, the repository sits between the brand and account actions; below
+1600 CSS pixels, repository and account actions occupy separate in-flow rows.
+Small-width and native zoom layouts retain the selected snapshot label while
+allowing control labels to shrink. The scene pager now reserves fixed columns
+for the previous/next controls and a capped center column for the count and
+scrollable scene strip. These controls stay in the reader's normal flow.
+
+`npm run build` and `npm run tauri -- build --no-sign --bundles app` passed.
+The new app was copied over the installed bundle after the previous process
+closed cleanly. The built and installed executable SHA-256 is
+`8c16c44b91abd83d8679152f7487662b2decc6ac836213fe5413f12d2a40f28d`; the
+replacement launch was requested. The active desktop remains covered by the
+screen saver, so I could not visually recheck the rendered layout. No tests,
+provider requests, narration requests, or repository-content changes were
+made. Keep narrow-window, populated multi-scene, zoom, and accessibility
+acceptance open under `x21h` and `13yp` until a current packaged screenshot is
+captured.

@@ -1609,3 +1609,95 @@ html[data-app-zoom-compact="true"] .topbar .connection-header-value {flex:1;}
 .chapter-revision-full-text > summary {cursor:pointer;overflow-wrap:anywhere;}
 .chapter-revision-full-text > pre {font-family:inherit;}
 @media(max-width:850px){.chapter-revision-diff-row{grid-template-columns:minmax(0,1fr);}}
+
+/* Keep the application header in the normal layout. A single grid contract
+   places the repository and account controls on rows before they can collide. */
+.app-window > .topbar {
+  box-sizing:border-box;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-areas:"brand project actions";
+  align-content:center;
+  width:100%;
+  height:auto;
+  flex:0 0 auto;
+  min-width:0;
+  min-height:46px;
+  gap:8px;
+}
+.app-window > .topbar > .brand-lockup {grid-area:brand;min-width:0;}
+.app-window > .topbar > .project-controls {
+  grid-area:project;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  width:100%;
+  min-width:0;
+  gap:6px;
+}
+.app-window > .topbar > .topbar-actions {
+  grid-area:actions;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  width:100%;
+  min-width:0;
+  gap:6px;
+  margin-left:0;
+}
+@media(max-width:1600px) {
+  .app-window > .topbar {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"project" "actions";
+    min-height:0;
+    gap:4px 8px;
+    padding:5px 10px;
+  }
+  .app-window > .topbar > .brand-lockup {display:none;}
+  .app-window > .topbar > .project-controls,
+  .app-window > .topbar > .topbar-actions {
+    justify-content:flex-start;
+    width:100%;
+    min-height:34px;
+    gap:4px;
+  }
+  .app-window > .topbar .project-button {max-width:min(40vw,360px);}
+  .app-window > .topbar .snapshot-button {max-width:min(35vw,280px);}
+  .app-window > .topbar .connection-header {max-width:min(42vw,260px);flex:0 1 auto;}
+  .app-window > .topbar .theme-control {max-width:160px;flex:0 1 auto;}
+}
+@media(max-width:800px) {
+  .app-window > .topbar .brand-name,
+  .app-window > .topbar .header-divider {display:none;}
+  .app-window > .topbar .snapshot-button {display:inline-flex;max-width:min(35vw,220px);}
+  .app-window > .topbar .project-button {max-width:min(40vw,260px);}
+  .app-window > .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
+  .app-window > .topbar .snapshot-refresh-button > span {display:none;}
+  .app-window > .topbar .connection-header {max-width:min(42vw,220px);padding-inline:6px;}
+  .app-window > .topbar .theme-control {max-width:120px;padding:0;}
+}
+html[data-app-zoom-compact="true"] .app-window > .topbar {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"project" "actions";
+  grid-template-rows:auto auto;
+  min-height:0;
+  gap:3px 8px;
+  padding:4px 8px;
+}
+html[data-app-zoom-compact="true"] .app-window > .topbar > .brand-lockup {display:none;}
+html[data-app-zoom-compact="true"] .app-window > .topbar > .project-controls,
+html[data-app-zoom-compact="true"] .app-window > .topbar > .topbar-actions {
+  justify-content:flex-start;
+  width:100%;
+  min-height:34px;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-left:0;
+}
+html[data-app-zoom-compact="true"] .app-window > .topbar .project-button {max-width:min(62vw,520px);}
+html[data-app-zoom-compact="true"] .app-window > .topbar .snapshot-button {display:inline-flex;max-width:min(38vw,360px);}
+html[data-app-zoom-compact="true"] .app-window > .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
+html[data-app-zoom-compact="true"] .app-window > .topbar .snapshot-refresh-button > span {display:none;}
