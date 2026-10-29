@@ -1105,3 +1105,25 @@ row at the current full-width window. Its saved Guide has one scene, so there
 are no previous/next buttons or dots to inspect. No test suite, provider call,
 narration request, or repository-content change ran. Keep narrow-window,
 multi-scene, zoom, and accessibility acceptance open under `x21h` and `13yp`.
+
+## Follow-up: explicit header and scene rows — 29 October 2026
+
+The user still reported overflow in the app header and scene navigation. The
+previous wrapping-flex change did not fully resolve their concern. These groups
+now use named CSS Grid regions: at widths up to 1560px, account actions move to
+their own in-flow row beside the project identity; below 1180px the brand folds
+away and project controls and actions occupy separate rows. High zoom uses that
+same compact layout. Scene title and optional map action share a bounded first
+row, with a separately centered, width-limited scene pager below; long dot lists
+scroll within the pager.
+
+Focused source-contract checks for the Guide layout and compact app header pass.
+The macOS app and DMG built successfully and the replacement app was installed
+and reopened on Fontdone. A native screenshot shows the repository controls on
+their own row, connection/theme/notification/help controls on the next row, and
+the scene title and centered `Scene 1 of 1` counter contained in the Guide
+reader. The saved answer has one scene, so previous/next arrows cannot be
+visually exercised. Narrow-window and multi-scene acceptance remains open. The
+broader one-off run of the two surrounding UI test files also reports three
+failures outside these layout rules (Full map visibility, saved-visual state,
+and relationship-preview wrapping); they were not changed by this fix.

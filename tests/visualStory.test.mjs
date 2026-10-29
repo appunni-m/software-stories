@@ -382,11 +382,11 @@ describe('visual story scenes', () => {
     assert.match(answerRule, /box-sizing:\s*border-box/u);
     assert.match(compactRules, /\.story-scene-title\s*\{[^}]*white-space:\s*normal/u);
     assert.match(compactRules, /\.story-toolbar\s*\{[^}]*gap:\s*4px 8px;[^}]*padding:\s*6px 8px/u);
-    assert.match(styles, /\.story-toolbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap/u,
-      'title, map, and scene controls must wrap in normal flow when the Guide pane narrows');
-    assert.match(styles, /\.story-scene-progress\s*\{[^}]*order:3;[^}]*flex:1 1 100%;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
-      'scene navigation must occupy one centered, bounded flex row below the title');
-    assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*order:\s*2;[^}]*margin-inline-start:\s*auto/u);
+    assert.match(styles, /\.story-toolbar\s*\{[^}]*display:grid;[^}]*grid-template-areas:"title map" "progress progress"/u,
+      'title, map, and scene controls must occupy explicit normal-flow rows');
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
+      'scene navigation must occupy one centered, bounded row below the title');
+    assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
       'many scene controls should scroll within their row instead of expanding beyond the reader');
     assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:0 0 28px;[^}]*width:\s*28px;[^}]*min-width:\s*0/u,

@@ -41,14 +41,17 @@ test('connection header shows the selected provider model and reasoning in one c
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(header,/<span className="connection-header-value">\{label\}<\/span>/);
   matches(header,/ready \? `Codex · \$\{codexModel\} · \$\{connection\.selection\.effort\}`/);
-  matches(shell,/@media\s*\(max-width:\s*800px\)\s*\{[^}]*\.topbar \.connection-header \{max-width:min\(42vw,220px\);min-width:0;padding-inline:6px;flex:0 1 auto;\}/);
+  matches(shell,/\.topbar \.connection-header \{max-width:min\(42vw,220px\);min-width:0;padding-inline:6px;flex:0 1 auto;\}/);
   matches(shell,/\.topbar \.connection-header-value \{flex:1;\}/);
 });
 
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
-  matches(shell,/\.app-window > \.topbar\s*\{[^}]*flex:0 0 auto;[^}]*display:flex;[^}]*flex-wrap:wrap;/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls,\s*html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*flex:1 1 100%;[^}]*width:100%;/);
+  matches(shell,/\.topbar\s*\{[^}]*flex:\s*0 0 auto;[^}]*display:\s*grid;[^}]*grid-template-areas:\s*"brand project actions";/);
+  matches(shell,/@media\s*\(max-width:\s*1560px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas: "brand project" "actions actions";/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*grid-template-areas:"project" "actions";[^}]*grid-template-rows:auto auto;/);
+  matches(shell,/\.topbar-actions\s*\{[^}]*grid-area:\s*actions;/);
+  matches(shell,/\.project-controls\s*\{[^}]*grid-area:\s*project;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   matches(shell,/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
