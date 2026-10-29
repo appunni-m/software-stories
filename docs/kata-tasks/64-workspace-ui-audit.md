@@ -1127,3 +1127,21 @@ visually exercised. Narrow-window and multi-scene acceptance remains open. The
 broader one-off run of the two surrounding UI test files also reports three
 failures outside these layout rules (Full map visibility, saved-visual state,
 and relationship-preview wrapping); they were not changed by this fix.
+
+## Follow-up: keep the desktop header on one row — 29 October 2026
+
+The current native window showed repository and snapshot controls on one row,
+with connection, appearance, notifications and help stranded together on a
+second row that left most of that row unused. Source review traced this to a
+`max-width: 1560px` rule that stacked the actions before the desktop header ran
+out of room. The compact two-row header now starts at 1180px; wider windows
+keep the brand, repository controls and account actions in one grid row. High
+zoom and narrower windows keep their compact layout.
+
+The Guide currently open in the native app has one scene, so previous/next
+arrows and scene dots are not rendered and their multi-scene placement cannot
+be visually confirmed. Their stylesheet keeps the title, map action and
+bounded, horizontally scrollable scene pager in normal document flow. This
+change is source-only: no test, build, install, provider request or saved
+content change ran. Keep multi-scene/narrow-window visual acceptance open under
+`x21h` and `13yp` until a populated multi-scene Guide is inspected.

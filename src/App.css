@@ -84,26 +84,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Move account actions to their own row before the repository controls get crowded. */
-@media (max-width: 1560px) {
-  .topbar {
-    grid-template-columns: max-content minmax(0,1fr);
-    grid-template-areas: "brand project" "actions actions";
-    grid-template-rows: auto auto;
-    gap:4px 8px;
-    padding:5px 10px;
-  }
-  .topbar .topbar-actions {
-    justify-content:flex-start;
-    width:100%;
-    min-height:34px;
-    gap:4px;
-  }
-}
+/* Keep the full desktop header on one row until the project controls need the space. */
 @media (max-width: 1180px) {
   .topbar {
     grid-template-columns:minmax(0,1fr);
     grid-template-areas:"project" "actions";
+    grid-template-rows:auto auto;
     gap:4px 8px;
     padding:5px 10px;
   }
