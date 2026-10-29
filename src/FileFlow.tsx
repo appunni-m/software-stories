@@ -8,6 +8,24 @@ import { codeLensRangeFromIndexedAnchor } from './lib/codeLens';
 import { edgesForFileFlowSymbol, focusedFileFlowSymbol } from './workspace/fileFlow';
 import type { Context } from './workspace/model';
 
+const INITIAL_FILE_FLOW_LINKS = 6;
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function relationshipPriority(kind: ProvenGraphEdge['relationship']['kind']): number {
+  return kind === 'calls' ? 0 : kind === 'imports' ? 1 : kind === 'testReference' ? 2 : 3;
+}
+
+function prioritizeFileFlowLinks(edges: readonly ProvenGraphEdge[]): ProvenGraphEdge[] {
+  return [...edges].sort((left, right) =>
+    relationshipPriority(left.relationship.kind) - relationshipPriority(right.relationship.kind)
+      || compareText(left.evidence.path, right.evidence.path)
+      || left.evidence.startLine - right.evidence.startLine
+      || compareText(left.relationship.relationshipId, right.relationship.relationshipId));
+}
+
 /** A focused view of verified static links, never a claimed execution trace. */
 export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showAll:storedShowAll, onShowAllChange }: {
   path: string | null;
@@ -34,11 +52,12 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
   const linked = showingFileWide
     ? fileLinked
     : focusedSymbol ? edgesForFileFlowSymbol(fileLinked, focusedSymbol) : [];
-  const visible = showAll ? linked : linked.slice(0, 12);
+  const prioritized = prioritizeFileFlowLinks(linked);
+  const visible = showAll ? prioritized : prioritized.slice(0, INITIAL_FILE_FLOW_LINKS);
   return <section className="file-flow" aria-label={focusedSymbol && !showingFileWide ? `Code flow for ${focusedSymbol.name}` : 'Code flow for selected file'}>
     <h2>{focusedSymbol && !showingFileWide ? `Follow ${focusedSymbol.name}` : hasSourceSelection && !showingFileWide ? 'Follow selected code' : 'Explore file connections'}</h2>
     <p className="file-flow-note">{showingFileWide
-      ? 'Verified calls, imports, and test references in this file. These static links do not show runtime execution.'
+      ? 'Static links only; they do not show runtime execution. Calls appear first, followed by imports and test references.'
       : focusedSymbol
         ? 'Verified static links that touch this code. Click a node to open its captured source.'
         : 'No indexed symbol matches these selected lines. File-level links are available below.'}</p>
@@ -67,6 +86,6 @@ export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showA
               </AppButton>
             </article>;
           })}</div>}
-    {linked.length > 12 && <AppButton intent="quiet" onClick={() => {if(onShowAllChange)onShowAllChange(!showAll);else setExpanded(!showAll);}}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</AppButton>}
+    {linked.length > INITIAL_FILE_FLOW_LINKS && <AppButton intent="quiet" onClick={() => {if(onShowAllChange)onShowAllChange(!showAll);else setExpanded(!showAll);}}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</AppButton>}
   </section>;
 }
