@@ -457,3 +457,15 @@ existing warnings; no tests ran. The app executable SHA-256 is
 SHA-256 is `72567f0d1e2bdb473ec46b32b9e038a8e3b421b8e2973790f4683ecce28a610a`.
 This package was not installed or opened, so the new visuals and responsive
 behavior have no native acceptance yet. Keep `x21h` and `13yp` open.
+
+### Remove no-op Guide history control — source correction, 29 October 2026
+
+The current native accessibility tree reported “Showing 4 of 4 questions” and
+offered **Show all 4 questions**, even though all four question cards were
+already present. The hidden entries were repeated earlier attempts inside those
+cards. The Guide now keeps a concise count and grouping hint but only renders
+the expand/collapse button when older question cards are hidden or the full
+stack is already expanded. Earlier attempts remain available under their
+existing per-question disclosure. No saved content changed. This source-only
+correction was not tested, built, packaged, or visually reviewed; keep
+`x21h` and `13yp` open.

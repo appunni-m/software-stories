@@ -311,13 +311,16 @@ export function DeveloperWorkspace(props:Props) {
   const allGuideQuestionCount=allGuideAttemptGroups.length;
   const guideQuestionNoun=allGuideQuestionCount===1?'question':'questions';
   const groupedGuideAttemptCount=allGuideAttemptGroups.reduce((count,group)=>count+group.turns.length-1,0);
-  const showGuideStackControl=visibleGuideQuestionCount<allGuideQuestionCount||groupedGuideAttemptCount>0||guideStackExpanded;
+  const guideStackHasHiddenQuestions=visibleGuideQuestionCount<allGuideQuestionCount;
+  const showGuideStackControl=guideStackHasHiddenQuestions||groupedGuideAttemptCount>0||guideStackExpanded;
   const groupedGuideAttemptSummary=groupedGuideAttemptCount>0
-    ?' Repeated questions are grouped under their answers.'
+    ?' Earlier attempts are grouped under each question.'
     :'';
   const guideStackStatus=guideStackExpanded
     ?`Showing all ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
-    :`Showing ${visibleGuideQuestionCount} of ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`;
+    :guideStackHasHiddenQuestions
+      ?`Showing ${visibleGuideQuestionCount} of ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
+      :`${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`;
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
@@ -990,9 +993,9 @@ export function DeveloperWorkspace(props:Props) {
                   <>
                   {showGuideStackControl&&<div className="dw-guide-stack-control" role="group" aria-label="Guide question history">
                     <span role="status" aria-live="polite">{guideStackStatus}</span>
-                    <Button size="1" variant="ghost" onClick={()=>setExpandedGuideStackKey(guideStackExpanded?null:guideStackKey)}>
+                    {(guideStackHasHiddenQuestions||guideStackExpanded)&&<Button size="1" variant="ghost" onClick={()=>setExpandedGuideStackKey(guideStackExpanded?null:guideStackKey)}>
                       {guideStackExpanded?'Show recent questions':`Show all ${allGuideQuestionCount} ${guideQuestionNoun}`}
-                    </Button>
+                    </Button>}
                   </div>}
                   {guideAttemptGroups.map((group)=>{
                     if(group.otherTurns.length===0)return renderAnswer(group.representative);

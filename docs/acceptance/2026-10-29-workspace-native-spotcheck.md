@@ -65,3 +65,31 @@ was inspected live but not retained as a file.
 
 Keep `x21h` and `13yp` open until these required states and retained screenshots
 are complete.
+
+## Current native accessibility-tree inventory — 29 October 2026
+
+The running installed app is Code Atlas 0.1.0, PID `63379`, on Fontdone
+`main@5249b72371`, partial snapshot. Its executable SHA-256 is
+`5c51a28ce421df8b9b8992cf5e84af0b6cf75f7b42f0801392f479b15f58891c`; it
+matches the executable in the current local release bundle. The bundle does not
+embed a verifiable source commit, so this hash alone does not establish a commit
+identity.
+
+The native accessibility tree confirms that this populated workspace exposes
+the repository/snapshot header, **Load latest changes**, the saved Codex
+connection and model, appearance, Notifications, and keyboard help. Explorer,
+Search, Changes, and Explorations share the left activity rail; the pinned chat,
+captured source, and Guide / Flow / Chat history views remain in one workspace.
+Search results, the selected source, and the current Guide are present together.
+The inspected Guide answer has one scene, so it cannot qualify scene arrows or
+multi-scene pacing. The same view still includes unavailable earlier guide
+material and failed historical attempts; Notifications reports 49 unread
+updates. This is a visible recovery and density concern, not evidence that any
+stored answer or notification was changed.
+
+No source, snapshot, answer, notification, or connection setting was changed;
+no model or narration request was sent. The screen-capture command returned the
+desktop rather than the app window, so there is no retained screenshot for this
+observation. This inventory supplements live accessibility evidence only and
+does not satisfy visual layout, keyboard, VoiceOver, contrast, motion, reflow,
+or durable screenshot acceptance. Keep `x21h` and `13yp` open.
