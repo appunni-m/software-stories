@@ -436,3 +436,11 @@ visual and section controls in the reading focus while preserving the details
 on demand. The existing source-contract assertion was updated; no tests or
 build were run, and native narrow/wide behavior remains unqualified. Keep
 `x21h` and `13yp` open.
+
+### Production frontend build after source refinements — 29 October 2026
+
+At source `e8bfa84`, `npm run build` passed TypeScript checking and the Vite
+production build after the File Flow and Guide disclosure refinements. Vite
+reported the existing 500 kB chunk-size warning. No tests ran; this did not
+rebuild or install the Mac package, and the visual/responsive acceptance remains
+open.
