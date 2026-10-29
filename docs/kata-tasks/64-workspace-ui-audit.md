@@ -644,3 +644,13 @@ Explorer/Guide afterward. No repository files, saved explanations, connection
 settings, or narration changed; no AI request was sent. Executable SHA-256:
 `3705ee558d7d9101a7efd1e3128e055b6aeb96e8336d999e865bb73360df51ab`. No test
 suite was run; `git diff --check` and the production app build completed.
+
+The packaged check exposed one remaining control-size mismatch: Radix's ghost
+button padding was being added outside the swap control's fixed width and
+height. The swap button therefore looked taller and wider than the version
+fields. It now uses border-box sizing, zero padding, and a 36px grid track. In
+the rebuilt app at 2880×1688, the square control aligns with the input height
+and the Compare/Stop action remains right-aligned. Build completed; no test
+suite was run.
+Installed executable SHA-256:
+`5a1f955959194e05282425d0b6d6dc134e50cf1fcff5da164c062507e05b6e08`.
