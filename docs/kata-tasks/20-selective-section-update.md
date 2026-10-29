@@ -156,3 +156,20 @@ real provider request, acceptance of the resulting draft, audio-cache identity
 comparison, cancellation/rejection exercise, or restart-from-installed-app
 qualification was performed. Keep `tbsh` open until those acceptance checks and
 the outstanding suite failures are resolved.
+
+### Repair stale sections while another section needs review — source correction (2026-10-29)
+
+The source previously stopped a targeted stale-section repair whenever any
+other section was `NeedsReview`, even though the durable session contract keeps
+that section unresolved and prevents final assembly until it is reviewed. The
+direct-provider review and native response canonicalizer now permit a verified
+one-section replacement within the same bound repair session;
+`is_ready_to_assemble` still rejects a session with any `NeedsReview` section.
+Chapter Studio also allows the stale-section action and explains that
+unresolved review still blocks creation of the final draft. Progress feedback
+distinguishes remaining stale sections from sections that need index refresh
+and reassessment.
+
+This is source-only review; no tests, build, provider operation, or packaged
+repair session ran. The previously recorded full native-suite failures remain
+untriaged, and the packaged multi-section acceptance is still open.

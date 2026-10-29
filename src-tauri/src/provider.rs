@@ -5678,11 +5678,11 @@ fn build_section_update_context(
         .iter()
         .filter(|item| {
             item.section_id != section.section_id
-                && if repair_session.is_some() {
-                    item.status == SectionFreshnessStatus::NeedsReview
-                } else {
-                    !matches!(item.status, SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry)
-                }
+                && repair_session.is_none()
+                && !matches!(
+                    item.status,
+                    SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry
+                )
         })
         .filter_map(|item| {
             base.sections

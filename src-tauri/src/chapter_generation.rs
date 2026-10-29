@@ -351,11 +351,11 @@ pub fn canonicalize_section_update(
         .iter()
         .filter(|item| {
             item.section_id != selected_section_id
-                && if repair_session.is_some() {
-                    item.status == SectionFreshnessStatus::NeedsReview
-                } else {
-                    !matches!(item.status, SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry)
-                }
+                && repair_session.is_none()
+                && !matches!(
+                    item.status,
+                    SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry
+                )
         })
         .map(|item| item.section_id.as_str())
         .collect::<Vec<_>>();
@@ -435,20 +435,37 @@ pub fn canonicalize_section_update(
             prepared,
         )?;
         if !session.is_ready_to_assemble() {
-            let pending = session
-                .pending_section_ids()
-                .into_iter()
-                .map(|id| {
-                    base.sections
-                        .iter()
-                        .find(|candidate| candidate.section_id == id)
-                        .map(|section| section.title.as_str())
-                        .unwrap_or(id)
-                })
-                .collect::<Vec<_>>();
+            let titles = |state| {
+                session
+                    .sections
+                    .iter()
+                    .filter(|item| item.state == state)
+                    .filter_map(|item| {
+                        base.sections
+                            .iter()
+                            .find(|section| section.section_id == item.section_id)
+                            .map(|section| section.title.as_str())
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let stale = titles(crate::section_repair_session::RepairSectionState::Stale);
+            let review = titles(crate::section_repair_session::RepairSectionState::NeedsReview);
+            let mut next_steps = Vec::new();
+            if !stale.is_empty() {
+                next_steps.push(format!(
+                    "repair the remaining stale sections: {}",
+                    stale.join(", ")
+                ));
+            }
+            if !review.is_empty() {
+                next_steps.push(format!(
+                    "recheck source for sections marked Needs review before finalizing: {}",
+                    review.join(", ")
+                ));
+            }
+            let next_steps = next_steps.join("; ");
             return Err(format!(
-                "SECTION_REPAIR_PROGRESS: This section is saved in the local repair session. The accepted chapter is unchanged and no draft was created. Continue with: {}.",
-                pending.join(", ")
+                "SECTION_REPAIR_PROGRESS: This section is saved in the local repair session. The accepted chapter is unchanged and no draft was created. Next, {next_steps}."
             ));
         }
 

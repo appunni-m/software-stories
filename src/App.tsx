@@ -4623,14 +4623,6 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         setFeedback({ message: 'This section no longer matches the saved repair session. Reassess freshness before sending.', tone: 'error' });
         return;
       }
-      const reviewRequired = session.sections
-        .filter((item) => item.state === 'needsReview')
-        .map((item) => revision.sections
-          .find((itemSection) => itemSection.sectionId === item.sectionId)?.title ?? item.sectionId);
-      if (reviewRequired.length > 0) {
-        setFeedback({ message: `Resolve source or index uncertainty before repairing sections: ${reviewRequired.join(', ')}. Refresh the selected snapshot’s index, then reassess freshness.`, tone: 'info' });
-        return;
-      }
       onRegenerateSection(revision, section, selectedPaths, session.sessionId);
     } catch (error) {
       if (!studioMounted.current) return;
@@ -4994,6 +4986,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               return <span key={side}>{label} index: {index.status}{counts}</span>;
                             })}
                           </div>
+                          {selectedFreshness.report.sections.some((item) => item.status === 'needsReview') && <p className="chapter-review-feedback tone-info">You can repair sections marked Stale one at a time. A section marked Needs review needs another source check before the updated chapter can be created.</p>}
                         </div>
                         {selectedFreshness.report.sections.map((sectionResult) => {
                           const section = activeDocument.sections.find((item) => item.sectionId === sectionResult.sectionId);
