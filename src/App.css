@@ -1474,7 +1474,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-compact-detail .git-change-static-title:hover {background:var(--surface-raised);}
 .git-compact-detail .git-change-detail {border-top:0;}
 .git-compact-pr-guide {min-width:0;}
-@container git-result (max-width: 680px) {
+@container git-result (max-width: 560px) {
   .git-comparison-results-compact .git-results-header {grid-template-columns:minmax(0,1fr);}
   .git-comparison-results-compact .git-compact-surfaces {justify-self:start;}
 }
