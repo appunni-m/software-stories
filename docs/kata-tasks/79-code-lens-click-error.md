@@ -293,3 +293,18 @@ This confirms one saved-visual citation path in the current installed build.
 The screenshot was inspected live but not retained. The user's original
 clicked control and exception remain unknown, so the task and broader source
 navigation matrix stay open.
+
+## Selected-code review after a visual citation — 30 October 2026
+
+In the installed Code Atlas 0.1.0 app (executable SHA-256
+`07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`), Fontdone
+`main@5249b72371`, the visual citation had opened `src/outline.rs:49–51`.
+Clicking **Explain this code** opened the local review for exactly that captured
+path/range and stated that nothing is sent until the separate **Ask about this
+code** action. I canceled; the app stayed open and returned to the same Guide,
+selected visual cue, and source range. No provider request, narration, or
+source transmission occurred.
+
+This checks the current selected-code review/cancel path only. It does not
+reproduce the user's original clicked control or error, test the request path,
+or exhaust all citation/selection entry points; keep `mhqx` open.
