@@ -880,7 +880,21 @@ executable SHA-256:
 DMG SHA-256:
 `8583edbf10052f241b4405d244bf769480bab448022a01b8e9e07c09444ce08c`.
 
-The active app was left open because its Guide still has four other answers in
-progress and notifications requiring attention. The new bundle has not been
-installed or visually inspected. Keep package-level layout and responsive
-acceptance under `13yp`/`x21h` open until it is safely installed and inspected.
+After the four other answers and attention items were confirmed in the saved
+workspace, Code Atlas was closed through its guarded Quit flow so local state
+could flush. The previous app bundle was preserved as
+`Code Atlas.pre-31de6f2.app`; the new bundle was installed and reopened. The same
+Fontdone snapshot, selected `glyf.rs`, Guide, code selection and saved answer
+returned. The live app screenshot shows `Scene 1 of 1` centered, with the
+disabled arrows and one-scene dot removed; **Next section** remains on the
+right. No provider request or narration playback was started during this check.
+
+Installed executable SHA-256:
+`a5f4bb7d57dbcf72ad7234ae2376f4b7ca7ca6117cdcfa82ad2c8bce6e3adb3c`.
+DMG SHA-256:
+`8583edbf10052f241b4405d244bf769480bab448022a01b8e9e07c09444ce08c`.
+
+The available saved visual has one scene, so it verifies the removal of
+redundant controls but does not visually exercise the new multi-scene edge
+placement at other pane widths. Keep broad responsive and multi-scene acceptance
+under `13yp`/`x21h` open.
