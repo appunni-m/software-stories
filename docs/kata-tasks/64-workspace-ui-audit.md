@@ -763,3 +763,16 @@ inspected live but not retained because the diff exposes repository content.
 The executable and DMG identities are recorded above. Empty repositories,
 error/cancellation states, alternate ref pairs, and responsive/accessibility
 checks remain open.
+
+## Guide button reflow threshold — 29 October 2026
+
+The surrounding Guide content reflows at an 820px pane width, while the
+visual scene toolbar and narration controls waited until 700px. Between those
+widths, a resized Guide could keep its desktop control row in a pane already
+treated as compact, crowding scene navigation, playback actions, and audio
+seeking. The scene-control container query now switches at 820px
+(`src/visual-story.css`, commit `f6d0de5`), matching the workspace Guide
+breakpoint. This is a source-level layout correction only; the packaged app
+has not been rebuilt or visually checked at the breakpoint. Responsive,
+keyboard, accessibility, and packaged acceptance remain open under `13yp`
+and `x21h`.
