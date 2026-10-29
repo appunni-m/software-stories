@@ -261,6 +261,16 @@ packaged status transition or first-section latency, or conduct a listening
 review. Offline restart and packaged queue pressure/cancellation acceptance
 remain open; keep the issue open.
 
+## Cached-playback review-slot recheck — 2026-10-29
+
+At source revision `287c41c`,
+`cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+completed_prewarm_playback_releases_a_bounded_review_slot` passed (1 passed,
+848 filtered out). Replaying prepared audio releases the playback review slot,
+allowing a later request to be admitted. Existing Rust warnings remain. This
+does not qualify packaged preparing-to-ready timing, offline restart, queue
+cancellation/failure under load, or listening quality; keep the issue open.
+
 ## Queue before reader notification — 29 October 2026
 
 Commit `b39e6e5` moves the best-effort local Pocket enqueue in `adoptSection`
