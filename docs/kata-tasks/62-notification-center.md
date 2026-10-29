@@ -61,3 +61,16 @@ grouping, opening, read and dismiss actions. Untouched conversations are not
 preloaded. Source-only change; restart discovery for unvisited scopes and the
 packaged, focus, persistence, contrast, zoom and screen-reader gates remain
 open.
+
+## Packaged bell and Escape focus-return check — 29 October 2026
+
+In the installed Code Atlas app on Fontdone `main@5249b72371`, the header bell
+opened its notification popover without changing the selected Guide or moving
+workspace content. It showed project-scoped question outcomes under **Needs
+attention**, ready explanations under **Recent updates**, and other-repository
+items in a collapsed group. The badge remained unchanged while the popover was
+open. Pressing Escape closed the popover and returned accessibility focus to
+the Notifications button. No item was opened, read, or dismissed. This verifies
+one populated state and Escape/focus return only; empty state, outside close,
+action navigation, live completion, restart, zoom, themes, and screen-reader
+announcement acceptance remain open.
