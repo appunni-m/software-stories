@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v7";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v8";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -2445,6 +2445,7 @@ fn import_bindings(
 
 fn python_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
     let module_name = node.child_by_field_name("module_name");
+    let imports_named_value = node.kind() == "import_from_statement";
     let mut cursor = node.walk();
     let mut bindings = Vec::new();
     for child in node.named_children(&mut cursor) {
@@ -2455,28 +2456,41 @@ fn python_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
         }
         match child.kind() {
             "aliased_import" => {
+                let imported_name = child
+                    .child_by_field_name("name")
+                    .map(|name| node_text(name, source));
                 let local_name = child
                     .child_by_field_name("alias")
-                    .map(|alias| node_text(alias, source));
+                    .map(|alias| node_text(alias, source))
+                    .or_else(|| {
+                        imported_name.as_deref().map(|name| {
+                            if imports_named_value {
+                                name.rsplit('.').next().unwrap_or_default()
+                            } else {
+                                name.split('.').next().unwrap_or_default()
+                            }
+                            .to_owned()
+                        })
+                    });
                 if let Some(local_name) = local_name.filter(|name| !name.is_empty()) {
                     bindings.push(ImportBinding {
                         local_name,
-                        imported_name: "*".to_owned(),
+                        imported_name: python_imported_value(imports_named_value, imported_name),
                         is_value_binding: true,
                     });
                 }
             }
             "dotted_name" => {
-                let imported_name = node_text(child, source);
-                let local_name = if node.kind() == "import_statement" {
-                    imported_name.split('.').next().unwrap_or_default()
+                let name = node_text(child, source);
+                let local_name = if imports_named_value {
+                    name.rsplit('.').next().unwrap_or_default()
                 } else {
-                    imported_name.rsplit('.').next().unwrap_or_default()
+                    name.split('.').next().unwrap_or_default()
                 };
                 if !local_name.is_empty() {
                     bindings.push(ImportBinding {
                         local_name: local_name.to_owned(),
-                        imported_name: "*".to_owned(),
+                        imported_name: python_imported_value(imports_named_value, Some(name)),
                         is_value_binding: true,
                     });
                 }
@@ -2485,6 +2499,12 @@ fn python_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
         }
     }
     bindings
+}
+
+fn python_imported_value(from_import: bool, imported_name: Option<String>) -> String {
+    imported_name
+        .filter(|name| from_import && !name.is_empty() && !name.contains('.'))
+        .unwrap_or_else(|| "*".to_owned())
 }
 
 fn python_module_specifier(node: Node<'_>, source: &str) -> Option<String> {
@@ -2655,7 +2675,14 @@ fn resolve_imports(
         .collect::<BTreeSet<_>>();
     let mut exported_callables = HashMap::<(String, String), Vec<String>>::new();
     for symbol in symbols.values().filter(|symbol| {
-        callable_exports.contains(&symbol.symbol_id)
+        let declared_callable = callable_exports.contains(&symbol.symbol_id);
+        // Python permits an explicit `from module import name` to import a
+        // module-level definition regardless of `__all__`. Keep that case
+        // narrow: the symbol must be a directly declared module function.
+        let explicit_python_callable = symbol.language == SupportedLanguage::Python.label()
+            && symbol.kind == SymbolKind::Function
+            && symbol.qualified_name == symbol.name;
+        (declared_callable || explicit_python_callable)
             && symbol.kind.is_callable()
             && fully_parsed.contains(symbol.path.as_str())
     }) {
@@ -3331,6 +3358,75 @@ mod tests {
     }
 
     #[test]
+    fn python_named_relative_function_imports_resolve_calls_conservatively() {
+        let mut parsed = vec![
+            parse_fixture("pkg/__init__.py", "", SupportedLanguage::Python),
+            parse_fixture(
+                "pkg/pricing.py",
+                "def normalize(value):\n    return value\n",
+                SupportedLanguage::Python,
+            ),
+            parse_fixture(
+                "pkg/consumer.py",
+                "from .pricing import normalize as clean\n\ndef subtotal(value):\n    return clean(value)\n",
+                SupportedLanguage::Python,
+            ),
+        ];
+        let captured_paths = parsed
+            .iter()
+            .map(|file| file.file.path.clone())
+            .collect::<BTreeSet<_>>();
+        let files = parsed
+            .iter()
+            .map(|file| file.file.clone())
+            .collect::<Vec<_>>();
+        let symbols = parsed
+            .iter()
+            .flat_map(|file| file.symbols.iter().cloned())
+            .map(|symbol| (symbol.symbol_id.clone(), symbol))
+            .collect::<BTreeMap<_, _>>();
+        let callable_exports = parsed
+            .iter()
+            .flat_map(|file| file.callable_exports.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        let imports = std::mem::take(&mut parsed[2].imports);
+        let calls = std::mem::take(&mut parsed[2].calls);
+
+        let (import_relationships, imported_targets) = resolve_imports(
+            imports,
+            &captured_paths,
+            &files,
+            &symbols,
+            &callable_exports,
+        );
+        assert!(import_relationships.iter().any(|relationship| {
+            matches!(relationship.kind, RelationshipKind::Imports)
+                && relationship.target_path.as_deref() == Some("pkg/pricing.py")
+                && relationship.confidence == RelationshipConfidence::High
+                && relationship.unresolved_reason.is_none()
+        }));
+
+        let normalize = parsed[1]
+            .symbols
+            .iter()
+            .find(|symbol| symbol.name == "normalize")
+            .expect("the captured module function should be indexed");
+        let call = calls
+            .iter()
+            .find(|call| call.name == "clean")
+            .expect("the aliased relative import call should be indexed");
+        assert!(matches!(call.binding, Some(BindingTarget::Import)));
+        let call_relationships = resolve_calls(calls, &symbols, &imported_targets, &HashMap::new());
+        assert!(call_relationships.iter().any(|relationship| {
+            matches!(relationship.kind, RelationshipKind::Calls)
+                && relationship.target_id.as_deref() == Some(normalize.symbol_id.as_str())
+                && relationship.target_path.as_deref() == Some("pkg/pricing.py")
+                && relationship.confidence == RelationshipConfidence::High
+                && relationship.unresolved_reason.is_none()
+        }));
+    }
+
+    #[test]
     fn python_and_go_parsers_produce_bounded_anchored_structure() {
         let python_source = concat!(
             "from pricing import normalize as clean\n",
@@ -3398,9 +3494,7 @@ mod tests {
             .expect("aliased imported calls should be retained");
         assert!(matches!(
             imported_call.binding.as_ref(),
-            Some(BindingTarget::Unknown(
-                "import_binding_not_statically_resolved"
-            ))
+            Some(BindingTarget::Import)
         ));
         assert_eq!(
             &python_source.as_bytes()
