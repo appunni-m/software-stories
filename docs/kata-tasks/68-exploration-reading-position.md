@@ -291,3 +291,20 @@ This confirms a same-process Search/activity round trip for one Flow selection
 and one Guide scene detail. It does not cover node/edge focus through nested
 branches, exact scroll offsets, revision replacement, malformed persisted
 state, or restart with a focused visual cue. Keep `erzc` open for those gates.
+
+## Packaged saved-child Back and source restoration — 30 October 2026
+
+In the running Code Atlas 0.1.0 app (executable SHA-256
+`07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`), Fontdone
+`main@5249b72371`, I opened the existing Level 2 branch from the saved
+`Outline::is_empty` exploration. The child opened with its `src/font.rs`
+selection at lines 4456–4528. **Back one exploration** returned to the same
+root Guide, its saved visual scene (“One empty signal”), and the prior
+`src/outline.rs` source pane. No question, provider request, answer edit, or
+narration was started.
+
+The root answer has one section, so this verifies a saved-child Back path and
+source-pane restoration only. It does not exercise multi-section position,
+sibling or third-level isolation, Flow focus/viewport, exact scroll, restart,
+revision fallback or corrupt state through the UI. Keep `erzc` open for those
+gates.
