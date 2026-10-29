@@ -731,6 +731,20 @@ DMG SHA-256:
 Responsive, keyboard, accessibility, and cross-screen acceptance remain open
 under `13yp` and `x21h`.
 
+## Native split-pane reflow observation — 29 October 2026
+
+During a follow-up packaged-app review, a screenshot showed the code pane
+covering the available reading area even though the accessibility tree still
+contained the Guide and section pager. Focusing the source/explanation divider
+and moving it left changed its saved ratio from 43% to 38%; the next screenshot
+showed source and Guide side by side, with scene controls and the section pager
+visible. No source, snapshot, answer, audio, or provider state changed. The
+immediate layout is usable after the resize, but the initial discrepancy was
+not explained or reproduced after restart. Track as an unresolved native
+reflow/layout observation; do not claim a durable code fix from the manual
+resize. Include initial/reopened split restoration in the `13yp`/`x21h`
+packaged layout matrix.
+
 ## Default Changes comparison completes — 29 October 2026
 
 On the same installed build, opening Changes first showed the expected loading
