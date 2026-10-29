@@ -1177,3 +1177,16 @@ documentation review only; no tests, build, provider request, generated-content
 refresh, audio, or packaged visual review ran. Keep `j53m` open for real-source
 visual quality, source navigation, accessibility/reflow, export, and human
 comprehension acceptance.
+
+## Clarify ordinary branch outcomes versus selector candidates — 29 October 2026
+
+The generation contract now limits the two-leaf guard/result shape to branches
+inside a first-match selector. A normal branch may retain its guard and each
+supported outcome, including both success and failure. This resolves a prompt
+contradiction; the reader and native schema were already capable of rendering
+these ordinary branch leaves. The policy fingerprint is now
+`ai-html-compositions-v65` so new requests use the clarified instructions;
+stored guides are not rewritten. The focused prompt-contract test passes; its
+Rust test target compiles. No packaged app build or provider request ran. This
+does not close `j53m`'s real-source visual, accessibility, export or
+comprehension gates.

@@ -61,7 +61,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v64`, teaching policy `meaning-first-v31`, and reader
+`ai-html-compositions-v65`, teaching policy `meaning-first-v31`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
@@ -86,6 +86,11 @@ source-ordered candidates where a miss proceeds to the next candidate. Keep
 nested guards visible when the scene remains clear, or
 continue in a later scene that names the path condition; do not compress
 multiple subcases into one outcome card.
+The two-leaf shape rule applies only to branches nested directly under a
+first-match `selector`: one candidate guard and its matching result. An ordinary
+branch keeps the guard and a separate content leaf for each supported outcome,
+such as success and failure. A selector's rendered miss already continues to
+the next candidate, so it must not be added as another leaf.
 LIFO stacks are authored oldest/bottom first and rendered/read newest/top first,
 with the next item to pop marked. A source-backed state change uses a transform with its operation visible, and
 `beforeAfter` is reserved for comparing states when this claim does not cover

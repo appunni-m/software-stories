@@ -113,7 +113,7 @@ historical identities.
 
 Ordinary and progressive requests share the current scene, teaching and reader
 language instructions. Progressive contracts fingerprint the current source
-policies `storyPolicy: "ai-html-compositions-v64"`,
+policies `storyPolicy: "ai-html-compositions-v65"`,
 `teachingPolicy: "meaning-first-v31"`, `readerLanguagePolicy:
 "reader-language-v1"`, and the exact composed instructions.
 Each claim scene selects graph or composition mode independently, so one visual
