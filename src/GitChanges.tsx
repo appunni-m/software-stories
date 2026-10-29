@@ -337,7 +337,7 @@ function ComparisonResults({
   ) : null;
 
   return (
-    <section className="git-comparison-results" aria-labelledby="git-results-title">
+    <section className={`git-comparison-results${compact && comparison.changes.length > 0 ? ' git-comparison-results-compact' : ''}`} aria-labelledby="git-results-title">
       <header className="git-results-header">
         <div>
           <span className="git-changes-kicker">{isPartial ? 'PARTIAL RESULT' : 'COMPARE RESULTS'}</span>
