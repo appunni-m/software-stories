@@ -384,6 +384,8 @@ describe('visual story scenes', () => {
     assert.match(compactRules, /\.story-toolbar\s*\{[^}]*gap:\s*4px 8px;[^}]*padding:\s*6px 8px/u);
     assert.match(styles, /\.story-toolbar\s*\{[^}]*display:grid;[^}]*grid-template-areas:"title map" "progress progress"/u,
       'title, map, and scene controls must occupy explicit normal-flow rows');
+    assert.doesNotMatch(styles, /@container\s+guide-pane\s*\(min-width:\s*560px\)/u,
+      'wide Guide panes must not pull scene navigation into the title row');
     assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);

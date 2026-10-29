@@ -48,7 +48,8 @@ test('connection header shows the selected provider model and reasoning in one c
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.topbar\s*\{[^}]*flex:\s*0 0 auto;[^}]*display:\s*grid;[^}]*grid-template-areas:\s*"brand project actions";/);
-  matches(shell,/@media\s*\(max-width:\s*1560px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas: "brand project" "actions actions";/);
+  matches(shell,/\.topbar\s*\{[^}]*grid-template-columns:\s*max-content minmax\(0,1\.15fr\) minmax\(0,\.85fr\)/);
+  matches(shell,/@media\s*\(max-width:\s*1180px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas:"project" "actions";/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*grid-template-areas:"project" "actions";[^}]*grid-template-rows:auto auto;/);
   matches(shell,/\.topbar-actions\s*\{[^}]*grid-area:\s*actions;/);
   matches(shell,/\.project-controls\s*\{[^}]*grid-area:\s*project;/);

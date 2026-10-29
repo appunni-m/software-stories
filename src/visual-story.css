@@ -8,7 +8,7 @@
 .story-scene-position { display: flex; flex:0 1 auto; justify-content: center; align-items: center; gap: 8px; min-width: 0; max-width:100%; }
 .story-scene-progress.has-multiple-scenes > .story-scene-position { display:flex; flex:1 1 0; width:auto; max-width:100%; }
 .story-scene-progress.has-multiple-scenes .story-scene-dots { flex:1 1 0; width:auto; }
-.story-scene-arrow { display: grid; flex:0 0 28px; place-items: center; width: 28px; min-width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
+.story-scene-arrow { display: grid; flex:0 0 28px; place-items: center; width: 28px; min-width: 0; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
 .story-scene-dots { box-sizing:border-box;display: flex; flex: 0 1 auto; flex-wrap: nowrap; justify-content: flex-start; width:100%; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .visual-story button { cursor: pointer; color: var(--text); }
@@ -20,10 +20,6 @@
 .story-map-toggle-slot { grid-area:map;justify-self:end;display:flex;align-self:center;min-width:0;max-width:100%; }
 .story-map-toggle-slot > .story-map-toggle { box-sizing:border-box;min-width:0;max-width:100%;min-height:30px;margin:0;padding:5px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface-raised);color:var(--text);font:inherit;font-size:12px;font-weight:500;white-space:normal;box-shadow:none; }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
-@container guide-pane (min-width: 560px) {
-  .story-toolbar { grid-template-columns:minmax(0,1fr) minmax(0,min(604px,48%)) minmax(0,1fr); grid-template-areas:"title progress map"; grid-template-rows:auto; }
-  .story-scene-progress { justify-self:center; }
-}
 .story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
 .visual-story > .story-stage:not(.story-html-stage) { overflow: hidden; border-radius: 0 0 7px 7px; }
 .story-html-stage { height: auto; min-height: clamp(320px, 48vh, 720px); max-height: min(80vh, 900px); overflow: auto; }

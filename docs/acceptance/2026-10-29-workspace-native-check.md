@@ -61,3 +61,24 @@ screen size, accessibility mode, or reader state.
 in the installed bundle at this window size. The packaged design acceptance
 remains open under Kata `13yp`; no broader screen or accessibility gate is
 closed by this check.
+
+## Latest header and scene-row correction — 29 October 2026
+
+After the user clarified that the scene navigation and top menu still looked
+misplaced, the scene count was moved back to its own centered row below the
+scene title at all Guide pane widths. The desktop header now gives bounded
+shares to repository and account controls, allowing each group to wrap instead
+of using an intrinsic-width account track.
+
+- Focused layout checks: 3 passed.
+- `npm run build`: passed.
+- Native Tauri app bundle: built and installed over the existing app.
+- Built and installed executable SHA-256:
+  `07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`.
+- At 1440 × 840 logical pixels, the header controls fit on one line. The
+  active Guide displays the scene count below the title, without overlaying it.
+- The active saved visual has one scene; previous/next buttons and dots are
+  absent, so multi-scene navigation is not visually qualified. Narrow-window,
+  high-zoom, and accessibility checks remain open.
+
+No source or saved repository data, answers, receipts, or narration changed.

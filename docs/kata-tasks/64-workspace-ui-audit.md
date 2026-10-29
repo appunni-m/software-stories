@@ -1330,3 +1330,25 @@ inspectable, the oversized inventory correctly had no hunk, and partial static
 relationship coverage was disclosed. Empty and initial repositories are not
 qualified. No Git state or repository contents were changed; details are in
 `docs/acceptance/2026-10-29-workspace-native-check.md`.
+
+### Scene navigation and header tracks — 29 October 2026
+
+The user clarified that both the Guide scene navigation and top menu still
+looked misplaced or overflowing. The wide-pane container query had put the
+scene count beside the title, making it read as a floating overlay. Scene
+navigation now stays in its own centered row beneath the scene title at every
+pane width. The desktop header now divides its available space between the
+repository and account groups instead of reserving an intrinsic `max-content`
+track for account controls; each group can wrap within that bounded track.
+Scene arrows can use their fixed flex slot without imposing an extra intrinsic
+minimum width.
+
+The focused layout checks passed (three targeted tests), `npm run build`
+passed, and a native app bundle was installed. Built and installed executable
+SHA-256: `07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`.
+On Fontdone `main@5249b72371` at 1440 × 840 logical pixels, the repository and
+account controls fit in the header, and the Guide shows its scene count on a
+separate row below the scene title. This saved visual has one scene, so the
+previous/next controls and multi-scene dot strip could not be checked. Narrow
+window and high-zoom reflow remain open under `13yp`; no source, snapshot,
+answer, receipt, audio, or provider request was changed.
