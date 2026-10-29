@@ -956,7 +956,7 @@ export function DeveloperWorkspace(props:Props) {
             {activity==='search'?<div className="dw-search-results">{composerSearchActive?<p className="dw-search-count" role="status">Searching your question above. Results appear below the chat box.</p>:<><small>{repositoryRegex?'Captured code · regular expression':'Files, symbols and captured code'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{currentSourceSearch.busy&&<p role="status">{results.length?'Checking captured code for more matches…':'Searching captured code…'}</p>}{repositorySearch.trim()&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length>0&&<p className="dw-search-count" role="status">{searchResultsSummary}</p>}{currentSourceSearch.error&&<p role="status">{currentSourceSearch.error}</p>}{repositorySearch&&!currentSourceSearch.busy&&!currentSourceSearch.error&&results.length===0&&<p>{currentSearchHasCoverageGaps?'No local match; search coverage is incomplete.':'No matching code in this search.'}</p>}{searchResultGroups.map(({path,hits})=>{
               const visibleHits=hits.slice(0,2);
               const remainingHits=hits.slice(2);
-              const renderHit=(hit:CodeSearchHit,index:number)=><button className="dw-search-file-match" key={`${hit.from??'file'}:${index}`} onClick={()=>openFile(hit)}><strong>{hit.from===undefined?'File match':`Line ${hit.from}${hit.to&&hit.to!==hit.from?`–${hit.to}`:''}`}</strong><span>{hit.text}</span></button>;
+              const renderHit=(hit:CodeSearchHit,index:number)=><AppButton intent="custom" size="1" className="dw-search-file-match" key={`${hit.from??'file'}:${index}`} onClick={()=>openFile(hit)}><strong>{hit.from===undefined?'File match':`Line ${hit.from}${hit.to&&hit.to!==hit.from?`–${hit.to}`:''}`}</strong><span>{hit.text}</span></AppButton>;
               return <section className="dw-search-file-group" key={path}>
                 <div className="dw-search-file-heading"><FileCode2 size={13}/><strong title={path}>{path}</strong><small>{hits.length} {hits.length===1?'match':'matches'}</small></div>
                 <div className="dw-search-file-matches">{visibleHits.map(renderHit)}
@@ -977,13 +977,13 @@ export function DeveloperWorkspace(props:Props) {
         </div>}
         <div className="dw-composer" onDragOver={(e)=>{if(!conversationUnavailable&&e.dataTransfer.types.includes('application/x-code-atlas-context'))e.preventDefault();}} onDrop={(e)=>{e.preventDefault();if(conversationUnavailable)return;try{const c=JSON.parse(e.dataTransfer.getData('application/x-code-atlas-context')) as Context;if(rows.some((r)=>r.path===c.path))attach(c);}catch{/* Ignore unrelated drops. */}}}>
           <Flex className="dw-composer-actions" gap="2" mb="2"><Button size="1" variant="soft" disabled={generationPaused} onClick={()=>{const action=contextualGuideAction(query,attachments,!!current.parentId);if(action.kind==='repository-guide')startRepositoryGuide(action.intent);else ask(action.intent,'guide');}}><BookOpen size={14}/>Guide me</Button><Button size="1" variant="soft" color="gray" disabled={generationPaused&&!!query.trim()} onClick={()=>{if(!query.trim())showView('flow');else ask(query,'flow');}}><Network size={14}/>Show the flow</Button><IconButton className="dw-narrow-toggle" size="1" variant="ghost" color="gray" aria-label={narrowPane==='source'?'Show explanation':'Show source'} onClick={()=>{if(narrowPane==='source')setNarrowPane('explanation');else{setCodeOpen(true);setNarrowPane('source');}}}><Code2 size={15}/></IconButton></Flex>
-          <div className="dw-input">{attachments.length>0&&<div className="dw-context">{attachments.map((c,i)=><Badge key={i} color="gray"><FileCode2 size={12}/><code>{label(c)}</code><button aria-label={`Remove ${label(c)}`} onClick={()=>setAttachments((all)=>all.filter((_,n)=>n!==i))}><X size={12}/></button></Badge>)}</div>}
+          <div className="dw-input">{attachments.length>0&&<div className="dw-context">{attachments.map((c,i)=><Badge key={i} color="gray"><FileCode2 size={12}/><code>{label(c)}</code><IconButton type="button" className="dw-attachment-remove" size="1" variant="ghost" color="gray" aria-label={`Remove ${label(c)}`} onClick={()=>setAttachments((all)=>all.filter((_,n)=>n!==i))}><X size={12}/></IconButton></Badge>)}</div>}
             <textarea ref={composer} data-focus-key="workspace-composer" rows={1} value={query} maxLength={1000} disabled={conversationUnavailable} aria-label="Ask about this codebase" placeholder={conversationUnavailable?'Saved explanations are read-only for now':conversationConflict?'Resolve the saved conversation conflict to send':'Ask about this codebase'} onChange={(e)=>{e.target.setCustomValidity('');setQuery(e.target.value);}} onFocus={()=>{setSearchFocused(true);setSearchOffset(0);}} onKeyDown={(e)=>{if(e.key==='Escape')setSearchFocused(false);if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();ask(query);}}}/>
             <Tooltip content="Attach open file"><IconButton size="1" variant="ghost" color="gray" disabled={!source||conversationUnavailable} aria-label="Attach open file" onClick={()=>source&&attach({path:source.path,sha256:source.sha256})}><Paperclip size={15}/></IconButton></Tooltip><IconButton size="1" aria-label="Send question" disabled={!query.trim()||generationPaused} onClick={()=>ask(query)}><ArrowUp size={15}/></IconButton>
           </div>
           {connectionNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><Button size="1" variant="soft" onClick={onSettings}>Connections</Button></div>}
           {draftNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{draftNotice}</p><Button size="1" variant="ghost" onClick={()=>setDraftNotice(null)}>Dismiss</Button></div>}
-          {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?(results.length?'Checking for more code matches…':'Searching code…'):currentSourceSearch.error?'Search unavailable':results.length?'In your code':currentSearchHasCoverageGaps?'No local match · coverage is incomplete':'No matching code in this search'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{results.slice(0,4).map((r,i)=><button key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></button>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<button onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></button>}</div>}
+          {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?(results.length?'Checking for more code matches…':'Searching code…'):currentSourceSearch.error?'Search unavailable':results.length?'In your code':currentSearchHasCoverageGaps?'No local match · coverage is incomplete':'No matching code in this search'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{results.slice(0,4).map((r,i)=><AppButton intent="custom" size="1" key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></AppButton>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<AppButton intent="custom" size="1" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></AppButton>}</div>}
         </div>
         {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
@@ -992,7 +992,7 @@ export function DeveloperWorkspace(props:Props) {
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
           <Panel id="explanations" minSize="280px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13}/>Guide</Tabs.Trigger><Tabs.Trigger value="flow"><Network size={13}/>Flow</Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13}/>Chat history</Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>{setCodeOpen(true);setNarrowPane('source');}}><Code2 size={15}/></IconButton>}</div>
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>
-              {chapterError&&<p className="dw-error" role="alert">{chapterError}<button onClick={()=>{void refreshChapters();}}>Retry</button></p>}
+              {chapterError&&<p className="dw-error" role="alert">{chapterError}<AppButton intent="quiet" size="1" onClick={()=>{void refreshChapters();}}>Retry</AppButton></p>}
               <Tabs.Content value="guide">
                 {visibleTurns.length > 0 ? (
                   <>
@@ -1316,7 +1316,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
           }}
         />
         {revision.sections.length>1&&<div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>Section {position+1} of {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>}
-      </> : <><AnswerVisualPreview revision={revision} section={section} onOpenAnchor={onOpen} onRefreshVisual={() => onBranch(visualRefreshQuestion(section.title), contexts)}/><details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details></>}
+      </> : <><AnswerVisualPreview revision={revision} section={section} onOpenAnchor={onOpen} onRefreshVisual={() => onBranch(visualRefreshQuestion(section.title), contexts)}/><details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose"><InlineCodeText text={section.spokenText || section.prose}/></p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><AppButton intent="custom" size="1" key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</AppButton>)}</div></details></>}
       {coverageSummary&&<details className="dw-guide-coverage" aria-label="Uncovered guide topics"><summary><strong>Partial guide</strong><span>See what remains</span></summary><p>Still uncovered: {coverageSummary}</p></details>}
       <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>{branchLabel??'Explore further'}</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}<ExplorationBranchLinks branches={branches} onGo={onGo}/></footer>
       </>
@@ -1348,10 +1348,10 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
           {section.claims.map((claim)=><li key={claim.claimId}>
             <p><InlineCodeText text={claim.prose}/></p>
             {claim.anchors.length>0?<div className="dw-flow-empty-citations">
-              {claim.anchors.map((anchor)=><button type="button" key={anchor.anchorId} aria-label={`Open cited code ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`} onClick={()=>onOpen(anchor)}>
+              {claim.anchors.map((anchor)=><AppButton intent="custom" size="1" key={anchor.anchorId} aria-label={`Open cited code ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`} onClick={()=>onOpen(anchor)}>
                 <Code2 size={12} aria-hidden="true"/>
                 <span>{anchor.path}:{anchor.startLine}{anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}</span>
-              </button>)}
+              </AppButton>)}
             </div>:<span className="dw-flow-empty-no-citation">No source citation is attached to this claim.</span>}
           </li>)}
         </ol>
@@ -1382,7 +1382,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   const nodes=visual.nodes.map((n)=>{
     const label=<><strong><InlineCodeText text={n.label}/></strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
-      data:{label:<button type="button" className="dw-flow-select nodrag nopan" aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</button>},style:{width:250}};
+      data:{label:<AppButton intent="custom" size="1" className="dw-flow-select nodrag nopan" aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</AppButton>},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:e.label??undefined,
     data:{labelPosition:labelPositions.get(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
@@ -1398,12 +1398,12 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
           if (!anchor) return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
           return <li className="dw-linear-flow-item" key={node.nodeId}>
-            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: show code detail for ${plainInlineCodeText(node.label)}. Cited source ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
+            <AppButton intent="custom" size="1" className="dw-linear-flow-step" aria-label={`Step ${index+1}: show code detail for ${plainInlineCodeText(node.label)}. Cited source ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
               <span className="dw-linear-flow-index">Step {index+1}</span>
               <strong><InlineCodeText text={node.label}/></strong>
               {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
               <span className="dw-linear-flow-source"><Code2 size={13}/>Cited source · {sourceLabel}</span>
-            </button>
+            </AppButton>
             {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span><InlineCodeText text={next.label||'Then'}/></span></div>}
           </li>;
         })}
@@ -1417,11 +1417,11 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
           const anchor=evidenceAnchor?sourceAnchorForVisualNode(evidenceAnchor,node,node.sourceValue??sourceValues.get(node.nodeId)):undefined;
           if(!anchor)return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
-          return <li key={node.nodeId}><button type="button" className="dw-unlinked-flow-point" aria-label={`Show code detail for ${plainInlineCodeText(node.label)} at ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
+          return <li key={node.nodeId}><AppButton intent="custom" size="1" className="dw-unlinked-flow-point" aria-label={`Show code detail for ${plainInlineCodeText(node.label)} at ${sourceLabel}`} aria-pressed={selectedNode?.nodeId===node.nodeId} onClick={()=>selectNode(node.nodeId)}>
             <strong><InlineCodeText text={node.label}/></strong>
             {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
             <span className="dw-linear-flow-source"><Code2 size={13}/>Cited source · {sourceLabel}</span>
-          </button></li>;
+          </AppButton></li>;
         })}
       </ul>
     </> : <>
