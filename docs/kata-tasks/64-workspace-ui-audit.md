@@ -861,3 +861,18 @@ saved answer, or narration changed. Installed executable SHA-256:
 `285816cc91e3d590b8b48052bf4c32bc85fb771c549948f87264db38703528fe`.
 DMG SHA-256:
 `1013bfe209635f49ed14c356bdf1ec8ae2ee45f555cd38cf5702544e8ed82cde`.
+
+## Scene navigation edge alignment — 29 October 2026
+
+The user reported that the scene buttons still looked misplaced. The live
+Fontdone Guide showed Previous and Next arrows grouped beside the dots at the
+center of the bar, making the navigation target hard to scan against the
+section pager below. The scene title and optional **Full map** action now occupy
+the top row; Previous and Next sit on opposite edges of the next row, with the
+scene count and dots centered between them. A one-scene visual omits disabled
+arrows and redundant dots. This applies at normal pane sizes, compact panes,
+and app zoom's compact layout.
+
+Source change only so far: no build, test, packaged screenshot or keyboard
+check has run yet. Keep the package-level layout and responsive acceptance under
+`13yp`/`x21h` open until the rebuilt app is inspected.
