@@ -922,3 +922,24 @@ Installed executable SHA-256:
 `e37fbf64783e1b51dc27559d8849fa4f2f83f7656018b25707577ebabb432c36`.
 DMG SHA-256:
 `5a4f5777434514a05f19c6f01aafb5a07bea7bfa75c3f536e64e31df1e73c157`.
+
+## Remove navigation overlap and header overflow — 29 October 2026
+
+The user reported that scene navigation and the top menu overflowed as if they
+were positioned over the content. In section-sequence mode, both the guide
+pager and the scene toolbar could become sticky in the same scrolling pane.
+The guide pager also used content-sized columns, which could exceed a narrow
+pane. Both navigation layers now remain in document flow; the centered pager
+uses bounded tracks and wraps to two rows in compact panes. The app header now
+reflows to two rows below 1150 CSS pixels, before its repository and account
+controls can collide.
+
+`npm run build` passed. The unsigned native app bundle built and was installed
+over the previous app, which was preserved as
+`Code Atlas.pre-nav-overflow-20261029.app`. The reopened Fontdone workspace
+retained its snapshot, selected file, and saved answers; its section pager is
+visible after the answer in normal reader flow. The current saved Fontdone
+visuals do not provide a multi-scene player for a direct scene-arrow screenshot,
+and a narrow-window resize check remains open. No test suite, provider request,
+or repository-content change occurred. Installed executable SHA-256:
+`001fe24fe254ce19f7f4e407eed8155c3eacf29a7d295f862595bc9aefa4aa41`.
