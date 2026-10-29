@@ -654,3 +654,15 @@ and the Compare/Stop action remains right-aligned. Build completed; no test
 suite was run.
 Installed executable SHA-256:
 `5a1f955959194e05282425d0b6d6dc134e50cf1fcff5da164c062507e05b6e08`.
+
+The same Changes view also hid the inactive **PR Guide** tab trigger because a
+selector intended for inactive panels matched every inactive tab descendant.
+It now hides only inactive `tabpanel` elements, keeping **Diff** and **PR
+Guide** visible together.
+
+The final packaged build was opened in the existing `pillow-rs` workspace. Both
+Change view buttons render side by side; the swap control matches the version
+field height and the compare action is aligned below them on the right. The
+existing large comparison remains explicitly partial. Installed executable
+SHA-256: `cc51410ad3a308639cd9e5f76407cae84faa8dab442109d03a55ab7a8b202f24`.
+No test suite or AI request was run.
