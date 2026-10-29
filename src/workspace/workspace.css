@@ -43,12 +43,13 @@
 .dw-main {height:100%;display:flex;flex-direction:column;min-width:0;}
 .dw-path {box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:30px;flex:0 0 30px;display:flex;align-items:center;gap:var(--space-2);padding:0 var(--space-3);overflow:hidden;font-size:12px;color:var(--muted);}
 .dw-path > .dw-path-back {position:static;flex:0 0 28px;}
-.dw-path-segments {box-sizing:border-box;display:flex;flex:1 1 auto;align-items:center;gap:var(--space-2);min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:none;}
+.dw-path-root {display:flex;flex:0 1 auto;align-items:center;min-width:0;max-width:min(220px,34vw);overflow:hidden;white-space:nowrap;}
+.dw-path-segments {box-sizing:border-box;display:flex;flex:1 1 0;align-items:center;gap:var(--space-2);min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:none;}
 .dw-path-segments::-webkit-scrollbar {display:none;}
 .dw-path-segments > span {display:flex;flex:0 0 auto;align-items:center;gap:var(--space-1);min-width:0;width:max-content;max-width:min(220px,45vw);overflow:hidden;white-space:nowrap;}
 .dw-path-segments > span > svg {flex:0 0 auto;}
-.dw-path-segments button:not(.rt-IconButton) {flex:0 1 auto;min-width:0;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dw-path-segments button[aria-current] {color:var(--text);}
+.dw-path-root button:not(.rt-IconButton),.dw-path-segments button:not(.rt-IconButton) {flex:0 1 auto;min-width:0;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dw-path-root button[aria-current],.dw-path-segments button[aria-current] {color:var(--text);}
 .dw-tool-label {flex:0 0 auto;max-width:140px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-composer {position:relative;padding:var(--space-2) var(--space-4) var(--space-3);flex-shrink:0;border-bottom:1px solid var(--border);}
 .dw-composer-actions {align-items:center;flex-wrap:wrap;}
