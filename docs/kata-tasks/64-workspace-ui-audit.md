@@ -666,3 +666,17 @@ field height and the compare action is aligned below them on the right. The
 existing large comparison remains explicitly partial. Installed executable
 SHA-256: `cc51410ad3a308639cd9e5f76407cae84faa8dab442109d03a55ab7a8b202f24`.
 No test suite or AI request was run.
+
+## Changes view controls move above result details — 29 October 2026
+
+In the populated `pillow-rs` Changes screen, the **Diff** and **PR Guide**
+buttons appeared after version metadata, omission notices, and the static
+relationship warning. That pushed the changed-file list and active diff below
+the fold. The two view controls now sit directly under the result heading;
+version and analysis details follow the file/diff workspace. The packaged app
+was reopened and the tabs were confirmed above the visible changed-file list
+in the partial comparison state. The saved comparison remained marked partial.
+No AI request or test suite was run; `npm run build` and the macOS bundle,
+metadata, and DMG checksum checks passed. No source screenshot was retained
+because it contains repository code. Keep the full-screen and responsive UI
+audit open.
