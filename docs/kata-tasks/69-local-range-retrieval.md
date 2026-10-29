@@ -265,3 +265,21 @@ the [acceptance record](../acceptance/2026-10-17-range-retrieval.md#symbol-aware
 
 Keep `a699`, `0wdn`, and `gk46` open; the remaining source, packaging, bounds,
 cancellation, parserless-file and agent-quality acceptance has not passed.
+
+## Packaged local memory-face lookup — 29 October 2026
+
+The rebuilt native app was checked on the existing Fontdone
+`main@5249b72371` snapshot. Local Search for `memory_face` reported 79 matches
+across 22 files and explicitly marked coverage incomplete with more matches
+available. It found the actual `src/font.rs` implementation at lines
+4053–4115; opening that hit displayed the captured function body and its
+format-dispatch branches in the source pane. The selected source returned to
+`src/tt/glyf.rs` afterward.
+
+This was a packaged, native local-search interaction; no extra server was
+started and no Codex, speech, or model request was made. The Codex account was
+connected, so a disconnected-account run is still outstanding. The partial
+snapshot and incomplete search label were retained; this is not exhaustive
+repository coverage or evidence for broad-query recall, cancellation, index
+corruption, parserless fixtures, or answer quality. Keep `a699`, `0wdn`, and
+`gk46` open.

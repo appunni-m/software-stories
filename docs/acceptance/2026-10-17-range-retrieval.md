@@ -350,3 +350,24 @@ misses two and five ranges respectively. The measured file-first plus scoped
 retrieval path recovers 12/12 locally, but automatic agent use of that path and
 explanation quality are not qualified. These are single-run debug measurements,
 not latency guarantees. Keep `a699`, `gk46` and guide-quality acceptance open.
+
+## Packaged local `memory_face` search — 29 October 2026
+
+The rebuilt Mac app was opened on the existing Fontdone
+`main@5249b72371` snapshot. Searching locally for `memory_face` returned 79
+matches across 22 files, with **Local search may be incomplete** and more
+matches available. The results included the actual `src/font.rs`
+`memory_face` implementation at lines 4053–4115. Opening that result displayed
+the captured function body in the source pane, including the `PFR0` dispatch to
+`pfr_face`; Explorer and the previous `src/tt/glyf.rs` selection were restored
+afterward. Installed executable SHA-256:
+`e37fbf64783e1b51dc27559d8849fa4f2f83f7656018b25707577ebabb432c36`.
+
+No extra server, model, Codex, or speech request was used. The Codex connection
+was present, so this verifies that the local search interaction did not need a
+model request, but it does not qualify operation with the account disconnected.
+The selected snapshot is partial and the UI correctly reported incomplete
+coverage. This verifies one packaged named-definition lookup and source read;
+it does not qualify broad query recall, offline/disconnected operation,
+cancellation, corruption, disk pressure, parserless fallback behavior, or
+answer quality. Keep the wider retrieval and agent qualification open.
