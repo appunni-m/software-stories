@@ -793,3 +793,29 @@ DMG SHA-256:
 This checks one real populated Guide at one window size; other widths,
 keyboard, accessibility, and cross-screen acceptance remain open under
 `13yp` and `x21h`. No test suite or provider request was run.
+
+## Packaged Guide, Flow, Search, Changes, and history check — 29 October 2026
+
+On the rebuilt app recorded above, the existing `pillow-rs`
+`main@e843f864fc` workspace was used without changing repository data or
+calling an AI provider. Flow showed the saved eight-node explanation beside
+the selected `canvas.rs` source. Search restored `NativeDrawCanvas`, showed
+36 matches across 12 files, and displayed its **Local search may be
+incomplete** notice; switching to Search did not replace the current Flow or
+source. Chat history showed the current question and four saved explanations.
+
+Changes restored the local commit history and completed its default comparison
+from `e843f864fcbdf6b53feead608f7ab53025541d8e` to
+`c5104cbaaefbd359c88746801a1fd60e52a1f6d1`. It correctly labeled the result
+**Partial comparison**, listed 128 visible files, disclosed 111 omitted
+changes, and labeled static cross-file relationships partial. **Back to
+exploration** returned to the same Flow and selected source; Chat history and
+Guide tabs remained available, and Guide restored scene 1 of 2 and section 1
+of 4. No source selection, explanation, snapshot, or audio changed.
+
+The screen was inspected live in the installed executable recorded above; no
+image containing local source/diff content was retained. This covers one
+populated repository state and the normal Flow/Search/Changes/history path.
+It does not cover nested follow-up navigation, empty/error states, keyboard,
+VoiceOver, high zoom, or other window sizes. Those acceptance gates remain
+open under `13yp` and `x21h`.
