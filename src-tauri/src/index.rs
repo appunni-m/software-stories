@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v6";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v7";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -287,6 +287,7 @@ struct ParsedFile {
     calls: Vec<CallCandidate>,
     imports: Vec<ImportCandidate>,
     callable_exports: BTreeSet<String>,
+    go_package_name: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -560,6 +561,7 @@ where
     let mut call_candidates = Vec::new();
     let mut import_candidates = Vec::new();
     let mut callable_exports = BTreeSet::new();
+    let mut go_packages_by_path = HashMap::<String, String>::new();
     let mut total_source_bytes = 0_u64;
     let mut total_import_bindings = 0_usize;
     let mut partial = false;
@@ -747,6 +749,9 @@ where
                     ));
                 } else {
                     total_import_bindings += parsed_import_binding_count;
+                    if let Some(package_name) = parsed.go_package_name.as_ref() {
+                        go_packages_by_path.insert(parsed.file.path.clone(), package_name.clone());
+                    }
                     for symbol in parsed.symbols {
                         symbols.entry(symbol.symbol_id.clone()).or_insert(symbol);
                     }
@@ -781,6 +786,7 @@ where
         call_candidates,
         &symbols,
         &imported_call_targets,
+        &go_packages_by_path,
     ));
     relationships.sort_by(relationship_order);
     relationships.dedup_by(|left, right| left.relationship_id == right.relationship_id);
@@ -1023,6 +1029,9 @@ fn collect_file_index(
 ) -> Result<ParsedFile, ParseFailure> {
     let root = tree.root_node();
     let parse_error_count = count_parse_errors(root, cancellation)?;
+    let parsed_go_package_name = (language == SupportedLanguage::Go)
+        .then(|| go_package_name(root, source))
+        .flatten();
     let file_id = file_id(path);
     let parser = parser_version(language);
     let file_is_test = is_test_path(path);
@@ -1237,7 +1246,21 @@ fn collect_file_index(
         calls,
         imports,
         callable_exports,
+        go_package_name: parsed_go_package_name,
     })
+}
+
+fn go_package_name(root: Node<'_>, source: &str) -> Option<String> {
+    let mut root_cursor = root.walk();
+    let package_clause = root
+        .named_children(&mut root_cursor)
+        .find(|child| child.kind() == "package_clause")?;
+    let mut clause_cursor = package_clause.walk();
+    package_clause
+        .named_children(&mut clause_cursor)
+        .find(|child| child.kind() == "package_identifier")
+        .map(|identifier| node_text(identifier, source))
+        .filter(|name| !name.is_empty())
 }
 
 fn direct_module_export(node: Node<'_>, language: SupportedLanguage, source: &str) -> bool {
@@ -2862,7 +2885,24 @@ fn resolve_calls(
     candidates: Vec<CallCandidate>,
     symbols: &BTreeMap<String, IndexedSymbol>,
     imported_targets: &HashMap<(String, String), Vec<String>>,
+    go_packages_by_path: &HashMap<String, String>,
 ) -> Vec<IndexedRelationship> {
+    let mut go_functions_by_package = HashMap::<(PathBuf, String, String), Vec<String>>::new();
+    for symbol in symbols.values().filter(|symbol| {
+        symbol.language == SupportedLanguage::Go.label() && symbol.kind == SymbolKind::Function
+    }) {
+        let Some(package_name) = go_packages_by_path.get(&symbol.path) else {
+            continue;
+        };
+        let directory = Path::new(&symbol.path)
+            .parent()
+            .unwrap_or_else(|| Path::new(""))
+            .to_path_buf();
+        go_functions_by_package
+            .entry((directory, package_name.clone(), symbol.name.clone()))
+            .or_default()
+            .push(symbol.symbol_id.clone());
+    }
     candidates
         .into_iter()
         .map(|candidate| {
@@ -2911,7 +2951,37 @@ fn resolve_calls(
                         }
                     }
                     Some(BindingTarget::Unknown(reason)) => {
-                        unresolved_reason = Some(reason.to_owned());
+                        if reason == "no_visible_lexical_binding" {
+                            if let Some(package_name) = go_packages_by_path.get(&candidate.path) {
+                                let source_directory = Path::new(&candidate.path)
+                                    .parent()
+                                    .unwrap_or_else(|| Path::new(""))
+                                    .to_path_buf();
+                                let key = (
+                                    source_directory,
+                                    package_name.clone(),
+                                    candidate.name.clone(),
+                                );
+                                match go_functions_by_package.get(&key).map(Vec::as_slice) {
+                                    Some([symbol_id]) => {
+                                        target = Some(symbol_id.clone());
+                                        unresolved_reason = None;
+                                    }
+                                    Some([_, _, ..]) => {
+                                        unresolved_reason = Some(
+                                            "multiple_same_package_function_matches".to_owned(),
+                                        );
+                                    }
+                                    _ => {
+                                        unresolved_reason = Some(reason.to_owned());
+                                    }
+                                }
+                            } else {
+                                unresolved_reason = Some(reason.to_owned());
+                            }
+                        } else {
+                            unresolved_reason = Some(reason.to_owned());
+                        }
                     }
                     _ => unresolved_reason = Some("lexical_target_unavailable".to_owned()),
                 }
@@ -3388,6 +3458,7 @@ mod tests {
             "}\n",
         );
         let go = parse_fixture("cart.go", go_source, SupportedLanguage::Go);
+        assert_eq!(go.go_package_name.as_deref(), Some("cart"));
         assert_eq!(go.file.language.as_deref(), Some("go"));
         assert_eq!(go.file.status, IndexFileStatus::Indexed);
         assert_eq!(go.file.parse_error_count, 0);
@@ -3478,6 +3549,127 @@ mod tests {
         );
         assert!(SupportedLanguage::from_path("src/prices.pyi") == Some(SupportedLanguage::Python));
         assert!(SupportedLanguage::from_path("src/prices.pyw") == Some(SupportedLanguage::Python));
+    }
+
+    #[test]
+    fn go_calls_resolve_only_within_the_same_directory_and_package() {
+        let caller = parse_fixture(
+            "cart/cart.go",
+            "package cart\nfunc Total() int { return helper() }\n",
+            SupportedLanguage::Go,
+        );
+        let helper = parse_fixture(
+            "cart/helper.go",
+            "package cart\nfunc helper() int { return 42 }\n",
+            SupportedLanguage::Go,
+        );
+        let helper_id = helper
+            .symbols
+            .iter()
+            .find(|symbol| symbol.name == "helper")
+            .expect("same-package helper should be indexed")
+            .symbol_id
+            .clone();
+        let symbols = caller
+            .symbols
+            .iter()
+            .chain(helper.symbols.iter())
+            .map(|symbol| (symbol.symbol_id.clone(), symbol.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let packages = HashMap::from([
+            (caller.file.path.clone(), "cart".to_owned()),
+            (helper.file.path.clone(), "cart".to_owned()),
+        ]);
+        let resolved = resolve_calls(caller.calls, &symbols, &HashMap::new(), &packages);
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].target_id.as_deref(), Some(helper_id.as_str()));
+        assert_eq!(resolved[0].target_path.as_deref(), Some("cart/helper.go"));
+        assert_eq!(resolved[0].unresolved_reason, None);
+
+        let other_directory = parse_fixture(
+            "other/cart.go",
+            "package cart\nfunc Total() int { return helper() }\n",
+            SupportedLanguage::Go,
+        );
+        let other_directory_packages = HashMap::from([
+            (other_directory.file.path.clone(), "cart".to_owned()),
+            (helper.file.path.clone(), "cart".to_owned()),
+        ]);
+        let unresolved = resolve_calls(
+            other_directory.calls,
+            &symbols,
+            &HashMap::new(),
+            &other_directory_packages,
+        );
+        assert_eq!(unresolved[0].target_id, None);
+        assert_eq!(
+            unresolved[0].unresolved_reason.as_deref(),
+            Some("no_visible_lexical_binding")
+        );
+
+        let other_package = parse_fixture(
+            "cart/other.go",
+            "package other\nfunc helper() int { return 7 }\n",
+            SupportedLanguage::Go,
+        );
+        let mismatched_package_symbols = other_package
+            .symbols
+            .iter()
+            .map(|symbol| (symbol.symbol_id.clone(), symbol.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mismatch_caller = parse_fixture(
+            "cart/caller.go",
+            "package cart\nfunc Total() int { return helper() }\n",
+            SupportedLanguage::Go,
+        );
+        let mismatched_package_map = HashMap::from([
+            (mismatch_caller.file.path.clone(), "cart".to_owned()),
+            (other_package.file.path.clone(), "other".to_owned()),
+        ]);
+        let mismatched = resolve_calls(
+            mismatch_caller.calls,
+            &mismatched_package_symbols,
+            &HashMap::new(),
+            &mismatched_package_map,
+        );
+        assert_eq!(mismatched[0].target_id, None);
+        assert_eq!(
+            mismatched[0].unresolved_reason.as_deref(),
+            Some("no_visible_lexical_binding")
+        );
+
+        let duplicate = parse_fixture(
+            "cart/helper_duplicate.go",
+            "package cart\nfunc helper() int { return 99 }\n",
+            SupportedLanguage::Go,
+        );
+        let duplicate_symbols = helper
+            .symbols
+            .iter()
+            .chain(duplicate.symbols.iter())
+            .map(|symbol| (symbol.symbol_id.clone(), symbol.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let duplicate_caller = parse_fixture(
+            "cart/duplicate_caller.go",
+            "package cart\nfunc Total() int { return helper() }\n",
+            SupportedLanguage::Go,
+        );
+        let duplicate_packages = HashMap::from([
+            (duplicate_caller.file.path.clone(), "cart".to_owned()),
+            (helper.file.path.clone(), "cart".to_owned()),
+            (duplicate.file.path.clone(), "cart".to_owned()),
+        ]);
+        let ambiguous = resolve_calls(
+            duplicate_caller.calls,
+            &duplicate_symbols,
+            &HashMap::new(),
+            &duplicate_packages,
+        );
+        assert_eq!(ambiguous[0].target_id, None);
+        assert_eq!(
+            ambiguous[0].unresolved_reason.as_deref(),
+            Some("multiple_same_package_function_matches")
+        );
     }
 
     /// Measures parser coverage of the two large Fontdone FFI files against
