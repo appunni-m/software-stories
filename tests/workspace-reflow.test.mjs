@@ -60,6 +60,8 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{display:flex;flex:1 1 100%;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
+  matches(shell,/\.topbar \.theme-control\s*\{[^}]*flex:\s*0 0 auto;/u);
+  matches(shell,/\.topbar \.theme-control-trigger\s*\{[^}]*flex:\s*0 0 auto;/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);

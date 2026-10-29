@@ -78,6 +78,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; }
 .topbar-actions > * { min-width: 0; }
 .topbar .connection-header { flex: 0 1 300px; width: auto; max-width: min(25cqi,320px); }
+.topbar .theme-control { flex: 0 0 auto; }
+.topbar .theme-control-trigger { flex: 0 0 auto; }
 .help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .help-button:hover { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
 .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
