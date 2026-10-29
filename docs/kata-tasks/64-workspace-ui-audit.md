@@ -966,3 +966,19 @@ remain unverified. No tests, provider requests, narration requests, or saved
 content changes were made. The frontend build retained its existing large
 chunk warning and Rust build warnings. Keep packaged multi-scene and viewport
 acceptance open under `x21h` and `13yp`.
+
+## Follow-up: remove floating scene controls and reflow earlier — 29 October 2026
+
+The user reported that both the scene controls and application header still
+looked detached from the content and overflowed the window. Source review found
+the scene toolbar and audio bar still defaulted to sticky positioning, with a
+workspace-only override that depended on a particular reader ancestry. Scene
+controls and playback now stay in normal document flow wherever the shared
+visual player is used. The application header switches to its two-row layout at
+1600 CSS pixels so repository and connection controls reflow before a typical
+window reaches the previous breakpoint.
+
+Source-only update in `src/visual-story.css`, `src/workspace/workspace.css`, and
+`src/App.css`. No build, test, screenshot, or packaged runtime check ran. Verify
+the top header and a populated multi-scene Guide at the affected native window
+widths before claiming acceptance; `x21h` and `13yp` remain open.

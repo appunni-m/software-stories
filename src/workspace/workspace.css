@@ -70,10 +70,6 @@
 .dw-viewbar .rt-TabsList {box-shadow:none;}
 .dw-viewbar .rt-TabsTriggerInner {gap:var(--space-1);font-size:12px;}
 .dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:var(--space-4) var(--space-4) var(--space-6);scrollbar-gutter:stable;}
-/* Keep both story and section controls in document flow. Pinning both creates
-   stacked sticky bars that can cover the visual or escape the reader pane. */
-.dw-answer-scroll .visual-story > .story-sticky-controls,
-.dw-answer-scroll .visual-story > .story-playbar {position:static;}
 .dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-welcome {padding:var(--space-5) var(--space-1);max-width:530px;margin:0 auto;}
 .dw-welcome > svg {color:var(--accent);}
