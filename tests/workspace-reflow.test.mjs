@@ -48,15 +48,17 @@ test('connection header shows the selected provider model and reasoning in one c
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.topbar\s*\{[^}]*flex:\s*0 0 auto;[^}]*display:\s*grid;[^}]*grid-template-areas:\s*"brand project actions";/);
-  matches(shell,/\.topbar\s*\{[^}]*grid-template-columns:\s*max-content minmax\(0,3fr\) minmax\(0,2fr\)/);
-  matches(shell,/\.topbar\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-topbar;/);
-  matches(shell,/@container app-topbar \(max-width: 1280px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas:"project" "actions";/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*grid-template-areas:"project" "actions";[^}]*grid-template-rows:auto auto;/);
+  matches(shell,/\.topbar\s*\{[^}]*grid-template-columns:\s*max-content minmax\(0,1fr\) max-content/);
+  matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
+  matches(shell,/@container app-window \(max-width: 1280px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas:"project" "actions";/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*display:flex;[^}]*flex-flow:row wrap;/);
   matches(shell,/\.topbar-actions\s*\{[^}]*grid-area:\s*actions;/);
   matches(shell,/\.project-controls\s*\{[^}]*grid-area:\s*project;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*flex-end/u);
-  matches(shell,/\.topbar \.topbar-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto auto auto;[^}]*justify-content:start/u);
+  matches(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
+  matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{display:flex;flex:1 1 100%;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
