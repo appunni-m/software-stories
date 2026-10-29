@@ -47,3 +47,16 @@ This is source inspection, not completion evidence. The packaged recovery
 journey, cross-snapshot missing/stale/unavailable matrix, and native background
 publication/history-read interleavings still need their separately listed
 acceptance. No test suite or provider operation ran for this source review.
+
+## Conflict choices follow the compared versions (2026-10-29)
+
+`src/ChapterRebaseReview.tsx` now scopes each explicit “Keep my edits” / “Use
+saved version” choice to the exact base, latest revision, and draft objects
+shown in the conflict review. If a background publication or draft edit changes
+any of those inputs while the review is open, the old choices are ignored and
+the newly displayed conflicts require a fresh decision. This prevents a
+previous choice from silently applying to content the reader has not reviewed.
+
+Source-only inspection; no tests, build, provider call, or packaged edit flow
+was run. Reopen the Chapter Studio conflict review with a second concurrent
+revision to qualify the behavior in the installed app; keep `h9sy` open.

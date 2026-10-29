@@ -8,12 +8,22 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
   base:ChapterRevision;latest:ChapterRevision;draft:ChapterRevision;
   onCancel:()=>void;onApply:(revision:ChapterRevision)=>void;
 }){
-  const [choices,setChoices]=useState<ChapterRebaseChoices>({});
+  const [choiceState,setChoiceState]=useState<{
+    base:ChapterRevision;latest:ChapterRevision;draft:ChapterRevision;choices:ChapterRebaseChoices;
+  }|null>(null);
+  // A decision belongs to the exact three inputs the reader compared. If a
+  // background publication or draft edit replaces any input, old choices
+  // must not silently resolve the newly displayed conflicts.
+  const choices=choiceState?.base===base&&choiceState.latest===latest&&choiceState.draft===draft
+    ? choiceState.choices:{};
   const result=useMemo(()=>rebaseChapterDraft(base,latest,draft,choices),[base,latest,draft,choices]);
+  const choose=(id:string,choice:'draft'|'latest')=>setChoiceState({
+    base,latest,draft,choices:{...choices,[id]:choice},
+  });
   const applyChoiceToAll=(choice:'draft'|'latest')=>{
     const next:ChapterRebaseChoices={};
     for(const conflict of result.conflicts)next[conflict.id]=choice;
-    setChoices(next);
+    setChoiceState({base,latest,draft,choices:next});
   };
   return <section className="chapter-rebase-panel" aria-labelledby="chapter-rebase-title">
     <div className="chapter-rebase-heading">
@@ -47,7 +57,7 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
                 <label className={choices[conflict.id]===choice?'is-selected':''}>
                   <input type="radio" name={`rebase-${conflict.id}`} value={choice}
                     checked={choices[conflict.id]===choice}
-                    onChange={()=>setChoices(current=>({...current,[conflict.id]:choice}))}/>
+                    onChange={()=>choose(conflict.id,choice)}/>
                   <span><strong>{title}</strong><small title={description}>{description}</small></span>
                 </label>
                 <details className="chapter-rebase-option-details"><summary>View full {isDraft?'draft':'saved'} content</summary><pre>{fullContent}</pre></details>
