@@ -111,7 +111,7 @@ export function WorkspacePreview() {
   return <Theme appearance={state.theme} accentColor="blue" grayColor="slate" radius="medium" scaling="100%" className={`workspace-preview ${state.theme}`}>
     <header className="preview-titlebar">
       <span className="preview-brand"><Code2 size={18} />Code Atlas</span><span className="preview-title-project">checkout-demo</span>
-      <Button variant="ghost" color="gray" size="1" onClick={() => setSearchOpen(true)} className="preview-quick-open"><Search size={14} />Search code<kbd>⌘ P</kbd></Button>
+      <Button variant="ghost" color="gray" size="1" onClick={() => setSearchOpen(true)} className="preview-quick-open" aria-label="Search code"><Search size={14} /><span className="preview-quick-open-label">Search code</span><kbd>⌘ P</kbd></Button>
       <div className="preview-title-actions"><Tooltip content="Connected to Codex"><span className="preview-connected"><span />Connected</span></Tooltip>
         <Tooltip content={`Use ${state.theme === 'dark' ? 'light' : 'dark'} appearance`}><IconButton variant="ghost" color="gray" size="1" aria-label="Change appearance" onClick={() => setState((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }))}>{state.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</IconButton></Tooltip>
         <NotificationCenter items={updates} />
