@@ -50,3 +50,15 @@ Eligibility decision, selected adapter/version, config and chapter workflow plus
 - https://antigravity.google/docs/ide/extensions/zed
 - https://antigravity.google/docs/ide/extensions/xcode
 - https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json
+
+## Official eligibility recheck — 29 October 2026
+
+Google's current [FAQ](https://www.antigravity.google/docs/faq/) still says
+third-party software may not use a consumer Antigravity login and that wrapping
+`agy -p` in a third-party application is unsupported on consumer plans. The
+separate [Antigravity SDK overview](https://www.antigravity.google/docs/sdk/overview)
+documents Gemini API-key and Gemini Enterprise / Google Cloud credentials for
+custom agents. These are distinct account and billing paths; SDK availability
+does not grant consumer-subscription access. Keep the consumer OAuth route
+disabled. The SDK/API route still requires a separately configured credential
+choice, runtime/tool-boundary qualification, and packaged Mac acceptance.
