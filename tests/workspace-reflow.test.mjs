@@ -48,7 +48,7 @@ test('connection header shows the selected provider model and reasoning in one c
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.topbar\s*\{[^}]*flex:\s*0 0 auto;[^}]*display:\s*grid;[^}]*grid-template-areas:\s*"brand project actions";/);
-  matches(shell,/\.topbar\s*\{[^}]*grid-template-columns:\s*max-content minmax\(0,1fr\) max-content/);
+  matches(shell,/\.topbar\s*\{[^}]*grid-template-columns:\s*max-content minmax\(0,3fr\) minmax\(0,2fr\)/);
   matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
   matches(shell,/@container app-window \(max-width: 1280px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-areas:"project" "actions";/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*display:flex;[^}]*flex-flow:row wrap;/);
@@ -56,7 +56,7 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/\.project-controls\s*\{[^}]*grid-area:\s*project;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*flex-end/u);
-  matches(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
+  assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
   matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{display:flex;flex:1 1 100%;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*padding-inline:12px;/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
@@ -65,6 +65,14 @@ test('native high zoom reflows the project and account header without hiding cor
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);
+});
+
+test('scene navigation stays in flow and wraps all scene controls',()=>{
+  const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
+  matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;/);
+  matches(story,/\.story-toolbar\s*\{[^}]*position:\s*static;/);
+  matches(story,/\.story-scene-progress\s*\{[^}]*position:\s*static;/);
+  matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/);
 });
 
 test('native high zoom shows one workspace pane at a time with a return path',()=>{
@@ -76,10 +84,11 @@ test('native high zoom shows one workspace pane at a time with a return path',()
 });
 
 test('source-linked relationship previews wrap labels in wide and narrow Guide panes',()=>{
-  matches(css,/\.dw-answer-visual-preview-graph li \{[^}]*min-width:0;[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1fr\)/);
+  matches(css,/\.dw-answer-visual-preview-graph li \{display:grid;min-width:0;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  matches(css,/@container answer-visual \(min-width: 720px\) \{[\s\S]*?\.dw-answer-visual-preview-graph > ul > li \{grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1fr\)/);
   matches(css,/\.dw-answer-visual-preview-graph button \{[^}]*width:100%;[^}]*white-space:normal;/);
   matches(css,/\.dw-answer-visual-edge \{[^}]*min-width:0;[^}]*flex-wrap:wrap;/);
-  matches(css,/@container guide-pane \(max-width: 700px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge \{grid-column:1 \/ -1;grid-row:2;\}/);
+  matches(css,/@container guide-pane \(max-width: 820px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge \{grid-column:1 \/ -1;grid-row:2;flex-direction:column;\}/);
   matches(css,/@container guide-pane \(max-width: 420px\) \{[\s\S]*?\.dw-answer-visual-preview-graph li > \.dw-answer-visual-edge svg \{transform:rotate\(90deg\);\}/);
 });
 
