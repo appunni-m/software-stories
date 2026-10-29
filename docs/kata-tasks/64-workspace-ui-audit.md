@@ -1255,3 +1255,22 @@ executable SHA-256:
 `247424a61b721be7a348cdce132418be86c0da54c4a2fa0e45c985f624d2f91a`.
 Keep this item open under `x21h` and `13yp` pending a populated multi-scene
 review.
+
+## Corrected installed build — 29 October 2026
+
+The user still saw overflow. Comparing the source and installed app showed why:
+the installed executable above was written at 22:37, before commit `341a4ab`
+added the 1180px header breakpoint and 560px Guide-pane scene layout at 22:41.
+The user was still running the pre-fix bundle. The latest code was rebuilt once
+from `9df03b9` and installed; its executable SHA-256 is
+`0430c271caf7c4703a561b4bc8ca166cdbc102e92ebf3224aa94e73010226f80`. The old
+app bundle is preserved as `Code Atlas.pre-341a4ab-20261029.app`.
+
+The reopened app restored Fontdone `main@5249b72371`. In the visible native
+window, the repository/snapshot/load-changes controls and connection/theme/
+notification/help controls fit in the header row. The saved visual's `Scene 1
+of 1` counter sits inside its Guide card. This answer has one scene, so scene
+arrows and the multi-scene dot strip are not rendered; narrow-window and
+multi-scene placement remain unverified. The TypeScript/Vite and Rust release
+bundle completed with existing warnings. No test suite, provider request,
+narration request, snapshot capture, or saved explanation change occurred.
