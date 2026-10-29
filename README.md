@@ -45,6 +45,7 @@ These are capabilities under development, not a finished or released product. **
 - [Earlier screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — historical Guide / Files / Changes references.
 - [Contributing](CONTRIBUTING.md) — local setup, build commands and change boundaries.
 - [Security reporting](SECURITY.md) — current reporting limits; the public issue tracker is not a confidential channel.
+- [Support](SUPPORT.md) — where to ask questions, report bugs, and request changes.
 - [MIT license](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md) — project and bundled dependency terms.
 
 The [local retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range search and its limits. The [owned Codex investigation checkpoint](docs/acceptance/2026-10-17-codex-owned-retrieval.md) adds one live GPT-6 Luna/max synthetic answer using iterative tools: five calls and 197 distinct source bytes. Workspace chat now uses that route in source. Fontdone broad/focused explanations, speed and packaged-app acceptance remain open.

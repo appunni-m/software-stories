@@ -253,7 +253,7 @@ secrets, clean-account install and product acceptance remain outstanding.
 ## Keep reader-documentation pushes out of the package lane — 2026-10-29
 
 The unsigned package job now ignores changes limited to `README.md`,
-`CONTRIBUTING.md`, `SECURITY.md`, `docs/**`, `.gitignore`, or its own workflow
+`CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `docs/**`, `.gitignore`, or its own workflow
 file. The pull-request diff check uses the same exclusions, while `LICENSE`,
 `THIRD_PARTY_NOTICES.md`, app configuration, and source remain package inputs.
 Manual dispatch still forces verification. This avoids replacing a queued
