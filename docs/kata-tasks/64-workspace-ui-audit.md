@@ -873,6 +873,9 @@ scene count and dots centered between them. A one-scene visual omits disabled
 arrows and redundant dots. This applies at normal pane sizes, compact panes,
 and app zoom's compact layout.
 
-Source change only so far: no build, test, packaged screenshot or keyboard
-check has run yet. Keep the package-level layout and responsive acceptance under
-`13yp`/`x21h` open until the rebuilt app is inspected.
+`npm run build` passed (TypeScript and Vite production build). The active app
+was left open because its Guide still has four other answers in progress and
+notifications requiring attention. No native bundle, restart, packaged
+screenshot or keyboard check has run yet. Keep package-level layout and
+responsive acceptance under `13yp`/`x21h` open until the rebuilt app is safely
+installed and inspected.
