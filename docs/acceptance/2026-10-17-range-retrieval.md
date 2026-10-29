@@ -390,3 +390,9 @@ Codex use of the larger hint page, source-read quality, and broad explanation
 quality remain unqualified. The direct-service profile is evidence for the
 search ranking only; it is not a packaged-agent pass. Keep `a699` and `gk46`
 open.
+
+## Recheck current installed bundle — 29 October 2026
+
+On the installed app (`843dfba7bdebbf200a9d755f516716187c83650190067e56096582924b3a4001`), local search for `memory_face` returned 79 matches across 22 files and surfaced the partial-coverage warning. Selecting `src/font.rs:4053–4115` opened the captured `Font::memory_face` body in the source pane, including its `PFR0` dispatch to `pfr_face`. No model or speech request was made. Explorer, `src/outline.rs`, and Guide were restored after this read-only check.
+
+This is a packaged named-search and exact-source-open check on the current UI build. The app was connected during inspection, so disconnected operation remains unqualified. It does not establish that an agent selects the range, that a generated explanation is useful, or that broad retrieval meets recall targets; keep `a699`, `0wdn`, and `gk46` open.
