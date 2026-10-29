@@ -1199,3 +1199,19 @@ assertion; `metadata_uses_actual_shared_prompts_and_is_deterministic` passes
 (1 passed). This verifies the actual prompt/version remains bound in metadata;
 it does not evaluate generated visuals or human comprehension. Keep `j53m`
 open for the original packaged and content-quality acceptance.
+
+## Existing packaged branch scene inspection — 29 October 2026
+
+The currently open Fontdone workspace exposes a saved `Outline::is_empty`
+answer as a one-scene decision representation titled **One empty signal is
+enough**. Its accessible controls separate the `points`-empty and zero-contour
+condition, the true result, and the false result when both values are
+non-empty/nonzero. The Guide also exposes narration controls and a closed
+**Scene details & source** disclosure. This is a concrete non-graph visual
+shape in the packaged reader, beyond the schema/prompt review above.
+
+This was an accessibility-tree inspection only. The scene was not opened,
+source links were not followed, its explanation/audio were not reviewed, and
+no inference request or content edit occurred. It does not qualify visual
+source-grounding, comprehension, scene navigation, responsive layout, offline
+export or audio-to-visual synchronization; keep `j53m` open.
