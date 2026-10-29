@@ -11,6 +11,8 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
+pub(crate) const CHAPTER_ORIGIN_SCHEMA_VERSION: u32 = 6;
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "backend", deny_unknown_fields)]
 pub enum RecordedAgentSettings {
@@ -137,7 +139,7 @@ impl ChapterGenerationOrigin {
             .map(|_| provider::planned_chapter_review_scope(review).map_err(|error| error.message))
             .transpose()?;
         let origin = Self {
-            schema_version: 6,
+            schema_version: CHAPTER_ORIGIN_SCHEMA_VERSION,
             project_id: review.project_id.clone(),
             snapshot_id: review.snapshot_id.clone(),
             target_path: review.target_path.clone(),
@@ -205,7 +207,7 @@ impl ChapterGenerationOrigin {
                 .map_err(|_| "The retrieval origin could not be encoded.")?,
         );
         let origin = Self {
-            schema_version: 6,
+            schema_version: CHAPTER_ORIGIN_SCHEMA_VERSION,
             project_id: revision.project_id.clone(),
             snapshot_id: revision.snapshot_id.clone(),
             target_path: None,
@@ -295,7 +297,7 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            let current_retrieval = self.schema_version == 6
+            let current_retrieval = self.schema_version == CHAPTER_ORIGIN_SCHEMA_VERSION
                 && matches!(
                     &retrieval.index_identity,
                     RecordedIndexIdentity::Available { .. }
@@ -359,7 +361,7 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            self.schema_version == 6
+            self.schema_version == CHAPTER_ORIGIN_SCHEMA_VERSION
         };
         let expected_contract = if self.retrieval.is_some() {
             crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned()
@@ -370,7 +372,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if self.schema_version != 6
+        if self.schema_version != CHAPTER_ORIGIN_SCHEMA_VERSION
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id

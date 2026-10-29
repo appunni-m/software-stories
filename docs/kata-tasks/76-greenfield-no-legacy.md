@@ -37,3 +37,15 @@ store. Timing diagnostics require the complete schema-5 envelope, including
 regressions assert rejection and byte preservation for recovery, jobs, chapter
 origins, and timing traces. Static source review only; no tests, build, or
 packaged recovery exercise was run for this follow-up.
+
+## Follow-up: isolate unsupported chapter lineage — 29 October 2026
+
+Current chapter revisions with an unsupported origin schema remain unavailable
+and are never rewritten. The chapter store now inspects only their bounded,
+duplicate-key-checked identity header, keeps their byte and record counts within
+the existing storage limits, and skips their explanation content. This lets
+current-schema revisions load and new current-schema work continue without
+restoring old origin validation. Supported descendants may remain visible when
+their parent is an opaque unsupported record; that ancestry is partial, and the
+unsupported parent cannot be selected for review. Source-only review; no tests,
+build, or packaged runtime check ran.

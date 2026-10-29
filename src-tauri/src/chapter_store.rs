@@ -1,4 +1,5 @@
 use crate::chapters::{self, ChapterRevision, RevisionLifecycle, ValidationStatus};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
@@ -14,8 +15,39 @@ const MAX_STORAGE_ENTRY_COUNT: usize = MAX_REVISION_COUNT * 4;
 
 struct ProjectRevisions {
     revisions: Vec<ChapterRevision>,
+    unsupported_revisions: Vec<UnsupportedRevisionIdentity>,
+    revision_entries: usize,
     total_bytes: usize,
     entries_visited: usize,
+}
+
+#[derive(Clone)]
+struct UnsupportedRevisionIdentity {
+    revision_id: String,
+    revision_number: u32,
+    chapter_id: String,
+    project_id: String,
+    snapshot_id: String,
+    target: chapters::ChapterTarget,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RevisionHeader {
+    schema_version: u32,
+    chapter_id: String,
+    revision_id: String,
+    revision_number: u32,
+    project_id: String,
+    snapshot_id: String,
+    target: chapters::ChapterTarget,
+    generation_origin: Option<OriginHeader>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OriginHeader {
+    schema_version: u32,
 }
 
 pub fn list_for_snapshot(
@@ -103,13 +135,17 @@ fn append_revision(
         return Err("Generated chapter revisions cannot claim a review parent.".to_owned());
     }
     let existing = load_project_revisions(storage_dir, &revision.project_id)?;
-    if existing.revisions.len() >= MAX_REVISION_COUNT {
+    if existing.revision_entries >= MAX_REVISION_COUNT {
         return Err("This project already reached the local revision limit.".to_owned());
     }
     if existing
         .revisions
         .iter()
         .any(|item| item.revision_id == revision.revision_id)
+        || existing
+            .unsupported_revisions
+            .iter()
+            .any(|item| item.revision_id == revision.revision_id)
     {
         return Err(
             "This immutable revision ID already exists. Generate a fresh draft.".to_owned(),
@@ -118,6 +154,7 @@ fn append_revision(
     let mut last_number = 0_u32;
     let mut target_exists = false;
     let mut latest_for_snapshot: Option<&ChapterRevision> = None;
+    let mut latest_unsupported_for_snapshot: Option<&UnsupportedRevisionIdentity> = None;
     for item in &existing.revisions {
         if item.target.target_id == revision.target.target_id {
             target_exists = true;
@@ -134,6 +171,30 @@ fn append_revision(
                     .is_none_or(|latest| item.revision_number > latest.revision_number)
             {
                 latest_for_snapshot = Some(item);
+            }
+        } else if item.chapter_id == revision.chapter_id {
+            return Err(
+                "The chapter identity is already assigned to a different local target.".to_owned(),
+            );
+        }
+    }
+    for item in &existing.unsupported_revisions {
+        if item.target.target_id == revision.target.target_id {
+            target_exists = true;
+            if item.chapter_id != revision.chapter_id || item.target.scope != revision.target.scope
+            {
+                return Err(
+                    "The chapter target identity conflicts with an existing local chapter."
+                        .to_owned(),
+                );
+            }
+            last_number = last_number.max(item.revision_number);
+            if item.snapshot_id == revision.snapshot_id
+                && latest_unsupported_for_snapshot.is_none_or(|latest| {
+                    item.revision_number > latest.revision_number
+                })
+            {
+                latest_unsupported_for_snapshot = Some(item);
             }
         } else if item.chapter_id == revision.chapter_id {
             return Err(
@@ -158,7 +219,11 @@ fn append_revision(
             return Err("This chapter changed since it was opened. Reload the latest revision before saving.".to_owned());
         }
         if parent.snapshot_id == revision.snapshot_id {
-            if latest_for_snapshot.map(|latest| latest.revision_id.as_str()) != Some(parent_id) {
+            let unsupported_is_newer = latest_unsupported_for_snapshot
+                .is_some_and(|latest| latest.revision_number >= parent.revision_number);
+            if unsupported_is_newer
+                || latest_for_snapshot.map(|latest| latest.revision_id.as_str()) != Some(parent_id)
+            {
                 return Err("This chapter changed since it was opened. Reload the latest revision before saving.".to_owned());
             }
         } else {
@@ -175,11 +240,18 @@ fn append_revision(
                         && item.snapshot_id == parent.snapshot_id
                 })
                 .max_by_key(|item| item.revision_number);
+            let unsupported_is_newer = existing.unsupported_revisions.iter().any(|item| {
+                item.target.target_id == parent.target.target_id
+                    && item.snapshot_id == parent.snapshot_id
+                    && item.revision_number >= parent.revision_number
+            });
             if revision.lifecycle != RevisionLifecycle::Draft
                 || parent.lifecycle != RevisionLifecycle::Accepted
+                || unsupported_is_newer
                 || latest_parent_snapshot.map(|latest| latest.revision_id.as_str())
                     != Some(parent_id)
                 || latest_for_snapshot.is_some()
+                || latest_unsupported_for_snapshot.is_some()
             {
                 return Err("A cross-snapshot update must start from the latest accepted revision and create the first draft for the selected snapshot.".to_owned());
             }
@@ -267,6 +339,8 @@ fn load_project_revisions(
     }
     let mut result = ProjectRevisions {
         revisions: Vec::new(),
+        unsupported_revisions: Vec::new(),
+        revision_entries: 0,
         total_bytes: 0,
         entries_visited: 0,
     };
@@ -311,7 +385,7 @@ fn load_project_revisions(
             if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
                 continue;
             }
-            if result.revisions.len() >= MAX_REVISION_COUNT {
+            if result.revision_entries >= MAX_REVISION_COUNT {
                 return Err(
                     "The local chapter revision count exceeds the supported limit.".to_owned(),
                 );
@@ -322,9 +396,25 @@ fn load_project_revisions(
             if !file_type.is_file() {
                 return Err("A local chapter revision must be a regular file, not a symbolic link or folder.".to_owned());
             }
+            result.revision_entries += 1;
             let bytes = read_revision_bytes(&path, MAX_TOTAL_JSON_BYTES - result.total_bytes)?;
             result.total_bytes += bytes.len();
-            let revision = chapters::decode_chapter_revision(&bytes)?;
+            let revision = match chapters::decode_chapter_revision(&bytes) {
+                Ok(revision) => revision,
+                Err(error) => {
+                    if let Some(identity) = unsupported_revision_identity(&bytes) {
+                        validate_unsupported_revision_identity(
+                            &identity,
+                            project_id,
+                            &target_id,
+                            &path,
+                        )?;
+                        result.unsupported_revisions.push(identity);
+                        continue;
+                    }
+                    return Err(error);
+                }
+            };
             validate_revision_identity(&revision)?;
             if revision.project_id != project_id
                 || revision.target.target_id != target_id
@@ -345,7 +435,7 @@ fn load_project_revisions(
             .then_with(|| left.created_at_unix_ms.cmp(&right.created_at_unix_ms))
             .then_with(|| left.revision_id.cmp(&right.revision_id))
     });
-    validate_project_revision_order(&result.revisions)?;
+    validate_project_revision_order(&result.revisions, &result.unsupported_revisions)?;
     Ok(result)
 }
 
@@ -379,6 +469,77 @@ fn read_revision_bytes(path: &Path, remaining_bytes: usize) -> Result<Vec<u8>, S
         return Err("Local chapter revisions exceed the supported storage size.".to_owned());
     }
     Ok(bytes)
+}
+
+/// Keep records with an unsupported lineage schema opaque and untouched. Only
+/// the current chapter envelope is inspected so unsupported receipts cannot
+/// prevent supported revisions from loading or being saved.
+fn unsupported_revision_identity(bytes: &[u8]) -> Option<UnsupportedRevisionIdentity> {
+    let value = crate::strict_json::from_slice(bytes).ok()?;
+    let header: RevisionHeader = serde_json::from_value(value).ok()?;
+    if header.schema_version != chapters::CHAPTER_SCHEMA_VERSION
+        || header
+            .generation_origin
+            .as_ref()?
+            .schema_version
+            == crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION
+    {
+        return None;
+    }
+    Some(UnsupportedRevisionIdentity {
+        revision_id: header.revision_id,
+        revision_number: header.revision_number,
+        chapter_id: header.chapter_id,
+        project_id: header.project_id,
+        snapshot_id: header.snapshot_id,
+        target: header.target,
+    })
+}
+
+fn validate_unsupported_revision_identity(
+    identity: &UnsupportedRevisionIdentity,
+    project_id: &str,
+    target_id: &str,
+    path: &Path,
+) -> Result<(), String> {
+    if !valid_id(&identity.revision_id)
+        || identity.revision_number == 0
+        || !valid_id(&identity.chapter_id)
+        || identity.project_id != project_id
+        || !valid_id(&identity.snapshot_id)
+        || !valid_id(&identity.target.target_id)
+        || identity.chapter_id == identity.revision_id
+        || identity.chapter_id == identity.target.target_id
+        || identity.revision_id == identity.target.target_id
+        || identity.target.target_id != target_id
+        || Some(identity.revision_id.as_str()) != path.file_stem().and_then(|stem| stem.to_str())
+        || project_id.trim().is_empty()
+    {
+        return Err(
+            "An unsupported local chapter revision has invalid storage identity.".to_owned(),
+        );
+    }
+    let scope_is_valid = match &identity.target.scope {
+        chapters::ChapterTargetScope::Overview => {
+            identity.target.target_id == "target:overview"
+                && identity.chapter_id == "chapter:overview"
+        }
+        chapters::ChapterTargetScope::File { path } => {
+            crate::repository_context::safe_path(path)
+        }
+        chapters::ChapterTargetScope::Group { paths } => {
+            !paths.is_empty()
+                && paths
+                    .iter()
+                    .all(|path| crate::repository_context::safe_path(path))
+        }
+    };
+    if !scope_is_valid {
+        return Err(
+            "An unsupported local chapter revision has invalid storage identity.".to_owned(),
+        );
+    }
+    Ok(())
 }
 
 fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> {
@@ -437,7 +598,10 @@ fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> 
     Ok(())
 }
 
-fn validate_project_revision_order(revisions: &[ChapterRevision]) -> Result<(), String> {
+fn validate_project_revision_order(
+    revisions: &[ChapterRevision],
+    unsupported: &[UnsupportedRevisionIdentity],
+) -> Result<(), String> {
     let mut revision_ids = HashSet::new();
     let mut chapter_targets = HashMap::new();
     let mut previous: Option<&ChapterRevision> = None;
@@ -472,9 +636,25 @@ fn validate_project_revision_order(revisions: &[ChapterRevision]) -> Result<(), 
     for revision in revisions {
         if let Some(parent_id) = revision.based_on_revision_id.as_deref() {
             let Some(parent) = revisions.iter().find(|item| item.revision_id == parent_id) else {
-                return Err(
-                    "A local chapter review revision refers to a missing parent.".to_owned(),
-                );
+                let Some(parent) = unsupported.iter().find(|item| item.revision_id == parent_id)
+                else {
+                    return Err(
+                        "A local chapter review revision refers to a missing parent.".to_owned(),
+                    );
+                };
+                if parent.chapter_id != revision.chapter_id
+                    || parent.target.target_id != revision.target.target_id
+                    || parent.target.scope != revision.target.scope
+                    || parent.revision_number >= revision.revision_number
+                {
+                    return Err(
+                        "A local chapter review revision has inconsistent parent history."
+                            .to_owned(),
+                    );
+                }
+                // The referenced receipt is deliberately not decoded or migrated.
+                // Keep the current revision readable while treating its history as partial.
+                continue;
             };
             if parent.chapter_id != revision.chapter_id
                 || parent.target.target_id != revision.target.target_id
@@ -1278,6 +1458,8 @@ mod tests {
         );
         let mut scanned = ProjectRevisions {
             revisions: Vec::new(),
+            unsupported_revisions: Vec::new(),
+            revision_entries: 0,
             total_bytes: 0,
             entries_visited: MAX_STORAGE_ENTRY_COUNT - 1,
         };
