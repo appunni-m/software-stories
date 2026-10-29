@@ -84,8 +84,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Keep the complete header on one line until the compact-width layout below. */
-@media (max-width: 1180px) {
+/* Reflow before the three desktop groups compete for a single row. */
+@media (max-width: 1540px) {
   .topbar {
     grid-template-columns:minmax(0,1fr);
     grid-template-areas:"project" "actions";
