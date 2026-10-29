@@ -105,7 +105,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
     {!native && <p role="status">Voice setup is available in the Code Atlas Mac app.</p>}
     {settings.backend === 'pocket-tts' ? <>
       <div className="connections-status"><CheckCircle2 size={17}/><div><strong>{busy ? 'Preparing voice…' : status?.ready ? 'Ready to listen' : 'Prepare local voice'}</strong><p>Alba · English · text stays on this Mac</p></div></div>
-      {!status?.ready && <p>One download prepares the voice. Listening has no provider usage fee.</p>}
+      <p>One-time setup keeps about 1.1 GB on this Mac. It works offline once ready, with no provider usage fee.</p>
       {(!status?.ready || busy) && <AppButton intent="primary" disabled={!native || busy || status?.busy || !status?.setupAvailable} onClick={() => { void prepare(); }}>{busy ? 'Preparing…' : 'Prepare voice'}</AppButton>}
       {busy && <AppButton intent="secondary" onClick={() => { if (setupId.current) void cancelProviderRequest(setupId.current).catch(() => setError('Could not stop setup.')); }}>Cancel setup</AppButton>}
       <details><summary>Voice details and troubleshooting</summary><p>{status?.message ?? 'Checking availability…'}</p><p>Alba MacKenna voice · CC BY 4.0.</p><a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>{status?.ready && <AppButton intent="secondary" disabled={busy || status.busy || !status.setupAvailable} onClick={() => { void prepare(); }}>Repair voice setup</AppButton>}</details>

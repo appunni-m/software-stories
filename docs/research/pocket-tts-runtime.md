@@ -6,6 +6,14 @@ October 21 package-lock update: setup now installs the 49 resolved Python depend
 
 October 28 storage cleanup: after setup verifies the installed runtime, it now best-effort removes the setup-only `uv-cache` and `huggingface` download directories. Synthesis repeats this cleanup for older valid installations that still have those duplicate downloads. The managed interpreter, virtual environment and copied model/voice assets remain in place. A focused regression verifies the cleanup is limited to those download caches and is idempotent; packaged storage savings have not been measured.
 
+October 29 storage observation: the installed `runtime-3.3.0-v1` directory used
+1,116,380 KiB (about 1.1 GB) on this Apple Silicon Mac. The virtual environment
+used 796,564 KiB, model/voice assets 220,188 KiB, and pinned setup tool 27,236
+KiB. This is one completed installation, not a clean-install peak: temporary
+download/cache use during setup and size variation on another supported Mac
+have not been measured. The Voice connection screen uses the rounded retained
+size and says that prepared narration works offline.
+
 October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. That run used an existing uv installation and was not a clean-account installer qualification. The final app installed at `~/Applications/Code Atlas.app` generated and played an 8.85-second section, supported replay/pause and reused its cached audio after section navigation. Cancellation, clean-account packaging, export and listening qualification remain open below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
 
 ## Runtime contract

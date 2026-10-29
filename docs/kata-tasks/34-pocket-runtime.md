@@ -92,6 +92,17 @@ Remaining broader qualification work:
 
 The original October 15 implementation was source-only. October 16 native setup and automated checks above supersede that earlier checkpoint; they do not close this task.
 
+## Installed-size estimate — 29 October 2026
+
+The completed app-managed runtime on this Apple Silicon Mac occupies
+1,116,380 KiB (about 1.1 GB): 796,564 KiB for the virtual environment,
+220,188 KiB for model/voice assets, and 27,236 KiB for the pinned setup tool.
+The Voice connection screen now tells the user the rounded retained size, that
+the prepared voice works offline, and that local synthesis has no provider
+usage fee. This is one post-setup measurement, not a clean-install peak or a
+cross-machine measurement. Temporary disk/download requirements, memory, and
+uninstall behavior remain unqualified; keep the task open.
+
 ## Contract
 Pin Pocket TTS 3.3.0, a compatible Python runtime, exact model/config identity and a vetted built-in voice. Provide app-managed installation/download progress, cancellation, retry and actionable missing-runtime/disk errors. Use one managed worker with bounded input/output/concurrency and no network listener. Reuse loaded resources where feasible; cancel active work and reap children on cancellation/app exit. Never execute repository-provided scripts/config or accept arbitrary voice/model URLs. Keep runtime and model storage separate from repository data.
 
