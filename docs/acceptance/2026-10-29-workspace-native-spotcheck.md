@@ -32,7 +32,25 @@ The screenshots were not retained as files, so this note does **not** satisfy
 the audit's durable screenshot-attachment requirement. First-run, empty and
 failure states, Flow, nested restoration, notifications, connection settings,
 light appearance, keyboard-only use, VoiceOver, Increase Contrast, Reduce
-Motion, narrow-window reflow, and 200% zoom remain uninspected here.
+Motion, the full narrow-window matrix, and 200% zoom remain uninspected here.
+
+## Reduced-window follow-up — 29 October 2026
+
+The installed app was resized through its native window controls and inspected
+again. The screenshot output was 2048 × 1365 pixels (the logical CSS viewport
+was not exposed by the accessibility API). The header reflowed into two rows;
+repository, snapshot, **Load latest changes**, Codex/model, appearance,
+notifications, and help controls remained visible without overlap. Explorer,
+source, and Guide remained side by side; the long Guide heading wrapped within
+its pane. The source viewport still shows only part of long code lines, which
+must be read through the source pane's horizontal overflow. The available saved
+visual remains one scene, so there were no scene arrows to exercise. The app
+window was restored to its prior large size after inspection.
+
+This narrows the header overflow uncertainty for one reduced-size state; it is
+not a complete viewport matrix or a retained screenshot. It does not qualify
+minimum supported dimensions, 200% zoom, or a multi-scene Guide. The screenshot
+was inspected live but not retained as a file.
 
 ## Next audit actions
 
