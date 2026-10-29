@@ -85,6 +85,17 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
 /* Give the dense header deliberate rows when the window cannot hold all controls. */
+@media (max-width: 1560px) {
+  .topbar {
+    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-areas: "brand project" "actions actions";
+    align-items: center;
+    gap: 4px 8px;
+    padding: 5px 10px;
+  }
+  .topbar .project-controls {width:auto;flex:1 1 auto;}
+  .topbar .topbar-actions {width:100%;justify-content:flex-end;}
+}
 @media (max-width: 1180px) {
   .topbar {
     grid-template-columns:minmax(0,1fr);

@@ -1192,3 +1192,21 @@ when the window is narrow. `git diff --check` is the only validation run; no
 tests, build, package install, or native screenshot was performed. The installed
 binary still has not been matched to this source, and the open saved Guide has
 one scene, so packaged header and multi-scene pager acceptance stay open.
+
+## Follow-up: keep scene and header controls in normal flow — 29 October 2026
+
+The current header's `max-content` action track could keep its full intrinsic
+width at common desktop sizes; its compact breakpoint did not begin until
+1180px. Keep the repository identity and controls on the first row, then place
+account actions on a second normal-flow row through 1560px. The narrow layout
+continues to use full-width repository and action rows. The design preview's
+fixed grid header now wraps its controls by available width as well.
+
+The scene pager now uses a bounded flex row: previous and next controls keep
+their 28px slots, the scene count stays readable, and the dot strip takes the
+remaining width and scrolls within the Guide pane. It remains in document flow;
+no absolute positioning is involved. Source/build evidence does not establish
+the packaged multi-scene result. `npm run build` and `git diff --check` pass;
+no test suite or native bundle was run for this correction. Inspect a populated
+multi-scene Guide and the header at the user's actual window size before
+closing this finding.
