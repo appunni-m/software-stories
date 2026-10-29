@@ -467,5 +467,7 @@ cards. The Guide now keeps a concise count and grouping hint but only renders
 the expand/collapse button when older question cards are hidden or the full
 stack is already expanded. Earlier attempts remain available under their
 existing per-question disclosure. No saved content changed. This source-only
-correction was not tested, built, packaged, or visually reviewed; keep
-`x21h` and `13yp` open.
+correction had no test-suite run. `npm run build` passes TypeScript and Vite at
+commit `060bfc4`; Vite retains the existing large main-chunk warning. The
+installed native app has not been rebuilt or visually reviewed for this
+correction. Keep `x21h` and `13yp` open.
