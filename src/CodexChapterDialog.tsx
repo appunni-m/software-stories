@@ -557,6 +557,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       if (result.status === 'error') {
         if (lifetime.current === epoch) {
           if (cancelRequested.current) setNote('Generation was cancelled. No response was accepted. Source may already have been shared and account quota used.');
+          else if (result.error.kind === 'repairProgress') setNote(result.error.message);
           else setError(providerFailureMessage(result.error));
         }
         return;

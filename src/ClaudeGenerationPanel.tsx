@@ -65,6 +65,7 @@ function failure(error: ProviderFailure): string {
     requestCancelled: 'Generation stopped. No response was accepted.',
     requestTimedOut: 'Claude did not finish within the operation limit. Review a new request before retrying.',
     malformedProviderResponse: 'The response failed local format or source evidence validation.',
+    repairProgress: error.message,
     providerResponseTooLarge: 'The response exceeded the local limit. Try a smaller source selection.',
     localStorageUnavailable: 'The local result or recovery state could not be confirmed. Check pending chapter previews or PR Guide history before generating again.',
     unavailableModel: 'Refresh the Claude catalog and choose a supported model and effort.',
@@ -154,9 +155,12 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       invoked = true;
       const response = await send(mode, review);
       if (response.status === 'error') {
-        if (current.mounted && current.version === version) setError(mode.kind === 'repository-plan'
-          ? `${failure(response.error)} Check Learning plans and recovery before another request; an unaccepted draft may already exist.`
-          : failure(response.error));
+        if (current.mounted && current.version === version) {
+          if (response.error.kind === 'repairProgress') setNote(response.error.message);
+          else setError(mode.kind === 'repository-plan'
+            ? `${failure(response.error)} Check Learning plans and recovery before another request; an unaccepted draft may already exist.`
+            : failure(response.error));
+        }
         return;
       }
       const value = response.data;

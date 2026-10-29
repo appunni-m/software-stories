@@ -298,6 +298,7 @@ pub fn canonicalize_section_update(
     current_sources: &[SnapshotSource],
     selected_section_id: &str,
     selected_section_revision_id: &str,
+    repair_session_id: Option<&str>,
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<(ChapterRevision, Vec<String>), String> {
@@ -324,6 +325,17 @@ pub fn canonicalize_section_update(
         current_index,
         base,
     )?;
+    let repair_session = repair_session_id
+        .map(|session_id| {
+            let session = crate::section_repair_session::load(
+                storage_dir,
+                &base.project_id,
+                session_id,
+            )?;
+            crate::section_repair_session::verify_binding(&session, base, &freshness)?;
+            Ok::<_, String>(session)
+        })
+        .transpose()?;
     let selected_freshness = freshness
         .sections
         .iter()
@@ -339,10 +351,11 @@ pub fn canonicalize_section_update(
         .iter()
         .filter(|item| {
             item.section_id != selected_section_id
-                && !matches!(
-                    item.status,
-                    SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry
-                )
+                && if repair_session.is_some() {
+                    item.status == SectionFreshnessStatus::NeedsReview
+                } else {
+                    !matches!(item.status, SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry)
+                }
         })
         .map(|item| item.section_id.as_str())
         .collect::<Vec<_>>();
@@ -353,12 +366,8 @@ pub fn canonicalize_section_update(
         ));
     }
     let target_path = match &base.target.scope {
-        chapters::ChapterTargetScope::File { path } => path.as_str(),
-        _ => {
-            return Err(
-                "Selective regeneration currently supports a single-file chapter.".to_owned(),
-            );
-        }
+        chapters::ChapterTargetScope::File { path } => Some(path.as_str()),
+        chapters::ChapterTargetScope::Overview | chapters::ChapterTargetScope::Group { .. } => None,
     };
     let old_section = base
         .sections
@@ -371,13 +380,15 @@ pub fn canonicalize_section_update(
         );
     }
     let sources = checked_sources(current_manifest, current_sources)?;
-    if !sources.contains_key(target_path) {
+    let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
+    if sources.is_empty()
+        || target_path.is_some_and(|target| !sources.contains_key(target) || !selected_paths.contains(target))
+    {
         return Err(
-            "The file chapter's target is missing from the selected section's current evidence."
+            "The selected section's current source evidence is missing or incomplete."
                 .to_owned(),
         );
     }
-    let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     let mut generated_value =
         serde_json::from_str::<serde_json::Value>(response_text).map_err(|_| {
             "The provider response was not valid JSON. No draft was created.".to_owned()
@@ -398,6 +409,95 @@ pub fn canonicalize_section_update(
     section.section_revision_id = generated_id("sectionrev");
     let mut update_notes = Vec::new();
     reuse_matching_anchor_ids(old_section, &mut section, &mut update_notes);
+
+    if let Some(session) = repair_session {
+        let mut isolated = base.clone();
+        isolated.snapshot_id = current_manifest.summary.snapshot_id.clone();
+        isolated.sections = vec![section];
+        crate::provider::visual_scenes::prepare_generated_sections(
+            &mut isolated,
+            Some(selected_section_id),
+        )?;
+        let prepared = isolated
+            .sections
+            .into_iter()
+            .next()
+            .ok_or_else(|| "The generated section could not be prepared for its visual scene.".to_owned())?;
+        let session = crate::section_repair_session::record_canonicalized_replacement(
+            storage_dir,
+            &base.project_id,
+            &session.session_id,
+            &base.revision_id,
+            &current_manifest.summary.snapshot_id,
+            &session.freshness_sha256,
+            selected_section_id,
+            selected_section_revision_id,
+            prepared,
+        )?;
+        if !session.is_ready_to_assemble() {
+            let pending = session
+                .pending_section_ids()
+                .into_iter()
+                .map(|id| {
+                    base.sections
+                        .iter()
+                        .find(|candidate| candidate.section_id == id)
+                        .map(|section| section.title.as_str())
+                        .unwrap_or(id)
+                })
+                .collect::<Vec<_>>();
+            return Err(format!(
+                "SECTION_REPAIR_PROGRESS: This section is saved in the local repair session. The accepted chapter is unchanged and no draft was created. Continue with: {}.",
+                pending.join(", ")
+            ));
+        }
+
+        let mut sections = Vec::with_capacity(base.sections.len());
+        for (order, previous) in base.sections.iter().enumerate() {
+            let repair = session
+                .sections
+                .iter()
+                .find(|item| item.section_id == previous.section_id)
+                .ok_or_else(|| "A chapter section is missing from the local repair session.".to_owned())?;
+            let mut updated = match repair.state {
+                crate::section_repair_session::RepairSectionState::Replaced => repair
+                    .replacement
+                    .clone()
+                    .ok_or_else(|| "A completed section repair has no validated replacement.".to_owned())?,
+                crate::section_repair_session::RepairSectionState::Current
+                | crate::section_repair_session::RepairSectionState::SafeToCarry => remap_carried_section(
+                    storage_dir,
+                    &old_manifest,
+                    old_index.as_ref(),
+                    current_manifest,
+                    current_index,
+                    previous,
+                )?,
+                crate::section_repair_session::RepairSectionState::Stale
+                | crate::section_repair_session::RepairSectionState::NeedsReview => {
+                    return Err("The local repair session is not ready to assemble a chapter draft.".to_owned());
+                }
+            };
+            updated.order = order as u32;
+            sections.push(updated);
+        }
+        let mut revision = base.clone();
+        revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+        revision.generation_origin = None;
+        revision.revision_id = generated_id("revision");
+        revision.revision_number = base
+            .revision_number
+            .checked_add(1)
+            .ok_or_else(|| "The chapter revision number is exhausted.".to_owned())?;
+        revision.snapshot_id = current_manifest.summary.snapshot_id.clone();
+        revision.lifecycle = RevisionLifecycle::Draft;
+        revision.validation_status = ValidationStatus::Unvalidated;
+        revision.created_at_unix_ms = unix_time_ms();
+        revision.based_on_revision_id = Some(base.revision_id.clone());
+        revision.decision_note = None;
+        revision.sections = sections;
+        return Ok((revision, update_notes));
+    }
 
     let mut sections = Vec::with_capacity(base.sections.len());
     for (order, previous) in base.sections.iter().enumerate() {
@@ -442,7 +542,7 @@ fn canonicalize_generated_section(
     proposed: &GeneratedChapterSection,
     visual_proposal: &GeneratedVisualProposal,
     section_id: &str,
-    target_path: &str,
+    target_path: Option<&str>,
     selected_paths: &HashSet<String>,
     sources: &HashMap<String, &SnapshotSource>,
     index: Option<&SnapshotIndex>,
@@ -466,7 +566,7 @@ fn canonicalize_generated_section(
         let (claim, claim_dependencies, anchored_target) = build_claim(
             proposed_claim,
             section_id,
-            Some(target_path),
+            target_path,
             selected_paths,
             sources,
             index,
@@ -478,7 +578,7 @@ fn canonicalize_generated_section(
         }
         claims.push(claim);
     }
-    if !target_anchored {
+    if target_path.is_some() && !target_anchored {
         return Err(
             "The regenerated section must cite exact evidence from its target file.".to_owned(),
         );
@@ -2953,7 +3053,7 @@ pub(crate) mod tests {
                 &regenerated,
                 &no_visual_proposal(),
                 "section:test",
-                SIMPLE_PATH,
+                Some(SIMPLE_PATH),
                 &selected_paths,
                 &source_map,
                 Some(&fixture.index),

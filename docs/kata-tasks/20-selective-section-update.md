@@ -114,6 +114,45 @@ while the other remains pending; restart and repair the second; then verify the
 assembled draft has only target-snapshot anchors, unchanged safe sections and
 assets retain identities, and acceptance creates a distinct revision. Also
 cover cancel/failure, corrupt or oversized session data, changed base/target,
-and `NeedsReview` without automatic publication. This architecture is planned,
-not implemented or accepted; the provider and packaged-app gates above remain
-open.
+and `NeedsReview` without automatic publication. This architecture was planned
+at the time of this audit. A native session workflow was implemented on
+29 October; provider and packaged-app acceptance remain open.
+
+### Durable session storage foundation — 29 October 2026
+
+The native backend now has a versioned, bounded durable session record scoped to
+the accepted base revision, source and target snapshots, and a fingerprint of
+the full freshness assessment. It records each original section revision and
+freshness state separately; a canonicalized replacement can be saved for one
+stale section while other stale or `NeedsReview` sections remain pending.
+Session files use private local storage, atomic publication, strict identity and
+size checks, and restart-safe loading. Five focused tests cover persisting one
+of two stale replacements, rejecting changed freshness, rejecting corrupt or
+oversized state, exact coverage of the accepted sections, and keeping
+`NeedsReview` unresolved.
+
+### Native selective-repair workflow — 29 October 2026
+
+The user action now creates or resumes the exact local session for the accepted
+base, selected snapshot, and freshness report. The session ID is included in the
+request target and provider fingerprint. Direct API and account-agent reviews
+revalidate that binding before dispatch. The user can repair multiple stale
+sections one at a time; each response is canonicalized and its visuals are
+prepared against the target snapshot before the replacement is stored. Until
+all stale sections are replaced, the operation reports progress without
+creating a chapter draft. The accepted chapter remains unchanged.
+
+When the session is ready, native code assembles the target-snapshot revision,
+remaps only sections classified current or safe to carry, and runs the full
+chapter validator before returning the ordinary unaccepted draft. `NeedsReview`
+still blocks repair assembly. The focused session tests (5) and the
+multi-section selective-repair pipeline test (1) pass. `cargo check --lib` and
+`npm run build` pass.
+
+The full native suite is not green: 758 passed, 67 failed, and 18 were ignored.
+The failures span multiple subsystems and have not been triaged; release
+readiness must not be inferred from the focused passes. No packaged-app run,
+real provider request, acceptance of the resulting draft, audio-cache identity
+comparison, cancellation/rejection exercise, or restart-from-installed-app
+qualification was performed. Keep `tbsh` open until those acceptance checks and
+the outstanding suite failures are resolved.

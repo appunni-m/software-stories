@@ -74,6 +74,7 @@ import {
   getApplicationStatus,
   getCaptureLimits,
   assessChapterFreshness,
+  startSectionRepairSession,
   getSnapshotIndexProgress,
   isNativeRuntime,
   loadSnapshotIndex,
@@ -2042,7 +2043,7 @@ function App() {
                 onClearRevisionRoute={clearStudioRevisionRoute}
                 onOpenFile={openCapturedFile}
                 onGoPlan={() => chooseWorkspace('guide-plan')}
-                onRegenerateSection={(revision, section, selectedPaths) => {
+                onRegenerateSection={(revision, section, selectedPaths, repairSessionId) => {
                   const targetPath = revision.target.scope.kind === 'file' ? revision.target.scope.path : null;
                   if (!currentProject) return;
                   setProviderDialog({
@@ -2056,6 +2057,7 @@ function App() {
                       chapterRevisionId: revision.revisionId,
                       sectionId: section.sectionId,
                       sectionRevisionId: section.sectionRevisionId,
+                      repairSessionId,
                     },
                   });
                 }}
@@ -2947,7 +2949,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     <div className="provider-fingerprint"><span>Consent applies to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>Provider, model, endpoint, exact encoded body hash, prompt purpose, source paths and hashes, prompt version, disclosure version, and generation settings are included.</small></div>
                   </>
                 )}
-                {requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{providerFailureMessage(requestError)}</span></div></div>}
+                {requestError?.kind === 'repairProgress'
+                  ? <p className="provider-status-note" role="status"><strong>Section repair saved.</strong> {providerFailureMessage(requestError)}</p>
+                  : requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{providerFailureMessage(requestError)}</span></div></div>}
                 {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
@@ -3164,6 +3168,7 @@ function providerFailureTitle(kind: ProviderFailure['kind']): string {
     providerRejectedRequest: 'Provider rejected this request',
     providerResponseTooLarge: 'Response exceeded the size limit',
     malformedProviderResponse: 'Provider returned an unreadable response',
+    repairProgress: 'Section repair saved',
   };
   return titles[kind];
 }
@@ -4277,7 +4282,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onGoPlan: () => void;
   onGenerate: (path: string) => void;
-  onRegenerateSection: (revision: ChapterRevision, section: ChapterSection, selectedPaths: string[]) => void;
+  onRegenerateSection: (revision: ChapterRevision, section: ChapterSection, selectedPaths: string[], repairSessionId: string) => void;
   onGenerateOverview: () => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
@@ -4594,6 +4599,44 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         error: errorMessageOr(error, 'Freshness could not be assessed. Check indexing and try again.'),
         loading: false,
       });
+    }
+  };
+  const beginSectionRepair = async (
+    revision: ChapterRevision,
+    section: ChapterSection,
+    selectedPaths: string[],
+  ) => {
+    if (!nativeRuntime || busy) return;
+    setBusy(true);
+    setFeedback({ message: 'Preparing this section’s local repair session…', tone: 'info' });
+    try {
+      const session = await startSectionRepairSession(
+        projectId,
+        revision.revisionId,
+        snapshotId,
+        section.sectionId,
+        section.sectionRevisionId,
+      );
+      if (!studioMounted.current) return;
+      const selected = session.sections.find((item) => item.sectionId === section.sectionId);
+      if (!selected || !['stale', 'replaced'].includes(selected.state)) {
+        setFeedback({ message: 'This section no longer matches the saved repair session. Reassess freshness before sending.', tone: 'error' });
+        return;
+      }
+      const reviewRequired = session.sections
+        .filter((item) => item.state === 'needsReview')
+        .map((item) => revision.sections
+          .find((itemSection) => itemSection.sectionId === item.sectionId)?.title ?? item.sectionId);
+      if (reviewRequired.length > 0) {
+        setFeedback({ message: `Resolve source or index uncertainty before repairing sections: ${reviewRequired.join(', ')}. Refresh the selected snapshot’s index, then reassess freshness.`, tone: 'info' });
+        return;
+      }
+      onRegenerateSection(revision, section, selectedPaths, session.sessionId);
+    } catch (error) {
+      if (!studioMounted.current) return;
+      setFeedback({ message: errorMessageOr(error, 'The local repair session could not be prepared.'), tone: 'error' });
+    } finally {
+      if (studioMounted.current) setBusy(false);
     }
   };
   const declaredCurrentPaths = (section: ChapterSection, targetPath: string | null) => {
@@ -4977,8 +5020,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               {sectionResult.status === 'stale' && section && nativeRuntime && <button
                                 className="secondary-button"
                                 disabled={busy || Boolean(pendingDraft) || sectionPaths.length === 0 || sectionPaths.length > 12}
-                                onClick={() => onRegenerateSection(selectedRevision, section, sectionPaths)}
-                                title="Review and regenerate only this section using its declared source evidence."
+                                onClick={() => { void beginSectionRepair(selectedRevision, section, sectionPaths); }}
+                                title="Continue a local repair session for this section."
                               ><Sparkles size={13} /> Regenerate this section</button>}
                             </div>
                             {sectionResult.reasons.length > 0 && <ul className="chapter-freshness-reasons">

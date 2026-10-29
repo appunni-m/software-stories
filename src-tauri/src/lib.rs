@@ -67,6 +67,7 @@ mod repository_plan_store;
 mod repository_structure;
 mod repository_structure_commands;
 mod scene_presentation;
+mod section_repair_session;
 mod snapshot;
 mod source_discovery;
 mod strict_json;
@@ -805,6 +806,72 @@ fn assess_chapter_freshness(
         to_index.as_ref(),
         &revision,
     )
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn start_section_repair_session(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    write_lock: State<'_, ChapterStoreLock>,
+    project_id: String,
+    base_revision_id: String,
+    target_snapshot_id: String,
+    section_id: String,
+    section_revision_id: String,
+) -> Result<section_repair_session::SectionRepairSession, String> {
+    let _project = sessions.get(&project_id)?;
+    let _guard = write_lock
+        .0
+        .lock()
+        .map_err(|_| "The local chapter store is temporarily unavailable.".to_owned())?;
+    let storage_dir = app_data_directory(&app)?;
+    let history = chapter_store::list_for_project(&storage_dir, &project_id)?;
+    let base = history
+        .iter()
+        .find(|revision| revision.revision_id == base_revision_id)
+        .ok_or_else(|| "The selected accepted chapter revision is no longer available.".to_owned())?;
+    if base.lifecycle != chapters::RevisionLifecycle::Accepted {
+        return Err("Section repair requires an accepted chapter revision.".to_owned());
+    }
+    let latest_source = history
+        .iter()
+        .filter(|revision| {
+            revision.target.target_id == base.target.target_id
+                && revision.snapshot_id == base.snapshot_id
+        })
+        .max_by_key(|revision| revision.revision_number);
+    if latest_source.map(|revision| revision.revision_id.as_str())
+        != Some(base.revision_id.as_str())
+    {
+        return Err("This is no longer the latest revision for its source snapshot. Reload the chapter and reassess freshness.".to_owned());
+    }
+    let old_manifest =
+        snapshot::load_snapshot_manifest(&storage_dir, &project_id, &base.snapshot_id)?;
+    let new_manifest =
+        snapshot::load_snapshot_manifest(&storage_dir, &project_id, &target_snapshot_id)?;
+    let old_index = index::load_snapshot_index(&storage_dir, &project_id, &base.snapshot_id)?;
+    let new_index = index::load_snapshot_index(&storage_dir, &project_id, &target_snapshot_id)?;
+    let freshness = chapter_freshness::classify_chapter_freshness(
+        &storage_dir,
+        &old_manifest,
+        old_index.as_ref(),
+        &new_manifest,
+        new_index.as_ref(),
+        base,
+    )?;
+    let selected = freshness
+        .sections
+        .iter()
+        .find(|item| item.section_id == section_id)
+        .ok_or_else(|| "The selected section is missing from the freshness assessment.".to_owned())?;
+    if selected.section_revision_id != section_revision_id
+        || selected.status != chapter_freshness::SectionFreshnessStatus::Stale
+    {
+        return Err("The selected section is no longer proven stale. Reassess freshness before repairing it.".to_owned());
+    }
+    let repair = section_repair_session::get_or_create(&storage_dir, base, &freshness)?;
+    section_repair_session::verify_binding(&repair, base, &freshness)?;
+    Ok(repair)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1975,7 +2042,7 @@ fn validate_chapter_draft_preview(
             &allowed_relationships,
             &result.response_text,
         ).map(|revision| (revision, Vec::new())),
-        ("sectionUpdate", Some(_)) => {
+        ("sectionUpdate", _) => {
             let context = review.section_update_context.as_ref().ok_or_else(|| failure(
                 provider::ProviderFailureKind::InvalidReview,
                 "The one-section request is missing its selected chapter identity.".to_owned(),
@@ -1992,6 +2059,7 @@ fn validate_chapter_draft_preview(
                 &sources,
                 &context.section_id,
                 &context.section_revision_id,
+                context.repair_session_id.as_deref(),
                 &allowed_relationships,
                 &result.response_text,
             )
@@ -1999,24 +2067,31 @@ fn validate_chapter_draft_preview(
         _ => Err("The reviewed request purpose and target do not match.".to_owned()),
     }
     .map_err(|message| {
-        failure(
-            provider::ProviderFailureKind::MalformedProviderResponse,
-            message,
-        )
+        if let Some(progress) = message.strip_prefix("SECTION_REPAIR_PROGRESS: ") {
+            failure(provider::ProviderFailureKind::RepairProgress, progress.to_owned())
+        } else {
+            failure(provider::ProviderFailureKind::MalformedProviderResponse, message)
+        }
     })?;
-    provider::visual_scenes::prepare_generated_sections(
-        &mut revision,
-        review
-            .section_update_context
-            .as_ref()
-            .map(|context| context.section_id.as_str()),
-    )
-    .map_err(|message| {
-        failure(
-            provider::ProviderFailureKind::MalformedProviderResponse,
-            message,
+    let has_repair_session = review
+        .section_update_context
+        .as_ref()
+        .is_some_and(|context| context.repair_session_id.is_some());
+    if !has_repair_session {
+        provider::visual_scenes::prepare_generated_sections(
+            &mut revision,
+            review
+                .section_update_context
+                .as_ref()
+                .map(|context| context.section_id.as_str()),
         )
-    })?;
+        .map_err(|message| {
+            failure(
+                provider::ProviderFailureKind::MalformedProviderResponse,
+                message,
+            )
+        })?;
+    }
     let validation = chapters::validate_chapter_revision(
         storage_dir,
         &manifest,
@@ -2213,6 +2288,7 @@ pub fn run() {
             remap_chapter_anchor,
             repair_chapter_citation,
             assess_chapter_freshness,
+            start_section_repair_session,
             compare_local_git_revisions,
             list_pr_guide_revisions,
             accept_pr_guide_draft,
@@ -2584,7 +2660,7 @@ mod chapter_pipeline_tests {
                 .user_prompt
                 .contains("sentences copied verbatim from that section's anchored claims")
         );
-        assert!(review.system_instruction.contains("Teaching policy v30:"));
+        assert!(review.system_instruction.contains("Teaching policy v31:"));
         assert!(
             review
                 .system_instruction
@@ -2751,6 +2827,10 @@ mod chapter_pipeline_tests {
                 quote: stable_quote.to_owned(),
             }],
         }];
+        let mut proposal_json = serde_json::to_value(&proposal).unwrap();
+        for section in proposal_json["sections"].as_array_mut().unwrap() {
+            section["visual"] = serde_json::Value::Null;
+        }
         let relationships = std::collections::HashSet::new();
         let mut base = chapter_generation::canonicalize_file_chapter(
             &fixture.manifest.summary.project_id,
@@ -2759,7 +2839,7 @@ mod chapter_pipeline_tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &relationships,
-            &serde_json::to_string(&proposal).unwrap(),
+            &serde_json::to_string(&proposal_json).unwrap(),
         )
         .unwrap();
         let stable_anchor = base.sections[1].claims[0].anchors[0].anchor_id.clone();
@@ -2820,6 +2900,7 @@ mod chapter_pipeline_tests {
             .unwrap();
         let old_selected_section = accepted.sections[0].clone();
         let old_unrelated_section = accepted.sections[1].clone();
+        let old_evidence_limit_section = accepted.sections[2].clone();
         let old_visual_assets = chapter_freshness::asset_ids_for_revision(&accepted)
             .into_iter()
             .filter(|asset| asset.starts_with("visual:"))
@@ -2847,6 +2928,7 @@ mod chapter_pipeline_tests {
             chapter_revision_id: accepted.revision_id.clone(),
             section_id: old_selected_section.section_id.clone(),
             section_revision_id: old_selected_section.section_revision_id.clone(),
+            repair_session_id: None,
         };
         let blocked = provider::build_request_review(
             &fixture.storage,
@@ -2863,6 +2945,178 @@ mod chapter_pipeline_tests {
         .expect("a second stale section must be resolved before preparing a paid request");
         assert!(blocked.message.contains("The unrelated overlap marker"));
         assert!(blocked.message.contains("No request was sent"));
+
+        let old_manifest = snapshot::load_snapshot_manifest(
+            &fixture.storage,
+            &accepted.project_id,
+            &accepted.snapshot_id,
+        )
+        .unwrap();
+        let old_index = index::load_snapshot_index(
+            &fixture.storage,
+            &accepted.project_id,
+            &accepted.snapshot_id,
+        )
+        .unwrap();
+        let multiple_stale_freshness = chapter_freshness::classify_chapter_freshness(
+            &fixture.storage,
+            &old_manifest,
+            old_index.as_ref(),
+            &fixture.manifest,
+            Some(&fixture.index),
+            &accepted,
+        )
+        .unwrap();
+        let repair_session = section_repair_session::get_or_create(
+            &fixture.storage,
+            &accepted,
+            &multiple_stale_freshness,
+        )
+        .unwrap();
+        let repair_target = |section: &chapters::ChapterSection| {
+            provider::SectionUpdateReviewTarget {
+                chapter_revision_id: accepted.revision_id.clone(),
+                section_id: section.section_id.clone(),
+                section_revision_id: section.section_revision_id.clone(),
+                repair_session_id: Some(repair_session.session_id.clone()),
+            }
+        };
+        let section_response = |title: &str, prose: &str, identifier: &str, quote: &str| {
+            serde_json::json!({
+                "title": title,
+                "prose": prose,
+                "spokenText": prose,
+                "claims": [{
+                    "category": "codeBehavior",
+                    "aspect": "execution",
+                    "prose": prose,
+                    "inferenceBasis": "",
+                    "identifiers": [identifier],
+                    "evidence": [{"path": SIMPLE_PATH, "quote": quote}],
+                    "relationshipIds": []
+                }],
+                "visual": null
+            })
+            .to_string()
+        };
+        let build_section_review = |section: &chapters::ChapterSection| {
+            provider::build_request_review(
+                &fixture.storage,
+                &provider::BuildProviderReviewInput {
+                    project_id: accepted.project_id.clone(),
+                    snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                    target_path: Some(SIMPLE_PATH.to_owned()),
+                    selected_paths: vec![SIMPLE_PATH.to_owned()],
+                    model_id: "gemini-3.8-flash".to_owned(),
+                    section_update: Some(repair_target(section)),
+                },
+            )
+            .unwrap()
+        };
+        let first_review = build_section_review(&old_selected_section);
+        let first_result = validate_chapter_draft_preview(
+            &fixture.storage,
+            &first_review.review,
+            provider::ProviderSendResult {
+                review_id: first_review.review.review_id.clone(),
+                fingerprint: first_review.review.fingerprint.clone(),
+                model_id: first_review.review.model_id.clone(),
+                model_version: None,
+                response_text: section_response(
+                    "Trim the incoming name",
+                    "greeting uses name.trim before inserting the name into the returned greeting.",
+                    "name",
+                    "return `Hello, ${name.trim()}`;",
+                ),
+                input_tokens: None,
+                output_tokens: None,
+            },
+        )
+        .err()
+        .expect("the first repaired section should be saved as incremental progress");
+        assert_eq!(first_result.kind, provider::ProviderFailureKind::RepairProgress);
+        let progress = section_repair_session::load(
+            &fixture.storage,
+            &accepted.project_id,
+            &repair_session.session_id,
+        )
+        .unwrap();
+        assert_eq!(progress.sections[0].state, section_repair_session::RepairSectionState::Replaced);
+        assert_eq!(progress.sections[1].state, section_repair_session::RepairSectionState::Stale);
+
+        let second_review = build_section_review(&old_unrelated_section);
+        let second_result = validate_chapter_draft_preview(
+            &fixture.storage,
+            &second_review.review,
+            provider::ProviderSendResult {
+                review_id: second_review.review.review_id.clone(),
+                fingerprint: second_review.review.fingerprint.clone(),
+                model_id: second_review.review.model_id.clone(),
+                model_version: None,
+                response_text: section_response(
+                    "Retain the repeated literal",
+                    "overlapping retains the repeated literal in a local constant without changing state.",
+                    "overlapping",
+                    "const overlapping = \"bbbbbbbbb\";",
+                ),
+                input_tokens: None,
+                output_tokens: None,
+            },
+        )
+        .err()
+        .expect("the second repaired section should remain incremental while another is stale");
+        assert_eq!(second_result.kind, provider::ProviderFailureKind::RepairProgress);
+        let progress = section_repair_session::load(
+            &fixture.storage,
+            &accepted.project_id,
+            &repair_session.session_id,
+        )
+        .unwrap();
+        assert!(progress.sections.iter().all(|section| {
+            section.state == section_repair_session::RepairSectionState::Replaced
+                || section.state == section_repair_session::RepairSectionState::Stale
+        }));
+        assert_eq!(progress.pending_section_ids().len(), 1);
+
+        let third_review = build_section_review(&old_evidence_limit_section);
+        let final_preview = validate_chapter_draft_preview(
+            &fixture.storage,
+            &third_review.review,
+            provider::ProviderSendResult {
+                review_id: third_review.review.review_id.clone(),
+                fingerprint: third_review.review.fingerprint.clone(),
+                model_id: third_review.review.model_id.clone(),
+                model_version: None,
+                response_text: section_response(
+                    "The visible function has no caller evidence",
+                    "The source shows greeting uses name.trim, but this file does not reveal which external callers provide the name.",
+                    "greeting",
+                    "export function greeting(name: string): string {",
+                ),
+                input_tokens: None,
+                output_tokens: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("the completed repair session should form a draft: {error:?}"));
+        assert_eq!(final_preview.revision.snapshot_id, fixture.manifest.summary.snapshot_id);
+        assert_eq!(
+            final_preview.validation.status,
+            chapters::ValidationReportStatus::Valid,
+            "{:#?}",
+            final_preview.validation
+        );
+        let completed = section_repair_session::load(
+            &fixture.storage,
+            &accepted.project_id,
+            &repair_session.session_id,
+        )
+        .unwrap();
+        assert!(completed.is_ready_to_assemble());
+        assert_eq!(
+            chapter_store::list_for_project(&fixture.storage, &accepted.project_id).unwrap(),
+            history_before,
+            "incremental repair keeps the accepted chapter and history unchanged until the user saves a draft"
+        );
 
         let current_source = chapter_generation::tests::SIMPLE_SOURCE.replace(
             "return `Hello, ${name}`;",
@@ -3118,13 +3372,15 @@ mod chapter_pipeline_tests {
                 relationship_ids: Vec::new(),
             }],
         };
+        let mut generated_section_value = serde_json::to_value(&generated_section).unwrap();
+        generated_section_value["visual"] = serde_json::Value::Null;
         let pending = chapters::PendingChapterDrafts::default();
         let preview = prepare_chapter_draft_preview(
             &fixture.storage,
             &request.review,
             response(
                 &request.review,
-                serde_json::to_string(&generated_section).unwrap(),
+                serde_json::to_string(&generated_section_value).unwrap(),
             ),
             &pending,
         )

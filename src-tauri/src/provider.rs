@@ -334,6 +334,7 @@ pub enum ProviderFailureKind {
     NetworkUnavailable,
     RequestTimedOut,
     RequestCancelled,
+    RepairProgress,
     ProviderRejectedRequest,
     ProviderResponseTooLarge,
     MalformedProviderResponse,
@@ -651,6 +652,8 @@ pub struct SectionUpdateReviewTarget {
     pub chapter_revision_id: String,
     pub section_id: String,
     pub section_revision_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair_session_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -671,6 +674,7 @@ struct FingerprintInputs<'a> {
     project_id: &'a str,
     snapshot_id: &'a str,
     target_path: Option<&'a str>,
+    section_update: Option<&'a SectionUpdateReviewTarget>,
     provider_id: &'a str,
     model_id: &'a str,
     endpoint_url: &'a str,
@@ -1531,6 +1535,7 @@ pub fn build_pr_change_explanation_request_review_for_provider(
         &input.project_id,
         &input.target.comparison_id,
         Some(&selected_file.path),
+        None,
         &model.model_id,
         &disclosure.version,
         &system_instruction,
@@ -2012,6 +2017,7 @@ pub fn build_pr_guide_request_review_for_provider(
         &input.project_id,
         &context.comparison_id,
         None,
+        None,
         &model.model_id,
         &disclosure.version,
         &system_instruction,
@@ -2439,6 +2445,7 @@ pub fn build_request_review_for_provider(
         &input.project_id,
         &input.snapshot_id,
         input.target_path.as_deref(),
+        section_update_context.as_ref(),
         &model.model_id,
         &disclosure.version,
         &system_instruction,
@@ -5070,6 +5077,7 @@ pub fn build_code_lens_request_review_for_provider(
         &input.project_id,
         &input.snapshot_id,
         Some(&input.target.path),
+        None,
         &model.model_id,
         &disclosure.version,
         &system_instruction,
@@ -5640,6 +5648,21 @@ fn build_section_update_context(
         base,
     )
     .map_err(failure_review)?;
+    let repair_session = update
+        .repair_session_id
+        .as_deref()
+        .map(|session_id| {
+            let session = crate::section_repair_session::load(
+                storage_dir,
+                &input.project_id,
+                session_id,
+            )
+            .map_err(failure_review)?;
+            crate::section_repair_session::verify_binding(&session, base, &freshness)
+                .map_err(failure_review)?;
+            Ok::<_, ProviderFailure>(session)
+        })
+        .transpose()?;
     let section_freshness = freshness
         .sections
         .iter()
@@ -5655,10 +5678,11 @@ fn build_section_update_context(
         .iter()
         .filter(|item| {
             item.section_id != section.section_id
-                && !matches!(
-                    item.status,
-                    SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry
-                )
+                && if repair_session.is_some() {
+                    item.status == SectionFreshnessStatus::NeedsReview
+                } else {
+                    !matches!(item.status, SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry)
+                }
         })
         .filter_map(|item| {
             base.sections
@@ -5921,6 +5945,7 @@ fn request_fingerprint(
         project_id,
         snapshot_id,
         target_path,
+        None,
         model_id,
         disclosure_version,
         system_instruction,
@@ -5936,6 +5961,7 @@ fn request_fingerprint_for_provider(
     project_id: &str,
     snapshot_id: &str,
     target_path: Option<&str>,
+    section_update: Option<&SectionUpdateReviewTarget>,
     model_id: &str,
     disclosure_version: &str,
     system_instruction: &str,
@@ -5963,6 +5989,7 @@ fn request_fingerprint_for_provider(
         project_id,
         snapshot_id,
         target_path,
+        section_update,
         provider_id,
         model_id,
         endpoint_url: &wire_preview.endpoint_url,
@@ -6138,6 +6165,7 @@ where
         &review.project_id,
         &review.snapshot_id,
         review.target_path.as_deref(),
+        review.section_update_context.as_ref(),
         &review.model_id,
         &review.disclosure_version,
         &review.system_instruction,

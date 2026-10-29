@@ -725,7 +725,7 @@ export type ProviderFailureKind =
   | 'consentRequired' | 'reviewExpired' | 'reviewChanged' | 'reviewUnavailable' | 'localStorageUnavailable' | 'invalidReview'
   | 'contextTooLarge' | 'secretLikeContext' | 'unavailableModel' | 'billingRequired' | 'quotaExceeded'
   | 'regionUnavailable' | 'networkUnavailable' | 'requestTimedOut' | 'requestCancelled' | 'providerRejectedRequest' | 'providerResponseTooLarge'
-  | 'malformedProviderResponse';
+  | 'malformedProviderResponse' | 'repairProgress';
 
 export interface ProviderFailure {
   kind: ProviderFailureKind;
@@ -863,6 +863,29 @@ export interface SectionUpdateReviewTarget {
   chapterRevisionId: string;
   sectionId: string;
   sectionRevisionId: string;
+  repairSessionId?: string | null;
+}
+
+export type RepairSectionState = 'current' | 'safeToCarry' | 'stale' | 'needsReview' | 'replaced';
+
+export interface RepairSection {
+  sectionId: string;
+  originalSectionRevisionId: string;
+  state: RepairSectionState;
+  replacement?: ChapterSection | null;
+}
+
+export interface SectionRepairSession {
+  schemaVersion: number;
+  sessionId: string;
+  projectId: string;
+  baseRevisionId: string;
+  sourceSnapshotId: string;
+  targetSnapshotId: string;
+  freshnessSha256: string;
+  createdAtUnixMs: number;
+  updatedAtUnixMs: number;
+  sections: RepairSection[];
 }
 
 export interface CodeLensExplanationTarget {
@@ -1251,6 +1274,22 @@ export async function assessChapterFreshness(
     projectId,
     revisionId,
     targetSnapshotId,
+  });
+}
+
+export async function startSectionRepairSession(
+  projectId: string,
+  baseRevisionId: string,
+  targetSnapshotId: string,
+  sectionId: string,
+  sectionRevisionId: string,
+): Promise<SectionRepairSession> {
+  return invoke<SectionRepairSession>('start_section_repair_session', {
+    projectId,
+    baseRevisionId,
+    targetSnapshotId,
+    sectionId,
+    sectionRevisionId,
   });
 }
 

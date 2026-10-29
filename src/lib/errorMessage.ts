@@ -15,7 +15,7 @@ export function errorMessageOr(error: unknown, fallback: string): string {
 /** Keep provider request failures actionable and consistent across workflows. */
 export function providerFailureMessage(failure: ProviderFailure): string {
   // Only native-authored rejection instructions are safe to display verbatim.
-  if (failure.kind === 'providerRejectedRequest' && failure.message.trim()) return failure.message;
+  if ((failure.kind === 'providerRejectedRequest' || failure.kind === 'repairProgress') && failure.message.trim()) return failure.message;
   const messages: Partial<Record<ProviderFailure['kind'], string>> = {
     keychainUnavailable: 'Secure credential storage is unavailable on this Mac.',
     keychainOperationFailed: 'The saved provider credential could not be accessed. Check Connections and try again.',

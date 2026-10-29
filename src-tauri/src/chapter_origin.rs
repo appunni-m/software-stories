@@ -178,6 +178,7 @@ impl ChapterGenerationOrigin {
                     chapter_revision_id: context.chapter_revision_id.clone(),
                     section_id: context.section_id.clone(),
                     section_revision_id: context.section_revision_id.clone(),
+                    repair_session_id: context.repair_session_id.clone(),
                 }
             }),
             planned_chapter,
