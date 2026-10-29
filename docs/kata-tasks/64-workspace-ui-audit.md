@@ -1274,3 +1274,33 @@ arrows and the multi-scene dot strip are not rendered; narrow-window and
 multi-scene placement remain unverified. The TypeScript/Vite and Rust release
 bundle completed with existing warnings. No test suite, provider request,
 narration request, snapshot capture, or saved explanation change occurred.
+
+## Packaged workspace review — 29 October 2026
+
+The installed app built from `9df03b9` (executable SHA-256
+`0430c271caf7c4703a561b4bc8ca166cdbc102e92ebf3224aa94e73010226f80`) was
+inspected with Fontdone `main@5249b72371` in a 1440 × 840 logical window. The
+top repository/account header fits at this width. The VS Code style activity
+rail, persistent file/source panes, pinned composer, and per-exploration Guide,
+Flow, and Chat history are present.
+
+The active `Outline::is_empty` Guide presents an interactive OR decision with
+separate true/false outcomes, collapsed narration/details, and a 13-second
+audio track. It has one scene, so multi-scene arrows/dots are unavailable for
+this check. Flow presents three source-linked points at `src/outline.rs:49–51`.
+Opening the existing nested question and returning restored the root Guide and
+`src/outline.rs`. Search opened with `⌘⇧F` and returned captured matches; `⌘P`
+focused Quick Open. Changes showed recent local commits and a `HEAD`-to-parent
+comparison with two changed paths; the oversized inventory had no textual
+hunk. A short Tab sequence reached the composer. These are focused checks,
+not full page or accessibility acceptance.
+
+Screenshots were captured and inspected live through CUA, but were not saved as
+files. This run does not cover a populated multi-scene Guide, narrow window,
+high zoom, light theme, Increase Contrast, Reduce Motion, VoiceOver, a complete
+keyboard-only path, first run, notifications, or all recovery/settings states.
+The full evidence and boundaries are recorded in
+`docs/acceptance/2026-10-29-workspace-native-check.md`. The user's reported
+header overflow is corrected for this installed build and window size. Keep
+`13yp` open until durable screenshots and the remaining packaged checks are
+complete.
