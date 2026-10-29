@@ -29,6 +29,9 @@ screen size, accessibility mode, or reader state.
 | Search | Partial | `⌘⇧F` opened repository search and focused the query field. `memory_face` showed 47 matches across 22 files with an incomplete-coverage disclosure. Quick Open (`⌘P`) focused the file filter. No inference was sent. |
 | Changes | Partial | The view showed 80 recent commits and a default `HEAD`-to-parent comparison. Two changed paths appeared; README had a textual diff, while the oversized retention inventory had no text hunk. The partial state was labeled. Returning to the Guide restored the prior exploration and source. |
 | Keyboard | Partial | A short Tab sequence moved through the repository breadcrumb, Guide and Flow actions, and composer. This is not a keyboard-only acceptance pass. |
+| Notifications | Partial | The bell opened a bounded panel with grouped **Needs attention** and **Recent updates** entries, a visible close action, and per-question open/read/dismiss controls. The app displayed 27 attention items and grouped repeated attempts. No notification action was activated. |
+| Connections | Partial | The centered dialog says choices apply across repositories and answers. Explanations showed the connected Codex model/reasoning; Voice showed Pocket TTS, ready status, Alba/English, local processing, and the one-time local storage estimate. No connection or voice setting was changed. |
+| Light appearance | Spot check | The active Guide and source panes remained legible in Light mode; returning the selector to System restored the prior appearance. This is a visual spot check, not a contrast/accessibility measurement. |
 
 ## Deviations and remaining acceptance
 
@@ -40,7 +43,8 @@ screen size, accessibility mode, or reader state.
 - Search, Changes, notification center, connection details, first run, and
   error/recovery states need durable screenshots and a complete interaction
   matrix. This run's CUA screenshots were inspected live and were not retained
-  as files.
+  as files. The notifications and connection panels were inspected, but their
+  settings/actions were not exercised.
 - The saved Fontdone workspace includes prior failed or unavailable turns.
   Some remain visible because they own nested explorations; the stored answers
   were left untouched. This check does not determine whether every retained
@@ -48,6 +52,10 @@ screen size, accessibility mode, or reader state.
 - The source/answer pair and one nested branch were restored correctly. This
   does not establish deeper branch, sibling, exact scroll, restart, or
   revision-fallback acceptance.
+- Notifications, connection settings, and Light mode received spot checks;
+  notification actions, model/voice changes, first-run and error recovery
+  remain unqualified. Contrast, motion, zoom, narrow-window, and VoiceOver
+  checks remain open.
 
 **Conclusion:** the specific header overflow reported by the user is corrected
 in the installed bundle at this window size. The packaged design acceptance

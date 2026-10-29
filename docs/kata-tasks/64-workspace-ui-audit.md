@@ -1304,3 +1304,16 @@ The full evidence and boundaries are recorded in
 header overflow is corrected for this installed build and window size. Keep
 `13yp` open until durable screenshots and the remaining packaged checks are
 complete.
+
+### Notifications, Connections, and appearance spot checks — 29 October 2026
+
+The same packaged review opened the notification center and Connections dialog
+without activating notification actions or changing account/voice settings.
+Notifications grouped **Needs attention** and **Recent updates**, showed 27
+attention items, and exposed per-question open/read/dismiss controls. Connections
+showed the connected Codex model/reasoning and Pocket TTS status, voice, local
+processing, and storage estimate. A brief Light appearance check found the
+active Guide and source panes legible; appearance was restored to System. This
+does not qualify contrast, motion, zoom, VoiceOver, actions, or the complete
+settings journey. Detailed observations and boundaries are in
+`docs/acceptance/2026-10-29-workspace-native-check.md`; keep `13yp` open.
