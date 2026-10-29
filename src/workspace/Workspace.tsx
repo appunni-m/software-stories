@@ -350,6 +350,7 @@ export function DeveloperWorkspace(props:Props) {
   const composer = useRef<HTMLTextAreaElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const explorer = useRef<HTMLDivElement>(null);
+  const explorationPath = useRef<HTMLElement>(null);
   const answerScroll = useRef<HTMLDivElement>(null);
   const chapterRefresh = useRef<ChapterHistory|null>(null);
   const restoringScroll = useRef(true);
@@ -491,6 +492,19 @@ export function DeveloperWorkspace(props:Props) {
     return()=>{active=false;};
   },[projectId,snapshotId,state.file]);
   useEffect(()=>{setReveal(current.reveal??null);},[current.id,current.reveal]);
+  useLayoutEffect(()=>{
+    const nav=explorationPath.current;
+    if(!nav)return;
+    if(path.length<=1){nav.scrollLeft=0;return;}
+    const currentCrumb=nav.querySelector<HTMLElement>('[aria-current="page"]')?.parentElement;
+    if(!currentCrumb)return;
+    const navRect=nav.getBoundingClientRect();
+    const crumbRect=currentCrumb.getBoundingClientRect();
+    const visibleLeft=navRect.left+44;
+    const visibleRight=navRect.right-12;
+    if(crumbRect.left<visibleLeft)nav.scrollLeft-=visibleLeft-crumbRect.left;
+    else if(crumbRect.right>visibleRight)nav.scrollLeft+=crumbRect.right-visibleRight;
+  },[current.id,path.length]);
   useLayoutEffect(()=>{
     // Ignore layout-generated scroll events until the saved answer has loaded.
     // Capture the owner/view here so a late event cannot move another exploration.
@@ -968,7 +982,7 @@ export function DeveloperWorkspace(props:Props) {
         </aside>
       </Panel><Separator className="dw-separator" aria-label="Resize repository sidebar"/>
       <Panel id="reading-workspace" minSize="320px"><section className="dw-main" aria-label="Code exploration">
-        <nav className="dw-path" aria-label="Exploration path"><IconButton size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path.map((e,i)=><span key={e.id}>{i>0&&<ChevronRight size={12}/>}<AppButton intent="custom" aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)}>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}</AppButton></span>)}{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">{workspace==='changes'?'Changes':workspace==='chapter-studio'?'Edit explanation':'Player'}</span>}</nav>
+        <nav ref={explorationPath} className="dw-path" aria-label="Exploration path"><IconButton className="dw-path-back" size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path.map((e,i)=><span key={e.id}>{i>0&&<ChevronRight size={12}/>}<AppButton intent="custom" aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)}>{e.id==='root'?projectName:<InlineCodeText text={e.title}/>}</AppButton></span>)}{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">{workspace==='changes'?'Changes':workspace==='chapter-studio'?'Edit explanation':'Player'}</span>}</nav>
         {conversationUnavailable&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p><strong>Saved conversation unavailable.</strong> Your saved work has not been changed. You can browse and search this snapshot; new questions cannot be saved.</p></div>}
         {conversationConflict&&<div className="dw-conversation-warning dw-conversation-conflict" role="alert">
           <MessageSquare size={16}/><div><strong>Changes in two windows</strong><p>Separate edits will merge. Choose which value to keep for {conversationConflict.overlappingChanges} overlapping change{conversationConflict.overlappingChanges===1?'':'s'}. New questions are paused until this is saved.</p>{conflictResolutionError&&<p className="dw-error" role="status">{conflictResolutionError}</p>}</div>
