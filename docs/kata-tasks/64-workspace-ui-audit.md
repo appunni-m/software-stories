@@ -50,10 +50,15 @@ layout breakpoints and a multi-scene answer in the packaged app before closing
 the navigation overflow finding.
 
 The user's follow-up on 29 October identifies both the scene navigation and
-the top menu bar as the overflowing controls. This matches the source change
-above. The correction is pushed in `25dbbf2`; its macOS package verification
-run (#1351) is still in progress. Treat the installed preview as unqualified
-until the new bundle is available and both controls are visually reviewed.
+the top menu bar as the overflowing controls. A read-only inspection of the
+currently installed Code Atlas 0.1.0 app (executable SHA-256
+`8a039807c67687dd67ce38bd61058858c6d7432f401d31bc19892914ee9c1cc3`) on
+Fontdone `main@5249b72371` shows the repository controls and account actions
+in two rows with no visible header overflow. This binary has not been matched
+to source commit `25dbbf2`. The open answer has one scene (`1 of 1`), so this
+inspection does not exercise the multi-scene pager. Package verification
+run #1351 for `25dbbf2` is still in progress; keep the audit open until the
+multi-scene control and build identity are verified.
 
 ## October 16 migration checkpoint
 The production workspace replaces normal Guide/Files routes and reuses native source, chapters, permission validation and generation. Automatic local indexing is shared between reading and questions so there is no extra Build index step in the normal path. Short natural follow-ups are accepted and retain recent question intent. Shared source controls correctly identify file languages; JavaScript/TSX variants use the existing syntax highlighter and selection shortcuts use inclusive end lines. Captured-source search and real local commit history are implemented. Browser proof images show stacked follow-ups, originating-turn child links and branch counts; they remain labelled sample design evidence. Frontend 127 tests / native 198 tests pass. The Mac was initially locked and has now been unlocked; packaged acceptance is in progress, not considered passed. Root-commit comparison, complete reading-position recovery and durable scheduling remain follow-up work in the workspace task set.
