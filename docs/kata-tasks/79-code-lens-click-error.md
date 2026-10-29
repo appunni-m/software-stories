@@ -278,3 +278,18 @@ This current-build check confirms that specific click opens its review safely.
 It does not reproduce the user's original exception because the original
 control and error text remain unknown. Keep `mhqx` open; do not infer that this
 one path proves every Code Lens entry point.
+
+## Current installed-build saved-visual citation — 29 October 2026
+
+On the installed Code Atlas 0.1.0 app (executable SHA-256
+`58fe9d7778d3c846dfaa2beceea47b500aa9dfd7b7bb14c983d4c128a7cebf83`), Fontdone
+`main@5249b72371`, I opened the saved `Outline::is_empty` Guide visual's local
+code details and clicked its `src/outline.rs:49–51` citation. The source pane
+opened `src/outline.rs`, highlighted lines 49–51, and kept the same Guide
+section visible beside it. No error dialog or crash appeared and no provider
+review/request was created. The click was local and read-only.
+
+This confirms one saved-visual citation path in the current installed build.
+The screenshot was inspected live but not retained. The user's original
+clicked control and exception remain unknown, so the task and broader source
+navigation matrix stay open.
