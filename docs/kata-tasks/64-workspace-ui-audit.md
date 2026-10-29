@@ -680,3 +680,17 @@ No AI request or test suite was run; `npm run build` and the macOS bundle,
 metadata, and DMG checksum checks passed. No source screenshot was retained
 because it contains repository code. Keep the full-screen and responsive UI
 audit open.
+
+## Guide section buttons were too far apart — 29 October 2026
+
+The current packaged `pillow-rs` Guide screenshot showed Previous and Next
+anchored to opposite edges of the reader while the section count sat in the
+middle. This made the three controls read as unrelated actions. The Guide
+section navigator now keeps Previous, the section count, and Next together as
+a centered group at regular widths. Existing narrow-pane behavior remains a
+two-row layout, with the count above the two actions.
+
+Source-only correction in `src/workspace/workspace.css`. No build, test, or
+packaged-app restart was run in this step, so the installed app has not yet
+shown the updated alignment. Keep the packaged Guide recheck under `13yp`
+open.
