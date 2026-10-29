@@ -377,3 +377,31 @@ still offers the same permission status and revoke/cancel behavior. This is a
 source-level correction to the P2 placement gap above. No packaged screen,
 keyboard/menu, or revoke interaction was inspected; keep the audit and design
 parity tasks open.
+
+### Live workspace review — 29 October 2026
+
+Inspected the open Code Atlas window on Fontdone `main@5249b72371` (partial
+snapshot) at 2920×1688. The running bundle's source revision was not verified;
+this is a live UI observation, not release evidence. Explorer, Search, Changes,
+Explorations, Guide, Flow, Chat history, Connections, and Notifications were
+reviewed without opening a saved answer, changing notifications, or sending a
+provider request.
+
+| Surface | Observed behavior | Remaining user-facing gap |
+| --- | --- | --- |
+| Header and section navigation | Repository, snapshot, branch, **Load latest changes**, connection/model, appearance, notification bell, and keyboard-help controls fit at this width. The selected answer's `Section 1 of 3` / **Next section** controls are visible in Guide. | The reported overflow is not present at this viewport; narrow-window and 200% zoom placement remain unverified. Keep the existing responsive acceptance gate. |
+| Explorer and Source | The activity rail keeps Explorer, Search, Changes, and Explorations together; the captured tree and source pane remain beside Guide. | Long code lines extend past the pane width. Keep source horizontally navigable and ensure the explanation remains useful without forcing repeated pane resizing. |
+| Search | Local results appear beside the persistent composer; the example query `memory_face` returned 47 matches across 22 files and showed a **Local search may be incomplete** disclosure. | The warning and result ordering need to distinguish complete local matches from parser/range coverage limits in plain language. Search's direct next action should remain obvious without another workflow screen. |
+| Changes | The pane combines an 80-commit history with a two-file comparison, diff / PR Guide tabs, and explicit unsupported/oversized file statuses. | At this window the layout fits. Confirm narrow widths preserve the changed-file list and diff controls together; do not let internal evidence status dominate the code change. |
+| Guide | Guide, Flow, and Chat history are within the exploration. Saved answers expose section navigation, visuals, narration and follow-up actions. | The populated Guide mixes the current answer with incomplete-topic prompts, “0 slides ready,” and “5 in progress.” Move operational progress into Notifications and keep the active section and its visual/narration in the reading focus. |
+| Flow | Flow states that links are static and shows source-backed calls/imports/test references for the selected file. | The current file has 25 connections presented as a long list. Keep the evidence qualifier visible and make the most relevant path easy to follow before expanding every edge. |
+| Chat history | Search is present; repeated prompt attempts are grouped, and saved explanations are separately collapsed. | The live repository contains hundreds of saved explanations and many failed attempts. Keep grouped history searchable and keep diagnostics/attempt detail behind disclosures so it does not crowd Guide. |
+| Connections | Explanations and Voice are separate; the connected Codex account/model and Pocket TTS engine are summarized, with advanced details collapsed. | The one-time setup is comparatively direct; retain the single header entry point and keep configuration out of the reading surface. |
+| Notifications | The bell opens a scrollable drawer; attention items group repeated attempts and expose open/read/dismiss actions. | The drawer reports 24 attention items and 47 unread updates, while each large card repeats action/status text. Keep outcomes grouped and make the most recent useful action faster to scan. No read/dismiss action was taken. |
+
+The scene/header positioning fix is already in commit `8d76957`; this live
+observation confirms fit only at the captured wide viewport. This audit supplies
+concrete page findings to the existing `x21h` task; it does not create a second
+overlapping issue. First-run, light appearance, narrow/high zoom, keyboard,
+VoiceOver, contrast, motion, and a verified packaged source identity remain
+open. Keep `x21h` and `13yp` open.
