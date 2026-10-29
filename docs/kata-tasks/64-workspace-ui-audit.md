@@ -1037,3 +1037,25 @@ provider requests, narration requests, or repository-content changes were
 made. Keep narrow-window, populated multi-scene, zoom, and accessibility
 acceptance open under `x21h` and `13yp` until a current packaged screenshot is
 captured.
+
+## Follow-up: stop header and scene controls escaping their layout — 29 October 2026
+
+The user again reported the top menu and scene navigation overflowing. The
+application header was entering its stacked layout below 1600 CSS pixels, which
+put a two-row header on ordinary desktop windows. Its repository and snapshot
+menus also used fixed vertical offsets, so they did not follow a reflowed
+header. The header now stays on one row until 1180 CSS pixels; repository and
+snapshot menus are anchored to their control groups and constrained to the
+window height. The close-menu scrim covers the app body without relying on a
+fixed header height. The scene pager now has a centered, 604-pixel maximum
+track, with a flexible bounded center for its count and scrollable scene dots.
+
+`npm run bundle:macos` passed, including the frontend build, license inventory,
+bundle metadata, and DMG checksum. The rebuilt app was installed and reopened
+on the existing Fontdone snapshot; the installed binary hash matches the
+bundle (`b7f62d3d1370194535ac33a8b53b67828eeab1729c8e7cd1e37a3eeb0f500041`). The
+current saved answer has one scene, so multi-scene arrows and narrow-window
+reflow still need a populated native visual check. No tests,
+provider requests, narration requests, or repository-content changes were
+made. Keep full viewport, multi-scene, zoom, and accessibility acceptance open
+under `x21h` and `13yp`.
