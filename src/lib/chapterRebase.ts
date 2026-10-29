@@ -3,6 +3,23 @@ import type {ChapterRevision,ChapterSection} from './commands';
 export type ChapterRebaseChoice='draft'|'latest';
 export type ChapterRebaseChoices=Record<string,ChapterRebaseChoice|undefined>;
 
+export interface ChapterRebaseChoiceState {
+  base:ChapterRevision;
+  latest:ChapterRevision;
+  draft:ChapterRevision;
+  choices:ChapterRebaseChoices;
+}
+
+/** Conflict decisions belong to the precise comparison that produced them. */
+export function chapterRebaseChoicesFor(
+  state:ChapterRebaseChoiceState|null,
+  base:ChapterRevision,
+  latest:ChapterRevision,
+  draft:ChapterRevision,
+):ChapterRebaseChoices {
+  return state?.base===base&&state.latest===latest&&state.draft===draft?state.choices:{};
+}
+
 export interface ChapterRebaseConflict {
   id:string;
   label:string;

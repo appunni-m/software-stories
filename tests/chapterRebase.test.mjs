@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {rebaseChapterDraft} from '../src/lib/chapterRebase.ts';
+import {chapterRebaseChoicesFor,rebaseChapterDraft} from '../src/lib/chapterRebase.ts';
 import {baseRevision} from './helpers/revision-history-fixture.mjs';
 
 function versions(){
@@ -9,6 +9,16 @@ function versions(){
   draft.revisionId='revision:local';
   return {base,latest,draft};
 }
+
+test('conflict choices survive rerenders only while the exact compared revisions remain selected',()=>{
+  const {base,latest,draft}=versions();
+  const state={base,latest,draft,choices:{'section:request:prose':'draft'}};
+  assert.deepEqual(chapterRebaseChoicesFor(state,base,latest,draft),state.choices);
+  assert.deepEqual(chapterRebaseChoicesFor(state,base,structuredClone(latest),draft),{},'a newly published latest revision requires fresh conflict decisions');
+  assert.deepEqual(chapterRebaseChoicesFor(state,base,latest,structuredClone(draft)),{},'editing the draft after a decision invalidates that decision');
+  assert.deepEqual(chapterRebaseChoicesFor(state,structuredClone(base),latest,draft),{},'switching the comparison base invalidates that decision');
+  assert.deepEqual(chapterRebaseChoicesFor(null,base,latest,draft),{});
+});
 
 test('rebasing carries independent title and narration edits over the newest content',()=>{
   const {base,latest,draft}=versions();

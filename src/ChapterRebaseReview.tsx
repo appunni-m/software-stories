@@ -2,20 +2,17 @@ import {useMemo,useState} from 'react';
 import {InlineCodeText} from './InlineCodeText';
 import {AppButton} from './design/AppButton';
 import type {ChapterRevision} from './lib/commands';
-import {rebaseChapterDraft,type ChapterRebaseChoices} from './lib/chapterRebase';
+import {chapterRebaseChoicesFor,rebaseChapterDraft,type ChapterRebaseChoiceState,type ChapterRebaseChoices} from './lib/chapterRebase';
 
 export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
   base:ChapterRevision;latest:ChapterRevision;draft:ChapterRevision;
   onCancel:()=>void;onApply:(revision:ChapterRevision)=>void;
 }){
-  const [choiceState,setChoiceState]=useState<{
-    base:ChapterRevision;latest:ChapterRevision;draft:ChapterRevision;choices:ChapterRebaseChoices;
-  }|null>(null);
+  const [choiceState,setChoiceState]=useState<ChapterRebaseChoiceState|null>(null);
   // A decision belongs to the exact three inputs the reader compared. If a
   // background publication or draft edit replaces any input, old choices
   // must not silently resolve the newly displayed conflicts.
-  const choices=choiceState?.base===base&&choiceState.latest===latest&&choiceState.draft===draft
-    ? choiceState.choices:{};
+  const choices=chapterRebaseChoicesFor(choiceState,base,latest,draft);
   const result=useMemo(()=>rebaseChapterDraft(base,latest,draft,choices),[base,latest,draft,choices]);
   const choose=(id:string,choice:'draft'|'latest')=>setChoiceState({
     base,latest,draft,choices:{...choices,[id]:choice},
