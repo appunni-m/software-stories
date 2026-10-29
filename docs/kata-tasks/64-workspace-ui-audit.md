@@ -37,10 +37,11 @@ Packaged acceptance must verify committed and uncommitted edits appear in the ne
 
 ## Header and scene navigation overflow — source correction, 29 October 2026
 
-The desktop header now moves connection, appearance, notification and help
-controls onto a second normal-flow row below 1560 CSS pixels. Narrower windows
-still switch to the full-width repository row. This avoids relying on the
-single-row intrinsic widths of a long repository, snapshot and action group.
+The desktop header moves connection, appearance, notification and help
+controls onto a second normal-flow row at 1280 CSS pixels and below. At 1180
+CSS pixels and below, the brand is hidden and repository/actions use separate
+full-width rows. This avoids relying on the single-row intrinsic widths of a
+long repository, snapshot and action group.
 
 The scene pager now assigns fixed columns to its previous/next controls and a
 shrinkable middle column to the scene count and dots. Long scene sequences can
@@ -48,6 +49,25 @@ scroll inside the dot strip instead of pushing the pager past the Guide pane.
 No test, build, or packaged review ran for this source correction; verify both
 layout breakpoints and a multi-scene answer in the packaged app before closing
 the navigation overflow finding.
+
+## Header packaged follow-up — 29 October 2026
+
+The desktop wrap breakpoint was lowered from 1560px to 1280px after inspection
+showed the previous breakpoint moved the account actions to a detached second
+row at a 1440px-wide logical window, even though the controls fit on one line.
+`npm run build` and `npm run bundle:macos` completed; package metadata and DMG
+checksum passed. Source revision: `c8d8de1`. Installed executable
+SHA-256: `911ba918db49b5804a02d3679b13790cd099360653e33fc14d66e4469d1e27b7`,
+matching the packaged executable. On Fontdone `main@5249b72371`, the reopened
+native app showed repository, snapshot, refresh, connection, appearance,
+notifications and help controls on one row at 1440×844 logical pixels. The
+saved answer has one scene (`1 of 1`), so the native run does not exercise
+previous/next arrows or a long dot strip. No user source, snapshots, answers,
+or audio were changed. The screenshot was inspected live and not retained.
+
+This resolves the observed desktop header wrapping mismatch for the inspected
+window only. Keep x21h open for the full screen/state audit, multi-scene pager,
+narrow/high-zoom layout, durable screenshots, and accessibility checks.
 
 The user's follow-up on 29 October identifies both the scene navigation and
 the top menu bar as the overflowing controls. A read-only inspection of the
