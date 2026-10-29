@@ -1106,6 +1106,8 @@ function Answer(props:AnswerProps){
   const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
   const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
+  const availableSequenceCount=guideSlides.length;
+  const unavailableSequenceCount=sectionItems.reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const mappedErrorMessage=turn.error?explanationErrorMessage(turn.error):undefined;
   const failureMessage=explanationFailureMessage(turn.failureCode)
@@ -1137,10 +1139,19 @@ function Answer(props:AnswerProps){
   const guideCoverageSummary=guideCoverageLabel==='Partial coverage'
     ?omissionSummary??'Some planned topics were not completed.'
     :null;
+  const waitingMessage=props.loading
+    ?`Restoring saved ${turn.guideId?'slides':'answer sections'}…`
+    :unavailableSequenceCount>0
+      ?availableSequenceCount>0
+        ?`${availableSequenceCount} ${turn.guideId?'slide':'section'}${availableSequenceCount===1?'':'s'} available; ${unavailableSequenceCount} saved ${turn.guideId?'slide':'answer part'}${unavailableSequenceCount===1?'':'s'} unavailable.`
+        :`Saved ${turn.guideId?'guide slides':'answer sections'} are unavailable.`
+      :availableSequenceCount>0
+        ?`${availableSequenceCount} ${turn.guideId?'slide':'section'}${availableSequenceCount===1?'':'s'} ready. The next ${turn.guideId?'slide':'section'} builds as you read or listen.`
+        :`Waiting for the first ${turn.guideId?'slide':'section'} to become available.`;
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!props.hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
-    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds as you read or listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
+    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&<Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?'Continue guide':'Explain again'}</Button>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
@@ -1161,7 +1172,7 @@ function Answer(props:AnswerProps){
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
-    {sectionSequence&&props.loading&&sections.length>0&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
+    {sectionSequence&&props.loading&&sections.length>0&&turn.status!=='waiting'&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}

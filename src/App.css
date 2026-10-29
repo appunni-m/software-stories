@@ -85,7 +85,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
 /* Put account actions on their own in-flow row before the desktop header crowds. */
-@media (max-width: 1560px) {
+@media (max-width: 1180px) {
   .topbar {
     grid-template-columns:max-content minmax(0,1fr);
     grid-template-areas:"brand project" "actions actions";

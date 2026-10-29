@@ -1171,3 +1171,24 @@ bounded, horizontally scrollable scene pager in normal document flow. This
 change is source-only: no test, build, install, provider request or saved
 content change ran. Keep multi-scene/narrow-window visual acceptance open under
 `x21h` and `13yp` until a populated multi-scene Guide is inspected.
+
+## Follow-up: unavailable slides reported as ready — 29 October 2026
+
+Source review found that the Guide's waiting status counted published revision
+references as ready even when none of their saved revisions could be reopened.
+The status now counts readable slides separately, names unavailable saved
+slides explicitly, and offers a visible Continue guide action when no slide is
+available. While chapter history is loading, the card reports restoration
+instead of classifying the saved slides prematurely. This is source-only; no
+tests, build, package install, provider call, or content mutation ran. Keep
+native acceptance open under `x21h` and `13yp`.
+
+The user's clarification also named the scene pager and top menu as the
+overflowing controls. Rechecking the actual stylesheet found the desktop
+two-row breakpoint was still 1560px, despite the prior note describing an
+1180px breakpoint. The source now uses 1180px, keeping the normal header in one
+row at wider desktop sizes and moving controls into document-flow rows only
+when the window is narrow. `git diff --check` is the only validation run; no
+tests, build, package install, or native screenshot was performed. The installed
+binary still has not been matched to this source, and the open saved Guide has
+one scene, so packaged header and multi-scene pager acceptance stay open.
