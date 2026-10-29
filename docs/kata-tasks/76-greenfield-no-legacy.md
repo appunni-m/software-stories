@@ -29,8 +29,11 @@ silently rewrote interrupted-operation data to schema 2. The generation-job
 store also accepted schema 3 as schema 4, and chapter origins accepted schema 5
 without a recorded index identity. These app-owned compatibility paths
 contradicted the single-supported-format contract. They are removed: only
-recovery schema 2, job-store schema 4, and chapter-origin schema 6 are accepted.
-Older files/records are reported as unsupported and remain untouched; a new
-record cannot overwrite the old recovery or job store. Existing regressions now
-assert rejection and byte preservation. Static source review only; no tests,
-build, or packaged recovery exercise was run for this follow-up.
+recovery schema 2, job-store schema 4, chapter-origin schema 6, and timing
+trace schema 5 are accepted. Older files/records are reported as unsupported
+and remain untouched; a new record cannot overwrite the old recovery or job
+store. Timing diagnostics require the complete schema-5 envelope, including
+`promptContractVersion`, and no longer normalize schema 3/4 records. Existing
+regressions assert rejection and byte preservation for recovery, jobs, chapter
+origins, and timing traces. Static source review only; no tests, build, or
+packaged recovery exercise was run for this follow-up.

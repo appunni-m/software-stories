@@ -175,8 +175,8 @@ fn greenfield_current_format_rejects_legacy_timing_schema_without_rewriting() {
     drop(trace);
     let file = path(&f.0, &id).unwrap();
     let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
-    old["schemaVersion"] = json!(2);
-    old.as_object_mut().unwrap().remove("applicationResult");
+    old["schemaVersion"] = json!(4);
+    old.as_object_mut().unwrap().remove("promptContractVersion");
     fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
     let original = fs::read(&file).unwrap();
 

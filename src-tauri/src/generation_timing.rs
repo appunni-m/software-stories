@@ -23,7 +23,6 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 3;
 const SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -387,12 +386,12 @@ fn read(path: &Path) -> Result<Record, String> {
     let schema_version = value
         .get("schemaVersion")
         .and_then(serde_json::Value::as_u64);
-    if !matches!(schema_version, Some(version) if (u64::from(MIN_SUPPORTED_SCHEMA_VERSION)..=u64::from(SCHEMA_VERSION)).contains(&version)) {
+    if schema_version != Some(u64::from(SCHEMA_VERSION)) {
         return Err("Timing diagnostics use an unsupported format.".into());
     }
     // `Option<T>` fields deserialize as `None` when absent, even without a
     // serde default. Require the complete current envelope so an incomplete
-    // older record cannot be mistaken for a current diagnostic.
+    // record cannot be mistaken for a current diagnostic.
     const REQUIRED_FIELDS: &[&str] = &[
         "schemaVersion",
         "clock",
@@ -410,21 +409,15 @@ fn read(path: &Path) -> Result<Record, String> {
         "runtimeTurns",
         "terminal",
         "applicationResult",
+        "promptContractVersion",
         "writeFailures",
         "truncated",
     ];
-    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some())
-        || (schema_version == Some(u64::from(SCHEMA_VERSION))
-            && value.get("promptContractVersion").is_none())
-    {
+    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some()) {
         return Err("Timing diagnostics are damaged.".into());
     }
-    let mut record: Record =
+    let record: Record =
         serde_json::from_value(value).map_err(|_| "Timing diagnostics are damaged.")?;
-    // Version 4 adds an explicit optional-index fallback outcome without
-    // changing the saved record shape. Version 5 adds prompt/contract
-    // attribution; keep version-3 and version-4 diagnostics readable.
-    record.schema_version = SCHEMA_VERSION;
     validate(&record)?;
     Ok(record)
 }

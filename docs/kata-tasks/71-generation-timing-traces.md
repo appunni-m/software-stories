@@ -151,11 +151,17 @@ terminal timing sample.
 ## Optional syntax-index fallback outcome — 27 October 2026
 
 Pre-dispatch timing now distinguishes an available syntax index from a missing
-or unreadable index that falls back to bounded text search. The trace and job
-store schema versions advance to v4; v3 timing records and job stores remain
-readable and are normalized when loaded. Diagnostics retain only the fixed
+or unreadable index that falls back to bounded text search. At that point the
+trace and job-store schemas advanced to v4; the contemporaneous source review
+recorded older records as readable. Diagnostics retain only the fixed
 `syntaxIndexLoad` stage and `fallback` outcome, never the error text or index
-contents. The existing focused regression now expects this distinction. This
-source-only review did not run builds or tests. Packaged Fontdone timing,
+contents.
+
+The 29 October greenfield compatibility audit removed those old-format readers.
+The current timing trace accepts schema 5 only, and the current job store
+accepts schema 4 only. Older records are left byte-for-byte intact but are
+reported as unsupported; they are not upgraded or deleted. The timing reader
+also requires the complete current envelope, including `promptContractVersion`.
+This source-only review did not run builds or tests. Packaged Fontdone timing,
 complete stage coverage and the two-minute useful-answer acceptance remain
 open; keep `ps02` open.
