@@ -772,7 +772,24 @@ widths, a resized Guide could keep its desktop control row in a pane already
 treated as compact, crowding scene navigation, playback actions, and audio
 seeking. The scene-control container query now switches at 820px
 (`src/visual-story.css`, commit `f6d0de5`), matching the workspace Guide
-breakpoint. This is a source-level layout correction only; the packaged app
-has not been rebuilt or visually checked at the breakpoint. Responsive,
-keyboard, accessibility, and packaged acceptance remain open under `13yp`
-and `x21h`.
+breakpoint.
+
+The unsigned macOS bundle rebuilt successfully with `npm run bundle:macos` at
+`d552a2b`, including license, frontend, bundle, and DMG metadata/checksum
+verification. It was installed over the existing app after preserving the old
+bundle as `Code Atlas.pre-f6d0de5.app`, then reopened on the existing
+`pillow-rs` `main@e843f864fc` workspace. At 2880×1688, the scene title is on its
+own row, scene count/arrows/dots stay together below it, and **Full map** stays
+at the right. Narration status sits above Replay/Play/Stop; elapsed time is
+aligned at the far edge and the seek track spans its own row. Section
+Previous/Next remains grouped below the full slide. The selected `canvas.rs`,
+section 1 of 4, and scene 1 of 2 survived the restart. No snapshot, saved
+answer, audio, or AI request changed.
+
+Installed executable SHA-256:
+`3da6d65e6b7e2b89d17f18801be20e12379fabec94d70a31a43aff98ad85724d`.
+DMG SHA-256:
+`39445d594aad88f479657d28e5c2ea95054aa9f0491ffe973ca012a2f721cdd6`.
+This checks one real populated Guide at one window size; other widths,
+keyboard, accessibility, and cross-screen acceptance remain open under
+`13yp` and `x21h`. No test suite or provider request was run.
