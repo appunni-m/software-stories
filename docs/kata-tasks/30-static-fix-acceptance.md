@@ -65,6 +65,18 @@ At `d7ec632` on the macOS source checkout, three focused native tests passed:
 
 Each command ran one test with 836 filtered out. Existing Rust warnings reported an unread Claude session field and an unconstructed unsupported-platform variant. These focused source-level checks do not complete the broader race, recovery, provider, narration UI, native accessibility, or packaged acceptance matrix; keep this task open.
 
+## Focused storage-boundary checks — 2026-10-29
+
+At `e99f814` on the macOS source checkout, five focused Rust tests passed:
+
+- `existing_snapshot_object_hash_is_streamed_and_object_size_is_bounded` — a cached source object is streamed, hash-checked, and rejects a file above the 2 MiB cap.
+- `policy_skips_ignored_generated_symlink_and_nested_repository_but_keeps_tracked_ignored_file` — capture policy handles ignored/generated content, symlinks, nested repositories and tracked ignored files.
+- `recovery_journal_accepts_one_mib_and_rejects_the_next_byte` — the journal accepts the exact 1 MiB boundary and rejects the next byte.
+- `oversized_cached_wav_reads_only_the_limit_plus_sentinel` — oversized cached audio stops at the 12 MiB limit plus one sentinel byte.
+- `source_blocks_reduce_review_size_without_changing_source_bytes` — reviewed source blocks preserve source text while keeping the bounded agent request within its encoded-size cap.
+
+Each command ran one test (848 filtered out). Existing Rust warnings were emitted. These checks cover the named boundaries only; exact-size and corrupt-input variants, provider/narration redirect and race cases, native UI acceptance, and the rest of the October 15 matrix remain pending. Keep this task open.
+
 ## Additional October 15 integration acceptance — pending
 
 ### Native agent installation-file selection — pending
