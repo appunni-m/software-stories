@@ -112,3 +112,13 @@ large_unreadable_code_paths_are_not_advertised_as_range_retrievable` passed
 This verifies the disclosure classification only; broad Fontdone recall,
 selected ranges, provider answer quality, cancellation and packaged behavior
 remain open.
+
+## Current Fontdone incremental retrieval evidence — 29 October 2026
+
+The current local index profile finds all 12 independently selected ranges
+globally and within their known file scopes, including across a one-file update
+to the 375 KB `src/font.rs`. Both broad query first pages retrieve 5/12 ranges;
+the seven misses keep broad retrieval acceptance open. This profile validates
+incremental/fresh index parity and local range lookup only. It makes no Codex
+request and does not show that an agent discovers or explains the relevant
+ranges. See the [exact metrics and limits](../acceptance/artifacts/2026-10-29-fontdone-incremental-profile.json).

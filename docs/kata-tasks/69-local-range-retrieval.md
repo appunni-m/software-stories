@@ -315,3 +315,23 @@ segment streams. Changed Rust files pass rustfmt. This is source and focused
 unit evidence only; packaged storage pressure, real mid-copy cancellation,
 independent ranking review, Fontdone broad recall, and Codex answer quality
 remain unqualified. Keep `a699`, `0wdn`, and `gk46` open.
+
+## Current-source Fontdone incremental profile — 29 October 2026
+
+Ran the opt-in `fontdone_one_file_incremental_profile` once against a fresh,
+marked disposable copy of Fontdone `main@5249b72371`. Only the selected snapshot,
+its 2,762 non-secret captured objects, and its parser index were copied from app
+storage; the original snapshot and saved explanations were not modified. The
+profile appended a 66-byte comment to copied `src/font.rs`, then compared the
+incremental index with a fresh reference build. No model or speech request ran.
+
+The incremental build copied 5,295,592 segment bytes in 4.234 s versus 14.157 s
+for the fresh reference. It reused 1,620 files and 3,409 documents, added and
+deleted 53 chunks, and produced the same 3,462-document, single-segment index
+as the fresh build. The previous generation's hashes remained unchanged. All
+12 named ranges were found globally and file-scoped. Each broad query found
+5/12 expected ranges on its first page, matching the fresh build; this is better
+than the 1/12 observation in the 25 October run, but still leaves seven spans
+unretrieved. The run is one local observation without a variance estimate and
+does not qualify Codex's tool choices or answer quality. Exact metrics and
+limits: [profile artifact](../acceptance/artifacts/2026-10-29-fontdone-incremental-profile.json).

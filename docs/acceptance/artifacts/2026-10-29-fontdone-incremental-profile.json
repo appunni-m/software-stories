@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-29",
+  "sourceCommit": "5ca2f49",
+  "fontdoneCommit": "5249b723719445813b8771a602ea5b96891d4450",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "method": "Ran the ignored native incremental-index profile against a marked disposable copy under /private/tmp. The copy included the selected snapshot manifest, its non-secret captured objects, and its existing parser index. Only copied src/font.rs bytes were changed; the original app storage was untouched. No model, speech, or Fontdone code execution.",
+  "command": "RUSTC_WRAPPER= CODE_ATLAS_FONTDONE_DATA_DIR=/private/tmp/code-atlas-incremental-fontdone-20261029-5ca2f49 cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context::incremental::tests::fontdone_one_file_incremental_profile -- --ignored --exact --nocapture",
+  "fixture": {
+    "copiedNonSecretObjects": 2762,
+    "copiedCapturedBytes": 29448248,
+    "parserIndexBytes": 41620940,
+    "changedPath": "src/font.rs",
+    "appendedBytes": 66
+  },
+  "incremental": {
+    "wallMs": 4234,
+    "buildMs": 3101,
+    "segmentBytesCopied": 5295592,
+    "filesReused": 1620,
+    "documentsReused": 3409,
+    "documentsAdded": 53,
+    "documentsDeleted": 53,
+    "documents": 3462,
+    "segments": 1,
+    "previousGenerationUnchanged": true,
+    "documentKeysMatchFreshBuild": true
+  },
+  "freshReference": {
+    "wallMs": 14157,
+    "buildMs": 13051,
+    "documents": 3462,
+    "segments": 1
+  },
+  "searchRecall": {
+    "namedRangesGlobal": "12/12",
+    "namedRangesScoped": "12/12",
+    "broadQueryOneFirstPage": "5/12",
+    "broadQueryTwoFirstPage": "5/12",
+    "broadResultsMatchFreshIndex": true
+  },
+  "test": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filteredOut": 846,
+    "elapsedMs": 60010
+  },
+  "limitations": [
+    "One local run without a variance estimate.",
+    "The copied snapshot had a prepared syntax index; this is not a cold parser-index build.",
+    "The profile does not test real mid-copy cancellation, packaged behavior, Codex tool choice, answer quality, or semantic relevance of broad results.",
+    "Broad first-page retrieval still misses seven of twelve independently selected expected spans."
+  ]
+}
