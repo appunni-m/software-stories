@@ -951,9 +951,18 @@ The current scene index let every scene button wrap into more rows as guides
 grew, while the header waited until 1150 CSS pixels to split its repository and
 account controls. Scene buttons now stay in a single horizontal scroll area
 between fixed previous/next controls; the header reflows into two normal-flow
-rows up to 1400 CSS pixels. This is a source correction. No test, build,
-screenshot, or native runtime review was run for this follow-up, so the
-packaged narrow-window and multi-scene checks remain open under `x21h` and
-`13yp`. The existing scene-layout source-contract assertions were updated to
-describe the title-row map action and bounded horizontal scene strip; they were
-not executed.
+rows up to 1400 CSS pixels. The existing scene-layout source-contract
+assertions were updated to describe the title-row map action and bounded
+horizontal scene strip; they were not executed.
+
+`npm run tauri -- build --no-sign --bundles app` completed on 29 October. The
+new bundle was installed over the existing app and reopened on the saved
+Fontdone workspace; the installed executable SHA-256 matches the build:
+`ccf51824e4a6b3477b55b3d6355c2339d0413ac75cfbe1f03a2ddc2358dc01f2`. The live
+screenshot shows the repository/header controls within the window. The saved
+Fontdone answer scenes could not be reviewed because its stored sections now
+report a schema mismatch, so multi-scene navigation and narrow-window reflow
+remain unverified. No tests, provider requests, narration requests, or saved
+content changes were made. The frontend build retained its existing large
+chunk warning and Rust build warnings. Keep packaged multi-scene and viewport
+acceptance open under `x21h` and `13yp`.
