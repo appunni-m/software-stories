@@ -49,6 +49,12 @@ No test, build, or packaged review ran for this source correction; verify both
 layout breakpoints and a multi-scene answer in the packaged app before closing
 the navigation overflow finding.
 
+The user's follow-up on 29 October identifies both the scene navigation and
+the top menu bar as the overflowing controls. This matches the source change
+above. The correction is pushed in `25dbbf2`; its macOS package verification
+run (#1351) is still in progress. Treat the installed preview as unqualified
+until the new bundle is available and both controls are visually reviewed.
+
 ## October 16 migration checkpoint
 The production workspace replaces normal Guide/Files routes and reuses native source, chapters, permission validation and generation. Automatic local indexing is shared between reading and questions so there is no extra Build index step in the normal path. Short natural follow-ups are accepted and retain recent question intent. Shared source controls correctly identify file languages; JavaScript/TSX variants use the existing syntax highlighter and selection shortcuts use inclusive end lines. Captured-source search and real local commit history are implemented. Browser proof images show stacked follow-ups, originating-turn child links and branch counts; they remain labelled sample design evidence. Frontend 127 tests / native 198 tests pass. The Mac was initially locked and has now been unlocked; packaged acceptance is in progress, not considered passed. Root-commit comparison, complete reading-position recovery and durable scheduling remain follow-up work in the workspace task set.
 
