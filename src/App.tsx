@@ -1776,7 +1776,7 @@ function App() {
         </div>
 
         <div className="project-controls">
-          <button
+          <AppButton intent="custom" size="1"
             ref={projectButtonRef}
             className="project-button"
             data-focus-key="project-button"
@@ -1788,7 +1788,7 @@ function App() {
             <FolderOpen size={16} />
             <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? (recentsPending ? 'Opening workspace…' : 'Open a local repository')}</span>
             <ChevronDown size={14} className="muted-icon" />
-          </button>
+          </AppButton>
           {projectOpening && <button className="icon-button" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></button>}
           {projectMenuOpen && (
             <div className="project-menu" role="menu" aria-label="Repositories and snapshots">
@@ -1847,7 +1847,7 @@ function App() {
           )}
           <span className="header-divider" />
           <div className="snapshot-picker-wrap">
-            <button
+            <AppButton intent="custom" size="1"
               className="snapshot-button"
               data-focus-key="snapshot-button"
               disabled={!currentProject || currentSnapshots.length === 0}
@@ -1861,7 +1861,7 @@ function App() {
               <span>{selectedSnapshot ? `${selectedSnapshot.branch ?? 'Detached'} · ${selectedSnapshot.head?.slice(0, 7) ?? selectedSnapshot.snapshotId.slice(-7)}` : currentSnapshots.length ? 'Choose snapshot' : 'No snapshot'}</span>
               {selectedSnapshot?.status === 'partial' && <TriangleAlert size={13} className="snapshot-partial-indicator" aria-hidden="true" />}
               {currentSnapshots.length > 0 && <ChevronDown size={13} className="muted-icon" />}
-            </button>
+            </AppButton>
             {snapshotMenuOpen && (
               <div className="snapshot-menu" role="menu" aria-label="Repository snapshots">
                 <div className="menu-label">IMMUTABLE SNAPSHOTS · {currentSnapshots.length}</div>
@@ -1910,14 +1910,14 @@ function App() {
             onDismissRead={noticeHistoryState.issue === 'full' && noticeHistoryState.items.some(item => item.read)
               ? () => noticeHistory.dismissMany(noticeHistoryState.items.filter(item => item.read).map(item => item.id))
               : undefined} />
-          <button
+          <AppButton intent="custom" size="1"
             className="help-button"
             onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setShortcutsOpen(true); }}
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts"
           >
             <CircleHelp size={16} />
-          </button>
+          </AppButton>
         </div>
       </header>
 

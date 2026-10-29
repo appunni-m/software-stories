@@ -1,6 +1,7 @@
 import { Code2, MessageSquare } from 'lucide-react';
 import { InlineCodeText } from '../InlineCodeText';
 import type { ChapterSourceAnchor } from '../lib/commands';
+import { AppButton } from './AppButton';
 import './code-detail.css';
 
 interface Props {
@@ -19,12 +20,12 @@ export function CodeDetail({ title, claims, anchors, onOpen, onExplore }: Props)
       ? <div className="code-detail-claims">{claims.map((claim, index) => <p key={`${index}:${claim}`}><InlineCodeText text={claim}/></p>)}</div>
       : <p className="code-detail-empty">No validated explanation claim is linked to this visual point. Open its cited source to inspect the implementation.</p>}
     <div className="code-detail-sources" aria-label="Cited source lines">
-      {anchors.map((anchor) => <button key={anchor.anchorId} type="button" onClick={() => onOpen(anchor)}>
+      {anchors.map((anchor) => <AppButton intent="custom" size="1" key={anchor.anchorId} onClick={() => onOpen(anchor)}>
         <Code2 size={12} aria-hidden="true"/><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
-      </button>)}
+      </AppButton>)}
     </div>
-    {anchors.length > 0 && onExplore && <button className="code-detail-explore" type="button" onClick={() => onExplore(title, anchors)}>
+    {anchors.length > 0 && onExplore && <AppButton intent="custom" size="1" className="code-detail-explore" onClick={() => onExplore(title, anchors)}>
       <MessageSquare size={13} aria-hidden="true"/>Explore this code
-    </button>}
+    </AppButton>}
   </section>;
 }
