@@ -40,12 +40,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .app-window { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); }
-.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: minmax(0,max-content) minmax(0,1fr) minmax(0,max-content); grid-template-areas: "brand project actions"; grid-template-rows: minmax(46px,auto); align-items: center; align-content: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); position: relative; z-index: 5; }
+.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: flex; flex-flow: row wrap; align-items: center; align-content: center; justify-content: space-between; gap: 6px 12px; padding: 5px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); position: relative; z-index: 5; }
 .brand-lockup { grid-area: brand; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; color: var(--accent); background: linear-gradient(140deg, var(--accent-soft), var(--surface-raised)); border: 1px solid var(--accent-border); border-radius: 9px; }
 .brand-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.07em; color: var(--text); }
 .brand-name span { color: var(--accent); }
-.project-controls { grid-area: project; position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.project-controls { position: relative; display: flex; flex: 1 1 480px; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
 .project-button, .snapshot-button { display: inline-flex; align-items: center; gap: 9px; min-height: 35px; border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 8px; padding: 0 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .project-button:hover { background: var(--surface-hover); border-color: var(--border); }
 .project-button svg:first-child { color: var(--accent); }
@@ -75,7 +75,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-menu-copy strong { color: var(--text); font-size: 12px; font-weight: 600; }
 .snapshot-menu-copy small { overflow: hidden; color: var(--muted); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .snapshot-menu-check { margin-left: auto; color: var(--accent); }
-.topbar-actions { grid-area: actions; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.topbar-actions { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; margin-left: auto; }
 .help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .help-button:hover { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
 .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
@@ -84,49 +84,30 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Put account actions on their own in-flow row before the desktop header crowds. */
+/* Keep repository controls and app actions in normal flow at every window size. */
 @media (max-width: 1180px) {
   .topbar {
-    grid-template-columns:max-content minmax(0,1fr);
-    grid-template-areas:"brand project" "actions actions";
-    grid-template-rows:auto auto;
-    gap:4px 8px;
-    padding:5px 10px;
-  }
-  .topbar .topbar-actions {
+    display:flex;
+    flex-flow:row wrap;
+    align-items:center;
     justify-content:flex-start;
-    width:100%;
-    min-height:34px;
-    gap:4px;
-  }
-}
-
-/* At narrow widths, let the repository controls use the full first row too. */
-@media (max-width: 1180px) {
-  .topbar {
-    grid-template-columns:minmax(0,1fr);
-    grid-template-areas:"project" "actions";
-    grid-template-rows:auto auto;
     gap:4px 8px;
     padding:5px 10px;
   }
   .topbar .brand-lockup {display:none;}
-  .topbar .project-controls,
-  .topbar .topbar-actions {
-    justify-content:flex-start;
-    width:100%;
-    min-height:34px;
-    gap:4px;
-  }
-  .topbar .project-button {max-width:min(40vw,360px);}
-  .topbar .snapshot-button {max-width:min(35vw,280px);}
-  .topbar .connection-header {max-width:min(42vw,260px);flex:0 1 auto;}
-  .topbar .theme-control {max-width:160px;flex:0 1 auto;}
+  .topbar .project-controls {flex:1 1 480px;}
+  .topbar .topbar-actions {flex:0 1 auto;margin-left:auto;justify-content:flex-end;}
+  .topbar .project-button {flex:0 1 auto;max-width:min(40vw,360px);}
+  .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(35vw,280px);}
+  .topbar .snapshot-button {width:100%;max-width:100%;}
+  .topbar .connection-header {flex:0 1 auto;max-width:min(42vw,260px);}
+  .topbar .theme-control {flex:0 1 auto;max-width:160px;}
 }
 @media (max-width: 800px) {
   .topbar .brand-name,
   .topbar .header-divider {display:none;}
-  .topbar .snapshot-button {display:inline-flex;max-width:min(35vw,220px);}
+  .topbar .snapshot-picker-wrap {max-width:min(35vw,220px);}
+  .topbar .snapshot-button {display:inline-flex;max-width:100%;}
   .topbar .project-button {max-width:min(40vw,260px);}
   .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
   .topbar .snapshot-refresh-button > span {display:none;}
@@ -136,22 +117,19 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .theme-control {max-width:120px;padding:0;}
 }
 html[data-app-zoom-compact="true"] .topbar {
-  grid-template-columns:minmax(0,1fr);
-  grid-template-areas:"project" "actions";
-  grid-template-rows:auto auto;
-  gap:3px 8px;
+  display:flex;
+  flex-flow:row wrap;
+  align-items:center;
+  justify-content:flex-start;
+  gap:3px;
   padding:4px 8px;
 }
 html[data-app-zoom-compact="true"] .topbar .brand-lockup {display:none;}
-html[data-app-zoom-compact="true"] .topbar .project-controls,
-html[data-app-zoom-compact="true"] .topbar .topbar-actions {
-  justify-content:flex-start;
-  width:100%;
-  min-height:34px;
-  gap:4px;
-}
+html[data-app-zoom-compact="true"] .topbar .project-controls {flex:1 1 480px;max-width:100%;gap:4px;}
+html[data-app-zoom-compact="true"] .topbar .topbar-actions {flex:0 1 auto;max-width:100%;margin-left:auto;justify-content:flex-end;gap:4px;}
 html[data-app-zoom-compact="true"] .topbar .project-button {max-width:min(62vw,520px);}
-html[data-app-zoom-compact="true"] .topbar .snapshot-button {display:inline-flex;max-width:min(38vw,360px);}
+html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(38vw,360px);}
+html[data-app-zoom-compact="true"] .topbar .snapshot-button {display:inline-flex;width:100%;max-width:100%;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button {width:34px;min-width:34px;padding-inline:0;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {display:none;}
 html[data-app-zoom-compact="true"] .topbar .connection-header {max-width:min(42vw,260px);min-width:0;flex:0 1 auto;}
