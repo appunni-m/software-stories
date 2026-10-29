@@ -512,3 +512,19 @@ No native package was installed for these changes. The saved packaged Guide has
 one scene, so multi-scene placement remains unverified. Keep `x21h` and `13yp`
 open until the current binary is identified and the narrow/high-zoom and
 populated multi-scene states are reviewed.
+
+### Narrow sidebar return and sharing placement — source recheck, 29 October 2026
+
+The two source-level gaps recorded in the narrow-navigation audit are now
+addressed in the current workspace: the sidebar renders **Back to explanation**
+when the narrow layout has replaced the reader with the Explorer, and the
+button is displayed at viewports up to 680 px; the action changes the pane back
+without changing the selected repository activity. Repository sharing now
+lives in the repository/snapshot menu in the project header, not in the
+activity sidebar. The currently open Fontdone app confirms the persistent
+repository, snapshot, latest-capture, connection, appearance, notification and
+keyboard-help controls are present in the header, and the Explorer/Search/
+Changes/Explorations rail and Guide/Flow/Chat-history views are present in the
+workspace. This recheck used source plus the app accessibility tree; it did not
+exercise a narrow viewport, sharing action, or visual pixel alignment. Keep
+those packaged and accessibility acceptance gates open.
