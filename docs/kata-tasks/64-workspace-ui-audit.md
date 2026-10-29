@@ -819,3 +819,29 @@ populated repository state and the normal Flow/Search/Changes/history path.
 It does not cover nested follow-up navigation, empty/error states, keyboard,
 VoiceOver, high zoom, or other window sizes. Those acceptance gates remain
 open under `13yp` and `x21h`.
+
+## Guide navigation button alignment — 29 October 2026
+
+The section pager grouped Previous, its counter, and Next in the middle of the
+reader, and the narrow-pane scene toolbar also centered its controls away from
+the reading edge. The pagers now use a three-column layout: Previous on the
+left, progress centered, and Next on the right. In compact Guide panes, scene
+navigation stays left and the optional map control stays right. The compact
+zoom rule uses the same scene-toolbar placement.
+
+After `npm run bundle:macos` completed, the rebuilt app was installed over the
+existing application and reopened on Fontdone `main@5249b72371`. The saved
+Guide restored without changing its selected file, question, answer, snapshot,
+audio, or provider data. The populated pager visibly showed Previous at the
+left, “Slide 2 of 6” centered, and Next slide at the right. The scene pager
+stayed grouped at the left edge in its narrow pane. `git diff --check` passed;
+no automated test suite or provider request ran. The build output reported the
+existing Rust unused-code warnings and Vite's large-chunk warning.
+
+Installed executable SHA-256:
+`565a5043cba48609ee5879b1bc1d1c5354f3fd3c0f632a3f36b21fa049c29c32`.
+DMG SHA-256:
+`6bf0445fc1969d09874f77d774da3b04ed9184db5d4c26cb621313026309bba4`.
+This checks one populated Guide at its restored pane width; other widths,
+keyboard navigation, accessibility, and high-zoom layouts remain open under
+`13yp` and `x21h`.
