@@ -384,12 +384,12 @@ describe('visual story scenes', () => {
     assert.match(compactRules, /\.story-toolbar\s*\{[^}]*gap:\s*4px 8px;[^}]*padding:\s*6px 8px/u);
     assert.match(styles, /\.story-toolbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap/u,
       'title, map, and scene controls must wrap in normal flow when the Guide pane narrows');
-    assert.match(styles, /\.story-scene-progress\s*\{[^}]*order:\s*3;[^}]*flex:\s*1 1 100%/u,
-      'scene navigation must occupy a centered, bounded row below the title');
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*order:3;[^}]*flex:1 1 100%;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
+      'scene navigation must occupy one centered, bounded flex row below the title');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*order:\s*2;[^}]*margin-inline-start:\s*auto/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
       'many scene controls should scroll within their row instead of expanding beyond the reader');
-    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*width:\s*28px;[^}]*min-width:\s*0/u,
+    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:0 0 28px;[^}]*width:\s*28px;[^}]*min-width:\s*0/u,
       'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);

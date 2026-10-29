@@ -41,15 +41,16 @@ test('connection header shows the selected provider model and reasoning in one c
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(header,/<span className="connection-header-value">\{label\}<\/span>/);
   matches(header,/ready \? `Codex · \$\{codexModel\} · \$\{connection\.selection\.effort\}`/);
-  matches(shell,/@media\(max-width:800px\)\{\s*\.topbar \.connection-header \{flex-shrink:0;\}/);
+  matches(shell,/@media\s*\(max-width:\s*800px\)\s*\{[^}]*\.topbar \.connection-header \{max-width:min\(42vw,220px\);min-width:0;padding-inline:6px;flex:0 1 auto;\}/);
   matches(shell,/\.topbar \.connection-header-value \{flex:1;\}/);
 });
 
 test('native high zoom reflows the project and account header without hiding core controls',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.app-window > \.topbar\s*\{[^}]*display:grid;[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-rows:auto auto;[^}]*flex:0 0 auto;/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls\s*\{[^}]*grid-row:1;[^}]*flex-wrap:wrap;/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*grid-row:2;[^}]*flex-wrap:wrap;/);
+  matches(shell,/\.app-window > \.topbar\s*\{[^}]*flex:0 0 auto;[^}]*display:flex;[^}]*flex-wrap:wrap;/);
+  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.project-controls,\s*html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*flex:1 1 100%;[^}]*width:100%;/);
+  matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
+  matches(shell,/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);

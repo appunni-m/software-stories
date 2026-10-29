@@ -1077,3 +1077,31 @@ test files still fail (notification outcome grouping/source contract, Full map
 visibility, and narrow Guide source actions); the directly affected assertions
 pass. No provider request or repository-content change ran. Keep multi-scene
 and narrow-window review open under `x21h` and `13yp`.
+
+## Follow-up: wrap the header and scene controls as normal-flow groups — 29 October 2026
+
+The user again reported that scene navigation and the top application menu
+overflowed as if they were positioned over the page. The header used
+intrinsic-width grid tracks around independently wrapping control groups, and
+the repository popover shifted left at narrow widths. Replaced the header row
+with wrapping flex groups so project controls and account actions move to
+separate rows when the available width runs out; long connection labels now
+shrink safely and the repository menu stays anchored within the header. Replaced
+the scene pager's nested three-column grid with a centered flex row whose scene
+dots scroll inside the bounded reader width. The design preview now uses the
+same in-flow, wrapping header and its preview search control can wrap below the
+brand without covering neighboring controls.
+
+Updated the existing source-contract assertions for these layout contracts.
+`npm run build` and `CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2 npm run bundle:macos`
+passed. The build checked notices for 148 npm packages and 391
+Cargo crates, verified bundle metadata, and verified the DMG checksum. The app
+was installed at `/Users/lazytrot/Applications/Code Atlas.app`; the prior app
+is preserved as `Code Atlas.pre-flex-header-scenes.app`. The installed binary
+SHA-256 is `55eee375b546febc618a5b896149fd0e40eaa449117246bb2d78a4d16712b7dc`;
+the DMG SHA-256 is `806dc06710f0b94f53ce25858cbeab881029779c6984a1347971498d071189f3`.
+The reopened native app shows the header controls contained in one normal-flow
+row at the current full-width window. Its saved Guide has one scene, so there
+are no previous/next buttons or dots to inspect. No test suite, provider call,
+narration request, or repository-content change ran. Keep narrow-window,
+multi-scene, zoom, and accessibility acceptance open under `x21h` and `13yp`.
