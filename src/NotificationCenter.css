@@ -1,9 +1,9 @@
 .notification-trigger, .notification-close { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; color: var(--muted); background: transparent; cursor: pointer; }
-.notification-trigger { position: relative; flex-shrink: 0; }
+.notification-trigger { position: relative; flex: 0 0 auto; width: auto; min-width: 32px; gap: 4px; padding-inline: 4px; }
 .notification-status-marker { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border: 1.5px solid var(--surface); border-radius: 50%; background: var(--warning); pointer-events: none; }
 .notification-trigger:hover, .notification-close:hover { background: var(--surface-hover); color: var(--text); }
 .notification-trigger:focus-visible, .notification-close:focus-visible, .notification-panel button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.notification-count { position: absolute; top: -2px; right: -3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--action); color: var(--on-accent); font: 600 12px/16px system-ui, sans-serif; text-align: center; }
+.notification-count { position: static; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--action); color: var(--on-accent); font: 600 12px/16px system-ui, sans-serif; text-align: center; }
 .notification-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .notification-panel { z-index: 40; width: min(340px, calc(100vw - 24px)); max-height: min(480px, calc(100dvh - 80px)); overflow: auto; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 12px 40px color-mix(in srgb, var(--shadow) 25%, transparent); font: 13px/1.5 system-ui, sans-serif; }
 .notification-panel-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface); }

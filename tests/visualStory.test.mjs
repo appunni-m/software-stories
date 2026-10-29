@@ -348,17 +348,17 @@ describe('visual story scenes', () => {
       'scene heading, visual, player and details should appear in that order');
     assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{plainInlineCodeText\(scene\.title\)\}/u);
     assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{plainInlineCodeText\(item\.title\)\}`\}/u);
-    assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*10/u,
-      'the dedicated walkthrough can keep scene controls visible while its own view scrolls');
+    assert.match(styles, /\.story-sticky-controls\s*\{\s*position:\s*static;/u,
+      'scene controls should remain anchored in normal reading flow');
     const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
-    assert.match(playerRule, /position:\s*sticky/u);
-    assert.match(playerRule, /bottom:\s*0/u);
+    assert.match(playerRule, /position:\s*static/u);
+    assert.doesNotMatch(playerRule, /bottom:\s*0/u);
     assert.match(playerRule, /background:\s*var\(--surface\)/u);
     const workspace = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
-    assert.match(workspace, /\.dw-answer-scroll \.visual-story > \.story-sticky-controls,\s*\.dw-answer-scroll \.visual-story > \.story-playbar\s*\{\s*position:\s*static;/u,
-      'inline Guide controls must stay in the story flow instead of sticking to the entire chat history');
+    assert.doesNotMatch(workspace, /\.dw-answer-scroll \.visual-story > \.story-sticky-controls,\s*\.dw-answer-scroll \.visual-story > \.story-playbar\s*\{\s*position:\s*sticky/u,
+      'inline Guide controls must not become viewport overlays');
     const storyRule=styles.match(/\.visual-story\s*\{([^}]+)\}/u)?.[1]??'';
-    assert.doesNotMatch(storyRule,/overflow:\s*(?:clip|hidden|auto|scroll)/u,'the story container must not clip its sticky controls');
+    assert.doesNotMatch(storyRule,/overflow:\s*(?:clip|hidden|auto|scroll)/u,'the story container must not clip its in-flow controls');
     assert.match(styles,/\.visual-story > \.story-stage:not\(\.story-html-stage\)\s*\{[^}]*overflow:\s*hidden/u,'only the diagram stage clips to rounded corners');
   });
 
@@ -381,19 +381,21 @@ describe('visual story scenes', () => {
     assert.match(answerRule, /min-width:\s*0/u);
     assert.match(answerRule, /box-sizing:\s*border-box/u);
     assert.match(compactRules, /\.story-scene-title\s*\{[^}]*white-space:\s*normal/u);
-    assert.match(compactRules, /\.story-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) auto/u);
-    assert.match(compactRules, /\.story-map-toggle-slot\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1/u,
-      'the map control should share the title row instead of taking a separate toolbar row');
+    assert.match(compactRules, /\.story-toolbar\s*\{[^}]*gap:\s*4px 8px;[^}]*padding:\s*6px 8px/u);
+    assert.match(styles, /\.story-toolbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap/u,
+      'title, map, and scene controls must wrap in normal flow when the Guide pane narrows');
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*order:\s*3;[^}]*flex:\s*1 1 100%/u,
+      'scene navigation must occupy a centered, bounded row below the title');
+    assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*order:\s*2;[^}]*margin-inline-start:\s*auto/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
       'many scene controls should scroll within their row instead of expanding beyond the reader');
-    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:\s*0 0 28px/u,
+    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*width:\s*28px;[^}]*min-width:\s*0/u,
       'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);
     assert.match(styles, /\.visual-story\s*\{[^}]*max-width:\s*100%[^}]*box-sizing:\s*border-box/u);
     assert.match(workspace, /html\[data-app-zoom-compact="true"\] \.dw-answer-scroll/u);
-    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-toolbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto/u);
-    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-map-toggle-slot\s*\{[^}]*grid-column:2;[^}]*grid-row:1/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-toolbar\s*\{[^}]*gap:4px 8px;[^}]*padding:6px 8px/u);
     assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:"status status" "playback playback" "read edit"/u);
   });
 

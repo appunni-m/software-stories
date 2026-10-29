@@ -16,6 +16,17 @@ describe('notification totals', () => {
     assert.equal(shortened.includes('😀'), true);
   });
 
+  it('keeps the unread badge in the bell control flow', async () => {
+    const css = await readFile(new URL('../src/NotificationCenter.css', import.meta.url), 'utf8');
+    const triggerRule = css.match(/\.notification-trigger\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const countRule = css.match(/\.notification-count\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(triggerRule, /position:\s*relative/u);
+    assert.match(triggerRule, /width:\s*auto/u);
+    assert.match(triggerRule, /gap:\s*4px/u);
+    assert.match(countRule, /position:\s*static/u);
+    assert.doesNotMatch(countRule, /position:\s*absolute/u);
+  });
+
   it('shows generated question topics in notifications without exposing request instructions', async () => {
     const prompt = 'Create exactly one fresh Guide section from the selected Fontdone snapshot about only the PFR0 branch in Font::memory_face (src/font.rs). Trace the complete implementation and preserve every error branch.';
     assert.equal(questionNotificationText(prompt), 'PFR0 branch in Font::memory_face (src/font.rs).');

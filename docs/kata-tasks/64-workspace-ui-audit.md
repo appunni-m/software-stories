@@ -1059,3 +1059,21 @@ reflow still need a populated native visual check. No tests,
 provider requests, narration requests, or repository-content changes were
 made. Keep full viewport, multi-scene, zoom, and accessibility acceptance open
 under `x21h` and `13yp`.
+
+## Follow-up: keep the notification count and scene controls in flow — 29 October 2026
+
+A resized native window showed the unread count detached from the bell, while
+the user still reported scene controls overflowing like absolute-positioned
+elements. The notification count now participates in the bell button's flex
+layout. Scene title, map action, and scene pager wrap as normal-flow items; the
+workspace preview player wraps its controls instead of holding a fixed grid.
+
+The focused badge and scene-layout checks pass, and `npm run build` passes. The
+unsigned app/DMG bundle was rebuilt, installed, and reopened on the existing
+Fontdone snapshot; its header and notification count fit together in the live
+native screenshot. This saved answer has one scene, so multi-scene arrows could
+not be visually exercised. Four unrelated assertions in the broader focused
+test files still fail (notification outcome grouping/source contract, Full map
+visibility, and narrow Guide source actions); the directly affected assertions
+pass. No provider request or repository-content change ran. Keep multi-scene
+and narrow-window review open under `x21h` and `13yp`.
