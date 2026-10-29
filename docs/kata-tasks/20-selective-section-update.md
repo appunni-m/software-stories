@@ -173,3 +173,20 @@ and reassessment.
 This is source-only review; no tests, build, provider operation, or packaged
 repair session ran. The previously recorded full native-suite failures remain
 untriaged, and the packaged multi-section acceptance is still open.
+
+### Search-subsystem test triage follow-up — 29 October 2026
+
+The earlier full-suite output that exposed three candidate-ranking failures
+and one broad-range retrieval failure was recovered from the already-built test
+binary. The three ranking tests had incomplete fixtures: valid documents did
+not populate the required `end_byte` sort field. The broad-range test exposed
+a real inconsistency between file discovery and range ranking. The fixtures
+now supply complete sort identity, and broad natural-language ranges prefer
+distinct-term coverage before IDF when declaration signals tie.
+
+The complete repository-context test group now passes: 75 passed, 0 failed, 3
+ignored. This is subsystem evidence only; the historical full-suite result of
+758 passed / 67 failed / 18 ignored has not been rerun, and failures in other
+modules remain untriaged. This does not change the selective-repair acceptance:
+real repair, unaffected assets, cancellation/failure, and packaged workflow
+checks remain open.

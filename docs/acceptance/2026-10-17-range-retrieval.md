@@ -396,3 +396,35 @@ open.
 On the installed app (`843dfba7bdebbf200a9d755f516716187c83650190067e56096582924b3a4001`), local search for `memory_face` returned 79 matches across 22 files and surfaced the partial-coverage warning. Selecting `src/font.rs:4053–4115` opened the captured `Font::memory_face` body in the source pane, including its `PFR0` dispatch to `pfr_face`. No model or speech request was made. Explorer, `src/outline.rs`, and Guide were restored after this read-only check.
 
 This is a packaged named-search and exact-source-open check on the current UI build. The app was connected during inspection, so disconnected operation remains unqualified. It does not establish that an agent selects the range, that a generated explanation is useful, or that broad retrieval meets recall targets; keep `a699`, `0wdn`, and `gk46` open.
+
+## Recheck after distinct-term-first range ordering — 29 October 2026
+
+Reran the ignored native Fontdone service profile at Code Atlas source
+`92a507b` against the existing isolated copy of Fontdone
+`main@5249b72371` at `/private/tmp/code-atlas-a699-post-default-20261025`.
+This reused the already-copied snapshot and syntax index; the profile wrote its
+retrieval cache only inside that disposable directory. The running app's data
+was untouched. No provider, Codex, speech, or Fontdone code ran. The full log is
+`/tmp/code-atlas-a699-post-ranking-20261029.log`.
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / source bytes / ranges | 1,621 / 19,296,074 / 3,462 |
+| Syntax / text-fallback files | 153 / 1,468 |
+| `memory_face` disk-loaded / cached search | 2,767 ms / 554 ms |
+| Named expected ranges | 12/12 globally and 12/12 scoped |
+| Broad range first page, query 1 / query 2 | 5/12 / 5/12 |
+| Broad range recall in the 256-result window, query 1 / query 2 | 10/12 / 7/12 |
+| First 32-path discovery page, query 1 / query 2 | 7/7 / 7/7 expected paths |
+| File discovery followed by scoped search | 12/12 expected ranges for both queries |
+| Discovery time across eight pages, query 1 / query 2 | 1,456 ms / 1,397 ms |
+| Paged broad-range search time, query 1 / query 2 | 9,015 ms / 8,861 ms |
+
+Distinct-term-first ordering fixes the synthetic rare-term counterexample, but
+does not improve these Fontdone broad-range recall counts over the prior
+symbol-aware profile. The tool's file-discovery-then-scoped-search path still
+finds all expected paths and ranges locally. The mismatch confirms that a
+single broad lexical range query is not a dependable repository explanation
+plan; the agent must use file discovery and then investigate concrete code
+operations. These are one-run local service measurements, not an agent or
+answer-quality pass. Keep `a699`, `gk46`, and guide-quality tasks open.

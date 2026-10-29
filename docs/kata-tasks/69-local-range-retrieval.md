@@ -366,3 +366,15 @@ first-page recall measurements are unchanged and need a fresh local profile to
 show whether this ranking change improves them. Agent selection, packaged
 search, and explanation quality remain unqualified. Keep `a699`, `0wdn`, and
 `gk46` open.
+
+The 29 October current-source Fontdone profile has now been rerun once. The
+first 32-path discovery page contains all 7/7 reviewed paths for both broad
+queries, and discovery followed by scoped range search recovers 12/12 expected
+ranges. Single broad-range first-page recall remains 5/12 for each query, and
+the 256-result windows remain 10/12 and 7/12. Thus the distinct-term-first
+comparator fixes the synthetic rare-term case but does not further improve this
+Fontdone corpus. The concrete retrieval strategy for broad questions is
+file discovery followed by bounded scoped searches; automatic agent use and
+answer quality still need independent qualification. Exact profile details:
+[current-source recheck](../acceptance/2026-10-17-range-retrieval.md#recheck-after-distinct-term-first-range-ordering--29-october-2026). Keep
+`a699`, `0wdn`, and `gk46` open.
