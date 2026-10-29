@@ -413,5 +413,8 @@ answers**, because the group can include failed or stopped questions. The
 collapsed repository-guide heading no longer repeats topic/ready-slide counts;
 coverage status remains in the heading and per-topic details stay available
 when expanded. This removes redundant process status from the reading surface.
-No tests, build, or packaged review was run; keep the visual and responsive
-acceptance gates open.
+`npm run bundle:macos` then completed: notice inventory, TypeScript/Vite
+production build, unsigned app/DMG creation, bundle metadata, and DMG checksum
+passed. No tests were run. The running app showed five in-progress attempts, so
+the new bundle was not installed over that session or runtime-checked; keep the
+visual and responsive acceptance gates open.
