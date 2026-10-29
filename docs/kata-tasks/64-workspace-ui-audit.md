@@ -690,7 +690,17 @@ section navigator now keeps Previous, the section count, and Next together as
 a centered group at regular widths. Existing narrow-pane behavior remains a
 two-row layout, with the count above the two actions.
 
-Source-only correction in `src/workspace/workspace.css`. No build, test, or
-packaged-app restart was run in this step, so the installed app has not yet
-shown the updated alignment. Keep the packaged Guide recheck under `13yp`
-open.
+Implemented in `src/workspace/workspace.css` and pushed as `f18a3ac`. The
+unsigned macOS app was rebuilt and reopened in the existing 2880×1688
+`pillow-rs` workspace at `main@e843f864fc`. The live Guide shows Previous,
+“Section 1 of 4,” and Next as one centered group; the selected `canvas.rs`
+source, answer, section, and narration state were retained. No repository
+snapshot, saved explanation, or audio was changed, and no test suite or model
+request was run.
+
+Installed executable SHA-256:
+`14392f3e716308ada5c126d415b2818a3685e87ee79e06250362ab8bf3f5fcae`.
+DMG SHA-256:
+`390c80152af9a82980122a7bf442b3a6684754e3d040a4e6ecb7b11fd7ecedbc`.
+This verifies one populated Guide layout; responsive, keyboard, accessibility,
+and cross-screen acceptance remain open under `13yp` and `x21h`.
