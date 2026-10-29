@@ -97,7 +97,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   }
   .topbar .brand-lockup {display:none;}
   .topbar .project-controls {flex:1 1 auto;width:100%;}
-  .topbar .topbar-actions {display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto auto auto;justify-content:start;gap:8px;}
+  .topbar .topbar-actions {display:grid;width:100%;grid-template-columns:auto auto auto auto;justify-content:end;gap:8px;}
   .topbar .project-button {flex:0 1 auto;max-width:min(40cqi,360px);}
   .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(35cqi,280px);}
   .topbar .snapshot-button {width:100%;max-width:100%;}
