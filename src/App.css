@@ -85,7 +85,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
 /* Give the dense header deliberate rows when the window cannot hold all controls. */
-@media (max-width: 1560px) {
+@media (max-width: 1280px) {
   .topbar {
     grid-template-columns: max-content minmax(0, 1fr);
     grid-template-areas: "brand project" "actions actions";
