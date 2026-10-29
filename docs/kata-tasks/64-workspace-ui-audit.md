@@ -704,3 +704,22 @@ DMG SHA-256:
 `390c80152af9a82980122a7bf442b3a6684754e3d040a4e6ecb7b11fd7ecedbc`.
 This verifies one populated Guide layout; responsive, keyboard, accessibility,
 and cross-screen acceptance remain open under `13yp` and `x21h`.
+
+## Default Changes comparison completes — 29 October 2026
+
+On the same installed build, opening Changes first showed the expected loading
+state: the default parent-to-head comparison was running, the ref fields were
+disabled, and **Stop comparison** was available. After the native comparison
+finished without another user action, the screen displayed **Partial
+comparison**, both **Diff** and **PR Guide** tabs, 128 visible files, and an
+omission notice for 111 further changes. Static relationships were explicitly
+marked partial. The earlier loading observation was not a stuck comparison;
+do not classify it as a failure or add a retry workaround. No branch switch,
+working-tree change, AI request, or content edit occurred.
+
+This is one populated comparison on `pillow-rs`, local `e843f864` to
+`c5104cbaaefbd359c88746801a1fd60e52a1f6d1`, at 2880×1688. The screenshot was
+inspected live but not retained because the diff exposes repository content.
+The executable and DMG identities are recorded above. Empty repositories,
+error/cancellation states, alternate ref pairs, and responsive/accessibility
+checks remain open.
