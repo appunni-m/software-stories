@@ -214,16 +214,16 @@
 .dw-search-results .rt-Button {margin-top:var(--space-3);}
 .dw-commits {overflow:auto;padding:var(--space-2) var(--space-2) var(--space-5);}
 .dw-commits p {padding:var(--space-3);color:var(--muted);font-size:12px;}
-.dw-commit {display:flex;align-items:stretch;gap:var(--space-2);width:100%;text-align:left;padding:0 var(--space-1);border:0;background:transparent;cursor:pointer;}
-.dw-commit-line {display:flex;align-items:center;position:relative;color:var(--accent);}
+.dw-commit {box-sizing:border-box;display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:var(--space-2);width:100%;min-width:0;text-align:left;padding:0 var(--space-1);border:0;background:transparent;cursor:pointer;}
+.dw-commit-line {display:flex;grid-column:1;align-items:center;position:relative;color:var(--accent);}
 .dw-commit-line::after {position:absolute;content:'';height:100%;width:1px;left:7px;background:var(--border-strong);z-index:0;}
 .dw-commit-line svg {position:relative;z-index:1;background:var(--surface);}
 .dw-commit-line.merge {color:var(--purple);}
-.dw-commit > span:last-child {padding:var(--space-3) 0;min-width:0;}
-.dw-commit strong {font-size:12px;font-weight:500;display:block;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dw-commit small {display:block;color:var(--dim);font-size:12px;margin-top:var(--space-1);}
+.dw-commit > span:last-child {display:block;grid-column:2;padding:var(--space-3) 0;min-width:0;max-width:100%;}
+.dw-commit strong {display:block;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:500;text-overflow:ellipsis;white-space:nowrap;}
+.dw-commit small {display:block;width:100%;max-width:100%;box-sizing:border-box;color:var(--dim);font-size:12px;line-height:1.4;margin-top:var(--space-1);white-space:normal;overflow-wrap:anywhere;}
 .dw-commit:hover {background:var(--surface-hover);}
-.dw-commits .dw-commit.rt-Button {height:auto;min-height:28px;max-width:none;justify-content:flex-start;border:0;border-radius:0;background:transparent;color:var(--text);box-shadow:none;white-space:normal;}
+.dw-commits .dw-commit.rt-Button {display:grid;width:100%;min-width:0;max-width:100%;height:auto;min-height:28px;grid-template-columns:16px minmax(0,1fr);justify-content:stretch;border:0;border-radius:0;background:transparent;color:var(--text);box-shadow:none;white-space:normal;}
 .dw-commits .dw-commit.rt-Button:hover {background:var(--surface-hover);}
 .dw-tool-content {flex:1;overflow:auto;min-height:0;padding:var(--space-4) var(--space-4) var(--space-6);}
 .dw-tool-reading > #explanations {display:flex;flex-direction:column;min-height:0;}
