@@ -471,3 +471,18 @@ correction had no test-suite run. `npm run build` passes TypeScript and Vite at
 commit `060bfc4`; Vite retains the existing large main-chunk warning. The
 installed native app has not been rebuilt or visually reviewed for this
 correction. Keep `x21h` and `13yp` open.
+
+### Header and scene controls — source correction, 29 October 2026
+
+After the user reported that the header and scene controls still overflowed,
+source inspection found the desktop header's `max-content` action track could
+retain its full intrinsic width until the 1180px compact breakpoint. The latest
+source now gives account actions their own in-flow row through 1560px; at
+narrower widths, repository controls and actions take separate rows. The Guide
+scene pager uses fixed arrow slots and a flexible, horizontally scrollable dot
+strip. The preview title bar and visual-step player also wrap within their
+available width. Changes are in `f0dceb5` and `f194b63`; `npm run build` passes.
+No native package was installed for these changes. The saved packaged Guide has
+one scene, so multi-scene placement remains unverified. Keep `x21h` and `13yp`
+open until the current binary is identified and the narrow/high-zoom and
+populated multi-scene states are reviewed.
