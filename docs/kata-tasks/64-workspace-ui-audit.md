@@ -705,6 +705,32 @@ DMG SHA-256:
 This verifies one populated Guide layout; responsive, keyboard, accessibility,
 and cross-screen acceptance remain open under `13yp` and `x21h`.
 
+## Put section navigation after the section content — 29 October 2026
+
+The packaged Guide still placed **Previous / Section / Next section** before
+the current slide. Centering the buttons fixed their horizontal grouping but
+left the primary placement wrong: a user reached the next-section action before
+reading or hearing the section it advances. The pager now renders after the
+complete slide, including its visual, narration, and source/details controls,
+so navigation follows the content it controls. The existing centered grouping
+is preserved.
+
+The rebuilt app was reopened in the existing `pillow-rs`
+`main@e843f864fc` workspace. The selected `canvas.rs` Guide remains at section
+1 of 4, and the live view shows the pager below the scene player, details,
+section notes, and **Explore further**. Accessibility order also places the
+pager after the slide. No question, snapshot, saved explanation, or narration
+was changed; no test suite or provider request was run. `git diff --check`, the
+frontend build, license checks, native bundle, and DMG metadata/checksum
+verification completed.
+
+Installed executable SHA-256:
+`6eefd11bc24d4e8ad9d56fcb341705aea288dd9fb24acb1ca1451c9f60a1d047`.
+DMG SHA-256:
+`7641c1a8108a13e55808fd850c058f7f87c2c64cc686827bbf72d75df8bc1eea`.
+Responsive, keyboard, accessibility, and cross-screen acceptance remain open
+under `13yp` and `x21h`.
+
 ## Default Changes comparison completes — 29 October 2026
 
 On the same installed build, opening Changes first showed the expected loading
