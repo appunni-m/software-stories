@@ -63,6 +63,19 @@ struct RecordContract {
     schema_version: u32,
     contract: String,
 }
+
+fn opaque_answer_reservation(id: &str, scope: RecordScope) -> AnswerReservation {
+    AnswerReservation {
+        guide_id: id.to_owned(),
+        project_id: scope.project_id,
+        snapshot_id: scope.snapshot_id,
+        // Opaque records have no trusted run identities, so this reservation
+        // is accounting only and cannot establish answer ownership.
+        manifest_sha256: String::new(),
+        run_ids: Vec::new(),
+        reserved_records: MAX_GUIDE_ANSWER_RECORDS,
+    }
+}
 pub(super) fn exists(storage: &Path, id: &str) -> Result<bool, String> {
     match fs::symlink_metadata(path(storage, id)?) {
         Ok(_) => Ok(true),
@@ -203,13 +216,23 @@ pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
             crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
         let value = crate::strict_json::from_slice(&bytes)
             .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-        let contract: RecordContract = serde_json::from_value(value.clone())
+        let scope: RecordScope = serde_json::from_value(value.clone())
             .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-        if contract.schema_version != RECORD_SCHEMA_VERSION {
-            continue;
+        let contract: RecordContract = serde_json::from_value(value.clone()).map_err(|_| {
+            "Saved guide capacity could not be verified. Existing work was preserved."
+        })?;
+        if contract.schema_version > RECORD_SCHEMA_VERSION {
+            return Err(
+                "A saved repository guide uses a newer format; answer capacity could not be verified."
+                    .into(),
+            );
         }
-        if contract.contract != CONTRACT {
-            return Err("The saved repository guide has an incompatible contract.".into());
+        if contract.schema_version != RECORD_SCHEMA_VERSION || contract.contract != CONTRACT {
+            // Old app-owned formats are unavailable to the current reader. Hold
+            // their maximum current allowance so ignoring one cannot reset the
+            // shared answer budget. No old content is parsed or rewritten.
+            reservations.push(opaque_answer_reservation(id, scope));
+            continue;
         }
         let record = decode_record(id, value)?;
         reservations.push(answer_reservation(&record));
@@ -377,7 +400,7 @@ fn validate(record: &Record) -> Result<(), String> {
             .position(|unit| unit.continuation_topic.is_some())
             .unwrap_or(plan.units.len());
         let continuation_units = plan.units.len().saturating_sub(original_units);
-        if !(2..=MAX_TOTAL_UNITS).contains(&original_units)
+        if !(2..=MAX_INITIAL_UNITS).contains(&original_units)
             || plan.units.len() > MAX_TOTAL_UNITS
             || continuation_units > MAX_TOTAL_UNITS.saturating_sub(original_units)
             || record.units.len() != plan.units.len()

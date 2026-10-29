@@ -49,3 +49,16 @@ restoring old origin validation. Supported descendants may remain visible when
 their parent is an opaque unsupported record; that ancestry is partial, and the
 unsupported parent cannot be selected for review. Source-only review; no tests,
 build, or packaged runtime check ran.
+
+## Follow-up: strict Guide outline records — 29 October 2026
+
+Repository Guide records now use schema 9 and contract
+`repository-guide-v10-five-initial-units`. Validation accepts two to five
+initial outline units and up to twenty total units after incremental topics are
+appended. The former twelve-initial-unit allowance was removed. Older bounded
+records remain on disk and show as unavailable; shared answer accounting holds
+the maximum current Guide allowance for each opaque older record, so skipping
+old content cannot release its capacity. A record claiming a newer schema fails
+capacity inspection because its allowance cannot be known. The macOS data-format
+manifest now publishes the Guide schema and contract. Existing source-level
+fixtures were aligned to the current outline shape; no tests or build were run.

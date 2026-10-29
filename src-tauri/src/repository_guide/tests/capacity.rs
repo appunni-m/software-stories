@@ -52,6 +52,39 @@ fn answer_bytes(f: &Fixture) -> std::collections::BTreeMap<std::path::PathBuf, V
         .collect()
 }
 
+fn fill_to_capacity(plan: &mut Plan, units: &mut Vec<Unit>) {
+    let starting_ranges = plan.units[0].starting_ranges.clone();
+    for index in plan.units.len()..MAX_INITIAL_UNITS {
+        let key = format!("initial-{index}");
+        plan.units.push(plan::UnitPlan {
+            key: key.clone(),
+            question: format!("How does implementation stage {index} transform the input?"),
+            prerequisites: vec![],
+            starting_ranges: starting_ranges.clone(),
+            continuation_topic: None,
+        });
+        units.push(Unit {
+            key,
+            attempts: vec![],
+        });
+    }
+    for index in plan.units.len()..MAX_TOTAL_UNITS {
+        let key = format!("continuation-{index}");
+        let topic = format!("Incremental implementation path {index}");
+        plan.units.push(plan::UnitPlan {
+            key: key.clone(),
+            question: super::super::extension_question(&topic),
+            prerequisites: vec![],
+            starting_ranges: starting_ranges.clone(),
+            continuation_topic: Some(topic),
+        });
+        units.push(Unit {
+            key,
+            attempts: vec![],
+        });
+    }
+}
+
 #[test]
 fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answers() {
     let f = Fixture::new();
@@ -66,21 +99,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
     plan.omissions = (0..8)
         .map(|index| format!("Additional implementation route {index}"))
         .collect();
-    let starting_ranges = plan.units[0].starting_ranges.clone();
-    for index in 2..MAX_UNITS {
-        let key = format!("stage-{index}");
-        plan.units.push(plan::UnitPlan {
-            key: key.clone(),
-            question: format!("How does implementation stage {index} transform the input?"),
-            prerequisites: vec![],
-            starting_ranges: starting_ranges.clone(),
-            continuation_topic: None,
-        });
-        guide.units.push(Unit {
-            key,
-            attempts: vec![],
-        });
-    }
+    fill_to_capacity(plan, &mut guide.units);
     let opening = guide.opening.as_mut().unwrap();
     opening.summary = Some(Summary {
         run_id: opening.run_id.clone(),
@@ -124,7 +143,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
         .collect::<Vec<_>>();
     assert_eq!(
         runs.len(),
-        1 + MAX_OPENING_CONTINUATIONS + MAX_UNITS * MAX_ATTEMPTS
+        1 + MAX_OPENING_CONTINUATIONS + MAX_TOTAL_UNITS * MAX_ATTEMPTS
     );
     assert_eq!(
         answer_reservation(&guide).reserved_records,
@@ -186,21 +205,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
     plan.omissions = (0..8)
         .map(|index| format!("Additional implementation route {index}"))
         .collect();
-    let starting_ranges = plan.units[0].starting_ranges.clone();
-    for index in next.units.len()..MAX_UNITS {
-        let key = format!("stage-{index}");
-        plan.units.push(plan::UnitPlan {
-            key: key.clone(),
-            question: format!("How does implementation stage {index} transform the input?"),
-            prerequisites: vec![],
-            starting_ranges: starting_ranges.clone(),
-            continuation_topic: None,
-        });
-        next.units.push(Unit {
-            key,
-            attempts: vec![],
-        });
-    }
+    fill_to_capacity(plan, &mut next.units);
     let opening = next.opening.as_mut().unwrap();
     opening.summary = Some(Summary {
         run_id: opening.run_id.clone(),

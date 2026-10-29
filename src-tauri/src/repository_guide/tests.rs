@@ -455,7 +455,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     let f = Fixture::new();
     let mut r = fresh_record(&f);
     let range = r.plan.as_ref().unwrap().units[0].starting_ranges[0].clone();
-    r.plan.as_mut().unwrap().units = (0..MAX_UNITS)
+    r.plan.as_mut().unwrap().units = (0..MAX_INITIAL_UNITS)
         .map(|i| plan::UnitPlan {
             key: format!("unit-{i}"),
             question: format!("How does behavior number {i} transform its input?"),
@@ -487,7 +487,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
         visited.push(r.units[index].key.clone());
         let intent = unit_intent(&r, index).unwrap();
         assert_eq!(intent.unit_number, index + 2);
-        assert_eq!(intent.unit_count, MAX_UNITS + 1);
+        assert_eq!(intent.unit_count, MAX_INITIAL_UNITS + 1);
         let question = continuation(&f.storage, &r, index).unwrap();
         assert!(question.starts_with(&r.plan.as_ref().unwrap().units[index].question));
         assert!(question.contains(RESEARCH_INSTRUCTIONS));
@@ -497,7 +497,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     }
     assert_eq!(
         visited,
-        (0..MAX_UNITS)
+        (0..MAX_INITIAL_UNITS)
             .map(|i| format!("unit-{i}"))
             .collect::<Vec<_>>()
     );
@@ -515,7 +515,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     assert!(!unit_research_eligible(&r, 1));
     r.status = Status::Stopped;
     assert!((0..r.units.len()).all(|i| !unit_research_eligible(&r, i)));
-    assert_eq!(MAX_UNITS + 1, 13);
+    assert_eq!(MAX_INITIAL_UNITS + 1, 6);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -693,7 +693,7 @@ fn reading_prerequisites_do_not_block_research_and_completed_units_are_skipped()
     assert!(unit_complete(&record.units[0]));
     assert!(unit_research_eligible(&record, 1));
     assert!(!unit_research_eligible(&record, 0));
-    assert_eq!(MAX_UNITS, 12);
+    assert_eq!(MAX_INITIAL_UNITS, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -823,9 +823,17 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
     let reservations = answer_reservations(&f.storage)
-        .expect("an unrelated unsupported guide must not block new answer capacity checks");
-    assert_eq!(reservations.len(), 1);
-    assert_eq!(reservations[0].guide_id, selected.id);
+        .expect("unsupported saved guides keep their capacity reserved");
+    assert_eq!(reservations.len(), 2);
+    assert!(reservations
+        .iter()
+        .any(|reservation| reservation.guide_id == selected.id));
+    let opaque = reservations
+        .iter()
+        .find(|reservation| reservation.guide_id == unrelated.id)
+        .expect("the unsupported guide retains an opaque capacity reservation");
+    assert!(opaque.run_ids.is_empty());
+    assert_eq!(opaque.reserved_records, MAX_GUIDE_ANSWER_RECORDS);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
     let (unsupported, unavailable_count) = list_saved_guides_with_count(

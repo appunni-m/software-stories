@@ -128,7 +128,8 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
         (5, CONTRACT),
         (6, CONTRACT),
         (7, CONTRACT),
-        (9, CONTRACT),
+        (8, CONTRACT),
+        (10, CONTRACT),
     ] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
@@ -347,7 +348,7 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
     create(&f.storage, &record).unwrap();
     let location = path(&f.storage, &record.id).unwrap();
     let current = serde_json::to_value(&record).unwrap();
-    for version in [0, 1, 2, 3, 4, 5, 6, 7, 9] {
+    for version in [0, 1, 2, 3, 4, 5, 6, 7, 8, 10] {
         let mut unsupported = current.clone();
         unsupported["schemaVersion"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&unsupported).unwrap();

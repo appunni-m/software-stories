@@ -20,8 +20,8 @@ async function source(path) {
 }
 
 async function metadata() {
-  const [chapters, index, recovery, notices, conversations] = await Promise.all([
-    source('chapters.rs'), source('index.rs'), source('recovery.rs'), source('app_notices.rs'), source('workspace_conversation.rs'),
+  const [chapters, index, recovery, notices, conversations, guides] = await Promise.all([
+    source('chapters.rs'), source('index.rs'), source('recovery.rs'), source('app_notices.rs'), source('workspace_conversation.rs'), source('repository_guide/mod.rs'),
   ]);
   return {
     productName: config.productName,
@@ -37,6 +37,8 @@ async function metadata() {
       interruptedOperationJournal: rustConstant(recovery, 'JOURNAL_SCHEMA_VERSION'),
       appNoticeHistory: rustConstant(notices, 'NOTICE_HISTORY_SCHEMA_VERSION'),
       workspaceConversation: rustConstant(conversations, 'CONVERSATION_SCHEMA_VERSION'),
+      repositoryGuideRecordSchema: rustConstant(guides, 'RECORD_SCHEMA_VERSION'),
+      repositoryGuideContract: rustConstant(guides, 'CONTRACT'),
     },
   };
 }
