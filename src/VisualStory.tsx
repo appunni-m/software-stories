@@ -56,12 +56,12 @@ function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosit
   return <>
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
     <EdgeLabelRenderer>
-      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={accessibleLabel}
+      <AppButton intent="custom" size="1" type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={accessibleLabel}
         style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelPosition.x}px,${labelPosition.y}px)`, pointerEvents: 'all' }}
         aria-label={`${accessibleLabel}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
         onClick={(event) => { event.stopPropagation(); onOpenSource?.(); }}>
         <span className="story-edge-label-text"><InlineCodeText text={visibleStoryEdgeLabel(label)}/></span><Code2 size={11} aria-hidden="true" />
-      </button>
+      </AppButton>
     </EdgeLabelRenderer>
   </>;
 }
@@ -255,10 +255,10 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     const detail = data.detail ? plainInlineCodeText(data.detail) : '';
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
+      data: { label: <AppButton intent="custom" size="1" className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
         <span className="story-node-title"><InlineCodeText text={data.label}/></span>
         {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
-      </button> },
+      </AppButton> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
   }) : [];
   const visibleEdges = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)) ?? [];
@@ -458,14 +458,14 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
             : 'This saved section has narration and source links, but no visual representation.'}</small>
         </div>
         {(canRefreshSavedVisual || anchor) && <div className="story-source-actions">
-          {canRefreshSavedVisual && onRefreshVisual && <button type="button" className="story-refresh-visual" aria-label="Create a fresh visual explanation" onClick={onRefreshVisual}>
+          {canRefreshSavedVisual && onRefreshVisual && <AppButton intent="custom" size="1" type="button" className="story-refresh-visual" aria-label="Create a fresh visual explanation" onClick={onRefreshVisual}>
             <Sparkles size={13} aria-hidden="true" /><span>Refresh visual</span>
-          </button>}
-          {anchor && <button type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
+          </AppButton>}
+          {anchor && <AppButton intent="custom" size="1" type="button" data-focus-key={`reader-citation:${anchor.anchorId}`}
             aria-label={`Open ${anchor.path}, lines ${anchor.startLine} through ${anchor.endLine}`}
             onClick={() => onOpenAnchor(anchor, `reader-citation:${anchor.anchorId}`)}>
             <span>{anchor.path.split('/').at(-1)} · {anchor.startLine}–{anchor.endLine}</span><ArrowRight size={14} aria-hidden="true" />
-          </button>}
+          </AppButton>}
         </div>}
       </div>
     </div>}
@@ -478,24 +478,24 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         onPlaybackStarted={onSectionPlaybackStarted} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
     </div>
     {!visual && <div className="story-focus-bar"><span><InlineCodeText text={focus?.label ?? (anchor ? 'Captured code' : section.title)}/></span>
-      {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
+      {focusSourceAnchor && <AppButton intent="custom" size="1" onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</AppButton>}
     </div>}
     <details className="story-details" open={sceneDetailsOpen} onToggle={(event) => setSceneDetailsOpen(event.currentTarget.open)}><summary>Scene details & source</summary>
       {(focus || focusSourceAnchor) && <CodeDetail title={focus?.label ?? section.title} claims={detailClaims} anchors={detailAnchors} onOpen={(item) => onOpenAnchor(item, focus ? `reader-visual-citation:${focus.nodeId}:${focusSourceAnchor?.anchorId ?? focus.evidenceAnchorIds[0]}` : undefined)} onExplore={onExploreDetail}/>}
       {focus?.detail && <p><InlineCodeText text={focus.detail}/></p>}
-      {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}><InlineCodeText text={hotspot.label}/><ArrowRight size={13}/></button>}
+      {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <AppButton intent="custom" size="1" data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}><InlineCodeText text={hotspot.label}/><ArrowRight size={13}/></AppButton>}
       {sourceLinkedEdges.length > 0 && <div className="story-details-connections">
         <h3>Connections</h3>
         <ul>{sourceLinkedEdges.map(({ edge, source, from, to }) => <li key={edge.edgeId}>
-          <button data-focus-key={`reader-visual-edge:${edge.edgeId}:${source.anchorId}`} aria-pressed={focusedEdge === edge.edgeId}
+          <AppButton intent="custom" size="1" data-focus-key={`reader-visual-edge:${edge.edgeId}:${source.anchorId}`} aria-pressed={focusedEdge === edge.edgeId}
             aria-label={`${plainInlineCodeText(from.label)} — ${plainInlineCodeText(edge.label)} — ${plainInlineCodeText(to.label)}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}
             onClick={() => chooseEdge(edge.edgeId)}>
             <span><InlineCodeText text={from.label}/></span><span aria-hidden="true">→</span><span><InlineCodeText text={edge.label}/></span><span aria-hidden="true">→</span><span><InlineCodeText text={to.label}/></span>
             <small>{source.path}:{source.startLine}–{source.endLine}</small>
-          </button>
+          </AppButton>
         </li>)}</ul>
       </div>}
-      <div className="story-sources">{[...new Map(anchors.filter((item) => scene.anchorIds.includes(item.anchorId)).map((item) => [item.anchorId, item])).values()].map((item) => <button key={item.anchorId} data-focus-key={`reader-citation:${item.anchorId}`} onClick={() => onOpenAnchor(item, `reader-citation:${item.anchorId}`)}>{item.path}:{item.startLine}–{item.endLine}</button>)}</div>
+      <div className="story-sources">{[...new Map(anchors.filter((item) => scene.anchorIds.includes(item.anchorId)).map((item) => [item.anchorId, item])).values()].map((item) => <AppButton intent="custom" size="1" key={item.anchorId} data-focus-key={`reader-citation:${item.anchorId}`} onClick={() => onOpenAnchor(item, `reader-citation:${item.anchorId}`)}>{item.path}:{item.startLine}–{item.endLine}</AppButton>)}</div>
     </details>
     {section.prose.trim() !== section.spokenText.trim() && <details className="story-details"><summary>Section notes</summary><p><InlineCodeText text={section.prose}/></p></details>}
   </section>;

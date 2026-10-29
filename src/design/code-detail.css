@@ -4,7 +4,7 @@
 .code-detail-claims { display:grid; gap:7px; margin-top:8px; }
 .code-detail-claims p,.code-detail-empty { margin:0; color:var(--muted); font-size:14px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
 .code-detail-sources { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
-.code-detail-sources button,.code-detail-explore { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:5px 8px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--accent); font:13px/1.4 var(--mono); cursor:pointer; overflow-wrap:anywhere; }
+.code-detail-sources button,.code-detail-explore { display:inline-flex; align-items:center; max-width:100%; height:auto; gap:6px; min-height:32px; padding:5px 8px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--accent); font:13px/1.4 var(--mono); white-space:normal; cursor:pointer; overflow-wrap:anywhere; }
 .code-detail-sources button:hover,.code-detail-explore:hover { border-color:var(--accent); background:var(--surface-hover); }
 .code-detail-explore { margin-top:9px; font-family:inherit; font-size:13px; line-height:1.4; }
 .code-detail button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
