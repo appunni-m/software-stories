@@ -322,6 +322,11 @@ copy of Fontdone `main@5249b72371` and its syntax index, stored at
 `/private/tmp/code-atlas-a699-current-20261029`. No live app data, model,
 Codex, TTS, or Fontdone code was used.
 
+```text
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context_commands::tests::fontdone_service_retrieval_profile -- --ignored --exact --nocapture
+1 passed; 0 failed; 843 filtered out; 40.71s
+```
+
 | Measurement | Before ranking change | After ranking change |
 | --- | ---: | ---: |
 | Broad range first-page recall, query 1 | 1/12 | 5/12 |
@@ -334,8 +339,10 @@ Codex, TTS, or Fontdone code was used.
 
 The post-change profile preserves 1,621 indexed files, 19,296,074 source bytes,
 3,462 ranges, 153 syntax files and 1,468 text-fallback files; named identifier
-recall remains 12/12. The complete profile log is
-`/private/tmp/code-atlas-a699-symbol-ranking-20261029.log`.
+recall remains 12/12. Temporary profile output and the isolated copy were
+removed after these measurements were recorded; reproduce with the command
+above and supply the accepted fixture/index described in the earlier profile
+entries.
 
 Symbol-aware ranking improves broad global retrieval, but still puts only 5/12
 reviewed ranges from each broad query on the first page; the 256-result window

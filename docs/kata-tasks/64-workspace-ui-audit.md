@@ -873,9 +873,14 @@ scene count and dots centered between them. A one-scene visual omits disabled
 arrows and redundant dots. This applies at normal pane sizes, compact panes,
 and app zoom's compact layout.
 
-`npm run build` passed (TypeScript and Vite production build). The active app
-was left open because its Guide still has four other answers in progress and
-notifications requiring attention. No native bundle, restart, packaged
-screenshot or keyboard check has run yet. Keep package-level layout and
-responsive acceptance under `13yp`/`x21h` open until the rebuilt app is safely
-installed and inspected.
+`npm run build` passed (TypeScript and Vite production build), and
+`npm run bundle:macos` produced the app and DMG from commit `4a8c13c`. App
+executable SHA-256:
+`a5f4bb7d57dbcf72ad7234ae2376f4b7ca7ca6117cdcfa82ad2c8bce6e3adb3c`.
+DMG SHA-256:
+`8583edbf10052f241b4405d244bf769480bab448022a01b8e9e07c09444ce08c`.
+
+The active app was left open because its Guide still has four other answers in
+progress and notifications requiring attention. The new bundle has not been
+installed or visually inspected. Keep package-level layout and responsive
+acceptance under `13yp`/`x21h` open until it is safely installed and inspected.
