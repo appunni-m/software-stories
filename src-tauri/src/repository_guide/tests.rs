@@ -355,6 +355,51 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
 }
 
 #[test]
+fn an_exhausted_outline_with_unresolved_omissions_finishes_partial() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let plan_unit = record.plan.as_ref().unwrap().units[0].clone();
+    let units = (0..MAX_TOTAL_UNITS)
+        .map(|index| plan::UnitPlan {
+            key: format!("unit-{index}"),
+            question: format!("How does unit {index} work?"),
+            prerequisites: Vec::new(),
+            starting_ranges: plan_unit.starting_ranges.clone(),
+            continuation_topic: None,
+        })
+        .collect::<Vec<_>>();
+    let completed_attempts = units
+        .iter()
+        .map(|unit| {
+            let mut attempt = attempt(&record, Outcome::Complete);
+            attempt.question = unit.question.clone();
+            attempt.summary.as_mut().unwrap().question = unit.question.clone();
+            attempt
+        })
+        .collect::<Vec<_>>();
+    record.plan.as_mut().unwrap().units = units.clone();
+    record.units = units
+        .into_iter()
+        .zip(completed_attempts)
+        .map(|(unit, attempt)| Unit {
+            key: unit.key,
+            attempts: vec![attempt],
+        })
+        .collect();
+    let complete_opening = attempt(&record, Outcome::Complete);
+    record.opening.as_mut().unwrap().summary = complete_opening.summary;
+    record.plan.as_mut().unwrap().omissions = vec!["One public route remains unexplored.".into()];
+
+    assert!(guide_complete(&record));
+    assert!(pending_extension_topics(record.plan.as_ref().unwrap()).is_empty());
+    assert!(!plan_extension_eligible(&record));
+    assert_eq!(terminal_guide_status(&record), Status::Partial);
+
+    record.plan.as_mut().unwrap().omissions.clear();
+    assert_eq!(terminal_guide_status(&record), Status::Ready);
+}
+
+#[test]
 fn renderer_queue_wait_accepts_bounded_values_and_ignores_invalid_diagnostics() {
     assert_eq!(bounded_renderer_queue_wait_ms(None), None);
     assert_eq!(bounded_renderer_queue_wait_ms(Some(0)), Some(0));

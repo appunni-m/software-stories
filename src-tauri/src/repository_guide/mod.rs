@@ -314,6 +314,21 @@ fn guide_complete(record: &Record) -> bool {
             .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
     }) && record.units.iter().all(unit_complete)
 }
+/// Keep scope omissions visible as an incomplete guide when the outline has
+/// exhausted its bounded topic capacity. Existing Ready records are still
+/// validated by `guide_complete`; this stricter decision applies to new runs.
+fn terminal_guide_status(record: &Record) -> Status {
+    if guide_complete(record)
+        && record
+            .plan
+            .as_ref()
+            .is_some_and(|plan| plan.omissions.is_empty())
+    {
+        Status::Ready
+    } else {
+        Status::Partial
+    }
+}
 fn published_slide_count(record: &Record) -> usize {
     record
         .opening
@@ -1547,7 +1562,7 @@ fn build_inner(
     }
     record = store::update(storage, id, |current| {
         if current.status != Status::Stopped {
-            current.status = if guide_complete(current) {
+            current.status = if terminal_guide_status(current) == Status::Ready {
                 Status::Ready
             } else if published_slide_count(current).saturating_sub(starting_slide_count)
                 >= slide_run_limit(
