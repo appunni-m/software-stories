@@ -1,5 +1,71 @@
 use super::*;
 use crate::{chapter_generation::tests::Fixture, repository_context::tests::add_source};
+use std::{
+    io,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+struct CancelAfterFirstCopyChunk<'a> {
+    remaining: usize,
+    cancelled: &'a AtomicBool,
+}
+
+impl io::Read for CancelAfterFirstCopyChunk<'_> {
+    fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+        let count = output.len().min(self.remaining);
+        output[..count].fill(b'x');
+        self.remaining -= count;
+        if self.remaining == 1 {
+            self.cancelled.store(true, Ordering::Release);
+        }
+        Ok(count)
+    }
+}
+
+#[test]
+fn segment_copy_checks_cancellation_between_bounded_reads() {
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let mut source = CancelAfterFirstCopyChunk {
+        remaining: COPY_BUFFER_BYTES + 1,
+        cancelled: &cancelled,
+    };
+    let mut destination = Vec::new();
+    let error = copy_exact(
+        &mut source,
+        &mut destination,
+        (COPY_BUFFER_BYTES + 1) as u64,
+        &budget,
+    )
+    .unwrap_err();
+    assert_eq!(error, "Code search stopped.");
+    assert_eq!(destination.len(), COPY_BUFFER_BYTES);
+}
+
+#[test]
+fn segment_copy_rejects_short_or_extended_inputs() {
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    for (input, expected) in [(b"ab".as_slice(), 3), (b"abcd".as_slice(), 3)] {
+        let mut source = input;
+        let mut destination = Vec::new();
+        assert_eq!(
+            copy_exact(&mut source, &mut destination, expected, &budget).unwrap_err(),
+            "The previous code index changed while copying."
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn incremental_segment_source_does_not_follow_symlinks() {
+    let fixture = Fixture::new();
+    let outside = fixture.storage.join("outside-segment");
+    let link = fixture.storage.join("linked-segment");
+    fs::write(&outside, b"outside index bytes").unwrap();
+    std::os::unix::fs::symlink(&outside, &link).unwrap();
+    assert!(open_regular_file(&link).is_err());
+}
 
 fn identities(result: SearchResult) -> Vec<(String, usize, usize, String, String)> {
     let mut identities = result

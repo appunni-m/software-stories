@@ -2,7 +2,79 @@
 //! Every current source is still verified before any old document is admitted.
 
 use super::*;
-use std::io;
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Write},
+    path::Path,
+};
+
+const COPY_BUFFER_BYTES: usize = 64 * 1024;
+
+fn open_regular_file(path: &Path) -> Result<File, String> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK);
+    }
+    let file = options
+        .open(path)
+        .map_err(|_| "The previous code index could not be copied.".to_owned())?;
+    if !file.metadata().is_ok_and(|metadata| metadata.is_file()) {
+        return Err("The previous code index has an invalid file.".into());
+    }
+    Ok(file)
+}
+
+fn create_copy_file(path: &Path) -> Result<File, String> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    options
+        .open(path)
+        .map_err(|_| "The previous code index could not be copied.".to_owned())
+}
+
+fn copy_exact<R: Read, W: Write>(
+    source: &mut R,
+    destination: &mut W,
+    expected_bytes: u64,
+    budget: &Budget<'_>,
+) -> Result<u64, String> {
+    let mut copied = 0u64;
+    let mut buffer = [0; COPY_BUFFER_BYTES];
+    while copied < expected_bytes {
+        budget.check()?;
+        let length = (expected_bytes - copied).min(buffer.len() as u64) as usize;
+        let read = source
+            .read(&mut buffer[..length])
+            .map_err(|_| "The previous code index could not be copied.".to_owned())?;
+        if read == 0 {
+            return Err("The previous code index changed while copying.".into());
+        }
+        destination
+            .write_all(&buffer[..read])
+            .map_err(|_| "The previous code index could not be copied.".to_owned())?;
+        copied = copied.saturating_add(read as u64);
+    }
+    budget.check()?;
+    let mut extra = [0; 1];
+    if source
+        .read(&mut extra)
+        .map_err(|_| "The previous code index could not be copied.".to_owned())?
+        != 0
+    {
+        return Err("The previous code index changed while copying.".into());
+    }
+    Ok(copied)
+}
 
 pub(super) fn file_key(
     path: &str,
@@ -142,8 +214,8 @@ pub(super) fn copy(
         if !safe_component(&relative) {
             return Err("The previous code index has an invalid file path.".into());
         }
-        let source = base.generation.join(&relative);
-        let metadata = match fs::symlink_metadata(&source) {
+        let source_path = base.generation.join(&relative);
+        let metadata = match fs::symlink_metadata(&source_path) {
             Ok(metadata) => metadata,
             // Managed paths may include optional components not present on disk.
             Err(error)
@@ -158,16 +230,33 @@ pub(super) fn copy(
         if !metadata.is_file() {
             return Err("The previous code index has an invalid file.".into());
         }
-        bytes = bytes.saturating_add(metadata.len());
+        let mut source = open_regular_file(&source_path)?;
+        let source_bytes = source
+            .metadata()
+            .map_err(|_| "The previous code index could not be copied.".to_owned())?
+            .len();
+        if source_bytes != metadata.len() {
+            return Err("The previous code index changed while copying.".into());
+        }
+        bytes = bytes.saturating_add(source_bytes);
         if bytes > 256 * 1024 * 1024 {
             return Err("The previous code index exceeds its byte limit.".into());
         }
-        if fs::copy(&source, staging.join(relative))
-            .map_err(|_| "The previous code index could not be copied.".to_owned())?
-            != metadata.len()
+        let destination_path = staging.join(relative);
+        let mut destination = create_copy_file(&destination_path)?;
+        let copied = copy_exact(&mut source, &mut destination, source_bytes, budget)?;
+        if copied != source_bytes
+            || source
+                .metadata()
+                .map_err(|_| "The previous code index could not be copied.".to_owned())?
+                .len()
+                != source_bytes
         {
             return Err("The previous code index changed while copying.".into());
         }
+        destination
+            .sync_all()
+            .map_err(|_| "The previous code index could not be copied.".to_owned())?;
     }
     budget.check()?;
     Ok(bytes)

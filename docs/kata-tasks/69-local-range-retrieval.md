@@ -298,3 +298,20 @@ Codex will use every hint, read all required ranges, or produce an accurate
 repository explanation. The corresponding Fontdone agent run and remaining
 large-file, cancellation, corruption, offline, and packaging gates remain
 open under `a699` and `gk46`.
+
+## Interruptible incremental segment copies — 29 October 2026
+
+Incremental Tantivy segments are now copied in 64 KiB chunks with a budget and
+cancellation check between chunks. Copying opens only regular source files
+without following Unix symlinks, creates new staging files without overwriting
+unexpected entries, and rejects a source that shrinks or grows while it is
+being copied. A failed or cancelled copy returns through the existing staging
+guard, which removes the partial generation before publication.
+
+The focused native incremental-index tests pass: 9 passed, 0 failed, 1 ignored
+(`fontdone_one_file_incremental_profile`), 837 filtered out. New regressions
+prove cancellation after the first bounded chunk and reject short/extended
+segment streams. Changed Rust files pass rustfmt. This is source and focused
+unit evidence only; packaged storage pressure, real mid-copy cancellation,
+independent ranking review, Fontdone broad recall, and Codex answer quality
+remain unqualified. Keep `a699`, `0wdn`, and `gk46` open.
