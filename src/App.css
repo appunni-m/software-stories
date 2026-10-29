@@ -1580,10 +1580,9 @@ html[data-app-zoom-compact="true"] .topbar .topbar-actions {
 }
 html[data-app-zoom-compact="true"] .topbar .connection-header {max-width:none;flex-shrink:0;}
 html[data-app-zoom-compact="true"] .topbar .connection-header-value {flex:1;}
-/* Let the repository controls and account tools reflow before the header runs
-   out of horizontal room. Keep both rows in normal layout so they cannot sit
-   on top of the workspace or clip at narrow window widths. */
-@media(max-width:1150px){
+/* Reflow the full repository and account header before its controls compete
+   for one line. Both rows stay in document flow and grow with wrapped content. */
+@media(max-width:1400px){
   .app-window > .topbar {display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;flex:0 0 auto;min-height:76px;gap:4px 8px;padding:5px 10px;}
   .app-window > .topbar > .brand-lockup {display:none;}
   .app-window > .topbar > .project-controls {grid-column:1;grid-row:1;width:100%;min-width:0;flex:1 1 auto;flex-wrap:wrap;gap:4px;}

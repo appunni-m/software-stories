@@ -943,3 +943,15 @@ visuals do not provide a multi-scene player for a direct scene-arrow screenshot,
 and a narrow-window resize check remains open. No test suite, provider request,
 or repository-content change occurred. Installed executable SHA-256:
 `001fe24fe254ce19f7f4e407eed8155c3eacf29a7d295f862595bc9aefa4aa41`.
+
+## Follow-up: scene strip and header reflow — 29 October 2026
+
+The user reported that the scene navigation and top header still overflowed.
+The current scene index let every scene button wrap into more rows as guides
+grew, while the header waited until 1150 CSS pixels to split its repository and
+account controls. Scene buttons now stay in a single horizontal scroll area
+between fixed previous/next controls; the header reflows into two normal-flow
+rows up to 1400 CSS pixels. This is a source correction. No test, build,
+screenshot, or native runtime review was run for this follow-up, so the
+packaged narrow-window and multi-scene checks remain open under `x21h` and
+`13yp`.
