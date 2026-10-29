@@ -43,10 +43,6 @@ pub struct RecordedRetrievalEvidence {
     policy: String,
     ledger_sha256: String,
     ranges: Vec<crate::repository_context::CodeRange>,
-    // Schema 5 recorded the retrieval ranges before index identity became part
-    // of the freshness contract. Keep that historical absence distinguishable
-    // from schema 6's explicit `unavailable` value.
-    #[serde(default, skip_serializing_if = "RecordedIndexIdentity::was_not_recorded")]
     index_identity: RecordedIndexIdentity,
 }
 
@@ -58,19 +54,6 @@ pub enum RecordedIndexIdentity {
         indexer_version: String,
     },
     Unavailable,
-    NotRecorded,
-}
-
-impl Default for RecordedIndexIdentity {
-    fn default() -> Self {
-        Self::NotRecorded
-    }
-}
-
-impl RecordedIndexIdentity {
-    fn was_not_recorded(value: &Self) -> bool {
-        matches!(value, Self::NotRecorded)
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -111,7 +94,7 @@ impl ChapterGenerationOrigin {
                 schema_version,
                 indexer_version,
             } => Some(format!("{schema_version}:{indexer_version}")),
-            RecordedIndexIdentity::Unavailable | RecordedIndexIdentity::NotRecorded => None,
+            RecordedIndexIdentity::Unavailable => None,
         }
     }
 
@@ -312,27 +295,14 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            let legacy_retrieval = self.schema_version == 5
-                && retrieval.index_identity == RecordedIndexIdentity::NotRecorded
-                && self.settings
-                    == RecordedAgentSettings::Codex {
-                        model_id: "gpt-6-luna".into(),
-                        effort: "max".into(),
-                        approval_policy: "never".into(),
-                    };
             let current_retrieval = self.schema_version == 6
                 && matches!(
                     &retrieval.index_identity,
                     RecordedIndexIdentity::Available { .. }
                         | RecordedIndexIdentity::Unavailable
                 );
-            let fingerprint_valid = if legacy_retrieval {
-                serde_json::to_vec(&(&self.request_body_sha256, &retrieval.ledger_sha256))
-                    .is_ok_and(|bytes| {
-                        crate::repository_context::digest(&bytes) == self.request_fingerprint
-                    })
-            } else if current_retrieval {
-                serde_json::to_vec(&(
+            let fingerprint_valid = current_retrieval
+                && serde_json::to_vec(&(
                     &self.request_body_sha256,
                     &retrieval.ledger_sha256,
                     &retrieval.index_identity,
@@ -340,11 +310,8 @@ impl ChapterGenerationOrigin {
                 ))
                 .is_ok_and(|bytes| {
                     crate::repository_context::digest(&bytes) == self.request_fingerprint
-                })
-            } else {
-                false
-            };
-            (legacy_retrieval || current_retrieval)
+                });
+            current_retrieval
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -357,7 +324,6 @@ impl ChapterGenerationOrigin {
                         indexer_version,
                     } => current_retrieval && *schema_version > 0 && text(indexer_version, 128),
                     RecordedIndexIdentity::Unavailable => current_retrieval,
-                    RecordedIndexIdentity::NotRecorded => legacy_retrieval,
                 }
                 && digest(&retrieval.ledger_sha256)
                 && fingerprint_valid
@@ -404,7 +370,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if !(self.schema_version == 6 || (self.schema_version == 5 && self.retrieval.is_some()))
+        if self.schema_version != 6
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id
@@ -665,7 +631,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_five_repository_origin_accepts_historical_missing_index_identity() {
+    fn schema_five_repository_origin_is_rejected_without_implicit_index_identity() {
         let f = Fixture::new();
         let mut revision = chapter(&f);
         revision.chapter_id = "chapter:overview".into();
@@ -690,20 +656,16 @@ mod tests {
         )
         .unwrap();
         origin.schema_version = 5;
-        origin.retrieval.as_mut().unwrap().index_identity = RecordedIndexIdentity::NotRecorded;
-        origin.request_fingerprint = crate::repository_context::digest(
-            &serde_json::to_vec(&(&origin.request_body_sha256, &"b".repeat(64))).unwrap(),
+        assert!(origin.validate(&revision).is_err());
+
+        let mut old_wire = serde_json::to_value(&origin).unwrap();
+        old_wire["retrieval"]
+            .as_object_mut()
+            .unwrap()
+            .remove("indexIdentity");
+        assert!(
+            serde_json::from_value::<ChapterGenerationOrigin>(old_wire).is_err(),
+            "a missing index identity is not treated as an implicit supported value"
         );
-
-        let wire = serde_json::to_value(&origin).unwrap();
-        assert!(wire["retrieval"].get("indexIdentity").is_none());
-        let restored: ChapterGenerationOrigin = serde_json::from_value(wire).unwrap();
-        assert_eq!(restored.schema_version, 5);
-        assert_eq!(restored.retrieval_index_identity(), None);
-        assert!(restored.validate(&revision).is_ok());
-
-        revision.generation_origin = Some(restored);
-        let saved_revision = serde_json::to_vec(&revision).unwrap();
-        assert!(crate::chapters::decode_chapter_revision(&saved_revision).is_ok());
     }
 }

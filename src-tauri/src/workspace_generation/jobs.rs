@@ -17,7 +17,6 @@ use std::{
 };
 use uuid::Uuid;
 
-const PREVIOUS_STORE_SCHEMA_VERSION: u32 = 3;
 const STORE_SCHEMA_VERSION: u32 = 4;
 const MAX_STORE_BYTES: usize = 1024 * 1024;
 const MAX_JOB_COUNT: usize = 512;
@@ -919,7 +918,7 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
     let schema_version = value
         .get("schemaVersion")
         .and_then(serde_json::Value::as_u64);
-    if !matches!(schema_version, Some(version) if version == u64::from(PREVIOUS_STORE_SCHEMA_VERSION) || version == u64::from(STORE_SCHEMA_VERSION)) {
+    if schema_version != Some(u64::from(STORE_SCHEMA_VERSION)) {
         return Err("Workspace generation job data uses an unsupported format.".into());
     }
     const REQUIRED_JOB_FIELDS: &[&str] = &[
@@ -952,11 +951,8 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
     }) {
         return Err("Workspace generation job data is incomplete.".into());
     }
-    let mut store: StoreFile = serde_json::from_value(value)
+    let store: StoreFile = serde_json::from_value(value)
         .map_err(|error| format!("Workspace generation job data is invalid: {error}"))?;
-    // Version 4 adds the optional syntax-index fallback outcome. Existing
-    // version-3 job identities and saved answers remain intact.
-    store.schema_version = STORE_SCHEMA_VERSION;
     if store.jobs.len() > MAX_JOB_COUNT {
         return Err(
             "Workspace generation job data uses an unsupported or oversized format.".into(),
@@ -1172,25 +1168,16 @@ mod tests {
     }
 
     #[test]
-    fn greenfield_current_format_rejects_version_two_jobs_without_rewriting() {
+    fn greenfield_current_format_rejects_previous_job_store_schema_without_rewriting() {
         let directory = TestDirectory::new();
-        let job_id = Uuid::new_v4().to_string();
-        let turn_id = Uuid::new_v4().to_string();
-        let legacy = serde_json::json!({"schemaVersion":2,"jobs":[{"jobId":job_id,
-            "kind":"workspaceQuestion","conversationTurnId":turn_id,
-            "projectId":"project-a","snapshotId":"snapshot-a","modelId":"gpt-6-luna",
-            "reasoningEffort":"max","sourceFingerprintSha256":null,
-            "requestFingerprintSha256":null,"runtimeIdentitySha256":null,"state":"running",
-            "workerRegistered":true,"providerThreadId":"thread-a","providerTurnIds":["turn-a"],
-            "preparationStages":[],"createdAtUnixMs":1,"updatedAtUnixMs":2}]});
-        fs::write(
-            store_path(&directory.0),
-            serde_json::to_vec(&legacy).unwrap(),
-        )
-        .unwrap();
-        let original = fs::read(store_path(&directory.0)).unwrap();
+        let job = start_job(&directory);
+        let mut previous: serde_json::Value =
+            serde_json::from_slice(&fs::read(store_path(&directory.0)).unwrap()).unwrap();
+        previous["schemaVersion"] = serde_json::json!(3);
+        let original = serde_json::to_vec(&previous).unwrap();
+        fs::write(store_path(&directory.0), &original).unwrap();
 
-        assert!(get(&directory.0, &job_id).is_err());
+        assert!(get(&directory.0, &job.job_id).is_err());
         assert_eq!(fs::read(store_path(&directory.0)).unwrap(), original);
     }
 

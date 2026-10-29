@@ -25,9 +25,12 @@ Kata `zch9` was closed on 18 October. The source/test/manifest change was pushed
 ## Follow-up source audit — 29 October 2026
 
 The current native recovery journal had since gained a schema-1 reader that
-silently rewrote interrupted-operation data to schema 2. That contradicted the
-single-supported-format contract. The migration path is removed: only schema 2
-is accepted, and an older file is reported as unsupported while its original
-bytes remain untouched. A new record cannot overwrite that file. The existing
-regression now asserts rejection and byte preservation. Static source review
-only; no tests, build, or packaged recovery exercise was run for this follow-up.
+silently rewrote interrupted-operation data to schema 2. The generation-job
+store also accepted schema 3 as schema 4, and chapter origins accepted schema 5
+without a recorded index identity. These app-owned compatibility paths
+contradicted the single-supported-format contract. They are removed: only
+recovery schema 2, job-store schema 4, and chapter-origin schema 6 are accepted.
+Older files/records are reported as unsupported and remain untouched; a new
+record cannot overwrite the old recovery or job store. Existing regressions now
+assert rejection and byte preservation. Static source review only; no tests,
+build, or packaged recovery exercise was run for this follow-up.
