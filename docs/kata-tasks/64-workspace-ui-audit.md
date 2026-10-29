@@ -954,4 +954,6 @@ between fixed previous/next controls; the header reflows into two normal-flow
 rows up to 1400 CSS pixels. This is a source correction. No test, build,
 screenshot, or native runtime review was run for this follow-up, so the
 packaged narrow-window and multi-scene checks remain open under `x21h` and
-`13yp`.
+`13yp`. The existing scene-layout source-contract assertions were updated to
+describe the title-row map action and bounded horizontal scene strip; they were
+not executed.

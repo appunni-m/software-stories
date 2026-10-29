@@ -375,21 +375,25 @@ describe('visual story scenes', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const explanationRule = workspace.match(/\.dw-explanation\s*\{([^}]+)\}/u)?.[1] ?? '';
     const answerRule = workspace.match(/\.dw-answer-scroll\s*\{([^}]+)\}/u)?.[1] ?? '';
-    const compactRules = styles.match(/@container\s+guide-pane\s*\(max-width:\s*700px\)\s*\{([\s\S]*?)\n\}/u)?.[1] ?? '';
+    const compactRules = styles.match(/@container\s+guide-pane\s*\(max-width:\s*820px\)\s*\{([\s\S]*?)\n\}/u)?.[1] ?? '';
     assert.match(explanationRule, /container-type:\s*inline-size/u);
     assert.match(explanationRule, /container-name:\s*guide-pane/u);
     assert.match(answerRule, /min-width:\s*0/u);
     assert.match(answerRule, /box-sizing:\s*border-box/u);
     assert.match(compactRules, /\.story-scene-title\s*\{[^}]*white-space:\s*normal/u);
-    assert.match(compactRules, /\.story-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) auto auto/u);
-    assert.match(compactRules, /\.story-map-toggle\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*2/u,
-      'the map control should share the second row instead of taking a third toolbar row');
+    assert.match(compactRules, /\.story-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) auto/u);
+    assert.match(compactRules, /\.story-map-toggle-slot\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1/u,
+      'the map control should share the title row instead of taking a separate toolbar row');
+    assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
+      'many scene controls should scroll within their row instead of expanding beyond the reader');
+    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:\s*0 0 28px/u,
+      'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);
     assert.match(styles, /\.visual-story\s*\{[^}]*max-width:\s*100%[^}]*box-sizing:\s*border-box/u);
     assert.match(workspace, /html\[data-app-zoom-compact="true"\] \.dw-answer-scroll/u);
-    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-toolbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto auto/u);
-    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-map-toggle\s*\{[^}]*grid-column:3;[^}]*grid-row:2/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-toolbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-map-toggle-slot\s*\{[^}]*grid-column:2;[^}]*grid-row:1/u);
     assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:"status status" "playback playback" "read edit"/u);
   });
 
