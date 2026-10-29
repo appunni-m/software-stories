@@ -845,3 +845,19 @@ DMG SHA-256:
 This checks one populated Guide at its restored pane width; other widths,
 keyboard navigation, accessibility, and high-zoom layouts remain open under
 `13yp` and `x21h`.
+
+## Compact scene controls re-centered — 29 October 2026
+
+The user reported that the buttons still appeared misplaced. In the reopened
+Fontdone Guide, the section pager was aligned, while the scene count and its
+previous/next/dot controls were still clustered at the left in the compact
+Guide pane. The compact and zoom-compact layouts now center that group beneath
+the scene title; the optional map action stays on the title row.
+
+`npm run bundle:macos` completed. The installed app was reopened on the same
+Fontdone snapshot and Guide, and the live screenshot confirmed the centered
+scene group. No test suite or provider request ran, and no repository snapshot,
+saved answer, or narration changed. Installed executable SHA-256:
+`285816cc91e3d590b8b48052bf4c32bc85fb771c549948f87264db38703528fe`.
+DMG SHA-256:
+`1013bfe209635f49ed14c356bdf1ec8ae2ee45f555cd38cf5702544e8ed82cde`.
