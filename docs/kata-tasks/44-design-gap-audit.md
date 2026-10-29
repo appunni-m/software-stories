@@ -405,3 +405,13 @@ concrete page findings to the existing `x21h` task; it does not create a second
 overlapping issue. First-run, light appearance, narrow/high zoom, keyboard,
 VoiceOver, contrast, motion, and a verified packaged source identity remain
 open. Keep `x21h` and `13yp` open.
+
+### Guide label and summary cleanup — source change, 29 October 2026
+
+Repeated question groups now say **earlier attempts** instead of **other
+answers**, because the group can include failed or stopped questions. The
+collapsed repository-guide heading no longer repeats topic/ready-slide counts;
+coverage status remains in the heading and per-topic details stay available
+when expanded. This removes redundant process status from the reading surface.
+No tests, build, or packaged review was run; keep the visual and responsive
+acceptance gates open.

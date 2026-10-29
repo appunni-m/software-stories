@@ -997,11 +997,10 @@ export function DeveloperWorkspace(props:Props) {
                   {guideAttemptGroups.map((group)=>{
                     if(group.otherTurns.length===0)return renderAnswer(group.representative);
                     const groupedBranches=group.turns.flatMap((turn)=>branchesByTurn.get(turn.id)??[]);
-                    const activeOtherAttemptCount=group.otherTurns.filter(isActiveQuestion).length;
                     return <div className="dw-guide-attempt-group" key={group.key}>
                       {renderAnswer(group.representative,groupedBranches)}
                       <details className="dw-guide-attempt-history">
-                        <summary>Show {group.otherTurns.length} other answer{group.otherTurns.length===1?'':'s'}{activeOtherAttemptCount>0?` · ${activeOtherAttemptCount} in progress`:''}</summary>
+                        <summary>Show {group.otherTurns.length} earlier attempt{group.otherTurns.length===1?'':'s'}</summary>
                         {group.otherTurns.map((turn)=>renderAnswer(turn,[],true))}
                       </details>
                     </div>;
@@ -1143,7 +1142,7 @@ function Answer(props:AnswerProps){
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:turn.status==='waiting'?<span>{sections.length} {turn.guideId?'slide':'section'}{sections.length===1?'':'s'} ready. The next {turn.guideId?'slide':'section'} builds as you read or listen.</span>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
-      <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}<span className="dw-guide-outline-count">{turn.guide.units.length} topics · {guideSlides.length} slides ready</span></summary>
+      <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
         const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
         const slideIndex=guideSlides.findIndex((slide)=>unit.runIds.includes(slide.runId));
