@@ -1404,7 +1404,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
         })}
       </ol>
     </> : unlinkedNodes ? <>
-      <p>The evidence does not define a path between these points. Choose one to inspect its cited implementation.</p>
+      <p>Choose a card to see the code behind that idea.</p>
       <ul className="dw-unlinked-flow" aria-label={`Source points in ${plainInlineCodeText(visual.title)}`}>
         {unlinkedNodes.map((node) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
