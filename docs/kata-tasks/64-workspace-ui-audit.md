@@ -1506,3 +1506,29 @@ original full-width window. No test suite, provider request, narration, capture,
 or saved-answer change ran. Multi-scene controls, 200% zoom, narrower widths,
 keyboard use, and accessibility/theme checks remain open under `x21h` and
 `13yp`.
+
+### Header and scene toolbar flow correction — 30 October 2026
+
+The user clarified that both the scene navigation and top menu looked as if
+they were floating over the page. A screenshot of the installed Fontdone
+window showed the effective width just above the 1320px container breakpoint:
+the project controls and the utility controls wrapped independently, leaving
+the connection control above the theme, notifications, and help controls. The
+breakpoint is now 1600px, so those groups occupy separate, aligned rows before
+they crowd each other. Wider headers use flex wrapping based on available space.
+The Guide scene toolbar also uses normal-flow flex rows; its scene counter and
+multi-scene pager stay beneath the scene title, with smaller arrow/dot slots in
+narrow Guide panes.
+
+`npm run bundle:macos` succeeded, including metadata and DMG checksum checks.
+The installed app was replaced and reopened with the Fontdone workspace intact.
+The native screenshot confirms the repository controls on the first header row
+and connection/theme/notification/help controls aligned on the second. The
+current saved answer has one scene, so that screenshot cannot qualify its
+previous/next controls. Installed executable SHA-256:
+`9affaf31e96ee77b3d3e670400f57fade33444ea6867ec2b32c6373a4c93bf62`.
+
+No tests, provider request, narration, repository capture, or saved-answer
+change ran. Keep `13yp` and `x21h` open for narrower windows, a populated
+multi-scene guide on this build, high zoom, keyboard, and accessibility/theme
+acceptance.
