@@ -1480,3 +1480,29 @@ This qualifies the pager at one compact window size and the compact header in
 the same packaged state. It does not cover long scene sequences, narrower
 widths, high zoom, keyboard-only use, VoiceOver, contrast, or motion settings;
 keep the broader acceptance in `x21h` and `13yp` open.
+
+### Compact header alignment correction — 30 October 2026
+
+The user still saw the scene navigation and top menu as misplaced. In the
+installed Fontdone workspace, narrowing the app to about 1025 CSS pixels
+reproduced an awkward header: connection and utility controls started at the
+left edge of their own second row. The compact header still flowed below the
+repository row, but that alignment made it look detached. The compact and
+zoom-compact action rows now align their controls to the right edge of the same
+in-flow header track. The current saved Guide has one scene; its centered
+`Scene 1 of 1` counter is in the visual card's normal flow, and no previous /
+next buttons or scene markers render for this answer.
+
+`npm run bundle:macos` succeeded from the local working-tree correction on
+`de3a289`; metadata and DMG checksum verification passed. The rebuilt app was
+installed at `/Users/lazytrot/Applications/Code Atlas.app`, preserving the
+previous bundle as
+`/Users/lazytrot/Applications/Code Atlas.precompact-actions-20261030.app`.
+Installed executable SHA-256:
+`398218e8566723fc0cd9c73c5f27fcb248546b8c972f941cf17ec7553262062b`.
+Native inspection at the compact window size confirmed the action row at the
+right edge, with no header spill or overlap; the app was returned to its
+original full-width window. No test suite, provider request, narration, capture,
+or saved-answer change ran. Multi-scene controls, 200% zoom, narrower widths,
+keyboard use, and accessibility/theme checks remain open under `x21h` and
+`13yp`.
