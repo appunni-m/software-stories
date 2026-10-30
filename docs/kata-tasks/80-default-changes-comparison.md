@@ -63,3 +63,17 @@ commit, and selection retention across activity navigation in the installed
 app. The check was read-only: no repository refs/files changed and no AI work
 ran. A custom branch/tag range, empty history, initial commit, errors, and
 partial/oversized comparison states remain unqualified; keep this task open.
+
+## Custom commit range survives activity navigation — 30 October 2026
+
+In the same installed Fontdone workspace, I entered the explicit commit range
+`f3096b4e4c91fa1b8c9ff2e2c48b2dce548f2046` →
+`5249b723719445813b8771a602ea5b96891d4450`. **Compare versions** displayed
+the five-file diff and the selected README hunk. Switching to Explorer and
+back to Changes retained both the exact refs and five-file comparison. I
+restored the default HEAD/first-parent comparison and the original Guide view.
+No repository files or refs changed and no AI operation ran.
+
+This covers explicit commit-range retention across activity navigation. A
+branch-name or tag-name range, custom comparison after restart, empty history,
+initial commit, failure messages, and partial/oversized states remain open.
