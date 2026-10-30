@@ -373,17 +373,20 @@ fn correction_limit_is_retained_and_eight_proposals_remain_the_hard_ceiling() {
 
     assert_eq!(answer.remaining_attempts(), 0);
     assert_eq!(answer.remaining_corrections(), 1);
-    assert!(
-        answer
-            .prepare(
-                &ledger,
-                &rejected.to_string(),
-                &f.manifest,
-                &runtime,
-                &cancel
-            )
-            .is_err()
-    );
+    let over_budget = answer
+        .prepare(
+            &ledger,
+            &rejected.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(over_budget.findings, finding("proposalLimit"));
+    assert!(over_budget.generation_id.is_none());
+    answer
+        .commit(&ledger, over_budget, &f.manifest, &runtime, &cancel)
+        .unwrap();
 
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.attempts.len(), 8);

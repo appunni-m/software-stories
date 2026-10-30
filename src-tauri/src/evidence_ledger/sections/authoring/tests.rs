@@ -277,17 +277,18 @@ fn authored_graph_scenes_are_limited_by_their_focused_visible_node_count() {
         (0..8)
             .map(|index| json!({
                 "key":format!("step-{index}"),"label":format!("Step {index}"),"detail":"",
-                "references":["code:1"]
+                "references":["code:1"],"source":null
             }))
             .collect::<Vec<_>>()
     );
-    assert!(compile(&readable).is_ok());
+    let result = compile(&readable);
+    assert!(result.is_ok(), "{:?}", result.err());
 
     readable["claims"][0]["scene"]["nodes"]
         .as_array_mut()
         .unwrap()
         .push(json!({
-            "key":"step-8","label":"Step 8","detail":"","references":["code:1"]
+            "key":"step-8","label":"Step 8","detail":"","references":["code:1"],"source":null
         }));
     assert_eq!(
         compile(&readable).err().unwrap(),

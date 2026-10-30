@@ -443,7 +443,7 @@ fn omitted_search_kind_discovers_broad_queries_as_files_before_ranges() {
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0]["range"]["path"], SIMPLE_PATH);
     assert!(matches[0].get("queryCoverage").is_some());
-    assert_eq!(matches[0]["queryCoverage"]["totalTerms"], 5);
+    assert_eq!(matches[0]["queryCoverage"]["totalTerms"], 1);
     assert_eq!(
         matches[0]["queryCoverage"]["matchedTerms"],
         json!(["greeting"])

@@ -280,7 +280,7 @@ fn record_ranges(record: &Record) -> Vec<context::CodeRange> {
 }
 
 /// Chapter prose and speech are derived from the canonicalized anchored claims.
-/// The placeholders satisfy the native wrapper shape and are never presented.
+/// A section without a visual uses the provider contract's explicit null choice.
 fn wrapped(proposal: &Proposal) -> Result<String, String> {
     let mut section = proposal.section.clone();
     let object = section.as_object_mut().ok_or("Invalid section shape.")?;
@@ -314,11 +314,8 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
             "Presentation is derived from the anchored claims."
         }),
     );
-    if let Some(visual) = object.get_mut("visual").and_then(Value::as_object_mut) {
-        if visual.get("kind").and_then(Value::as_str) == Some("none") {
-            visual.insert("nodes".into(), json!([]));
-            visual.insert("edges".into(), json!([]));
-        }
+    if object["visual"]["kind"] == "none" {
+        object.insert("visual".into(), Value::Null);
     }
     serde_json::to_string(
         &json!({"citationVersion":native_citations::SHORT_VERSION,"title":title,"sections":[section]}),

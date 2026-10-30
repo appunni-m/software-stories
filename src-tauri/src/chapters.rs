@@ -3002,9 +3002,17 @@ mod tests {
                     ],
                     visual: Some(ChapterVisualPayload::Typed(VisualSpec {
                         presentation: serde_json::from_value(serde_json::json!({
-                            "schemaVersion":3,"scenes":[{"claimIndex":0,"title":"The caller reaches the worker",
-                                "narration":"The caller reaches the worker and then receives control back.",
-                                "mode":"graph","elements":[]}]
+                            "schemaVersion":3,"scenes":[
+                                {"claimIndex":0,"title":"The caller reaches the worker",
+                                    "narration":"The caller reaches the worker and then receives control back.",
+                                    "mode":"graph","elements":[]},
+                                {"claimIndex":1,"title":"The entry point belongs to this file",
+                                    "narration":"This file groups the public entry point with the helper it uses.",
+                                    "mode":"graph","elements":[]},
+                                {"claimIndex":2,"title":"A small helper keeps the entry focused",
+                                    "narration":"The helper appears to keep the public function's implementation small.",
+                                    "mode":"graph","elements":[]}
+                            ]
                         })).unwrap(),
                         schema_version: VISUAL_SCHEMA_VERSION,
                         kind: VisualKind::DataFlow,

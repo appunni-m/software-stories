@@ -139,8 +139,20 @@ fn completed_follow_up_preserves_original_drafts_outline_and_completed_units() {
     assert_eq!(remaining_operations(&finished), 0);
     let before = bytes(&f, &record);
     assert!(finish(&f.storage, &begun, completion(&begun)).is_err());
-    assert!(store::prepare_continuation(&f.storage, &record.id, finished.revision).is_err());
     assert_eq!(bytes(&f, &record), before);
+    assert!(super::super::plan_extension_eligible(&finished));
+    let prepared_extension =
+        store::prepare_continuation(&f.storage, &record.id, finished.revision).unwrap();
+    assert_eq!(prepared_extension.status, Status::Building);
+    assert_eq!(prepared_extension.plan, finished.plan);
+    assert_eq!(
+        serde_json::to_value(&prepared_extension.units).unwrap(),
+        serde_json::to_value(&finished.units).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&prepared_extension.opening_continuations).unwrap(),
+        serde_json::to_value(&finished.opening_continuations).unwrap()
+    );
 }
 
 #[test]
@@ -203,13 +215,23 @@ fn interrupted_follow_up_is_recovered_without_replay_or_a_budget_reset() {
         serde_json::to_value(&record.units).unwrap()
     );
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
-    let before = bytes(&f, &record);
-    assert!(store::prepare_continuation(&f.storage, &record.id, recovered.revision).is_err());
-    assert_eq!(bytes(&f, &record), before);
+    assert!(super::super::plan_extension_eligible(&recovered));
+    let prepared_extension =
+        store::prepare_continuation(&f.storage, &record.id, recovered.revision).unwrap();
+    assert_eq!(prepared_extension.status, Status::Building);
+    assert_eq!(prepared_extension.plan, recovered.plan);
+    assert_eq!(
+        serde_json::to_value(&prepared_extension.units).unwrap(),
+        serde_json::to_value(&recovered.units).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&prepared_extension.opening_continuations).unwrap(),
+        serde_json::to_value(&recovered.opening_continuations).unwrap()
+    );
 }
 
 #[test]
-fn rejected_contracts_and_complete_openings_cannot_obtain_an_extra_attempt() {
+fn rejected_contracts_and_complete_openings_cannot_add_an_opening_retry() {
     let f = Fixture::new();
     let mut record = partial(&f);
     let original = record.opening.as_mut().unwrap().summary.as_mut().unwrap();
@@ -234,7 +256,14 @@ fn rejected_contracts_and_complete_openings_cannot_obtain_an_extra_attempt() {
     store::create(&f.storage, &record).unwrap();
     assert_eq!(remaining_operations(&record), 0);
     assert!(!eligible(&record));
-    assert!(store::prepare_continuation(&f.storage, &record.id, 0).is_err());
+    let prepared = store::prepare_continuation(&f.storage, &record.id, 0).unwrap();
+    assert_eq!(prepared.status, Status::Building);
+    assert!(!eligible(&prepared));
+    assert!(begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).is_err());
+    assert_eq!(
+        prepared.opening_continuations.len(),
+        record.opening_continuations.len()
+    );
     assert!(!f.storage.join("repository-guide-history").exists());
 }
 

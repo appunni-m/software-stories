@@ -887,20 +887,14 @@ mod tests {
             "../../docs/acceptance/artifacts/2026-10-17-fontdone-complete-script-partial.json"
         ))
         .unwrap();
-        let revision: crate::chapters::ChapterRevision = serde_json::from_value(
-            artifact["answer"]["sections"][0]["preview"]["revision"].clone(),
-        )
-        .unwrap();
-        let section = &revision.sections[0];
-        let nodes = section
-            .visual
-            .as_ref()
-            .unwrap()
-            .typed_visual()
-            .unwrap()
-            .nodes
-            .clone();
-        let mut claims = section.claims.clone();
+        let section =
+            &artifact["answer"]["sections"][0]["preview"]["revision"]["sections"][0];
+        // Reuse only the stable node/claim payloads from this historical
+        // artifact. Its chapter and visual envelopes use superseded schemas.
+        let nodes: Vec<VisualNode> =
+            serde_json::from_value(section["visual"]["nodes"].clone()).unwrap();
+        let mut claims: Vec<ChapterClaim> =
+            serde_json::from_value(section["claims"].clone()).unwrap();
         for claim in &mut claims {
             claim.prose =
                 "The implementation transforms the selected input and returns its result."
@@ -1018,7 +1012,7 @@ mod tests {
         assert!(narration(&wrong, &claims).is_err());
         let mut long_legacy_speech = presentation.clone();
         long_legacy_speech.scenes[0].narration =
-            "First outcome. Second outcome. Third outcome.".into();
+            "First outcome. Second outcome. Third outcome. Fourth outcome.".into();
         assert!(validate(&long_legacy_speech, &nodes, &claims).is_err());
         assert!(narration(&long_legacy_speech, &claims).is_err());
         presentation.scenes[0].narration = "é".repeat(600);

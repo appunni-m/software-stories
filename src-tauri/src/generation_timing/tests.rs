@@ -282,7 +282,7 @@ fn application_timing_rejects_cross_clock_and_out_of_order_values() {
     // Reconciled outcomes can be stored on a trace with no terminal event,
     // but they cannot claim an elapsed value from this process's clock.
     let mut value: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
-    value.as_object_mut().unwrap().remove("terminal");
+    value["terminal"] = Value::Null;
     fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
     assert!(
         record_application_result(

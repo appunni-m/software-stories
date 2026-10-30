@@ -65,7 +65,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
         schema["properties"]["sections"]["description"]
             .as_str()
             .unwrap()
-            .contains("Item zero is the opening range lead")
+            .contains("Item zero is the app-authored opening range lead")
     );
     assert!(opening::LEARNING_QUESTION.contains("entry point"));
 }
@@ -240,7 +240,8 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(intent["guideContext"]["guideId"], r.id);
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
-    assert!(instructions.contains("cited research outline only"));
+    assert!(instructions.contains("Create a compact, source-grounded initial outline"));
+    assert!(instructions.contains("Do not write explanations, narration, or slide content"));
     assert!(instructions.contains("Return the app-authored opening-range lead followed"));
     assert!(instructions.contains("The app authors this opening as a separate slide"));
     assert!(instructions.contains("do not call `propose_answer_section`"));

@@ -7246,7 +7246,7 @@ mod tests {
             SIMPLE_PATH,
             &source,
             &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap(),
+            &crate::chapter_generation::tests::chapter_proposal_text(&proposal),
         )
         .unwrap();
         let validation = chapters::validate_chapter_revision(

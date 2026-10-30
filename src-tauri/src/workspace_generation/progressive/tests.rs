@@ -801,10 +801,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["teachingPolicy"], "meaning-first-v31");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
-        "If no claim benefits from a visual, set kind:none and give every claim a narration scene"
+        "If no scene benefits from a visual, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim"
     ));
     assert!(system_instructions().contains(
-        "Otherwise every claim needs a visual scene with at least one source-linked node"
+        "Otherwise each claim needs a nonempty visual scene with at least one source-linked node"
     ));
     assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
     assert!(system_instructions().contains(
@@ -826,7 +826,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert!(system_instructions().contains("Choose among these visual grammars by meaning."));
     assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-"));
-    assert!(system_instructions().contains("Visual composition pass"));
+    assert!(system_instructions().contains("Visual composition review v62"));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")
@@ -855,7 +855,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert!(
         system_instructions().contains(
-            "LIFO as a stack authored oldest/bottom first and displayed newest/top first"
+            "stack entries are authored oldest/bottom first and displayed newest/top first"
         )
     );
     assert_eq!(
@@ -877,8 +877,14 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
             .unwrap()
             .contains("ten-minute wall-clock deadline")
     );
-    assert_eq!(contract["checkpointVersion"], 8);
-    assert_eq!(contract["answerSchemaVersion"], 7);
+    assert_eq!(
+        contract["checkpointVersion"],
+        crate::evidence_ledger::sections::NARRATION_CHECKPOINT_VERSION
+    );
+    assert_eq!(
+        contract["answerSchemaVersion"],
+        crate::evidence_ledger::sections::NARRATION_ANSWER_VERSION
+    );
     assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
     assert_eq!(
         contract["finalManifestPolicy"],

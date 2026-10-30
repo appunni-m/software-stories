@@ -2072,10 +2072,26 @@ pub(crate) mod tests {
 
     pub(crate) fn simple_proposal_value() -> serde_json::Value {
         let mut value = serde_json::to_value(simple_proposal()).unwrap();
+        add_no_visual_choices(&mut value);
+        value
+    }
+
+    fn add_no_visual_choices(value: &mut serde_json::Value) {
         for section in value["sections"].as_array_mut().unwrap() {
             section["visual"] = serde_json::Value::Null;
         }
-        value
+    }
+
+    pub(crate) fn chapter_proposal_text(proposal: &GeneratedChapterProposal) -> String {
+        let mut value = serde_json::to_value(proposal).unwrap();
+        add_no_visual_choices(&mut value);
+        value.to_string()
+    }
+
+    fn overview_proposal_text(proposal: &GeneratedOverviewProposal) -> String {
+        let mut value = serde_json::to_value(proposal).unwrap();
+        add_no_visual_choices(&mut value);
+        value.to_string()
     }
 
     pub(crate) fn simple_proposal_text() -> String {
@@ -2447,7 +2463,9 @@ pub(crate) mod tests {
             &revision,
         );
         assert_eq!(report.status, chapters::ValidationReportStatus::Valid);
-        assert_eq!(revision.sections.len(), 1);
+        // One authored section plus the separately recorded evidence-boundary
+        // section is the current chapter contract.
+        assert_eq!(revision.sections.len(), 2);
         let mut changed = response.clone();
         changed["sections"][0]["claims"][0]["evidence"][0]["quote"] =
             serde_json::json!("invented source that does not occur");
@@ -2631,7 +2649,7 @@ pub(crate) mod tests {
                 target,
                 &self.sources(paths),
                 &allowed,
-                &serde_json::to_string(proposal).unwrap(),
+                &chapter_proposal_text(proposal),
             )
         }
 
@@ -3093,7 +3111,7 @@ pub(crate) mod tests {
                 Some(&fixture.index),
                 &fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]),
                 &HashSet::new(),
-                &serde_json::to_string(&overview).unwrap(),
+                &overview_proposal_text(&overview),
             )
             .unwrap_err()
             .contains("non-empty bounded narration")
@@ -3123,7 +3141,7 @@ pub(crate) mod tests {
             Some(&fixture.index),
             &selected,
             &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap(),
+            &overview_proposal_text(&proposal),
         )
         .unwrap();
         assert_eq!(revision.chapter_id, "chapter:overview");
@@ -3139,19 +3157,18 @@ pub(crate) mod tests {
         fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
 
         let mut unknown = serde_json::to_value(&proposal).unwrap();
+        add_no_visual_choices(&mut unknown);
         unknown["evidenceLimits"] = serde_json::json!([]);
-        assert!(
-            canonicalize_authored_repository_overview(
-                &fixture.manifest.summary.project_id,
-                &fixture.manifest,
-                Some(&fixture.index),
-                &selected,
-                &HashSet::new(),
-                &serde_json::to_string(&unknown).unwrap(),
-            )
-            .unwrap_err()
-            .contains("strict repository overview schema")
-        );
+        let error = canonicalize_authored_repository_overview(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &selected,
+            &HashSet::new(),
+            &unknown.to_string(),
+        )
+        .unwrap_err();
+        assert!(error.contains("strict repository overview schema"), "{error}");
     }
 
     #[test]
@@ -3173,7 +3190,7 @@ pub(crate) mod tests {
             Some(&fixture.index),
             &selected,
             &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap(),
+            &overview_proposal_text(&proposal),
         )
         .unwrap();
         assert_eq!(revision.schema_version, chapters::CHAPTER_SCHEMA_VERSION);
@@ -3209,7 +3226,7 @@ pub(crate) mod tests {
                 Some(&fixture.index),
                 &fixture.sources(&[SIMPLE_PATH]),
                 &HashSet::new(),
-                &serde_json::to_string(&proposal).unwrap()
+                &overview_proposal_text(&proposal)
             )
             .is_err()
         );
@@ -3307,8 +3324,8 @@ pub(crate) mod tests {
         let mut invalid = valid.clone();
         invalid.sections[0].claims[0].prose =
             "The helper accepts a value and returns a formatted message.".to_owned();
-        let initial = serde_json::to_string(&invalid).unwrap();
-        let corrected = serde_json::to_string(&valid).unwrap();
+        let initial = chapter_proposal_text(&invalid);
+        let corrected = chapter_proposal_text(&valid);
         let result =
             crate::claim_alignment::correct_once(true, initial.clone(), String::as_str, |_| {
                 Ok(corrected.clone())
@@ -3337,7 +3354,7 @@ pub(crate) mod tests {
         fabricated.sections[0].claims[0].evidence[0].quote =
             "function greeting(name) { return inventedRuntime(name); }".to_owned();
         let result = crate::claim_alignment::correct_once(true, initial, String::as_str, |_| {
-            Ok(serde_json::to_string(&fabricated).unwrap())
+            Ok(chapter_proposal_text(&fabricated))
         })
         .unwrap();
         assert!(
@@ -3539,9 +3556,9 @@ pub(crate) mod tests {
         let fixture = Fixture::new();
         let sources = fixture.sources(&[SIMPLE_PATH]);
         let proposal = simple_proposal();
-        let mut unknown_field = serde_json::to_value(&proposal).unwrap();
+        let mut unknown_field = simple_proposal_value();
         unknown_field["sections"][0]["claims"][0]["anchors"] = serde_json::json!([]);
-        let mut missing_field = serde_json::to_value(&proposal).unwrap();
+        let mut missing_field = simple_proposal_value();
         missing_field
             .as_object_mut()
             .unwrap()
@@ -3551,7 +3568,7 @@ pub(crate) mod tests {
             (
                 format!(
                     "```json\n{}\n```",
-                    serde_json::to_string(&proposal).unwrap()
+                    chapter_proposal_text(&proposal)
                 ),
                 "not valid JSON",
             ),
@@ -3748,7 +3765,7 @@ pub(crate) mod tests {
         let proposal = complex_proposal(&fixture);
         let relationship_id = proposal.sections[1].claims[0].relationship_ids[0].clone();
         let sources = fixture.sources(&[COMPLEX_PATH, SUPPORT_PATH]);
-        let text = serde_json::to_string(&proposal).unwrap();
+        let text = chapter_proposal_text(&proposal);
         let reviewed = HashSet::from([relationship_id.clone()]);
         assert!(
             canonicalize_file_chapter(

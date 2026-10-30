@@ -1371,7 +1371,7 @@ mod tests {
             SIMPLE_PATH,
             &fixture.sources(&[SIMPLE_PATH]),
             &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap(),
+            &chapter_generation::tests::chapter_proposal_text(&proposal),
         )
         .unwrap();
         let mut current = current;
