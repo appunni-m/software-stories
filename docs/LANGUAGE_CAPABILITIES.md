@@ -1,6 +1,6 @@
 # Language capabilities
 
-**Status reviewed: 2026-10-27.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
+**Status reviewed: 2026-10-30.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
 
 ## Tiers
 
@@ -37,6 +37,12 @@ The local index recognizes a bounded syntax subset. It attempts declarations and
 The current source maps parser-backed text to **Partial structural**, captured text without a supported parser to **Text only**, and non-text or uncaptured entries to **Not analyzed**. Capture disposition and its reason remain separate from the capability label. The packaged workspace was reopened on 2026-10-24, but the language-capability labels themselves were not inspected in that packaged run; this is not native UI acceptance. See [Getting started](GETTING_STARTED.md) for the source-review workflow and [Troubleshooting](TROUBLESHOOTING.md) for capture/index limitations.
 
 The source editor also lazy-loads display-only syntax highlighting for additional captured languages, including C#, Kotlin, Scala, Ruby, R, Lua, Haskell, OCaml, F#, Clojure, Fortran, assembly, Dart, Swift, Erlang, Julia, Perl, PowerShell, COBOL, Elm, Groovy, CoffeeScript, Verilog, VHDL, D, Protocol Buffers, Java properties, INI, unified diffs, and Nginx configuration. Markdown-family files, SCSS, shell variants, and Gradle scripts use their closest available display mode. This is separate from the structural parser matrix above: highlighting does not add symbols, relationships, runtime behavior, or language-specific explanation qualification. Files without a matching display mode remain readable as plain text.
+
+## External semantic tooling decision — 2026-10-30
+
+Code Atlas does not bundle Serena or launch language servers as part of an ordinary question. Serena v2.1.0 is a separate Python MCP application whose language-server backend can support many languages, but it requires a `uv`-managed installation and may require project toolchains or language-server dependencies. Its application is GPL-3.0-or-later, while SolidLSP is MIT; packaging Serena with this MIT application is not selected. A future user-configured external MCP connection may provide suggestions, but every path and relationship would still need validation against the selected captured snapshot.
+
+SCIP v0.10.0 remains the preferred reuse candidate for a later optional index-import path, not a semantic engine or a current capability. SCIP records project roots, relative document paths, symbols, occurrences, and position encoding, but does not require an index to carry the source revision or per-file hashes. Therefore a bare `index.scip` cannot prove it matches an immutable Code Atlas snapshot. A safe importer first needs a provenance manifest binding the index and each document to the selected snapshot and exact captured file hash, followed by local range and symbol validation. Until then, continue using the six bundled Tree-sitter parsers and bounded text retrieval; absent parsers remain **Text only**. See the [tooling evaluation](research/2026-10-17-repository-context-and-indexing.md#serena-and-scip-tooling-decision-2026-10-30) and [language qualification task](kata-tasks/39-language-capability-tiers.md).
 
 ## Qualification still required
 

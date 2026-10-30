@@ -1,13 +1,13 @@
 .visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .story-sticky-controls { position: static; inset: auto; z-index: auto; width: 100%; max-width: 100%; background: var(--surface); }
-.story-toolbar { position:static;inset:auto;box-sizing:border-box;width:100%;max-width:100%;display:flex;flex-flow:row wrap;align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
-.story-scene-title { flex:1 1 200px;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
-.story-scene-progress { position:static;inset:auto;flex:1 1 100%;display:flex;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:min(100%,604px);width:100%;margin-inline:auto; }
+.story-toolbar { position:static;inset:auto;box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
+.story-scene-title { grid-area:title;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
+.story-scene-progress { grid-area:progress;position:static;inset:auto;display:flex;justify-self:center;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:min(100%,604px);width:min(100%,604px);margin-inline:auto; }
 .story-scene-progress.has-multiple-scenes { display:grid; grid-template-columns:28px minmax(0,1fr) 28px; width:min(100%,604px); max-width:100%; gap:8px; justify-content:center; align-items:center; }
 .story-scene-count { flex: 0 0 auto; color: var(--muted); font-size: 12px; white-space:nowrap; }
 .story-scene-position { position:static;inset:auto;display: flex; flex:0 1 auto; justify-content: center; align-items: center; gap: 8px; min-width: 0; max-width:100%; }
 .story-scene-progress.has-multiple-scenes > .story-scene-position { display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center; width:100%; min-width:0; max-width:100%; gap:4px; }
-.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 1 auto;align-self:center;width:100%;min-width:0;max-width:100%;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin; }
+.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 1 auto;align-self:center;width:100%;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:center;align-content:center;overflow:visible; }
 .story-scene-arrow { position:static;inset:auto;display: grid; flex:none; justify-self:center; place-items: center; width: 28px; min-width: 28px; max-width:28px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
 .story-scene-dots { box-sizing:border-box;display:flex;flex:0 1 auto;flex-wrap:nowrap;align-content:center;justify-content:center;width:max-content;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin; }
@@ -17,7 +17,7 @@
 .story-scene-dots button { position:static;inset:auto;flex: 0 0 24px; width: 24px; min-width: 24px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; }
 .story-scene-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
-.story-map-toggle-slot { display:flex;flex:0 0 auto;align-self:center;min-width:0;max-width:100%;margin-left:auto; }
+.story-map-toggle-slot { grid-area:map;display:flex;flex:0 0 auto;justify-self:end;align-self:center;min-width:0;max-width:100%;margin-left:0; }
 .story-map-toggle-slot > .story-map-toggle { box-sizing:border-box;min-width:0;max-width:100%;min-height:30px;margin:0;padding:5px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface-raised);color:var(--text);font:inherit;font-size:12px;font-weight:500;white-space:normal;box-shadow:none; }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
 .story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
@@ -105,9 +105,9 @@
   .story-stage { height: clamp(260px, 42vh, 520px); }
 }
 @container guide-pane (max-width: 520px) {
-  .story-toolbar { flex-flow:column nowrap; align-items:stretch; }
-  .story-scene-title { flex:0 0 auto; width:100%; }
-  .story-map-toggle-slot { align-self:flex-start; margin-left:0; }
+  .story-toolbar { grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "map" "progress";align-items:stretch; }
+  .story-scene-title { width:100%; }
+  .story-map-toggle-slot { justify-self:start;align-self:flex-start; }
   .story-scene-progress { flex:0 1 auto; max-width:100%; }
 }
 @container guide-pane (max-width: 420px) {

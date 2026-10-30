@@ -211,10 +211,10 @@ export function languageSupportNote(tier: LanguageSupportTier, language: string)
   switch (tier) {
     case 'partialStructural':
       if (language === 'Python') {
-        return 'Python declarations and selected same-file calls are indexed. Module imports, framework behavior, and generated explanation quality are not qualified.';
+        return 'Python indexes declarations and selected calls. An explicit relative import can resolve across files only inside a captured regular package with one matching function; absolute and namespace imports, framework behavior, and explanation quality are not qualified.';
       }
       if (language === 'Go') {
-        return 'Go declarations and selected same-file calls are indexed. Package imports, framework behavior, and generated explanation quality are not qualified.';
+        return 'Go indexes declarations and selected calls. A unique bare-function call can resolve within captured files sharing a directory and package; imported-package calls, framework behavior, and explanation quality are not qualified.';
       }
       return `${language} has a local syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.`;
     case 'textOnly':

@@ -1551,3 +1551,17 @@ and markers do not render; this installation confirms the updated build is
 running but does not qualify multi-scene positioning. Keep narrow-window,
 multi-scene, high-zoom, keyboard, and accessibility/theme checks open under
 `x21h` and `13yp`. No development server was started.
+
+### Explicit header tracks and wrapped scene markers — 30 October 2026
+
+The user again reported that the top menu and scene navigation overflowed and
+looked detached. Source inspection found the markers still used a single
+horizontal overflow strip, contrary to the earlier task note that they wrapped.
+The header now assigns repository controls and account actions to explicit CSS
+grid areas, with a one-column, two-row layout at compact widths and zoom. The
+Guide toolbar uses named title, map, and progress grid areas; multi-scene
+markers wrap inside the bounded center lane instead of scrolling out of view.
+This source correction has not been built or visually checked because the Mac
+is currently showing its lock screen. No project data or saved explanation was
+changed. Keep multi-scene, high-zoom and packaged acceptance open under `13yp`
+and `x21h`.
