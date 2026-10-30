@@ -142,8 +142,8 @@ test('reports added and removed visual definitions and sections as stable-ID rec
   const withoutVisual = structuredClone(before);
   withoutVisual.sections[0].visual = null;
   const removed = compareChapterRevisions(before, withoutVisual);
-  assert.equal(removed.changes[0].entity, 'visual');
-  assert.equal(removed.changes[0].kind, 'removed');
+  assert.ok(removed.changes.some(change => change.entity === 'visual' && change.kind === 'removed'));
+  assert.ok(removed.changes.some(change => change.entity === 'presentation' && change.kind === 'removed'));
 
   const withoutSection = structuredClone(before);
   withoutSection.sections = [];

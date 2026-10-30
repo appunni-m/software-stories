@@ -49,7 +49,7 @@ test('native header keeps desktop controls together and reflows compact controls
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
   matches(shell,/\.topbar\s*\{[^}]*display:\s*flex;[^}]*flex-flow:\s*row wrap;[^}]*position:\s*relative;/);
-  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;/);
+  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*wrap;[^}]*margin-left:\s*auto;/);
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);
   matches(shell,/@container app-window \(max-width: 1320px\)\s*\{\s*\.topbar\s*\{[^}]*flex-flow:column nowrap;/);

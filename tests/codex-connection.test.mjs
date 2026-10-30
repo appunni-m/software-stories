@@ -58,14 +58,14 @@ describe('one-time Codex connection', () => {
     const savedTurn = dispatch.indexOf('flushWorkspaceConversationBeforeGeneration');
     const queued = dispatch.indexOf('queueWorkspaceGenerationJob');
     const dequeued = dispatch.indexOf('release=await enterQuestionQueue()');
-    const connected = dispatch.indexOf('await ensureCodexConnection(true); check();');
+    const connected = dispatch.indexOf('await ensureCodexConnection(); check();');
     const subscribed = dispatch.indexOf("listen<PublishedSection & {projectId:string;snapshotId:string}>");
     const generated = dispatch.indexOf("'generate_progressive_workspace_answer'");
     assert.ok(savedTurn >= 0 && savedTurn < queued, 'persist the question before queue admission');
     assert.ok(queued < dequeued && dequeued < connected, 'resolve the account only after the queue grants the job');
     assert.ok(connected < subscribed && subscribed < generated, 'subscribe to publications before dispatch');
-    assert.match(dispatch, /await ensureCodexConnection\(true\); check\(\);/);
-    assert.ok(dispatch.indexOf('await ensureCodexConnection(true)') < dispatch.indexOf("'generate_progressive_workspace_answer'"));
+    assert.match(dispatch, /await ensureCodexConnection\(\); check\(\);/);
+    assert.ok(dispatch.indexOf('await ensureCodexConnection()') < dispatch.indexOf("'generate_progressive_workspace_answer'"));
     assert.equal((dispatch.match(/'generate_progressive_workspace_answer'/g) ?? []).length, 1);
     assert.ok(dispatch.indexOf("'workspace-answer-section'") < dispatch.indexOf("'generate_progressive_workspace_answer'"));
     assert.doesNotMatch(dispatch, /prepareSourceDiscovery|sendSourceDiscovery|buildCodexChapterReview|sendCodexChapterRequest/);
@@ -114,7 +114,7 @@ describe('one-time Codex connection', () => {
     assert.match(initialization, /ensureCodexConnection/);
     assert.doesNotMatch(initialization, /startCodexLogin|setConsent\(true\)/);
     assert.match(source, /checkingConnection \? <p/);
-    assert.match(source, /open=\{mode === 'settings' \|\| !status\?\.authenticated\}/);
+    assert.match(source, /open=\{embeddedSettings \|\| !status\?\.authenticated\}/);
     assert.match(source, /if \(!value.length\) return previous/);
     assert.match(source, /\{!status\?\.authenticated && <button className="primary-button"/);
     assert.doesNotMatch(source, /hidden=\{Boolean\(status\?\.authenticated\)\}/);

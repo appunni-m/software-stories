@@ -79,7 +79,7 @@ describe('notification totals', () => {
     assert.equal(groupNotifications([
       { id: 'recovery-1', groupKey: 'recovery', bucket: 'attention' },
       { id: 'recovery-2', groupKey: 'recovery', bucket: 'attention' },
-    ])[0].unreadCount, 0);
+    ])[0].unreadCount, 2, 'unread recovery records remain individually visible inside the collapsed group');
   });
 
   it('puts unread successful answers in Recent updates and unresolved outcomes in Needs attention', () => {

@@ -388,9 +388,11 @@ describe('visual story scenes', () => {
       'wide Guide panes must not pull scene navigation into the title row');
     assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:flex;[^}]*justify-self:center;[^}]*width:max-content;[^}]*gap:8px/u,
-      'scene arrows should stay close to a centered scene strip instead of spanning the reader pane');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*width:max-content;[^}]*max-width:100%;[^}]*flex-wrap:nowrap;[^}]*overflow-x:auto/u,
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*justify-self:center;[^}]*width:min\(100%,604px\);[^}]*max-width:100%;/u,
+      'scene arrows should stay in fixed bounded tracks around the centered scene strip');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*width:100%;[^}]*min-width:0;/u,
+      'scene navigation content should shrink within its grid track');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*width:100%;[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:nowrap;[^}]*overflow-x:auto/u,
       'large scene indexes should scroll inside the centered navigation group');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,

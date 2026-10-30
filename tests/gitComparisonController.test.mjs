@@ -119,8 +119,8 @@ describe('owned local Git comparison client', () => {
     assert.match(app, /comparison=\{currentProject \? gitComparisonsByProject\[currentProject\.projectId\] \?\? null : null\}/);
     assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
     assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
-    assert.match(workspace, /if\(workspace!=='changes'\|\|gitBusy\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
-    assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,workspace,gitBusy,commits/);
+    assert.match(workspace, /if\(workspace!=='changes'\|\|!gitLoaded\|\|gitBusy\|\|gitStopped\|\|gitError\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
+    assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits/);
     assert.match(workspace, /<GitHistoryEmptyContext\.Provider value=\{commitHistoryEmpty\}>\{children\}<\/GitHistoryEmptyContext\.Provider>/);
     assert.match(screen, /useContext\(GitHistoryEmptyContext\)/);
     assert.match(screen, /commitHistoryEmpty \?\? 'Select a commit on the left to inspect its changes\.'/);
@@ -136,8 +136,8 @@ describe('owned local Git comparison client', () => {
   it('binds Stop to the screen-owned abort signal and remounts it when busy changes', () => {
     const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
     assert.match(screen, /function stopComparison\(\) \{[\s\S]*activeRequest\.current\?\.abort\(\);[\s\S]*cancelLocalGitComparison\(projectId\);/);
-    assert.match(screen, /busy \? <button key="stop" type="button" className="secondary-button git-compare-button" onClick=\{stopComparison\}/);
-    assert.match(screen, /<button key="compare" className="primary-button git-compare-button" type="submit"/);
+    assert.match(screen, /busy \? <AppButton intent="custom" key="stop" type="button" className="secondary-button git-compare-button" onClick=\{stopComparison\}/);
+    assert.match(screen, /<AppButton intent="custom" key="compare" className="primary-button git-compare-button" type="submit"/);
   });
 
   it('shows an unchanged path once and preserves both sides for renames', () => {

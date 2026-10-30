@@ -30,6 +30,7 @@ function setup(){
   const change=key=>value=>{state[key]=value;};
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
+    pendingDraft:null,preservedDraftReason:null,historyAvailability:'ready',
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
@@ -59,7 +60,7 @@ test('reviewing a finding focuses the current claim without navigation or candid
 test('repairing a finding retains an existing candidate, starts a new edit only when needed, and blocks stale or busy actions',()=>{
   for(const editing of [false,true]){
     const calls=[],anchor=baseRevision().sections[0].claims[0].anchors[0];
-    const bindings={busy:false,isLatestCurrent:true,editing,beginEditing:()=>calls.push('edit'),setRepairingAnchorId:id=>calls.push(id)};
+    const bindings={busy:false,isLatestCurrent:true,editing,pendingDraft:null,preservedDraftReason:null,beginEditing:()=>calls.push('edit'),setRepairingAnchorId:id=>calls.push(id)};
     callback('repairIssueCitation',bindings)(anchor);
     assert.deepEqual(calls,editing?[anchor.anchorId]:['edit',anchor.anchorId]);
     for(const blocked of [{busy:true},{isLatestCurrent:false}]){

@@ -14,6 +14,7 @@ const compiled=ts.transpileModule(readFileSync(file,'utf8'),{fileName:file.pathn
 const nativeRequire=createRequire(import.meta.url),component={exports:{}};
 runInThisContext(`(function(require,module,exports){${compiled}\n})`,{filename:file.pathname})(name=>{
   if(name==='./lib/revisionHistory')return history;
+  if(name==='./design/AppButton')return {AppButton:({children,...props})=>createElement('button',props,children)};
   assert.equal(name,'react/jsx-runtime','comparison must remain a pure read-only view');return nativeRequire(name);
 },component,component.exports);
 const render=(before,after)=>renderToStaticMarkup(createElement(component.exports.ChapterRevisionComparison,{before,after}));

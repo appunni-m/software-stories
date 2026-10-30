@@ -97,9 +97,9 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(handler,/\boffset: usize,/);
   assert.doesNotMatch(handler,/offset:\s*Option/);
   assert.match(handler,/limit:\s*32,\s*offset,/);
-  assert.match(source,/searchMode:CodeSearchMode=activity==='search'&&repositoryRegex\?'regex':'code'/);
+  assert.match(source,/searchMode:CodeSearchMode=!composerSearchActive&&activity==='search'&&repositoryRegex\?'regex':'code'/);
   assert.match(source,/useEffect\(\(\)=>searchCapturedSource\(\{projectId,snapshotId,query:term,mode:searchMode,native:isNativeRuntime\(\),offset:searchOffset\}/);
-  assert.match(source,/nextOffset:setSearchNextOffset/);
+  assert.match(source,/nextOffset:\(nextOffset\)=>setSourceSearchState\(/);
   assert.match(source,/Load more matches/);
   assert.match(source,/searchNextOffset!==null&&results\.length<80/);
   assert.match(source,/className="dw-search-count" role="status"/);
@@ -132,8 +132,8 @@ test('search status reports visible matches, available pages, and the cap access
 });
 
 test('explicit AI exploration uses regex matches as bounded starting ranges without running generation',()=>{
-  const hits=Array.from({length:10},(_,i)=>({path:`file-${Math.floor(i/2)}.rs`,line:i+1,text:'source'}));
+  const hits=Array.from({length:10},(_,i)=>({path:`file-${Math.floor(i/2)}.rs`,from:i+1,to:i+1,text:'source'}));
   const intent=searchExploration(String.raw`value::\S+`,'regex',hits);
   assert.match(intent.question,/regular expression/);assert.equal(intent.context.length,4);assert.equal(new Set(intent.context.map(c=>c.path)).size,4);assert.ok(intent.context.every(c=>c.from===c.to));
-  assert.deepEqual(searchExploration('glyph','code',hits),{question:'Explain glyph',context:[]});
+  assert.deepEqual(searchExploration('glyph','code',[]),{question:'Explain glyph',context:[]});
 });

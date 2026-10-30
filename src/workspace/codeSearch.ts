@@ -10,6 +10,7 @@ export interface IndexLimitOmissions {
 }
 
 const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works','explain','find','help','show','tell']);
+const SEARCH_EXPLORATION_CONTEXT_LIMIT = 4;
 
 function searchableParts(value:string):string[]{
   return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -72,6 +73,7 @@ export function shouldOfferExploreWithAI(
   resultCount:number,
 ):boolean {
   const length=[...query.trim()].length;
+  if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
   const hasFallback=Boolean(error)||resultCount===0;
   return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&hasFallback;
 }
@@ -162,9 +164,9 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
     const fileMatches=topMatches(files,file=>scoreLocal(file.path),(left,right)=>stableTextCompare(left.path,right.path),8);
     local.push(...fileMatches.map((file)=>({path:file.path,text:file.path})));
   }
-  // Keep native ranked source hits first. Local symbol/path hints supplement
-  // them for natural-language queries; regex mode remains exact and native-only.
-  const all=mode==='regex'?code:[...code,...local];
+  // Exact symbol/path hits lead, followed by ranked native text matches and
+  // then the currently open file. Regex mode remains exact and native-only.
+  const all=mode==='regex'?code:[...local,...code];
   if(mode==='code'&&source){
     // Avoid allocating an array containing every line of a large open file on
     // each query update. Search only slices as we reach them and stop once the
@@ -229,13 +231,13 @@ export function searchExploration(query:string,mode:CodeSearchMode,matches:CodeS
   for(const reference of candidates){
     if(selectedPaths.has(reference.path))continue;
     context.push(reference);selected.add(JSON.stringify(reference));selectedPaths.add(reference.path);
-    if(context.length===8)break;
+    if(context.length===SEARCH_EXPLORATION_CONTEXT_LIMIT)break;
   }
-  if(context.length<8)for(const reference of candidates){
+  if(context.length<SEARCH_EXPLORATION_CONTEXT_LIMIT)for(const reference of candidates){
     const key=JSON.stringify(reference);
     if(selected.has(key))continue;
     context.push(reference);selected.add(key);
-    if(context.length===8)break;
+    if(context.length===SEARCH_EXPLORATION_CONTEXT_LIMIT)break;
   }
   return {question,context};
 }
