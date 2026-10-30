@@ -1622,3 +1622,20 @@ and scene markers do not render. Multi-scene, narrow-window, 200% zoom,
 keyboard, VoiceOver, contrast, and motion acceptance remain open under `13yp`
 and `x21h`. No tests, provider request, narration, snapshot capture, or saved
 answer edit ran.
+
+### Keep header and scene navigation in normal flow — 30 October 2026
+
+The user clarified that the Guide scene navigation and top menu bar still look
+like they overflow the page as though positioned absolutely. The header uses
+explicit grid areas and switches to aligned in-flow rows when its available
+width is constrained. The scene title, count, arrows, and marker strip occupy a
+normal-flow toolbar below the visual; the multi-scene pager stays centered in
+a bounded lane and its markers can be scrolled within that lane. The installed
+Fontdone guide still has one scene, so its previous/next controls do not render
+and packaged multi-scene visual acceptance remains open.
+
+The layout source-contract suite and visual-story tests passed 63/63 after the
+responsive-header expectations were aligned with the current CSS. This is
+source-level evidence only; the current installation was not rebuilt for this
+pager adjustment. Keep `x21h` and `13yp` open for a populated multi-scene guide,
+narrow and high-zoom widths, keyboard, VoiceOver, contrast, and motion checks.
