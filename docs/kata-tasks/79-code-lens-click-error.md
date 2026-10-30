@@ -308,3 +308,17 @@ source transmission occurred.
 This checks the current selected-code review/cancel path only. It does not
 reproduce the user's original clicked control or error, test the request path,
 or exhaust all citation/selection entry points; keep `mhqx` open.
+
+## Current selected-code review check — 30 October 2026
+
+In the open packaged Fontdone workspace at `main@5249b72371`, `src/font.rs`
+was selected and the source selection `pub enum LoadMode` (captured line 29)
+was passed to **Explain this code**. The app opened the local review for
+`src/font.rs:29–29`, showed the exact captured source, and stated that nothing
+would be sent until **Ask about this code** was chosen. I canceled; the app
+returned to the same Guide/source view and remained open. No provider request,
+source transmission, or narration started.
+
+This verifies one current selected-code review/cancel path and does not
+reproduce the original click exception or identify the original control. Keep
+`mhqx` open; no provider request is authorized by this check.
