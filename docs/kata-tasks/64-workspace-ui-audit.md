@@ -1587,3 +1587,19 @@ The scene toolbar source remains in normal document flow; retain `13yp` and
 `x21h` for a multi-scene check on this build, compact/high-zoom widths, and the
 remaining accessibility acceptance. No tests, provider request, narration,
 repository capture, or saved-answer change ran.
+
+### Populated screen review — 30 October 2026
+
+Inspected Explorer/Guide, Search with results, Changes, Explorations, Flow, and
+Chat history in the installed Fontdone workspace. The populated workspace
+matches the requested activity rail, persistent source pane, pinned composer,
+and per-exploration Guide/Flow/Chat-history structure. Concrete limits and
+uninspected states are recorded in the [screen review](../acceptance/2026-10-30-populated-workspace-screen-review.md).
+
+The installed Code Atlas 0.1.0 executable hash was
+`38e1cb55c92ba3686357190d2eb92316e7f3ec70c8afc6669a5ab1a9ce4e447c`, built
+from `f225c73`; source commit `152f9e4` has not been packaged. Native
+screenshots were displayed during the review but could not be saved as durable
+repository artifacts. Empty/error states, multi-scene navigation, PR guide,
+notifications, connection settings, narrow/zoomed layouts, and accessibility
+settings remain open. Do not close `x21h` or `13yp` from this partial review.
