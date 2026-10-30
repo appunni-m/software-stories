@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace, questionProgressText, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const persistedTurnId = '00000000-0000-4000-8000-000000000001';
@@ -136,6 +136,19 @@ test('adjacent unavailable answer parts collapse together without changing avail
   assert.deepEqual(items[0].sections.map((section) => section.revisionId), ['missing-1', 'missing-2']);
   assert.equal(items[1].section.revisionId, 'available');
   assert.deepEqual(items[2].sections.map((section) => section.revisionId), ['missing-3']);
+});
+
+test('unavailable guide recovery explains whether the saved guide resumes or starts fresh', () => {
+  assert.deepEqual(unavailableGuideRecovery(true), {
+    message: 'Continue the guide to build its remaining slides. Saved work stays available.',
+    action: 'Continue guide',
+  });
+  assert.deepEqual(unavailableGuideRecovery(false), {
+    message: 'Some saved slides could not be reopened. Start a fresh guide for this question; the existing work stays saved.',
+    action: 'Start a fresh guide',
+  });
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.match(workspace, /<p>\{guideRecovery\.message\}<\/p><AppButton[^>]*>\{guideRecovery\.action\}<\/AppButton>/);
 });
 
 test('answer parts remain in loading state until the saved chapter list is ready', () => {

@@ -168,6 +168,13 @@ export function groupUnavailablePublishedSections(
   return items;
 }
 
+/** Keep the recovery copy aligned with the action taken for an unavailable guide. */
+export function unavailableGuideRecovery(canContinue: boolean): { message: string; action: string } {
+  return canContinue
+    ? { message: 'Continue the guide to build its remaining slides. Saved work stays available.', action: 'Continue guide' }
+    : { message: 'Some saved slides could not be reopened. Start a fresh guide for this question; the existing work stays saved.', action: 'Start a fresh guide' };
+}
+
 /** Keep question-owned explorations attached to the last readable part even
  * when newer published references in the same question are unavailable. */
 export function lastAvailableAnswerItemIndex(items: readonly PublishedAnswerItem[]): number {
