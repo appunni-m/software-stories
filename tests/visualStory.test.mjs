@@ -392,11 +392,11 @@ describe('visual story scenes', () => {
       'scene arrows should stay in fixed bounded tracks around the centered scene strip');
     assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*width:100%;[^}]*min-width:0;/u,
       'scene navigation content should shrink within its grid track');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*width:100%;[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:nowrap;[^}]*overflow-x:auto/u,
-      'large scene indexes should scroll inside the centered navigation group');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*width:100%;[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:wrap;[^}]*overflow:visible/u,
+      'large scene indexes should wrap inside the centered navigation group');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
-    assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto/u,
-      'many scene controls should scroll within their row instead of expanding beyond the reader');
+    assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible/u,
+      'many scene controls should wrap within their bounded row');
     assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:none;[^}]*width:\s*28px;[^}]*min-width:\s*28px;[^}]*max-width:28px/u,
       'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);

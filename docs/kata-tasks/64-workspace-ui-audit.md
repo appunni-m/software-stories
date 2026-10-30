@@ -1639,3 +1639,27 @@ responsive-header expectations were aligned with the current CSS. This is
 source-level evidence only; the current installation was not rebuilt for this
 pager adjustment. Keep `x21h` and `13yp` open for a populated multi-scene guide,
 narrow and high-zoom widths, keyboard, VoiceOver, contrast, and motion checks.
+
+### Fit desktop header and wrap scene markers — 30 October 2026
+
+The user identified the Guide scene navigation and top menu as the controls
+still appearing to overflow. A screenshot of the open 1440-CSS-pixel window
+showed the repository row at the top and the connection / appearance / bell /
+help controls on a separate row, leaving a large gap between them. The active
+Guide has one scene, so no previous / next buttons or scene markers are
+rendered. Source inspection also found that the scene marker lane still used
+horizontal scrolling, contrary to the earlier wrap requirement.
+
+The header now stays on one in-flow row above 1280 CSS pixels and collapses to
+two aligned rows only at compact widths. Long scene marker lists wrap within
+their bounded lane instead of scrolling beyond the scene pager. Source and
+existing layout assertions were updated. `RUSTC_WRAPPER= CARGO_INCREMENTAL=0
+npm run bundle:macos` succeeded, including package metadata and DMG checksum
+verification. The updated app is installed at
+`/Users/lazytrot/Applications/Code Atlas.app`; its executable SHA-256 is
+`659ad188436b1a6f0818c71c1e85fb763481ced55808b1072f92e625fe4668c8`. Its
+screenshot at 1440 CSS pixels shows the repository, snapshot, refresh,
+connection, appearance, notifications, and help in one in-flow row. No tests
+were run. The active Guide still has one scene, so its arrow and marker buttons
+remain uninspected. Multi-scene, narrow-window, and high-zoom visual acceptance
+remains open under `x21h` and `13yp`.

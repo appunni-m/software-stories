@@ -75,7 +75,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-menu-copy strong { color: var(--text); font-size: 12px; font-weight: 600; }
 .snapshot-menu-copy small { overflow: hidden; color: var(--muted); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .snapshot-menu-check { margin-left: auto; color: var(--accent); }
-.topbar-actions { grid-area: actions; display: flex; flex: 0 1 auto; flex-wrap: wrap; align-content: center; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; margin-left: auto; }
+.topbar-actions { grid-area: actions; display: flex; flex: 0 1 auto; flex-wrap: nowrap; align-content: center; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; margin-left: auto; }
 .topbar-actions > * { min-width: 0; }
 .topbar .theme-control { flex: 0 0 auto; }
 .topbar .theme-control-trigger { flex: 0 0 auto; }
@@ -87,8 +87,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Give the repository and utility controls separate rows before their labels crowd. */
-@container app-window (max-width: 1600px) {
+/* Keep the full desktop header on one row; collapse it only when the window is compact. */
+@container app-window (max-width: 1280px) {
   .topbar {
     grid-template-columns:minmax(0,1fr);
     grid-template-areas:"project" "actions";
