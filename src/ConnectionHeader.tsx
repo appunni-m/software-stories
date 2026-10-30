@@ -52,7 +52,8 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
     : backend === 'codex'
     ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.`
-      : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
+      : connection.checking ? 'Checking your saved Codex connection…'
+        : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
     : backend === 'api' ? apiSelectionIssue ? `The saved direct API selection could not be read (${apiSelectionIssue}). Choose a provider in Connections to replace it.`
       : `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'

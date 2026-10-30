@@ -342,3 +342,10 @@ saved account and selection after this app restart, with no sign-in or model
 request. It does not qualify generation, account/runtime change handling,
 operation/cancellation behavior, or the full packaged matrix; keep this task
 open.
+
+The same restart briefly exposed a stale-state copy bug: while the saved
+runtime was still checking, the header paired “Connecting to Codex…” with a
+model-unavailable warning before correcting itself. `ConnectionHeader` now
+prioritizes a neutral “Checking your saved Codex connection…” detail until
+that check completes. This is source-only; it has not been rebuilt or
+reinspected. No connection preferences or credentials changed.
