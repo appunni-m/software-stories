@@ -278,7 +278,9 @@
 .dw-flow-canvas .react-flow {--xy-background-color:var(--surface);--xy-node-color:var(--text);--xy-node-background-color:var(--surface-raised);--xy-node-border:1px solid var(--border-strong);--xy-controls-button-background-color:var(--surface);--xy-controls-button-color:var(--text);--xy-edge-stroke:var(--dim);--xy-edge-label-color:var(--muted);--xy-edge-label-background-color:var(--surface);}
 .dw-flow-canvas .react-flow__node strong {display:block;font-size:13px;line-height:1.5;}
 .dw-flow-canvas .react-flow__node small {display:block;font-size:12px;line-height:1.6;color:var(--muted);margin-top:var(--space-1);}
-.dw-flow-canvas .dw-flow-edge-label {position:absolute;pointer-events:none;width:max-content;max-width:190px;overflow-wrap:anywhere;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);padding:var(--space-1) var(--space-2);color:var(--text);font-size:12px;font-weight:600;line-height:16px;text-align:center;box-shadow:0 1px 4px #0003;}
+.dw-flow-canvas .dw-flow-edge-label {position:absolute;pointer-events:all;width:max-content;max-width:190px;overflow-wrap:anywhere;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);padding:var(--space-1) var(--space-2);color:var(--text);font-size:12px;font-weight:600;line-height:16px;text-align:center;box-shadow:0 1px 4px #0003;cursor:pointer;}
+.dw-flow-canvas .dw-flow-edge-label:hover,.dw-flow-canvas .dw-flow-edge-label.is-focused {border-color:var(--accent);background:var(--accent-soft);color:var(--text);}
+.dw-flow-canvas .dw-flow-edge-label:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
 .dw-linear-flow {list-style:none;max-width:760px;margin:var(--space-4) auto var(--space-6);padding:0;}
 .dw-linear-flow-item {display:grid;justify-items:center;}
 .dw-linear-flow-step {display:grid;gap:var(--space-2);width:min(100%,680px);min-width:0;padding:var(--space-3) var(--space-4);border:1px solid var(--border-strong);border-radius:9px;background:var(--surface-raised);color:var(--text);text-align:left;cursor:pointer;}
@@ -289,7 +291,9 @@
 .dw-linear-flow-step strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
 .dw-linear-flow-step small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
 .dw-linear-flow-source {display:flex;align-items:center;gap:var(--space-2);min-width:0;margin-top:var(--space-1);color:var(--accent);font:12px/1.5 var(--mono);overflow-wrap:anywhere;}
-.dw-linear-flow-edge {display:flex;align-items:center;gap:var(--space-2);max-width:100%;padding:var(--space-2) var(--space-3);color:var(--muted);font-size:12px;line-height:1.5;}
+.dw-linear-flow-edge {display:flex;align-items:center;gap:var(--space-2);max-width:100%;padding:var(--space-2) var(--space-3);border:1px solid transparent;background:transparent;color:var(--muted);font-size:12px;line-height:1.5;cursor:pointer;}
+.dw-linear-flow-edge:hover,.dw-linear-flow-edge[aria-pressed="true"] {border-color:var(--accent);border-radius:6px;background:var(--surface-hover);color:var(--text);}
+.dw-linear-flow-edge:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
 .dw-linear-flow-edge svg {flex:0 0 auto;color:var(--accent);}
 .dw-linear-flow-edge span {overflow-wrap:anywhere;}
 .dw-unlinked-flow {list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:var(--space-2);max-width:1040px;margin:var(--space-4) auto var(--space-6);padding:0;}

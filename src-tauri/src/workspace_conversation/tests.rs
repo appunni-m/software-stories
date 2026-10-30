@@ -125,7 +125,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
         "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":4}],
-        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":FLOW_DIAGRAM_LAYOUT_VERSION}]
+        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"focusedEdgeId":"edge:subtotal","layoutVersion":FLOW_DIAGRAM_LAYOUT_VERSION}]
     });
     s
 }
@@ -257,6 +257,26 @@ fn flow_diagram_layout_requires_the_current_layout_version() {
 }
 
 #[test]
+fn focused_flow_edge_round_trips_without_a_saved_viewport() {
+    let f = Fixture::new();
+    let mut s = presentation_state();
+    s["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("viewport");
+    let record = save(&f.0, "project", "snapshot", None, s).unwrap();
+    assert_eq!(
+        record.state["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
+            ["focusedEdgeId"],
+        "edge:subtotal"
+    );
+    let reopened = load(&f.0, "project", "snapshot").unwrap().unwrap();
+    let diagram = &reopened.state["explorations"][0]["turns"][0]["presentation"]["diagrams"][0];
+    assert_eq!(diagram["focusedEdgeId"], "edge:subtotal");
+    assert_eq!(diagram["viewport"], json!({"x":0,"y":0,"zoom":1}));
+}
+
+#[test]
 fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() {
     let f = Fixture::new();
     let state = presentation_state();
@@ -354,6 +374,7 @@ fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() 
     story["fullMap"] = json!("true");
     story["focusedNodeId"] = json!("bad\nnode");
     presentation["diagrams"][0]["viewport"]["x"] = json!(10_000_001);
+    presentation["diagrams"][0]["focusedEdgeId"] = json!("bad\nedge");
     fs::write(f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
@@ -383,6 +404,9 @@ fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() 
         json!({"x":0,"y":0,"zoom":1}),
         "reset only the malformed Flow viewport"
     );
+    assert!(turn["presentation"]["diagrams"][0]
+        .get("focusedEdgeId")
+        .is_none());
     assert_eq!(
         turn["question"],
         "What happens to the font bytes?\nShow the failure path."

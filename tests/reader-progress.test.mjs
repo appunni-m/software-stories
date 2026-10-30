@@ -61,6 +61,9 @@ test('focused graph progress keeps its current layout and exact section position
 
 test('Flow viewport restoration accepts only the current layout version',()=>{
   assert.deepEqual(cleanReaderProgress({diagrams:[diagram]}).diagrams,[diagram]);
+  const edgeFocused={...identity,focusedEdgeId:'edge:validates',layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION};
+  assert.deepEqual(cleanReaderProgress({diagrams:[edgeFocused]}).diagrams,[edgeFocused],'edge focus is valid saved state even before the user pans the diagram');
+  assert.equal(cleanReaderProgress({diagrams:[{...edgeFocused,focusedEdgeId:'bad\nedge'}]}).diagrams.length,0);
   assert.deepEqual(cleanReaderProgress({diagrams:[{...diagram,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION-1}]}).diagrams,[]);
   assert.deepEqual(cleanReaderProgress({diagrams:[{...diagram,layoutVersion:1}]}).diagrams,[]);
   assert.deepEqual(cleanReaderProgress({diagrams:[(({layoutVersion,...old})=>old)(diagram)]}).diagrams,[]);

@@ -349,6 +349,8 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
                         "sectionId",
                         "sectionRevisionId",
                         "viewport",
+                        "focusedNodeId",
+                        "focusedEdgeId",
                         "layoutVersion",
                     ]
                 },
@@ -400,10 +402,18 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             } else {
                 if p.get("layoutVersion").and_then(Value::as_u64)
                     != Some(FLOW_DIAGRAM_LAYOUT_VERSION)
+                    || !optional(p, "focusedNodeId", id)
+                    || !optional(p, "focusedEdgeId", id)
                 {
                     return Err(UNAVAILABLE.into());
                 }
-                viewport(p.get("viewport").ok_or(UNAVAILABLE)?)?;
+                let has_focus = p.get("focusedNodeId").is_some_and(id)
+                    || p.get("focusedEdgeId").is_some_and(id);
+                match p.get("viewport") {
+                    Some(value) => viewport(value)?,
+                    None if has_focus => {}
+                    None => return Err(UNAVAILABLE.into()),
+                }
             }
         }
     }
@@ -855,6 +865,14 @@ fn sanitize_diagram_position(diagram: &mut Value) -> Option<(String, String, Str
             "viewport".into(),
             serde_json::json!({"x": 0, "y": 0, "zoom": 1}),
         );
+    }
+    for key in ["focusedNodeId", "focusedEdgeId"] {
+        if diagram
+            .get(key)
+            .is_some_and(|value| !value.is_null() && !id(value))
+        {
+            diagram.remove(key);
+        }
     }
 
     Some((revision, section, section_revision))

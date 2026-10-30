@@ -1391,11 +1391,15 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   const {visual,anchorsById}=result;
   const sourceValues=sourceValuesByVisualNode(visual);
   if(!section)return null;
-  const selectedNode=savedProgress?.focusedNodeId?visual.nodes.find((node)=>node.nodeId===savedProgress.focusedNodeId):undefined;
-  const selectedAnchors=selectedNode?selectedNode.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];
-  const selectedAnchorIds=new Set(selectedNode?.evidenceAnchorIds??[]);
+  const selectedEdge=savedProgress?.focusedEdgeId?visual.edges.find((edge)=>edge.edgeId===savedProgress.focusedEdgeId):undefined;
+  const selectedNode=!selectedEdge&&savedProgress?.focusedNodeId?visual.nodes.find((node)=>node.nodeId===savedProgress.focusedNodeId):undefined;
+  const selectedEvidenceIds=selectedNode?.evidenceAnchorIds??selectedEdge?.evidenceAnchorIds??[];
+  const selectedAnchors=selectedNode?selectedNode.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor)
+    :selectedEdge?selectedEdge.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];
+  const selectedAnchorIds=new Set(selectedEvidenceIds);
   const selectedClaims=section.claims.filter((claim)=>claim.anchors.some((anchor)=>selectedAnchorIds.has(anchor.anchorId))).map((claim)=>claim.prose);
   const selectNode=(nodeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedNodeId:nodeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
+  const selectEdge=(edgeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedEdgeId:edgeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
   const linearSteps=linearFlowSteps(visual);
   const unlinkedNodes=unlinkedFlowNodes(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
@@ -1405,9 +1409,14 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
       data:{label:<AppButton intent="custom" size="1" className="dw-flow-select nodrag nopan" aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</AppButton>},style:{width:250}};
   });
-  const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:e.label??undefined,
-    data:{labelPosition:labelPositions.get(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
-    markerEnd:{type:MarkerType.ArrowClosed}}));
+  const nodeLabels=new Map(visual.nodes.map((node)=>[node.nodeId,node.label]));
+  const selectedDetailTitle=selectedNode?.label??(selectedEdge?selectedEdge.label.trim()||`${nodeLabels.get(selectedEdge.fromNodeId)??selectedEdge.fromNodeId} → ${nodeLabels.get(selectedEdge.toNodeId)??selectedEdge.toNodeId}`:undefined);
+  const edges=visual.edges.map((e)=>{
+    const accessibleLabel=e.label.trim()||`${nodeLabels.get(e.fromNodeId)??e.fromNodeId} → ${nodeLabels.get(e.toNodeId)??e.toNodeId}`;
+    return {id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:accessibleLabel,
+    data:{labelPosition:labelPositions.get(e.edgeId),focused:selectedEdge?.edgeId===e.edgeId,accessibleLabel,onSelect:()=>selectEdge(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
+    markerEnd:{type:MarkerType.ArrowClosed}};
+  });
   return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{availableDiagramCount>1&&<AppSelect ariaLabel="Diagram section" size="1" value={String(selected)} options={diagrams.flatMap((diagram,index)=>diagram.status==='available'?[{value:String(index),label:plainInlineCodeText(revision.sections[index].title)}]:[])} onValueChange={(value)=>{const section=revision.sections[Number(value)];if(section)onSection(section.sectionId);}}/>}</div>
     {linearSteps ? <>
       <p>Choose a step to see what the cited code does.</p>
@@ -1425,7 +1434,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
               {node.detail&&<small><InlineCodeText text={node.detail}/></small>}
               <span className="dw-linear-flow-source"><Code2 size={13}/>Cited source · {sourceLabel}</span>
             </AppButton>
-            {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span><InlineCodeText text={next.label||'Then'}/></span></div>}
+            {next&&<AppButton intent="custom" size="1" className="dw-linear-flow-edge" aria-label={`Show code detail for relationship ${next.label||`${node.label} to ${visual.nodes.find((item)=>item.nodeId===next.toNodeId)?.label??next.toNodeId}`}`} aria-pressed={selectedEdge?.edgeId===next.edgeId} onClick={()=>selectEdge(next.edgeId)}><ArrowDown size={15}/><span><InlineCodeText text={next.label||'Then'}/></span></AppButton>}
           </li>;
         })}
       </ol>
@@ -1447,9 +1456,9 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
       </ul>
     </> : <>
       <p>Choose a point to see what the cited code does.</p>
-      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
+      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:selectedEdge?{focusedEdgeId:selectedEdge.edgeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
-    {selectedNode&&<CodeDetail title={selectedNode.label} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
+    {selectedDetailTitle&&<CodeDetail title={selectedDetailTitle} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
   </section>;
 }
 
@@ -1511,13 +1520,13 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
   </ReactFlow></div>;
 }
 
-type EvidenceRelationshipEdge = Edge<{labelPosition?:FlowPoint},'evidenceRelationship'>;
+type EvidenceRelationshipEdge = Edge<{labelPosition?:FlowPoint;focused?:boolean;accessibleLabel?:string;onSelect?:()=>void},'evidenceRelationship'>;
 function EvidenceRelationship({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition,markerEnd,style,label,data}:EdgeProps<EvidenceRelationshipEdge>){
   const [path]=getSmoothStepPath({sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition});
   const point=data?.labelPosition;
   return <>
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style}/>
-    {typeof label==='string'&&point&&<EdgeLabelRenderer><div className="dw-flow-edge-label" style={{transform:`translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`}}>{label}</div></EdgeLabelRenderer>}
+    {typeof label==='string'&&point&&<EdgeLabelRenderer><AppButton intent="custom" size="1" className={`dw-flow-edge-label nodrag nopan${data?.focused?' is-focused':''}`} style={{transform:`translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`,pointerEvents:'all'}} aria-label={`Show code detail for relationship ${data?.accessibleLabel??label}`} aria-pressed={Boolean(data?.focused)} onPointerDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation();data?.onSelect?.();}}>{label}</AppButton></EdgeLabelRenderer>}
   </>;
 }
 const evidenceFlowEdgeTypes={evidenceRelationship:EvidenceRelationship};

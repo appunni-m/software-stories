@@ -154,7 +154,7 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
       return story;
     });
     presentation.diagrams=projectList(presentation.diagrams,item=>{
-      const diagram=project(item,['revisionId','sectionId','sectionRevisionId','viewport','focusedNodeId','layoutVersion']);
+      const diagram=project(item,['revisionId','sectionId','sectionRevisionId','viewport','focusedNodeId','focusedEdgeId','layoutVersion']);
       if(isObject(diagram)&&Object.hasOwn(diagram,'viewport'))diagram.viewport=project(diagram.viewport,['x','y','zoom']);
       return diagram;
     });

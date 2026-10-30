@@ -309,7 +309,7 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   h.store.updateWorkspace('project','snapshot',s=>rememberCodePane(s,'root',false));
   h.store.updateWorkspace('project','snapshot',s=>rememberFileFlow(s,'root','src/font.rs',true));
   h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root',readerId,'stories',story));
-  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root',readerId,'diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root',readerId,'diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8},focusedEdgeId:'edge:subtotal',layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}));
   h.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>{
     if(e.id!=='root')return e;
     return {...e,turns:e.turns.map(t=>t.id!==readerId?t:{...t,presentation:{...t.presentation,
@@ -323,6 +323,7 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   assert.equal(root.codeOpen,false);assert.deepEqual(clone(root.fileFlow),{path:'src/font.rs',showAll:true});
   assert.equal(root.focusedTurnId,readerId,'restart retains the answer the reader last opened');
   assert.deepEqual(clone(root.turns[0].presentation.stories),[story]);assert.equal(root.turns[0].presentation.diagrams[0].viewport.zoom,1.8);
+  assert.equal(root.turns[0].presentation.diagrams[0].focusedEdgeId,'edge:subtotal','native restart restores the selected relationship with the diagram viewport');
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'),'restart reads local metadata without model, audio or indexing work');
 });
 

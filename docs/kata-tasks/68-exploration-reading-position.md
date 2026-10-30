@@ -308,3 +308,27 @@ source-pane restoration only. It does not exercise multi-section position,
 sibling or third-level isolation, Flow focus/viewport, exact scroll, restart,
 revision fallback or corrupt state through the UI. Keep `erzc` open for those
 gates.
+
+## Persist interactive Flow edge focus — 30 October 2026
+
+Flow relationship labels are now keyboard-focusable buttons in both the graph
+and the long linear-sequence presentation. Selecting one reveals only its
+source-backed claims and citations; the selection is scoped to the exact saved
+section, survives activity/view changes, and is restored with the native
+conversation. If a relationship no longer exists in the selected immutable
+visual revision, the stale focus is ignored. Existing viewport-only diagrams
+remain valid, and an edge selection can be saved before the user pans the
+diagram.
+
+**Focused regressions:**
+
+- `node --experimental-strip-types --test tests/reader-progress.test.mjs tests/workspace-native-conversation.test.mjs tests/workspace.test.mjs` — **83 passed**.
+- `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib workspace_conversation::tests` — **26 passed**.
+- `npm run build` — passed; Vite retains the existing large-bundle warning.
+- `git diff --check` — passed.
+
+These checks establish serialization and rendering contracts, not packaged-app
+acceptance. Manually select a node and an edge, switch activities and return,
+then quit/reopen with an edge focused and open its citation. Keep `erzc` open
+until that packaged check and the larger navigation/accessibility matrix are
+recorded.

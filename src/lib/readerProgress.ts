@@ -7,7 +7,7 @@ export interface StoryProgress extends SectionIdentity {
   sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport;
   focusedNodeId?:string; focusedEdgeId?:string; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
 }
-export interface DiagramProgress extends SectionIdentity { viewport?:FlowViewport; focusedNodeId?:string; layoutVersion:typeof FLOW_DIAGRAM_LAYOUT_VERSION }
+export interface DiagramProgress extends SectionIdentity { viewport?:FlowViewport; focusedNodeId?:string; focusedEdgeId?:string; layoutVersion:typeof FLOW_DIAGRAM_LAYOUT_VERSION }
 export interface ReaderProgress { stories:StoryProgress[]; diagrams:DiagramProgress[] }
 
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
@@ -46,15 +46,17 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
 }
 export function cleanDiagramProgress(value:unknown):DiagramProgress|undefined {
   const required=['revisionId','sectionId','sectionRevisionId','layoutVersion'];
-  const keys=[...required,'viewport','focusedNodeId'];
+  const keys=[...required,'viewport','focusedNodeId','focusedEdgeId'];
   if(!object(value)||!only(value,keys)||!required.every(key=>Object.hasOwn(value,key))
     ||!identity(value)||value.layoutVersion!==FLOW_DIAGRAM_LAYOUT_VERSION)return undefined;
   const viewport=Object.hasOwn(value,'viewport')?cleanFlowViewport(value.viewport):undefined;
   const focusedNodeId=value.focusedNodeId as string|undefined;
+  const focusedEdgeId=value.focusedEdgeId as string|undefined;
   if(Object.hasOwn(value,'viewport')&&!viewport||Object.hasOwn(value,'focusedNodeId')&&!id(focusedNodeId)
-    ||!viewport&&!focusedNodeId)return undefined;
+    ||Object.hasOwn(value,'focusedEdgeId')&&!id(focusedEdgeId)
+    ||!viewport&&!focusedNodeId&&!focusedEdgeId)return undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION,
-    ...(viewport?{viewport}:{}),...(focusedNodeId?{focusedNodeId}: {})};
+    ...(viewport?{viewport}:{}),...(focusedNodeId?{focusedNodeId}: {}),...(focusedEdgeId?{focusedEdgeId}: {})};
 }
 export function cleanReaderProgress(value:unknown):ReaderProgress {
   const result:ReaderProgress={stories:[],diagrams:[]};

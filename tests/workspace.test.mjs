@@ -101,6 +101,10 @@ test('reading graphs use real source buttons without canvas editing or deletion 
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   assert.match(source,/className="dw-flow-select nodrag nopan"/);
   assert.match(source,/onClick=\{\(event\)=>\{event\.stopPropagation\(\);selectNode\(n\.nodeId\);\}\}/);
+  assert.match(source,/className=\{`dw-flow-edge-label nodrag nopan\$\{data\?\.focused\?' is-focused':''\}`\}/);
+  assert.match(source,/onSelect:\(\)=>selectEdge\(e\.edgeId\)/);
+  assert.match(source,/focusedEdgeId:selectedEdge\.edgeId/);
+  assert.match(source,/className="dw-linear-flow-edge" aria-label=\{`Show code detail for relationship/);
   const codeDetail=readFileSync(new URL('../src/design/CodeDetail.tsx',import.meta.url),'utf8');
   assert.match(codeDetail,/className="code-detail-sources" role="group" aria-label="Cited source lines"/);
   assert.match(codeDetail,/onClick=\{\(\)\s*=>\s*onOpen\(anchor\)\}/);
