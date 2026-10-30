@@ -1532,3 +1532,22 @@ No tests, provider request, narration, repository capture, or saved-answer
 change ran. Keep `13yp` and `x21h` open for narrower windows, a populated
 multi-scene guide on this build, high zoom, keyboard, and accessibility/theme
 acceptance.
+
+### Installed app synchronized with the layout correction — 30 October 2026
+
+The installed executable above (`9affaf31…`) was built at 14:44, three
+minutes before source commit `0848bb4` added the in-flow header and scene
+toolbar correction. This explains why the running app still showed the old
+layout even though the source had been corrected. Rebuilt current `main` at
+`38c65fe` with `npm run bundle:macos`; frontend compilation, Tauri release
+build, package metadata, and DMG checksum verification all succeeded. The
+rebuilt app was installed in place and reopened with Fontdone `main@5249b72371`,
+the selected file, saved guide, and source selection restored. Its executable
+hash matches the newly built bundle: `90beb6763f103db715e050d8de2d36c368eb4a7afd2bcaaa6aec5dc31f879a9d`.
+
+No tests, provider requests, narration, repository capture, or saved-answer
+changes ran. The restored answer has one scene, so its previous/next arrows
+and markers do not render; this installation confirms the updated build is
+running but does not qualify multi-scene positioning. Keep narrow-window,
+multi-scene, high-zoom, keyboard, and accessibility/theme checks open under
+`x21h` and `13yp`. No development server was started.
