@@ -76,6 +76,7 @@ export interface CodexChapterDialogProps {
   onPrGuideReady?: (preview: PrGuidePreview) => void;
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
   onOpenPendingPreview?: (generationId: string) => void;
+  onFindCodeAgain?: () => void;
   discoveryResult?: SourceDiscoveryResult;
   embeddedSettings?: boolean;
   onSettingsBusyChange?: (busy: boolean) => void;
@@ -93,7 +94,7 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, onFindCodeAgain, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
   const scopeIdentity = requestScopeKey(mode);
   const projectId = mode === 'settings' ? null : mode.projectId;
   const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
@@ -726,6 +727,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {!manifestLoading && !manifestError && !sourceReady && <p className="provider-error-text" role="alert">This selection’s source is unavailable. Reopen the captured file and select the code again.</p>}
               </div> : <div className="provider-context-picker">
                 <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Code for your route' : 'Repository overview')}</strong><span>{paths.length} code {paths.length === 1 ? 'file' : 'files'}</span></div>
+                {discoveryResult && onFindCodeAgain && <AppButton intent="quiet" size="1" disabled={busy !== null || hasResult} onClick={onFindCodeAgain}>Find code again</AppButton>}
                 {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>Codex will propose a route through this code. You can review the route, then build its chapters together.</p></>}
                 {plannedChapter && <><h4>Learning question</h4><p>{plannedChapter.question}</p><p>One accepted reading step · {plannedChapter.prerequisites.length} learning prerequisites. The original plan revision and source stay fixed. This creates one unaccepted chapter.</p><details><summary>Plan question and prerequisites</summary><p>{plannedChapter.planQuestion}</p><ul>{plannedChapter.prerequisites.map((item) => <li key={item.stepId}>{item.question}</li>)}</ul><p>Reading prerequisites do not prove runtime calls.</p></details></>}
                 <p>{plannedChapter ? 'This chapter follows the accepted step and its cited implementation.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. The native review checks that the other sections can carry forward.' : discoveryResult ? 'Codex picked relevant code for you. Open the details below to inspect its choices; answers still need to cite captured source.' : planning ? 'This review retains the code from your original request.' : targetPath ? 'The captured file grounds this explanation.' : 'Choose 1–12 files that ground the repository overview.'}</p>

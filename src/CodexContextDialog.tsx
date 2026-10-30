@@ -39,7 +39,7 @@ export function CodexContextDialog(props: CodexChapterDialogProps & {
         return;
       }
       setDiscovery(result);
-    }} autoDiscover />;
+    }} persistSuccessfulResult={false} autoDiscover />;
   }
   return <CodexChapterDialog {...props} discoveryResult={discovery ?? undefined} mode={paths && mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview') ? { ...mode, selectedPaths: paths } : mode} />;
 }

@@ -55,6 +55,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
     return () => { document.removeEventListener('keydown', key); if (previous?.isConnected) previous.focus(); };
   }, [backend, onClose]);
   const [discovery, setDiscovery] = useState<SourceDiscoveryResult | null>(() => scope.discoveryResult ?? null);
+  const [ignoreSavedDiscovery, setIgnoreSavedDiscovery] = useState(false);
   const discoveredPaths = discovery?.selectedFiles.map((file) => file.path);
   const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
   const needsRepositoryDiscovery = !scope.selectedPaths.length && !discoveredPaths
@@ -80,7 +81,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
         return;
       }
       setDiscovery(result);
-    }} persistSuccessfulResult autoDiscover />;
+    }} persistSuccessfulResult autoDiscover ignoreSavedResult={ignoreSavedDiscovery} />;
   }
   if (needsRepositoryDiscovery && backend === 'claude-agent') {
     return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>
@@ -100,7 +101,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,
     recoveryOperationId: scope.recoveryOperationId } : { kind: 'repository-plan' as const, projectId: effectiveScope.projectId,
     snapshotId: effectiveScope.snapshotId, question: effectiveScope.question, selectedPaths: effectiveScope.selectedPaths };
-  if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
+  if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onChooseBackend={openConnections} onFindCodeAgain={() => { setDiscovery(null); setIgnoreSavedDiscovery(true); }} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
   if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
   return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-agent-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="plan-agent-title">Use the connection in your header</h2><p>{scope.question}</p></div>

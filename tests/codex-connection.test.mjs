@@ -115,8 +115,8 @@ describe('one-time Codex connection', () => {
     assert.doesNotMatch(initialization, /startCodexLogin|setConsent\(true\)/);
     assert.match(source, /checkingConnection \? <p/);
     assert.match(source, /open=\{embeddedSettings \|\| !status\?\.authenticated\}/);
-    assert.match(source, /if \(!value.length\) return previous/);
-    assert.match(source, /\{!status\?\.authenticated && <button className="primary-button"/);
+    assert.match(source, /if \(!value.length\) setNote\('This account returned no supported models\./);
+    assert.match(source, /\{!status\?\.authenticated && <AppButton intent="primary"/);
     assert.doesNotMatch(source, /hidden=\{Boolean\(status\?\.authenticated\)\}/);
     assert.match(source, /Source review and consent apply separately/);
   });

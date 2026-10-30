@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from '../src/workspace/gitCommitNavigation.ts';
 
 const commits = [
-  { parents: ['parent'] },
+  { parents: ['parent'], isHead: true },
   { parents: ['parent'] },
   { parents: [] }, // The initial commit is visible but cannot be compared to a parent.
   { parents: ['parent'] },

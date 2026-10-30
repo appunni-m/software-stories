@@ -110,22 +110,25 @@ describe('saved source discovery scope', () => {
       readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
     ]);
     const successPath = discovery.slice(discovery.indexOf('const result = await sendSourceDiscovery'), discovery.indexOf('active.current = null;', discovery.indexOf('const result = await sendSourceDiscovery')));
-    assert.match(successPath, /if \(persistSuccessfulResult && saveSourceDiscoveryResult\(scope, result\)/);
-    assert.match(planning, /persistSuccessfulResult/);
-    assert.doesNotMatch(context, /persistSuccessfulResult/);
+    assert.match(discovery, /const cacheableResult = result\.rangeTargets\?\.length \? null : \{/);
+    assert.match(successPath, /if \(persistSuccessfulResult && cacheableResult && saveSourceDiscoveryResult\(scope, cacheableResult\)/);
+    assert.match(planning, /persistSuccessfulResult autoDiscover ignoreSavedResult=\{ignoreSavedDiscovery\}/);
+    assert.match(context, /persistSuccessfulResult=\{false\} autoDiscover/);
   });
 
   it('reuses an exact saved scope and offers an explicit rediscovery action', async () => {
-    const [plans, dialog, app] = await Promise.all([
-      readFile(new URL('../src/RepositoryPlans.tsx', import.meta.url), 'utf8'),
+    const [discovery, planning, dialog, app] = await Promise.all([
+      readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/RepositoryPlanningDialog.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
     ]);
-    assert.match(plans, /readSourceDiscoveryResult\(\{ projectId, snapshotId, question: clean \}, availablePaths\)/);
-    assert.match(plans, /selectedPaths: discoveryResult\?\.selectedFiles\.map/);
-    assert.match(plans, /Find code again/);
-    assert.match(dialog, /useState<SourceDiscoveryResult \| null>\(\(\) => scope\.discoveryResult \?\? null\)/);
-    assert.match(dialog, /discoveryResult=\{discovery \?\? undefined\}/);
+    assert.match(discovery, /readSourceDiscoveryResult\(scope,availablePaths\)/);
+    assert.match(discovery, /persistSuccessfulResult && !ignoreSavedResult/);
+    assert.match(planning, /useState<SourceDiscoveryResult \| null>\(\(\) => scope\.discoveryResult \?\? null\)/);
+    assert.match(planning, /onFindCodeAgain=\{\(\) => \{ setDiscovery\(null\); setIgnoreSavedDiscovery\(true\); \}\}/);
+    assert.match(dialog, /discoveryResult && onFindCodeAgain && <AppButton[^>]*>Find code again<\/AppButton>/);
+    assert.match(planning, /discoveryResult=\{discovery \?\? undefined\}/);
     assert.match(app, /planningDialog\.discoveryResult \?\? null/);
   });
 });

@@ -203,3 +203,21 @@ qualification ran. This changes shortlist ranking, not recall proof. The
 Fontdone 5/12 first-page profile, multi-language recall, missing-index behavior,
 consent, restart and multi-window acceptance remain open. See
 [`a699`](66-large-source-discovery.md) for large-file range gates.
+
+## Scope reuse and rediscovery — 30 October 2026
+
+Successful planner discovery still saves only its bounded file paths, reasons
+and limitation for the exact project/snapshot/question/target. The selected
+scope can now be refreshed directly with **Find code again**; that action skips
+the saved result for the current discovery and replaces it only after a new
+successful, cacheable result. Large-file range handoffs are not stored as
+ordinary file selections. One-off file explanations now keep discovery
+request-local instead of persisting a selection that may silently shape a later
+request. This keeps automatic agent selection while making the saved-plan
+reuse choice explicit.
+
+Focused acceptance passed: source-discovery store/integration tests 8/8,
+Codex connection tests 9/9, commit-navigation tests 3/3, and the TypeScript/Vite
+production build. No agent request, native package, or Fontdone retrieval run
+was made. Multi-repository recall, missing/overflow indexes, restart, consent,
+multi-window and packaged return-state checks remain open; keep `xvjk` open.

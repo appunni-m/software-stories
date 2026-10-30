@@ -10,10 +10,11 @@ import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { ensureWorkspaceIndex } from './workspace/indexManager';
 
-export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false }: {
+export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false, ignoreSavedResult = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
   persistSuccessfulResult?: boolean;
   autoDiscover?: boolean;
+  ignoreSavedResult?: boolean;
 }) {
   const [review, setReview] = useState<SourceDiscoveryReview | null>(null);
   const [phase, setPhase] = useState(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
@@ -59,7 +60,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
     setPhase(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
-      if (persistSuccessfulResult) {
+      if (persistSuccessfulResult && !ignoreSavedResult) {
         try {
           const manifest=await loadSnapshotManifest(scope.projectId,scope.snapshotId);
           if (!current) return;
@@ -123,7 +124,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       if (activeId) void cancelCodexChapterRequest(activeId).catch(() => {});
       if (prepared.current) void discardSourceDiscovery(prepared.current).catch(() => {});
     };
-  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, autoDiscover]);
+  }, [scope.projectId, scope.snapshotId, scope.question, scope.targetPath, retry, persistSuccessfulResult, autoDiscover, ignoreSavedResult]);
   async function discover(
     selectedReview: SourceDiscoveryReview | null = review,
     isCurrent: () => boolean = () => mounted.current,
