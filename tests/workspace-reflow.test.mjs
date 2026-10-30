@@ -36,6 +36,16 @@ test('search commands reveal their distinct tools and narrow navigation has a di
   matches(css,/@media\(max-width:680px\)\{\.developer-workspace \.dw-sidebar-back\{display:inline-flex;\}/);
 });
 
+test('search results stay inside the resizable repository sidebar',()=>{
+  matches(css,/\.dw-search-results > button:not\(\.rt-Button\):not\(\.dw-search-file-match\)\s*\{display:flex;/);
+  matches(css,/\.dw-sidebar\s*\{[^}]*min-width:0;/);
+  matches(css,/\.dw-search-results\s*\{[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0;/);
+  matches(css,/\.dw-search-file-heading\s*\{[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0;/);
+  matches(css,/\.dw-search-results \.dw-search-file-match\s*\{[^}]*display:grid;[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0;[^}]*overflow:hidden;/);
+  matches(css,/\.dw-search-file-match > strong\s*\{[^}]*min-width:0;[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;/);
+  matches(css,/\.dw-search-file-match > span\s*\{[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/);
+});
+
 test('connection header shows the selected provider model and reasoning in one compact label',()=>{
   const header=readFileSync(new URL('../src/ConnectionHeader.tsx',import.meta.url),'utf8');
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
