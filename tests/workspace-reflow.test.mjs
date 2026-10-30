@@ -48,15 +48,15 @@ test('connection header shows the selected provider model and reasoning in one c
 test('native header keeps desktop controls together and reflows compact controls in normal rows',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
-  matches(shell,/\.topbar\s*\{[^}]*display:\s*flex;[^}]*flex-flow:\s*row wrap;[^}]*position:\s*relative;/);
-  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*wrap;[^}]*margin-left:\s*auto;/);
+  matches(shell,/\.topbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0,1fr\) auto;[^}]*grid-template-areas:\s*"brand project actions";[^}]*position:\s*relative;/);
+  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*nowrap;[^}]*margin-left:\s*0;/);
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);
-  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{\s*\.topbar\s*\{[^}]*flex-flow:column nowrap;/);
+  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"project" "actions";/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*display:flex;[^}]*flex-flow:row wrap;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
-  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex:0 0 auto;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
+  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex:0 1 auto;flex-flow:row wrap;[^}]*justify-self:start;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{display:flex;flex:0 0 auto;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*flex:\s*0 0 auto;/u);

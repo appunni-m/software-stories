@@ -40,12 +40,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .app-window { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); container-type: inline-size; container-name: app-window; }
-.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: flex; flex-flow: row wrap; position: relative; z-index: 5; align-items: center; gap: 6px 12px; padding: 5px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
-.brand-lockup { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; grid-template-areas: "brand project actions"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 5px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
+.brand-lockup { grid-area: brand; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; color: var(--accent); background: linear-gradient(140deg, var(--accent-soft), var(--surface-raised)); border: 1px solid var(--accent-border); border-radius: 9px; }
 .brand-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.07em; color: var(--text); }
 .brand-name span { color: var(--accent); }
-.project-controls { position: relative; display: flex; flex: 1 1 480px; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.project-controls { grid-area: project; position: relative; display: flex; flex: 0 1 auto; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; max-width: 100%; }
 .project-button, .snapshot-button { display: inline-flex; align-items: center; gap: 9px; min-height: 35px; border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 8px; padding: 0 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .project-button:hover { background: var(--surface-hover); border-color: var(--border); }
 .project-button svg:first-child { color: var(--accent); }
@@ -64,7 +64,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar .project-button > span, .topbar .snapshot-button > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .topbar .project-button > svg, .topbar .snapshot-button > svg { flex:0 0 auto; }
 .topbar .snapshot-refresh-button { align-self:center; margin:0!important; }
-.topbar .connection-header { min-width:0; justify-self:end; width:100%; }
+.topbar .connection-header { flex:0 1 300px; min-width:0; justify-self:end; width:auto; max-width:min(25cqi,320px); }
 .topbar .connection-header-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .topbar .topbar-actions { gap:8px; }
 .snapshot-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; width: min(355px, calc(100vw - 24px)); max-height: min(470px, calc(100dvh - 24px)); overflow: auto; padding: 7px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface-raised); box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 60%, transparent); }
@@ -75,9 +75,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-menu-copy strong { color: var(--text); font-size: 12px; font-weight: 600; }
 .snapshot-menu-copy small { overflow: hidden; color: var(--muted); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .snapshot-menu-check { margin-left: auto; color: var(--accent); }
-.topbar-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; align-content: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; margin-left: auto; }
+.topbar-actions { grid-area: actions; display: flex; flex: 0 1 auto; flex-wrap: nowrap; align-items: center; align-content: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; margin-left: 0; }
 .topbar-actions > * { min-width: 0; }
-.topbar .connection-header { flex: 0 1 300px; width: auto; max-width: min(25cqi,320px); }
 .topbar .theme-control { flex: 0 0 auto; }
 .topbar .theme-control-trigger { flex: 0 0 auto; }
 .help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
@@ -91,14 +90,15 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 /* Keep the desktop header on one rail until its control groups no longer fit. */
 @container app-window (max-width: 1320px) {
   .topbar {
-    flex-flow:column nowrap;
-    align-items:flex-start;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"project" "actions";
+    align-items:start;
     gap:4px 8px;
     padding:5px 10px;
   }
   .topbar .brand-lockup {display:none;}
-  .topbar .project-controls {flex:0 1 auto;width:100%;}
-  .topbar .topbar-actions {display:flex;flex:0 0 auto;flex-flow:row wrap;width:100%;justify-content:flex-start;gap:8px;margin-left:0;padding-inline:12px;}
+  .topbar .project-controls {flex:0 1 auto;flex-wrap:wrap;width:100%;}
+  .topbar .topbar-actions {display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-self:start;justify-content:flex-start;gap:8px;margin-left:0;padding-inline:12px;}
   .topbar .project-button {flex:0 1 auto;max-width:min(40cqi,360px);}
   .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(35cqi,280px);}
   .topbar .snapshot-button {width:100%;max-width:100%;}
