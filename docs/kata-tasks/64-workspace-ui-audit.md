@@ -1425,3 +1425,20 @@ next scene controls and marker row are not rendered; this install check cannot
 qualify their positions. No AI request, narration, or saved-content change
 occurred. Keep multi-scene, narrow-window, high-zoom and packaged acceptance
 open.
+
+### Packaged compact header alignment — 30 October 2026
+
+The user clarified that the scene pager and top menu looked as if they were
+positioned absolutely and overflowing. The compact header's action row now
+aligns its wrapped controls to the right edge of the same in-flow header track.
+Scene markers now wrap into rows within a bounded pager lane instead of growing
+an overflowing horizontal strip. `npm run bundle:macos` completed successfully;
+the installed app executable SHA-256 matches the build at
+`9fd55e4167c5260d459d2165395bf37c5b3e105f5908f8dd9f2bad94a2057d96`. The
+packaged Fontdone workspace was reopened and visually inspected: project
+controls, Load latest changes, connection, appearance, notifications, and help
+fit within two normal-flow header rows, with the workspace beginning below
+them. The selected Guide still has one scene, so its multi-scene controls could
+not be inspected in the package. No provider request, narration, snapshot
+capture, or saved-answer change occurred. Keep multi-scene, narrow-window,
+high-zoom, and broader design acceptance open under `13yp` and `x21h`.
