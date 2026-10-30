@@ -191,10 +191,11 @@ cap is reported as partial even though the capped result has no continuation
 offset. The discovery contract version was bumped so an old shortlist cannot
 be reused under the wider ranking behavior.
 
-The focused regression puts a relevant 260 KB implementation behind 36
-stronger path-neutral matches and verifies that the large file still enters
-the AI shortlist. `discovery_ranks_large_targets_beyond_the_first_search_page`
-passed (1 passed, 856 filtered out). This synthetic case proves shortlist
-coverage beyond page one; the Fontdone 5/12 broad-range recall, agent's actual
-range choices, answer quality, cancellation, and packaged generation remain
+Focused regressions put a relevant 260 KB implementation behind 36 stronger
+path-neutral matches and verify it enters the shortlist; a second case exceeds
+the 256-path cap and verifies the result is disclosed as partial. The focused
+`source_discovery::tests::discovery_` run passed (4 passed, 854 filtered out).
+These synthetic cases prove shortlist coverage beyond page one and preserve
+the cap boundary; the Fontdone 5/12 broad-range recall, agent's actual range
+choices, answer quality, cancellation, and packaged generation remain
 unqualified. Keep `0wdn` open.

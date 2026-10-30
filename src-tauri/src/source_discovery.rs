@@ -1223,14 +1223,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn discovery_ranks_large_targets_beyond_the_first_search_page() {
+    fn large_target_behind_decoys(decoy_count: usize) -> crate::chapter_generation::tests::Fixture {
         use crate::chapter_generation::tests::Fixture;
 
         let mut fixture = Fixture::new();
         let repository = Path::new(&fixture.manifest.summary.project_id);
         let repeated_match = "// orchard flow stage\n".repeat(6);
-        for index in 0..(crate::repository_context::MAX_SEARCH_PAGE_SIZE + 4) {
+        for index in 0..decoy_count {
             let path = repository.join(format!("src/a{index:02}-decoy.rs"));
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, &repeated_match).unwrap();
@@ -1253,8 +1252,13 @@ mod tests {
             )
             .unwrap(),
         );
+        fixture
+    }
 
-        let input = DiscoveryInput {
+    fn large_target_discovery_input(
+        fixture: &crate::chapter_generation::tests::Fixture,
+    ) -> DiscoveryInput {
+        DiscoveryInput {
             project_id: fixture.manifest.summary.project_id.clone(),
             snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
             question: "orchard flow stage".to_owned(),
@@ -1262,7 +1266,16 @@ mod tests {
             model_id: "gpt-6-luna".to_owned(),
             effort: "max".to_owned(),
             workspace_grant: None,
-        };
+        }
+    }
+
+    #[test]
+    fn discovery_ranks_large_targets_beyond_the_first_search_page() {
+        let fixture = large_target_behind_decoys(
+            crate::repository_context::MAX_SEARCH_PAGE_SIZE + 4,
+        );
+
+        let input = large_target_discovery_input(&fixture);
         let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
         let value: Value = serde_json::from_str(&encoded).unwrap();
         assert_eq!(value["contentSearch"]["status"], "ready");
@@ -1270,6 +1283,27 @@ mod tests {
             value["contentSearch"]["matchedPaths"],
             crate::repository_context::MAX_SEARCH_PAGE_SIZE + 5
         );
+        assert_eq!(
+            value["rangeOnlyFiles"][0]["path"],
+            "src/z_large_pipeline.rs"
+        );
+    }
+
+    #[test]
+    fn discovery_marks_the_full_candidate_ceiling_as_partial() {
+        let fixture = large_target_behind_decoys(
+            crate::repository_context::MAX_FILE_DISCOVERY_RESULTS + 1,
+        );
+        let input = large_target_discovery_input(&fixture);
+
+        let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
+        let value: Value = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(value["contentSearch"]["status"], "partial");
+        assert_eq!(
+            value["contentSearch"]["matchedPaths"],
+            crate::repository_context::MAX_FILE_DISCOVERY_RESULTS
+        );
+        assert_eq!(value["contentSearch"]["hasMoreMatches"], true);
         assert_eq!(
             value["rangeOnlyFiles"][0]["path"],
             "src/z_large_pipeline.rs"

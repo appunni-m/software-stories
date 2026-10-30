@@ -384,8 +384,9 @@ answer quality still need independent qualification. Exact profile details:
 Automatic source discovery can now consume all 256 unique file candidates in
 one local ranked-search operation while the user-facing search endpoint keeps
 its 32-result page cap. Truncation at the internal candidate ceiling remains
-visible as a partial result. The focused `source_discovery` regression proves
-that a relevant large implementation behind 36 higher-ranked files reaches
-the automatic shortlist. This does not change direct range-search recall or
-qualify the agent's subsequent range selection; the Fontdone profile and
-answer-quality gates remain open. See [large source discovery](66-large-source-discovery.md).
+visible as a partial result. Focused `source_discovery` regressions passed for
+a relevant large implementation behind 36 higher-ranked files and for the
+partial result at the 256-path ceiling (4 passed, 854 filtered out). This does
+not change direct range-search recall or qualify the agent's subsequent range
+selection; the Fontdone profile and answer-quality gates remain open. See
+[large source discovery](66-large-source-discovery.md).
