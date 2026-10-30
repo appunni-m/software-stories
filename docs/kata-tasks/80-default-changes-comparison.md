@@ -44,3 +44,22 @@ receive specific guidance. Explicit comparison refs still bypass the default.
 This is source-level evidence only. The native Changes screen has not been
 reopened for this correction; do not close the task until its packaged
 acceptance cases are checked.
+
+## Packaged default and selection restoration — 30 October 2026
+
+In the installed Code Atlas 0.1.0 app (executable SHA-256
+`659ad188436b1a6f0818c71c1e85fb763481ced55808b1072f92e625fe4668c8`),
+Fontdone `main@5249b72371`, opening Changes without choosing a comparison
+selected `HEAD` and immediately displayed its first-parent diff from
+`7c48b706482b` to `5249b7237194`: two changed files, with the README hunk
+visible. Selecting the `7c48b706482b` commit then displayed its first-parent
+comparison from `f3096b4e4c91` to `7c48b706482b`, with four changed files.
+After switching to Explorer and returning to Changes, that selected commit
+and four-file comparison were retained. I restored the default HEAD comparison
+and returned to the original Guide/Explorer view.
+
+This verifies the default HEAD comparison, first-parent selection for another
+commit, and selection retention across activity navigation in the installed
+app. The check was read-only: no repository refs/files changed and no AI work
+ran. A custom branch/tag range, empty history, initial commit, errors, and
+partial/oversized comparison states remain unqualified; keep this task open.
