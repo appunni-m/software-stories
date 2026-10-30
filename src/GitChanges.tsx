@@ -307,11 +307,11 @@ function ComparisonResults({
             const identity = changeIdentity(change);
             const path = change.headPath ?? change.basePath ?? 'Unknown path';
             const selected = identity === activeIdentity;
-            return <button type="button" key={identity} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { setFocusedCitation(null); onSelectChange(identity); }}>
+            return <AppButton intent="custom" type="button" key={identity} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { setFocusedCitation(null); onSelectChange(identity); }}>
               <span className={`git-change-kind kind-${change.kind.toLowerCase()}`}>{change.kind}</span>
               <code title={path}>{path}</code>
               <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'} · {formatClassification(change.classification)}</small>
-            </button>;
+            </AppButton>;
           })}
         </nav>
         <section className="git-compact-detail" aria-label={`Diff for ${activePath}`}>
@@ -443,7 +443,7 @@ function ChangeDisclosure({ change, relationshipImpact, canOpenCapturedSource = 
   return (
     <article ref={cardRef} className={`git-change-card${expanded ? ' expanded' : ''}`}>
       {interactive
-        ? <button className="git-change-toggle" aria-expanded={expanded} onClick={onToggle}>{heading}</button>
+        ? <AppButton intent="custom" className="git-change-toggle" aria-expanded={expanded} onClick={onToggle}>{heading}</AppButton>
         : <h3 className="git-change-toggle git-change-static-title">{heading}</h3>}
       {expanded && (
         <div className="git-change-detail">

@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { AppErrorBoundary } from './AppErrorBoundary';
+import { AppButton } from './design/AppButton';
 import {installAppCloseGuard} from './lib/appClose';
 import {installAppZoom} from './lib/appZoom';
 import '@radix-ui/themes/styles.css';
@@ -18,7 +19,7 @@ async function start() {
     root.render(<main className="app-error-fallback" role="alert"><div className="app-error-card">
       <h1>Code Atlas could not finish opening.</h1>
       <p>Your saved explanations are preserved. Try opening the workspace again.</p>
-      <button className="primary-button" onClick={()=>{void start();}}>Try again</button>
+      <AppButton intent="primary" className="" onClick={()=>{void start();}}>Try again</AppButton>
     </div></main>);
   }
 }

@@ -816,11 +816,11 @@ function GuideDraftReview({
               {claim.category === 'inference' && claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> <InlineCodeText text={claim.inferenceBasis}/></p>}
               <ul className="pr-guide-citations">{claim.citations.map((citation, index) => (
                 <li key={`${citation.anchor.revisionId}:${citation.anchor.path}:${citation.anchor.startLine}:${index}`}>
-                  <button type="button" className="pr-guide-citation-link" onClick={() => onFocusCitation(citation)}>
+                  <AppButton intent="custom" type="button" className="pr-guide-citation-link" onClick={() => onFocusCitation(citation)}>
                     <span>{citation.side} · {citation.anchor.path}:{citation.anchor.startLine}–{citation.anchor.endLine}</span>
                     <small>commit {citation.anchor.revisionId.slice(0, 12)} · blob {citation.anchor.blobId.slice(0, 12)} · hunk {citation.hunkIndex + 1}</small>
                     <code>{citation.quote}</code>
-                  </button>
+                  </AppButton>
                 </li>
               ))}</ul>
             </article>
@@ -1015,11 +1015,11 @@ function PrChangeExplanationPanel({
               <strong>{claim.category === 'inference' ? 'Inference' : 'Code change'}</strong>
               <p><InlineCodeText text={claim.prose}/></p>
               {claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> <InlineCodeText text={claim.inferenceBasis}/></p>}
-              <button type="button" className="pr-guide-citation-link" onClick={() => onFocusChange(changeKey(change), claim.citation.hunkIndex)}>
+              <AppButton intent="custom" type="button" className="pr-guide-citation-link" onClick={() => onFocusChange(changeKey(change), claim.citation.hunkIndex)}>
                 <span>{claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</span>
                 <small>commit {claim.citation.anchor.revisionId.slice(0, 12)} · blob {claim.citation.anchor.blobId.slice(0, 12)} · hunk {claim.citation.hunkIndex + 1}</small>
                 <code>{claim.citation.quote}</code>
-              </button>
+              </AppButton>
             </article>
           ))}
         </div>

@@ -1921,8 +1921,8 @@ function App() {
         </div>
       </header>
 
-      {projectMenuOpen && <button className="menu-scrim" aria-label="Close local repositories menu" onClick={() => { setProjectMenuOpen(false); projectButtonRef.current?.focus(); }} />}
-      {snapshotMenuOpen && <button className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
+      {projectMenuOpen && <AppButton intent="custom" className="menu-scrim" aria-label="Close local repositories menu" onClick={() => { setProjectMenuOpen(false); projectButtonRef.current?.focus(); }} />}
+      {snapshotMenuOpen && <AppButton intent="custom" className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
 
       <div className="app-body">
         <main className="workspace" id="main-content">
@@ -3416,7 +3416,7 @@ function AtlasDestinationCard({ refElement, manifest, selection, onOpenFile }: {
             : indexLoading ? <p>Checking this code connection…</p>
               : <p>This connection wasn’t found in the captured code.{indexError ? ` ${indexError}` : ''}</p>}
         </>}
-        {selectedPath && <button className="atlas-destination-open" data-focus-key="atlas-destination-open" onClick={() => onOpenFile(selectedPath, snapshotId, selectedRange)}><FileCode2 size={14} /> {selectedRange ? 'Open exact source evidence' : 'Open this file'} <ArrowRight size={13} /></button>}
+        {selectedPath && <AppButton intent="custom" className="atlas-destination-open" data-focus-key="atlas-destination-open" onClick={() => onOpenFile(selectedPath, snapshotId, selectedRange)}><FileCode2 size={14} /> {selectedRange ? 'Open exact source evidence' : 'Open this file'} <ArrowRight size={13} /></AppButton>}
       </div>
     </section>
   );
@@ -3898,7 +3898,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   return <section className="atlas-workbench" aria-label="Repository files and relationships">
     {!viewStorageWritable && <div className="atlas-view-warning" role="status">
       <span><strong>Saved Explorer layout needs attention.</strong> The current view remains available; saved data is left untouched.</span>
-      <button type="button" onClick={discardUnavailableAtlasView}>Discard saved layout and start fresh</button>
+      <AppButton intent="custom" type="button" onClick={discardUnavailableAtlasView}>Discard saved layout and start fresh</AppButton>
       {viewResetError && <span role="alert">The saved layout could not be discarded. It remains untouched.</span>}
     </div>}
     <div className="atlas-columns">
@@ -3913,7 +3913,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
           setView((s) => ({ ...s, treeQuery: query, treeTop: 0 }));
         }} /></label>
         {treeFilterPending && <span className="sr-only" role="status" aria-live="polite">Updating filtered paths.</span>}
-        {view.selectedFolder && <button className="atlas-scope-chip" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((s) => ({ ...s, selectedFolder: null, treeTop: 0 })); onAtlasSelection(undefined, view.selectedPath ?? '', view.viewport); }}>Folder scope: {view.selectedFolder} <span>×</span></button>}
+        {view.selectedFolder && <AppButton intent="custom" className="atlas-scope-chip" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((s) => ({ ...s, selectedFolder: null, treeTop: 0 })); onAtlasSelection(undefined, view.selectedPath ?? '', view.viewport); }}>Folder scope: {view.selectedFolder} <span>×</span></AppButton>}
         <span className="sr-only" id="atlas-tree-keyboard-help">Use Up and Down Arrow to move between paths. Use Right Arrow to expand a folder or move to its first child, and Left Arrow to collapse or move to its parent. Press Enter to open a file or select a folder. Press Space to select a path.</span>
         <div className="atlas-tree-scroll" ref={treeRef} role={flattened.length > 0 ? 'tree' : undefined} aria-label={flattened.length > 0 ? 'Snapshot inventory tree' : undefined} aria-describedby={flattened.length > 0 ? 'atlas-tree-keyboard-help' : undefined} aria-busy={treeFilterPending} onScroll={(event) => {
           const tree = event.currentTarget;
@@ -3994,22 +3994,22 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         <header><div><strong id="atlas-map-title">Connections</strong><small>{shownEdges.length} code link{shownEdges.length === 1 ? '' : 's'}</small></div></header>
         <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><AppSelect ariaLabel="Filter relationships by type" size="1" value={view.kind} options={[{value:'all',label:'All types'},{value:'calls',label:'Calls'},{value:'imports',label:'Imports'},{value:'testReference',label:'Test references'},{value:'defines',label:'Defines'},{value:'exports',label:'Exports'}]} onValueChange={(kind)=>setView((s)=>({...s,kind:kind as AtlasWorkbenchViewState['kind']}))}/></label><label><span>Language</span><AppSelect ariaLabel="Filter relationships by language" size="1" value={view.language} options={[{value:'all',label:'All languages'},...languages.map((language)=>({value:language,label:language}))]} onValueChange={(language)=>setView((s)=>({...s,language}))}/></label></div>
         {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
-          {view.selectedFolder && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></button>}
-          {view.kind !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, kind: 'all' }))}>Type: {view.kind} <span aria-hidden="true">×</span></button>}
-          {view.language !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, language: 'all' }))}>Language: {view.language} <span aria-hidden="true">×</span></button>}
-          <button className="atlas-clear-filters" onClick={() => setView((s) => ({ ...s, selectedFolder: null, kind: 'all', language: 'all' }))}>Clear filters</button>
+          {view.selectedFolder && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></AppButton>}
+          {view.kind !== 'all' && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, kind: 'all' }))}>Type: {view.kind} <span aria-hidden="true">×</span></AppButton>}
+          {view.language !== 'all' && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, language: 'all' }))}>Language: {view.language} <span aria-hidden="true">×</span></AppButton>}
+          <AppButton intent="custom" className="atlas-clear-filters" onClick={() => setView((s) => ({ ...s, selectedFolder: null, kind: 'all', language: 'all' }))}>Clear filters</AppButton>
         </div>}
         {indexState === 'loading' && <div className="atlas-index-banner" role="status">Building code connections…</div>}
-        {indexState === 'pending' && <div className="atlas-index-banner" role="status"><strong>Connections aren’t ready</strong><span>{indexError ?? 'Prepare links between files to explore how this code fits together.'}</span>{!indexError && <button onClick={() => { void startIndex(); }} disabled={startingIndex}>{startingIndex ? 'Preparing…' : 'Prepare connections'}</button>}</div>}
-        {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Connections unavailable</strong><span>{indexError}</span><button onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try again</button></div>}
-        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Some connections may be out of date</strong><span>Links for changed files are hidden until they can be refreshed.</span>{isNativeRuntime() && <button onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Refreshing…' : 'Refresh links'}</button>}</div>}
+        {indexState === 'pending' && <div className="atlas-index-banner" role="status"><strong>Connections aren’t ready</strong><span>{indexError ?? 'Prepare links between files to explore how this code fits together.'}</span>{!indexError && <AppButton intent="custom" onClick={() => { void startIndex(); }} disabled={startingIndex}>{startingIndex ? 'Preparing…' : 'Prepare connections'}</AppButton>}</div>}
+        {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Connections unavailable</strong><span>{indexError}</span><AppButton intent="custom" onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try again</AppButton></div>}
+        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Some connections may be out of date</strong><span>Links for changed files are hidden until they can be refreshed.</span>{isNativeRuntime() && <AppButton intent="custom" onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Refreshing…' : 'Refresh links'}</AppButton>}</div>}
         {indexState === 'ready' && unsupportedCount > 0 && <div className="atlas-index-banner unsupported" role="status"><strong>{unsupportedCount} files have no code connections</strong><span>You can still open them in Explorer.</span></div>}
         <div className="atlas-canvas-toolbar" role="group" aria-label="Relationship map viewport controls">
           <span>Zoom {Math.round((dragViewport ?? view.viewport).scale * 100)}% · drag empty canvas to pan</span>
-          <button aria-label="Zoom out relationship map" title="Zoom out (−)" onClick={() => zoomAtCenter(-ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale <= ATLAS_MIN_ZOOM}>−</button>
-          <button aria-label="Zoom in relationship map" title="Zoom in (+)" onClick={() => zoomAtCenter(ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale >= ATLAS_MAX_ZOOM}>+</button>
-          <button onClick={fitMap}>Fit</button>
-          <button onClick={resetMap}>Reset</button>
+          <AppButton intent="custom" aria-label="Zoom out relationship map" title="Zoom out (−)" onClick={() => zoomAtCenter(-ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale <= ATLAS_MIN_ZOOM}>−</AppButton>
+          <AppButton intent="custom" aria-label="Zoom in relationship map" title="Zoom in (+)" onClick={() => zoomAtCenter(ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale >= ATLAS_MAX_ZOOM}>+</AppButton>
+          <AppButton intent="custom" onClick={fitMap}>Fit</AppButton>
+          <AppButton intent="custom" onClick={resetMap}>Reset</AppButton>
         </div>
         <div className={`atlas-relationship-canvas${dragViewport ? ' is-panning' : ''}`} ref={canvasRef} role="group" tabIndex={0} aria-label="Relationship map viewport. Use arrow keys to pan, plus and minus to zoom, F to fit, or 0 to reset." aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - F 0" onKeyDown={handleCanvasKeyDown} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={finishCanvasPointer} onPointerCancel={finishCanvasPointer}>
           <div className="atlas-canvas-content" ref={canvasContentRef} style={{ transform: `translate(${(dragViewport ?? view.viewport).x}px, ${(dragViewport ?? view.viewport).y}px) scale(${(dragViewport ?? view.viewport).scale})` }}>
@@ -4017,10 +4017,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
             const from = index?.symbols.find((symbol) => symbol.symbolId === edge.sourceId);
             const to = index?.symbols.find((symbol) => symbol.symbolId === edge.targetId);
             return <article className={`atlas-edge${view.selectedRelationship === edge.relationship.relationshipId ? ' selected' : ''}`} key={edge.relationship.relationshipId}>
-              <button className="atlas-edge-node" onClick={() => from && chooseSymbol(from.symbolId, from.path)}><small>FROM · {from?.kind ?? 'symbol'}</small><strong>{from?.qualifiedName ?? edge.sourceId}</strong><code>{from?.path}</code></button>
-              <button className="atlas-edge-link" onClick={() => chooseEdge(edge)}><span>{edge.relationship.kind}</span><i /><small>high confidence</small></button>
-              <button className="atlas-edge-node" onClick={() => to && chooseSymbol(to.symbolId, to.path)}><small>TO · {to?.kind ?? 'symbol'}</small><strong>{to?.qualifiedName ?? edge.targetId}</strong><code>{to?.path}</code></button>
-              <button className="atlas-edge-evidence" onClick={() => chooseEdge(edge)}>{edge.evidence.path}:{edge.evidence.startLine}–{edge.evidence.endLine}<span>Inspect evidence</span></button>
+              <AppButton intent="custom" className="atlas-edge-node" onClick={() => from && chooseSymbol(from.symbolId, from.path)}><small>FROM · {from?.kind ?? 'symbol'}</small><strong>{from?.qualifiedName ?? edge.sourceId}</strong><code>{from?.path}</code></AppButton>
+              <AppButton intent="custom" className="atlas-edge-link" onClick={() => chooseEdge(edge)}><span>{edge.relationship.kind}</span><i /><small>high confidence</small></AppButton>
+              <AppButton intent="custom" className="atlas-edge-node" onClick={() => to && chooseSymbol(to.symbolId, to.path)}><small>TO · {to?.kind ?? 'symbol'}</small><strong>{to?.qualifiedName ?? edge.targetId}</strong><code>{to?.path}</code></AppButton>
+              <AppButton intent="custom" className="atlas-edge-evidence" onClick={() => chooseEdge(edge)}>{edge.evidence.path}:{edge.evidence.startLine}–{edge.evidence.endLine}<span>Inspect evidence</span></AppButton>
             </article>;
           }) : indexState === 'ready' ? <div className="atlas-empty-note"><strong>{provenEdges.length ? 'No connections match these filters.' : 'No code connections could be confirmed.'}</strong><span>{provenEdges.length ? 'Clear the search, choose another connection type, or widen the folder scope.' : unresolvedCount ? `${unresolvedCount} possible connections could not be verified from the available code.` : 'No direct connections were found in the captured source.'}</span></div> : null}
           </div>
@@ -4030,10 +4030,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
 
       <aside className="atlas-details-panel" aria-labelledby="atlas-details-title">
         <header><div><strong id="atlas-details-title">Evidence details</strong><small>Snapshot {snapshotId.slice(-12)}</small></div></header>
-        {selectedEdge ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">PROVEN · HIGH CONFIDENCE</span><h3>{selectedEdge.relationship.kind}</h3><code>{index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.sourceId)?.qualifiedName} → {index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.targetId)?.qualifiedName}</code><dl><div><dt>Evidence</dt><dd>{selectedEdge.evidence.path}:{selectedEdge.evidence.startLine}–{selectedEdge.evidence.endLine}</dd></div><div><dt>SHA-256</dt><dd><code>{selectedEdge.evidence.sha256}</code></dd></div></dl><button className="atlas-open-evidence" data-focus-key={`atlas-open-edge:${selectedEdge.relationship.relationshipId}`} onClick={() => openEdgeEvidence(selectedEdge)}><FileCode2 size={14} /> Open exact source evidence</button></div>
-            : selectedSymbol ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">INDEXED SYMBOL</span><h3>{selectedSymbol.qualifiedName}</h3><code>{selectedSymbol.path}</code><p>{selectedSymbol.kind} · {selectedSymbol.language} · lines {selectedSymbol.anchor.startLine}–{selectedSymbol.anchor.endLine}</p><dl><div><dt>SHA-256</dt><dd><code>{selectedSymbol.anchor.sourceSha256}</code></dd></div></dl><button className="atlas-open-evidence" data-focus-key={`atlas-open-symbol:${selectedSymbol.symbolId}`} onClick={() => onOpenFile(selectedSymbol.path, snapshotId, codeLensRangeFromIndexedAnchor(selectedSymbol.anchor))}><FileCode2 size={14} /> Open symbol source</button></div>
-            : rawRelationship ? <div className="atlas-detail-content"><span className="atlas-detail-kicker warning">NOT PROVEN</span><h3>{rawRelationship.kind} · {rawRelationship.confidence}</h3><p>This relationship is unresolved or its exact snapshot evidence is unavailable, so it is withheld from the canvas.</p><code>{rawRelationship.evidence.path}</code><small>{rawRelationship.unresolvedReason ?? 'Relationship did not pass endpoint and hash verification.'}</small><button className="atlas-open-evidence" data-focus-key={`atlas-open-relationship:${rawRelationship.relationshipId}`} onClick={() => onOpenFile(rawRelationship.evidence.path, snapshotId, codeLensRangeFromIndexedAnchor(rawRelationship.evidence))}><FileCode2 size={14} /> Inspect indexed anchor</button></div>
-                : selectedRow ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">{selectedRow.kind} · {selectedRow.disposition}</span><h3>{selectedRow.path === '.' ? 'Repository root' : selectedRow.path.split('/').at(-1)}</h3><code>{selectedRow.path}</code><dl><div><dt>Language</dt><dd>{selectedRow.language}</dd></div><div><dt>Capture</dt><dd>{inventoryReasonLabel(selectedRow.reason)}</dd></div><div><dt>Language support</dt><dd>{languageSupportLabel(languageSupportTier(selectedRow))}</dd></div><div><dt>Local index</dt><dd>{atlasRowIndexStatusLabel(atlasRowIndexStatus(selectedRow, index, indexState, stalePathSet.has(selectedRow.path))) ?? 'not applicable'}</dd></div>{selectedIndexCounts && <><div><dt>Indexed files</dt><dd>{selectedIndexCounts.indexedFiles}</dd></div><div><dt>Symbols</dt><dd>{selectedIndexCounts.symbols}</dd></div><div><dt>Relationships</dt><dd>{selectedIndexCounts.relationships}</dd></div></>}{selectedRow.sizeBytes !== null && <div><dt>Size</dt><dd>{formatBytes(selectedRow.sizeBytes)}</dd></div>}{selectedRow.sha256 && <div><dt>SHA-256</dt><dd><code>{selectedRow.sha256}</code></dd></div>}</dl>{selectedRow.contentKind === 'text' && <p className="atlas-detail-note">{languageSupportNote(languageSupportTier(selectedRow), selectedRow.language)}</p>}{selectedRow.disposition !== 'captured' && <p className="atlas-detail-note warning">No source bytes were captured. {selectedRow.details}</p>}{selectedRow.kind === 'directory' && <p className="atlas-detail-note">Folder selection scopes the relationship canvas to descendants.</p>}{selectedRow.disposition === 'captured' && (selectedRow.contentKind === 'text' || selectedRow.contentKind === 'unknown') && <button className="atlas-open-evidence" data-focus-key={`atlas-open-file:${selectedRow.path}`} onClick={() => onOpenFile(selectedRow.path, snapshotId)}><FileCode2 size={14} /> Open file source</button>}</div>
+        {selectedEdge ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">PROVEN · HIGH CONFIDENCE</span><h3>{selectedEdge.relationship.kind}</h3><code>{index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.sourceId)?.qualifiedName} → {index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.targetId)?.qualifiedName}</code><dl><div><dt>Evidence</dt><dd>{selectedEdge.evidence.path}:{selectedEdge.evidence.startLine}–{selectedEdge.evidence.endLine}</dd></div><div><dt>SHA-256</dt><dd><code>{selectedEdge.evidence.sha256}</code></dd></div></dl><AppButton intent="custom" className="atlas-open-evidence" data-focus-key={`atlas-open-edge:${selectedEdge.relationship.relationshipId}`} onClick={() => openEdgeEvidence(selectedEdge)}><FileCode2 size={14} /> Open exact source evidence</AppButton></div>
+            : selectedSymbol ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">INDEXED SYMBOL</span><h3>{selectedSymbol.qualifiedName}</h3><code>{selectedSymbol.path}</code><p>{selectedSymbol.kind} · {selectedSymbol.language} · lines {selectedSymbol.anchor.startLine}–{selectedSymbol.anchor.endLine}</p><dl><div><dt>SHA-256</dt><dd><code>{selectedSymbol.anchor.sourceSha256}</code></dd></div></dl><AppButton intent="custom" className="atlas-open-evidence" data-focus-key={`atlas-open-symbol:${selectedSymbol.symbolId}`} onClick={() => onOpenFile(selectedSymbol.path, snapshotId, codeLensRangeFromIndexedAnchor(selectedSymbol.anchor))}><FileCode2 size={14} /> Open symbol source</AppButton></div>
+            : rawRelationship ? <div className="atlas-detail-content"><span className="atlas-detail-kicker warning">NOT PROVEN</span><h3>{rawRelationship.kind} · {rawRelationship.confidence}</h3><p>This relationship is unresolved or its exact snapshot evidence is unavailable, so it is withheld from the canvas.</p><code>{rawRelationship.evidence.path}</code><small>{rawRelationship.unresolvedReason ?? 'Relationship did not pass endpoint and hash verification.'}</small><AppButton intent="custom" className="atlas-open-evidence" data-focus-key={`atlas-open-relationship:${rawRelationship.relationshipId}`} onClick={() => onOpenFile(rawRelationship.evidence.path, snapshotId, codeLensRangeFromIndexedAnchor(rawRelationship.evidence))}><FileCode2 size={14} /> Inspect indexed anchor</AppButton></div>
+                : selectedRow ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">{selectedRow.kind} · {selectedRow.disposition}</span><h3>{selectedRow.path === '.' ? 'Repository root' : selectedRow.path.split('/').at(-1)}</h3><code>{selectedRow.path}</code><dl><div><dt>Language</dt><dd>{selectedRow.language}</dd></div><div><dt>Capture</dt><dd>{inventoryReasonLabel(selectedRow.reason)}</dd></div><div><dt>Language support</dt><dd>{languageSupportLabel(languageSupportTier(selectedRow))}</dd></div><div><dt>Local index</dt><dd>{atlasRowIndexStatusLabel(atlasRowIndexStatus(selectedRow, index, indexState, stalePathSet.has(selectedRow.path))) ?? 'not applicable'}</dd></div>{selectedIndexCounts && <><div><dt>Indexed files</dt><dd>{selectedIndexCounts.indexedFiles}</dd></div><div><dt>Symbols</dt><dd>{selectedIndexCounts.symbols}</dd></div><div><dt>Relationships</dt><dd>{selectedIndexCounts.relationships}</dd></div></>}{selectedRow.sizeBytes !== null && <div><dt>Size</dt><dd>{formatBytes(selectedRow.sizeBytes)}</dd></div>}{selectedRow.sha256 && <div><dt>SHA-256</dt><dd><code>{selectedRow.sha256}</code></dd></div>}</dl>{selectedRow.contentKind === 'text' && <p className="atlas-detail-note">{languageSupportNote(languageSupportTier(selectedRow), selectedRow.language)}</p>}{selectedRow.disposition !== 'captured' && <p className="atlas-detail-note warning">No source bytes were captured. {selectedRow.details}</p>}{selectedRow.kind === 'directory' && <p className="atlas-detail-note">Folder selection scopes the relationship canvas to descendants.</p>}{selectedRow.disposition === 'captured' && (selectedRow.contentKind === 'text' || selectedRow.contentKind === 'unknown') && <AppButton intent="custom" className="atlas-open-evidence" data-focus-key={`atlas-open-file:${selectedRow.path}`} onClick={() => onOpenFile(selectedRow.path, snapshotId)}><FileCode2 size={14} /> Open file source</AppButton>}</div>
                 : <div className="atlas-detail-empty"><Network size={18} /><strong>Select a folder, file, symbol, or edge.</strong><span>Details retain exact snapshot path and source hash evidence.</span></div>}
         <footer>Dynamic and unresolved relationships are never presented as proven.</footer>
       </aside>
@@ -4100,9 +4100,9 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
 
   return <aside className="file-explanation-panel" aria-labelledby="file-explanation-title">
     <div className="file-tool-tabs" role="group" aria-label="File tools">
-      <button aria-pressed={panel === 'explanation'} onClick={() => setPanel('explanation')}><BookOpen size={14} /> Explanation</button>
-      <button aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); if (selectedPath) onEnsureIndex(); }}><Workflow size={14} /> Flow</button>
-      <button disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open this explanation in Guide' : 'Accept an explanation to open it in Guide'}><BookOpen size={13} /> Guide</button>
+      <AppButton intent="custom" aria-pressed={panel === 'explanation'} onClick={() => setPanel('explanation')}><BookOpen size={14} /> Explanation</AppButton>
+      <AppButton intent="custom" aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); if (selectedPath) onEnsureIndex(); }}><Workflow size={14} /> Flow</AppButton>
+      <AppButton intent="custom" disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open this explanation in Guide' : 'Accept an explanation to open it in Guide'}><BookOpen size={13} /> Guide</AppButton>
     </div>
     <div className="file-tool-content">
     <header>
@@ -4128,25 +4128,25 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
                     <h3><span className="file-step-number">{sectionIndex + 1}</span><InlineCodeText text={section.title}/></h3>
                     <p><InlineCodeText text={section.prose}/></p>
                     {visibleAnchors.length > 0 && <div className="file-explanation-citations" role="group" aria-label={`Evidence for ${plainInlineCodeText(section.title)}`}>
-                      {visibleAnchors.map((anchor) => <button key={anchor.anchorId} title={`${anchor.path}:${anchor.startLine}–${anchor.endLine}`} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
+                      {visibleAnchors.map((anchor) => <AppButton intent="custom" key={anchor.anchorId} title={`${anchor.path}:${anchor.startLine}–${anchor.endLine}`} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
                         <FileCode2 size={12} /><span>{citationLabel(anchor)}</span><ArrowRight size={12} />
-                      </button>)}
+                      </AppButton>)}
                     </div>}
                     {additionalAnchors.length > 0 && <details className="file-explanation-more-citations">
                       <summary>{additionalAnchors.length} more source links</summary>
                       <div className="file-explanation-citations">
-                        {additionalAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
+                        {additionalAnchors.map((anchor) => <AppButton intent="custom" key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
                           <FileCode2 size={12} /><span>{citationLabel(anchor)}</span>
-                        </button>)}
+                        </AppButton>)}
                       </div>
                     </details>}
                   </article>;
                 })}
               </div>
-              <button className="file-explanation-review" onClick={() => onReviewRevision(accepted)}><Pencil size={13} /> Edit explanation</button>
+              <AppButton intent="custom" className="file-explanation-review" onClick={() => onReviewRevision(accepted)}><Pencil size={13} /> Edit explanation</AppButton>
             </> : currentDraft ? <>
               <div className="file-explanation-empty"><span className="coverage-status coverage-status-draft">{currentDraft.lifecycle === 'rejected' ? 'Needs revision' : 'Draft ready'}</span><strong>Review the explanation.</strong><span>Check the draft against its source before accepting it.</span></div>
-              <button className="file-explanation-review" onClick={() => onReviewRevision(currentDraft)}><Pencil size={13} /> Review draft</button>
+              <AppButton intent="custom" className="file-explanation-review" onClick={() => onReviewRevision(currentDraft)}><Pencil size={13} /> Review draft</AppButton>
             </> : <>
               {previousAccepted && <p className="file-explanation-message">The saved explanation describes an older snapshot. Generate one for this version.</p>}
               <div className="file-explanation-empty"><Sparkles size={24} /><strong>What does this file do?</strong><span>Generate an explanation of its behavior, with links to the code that supports it.</span>
@@ -4856,7 +4856,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 const latest = target.latestCurrent ?? target.latestAny;
                 const rowStatus = chapterStudioRowStatus(historyAvailability, !target.missing, target.latestCurrent);
                 const label = target.overview ? 'Repository overview' : target.paths.length === 1 ? target.paths[0] : `${target.paths[0]} + ${target.paths.length - 1} files`;
-                return <button
+                return <AppButton intent="custom"
                   key={target.key}
                   className={`chapter-studio-target${selectedTargetKey === target.key ? ' is-selected' : ''}`}
                   disabled={editing || busy}
@@ -4873,7 +4873,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   <span className={`chapter-studio-target-status status-${rowStatus}`}>{rowStatus}</span>
                   <code title={label}>{label}</code>
                   <small>{latest ? <><InlineCodeText text={latest.title}/> · r{latest.revisionNumber}</> : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history unavailable' : 'No chapter for this snapshot'}</small>
-                </button>;
+                </AppButton>;
               })}
               {visibleTargets.length === 0 && <p className="chapter-studio-no-results">No chapter targets match that search.</p>}
             </div>
@@ -4897,14 +4897,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 <GenerationRecord origin={activeDocument?.generationOrigin} />
                 {history.length > 0 && <div className="chapter-revision-history" role="group" aria-label="Immutable chapter revision history">
                   <span>Revision history</span>
-                  {history.map((revision) => <button
+                  {history.map((revision) => <AppButton intent="custom"
                     key={revision.revisionId}
                     className={`chapter-history-item lifecycle-${revision.lifecycle}${selectedRevision?.revisionId === revision.revisionId ? ' is-current' : ''}`}
                     disabled={editing || busy}
                     onClick={() => { setSelectedRevisionId(revision.revisionId); setEditing(false); setCandidate(null); setValidation(null); setRejecting(false); setRejectReason(''); setFeedback(null); setFreshnessState(null); onSelectRevision(revision); }}
                     aria-pressed={selectedRevision?.revisionId === revision.revisionId}
                     title={`${revision.lifecycle} · snapshot ${revision.snapshotId}`}
-                  ><strong>r{revision.revisionNumber}</strong><span>{revision.lifecycle} · {new Date(revision.createdAtUnixMs).toLocaleDateString()}</span><small title={revision.basedOnRevisionId ? `Parent ${revision.basedOnRevisionId}` : 'No parent revision'}>snap {revision.snapshotId.slice(-8)} · {revision.basedOnRevisionId ? `from ${revision.basedOnRevisionId.slice(-8)}` : 'root'}</small></button>)}
+                  ><strong>r{revision.revisionNumber}</strong><span>{revision.lifecycle} · {new Date(revision.createdAtUnixMs).toLocaleDateString()}</span><small title={revision.basedOnRevisionId ? `Parent ${revision.basedOnRevisionId}` : 'No parent revision'}>snap {revision.snapshotId.slice(-8)} · {revision.basedOnRevisionId ? `from ${revision.basedOnRevisionId.slice(-8)}` : 'root'}</small></AppButton>)}
                 </div>}
                 {previousRevision && selectedRevision && <details className="chapter-revision-comparison">
                   <summary>Compare r{previousRevision.revisionNumber} with r{selectedRevision.revisionNumber}</summary>

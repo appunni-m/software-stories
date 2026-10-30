@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { AppButton } from './design/AppButton';
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -32,9 +33,9 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
           <span className="app-error-eyebrow">CODE ATLAS · VIEW ERROR</span>
           <h1 id="app-error-title">This view could not be displayed.</h1>
           <p>The rest of Code Atlas is still running. Reload the workspace to return to the repository overview.</p>
-          <button type="button" className="primary-button" onClick={() => window.location.reload()}>
+          <AppButton intent="primary" type="button" className="" onClick={() => window.location.reload()}>
             Reload workspace
-          </button>
+          </AppButton>
           <details className="app-error-details">
             <summary>Technical details</summary>
             <pre>{error.message}{componentStack ? `\n${componentStack}` : ''}</pre>
