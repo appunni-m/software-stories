@@ -458,7 +458,7 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-guide-outline .dw-guide-topic-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dw-guide-outline li small { display: block; color: var(--gray-10); }
 .dw-guide-outline p { font-size: 12px; line-height: 1.5; }
-.dw-guide-slide-nav { box-sizing:border-box;position:static;display:grid;width:100%;min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch;align-items:center;column-gap:var(--space-2);row-gap:var(--space-1);margin-block:var(--space-2);padding:var(--space-2);border:1px solid var(--border);border-radius:var(--radius-3);background:var(--surface); }
+.dw-guide-slide-nav { box-sizing:border-box;position:static;display:grid;width:min(100%,680px);min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch;align-items:center;column-gap:var(--space-2);row-gap:var(--space-1);margin-block:var(--space-2);margin-inline:auto;padding:var(--space-2);border:1px solid var(--border);border-radius:var(--radius-3);background:var(--surface); }
 .dw-guide-slide-nav > button { min-width:0;max-width:100%;white-space:normal; }
 .dw-guide-slide-nav > button:first-child {justify-self:end;}
 .dw-guide-slide-nav > button:last-child {justify-self:start;}
