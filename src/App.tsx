@@ -1953,8 +1953,8 @@ function App() {
                   <h2>Your saved workspace could not open.</h2>
                   <p>Your saved explanations are still on this Mac.</p>
                   <div className="workspace-restore-actions">
-                    {readiness !== 'project-error' && <button className="secondary-button" onClick={() => { setSnapshotHistoryLoad(null); setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); }}>Try again</button>}
-                    <button className="secondary-button" onClick={() => { void openLocalRepository(); }}>Open a repository</button>
+                    {readiness !== 'project-error' && <AppButton intent="secondary" onClick={() => { setSnapshotHistoryLoad(null); setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); }}>Try again</AppButton>}
+                    <AppButton intent="secondary" onClick={() => { void openLocalRepository(); }}>Open a repository</AppButton>
                   </div>
                 </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
               </div>
@@ -3096,7 +3096,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="recovered-preview-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>LOCAL RECOVERY</span> UNACCEPTED</div><h2 id="recovered-preview-title">Review saved chapter preview</h2></div>
-          <button className="icon-button" aria-label="Close saved preview" onClick={onClose}><X size={17} /></button>
+          <AppButton intent="icon" aria-label="Close saved preview" onClick={onClose}><X size={17} /></AppButton>
         </header>
         <div className="provider-dialog-body">
           {loading ? <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Checking the saved preview against its exact local snapshot…</span></div> : preview ? (
@@ -3111,13 +3111,13 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
           {error && preview && <p className="provider-error-text" role="alert">{error}</p>}
         </div>
         <footer className="provider-dialog-footer">
-          <button className="secondary-button" onClick={onClose} disabled={busy}>Close</button>
+          <AppButton intent="secondary" onClick={onClose} disabled={busy}>Close</AppButton>
           {preview ? (
             <div className="provider-draft-actions">
-              <button className="secondary-button" onClick={() => { void discard(); }} disabled={busy}>{busy ? 'Working…' : 'Discard preview'}</button>
-              <button className="primary-button" onClick={() => { void save(); }} disabled={busy}><Check size={15} /> {busy ? 'Saving draft…' : 'Save unaccepted draft'}</button>
+              <AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy}>{busy ? 'Working…' : 'Discard preview'}</AppButton>
+              <AppButton intent="primary" onClick={() => { void save(); }} disabled={busy}><Check size={15} /> {busy ? 'Saving draft…' : 'Save unaccepted draft'}</AppButton>
             </div>
-          ) : <button className="secondary-button" onClick={() => { void discard(); }} disabled={busy}>{busy ? 'Discarding…' : 'Discard preview'}</button>}
+          ) : <AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy}>{busy ? 'Discarding…' : 'Discard preview'}</AppButton>}
         </footer>
       </section>
     </div>
@@ -3237,7 +3237,7 @@ function SnapshotCaptureState({ progress, onCancel }: { progress: SnapshotProgre
           <span>{formatBytes(progress.bytesRead)} read</span>
           <span>{progress.pathsSkipped.toLocaleString()} skipped</span>
         </div>
-        <div className="capture-state-actions"><button className="secondary-button" onClick={onCancel}>Cancel capture</button></div>
+        <div className="capture-state-actions"><AppButton intent="secondary" onClick={onCancel}>Cancel capture</AppButton></div>
         <CapturePolicy limits={progress.limits} />
       </div>
     </div>
@@ -3259,7 +3259,7 @@ function SnapshotCaptureResult({ progress, onRetry }: { progress: SnapshotProgre
           <h2>{heading}</h2>
           <p>{progress.message ?? 'No new snapshot was added to history. Previous snapshots remain unchanged.'}</p>
         </div>
-        <div className="capture-state-actions"><button className="primary-button" onClick={onRetry}>Try capture again</button></div>
+        <div className="capture-state-actions"><AppButton intent="primary" onClick={onRetry}>Try capture again</AppButton></div>
         <CapturePolicy limits={progress.limits} />
       </div>
     </div>
@@ -3926,7 +3926,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
             treePersistTimerRef.current = null;
           }, 180);
         }}>
-          {flattened.length === 0 ? <div className="atlas-empty-note"><strong>No paths match this search.</strong><span>Clear the search or widen the selected folder scope to see matching files.</span><button className="text-button" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((current) => ({ ...current, treeQuery: '', selectedFolder: null, treeTop: 0 })); }}>Clear search and folder scope</button></div> : <>
+          {flattened.length === 0 ? <div className="atlas-empty-note"><strong>No paths match this search.</strong><span>Clear the search or widen the selected folder scope to see matching files.</span><AppButton intent="quiet" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((current) => ({ ...current, treeQuery: '', selectedFolder: null, treeTop: 0 })); }}>Clear search and folder scope</AppButton></div> : <>
             {treeWindow.topSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.topSpacerHeight}px` }} />}
             {visibleTreeRows.map((item, visibleIndex) => {
             const rowOrdinal = treeWindow.startIndex + visibleIndex;
@@ -3959,7 +3959,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
             {treeWindow.bottomSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.bottomSpacerHeight}px` }} />}
           </>}
         </div>
-        <footer><button className="text-button" aria-pressed={showSkipped} onClick={() => { setShowSkipped((value) => !value); setFocusedTreeIndex(null); }}>{showSkipped ? 'Hide skipped and excluded paths' : 'Show skipped and excluded paths'}</button></footer>
+        <footer><AppButton intent="quiet" aria-pressed={showSkipped} onClick={() => { setShowSkipped((value) => !value); setFocusedTreeIndex(null); }}>{showSkipped ? 'Hide skipped and excluded paths' : 'Show skipped and excluded paths'}</AppButton></footer>
       </section>
 
       <CapturedSourcePanel
@@ -4113,7 +4113,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
       : !selectedPath ? null
       : !isNativeRuntime() ? <p className="file-explanation-message">Open the Mac app to browse your code and generate explanations.</p>
         : loading ? <p className="file-explanation-message" role="status">Loading explanation…</p>
-          : error ? <div className="file-explanation-message" role="alert"><span>{error}</span><button className="text-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry</button></div>
+          : error ? <div className="file-explanation-message" role="alert"><span>{error}</span><AppButton intent="quiet" onClick={() => setRefreshKey((value) => value + 1)}>Retry</AppButton></div>
             : accepted ? <>
               <div className="file-explanation-status"><span><Check size={12} /> Source-linked · saved explanation</span></div>
               <div className="file-explanation-sections">
@@ -4150,7 +4150,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
             </> : <>
               {previousAccepted && <p className="file-explanation-message">The saved explanation describes an older snapshot. Generate one for this version.</p>}
               <div className="file-explanation-empty"><Sparkles size={24} /><strong>What does this file do?</strong><span>Generate an explanation of its behavior, with links to the code that supports it.</span>
-              <button className="primary-button" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={14} /> Explain this file</button>
+              <AppButton intent="primary" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={14} /> Explain this file</AppButton>
               <small>Your backend and model are remembered. Review the source before sending.</small></div>
             </>}
     </div>
@@ -4818,14 +4818,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <p>Choose a file, check its cited lines, and edit one section at a time.</p>
           </div>
           <div className="chapter-studio-top-actions">
-            <button className="primary-button" onClick={onGenerateOverview} disabled={!nativeRuntime || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={!nativeRuntime ? 'Open the Mac app to check saved chapter history before generating an overview.' : preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
-            <button className="secondary-button" onClick={onGoPlan}><ListChecks size={14} /> Guide</button>
+            <AppButton intent="primary" onClick={onGenerateOverview} disabled={!nativeRuntime || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={!nativeRuntime ? 'Open the Mac app to check saved chapter history before generating an overview.' : preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</AppButton>
+            <AppButton intent="secondary" onClick={onGoPlan}><ListChecks size={14} /> Guide</AppButton>
             <span className="chapter-studio-snapshot">Snapshot <code>{snapshotId.slice(-12)}</code></span>
           </div>
         </div>
 
         {loading && <p className="coverage-feedback" role="status">Loading repository chapters and revision history…</p>}
-        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => { setLoadError(null); setLoading(true); void chapterHistory.current?.refresh(); }}>Retry</button></p>}
+        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<AppButton intent="quiet" onClick={() => { setLoadError(null); setLoading(true); void chapterHistory.current?.refresh(); }}>Retry</AppButton></p>}
         {!nativeRuntime && <p className="coverage-feedback" role="status">Chapter editing is available in the Mac app, where revisions are stored locally.</p>}
         {pendingDraft && <div className="coverage-storage-warning chapter-pending-draft" role="status">
           <span><strong>Unsaved edit paused.</strong> {pendingDraftBase
@@ -4834,8 +4834,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
               ? 'Checking the original chapter revision before offering restore.'
               : 'Its original revision is unavailable, so it cannot be safely restored. You can discard this saved edit.'}</span>
           <span className="chapter-pending-draft-actions">
-            <button className="text-button" onClick={restorePendingDraft} disabled={!pendingDraftBase || busy}>Restore draft</button>
-            <button className="text-button" onClick={discardPendingDraft} disabled={busy}>Discard</button>
+            <AppButton intent="quiet" onClick={restorePendingDraft} disabled={!pendingDraftBase || busy}>Restore draft</AppButton>
+            <AppButton intent="quiet" onClick={discardPendingDraft} disabled={busy}>Discard</AppButton>
           </span>
         </div>}
         {preservedDraftReason && <div className="coverage-storage-warning chapter-pending-draft" role="status">
@@ -4844,7 +4844,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             : preservedDraftReason === 'unreadable'
               ? 'Its saved contents could not be read.'
               : 'Its saved contents are incomplete or belong to a different snapshot.'} The stored data has been left untouched. Discard it only if you no longer need it.</span>
-          <span className="chapter-pending-draft-actions"><button className="text-button" onClick={discardPreservedDraft} disabled={busy}>Discard saved edit</button></span>
+          <span className="chapter-pending-draft-actions"><AppButton intent="quiet" onClick={discardPreservedDraft} disabled={busy}>Discard saved edit</AppButton></span>
         </div>}
         {editing && <p className="coverage-feedback" role="status">Unsaved changes are kept while you inspect citations. File and revision selection is paused; save or cancel to switch.</p>}
 
@@ -4885,12 +4885,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 <div className="chapter-review-heading">
                   <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3><InlineCodeText text={selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}/></h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
                   {chapterStudioCanGenerate(historyAvailability, status) && !pendingDraft ? <div className="chapter-review-actions">
-                    {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
+                    {!selectedTarget.overview && <AppButton intent="secondary" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</AppButton>}
                     {selectedTarget.overview && !selectedTarget.latestCurrent
-                      ? <button className="primary-button" onClick={onGenerateOverview} disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined}><Sparkles size={14} /> Generate current overview</button>
+                      ? <AppButton intent="primary" onClick={onGenerateOverview} disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined}><Sparkles size={14} /> Generate current overview</AppButton>
                       : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
                         && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
-                        && <button className="primary-button" disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined} onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</button>}
+                        && <AppButton intent="primary" disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined} onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</AppButton>}
                   </div> : null}
                 </div>
 
@@ -4919,22 +4919,22 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         {editing ? <>
                           <span className="chapter-editing-label"><Pencil size={13} /> Editing a new draft from r{selectedRevision.revisionNumber}</span>
                           <div className="chapter-review-actions">
-                            <button className="text-button" onClick={cancelEditing} disabled={busy}>Cancel</button>
-                            <button className="secondary-button" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</button>
-                            <button className="primary-button" onClick={() => { void saveEdits(); }} disabled={busy || !candidate || !isLatestCurrent || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Wait for saved revision history to finish refreshing.' : !isLatestCurrent ? 'A newer revision exists. Compare the drafts before continuing.' : undefined}><Save size={14} /> {isLatestCurrent ? 'Save as new draft' : 'Newer version exists'}</button>
+                            <AppButton intent="quiet" onClick={cancelEditing} disabled={busy}>Cancel</AppButton>
+                            <AppButton intent="secondary" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</AppButton>
+                            <AppButton intent="primary" onClick={() => { void saveEdits(); }} disabled={busy || !candidate || !isLatestCurrent || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Wait for saved revision history to finish refreshing.' : !isLatestCurrent ? 'A newer revision exists. Compare the drafts before continuing.' : undefined}><Save size={14} /> {isLatestCurrent ? 'Save as new draft' : 'Newer version exists'}</AppButton>
                           </div>
                         </> : <>
                           <span className="chapter-validation-summary">{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision is read-only.' : selectedRevision.lifecycle === 'rejected' ? `Rejected · ${selectedRevision.decisionNote ?? 'Reason not recorded'}` : `Evidence status: ${selectedRevision.validationStatus}`}</span>
                           <div className="chapter-review-actions">
-                            <button className="secondary-button" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</button>
-                            {freshnessKey && nativeRuntime && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
+                            <AppButton intent="secondary" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</AppButton>
+                            {freshnessKey && nativeRuntime && <AppButton intent="secondary" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
                               {selectedFreshness?.loading ? 'Assessing…' : selectedFreshness?.report ? 'Reassess freshness' : 'Assess freshness'}
-                            </button>}
-                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before restoring an older revision.' : 'Create a new draft from this earlier content and revalidate it against the current snapshot.'}><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
-                            {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy || Boolean(pendingDraft) || Boolean(preservedDraftReason)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
+                            </AppButton>}
+                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <AppButton intent="secondary" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before restoring an older revision.' : 'Create a new draft from this earlier content and revalidate it against the current snapshot.'}><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</AppButton>}
+                            {isLatestCurrent && <AppButton intent="secondary" onClick={beginEditing} disabled={busy || Boolean(pendingDraft) || Boolean(preservedDraftReason)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</AppButton>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
-                              <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid' || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before accepting this draft.' : undefined}><Check size={14} /> Accept</button>
-                              <button className="secondary-button button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</button>
+                              <AppButton intent="primary" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid' || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before accepting this draft.' : undefined}><Check size={14} /> Accept</AppButton>
+                              <AppButton intent="secondary" className="button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</AppButton>
                             </>}
                           </div>
                         </>}
@@ -4968,11 +4968,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form id="chapter-rejection-form" className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
                         <label><span>Why is this draft rejected?</span><textarea disabled={busy || historyAvailability !== 'ready'} autoFocus rows={2} maxLength={4000} aria-describedby="chapter-rejection-reason-limit" value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
                         <small id="chapter-rejection-reason-limit" className="chapter-rejection-reason-count">{rejectReasonBytes > 4_000 ? 'The reason exceeds the 4,000-byte limit.' : `${rejectReasonBytes} / 4,000 UTF-8 bytes`}</small>
-                        <div><button className="text-button" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || historyAvailability !== 'ready' || !rejectReason.trim() || rejectReasonBytes > 4_000} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}>Record rejection</button></div>
+                        <div><AppButton intent="quiet" type="button" onClick={() => { setRejecting(false); setRejectReason(''); }}>Cancel</AppButton><AppButton intent="secondary" type="submit" disabled={busy || historyAvailability !== 'ready' || !rejectReason.trim() || rejectReasonBytes > 4_000} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}>Record rejection</AppButton></div>
                       </form>}
 
                       {selectedFreshness?.loading && <p className="chapter-review-feedback tone-info" role="status">Comparing this accepted revision with snapshot {snapshotId.slice(-12)}…</p>}
-                      {selectedFreshness?.error && <p className="coverage-storage-warning" role="alert">{selectedFreshness.error}<button className="text-button" onClick={() => { void assessFreshness(); }}>Retry</button></p>}
+                      {selectedFreshness?.error && <p className="coverage-storage-warning" role="alert">{selectedFreshness.error}<AppButton intent="quiet" onClick={() => { void assessFreshness(); }}>Retry</AppButton></p>}
                       {selectedFreshness?.report && <section className="chapter-studio-freshness" aria-label="Read-only chapter freshness assessment">
                         <div className="chapter-review-feedback tone-info" role="status">
                           <strong>Read-only comparison</strong> · accepted revision r{selectedRevision.revisionNumber} from snapshot {selectedFreshness.report.fromSnapshotId.slice(-12)} to {selectedFreshness.report.toSnapshotId.slice(-12)}. This assessment does not edit the accepted revision or carry changes forward.
@@ -5010,12 +5010,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               <h4>{sectionTitle}</h4>
                               <span className={`chapter-review-status status-${sectionResult.status}`}>{labels[sectionResult.status]}</span>
                               <span className="chapter-review-status">Evidence {sectionResult.evidenceState}</span>
-                              {sectionResult.status === 'stale' && section && nativeRuntime && <button
-                                className="secondary-button"
+                              {sectionResult.status === 'stale' && section && nativeRuntime && <AppButton intent="secondary"
                                 disabled={busy || Boolean(pendingDraft) || sectionPaths.length === 0 || sectionPaths.length > 12}
                                 onClick={() => { void beginSectionRepair(selectedRevision, section, sectionPaths); }}
                                 title="Continue a local repair session for this section."
-                              ><Sparkles size={13} /> Regenerate this section</button>}
+                              ><Sparkles size={13} /> Regenerate this section</AppButton>}
                             </div>
                             {sectionResult.reasons.length > 0 && <ul className="chapter-freshness-reasons">
                               {sectionResult.reasons.map((reason, index) => <li key={`${reason.code}:${reason.path ?? ''}:${index}`}>
@@ -5030,10 +5029,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                                   <div><code>{change.path}</code><span>{kind}</span></div>
                                   <div className="chapter-review-actions">
                                     {change.oldRange
-                                      ? <button className="text-button" onClick={() => { onSelectRevision(selectedRevision, sectionResult.sectionId); onOpenFile(change.oldRange!.path, change.oldRange!.snapshotId, change.oldRange!); }}><FileCode2 size={12} /> Older lines {rangeText(change.oldRange)}</button>
+                                      ? <AppButton intent="quiet" onClick={() => { onSelectRevision(selectedRevision, sectionResult.sectionId); onOpenFile(change.oldRange!.path, change.oldRange!.snapshotId, change.oldRange!); }}><FileCode2 size={12} /> Older lines {rangeText(change.oldRange)}</AppButton>
                                       : <span className="chapter-freshness-unavailable">No older range</span>}
                                     {change.newRange
-                                      ? <button className="text-button" onClick={() => { onSelectRevision(selectedRevision, sectionResult.sectionId); onOpenFile(change.newRange!.path, change.newRange!.snapshotId, change.newRange!); }}><FileCode2 size={12} /> Current lines {rangeText(change.newRange)}</button>
+                                      ? <AppButton intent="quiet" onClick={() => { onSelectRevision(selectedRevision, sectionResult.sectionId); onOpenFile(change.newRange!.path, change.newRange!.snapshotId, change.newRange!); }}><FileCode2 size={12} /> Current lines {rangeText(change.newRange)}</AppButton>
                                       : <span className="chapter-freshness-unavailable">No current range</span>}
                                   </div>
                                   <ChapterSourceDiff projectId={projectId} change={change} />
@@ -5063,16 +5062,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>
                         <div className="chapter-section-title-row"><span className="chapter-section-number">{String(index + 1).padStart(2, '0')}</span>{editing && candidate ? <input disabled={busy} value={section.title} maxLength={160} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, title: event.target.value }))} aria-label={`Section ${index + 1} title`} /> : <h4><InlineCodeText text={section.title}/></h4>}
-                          {editing && <div className="chapter-section-reorder"><button className="icon-button" onClick={() => moveSection(section.sectionId, -1)} disabled={busy || index === 0} aria-label={`Move ${plainInlineCodeText(section.title)} up`}><MoveUp size={14} /></button><button className="icon-button" onClick={() => moveSection(section.sectionId, 1)} disabled={busy || index === activeDocument.sections.length - 1} aria-label={`Move ${plainInlineCodeText(section.title)} down`}><MoveDown size={14} /></button></div>}
+                          {editing && <div className="chapter-section-reorder"><AppButton intent="icon" onClick={() => moveSection(section.sectionId, -1)} disabled={busy || index === 0} aria-label={`Move ${plainInlineCodeText(section.title)} up`}><MoveUp size={14} /></AppButton><AppButton intent="icon" onClick={() => moveSection(section.sectionId, 1)} disabled={busy || index === activeDocument.sections.length - 1} aria-label={`Move ${plainInlineCodeText(section.title)} down`}><MoveDown size={14} /></AppButton></div>}
                         </div>
                         <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${plainInlineCodeText(section.title)}`} /> : <p><InlineCodeText text={section.prose}/></p>}</div>
                         <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${plainInlineCodeText(section.title)}`} placeholder="Optional narration script" /> : <p>{section.spokenText ? <InlineCodeText text={section.spokenText}/> : <em>No narration script saved.</em>}</p>}</div>
                         {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId} id={`studio-claim-${claim.claimId}`} tabIndex={-1}>
-                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy || section.claims.length <= 1} title={section.claims.length <= 1 ? 'A section needs a claim. Repair its citation or reject the draft.' : 'Remove this claim and its linked visual cues.'} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
+                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <AppButton intent="quiet" className="chapter-remove-claim" disabled={busy || section.claims.length <= 1} title={section.claims.length <= 1 ? 'A section needs a claim. Repair its citation or reject the draft.' : 'Remove this claim and its linked visual cues.'} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</AppButton>}</div>
                           {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${section.claims.indexOf(claim) + 1} in ${plainInlineCodeText(section.title)}`} /> : <p><InlineCodeText text={claim.prose}/></p>}
                           {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> <InlineCodeText text={claim.category.basis}/></p>}
                           <div className="chapter-citations"><span>EXACT SOURCE</span>{claim.anchors.length === 0 ? <small>No source range is attached to this claim.</small> : claim.anchors.map((anchor) => <div className="chapter-citation" key={anchor.anchorId}>
-                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</button>{editing && candidate && <ChapterCitationEditor projectId={projectId} baseRevisionId={selectedRevision.revisionId} snapshotId={candidate.snapshotId} anchor={anchor} paths={manifest.files.filter(file => file.contentKind !== 'binary').map(file => file.path)} disabled={busy} open={repairingAnchorId === anchor.anchorId} onOpenChange={open => setRepairingAnchorId(open ? anchor.anchorId : null)} onApply={replacement => {setSection(section.sectionId, item => replaceCitation(item,anchor.anchorId,replacement));setFeedback({message:'Source link updated in your draft. Review the claim, narration and visuals, then validate before saving.',tone:'info'});}} />}</div>
+                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><AppButton intent="quiet" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</AppButton>{editing && candidate && <ChapterCitationEditor projectId={projectId} baseRevisionId={selectedRevision.revisionId} snapshotId={candidate.snapshotId} anchor={anchor} paths={manifest.files.filter(file => file.contentKind !== 'binary').map(file => file.path)} disabled={busy} open={repairingAnchorId === anchor.anchorId} onOpenChange={open => setRepairingAnchorId(open ? anchor.anchorId : null)} onApply={replacement => {setSection(section.sectionId, item => replaceCitation(item,anchor.anchorId,replacement));setFeedback({message:'Source link updated in your draft. Review the claim, narration and visuals, then validate before saving.',tone:'info'});}} />}</div>
                             <pre>{anchor.excerpt}</pre>
                           </div>)}</div>
                         </div>)}
@@ -5115,9 +5114,9 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
           </dl>
           <div className="preflight-footer">
             <div className="privacy-note"><HardDrive size={14} /><span>Only folder and Git metadata were checked. Create snapshot is the action that reads source bytes.</span></div>
-            <button className="primary-button" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={busy}>
+            <AppButton intent="primary" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={busy}>
               <HardDrive size={16} /> {busy ? 'Starting capture…' : 'Create snapshot'} <span>LOCAL</span>
-            </button>
+            </AppButton>
           </div>
         </div>
         <CapturePolicy limits={limits} />
@@ -5146,7 +5145,7 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
           <div className="step-pill"><span>01</span> START WITH THE CODEBASE</div>
           <h2>Bring a repository into view.</h2>
           <p>Code Atlas starts with a read-only local snapshot. Then you can browse the real file tree, inspect exact source, and build explanations file by file.</p>
-          <button className="primary-button" data-focus-key="atlas:open-repository" onClick={onOpen}><FolderOpen size={16} /> Open a local repository <span>⌘O</span></button>
+          <AppButton intent="primary" data-focus-key="atlas:open-repository" onClick={onOpen}><FolderOpen size={16} /> Open a local repository <span>⌘O</span></AppButton>
           <div className="privacy-note"><HardDrive size={14} /><span>Local browsing works without an account, API key, or network connection.</span></div>
         </div>
       </div>
@@ -5291,11 +5290,11 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
           ? relationship.unresolvedReason ?? 'The target could not be resolved in this snapshot.'
           : `${relationship.evidence.path}:${relationship.evidence.startLine}-${relationship.evidence.endLine}`}</small>
       </div>
-      <button className="text-button" onClick={() => onOpenFile(
+      <AppButton intent="quiet" onClick={() => onOpenFile(
         relationship.evidence.path,
         snapshotIndex?.snapshotId,
         codeLensRangeFromIndexedAnchor(relationship.evidence),
-      )}>Open evidence</button>
+      )}>Open evidence</AppButton>
     </li>;
   });
 
@@ -5364,7 +5363,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
-            {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
+            {visibleSourceRange && <AppButton intent="secondary" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</AppButton>}
           </div>
         </div>
         <div className="source-provenance">
@@ -5386,10 +5385,10 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
               ? `Highlighted exact UTF-8 bytes [${visibleSourceRange.startByte}, ${visibleSourceRange.endByteExclusive}); showing nearby context from the exact snapshot.`
               : 'Showing the cited lines with nearby context from the exact snapshot.'}</small>
           </span>
-          <button className="text-button" onClick={() => {
+          <AppButton intent="quiet" onClick={() => {
             if (showCompleteSource) { setShowCompleteSource(false); setSourceWindowStart(null); }
             else { setShowCompleteSource(true); setSourceWindowStart(1); }
-          }}>{showCompleteSource ? 'Show cited context' : 'Browse full file'}</button>
+          }}>{showCompleteSource ? 'Show cited context' : 'Browse full file'}</AppButton>
         </div>}
         <pre className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
           ? `Read-only source from snapshot ${source.snapshotId}, citation lines ${visibleSourceRange.startLine} to ${visibleSourceRange.endLine}`
@@ -5436,9 +5435,9 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
           </code>
         </pre>
         {sourceLineCount > 0 && (firstDisplayedLine > 1 || lastDisplayedLine < sourceLineCount) && <nav className="source-window-controls" aria-label="Captured source pages">
-          <button className="text-button" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - SOURCE_WINDOW_LINES))}>Previous lines</button>
+          <AppButton intent="quiet" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - SOURCE_WINDOW_LINES))}>Previous lines</AppButton>
           <span>Lines {firstDisplayedLine}–{lastDisplayedLine} of {sourceLineCount}</span>
-          <button className="text-button" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</button>
+          <AppButton intent="quiet" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</AppButton>
         </nav>}
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
           <details>
@@ -5447,7 +5446,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
             {relationshipError ? <p role="status">{relationshipError}</p>
               : resolvedRelationships.length > 0 ? <>
                 <ul>{renderRelationshipRows(showAllRelationships ? resolvedRelationships : resolvedRelationships.slice(0, 8))}</ul>
-                {resolvedRelationships.length > 8 && <button className="text-button" onClick={() => setShowAllRelationships((value) => !value)}>{showAllRelationships ? 'Show fewer links' : `Show all ${resolvedRelationships.length} resolved links`}</button>}
+                {resolvedRelationships.length > 8 && <AppButton intent="quiet" onClick={() => setShowAllRelationships((value) => !value)}>{showAllRelationships ? 'Show fewer links' : `Show all ${resolvedRelationships.length} resolved links`}</AppButton>}
               </> : <p>{snapshotIndex ? 'No resolved caller, import, or test links point to or from this file.' : relationshipLoading ? 'The local snapshot index is loading.' : 'No matching local index is available for this snapshot.'}</p>}
             {unresolvedRelationships.length > 0 && <details className="code-lens-unresolved-links">
               <summary>Unresolved links ({unresolvedRelationships.length})</summary>
@@ -5483,13 +5482,13 @@ function WorkflowEmptyState({ kind, onGoAtlas, onGoPlan, onCreateSnapshot, onOpe
       <h2>{isPlan ? 'Start exploring this repository.' : 'Choose an explanation to review.'}</h2>
       <p>{isPlan ? 'Capture a local snapshot to open the code explorer and ask questions in Guide. Your live files stay untouched.' : 'Open the Guide and choose a draft or accepted explanation. You can check its claims beside the source.'}</p>
       <div className="workflow-empty-actions">
-        {isPlan && onCreateSnapshot ? <button className="primary-button" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={captureBusy}>
+        {isPlan && onCreateSnapshot ? <AppButton intent="primary" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={captureBusy}>
           <HardDrive size={16} /> {captureBusy ? 'Starting capture…' : 'Capture repository'} <span>LOCAL</span>
-        </button> : isPlan && onOpenRepository ? <button className="primary-button" data-focus-key="action:pick-repository" onClick={onOpenRepository}>
+        </AppButton> : isPlan && onOpenRepository ? <AppButton intent="primary" data-focus-key="action:pick-repository" onClick={onOpenRepository}>
           <FolderOpen size={16} /> Choose a local repository
-        </button> : null}
-        {isPlan && onGoAtlas && <button className="secondary-button" data-focus-key="cta:plan-explorer" onClick={onGoAtlas}>Open Explorer <ArrowRight size={15} /></button>}
-        {!isPlan && <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={onGoPlan}>Open Guide <ArrowRight size={15} /></button>}
+        </AppButton> : null}
+        {isPlan && onGoAtlas && <AppButton intent="secondary" data-focus-key="cta:plan-explorer" onClick={onGoAtlas}>Open Explorer <ArrowRight size={15} /></AppButton>}
+        {!isPlan && <AppButton intent="secondary" data-focus-key={`cta:${kind}`} onClick={onGoPlan}>Open Guide <ArrowRight size={15} /></AppButton>}
       </div>
       <div className="state-note"><HardDrive size={14} /> {isPlan ? 'Source is read only after you choose Capture repository.' : 'Nothing is sent to an AI provider until you review a request.'}</div>
     </div>
