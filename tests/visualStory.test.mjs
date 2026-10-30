@@ -39,7 +39,7 @@ describe('visual story scenes', () => {
   it('hides Full map when a section has only composed scenes', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     assert.match(component, /const canShowFullMap = Boolean\(visual && supportsStoryFullMap\(visual\)/u);
-    assert.match(component, /\{canShowFullMap && <button className="story-map-toggle"/u);
+    assert.match(component, /\{canShowFullMap && <div className="story-map-toggle-slot"><AppButton intent="secondary" className="story-map-toggle"/u);
   });
 
   it('labels sections without a saved visual and opens their cited range beside the answer', () => {
@@ -63,7 +63,7 @@ describe('visual story scenes', () => {
       'a missing visual should not reserve a large fixed-height canvas');
     assert.match(styles, /\.story-source-stage \.story-no-visual\s*\{[^}]*display:\s*grid/u,
       'the honest no-visual state should read as a compact explanation and source action');
-    assert.match(styles, /@container guide-pane \(max-width: 700px\)\s*\{[\s\S]*?\.story-source-stage \.story-no-visual\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\.story-source-actions\s*\{[^}]*grid-column:\s*1/u,
+    assert.match(styles, /@container guide-pane \(max-width: 820px\)\s*\{[\s\S]*?\.story-source-stage \.story-no-visual\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\.story-source-actions\s*\{[^}]*grid-column:\s*1/u,
       'the source action should stack below the note in a narrow Guide pane');
   });
 
