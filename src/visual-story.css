@@ -6,11 +6,11 @@
 .story-scene-progress.has-multiple-scenes { display:grid; grid-template-columns:28px minmax(0,1fr) 28px; justify-self:stretch; width:100%; max-width:100%; gap:8px; justify-content:center; align-items:center; }
 .story-scene-count { flex: 0 0 auto; color: var(--muted); font-size: 12px; white-space:nowrap; }
 .story-scene-position { position:static;inset:auto;display: flex; flex:0 1 auto; justify-content: center; align-items: center; gap: 8px; min-width: 0; max-width:100%; }
-.story-scene-progress.has-multiple-scenes > .story-scene-position { display:flex; flex:1 1 auto; flex-direction:column; align-items:center; justify-content:center; width:100%; min-width:0; max-width:100%; gap:4px; }
-.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 1 auto;align-self:center;width:100%;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:center;align-content:center;overflow:visible; }
+.story-scene-progress.has-multiple-scenes > .story-scene-position { display:grid; flex:1 1 auto; grid-template-columns:auto minmax(0,1fr); align-items:center; justify-content:stretch; width:100%; min-width:0; max-width:100%; gap:4px 10px; }
+.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 1 auto;align-self:center;width:100%;min-width:0;max-width:100%;flex-wrap:nowrap;justify-content:flex-start;align-content:center;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:thin; }
 .story-scene-arrow { position:static;inset:auto;display: grid; flex:none; justify-self:center; place-items: center; width: 28px; min-width: 28px; max-width:28px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
-.story-scene-dots { box-sizing:border-box;display:flex;flex:0 1 auto;flex-wrap:wrap;align-content:center;justify-content:center;width:max-content;min-width:0;max-width:100%;overflow:visible; }
+.story-scene-dots { box-sizing:border-box;display:flex;flex:0 1 auto;flex-wrap:nowrap;align-content:center;justify-content:center;width:max-content;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:thin; }
 .visual-story button { cursor: pointer; color: var(--text); }
 .visual-story button:disabled { opacity: .4; cursor: default; }
 .visual-story button:focus-visible, .visual-story summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
