@@ -47,5 +47,5 @@ test('renders shared-source outcomes as one source with linked branches', () => 
   assert.match(component, /sourceBranch\.edges\.map/u);
   assert.match(component, /onClick=\{\(\) => openNode\(visual, to\.nodeId\)\}/u);
   assert.match(css, /\.dw-answer-visual-fork\s*\{display:grid;grid-template-columns:/u);
-  assert.match(css, /@container guide-pane \(max-width: 700px\)[\s\S]*?\.dw-answer-visual-fork \{grid-template-columns:minmax\(0,1fr\)/u);
+  assert.match(css, /@container answer-visual \(max-width: 620px\)[\s\S]*?\.dw-answer-visual-fork \{grid-template-columns:minmax\(0,1fr\)/u);
 });

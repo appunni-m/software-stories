@@ -19,7 +19,7 @@ export function CodeDetail({ title, claims, anchors, onOpen, onExplore }: Props)
     {claims.length > 0
       ? <div className="code-detail-claims">{claims.map((claim, index) => <p key={`${index}:${claim}`}><InlineCodeText text={claim}/></p>)}</div>
       : <p className="code-detail-empty">No validated explanation claim is linked to this visual point. Open its cited source to inspect the implementation.</p>}
-    <div className="code-detail-sources" aria-label="Cited source lines">
+    <div className="code-detail-sources" role="group" aria-label="Cited source lines">
       {anchors.map((anchor) => <AppButton intent="custom" size="1" key={anchor.anchorId} onClick={() => onOpen(anchor)}>
         <Code2 size={12} aria-hidden="true"/><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
       </AppButton>)}

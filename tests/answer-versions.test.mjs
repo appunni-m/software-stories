@@ -10,10 +10,11 @@ const draft=revision(5,original.revisionId);
 const rejected=revision(6,draft.revisionId,{lifecycle:'rejected'});
 const accepted=revision(7,rejected.revisionId,{lifecycle:'accepted'});
 const history=[original,draft,rejected,accepted];
-const ready={id:'question',question:'What happens?',context:[],status:'ready',revisionId:original.revisionId,generationId:'generation:original'};
+const questionId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ready={id:questionId,question:'What happens?',context:[],status:'ready',revisionId:original.revisionId,generationId:'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
 const workspace=()=>addTurn(createWorkspace('project','snapshot'),structuredClone(ready),'guide');
 const turn=s=>s.explorations[0].turns[0];
-const select=(s,id,versions=history)=>rememberAnswerVersion(s,'root','question',original.revisionId,id,versions);
+const select=(s,id,versions=history)=>rememberAnswerVersion(s,'root',questionId,original.revisionId,id,versions);
 
 test('only valid accepted descendants of the exact original answer are offered',()=>{
   const unrelated=revision(100,null,{lifecycle:'accepted'});
@@ -28,12 +29,12 @@ test('only valid accepted descendants of the exact original answer are offered',
 });
 
 test('selections preserve immutable receipts, original reading, and revised reading independently',()=>{
-  let s=workspace();s=rememberSection(s,'root','question','guide',{revisionId:original.revisionId,sectionId:'section:original-last'});
+  let s=workspace();s=rememberSection(s,'root',questionId,'guide',{revisionId:original.revisionId,sectionId:'section:original-last'});
   const before=JSON.stringify(s);s=select(s,accepted.revisionId);
   assert.equal(resolveAnswerRevision(original,turn(s),history),accepted);
-  assert.equal(turn(s).revisionId,original.revisionId);assert.equal(turn(s).generationId,'generation:original');
+  assert.equal(turn(s).revisionId,original.revisionId);assert.equal(turn(s).generationId,'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   assert.equal(answerReadingPosition(turn(s),'guide',accepted.revisionId).sectionId,'section:one');
-  s=rememberSection(s,'root','question','guide',{revisionId:accepted.revisionId,sectionId:'section:edited-last'});
+  s=rememberSection(s,'root',questionId,'guide',{revisionId:accepted.revisionId,sectionId:'section:edited-last'});
   s=select(s,original.revisionId);
   assert.equal(answerReadingPosition(turn(s),'guide',original.revisionId).sectionId,'section:original-last');
   s=select(s,accepted.revisionId);
@@ -51,7 +52,7 @@ test('a newly accepted edit never moves the current reader and stale or forged c
   assert.equal(resolveAnswerRevision(original,turn(s),[...history,later]),accepted);
   assert.equal(resolveAnswerRevision(original,turn(s),[original]),original);
   assert.equal(select(s,draft.revisionId),s);assert.equal(select(s,'missing'),s);
-  assert.equal(rememberAnswerVersion(s,'root','question','unrelated',accepted.revisionId,history),s);
+  assert.equal(rememberAnswerVersion(s,'root',questionId,'unrelated',accepted.revisionId,history),s);
   const forged={...turn(s),answerVersions:[{originalRevisionId:original.revisionId,revisionId:'revision:foreign',selected:true}]};
   assert.equal(resolveAnswerRevision(original,forged,[...history,revision(100,null,{revisionId:'revision:foreign',lifecycle:'accepted'})]),original);
 });
@@ -59,11 +60,11 @@ test('a newly accepted edit never moves the current reader and stale or forged c
 test('revised story and player progress stays owned by its question across version switches and restart',()=>{
   let s=select(workspace(),accepted.revisionId);
   const progress={revisionId:accepted.revisionId,sectionId:'section:one',sectionRevisionId:'section-revision:7',sceneId:'claim:one',positions:{'claim:one':2},fullMap:false,focusLayoutVersion:4};
-  s=rememberPresentation(s,'root','question','stories',progress);
+  s=rememberPresentation(s,'root',questionId,'stories',progress);
   s=select(s,original.revisionId);
   const restored=decodeWorkspace(JSON.stringify(s),'project','snapshot');
   assert.deepEqual(turn(restored).presentation.stories,[progress]);
-  assert.equal(presentationOwner(restored.explorations[0],accepted.revisionId).id,'question');
+  assert.equal(presentationOwner(restored.explorations[0],accepted.revisionId).id,questionId);
   assert.equal(presentationOwner(restored.explorations[0],'foreign'),undefined);
 });
 
@@ -84,9 +85,9 @@ test('corrupt metadata is bounded and cannot claim another original question',()
 });
 
 test('Flow follows an explicit version switch in its current part and keeps another part selected',()=>{
-  let s=workspace();s=rememberSection(s,'root','question','flow',{revisionId:original.revisionId,sectionId:'section:old-flow'});
+  let s=workspace();s=rememberSection(s,'root',questionId,'flow',{revisionId:original.revisionId,sectionId:'section:old-flow'});
   s=select(s,accepted.revisionId);assert.equal(turn(s).reading.flow.revisionId,accepted.revisionId);
-  s=rememberSection(s,'root','question','flow',{revisionId:accepted.revisionId,sectionId:'section:new-flow'});
+  s=rememberSection(s,'root',questionId,'flow',{revisionId:accepted.revisionId,sectionId:'section:new-flow'});
   s=select(s,original.revisionId);assert.equal(turn(s).reading.flow.sectionId,'section:old-flow');
   s=select(s,accepted.revisionId);assert.equal(turn(s).reading.flow.sectionId,'section:new-flow');
   turn(s).reading.flow={revisionId:'revision:other-part',sectionId:'section:other'};

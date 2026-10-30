@@ -92,7 +92,7 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   return <div className="dw-answer-visual-preview dw-answer-visual-preview-graph" role="group"
     aria-label={`Source-linked relationship preview: ${plainInlineCodeText(firstScene.title)}`}>
     <strong>{plainInlineCodeText(firstScene.title)}</strong>
-    {sourceBranch && branchSource ? <div className="dw-answer-visual-fork" aria-label="One source with multiple outcomes">
+    {sourceBranch && branchSource ? <div className="dw-answer-visual-fork" role="group" aria-label="One source with multiple outcomes">
       <AppButton intent="custom" size="1" type="button" className="dw-answer-visual-fork-source"
         onClick={() => openNode(visual, branchSource.nodeId)} aria-label={`Open source for ${plainInlineCodeText(branchSource.label)}`}>
         <InlineCodeText text={branchSource.label} />

@@ -99,6 +99,8 @@ const exports = {};
 runInThisContext(`(function(exports,require){${compiled}\n})`)(exports, name => {
   if (name === 'react/jsx-runtime') return jsxRuntime;
   if (name === './lib/chapterValidationPresentation') return { presentChapterIssues };
+  if (name === './InlineCodeText') return { InlineCodeText: ({ text }) => jsxRuntime.jsx('span', { children: text }) };
+  if (name === './design/AppButton') return { AppButton: 'button' };
   throw new Error(`Unexpected component dependency ${name}`);
 });
 function buttons(element) {

@@ -1,8 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, explorationSummaryCounts, focusAnswerSection, historyEntry, historySearchResultSummary, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
-const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
+import { addTurn as addWorkspaceTurn, ancestors as workspaceAncestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanExplanationFailureCode, cleanPublishedSections, decodeWorkspace, explorationSummaryCounts, focusAnswerSection as focusWorkspaceAnswer, historyEntry, historySearchResultSummary, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion as readLearningQuestion, parseWorkspace, rankSourcePaths, rememberScroll as rememberWorkspaceScroll, rememberSection as rememberWorkspaceSection, sectionPosition } from '../src/workspace/model.ts';
+const testIds = new Map(); let nextTestId = 1;
+const testId = (id) => {
+  if (id === undefined || id === null || id === 'root' || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(id)) return id;
+  if (!testIds.has(id)) testIds.set(id, `00000000-0000-4000-8000-${String(nextTestId++).padStart(12, '0')}`);
+  return testIds.get(id);
+};
+const addTurn = (state, value, view, options) => addWorkspaceTurn(state, { ...value, id: testId(value.id) }, view,
+  options && { ...options, ...(options.id === undefined ? {} : { id: testId(options.id) }), ...(options.originTurnId === undefined ? {} : { originTurnId: testId(options.originTurnId) }) });
+const ancestors = (state, id) => workspaceAncestors(state, testId(id));
+const focusAnswerSection = (state, explorationId, turnId, position) => focusWorkspaceAnswer(state, testId(explorationId), testId(turnId), position);
+const learningQuestion = (state, explorationId, turnId, limit) => readLearningQuestion(state, testId(explorationId), testId(turnId), limit);
+const rememberScroll = (state, explorationId, view, position) => rememberWorkspaceScroll(state, testId(explorationId), view, position);
+const rememberSection = (state, explorationId, turnId, view, position) => rememberWorkspaceSection(state, testId(explorationId), testId(turnId), view, position);
+const turn = (id,question='Explain the subtotal implementation') => ({id:testId(id),question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 
 test('exploration summaries report current questions separately from child branches',()=>{
   const explorations=[
@@ -46,7 +59,7 @@ test('history preserves partial results only when an exact saved revision is ava
 });
 test('queued work is distinct from the active question in the reader and history',()=>{
   assert.equal(questionProgressText(turn('queued')), 'Waiting for the current question to finish…');
-  assert.equal(questionProgressText({ ...turn('active'), status: 'working' }), 'Building your explanation…');
+  assert.equal(questionProgressText({ ...turn('active'), status: 'working' }), 'Your first section is taking shape…');
   assert.equal(questionProgressText({
     ...turn('guide'), status: 'working', guideId: 'guide',
   }), 'Your guide is coming together…');
@@ -78,15 +91,19 @@ test('queued work is distinct from the active question in the reader and history
 test('repository search and explorer filters have independent inputs and branches count questions',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   assert.match(source,/\[fileFilter,setFileFilter\] = useState\(''\)/);
-  assert.match(source,/\[repositorySearch,setRepositorySearch\] = useState\(''\)/);
+  assert.match(source,/\[repositorySearch,setRepositorySearchState\] = useState\(initialSearchContext\.query\)/);
   assert.match(source,/value=\{activity==='search'\?repositorySearch:fileFilter\}/);
   assert.match(source,/<WorkspaceExplorer paths=\{sourcePaths\} query=\{fileFilter\}/);
   assert.doesNotMatch(source,/<small>\{e\.turns\.length\} answer/);
-  assert.match(source,/<small>\{e\.turns\.length\} question/);
+  assert.match(source,/const count=`\$\{exploration\.turns\.length\} question\$\{exploration\.turns\.length===1\?'':'s'\}`/);
 });
 test('reading graphs use real source buttons without canvas editing or deletion shortcuts',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
-  assert.match(source,/<button type="button" className="dw-flow-source nodrag nopan" aria-label=\{`Open source for \$\{n.label\}`\} onClick=\{\(\)=>openNodeSource\(n,anchor\)\}/);
+  assert.match(source,/className="dw-flow-select nodrag nopan"/);
+  assert.match(source,/onClick=\{\(event\)=>\{event\.stopPropagation\(\);selectNode\(n\.nodeId\);\}\}/);
+  const codeDetail=readFileSync(new URL('../src/design/CodeDetail.tsx',import.meta.url),'utf8');
+  assert.match(codeDetail,/className="code-detail-sources" role="group" aria-label="Cited source lines"/);
+  assert.match(codeDetail,/onClick=\{\(\)\s*=>\s*onOpen\(anchor\)\}/);
   for(const path of ['../src/workspace/Workspace.tsx','../src/VisualStory.tsx']) {
     const component=readFileSync(new URL(path,import.meta.url),'utf8');
     assert.match(component,/nodesFocusable=\{false\} edgesFocusable=\{false\} elementsSelectable=\{false\} deleteKeyCode=\{null\}/);
@@ -97,8 +114,8 @@ test('follow-ups stack at the current level; only explicit exploration creates a
   assert.equal(s.explorations.length,1);assert.equal(s.currentId,'root');assert.equal(s.explorations[0].turns.length,2);
   s=addTurn(s,turn('three'),'guide',{id:'child',originTurnId:'two'});
   s=addTurn(s,turn('four'),'flow',{id:'grandchild',originTurnId:'three'});
-  assert.deepEqual(ancestors(s).map(e=>e.id),['root','child','grandchild']);
-  assert.equal(s.explorations[1].originTurnId,'two');assert.equal(s.explorations[2].originTurnId,'three');
+  assert.deepEqual(ancestors(s).map(e=>e.id),['root',testId('child'),testId('grandchild')]);
+  assert.equal(s.explorations[1].originTurnId,testId('two'));assert.equal(s.explorations[2].originTurnId,testId('three'));
   assert.equal(s.explorations[0].turns.length,2);assert.equal(s.explorations[0].view,'flow');
   assert.equal(s.file,'src/cart.ts');
 });
@@ -115,21 +132,22 @@ test('reopening restores history and last view, and never resubmits interrupted 
   assert.equal(parseWorkspace(JSON.stringify(s),'other','snap').explorations[0].turns.length,0);
 });
 test('partial-answer scope notes survive reopening with bounded plain text',()=>{
-  let s=createWorkspace('p','snap');s=addTurn(s,{...turn('one'),status:'ready',notes:[' This explanation covers inspected paths. ','This explanation covers inspected paths.',null,'bad\ntext','x'.repeat(1001)]},'guide');
+  let s=createWorkspace('p','snap');s=addTurn(s,{...turn('one'),status:'ready',notes:['This explanation covers inspected paths.']},'guide');
   const restored=parseWorkspace(JSON.stringify(s),'p','snap');
   assert.deepEqual(restored.explorations[0].turns[0].notes,['This explanation covers inspected paths.']);
+  assert.deepEqual(cleanAnswerNotes([' This explanation covers inspected paths. ','This explanation covers inspected paths.',null,'bad\ntext','x'.repeat(1001)]),['This explanation covers inspected paths.']);
   assert.deepEqual(cleanAnswerNotes('invalid'),[]);
   assert.equal(cleanAnswerNotes(Array.from({length:20},(_,i)=>`Note ${i}`)).length,8);
-  delete s.explorations[0].turns[0].notes;
-  assert.deepEqual(parseWorkspace(JSON.stringify(s),'p','snap').explorations[0].turns[0].notes,[]);
+  s.explorations[0].turns[0].notes=['bad\ntext'];
+  assert.equal(decodeWorkspace(JSON.stringify(s),'p','snap'),null,'malformed persisted notes reject the record instead of partially restoring it');
 });
-test('finite explanation failure codes survive reopening and unknown codes are dropped',()=>{
+test('finite explanation failure codes survive reopening and unknown codes are rejected',()=>{
   const state=addTurn(createWorkspace('p','snap'),{...turn('failed'),status:'failed',failureCode:'noPublishedSections'},'guide');
   const reopened=decodeWorkspace(JSON.stringify(state),'p','snap');
   assert.equal(reopened.explorations[0].turns[0].failureCode,'noPublishedSections');
   state.explorations[0].turns[0].failureCode='private raw diagnostic';
-  const safe=decodeWorkspace(JSON.stringify(state),'p','snap');
-  assert.equal('failureCode' in safe.explorations[0].turns[0],false);
+  assert.equal(cleanExplanationFailureCode('private raw diagnostic'),undefined);
+  assert.equal(decodeWorkspace(JSON.stringify(state),'p','snap'),null,'malformed persisted metadata must not restore partially');
 });
 test('damaged, cyclic or path-traversing saved UI state falls back safely',()=>{
   const s=createWorkspace('p','snap');s.explorations.push({id:'a',parentId:'a',originTurnId:null,title:'bad',turns:[],view:'guide'});
@@ -197,10 +215,10 @@ test('reading positions belong to the exact exploration, turn, revision and view
   s=rememberScroll(s,'sibling','guide',710);
   const restored=parseWorkspace(JSON.stringify(s),'p','snap');
   const root=restored.explorations.find(e=>e.id==='root');
-  const child=restored.explorations.find(e=>e.id==='child');
-  const grandchild=restored.explorations.find(e=>e.id==='grandchild');
-  const sibling=restored.explorations.find(e=>e.id==='sibling');
-  assert.equal(restored.currentId,'sibling');
+  const child=restored.explorations.find(e=>e.id===testId('child'));
+  const grandchild=restored.explorations.find(e=>e.id===testId('grandchild'));
+  const sibling=restored.explorations.find(e=>e.id===testId('sibling'));
+  assert.equal(restored.currentId,testId('sibling'));
   assert.deepEqual(root.turns[0].reading,{guide:{revisionId:'rev-parent',sectionId:'section-two'},flow:{revisionId:'rev-parent',sectionId:'diagram-three'}});
   assert.deepEqual(root.scrollPositions,{guide:420,flow:84,history:125});
   assert.deepEqual(child.scrollPositions,{flow:230});assert.equal(child.view,'flow');
@@ -209,7 +227,7 @@ test('reading positions belong to the exact exploration, turn, revision and view
   assert.equal(grandchild.turns[0].status,'stopped');assert.equal(grandchild.view,'history');
   assert.deepEqual(root.turns[0].context,turn('parent').context);
   assert.equal(root.turns[0].revisionId,'rev-parent');assert.equal(root.turns.length,1);
-  assert.deepEqual(ancestors(restored,'grandchild').map(e=>e.id),['root','child','grandchild']);
+  assert.deepEqual(ancestors(restored,'grandchild').map(e=>e.id),['root',testId('child'),testId('grandchild')]);
 });
 
 test('opening a compact answer stores its exact section across Guide and Flow switches',()=>{
@@ -219,7 +237,7 @@ test('opening a compact answer stores its exact section across Guide and Flow sw
   state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'flow'}:exploration)};
   state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'guide'}:exploration)};
   const reopened=parseWorkspace(JSON.stringify(state),'p','snap');
-  assert.equal(reopened.explorations[0].focusedTurnId,'answer');
+  assert.equal(reopened.explorations[0].focusedTurnId,testId('answer'));
   assert.deepEqual(reopened.explorations[0].turns[0].reading,{
     guide:{revisionId:'revision:font',sectionId:'section:probes'},
     flow:{revisionId:'revision:font',sectionId:'section:dispatch'},
@@ -233,15 +251,15 @@ test('opening a compact answer stores its exact section across Guide and Flow sw
 
 test('selecting another Guide slide reveals its answer card in the reader',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
-  assert.match(source,/if\(revision&&firstSection\)props\.onFocus\(revision\.revisionId,firstSection\.sectionId\)/,
+  assert.match(source,/if\(props\.compact\)props\.onFocus\(revision\.revisionId,sectionId\)/,
     'Guide slide navigation must focus the selected section through the workspace');
-  assert.match(source,/target\?\.scrollIntoView\(\{block:'start'\}\)/,
+  assert.match(source,/target\.scrollIntoView\(\{block:'start'\}\)/,
     'the selected Guide answer must return to view when its section changes');
-  assert.match(source,/const restoreTurnId=current\.revealTurnId\?\?current\.focusedTurnId;/,
+  assert.match(source,/const restoreTurnId=current\.revealTurnId\?\?\(revealAnswer\?current\.focusedTurnId\?\?featuredTurnId:undefined\)/,
     'restart restores the last focused answer when its pixel scroll is stale');
   assert.match(source,/if\(current\.revealTurnId\)target\.focus\(\{preventScroll:true\}\)/,
     'restart scroll restoration must not steal keyboard focus');
-  assert.match(source,/current\.id,current\.view,current\.revealTurnId,current\.focusedTurnId,chaptersLoading,tool/,
+  assert.match(source,/current\.id,current\.view,current\.revealTurnId,current\.focusedTurnId,featuredTurnId,chaptersLoading,tool/,
     'changing the durable reader target reruns restoration for the current exploration');
 });
 
@@ -264,7 +282,7 @@ test('late reader events cannot change another revision or exploration',()=>{
   assert.equal(rememberSection(s,'root','one','guide',{revisionId:'rev',sectionId:'two'}),s);
   s=addTurn(s,turn('child-turn'),'guide',{id:'child',originTurnId:'one'});
   s=rememberScroll(s,'root','guide',303);
-  assert.equal(s.currentId,'child');assert.equal(s.explorations[0].scrollPositions.guide,303);
+  assert.equal(s.currentId,testId('child'));assert.equal(s.explorations[0].scrollPositions.guide,303);
   assert.equal(s.explorations[1].scrollPositions,undefined);
 });
 
@@ -276,11 +294,11 @@ test('invalid and oversized reader positions are discarded without losing saved 
   assert.equal(restored.explorations[0].turns[0].question,turn('one').question);
   assert.equal(restored.explorations[0].turns[0].revisionId,'rev');
   assert.deepEqual(restored.explorations[0].turns[0].reading,{flow:{revisionId:'rev',sectionId:'ok'}});
-  assert.deepEqual(restored.explorations[0].scrollPositions,{});
+  assert.equal(restored.explorations[0].scrollPositions,undefined);
   for(const bad of [null,[],42,{revisionId:'rev',sectionId:'bad\u0000'},{revisionId:'',sectionId:'ok'}]){
     s.explorations[0].turns[0].reading={guide:bad};
     restored=parseWorkspace(JSON.stringify(s),'p','snap');
-    assert.deepEqual(restored.explorations[0].turns[0].reading,{});
+    assert.equal(restored.explorations[0].turns[0].reading,undefined);
     assert.equal(rememberSection(s,'root','one','guide',bad),s);
   }
   for(const bad of [-1,NaN,Infinity,10_000_001,'100'])assert.equal(rememberScroll(s,'root','guide',bad),s);
@@ -331,7 +349,7 @@ test('progressive section identities and timing are bounded and unknown runs can
   assert.deepEqual(cleanPublishedSections([{...sectionRef(1),supersedes:runOne}]),[]);
   assert.equal(cleanPublishedSections([sectionRef(),sectionRef()]).length,1);
   const state=addTurn(createWorkspace('p','snap'),{...turn('one'),runIds:[runOne],publishedSections:[sectionRef(0,runTwo)]},'guide');
-  assert.equal(parseWorkspace(JSON.stringify(state),'p','snap').explorations[0].turns[0].publishedSections.length,0);
+  assert.equal(decodeWorkspace(JSON.stringify(state),'p','snap'),null,'a section from an unowned run invalidates the persisted record');
 });
 
 test('real native section notices survive Guide state and local restart without changing their IDs',()=>{
