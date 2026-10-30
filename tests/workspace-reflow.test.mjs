@@ -52,11 +52,11 @@ test('native header keeps desktop controls together and reflows compact controls
   matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 0 auto;[^}]*margin-left:\s*auto;/);
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);
-  matches(shell,/@container app-window \(max-width: 1100px\)\s*\{\s*\.topbar\s*\{[^}]*flex-flow:column nowrap;/);
+  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{\s*\.topbar\s*\{[^}]*flex-flow:column nowrap;/);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*display:flex;[^}]*flex-flow:row wrap;/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
-  matches(shell,/@container app-window \(max-width: 1100px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex:0 0 auto;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
+  matches(shell,/@container app-window \(max-width: 1320px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{display:flex;flex:0 0 auto;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{display:flex;flex:0 0 auto;flex-flow:row wrap;[^}]*justify-content:flex-start;[^}]*margin-left:0;[^}]*padding-inline:12px;/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*flex:\s*0 0 auto;/u);
@@ -66,12 +66,12 @@ test('native header keeps desktop controls together and reflows compact controls
   matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);
 });
 
-test('scene navigation stays in flow and wraps all scene controls',()=>{
+test('scene navigation stays in flow and scrolls long scene indexes within their track',()=>{
   const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
   matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;/);
   matches(story,/\.story-toolbar\s*\{[^}]*position:\s*static;/);
   matches(story,/\.story-scene-progress\s*\{[^}]*position:\s*static;/);
-  matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/);
+  matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/);
 });
 
 test('native high zoom shows one workspace pane at a time with a return path',()=>{
