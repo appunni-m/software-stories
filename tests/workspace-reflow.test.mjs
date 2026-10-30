@@ -82,6 +82,10 @@ test('native high zoom shows one workspace pane at a time with a return path',()
   matches(css,/html\[data-app-zoom-compact="true"\] \.developer-workspace \.dw-sidebar-back \{display:inline-flex;\}/);
 });
 
+test('exploration breadcrumb buttons cancel Radix ghost margins so names are not clipped',()=>{
+  matches(css,/\.dw-path-root button:not\(\.rt-IconButton\),\.dw-path-segments button:not\(\.rt-IconButton\)\s*\{[^}]*margin:0;[^}]*padding:0;/);
+});
+
 test('source-linked relationship previews wrap labels in wide and narrow Guide panes',()=>{
   matches(css,/\.dw-answer-visual-preview-graph li \{display:grid;min-width:0;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   matches(css,/@container answer-visual \(min-width: 720px\) \{[\s\S]*?\.dw-answer-visual-preview-graph > ul > li \{grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1fr\)/);
