@@ -138,3 +138,19 @@ Fontdone profile still reports seven expected ranges missing from each broad
 query's first page; this source change has not been measured against that
 profile. Agent-side multi-stage recall, exact source review, cancellation and
 answer quality remain unqualified; keep `0wdn` open.
+
+## Package evidence for body-ranked source discovery — 30 October 2026
+
+The current source, including the cached text-search ranking handoff, compiled
+and packaged with `npm run bundle:macos`. The frontend TypeScript/Vite build,
+native release build, package metadata verification, and DMG checksum
+verification completed. The rebuilt app was installed and reopened on the
+existing Fontdone `main@5249b72371` workspace; executable SHA-256:
+`99542d424a7521f86b1064eb2db9215181a3500e742237ac6e679255c3344a5a`.
+
+This proves the current source packages and restores the existing workspace;
+it does not measure discovery ranking, make a provider request, or qualify an
+answer. The 29 October profile still reports seven of twelve known relevant
+ranges missing from each broad query's first page. No tests or real retrieval
+were run. Keep `0wdn` open for a refreshed retrieval profile, the Fontdone
+scenarios, semantic review, cancellation, and packaged answer acceptance.

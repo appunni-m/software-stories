@@ -330,3 +330,15 @@ controlled error instead of leaving a user-controlled run waiting for a
 completion it cannot safely match. This tightens local protocol correlation
 only; it does not qualify a runtime version or operation acceptance. No tests,
 build, app launch, login, runtime probe or model request ran.
+
+### Saved Codex connection restored after packaged restart — 2026-10-30
+
+After installing the current bundle (`034cc33`), the existing Fontdone
+workspace reopened without a setup form. The native accessibility state first
+reported a transient unavailable-model message while the runtime was
+reconnecting; on the next state read, the header showed the saved Codex account,
+GPT-6 Luna, and max reasoning as connected. This confirms restoration of the
+saved account and selection after this app restart, with no sign-in or model
+request. It does not qualify generation, account/runtime change handling,
+operation/cancellation behavior, or the full packaged matrix; keep this task
+open.
