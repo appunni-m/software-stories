@@ -154,3 +154,20 @@ answer. The 29 October profile still reports seven of twelve known relevant
 ranges missing from each broad query's first page. No tests or real retrieval
 were run. Keep `0wdn` open for a refreshed retrieval profile, the Fontdone
 scenarios, semantic review, cancellation, and packaged answer acceptance.
+
+## Preserve partial local-search ranking in the AI shortlist — 30 October 2026
+
+Static review found that the source-selection prompt treated every
+`contentSearch.status` other than `ready` as metadata-only. Native discovery
+sets the status to `partial` when captured-text matches did rank the shortlist
+but more matches or index coverage may be missing. That instruction discarded
+the value of the available body-match ordering exactly when a large repository
+had incomplete coverage. The prompt now uses ready and partial rankings as
+discovery leads, makes partial coverage explicit, and reserves metadata-only
+selection for `notBuilt` or `unavailable`. It also says not to infer that
+unreturned files are irrelevant.
+
+This is a prompt-only source fix. No tests, build, provider request, profile,
+or packaged acceptance ran. It does not improve the recorded 5/12 broad range
+recall by itself; keep `0wdn` open for the Fontdone scenarios, staged retrieval,
+semantic review, cancellation, and packaged answer acceptance.
