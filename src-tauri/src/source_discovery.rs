@@ -1164,6 +1164,59 @@ mod tests {
         assert!(encoded.len() <= MAX_METADATA);
     }
 
+    #[test]
+    fn captured_text_rank_precedes_path_hints_for_large_range_targets() {
+        use crate::chapter_generation::tests::Fixture;
+
+        let mut fixture = Fixture::new();
+        let padding = "// unrelated generated fixture padding\n";
+        let marker = "// zephyr orchard checkpoint move orchestration evidence\n";
+        let mut relevant_source = String::with_capacity(260_000);
+        while relevant_source.len() + marker.len() <= 260_000 {
+            relevant_source.push_str(padding);
+        }
+        relevant_source.push_str(marker);
+        let mut path_only_decoy = String::with_capacity(260_000);
+        while path_only_decoy.len() < 260_001 {
+            path_only_decoy.push_str(padding);
+        }
+
+        fixture.recapture_with_source("src/large_pipeline.rs", &relevant_source);
+        fixture.recapture_with_source("src/zephyr_orchard_checkpoint.rs", &path_only_decoy);
+
+        let cancelled = AtomicBool::new(false);
+        let prepared = crate::repository_context::prepare(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &crate::repository_context::Budget::new(&cancelled),
+        )
+        .unwrap();
+        drop(prepared);
+
+        let input = DiscoveryInput {
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            question: "Where does the zephyr orchard checkpoint move?".to_owned(),
+            target_path: None,
+            model_id: "gpt-6-luna".to_owned(),
+            effort: "max".to_owned(),
+            workspace_grant: None,
+        };
+        let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
+        let value: Value = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(value["contentSearch"]["status"], "ready");
+        assert_eq!(value["contentSearch"]["matchedPaths"], 1);
+        assert_eq!(
+            value["rangeOnlyFiles"][0]["path"],
+            "src/large_pipeline.rs"
+        );
+        assert_eq!(
+            value["rangeOnlyFiles"][1]["path"],
+            "src/zephyr_orchard_checkpoint.rs"
+        );
+    }
+
     fn saved_index_path(storage: &Path) -> PathBuf {
         let project_dir = std::fs::read_dir(storage.join("indexes"))
             .unwrap()

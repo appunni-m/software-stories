@@ -133,11 +133,21 @@ the text index itself; absent, stale or unusable cached search data leaves the
 previous metadata fallback intact and is declared in the review metadata. The
 independently supplied fixed target still takes precedence.
 
-No tests, build, real provider operation or packaged acceptance ran. The saved
-Fontdone profile still reports seven expected ranges missing from each broad
-query's first page; this source change has not been measured against that
-profile. Agent-side multi-stage recall, exact source review, cancellation and
-answer quality remain unqualified; keep `0wdn` open.
+The first focused regression now builds the existing snapshot text index for
+two readable sources above 250 KB. It asks about terms present in one source's
+body but only in the other source's filename, then verifies the body match is
+ranked first in `rangeOnlyFiles` and that discovery reports its search status
+and match count. This confirms the cached-content ranking path is exercised for
+large range targets and retains metadata fallback ordering for a name-only
+candidate.
+
+`RUSTC_WRAPPER= CARGO_INCREMENTAL=0 cargo test --locked --manifest-path
+src-tauri/Cargo.toml --lib
+captured_text_rank_precedes_path_hints_for_large_range_targets` passed (1
+passed, 854 filtered out). The build emitted existing warnings in narration,
+recovery and Claude adapter code. This synthetic regression does not measure
+Fontdone's seven missing expected ranges, agent retrieval, provider output,
+cancellation, answer quality or packaged behavior. Keep `0wdn` open.
 
 ## Package evidence for body-ranked source discovery — 30 October 2026
 
