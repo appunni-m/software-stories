@@ -1373,3 +1373,55 @@ selected saved explanation still has one scene, so the multi-scene arrows and
 dot-strip behavior were not visible in the packaged app. No provider request,
 audio generation, snapshot capture, or saved answer changed. Keep `x21h` and
 `13yp` open for populated multi-scene, narrow-window, and accessibility review.
+
+### Header reflow margin — 30 October 2026
+
+The user again identified the Guide scene pager and top header as misplaced or
+overflowing. The open Fontdone answer is single-scene, so it does not render
+previous/next arrows or scene dots. The installed header fits at the inspected
+1440 CSS-pixel window, and neither the header nor scene pager uses absolute
+positioning. To give the header more room before controls compress, the source
+reflow breakpoint moved from 1180px to 1280px. This source-only correction has
+not been built or visually qualified. Keep multi-scene, narrow-window,
+high-zoom and packaged acceptance open.
+
+### Compact controls stay in normal flow — 30 October 2026
+
+The user specified that the scene navigation and top menu still look as if
+they overflow or float over the app. In the installed Fontdone window, the
+compact header placed account controls in a separate row; the active saved
+Guide has one scene, so its previous/next controls and marker row are absent.
+The compact header now uses wrapping flex rows rather than a fractional grid
+that stretches the first account-control track. Scene markers now wrap within
+the bounded pager lane rather than relying on a horizontal overflow strip.
+This is a source-only correction; it has not been built or visually checked.
+Keep populated multi-scene, narrow-window, high-zoom and packaged acceptance
+open. No project data or saved explanation was changed.
+
+### Apply responsive rules to the actual header — 30 October 2026
+
+Static CSS review found the remaining header overflow cause: the named size
+container was `.topbar`, and each `@container app-topbar` block attempted to
+change `.topbar` itself. Size container queries apply to descendants, not the
+query container, so the header retained its three-column desktop grid even
+when its children switched to compact wrapping. The app shell now owns the
+inline-size container, and the same breakpoints style the descendant header.
+This is a source-only correction. No build or visual acceptance ran; the
+pending multi-scene pager, narrow-window, high-zoom and packaged checks remain
+open. No repository data or saved explanation changed.
+
+### Rebuilt installed app for header follow-up — 30 October 2026
+
+The installed app was built before the latest header CSS commit, so the source
+fix had not reached the user-visible app. Rebuilt the current pushed source at
+`445e696` with `npm run bundle:macos` (exit 0), then replaced the installed app
+in place. The installed executable SHA-256 is
+`3b3f47bc27812cbf3ac3ee93f389d9635451ffaab31b3055a1f0f7a556ecee14`.
+Reopening restored Fontdone `main@5249b72371`, the selected `Outline::is_empty`
+answer, its source range, and the existing Codex connection. In the current
+window, header controls render in two rows inside the header and do not float
+over the workspace. The selected answer still has one scene, so its previous /
+next scene controls and marker row are not rendered; this install check cannot
+qualify their positions. No AI request, narration, or saved-content change
+occurred. Keep multi-scene, narrow-window, high-zoom and packaged acceptance
+open.
