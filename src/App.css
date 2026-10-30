@@ -40,7 +40,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .app-window { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); container-type: inline-size; container-name: app-window; }
-.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: auto minmax(0,1fr); grid-template-areas: "brand actions" "project project"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
+.topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; grid-template-areas: "brand project actions"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
 .brand-lockup { grid-area: brand; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; color: var(--accent); background: linear-gradient(140deg, var(--accent-soft), var(--surface-raised)); border: 1px solid var(--accent-border); border-radius: 9px; }
 .brand-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.07em; color: var(--text); }
@@ -58,7 +58,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-refresh-button > svg { flex: 0 0 auto; }
 .topbar .brand-mark { height:27px; width:27px; border:0; border-radius:6px; }
 .topbar .brand-name { font-size:14px; font-weight:650; letter-spacing:-.04em; }
-.topbar .project-controls { flex:0 1 auto; gap:8px; max-width:100%; }
+.topbar .project-controls { flex:0 1 auto; flex-wrap:nowrap; gap:8px; width:auto; max-width:100%; }
 .topbar .project-button, .topbar .snapshot-button { box-sizing:border-box; min-width:0; max-width:min(28cqi,360px); }
 .topbar .snapshot-button { max-width:min(24cqi,280px); }
 .topbar .project-button > span, .topbar .snapshot-button > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -87,23 +87,31 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Keep identity and app actions on one row; repository controls get their own row. */
-@container app-window (max-width: 800px) {
+/* Keep the header compact when all three groups fit; give repository controls
+   their own in-flow row before any group has to overlap or escape the window. */
+@container app-window (max-width: 1180px) {
   .topbar {
-    display:grid;
-    grid-template-columns:minmax(0,1fr);
-    grid-template-areas:"brand" "actions" "project";
+    grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"brand actions" "project project";
     align-items:stretch;
     gap:4px 8px;
     padding:5px 10px;
   }
   .topbar .project-controls {grid-area:project;flex:0 1 auto;flex-wrap:wrap;width:100%;}
-  .topbar .topbar-actions {grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-start;gap:8px;margin-left:0;padding-inline:0;}
+  .topbar .topbar-actions {grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;}
   .topbar .project-button {flex:0 1 auto;max-width:min(70cqi,520px);}
   .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(70cqi,360px);}
   .topbar .snapshot-button {width:100%;max-width:100%;}
   .topbar .connection-header {flex:0 1 260px;width:100%;max-width:min(70cqi,260px);}
   .topbar .theme-control {max-width:160px;}
+}
+@container app-window (max-width: 680px) {
+  .topbar {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"brand" "actions" "project";
+    align-items:stretch;
+  }
+  .topbar .topbar-actions {justify-content:flex-start;}
 }
 @container app-window (max-width: 600px) {
   .topbar .brand-name,
@@ -120,7 +128,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .theme-control-trigger {min-width:0;max-width:100%;}
 }
 @container app-window (max-width: 420px) {
-  .topbar .topbar-actions {justify-content:flex-start;}
   .topbar .connection-header {flex:1 1 100%;width:100%;max-width:min(100%,230px);}
 }
 html[data-app-zoom-compact="true"] .topbar {gap:4px 8px;padding:4px 8px;}
