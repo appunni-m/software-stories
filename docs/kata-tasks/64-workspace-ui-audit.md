@@ -1442,3 +1442,23 @@ them. The selected Guide still has one scene, so its multi-scene controls could
 not be inspected in the package. No provider request, narration, snapshot
 capture, or saved-answer change occurred. Keep multi-scene, narrow-window,
 high-zoom, and broader design acceptance open under `13yp` and `x21h`.
+
+### Searchable exploration history — 30 October 2026
+
+Added a local filter to the Explorations activity. It matches saved question
+titles and associated file paths, keeps the matching branch's ancestors open,
+and shows an explicit empty state when nothing matches. The filter does not
+send a request or alter saved history. Three focused filter regressions pass,
+`npm run build` passes, and `npm run bundle:macos` verifies licenses, package
+metadata, and the DMG checksum. Installed executable SHA-256:
+`b93a797bcf0824f76c15bfee912c4d752630ef51a143e0147836afc1f2508b04`.
+
+In the installed app on Fontdone `main@5249b72371`, searching for `composite`
+showed only the matching saved question under its repository ancestor; a
+nonmatching query displayed the empty state; clearing the query restored the
+full tree. At a compact window width of about 1250 CSS pixels, the header
+reflowed into two normal-flow rows without overlapping the workspace. No
+provider request, narration, capture, or saved-answer edit occurred. This
+qualifies the filter and compact header state only; keep `x21h` and `13yp`
+open for the remaining page, multi-scene, keyboard, zoom, theme, and
+accessibility acceptance.

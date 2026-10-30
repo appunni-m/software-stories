@@ -38,6 +38,7 @@
 .dw-explorations small {font-size:12px;color:var(--dim);}
 .dw-explorations .dw-child-count {display:inline-flex;align-items:center;gap:var(--space-1);color:var(--accent);}
 .dw-sidebar > .dw-explorations {max-height:none;}
+.dw-exploration-empty {margin:var(--space-3);padding:var(--space-3);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere;}
 .dw-separator {width:var(--space-1);background:var(--border);}
 .dw-separator:hover,.dw-separator:focus-visible {background:var(--accent);}
 .dw-main {height:100%;display:flex;flex-direction:column;min-width:0;}
