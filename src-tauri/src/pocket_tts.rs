@@ -214,6 +214,7 @@ pub(crate) fn status(storage: &Path) -> PocketTtsStatus {
             "model" => {
                 "Downloading the pinned English model and Alba voice, then loading them locally…"
             }
+            "removing" => "Removing the local Pocket TTS files…",
             "synthesizing" => "Generating narration locally with Pocket TTS…",
             _ => "Preparing Pocket TTS…",
         }
@@ -261,6 +262,22 @@ pub(crate) async fn setup(
     })
     .await?;
     Ok(status(storage))
+}
+
+/// Remove only the managed runtime. Saved narration audio lives beside the
+/// runtime and remains playable after this operation.
+pub(crate) async fn remove_runtime(
+    storage: &Path,
+    cancellation: &mut oneshot::Receiver<()>,
+) -> Result<PocketTtsStatus, ProviderFailure> {
+    let storage = storage.to_path_buf();
+    let status_storage = storage.clone();
+    run_exclusive(cancellation, move |_| {
+        set_phase("removing");
+        remove_runtime_files(&storage)
+    })
+    .await?;
+    Ok(status(&status_storage))
 }
 
 /// Generate one section with a finite, offline worker and return validated PCM WAV.
@@ -447,6 +464,38 @@ fn cleanup_setup_caches(runtime: &Path) {
     for directory in ["uv-cache", "huggingface"] {
         let _ = remove_path_if_present(&runtime.join(directory));
     }
+}
+
+fn remove_runtime_files(storage: &Path) -> Result<(), ProviderFailure> {
+    let storage_metadata = match fs::symlink_metadata(storage) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(_) => return Err(runtime_removal_failure()),
+    };
+    if !storage_metadata.file_type().is_dir() {
+        return Err(runtime_removal_failure());
+    }
+
+    let parent = storage.join("pocket-tts");
+    let parent_metadata = match fs::symlink_metadata(&parent) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(_) => return Err(runtime_removal_failure()),
+    };
+    // Reject a linked parent so removing a stale runtime path can never walk
+    // into a directory outside Code Atlas app storage.
+    if !parent_metadata.file_type().is_dir() {
+        return Err(runtime_removal_failure());
+    }
+
+    remove_path_if_present(&root(storage)).map_err(|_| runtime_removal_failure())
+}
+
+fn runtime_removal_failure() -> ProviderFailure {
+    failure(
+        ProviderFailureKind::LocalStorageUnavailable,
+        "Pocket TTS could not remove its local files. Check folder permissions and try again. Saved narration audio was kept.",
+    )
 }
 
 fn write_worker(runtime: &Path) -> Result<(), ProviderFailure> {
@@ -986,6 +1035,66 @@ mod tests {
         let runtime = TestRuntime::new();
         let status = status(&runtime.0);
         assert_eq!(status.setup_available, supported_platform());
+    }
+
+    #[test]
+    fn removing_runtime_preserves_saved_audio_and_is_idempotent() {
+        let storage = TestRuntime::new();
+        let runtime = root(&storage.0);
+        fs::create_dir_all(&runtime).unwrap();
+        fs::write(runtime.join("ready.json"), b"runtime marker").unwrap();
+
+        let audio_cache = storage.0.join("pocket-narration-cache-v1");
+        fs::create_dir_all(&audio_cache).unwrap();
+        fs::write(audio_cache.join("saved.wav"), b"saved narration").unwrap();
+        fs::write(storage.0.join("other-data.json"), b"preserve").unwrap();
+
+        remove_runtime_files(&storage.0).unwrap();
+
+        assert!(!runtime.exists());
+        assert_eq!(
+            fs::read(audio_cache.join("saved.wav")).unwrap(),
+            b"saved narration"
+        );
+        assert_eq!(
+            fs::read(storage.0.join("other-data.json")).unwrap(),
+            b"preserve"
+        );
+        remove_runtime_files(&storage.0).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removing_runtime_rejects_a_symlinked_parent() {
+        use std::os::unix::fs::symlink;
+
+        let storage = TestRuntime::new();
+        let outside = storage.0.join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.txt"), b"outside data").unwrap();
+        symlink(&outside, storage.0.join("pocket-tts")).unwrap();
+
+        assert!(remove_runtime_files(&storage.0).is_err());
+        assert_eq!(fs::read(outside.join("keep.txt")).unwrap(), b"outside data");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removing_runtime_unlinks_a_runtime_symlink_without_touching_its_target() {
+        use std::os::unix::fs::symlink;
+
+        let storage = TestRuntime::new();
+        let parent = storage.0.join("pocket-tts");
+        fs::create_dir_all(&parent).unwrap();
+        let outside = storage.0.join("outside-runtime");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.txt"), b"outside data").unwrap();
+        symlink(&outside, root(&storage.0)).unwrap();
+
+        remove_runtime_files(&storage.0).unwrap();
+
+        assert!(fs::symlink_metadata(root(&storage.0)).is_err());
+        assert_eq!(fs::read(outside.join("keep.txt")).unwrap(), b"outside data");
     }
 
     #[cfg(unix)]

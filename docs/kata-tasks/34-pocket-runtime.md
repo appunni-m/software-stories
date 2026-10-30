@@ -97,11 +97,33 @@ The original October 15 implementation was source-only. October 16 native setup 
 The completed app-managed runtime on this Apple Silicon Mac occupies
 1,116,380 KiB (about 1.1 GB): 796,564 KiB for the virtual environment,
 220,188 KiB for model/voice assets, and 27,236 KiB for the pinned setup tool.
-The Voice connection screen now tells the user the rounded retained size, that
-the prepared voice works offline, and that local synthesis has no provider
-usage fee. This is one post-setup measurement, not a clean-install peak or a
-cross-machine measurement. Temporary disk/download requirements, memory, and
-uninstall behavior remain unqualified; keep the task open.
+The Voice connection screen tells the user the size needed for setup, that the
+prepared voice works offline, and that local synthesis has no provider usage
+fee. This is one post-setup measurement, not a clean-install peak or a
+cross-machine measurement. Temporary disk/download requirements and memory
+remain unqualified.
+
+## Source implementation — runtime removal — 30 October 2026
+
+Connections → Voice now offers **Remove local voice** for a verified Pocket
+runtime, behind an explicit confirmation that states the approximate storage
+reclaimed and what happens to saved audio. The Tauri operation shares the
+exclusive Pocket worker queue with setup and synthesis. It deletes only
+`pocket-tts/runtime-3.3.0-v1`; the separate
+`pocket-narration-cache-v1` audio cache and other app data remain. Missing
+runtime paths are treated as already removed. The removal helper rejects a
+symlinked app-storage/runtime parent and unlinks a symlink at the runtime leaf
+without following it. Errors tell the user to check permissions and retry.
+
+Focused source evidence on 30 October: `npm run build` passed;
+`cargo test --manifest-path src-tauri/Cargo.toml --lib
+pocket_tts::tests::removing_runtime -- --nocapture` passed all three matching
+tests for cache preservation/idempotence and symlink handling; and
+`rustfmt --edition 2024 --config skip_children=true --check
+src-tauri/src/pocket_tts.rs` passed. This does not verify the packaged dialog or
+remove the runtime from a user's Mac. Clean-account setup, update/recovery,
+offline synthesis, and packaged uninstall/lifecycle acceptance remain open;
+keep the task open.
 
 ## Contract
 Pin Pocket TTS 3.3.0, a compatible Python runtime, exact model/config identity and a vetted built-in voice. Provide app-managed installation/download progress, cancellation, retry and actionable missing-runtime/disk errors. Use one managed worker with bounded input/output/concurrency and no network listener. Reuse loaded resources where feasible; cancel active work and reap children on cancellation/app exit. Never execute repository-provided scripts/config or accept arbitrary voice/model URLs. Keep runtime and model storage separate from repository data.

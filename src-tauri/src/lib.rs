@@ -952,6 +952,22 @@ async fn setup_pocket_tts(
     })
 }
 
+#[tauri::command]
+async fn remove_pocket_tts_runtime(
+    app: AppHandle,
+) -> Result<provider::ProviderCommandResult<pocket_tts::PocketTtsStatus>, String> {
+    let storage_dir = app_data_directory(&app)?;
+    // Keep cancellation disabled for this short, local filesystem operation;
+    // the worker queue still serializes it with setup and synthesis.
+    let (keep_open, mut cancellation) = tokio::sync::oneshot::channel::<()>();
+    let result = pocket_tts::remove_runtime(&storage_dir, &mut cancellation).await;
+    drop(keep_open);
+    Ok(match result {
+        Ok(status) => provider::ProviderCommandResult::ok(status),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    })
+}
+
 #[tauri::command(rename_all = "camelCase")]
 fn build_local_narration_request_review(
     app: AppHandle,
@@ -2298,6 +2314,7 @@ pub fn run() {
             get_local_narration_disclosure,
             get_pocket_tts_status,
             setup_pocket_tts,
+            remove_pocket_tts_runtime,
             build_local_narration_request_review,
             prewarm_local_narration,
             cancel_pending_local_narration,

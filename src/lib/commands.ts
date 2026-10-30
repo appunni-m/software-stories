@@ -1396,6 +1396,10 @@ export async function setupPocketTts(requestId: string): Promise<ProviderCommand
   return invoke<ProviderCommandResult<PocketTtsStatus>>('setup_pocket_tts', { requestId });
 }
 
+export async function removePocketTtsRuntime(): Promise<ProviderCommandResult<PocketTtsStatus>> {
+  return invoke<ProviderCommandResult<PocketTtsStatus>>('remove_pocket_tts_runtime');
+}
+
 export async function getNarrationDisclosure(backend: NarrationBackend = 'pocket-tts'): Promise<NarrationDisclosure> {
   return invoke<NarrationDisclosure>(backend === 'pocket-tts' ? 'get_local_narration_disclosure' : 'get_narration_disclosure');
 }
