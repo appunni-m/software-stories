@@ -27,9 +27,9 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 const MAX_METADATA: usize = 96_000;
-const MAX_CONTENT_RANKED_PATHS: usize = crate::repository_context::MAX_SEARCH_PAGE_SIZE;
+const MAX_CONTENT_RANKED_PATHS: usize = crate::repository_context::MAX_FILE_DISCOVERY_RESULTS;
 const TTL: Duration = Duration::from_secs(300);
-const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v2-content-ranking";
+const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v3-bounded-content-ranking";
 pub(crate) const QUERY_STOPWORDS: &[&str] = &[
     "about", "after", "again", "also", "any", "are", "because", "before", "being",
     "between", "can", "could", "does", "each", "explain", "file", "for", "from",
@@ -362,6 +362,7 @@ fn metadata(
                     || result.coverage.source_byte_limited_files > 0
                     || result.index_limit_omissions.range_limited_files > 0
                     || result.index_limit_omissions.source_byte_limited_files > 0
+                    || result.limited
                     || result.next_offset.is_some()
                 {
                     "partial"
@@ -372,7 +373,12 @@ fn metadata(
                 for (rank, hit) in result.matches.into_iter().enumerate() {
                     ranks.entry(hit.range.path).or_insert(rank);
                 }
-                (status, ranks.len(), result.next_offset.is_some(), ranks)
+                (
+                    status,
+                    ranks.len(),
+                    result.limited || result.next_offset.is_some(),
+                    ranks,
+                )
             }
             Ok(None) => ("notBuilt", 0, false, HashMap::new()),
             Err(_) => ("unavailable", 0, false, HashMap::new()),
@@ -1214,6 +1220,59 @@ mod tests {
         assert_eq!(
             value["rangeOnlyFiles"][1]["path"],
             "src/zephyr_orchard_checkpoint.rs"
+        );
+    }
+
+    #[test]
+    fn discovery_ranks_large_targets_beyond_the_first_search_page() {
+        use crate::chapter_generation::tests::Fixture;
+
+        let mut fixture = Fixture::new();
+        let repository = Path::new(&fixture.manifest.summary.project_id);
+        let repeated_match = "// orchard flow stage\n".repeat(6);
+        for index in 0..(crate::repository_context::MAX_SEARCH_PAGE_SIZE + 4) {
+            let path = repository.join(format!("src/a{index:02}-decoy.rs"));
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, &repeated_match).unwrap();
+        }
+
+        let mut large_target = String::with_capacity(260_000);
+        while large_target.len() < 260_001 {
+            large_target.push_str("// unrelated captured source padding\n");
+        }
+        large_target.push_str("// orchard flow stage\n");
+        fixture.recapture_with_source("src/z_large_pipeline.rs", &large_target);
+
+        let cancelled = AtomicBool::new(false);
+        drop(
+            crate::repository_context::prepare(
+                &fixture.storage,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &crate::repository_context::Budget::new(&cancelled),
+            )
+            .unwrap(),
+        );
+
+        let input = DiscoveryInput {
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            question: "orchard flow stage".to_owned(),
+            target_path: None,
+            model_id: "gpt-6-luna".to_owned(),
+            effort: "max".to_owned(),
+            workspace_grant: None,
+        };
+        let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
+        let value: Value = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(value["contentSearch"]["status"], "ready");
+        assert_eq!(
+            value["contentSearch"]["matchedPaths"],
+            crate::repository_context::MAX_SEARCH_PAGE_SIZE + 5
+        );
+        assert_eq!(
+            value["rangeOnlyFiles"][0]["path"],
+            "src/z_large_pipeline.rs"
         );
     }
 

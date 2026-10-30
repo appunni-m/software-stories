@@ -378,3 +378,14 @@ file discovery followed by bounded scoped searches; automatic agent use and
 answer quality still need independent qualification. Exact profile details:
 [current-source recheck](../acceptance/2026-10-17-range-retrieval.md#recheck-after-distinct-term-first-range-ordering--29-october-2026). Keep
 `a699`, `0wdn`, and `gk46` open.
+
+## Full bounded file-discovery window — 30 October 2026
+
+Automatic source discovery can now consume all 256 unique file candidates in
+one local ranked-search operation while the user-facing search endpoint keeps
+its 32-result page cap. Truncation at the internal candidate ceiling remains
+visible as a partial result. The focused `source_discovery` regression proves
+that a relevant large implementation behind 36 higher-ranked files reaches
+the automatic shortlist. This does not change direct range-search recall or
+qualify the agent's subsequent range selection; the Fontdone profile and
+answer-quality gates remain open. See [large source discovery](66-large-source-discovery.md).

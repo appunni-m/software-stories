@@ -39,6 +39,7 @@ const MAX_CACHE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_CANDIDATES: usize = 256;
 const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
 const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
+pub(crate) const MAX_FILE_DISCOVERY_RESULTS: usize = MAX_CANDIDATES;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
 const MAX_INDEX_OMISSION_PATHS: usize = 8;
 pub(crate) const MAX_RANGE_BYTES: usize = 32_768;
@@ -839,7 +840,7 @@ pub(crate) fn search_cached_files(
     else {
         return Ok(None);
     };
-    search_files_with_mode_page(
+    search_files_with_candidate_window(
         storage,
         manifest,
         &prepared,
@@ -849,6 +850,7 @@ pub(crate) fn search_cached_files(
         0,
         budget,
         SearchMode::Code,
+        true,
     )
     .map(Some)
 }
@@ -2104,6 +2106,23 @@ pub(crate) fn search_files_with_mode_page(
     budget: &Budget<'_>,
     mode: SearchMode,
 ) -> Result<SearchResult, String> {
+    search_files_with_candidate_window(
+        storage, manifest, prepared, query, path, limit, offset, budget, mode, false,
+    )
+}
+
+fn search_files_with_candidate_window(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    offset: usize,
+    budget: &Budget<'_>,
+    mode: SearchMode,
+    allow_full_candidate_window: bool,
+) -> Result<SearchResult, String> {
     let started = Instant::now();
     budget.check()?;
     if prepared.metadata.project_id != manifest.summary.project_id
@@ -2114,9 +2133,24 @@ pub(crate) fn search_files_with_mode_page(
     if mode != SearchMode::Code {
         return Err("File discovery supports ranked code search only.".to_owned());
     }
-    let query_words = validate_search_mode(query, path, limit, mode)?;
+    let page_end = if allow_full_candidate_window {
+        if !(1..=MAX_CANDIDATES).contains(&limit) {
+            return Err("File discovery is limited to 256 ranked candidates.".to_owned());
+        }
+        offset
+            .checked_add(limit)
+            .filter(|end| *end <= MAX_CANDIDATES)
+            .ok_or_else(|| "File discovery is limited to 256 ranked candidates.".to_owned())?
+    } else {
+        validate_search_page(limit, offset)?
+    };
+    let query_limit = if allow_full_candidate_window {
+        MAX_SEARCH_PAGE_SIZE
+    } else {
+        limit
+    };
+    let query_words = validate_search_mode(query, path, query_limit, mode)?;
     let relevant_words = coverage_terms(query, path, &query_words);
-    let page_end = validate_search_page(limit, offset)?;
     if relevant_words.is_empty() {
         let matches = Vec::new();
         return Ok(SearchResult {

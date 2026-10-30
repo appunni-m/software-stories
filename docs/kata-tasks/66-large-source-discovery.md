@@ -181,3 +181,20 @@ This is a prompt-only source fix. No tests, build, provider request, profile,
 or packaged acceptance ran. It does not improve the recorded 5/12 broad range
 recall by itself; keep `0wdn` open for the Fontdone scenarios, staged retrieval,
 semantic review, cancellation, and packaged answer acceptance.
+
+## Rank the full bounded file-candidate window — 30 October 2026
+
+AI source discovery now ranks against the local search engine's full bounded
+256-file candidate window, rather than only its first 32-result page. The
+ordinary user and agent search-page limit stays at 32. Reaching the 256-file
+cap is reported as partial even though the capped result has no continuation
+offset. The discovery contract version was bumped so an old shortlist cannot
+be reused under the wider ranking behavior.
+
+The focused regression puts a relevant 260 KB implementation behind 36
+stronger path-neutral matches and verifies that the large file still enters
+the AI shortlist. `discovery_ranks_large_targets_beyond_the_first_search_page`
+passed (1 passed, 856 filtered out). This synthetic case proves shortlist
+coverage beyond page one; the Fontdone 5/12 broad-range recall, agent's actual
+range choices, answer quality, cancellation, and packaged generation remain
+unqualified. Keep `0wdn` open.
