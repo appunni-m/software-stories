@@ -1561,7 +1561,29 @@ The header now assigns repository controls and account actions to explicit CSS
 grid areas, with a one-column, two-row layout at compact widths and zoom. The
 Guide toolbar uses named title, map, and progress grid areas; multi-scene
 markers wrap inside the bounded center lane instead of scrolling out of view.
-This source correction has not been built or visually checked because the Mac
-is currently showing its lock screen. No project data or saved explanation was
-changed. Keep multi-scene, high-zoom and packaged acceptance open under `13yp`
-and `x21h`.
+At the time of this entry, the source correction had not been built or visually
+checked because the Mac was locked; later package evidence appears below. No
+project data or saved explanation was changed. Keep multi-scene, high-zoom and
+packaged acceptance open under `13yp` and `x21h`.
+
+### Full-width header no-wrap correction — 30 October 2026
+
+The user clarified that the overflowing controls were the Guide scene pager
+and the top menu. At the installed 1440 × 844 logical-pixel window, the
+full-width header still wrapped the Codex connection apart from appearance,
+notifications and help. The compact breakpoint also activated at this ordinary
+desktop width. The compact breakpoint is now 1280 CSS pixels, and the full-width
+action group stays on a single flex row; compact and zoom-compact layouts still
+wrap within their in-flow rows.
+
+`npm run bundle:macos` completed with frontend compilation, package metadata,
+and DMG checksum verification. The installed app reopened on Fontdone
+`main@5249b72371`; its executable SHA-256 matches the bundle:
+`38e1cb55c92ba3686357190d2eb92316e7f3ec70c8afc6669a5ab1a9ce4e447c`. At
+1440 × 844 logical pixels, repository, snapshot, refresh, Codex, appearance,
+notifications and help share one normal-flow header row. The open Guide
+contains one scene, so it does not render previous/next controls or scene dots.
+The scene toolbar source remains in normal document flow; retain `13yp` and
+`x21h` for a multi-scene check on this build, compact/high-zoom widths, and the
+remaining accessibility acceptance. No tests, provider request, narration,
+repository capture, or saved-answer change ran.
