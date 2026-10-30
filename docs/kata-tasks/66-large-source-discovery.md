@@ -122,3 +122,19 @@ the seven misses keep broad retrieval acceptance open. This profile validates
 incremental/fresh index parity and local range lookup only. It makes no Codex
 request and does not show that an agent discovers or explains the relevant
 ranges. See the [exact metrics and limits](../acceptance/artifacts/2026-10-29-fontdone-incremental-profile.json).
+
+## Feed local body matches into AI source selection — 30 October 2026
+
+Source discovery now ranks its bounded candidate list using the existing
+snapshot text-search generation when one is already available. The ranking is
+based on verified source ranges, so large readable implementations can rise
+above files that match only by names or static links. Discovery does not build
+the text index itself; absent, stale or unusable cached search data leaves the
+previous metadata fallback intact and is declared in the review metadata. The
+independently supplied fixed target still takes precedence.
+
+No tests, build, real provider operation or packaged acceptance ran. The saved
+Fontdone profile still reports seven expected ranges missing from each broad
+query's first page; this source change has not been measured against that
+profile. Agent-side multi-stage recall, exact source review, cancellation and
+answer quality remain unqualified; keep `0wdn` open.

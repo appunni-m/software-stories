@@ -809,6 +809,50 @@ pub(crate) fn prepare(
     prepare_cached(storage, manifest, syntax, budget, cache)
 }
 
+/// Search the existing snapshot index without triggering a generation build.
+/// Source discovery uses this to rank its bounded AI-review shortlist from
+/// actual captured code while keeping discovery startup independent from index
+/// creation. A missing or stale generation is a normal fallback condition.
+pub(crate) fn search_cached_files(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    syntax: Option<&index::SnapshotIndex>,
+    query: &str,
+    limit: usize,
+    budget: &Budget<'_>,
+) -> Result<Option<SearchResult>, String> {
+    budget.check()?;
+    if manifest.files.len() > 25_000 {
+        return Err("This snapshot exceeds the local code index path limit.".to_owned());
+    }
+    let fingerprint = fingerprint(manifest, syntax)?;
+    let Some(cache) = cache::Cache::open_reader(
+        storage,
+        &manifest.summary.project_id,
+        &manifest.summary.snapshot_id,
+        budget,
+    )?
+    else {
+        return Ok(None);
+    };
+    let Some(prepared) = load_generation(&cache, &cache.directory, Some(&fingerprint), budget)
+    else {
+        return Ok(None);
+    };
+    search_files_with_mode_page(
+        storage,
+        manifest,
+        &prepared,
+        query,
+        None,
+        limit,
+        0,
+        budget,
+        SearchMode::Code,
+    )
+    .map(Some)
+}
+
 fn prepare_cached(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,

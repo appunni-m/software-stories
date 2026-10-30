@@ -186,3 +186,20 @@ passes (1 test). Two unrelated Claude dead-code warnings remain.
 This covers the job-registry contract only; it does not exercise two packaged
 windows, parser panic/retry, cancellation during indexing, or large-repository
 retrieval recall. Keep `xvjk` open.
+
+## Rank proposed files using captured source text — 30 October 2026
+
+Source discovery now reuses an existing snapshot-scoped Tantivy range index to
+rank its bounded file shortlist by actual code matches before applying symbol,
+relationship and path hints. It never builds an index as a side effect of the
+review action; a missing or stale text index is reported as `contentSearch`
+`notBuilt`, and discovery falls back to the existing metadata ranking. The
+fixed target remains first. The metadata reports whether content ranking was
+ready, partial or unavailable, and the fingerprint version was advanced so
+pending reviews cannot be sent against the old shortlist contract.
+
+Source-only implementation; no tests, build, provider request or packaged
+qualification ran. This changes shortlist ranking, not recall proof. The
+Fontdone 5/12 first-page profile, multi-language recall, missing-index behavior,
+consent, restart and multi-window acceptance remain open. See
+[`a699`](66-large-source-discovery.md) for large-file range gates.

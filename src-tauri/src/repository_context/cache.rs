@@ -184,6 +184,44 @@ fn size(
 }
 
 impl Cache {
+    /// Open an existing snapshot generation for query without maintenance or
+    /// cache pruning. A shared maintenance lease prevents concurrent cleanup
+    /// while the generation's reader lease is acquired.
+    pub(super) fn open_reader(
+        storage: &Path,
+        project: &str,
+        snapshot: &str,
+        budget: &Budget<'_>,
+    ) -> Result<Option<Self>, String> {
+        budget.check()?;
+        let root = storage.join("repository-context");
+        if !fs::symlink_metadata(&root).is_ok_and(|metadata| metadata.is_dir()) {
+            return Ok(None);
+        }
+        let maintenance_path = root.join("maintenance.lock");
+        if !fs::symlink_metadata(&maintenance_path).is_ok_and(|metadata| metadata.is_file()) {
+            return Ok(None);
+        }
+        let maintenance = shared(&maintenance_path)?;
+        let project_dir = root.join(super::digest(project.as_bytes()));
+        if !fs::symlink_metadata(&project_dir).is_ok_and(|metadata| metadata.is_dir()) {
+            return Ok(None);
+        }
+        let directory = project_dir.join(super::digest(snapshot.as_bytes()));
+        if !fs::symlink_metadata(&directory).is_ok_and(|metadata| metadata.is_dir()) {
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            root,
+            directory,
+            _maintenance: maintenance,
+            limits: Limits::default(),
+            chunks: HashMap::new(),
+            chunk_order: BTreeSet::new(),
+            chunk_bytes: 0,
+        }))
+    }
+
     pub(super) fn open(
         storage: &Path,
         project: &str,
