@@ -1462,3 +1462,21 @@ provider request, narration, capture, or saved-answer edit occurred. This
 qualifies the filter and compact header state only; keep `x21h` and `13yp`
 open for the remaining page, multi-scene, keyboard, zoom, theme, and
 accessibility acceptance.
+
+### Compact packaged multi-scene pager — 30 October 2026
+
+The newly installed build was checked against the saved two-scene `canvas.rs`
+answer in Pillow `main@e843f864fc`. At about 1250 CSS pixels wide, the header
+reflowed into two normal-flow rows above the workspace; the scene title,
+counter, previous/next controls, and both scene markers remained inside the
+Guide card. Selecting **Next scene** changed the card to scene 2 of 2, disabled
+Next, and left Previous and the two markers in place. Selecting Previous
+restored scene 1 before returning the app to Fontdone. No narration played,
+provider request ran, source changed, or saved answer was edited. The installed
+executable SHA-256 is
+`b93a797bcf0824f76c15bfee912c4d752630ef51a143e0147836afc1f2508b04`.
+
+This qualifies the pager at one compact window size and the compact header in
+the same packaged state. It does not cover long scene sequences, narrower
+widths, high zoom, keyboard-only use, VoiceOver, contrast, or motion settings;
+keep the broader acceptance in `x21h` and `13yp` open.
