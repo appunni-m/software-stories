@@ -57,9 +57,9 @@ describe('snapshot inventory', () => {
     const python = rows.find((row) => row.path === 'src/utility.py');
     const go = rows.find((row) => row.path === 'src/service.go');
     assert.equal(languageSupportTier(python), 'partialStructural');
-    assert.match(languageSupportNote('partialStructural', python.language), /Module imports/);
+    assert.match(languageSupportNote('partialStructural', python.language), /explicit relative import/);
     assert.equal(languageSupportTier(go), 'partialStructural');
-    assert.match(languageSupportNote('partialStructural', go.language), /Package imports/);
+    assert.match(languageSupportNote('partialStructural', go.language), /imported-package calls/);
   });
 
   it('keeps user-facing capability labels consistent for captured unknown text and unavailable bytes', () => {

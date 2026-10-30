@@ -41,7 +41,7 @@ test('stale-base recovery offers a reviewed rebase and the editor disables an ou
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
   assert.match(app,/<StaleChapterDraftNotice[\s\S]*?onRebase=\{\(\) => setRebasing\(true\)\}/);
   assert.match(app,/<ChapterRebaseReview[\s\S]*?onApply=\{revision => applyRebase\(/);
-  assert.match(app,/disabled=\{busy \|\| !candidate \|\| !isLatestCurrent\}/);
+  assert.match(app,/disabled=\{busy \|\| !candidate \|\| !isLatestCurrent \|\| historyAvailability !== 'ready'\}/);
 });
 
 test('the real comparison component renders named scenes and elements with source values hidden',()=>{

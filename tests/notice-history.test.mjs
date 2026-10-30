@@ -276,9 +276,9 @@ test('resolution during a held publication queues the exact acknowledgment and p
 test('production uses typed persisted targets, scoped outcomes and explicit local history recovery',async()=>{
   const [app,hook,native,lib]=await Promise.all(['../src/App.tsx','../src/lib/useNoticeHistory.ts','../src-tauri/src/app_notices.rs','../src-tauri/src/lib.rs'].map(path=>readFile(new URL(path,import.meta.url),'utf8')));
   assert.match(app,/useNoticeHistory\(\)/);assert.doesNotMatch(app,/useState<Notice>|id: 'workspace-notice'|setNotice\(null\)|title: 'Repository selected'/);
-  assert.match(app,/notices:noticeHistoryState.availability/);assert.match(app,/noticeHistory\.read\(item.id\);openNoticeTarget\(item\)/);assert.match(app,/run:\(\)=>noticeHistory.retry\(\)/);
+  assert.match(app,/notices:\s*noticeHistoryState\.availability/);assert.match(app,/noticeHistory\.read\(item.id\);openNoticeTarget\(item\)/);assert.match(app,/run:\(\)=>noticeHistory.retry\(\)/);
   assert.match(app,/noticeHistory\.readMany\(unreadGroupedNotices\.map/);
-  assert.match(app,/getWorkspace\(projectId,snapshotId\)\.explorations\.some/);assert.match(app,/projectId:currentCapture.projectId,snapshotId:currentCapture.snapshotId/);
+  assert.match(app,/getWorkspace\(projectId,snapshotId\)\.explorations\.some/);assert.match(app,/const \{target,projectId,snapshotId\}=item\.input/);
   assert.match(app,/pickLocalRepository\('notifications'\)/);assert.match(app,/focusTarget:'workspace-composer'/);
   assert.match(hook,/invoke<NoticeHistoryData>\('list_app_notices'\)/);assert.match(hook,/invoke<NoticeHistoryData>\('update_app_notices',\{operation\}\)/);
   assert.match(lib,/app_notices::list_app_notices/);assert.match(lib,/app_notices::update_app_notices/);

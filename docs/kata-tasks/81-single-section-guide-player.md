@@ -33,3 +33,21 @@ In the packaged Fontdone workspace, a Code Lens answer for `src/tt/glyf.rs:564â€
 
 ## Scope boundary
 This is a Guide presentation change. Do not change provider selection, generation prompts, retrieval limits, permission grants, saved answer contents, or chapter revision identity. Evidence-based screen audit remains in `x21h`; this task owns this specific reader correction under `13yp`.
+
+## Source implementation â€” 30 October 2026
+
+`AnswerSection` now resolves one active section from the saved reading position
+for the exact revision, renders that section's `VisualStory` and source links,
+and shows Previous / Next with a `Section n of m` position only when the answer
+has multiple sections. Navigation writes the selected section ID back to the
+workspace reading state; newly published sections do not change the selected
+ID. Scene audio advances within that section, while section changes remain
+manual. The old `src/lib/walkthrough.ts` contract is no longer part of the
+greenfield reader; its orphaned test was replaced with the current Guide-reader
+contract in `tests/guide-reader.test.mjs`.
+
+Source-level Guide-reader checks pass 2/2. `tests/workspace.test.mjs` and
+`tests/reader-progress.test.mjs` also cover revision-scoped selection,
+restoration and nested exploration positions. Packaged progressive generation,
+source-return, keyboard, narrow-pane and high-zoom acceptance remain open; keep
+`tt1s` and `13yp` open.

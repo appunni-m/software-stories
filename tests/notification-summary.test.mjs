@@ -239,7 +239,8 @@ describe('notification totals', () => {
     assert.match(app, /Dismiss all \$\{groupedNotices\.length\} notices/);
     assert.match(app, /noticeHistory\.dismissMany\(groupedNotices\.map\(notice=>notice\.id\)\)/);
     assert.match(component, /modal=\{false\}/);
-    assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
+    assert.match(app, /const notificationsAvailability = notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
+    assert.match(app, /availability=\{notificationsAvailability\}/);
     assert.match(app, /bucket: notificationBucketForOutcome\(outcome\.tone\)/);
     assert.match(app, /groupBucket: notificationBucketForOutcome\(outcome\.tone\)/);
     assert.match(app, /bucket: notificationBucketForOutcome\(preview\.unavailableReason \? 'warning' : 'info'\)/);

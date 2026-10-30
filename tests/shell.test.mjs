@@ -148,7 +148,7 @@ describe('desktop shell acceptance contract', () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     const commands = await readFile(new URL('../src/lib/commands.ts', import.meta.url), 'utf8');
     assert.match(source, /listPendingGeneratedChapterPreviews/);
-    assert.match(source, /label: 'Open explanation'[\s\S]*?setRecoveredPreviewId\(preview.generationId\)/);
+    assert.match(source, /label: preview\.unavailableReason \? 'Review recovery' : 'Open explanation'[\s\S]*?setRecoveredPreviewId\(preview.generationId\)/);
     assert.match(source, /Closing keeps this preview in local recovery/);
     assert.match(source, /Save unaccepted draft/);
     assert.match(source, /No provider request will be sent when you review or save it/);
@@ -217,14 +217,14 @@ describe('desktop shell acceptance contract', () => {
 
     const source = await readFile(new URL('../src/KeyboardShortcuts.tsx', import.meta.url), 'utf8');
     assert.match(source, /Zoom in \/ out \(20% steps\)/);
-    assert.match(source, /⌘= \/ ⌘−/);
+    assert.match(source, /⌘\s*=\s*\/\s*⌘\s*−/);
   });
 
   it('opens standard keyboard help explicitly without adding a saved notification', async () => {
     const [app,help]=await Promise.all(['../src/App.tsx','../src/KeyboardShortcuts.tsx'].map(path=>readFile(new URL(path,import.meta.url),'utf8')));
     assert.doesNotMatch(app,/showComingSoon/);
     assert.match(app,/<KeyboardShortcuts open=\{shortcutsOpen\} onOpenChange=\{setShortcutsOpen\}/);
-    assert.match(app,/if \(shortcutsOpen\) return;/);
+    assert.match(app,/if \(shortcutsOpen \|\| document\.querySelector\('\[role="dialog"\]\[aria-modal="true"\]'\)\) return;/);
     assert.match(help,/<Dialog.Root open=\{open\} onOpenChange=\{onOpenChange\}/);
     assert.match(help,/<Dialog.Title>Keyboard shortcuts/);
     assert.match(help,/data-focus-key="tools-button"/);
