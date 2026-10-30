@@ -1603,3 +1603,22 @@ screenshots were displayed during the review but could not be saved as durable
 repository artifacts. Empty/error states, multi-scene navigation, PR guide,
 notifications, connection settings, narrow/zoomed layouts, and accessibility
 settings remain open. Do not close `x21h` or `13yp` from this partial review.
+
+### Give header and scene controls bounded space — 30 October 2026
+
+The user clarified that the top menu and scene pager still look as if they
+float beyond their layout. The header now starts its two-row layout at 1600px,
+and its desktop action group may wrap inside a shrinkable grid track. Scene
+position and pager controls now occupy the full width of their own row instead
+of a narrow centered strip. `npm run build` and `npm run bundle:macos` both
+completed; package metadata and DMG checksum verification passed. The rebuilt
+app was installed and reopened on Fontdone `main@5249b72371`; its executable
+SHA-256 is `33e9297f6ca95370ccd4d054a45bcf93472f8a5f3293f3cb024380028781a088`.
+
+At the restored full-size window, repository controls and account actions are
+on separate in-flow header rows. The selected Guide has one scene, so the
+updated full-width scene-position row is visible but its previous/next buttons
+and scene markers do not render. Multi-scene, narrow-window, 200% zoom,
+keyboard, VoiceOver, contrast, and motion acceptance remain open under `13yp`
+and `x21h`. No tests, provider request, narration, snapshot capture, or saved
+answer edit ran.
