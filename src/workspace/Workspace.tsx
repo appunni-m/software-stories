@@ -1534,7 +1534,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
       </ul>
     </> : <>
       {selectionGuidance('Choose a point to see what the cited code does.')}
-      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:selectedEdge?{focusedEdgeId:selectedEdge.edgeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
+      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}:${selectedNode?.nodeId??selectedEdge?.edgeId??'overview'}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:selectedEdge?{focusedEdgeId:selectedEdge.edgeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
     {selectedDetailTitle&&<CodeDetail title={selectedDetailTitle} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
   </section>;
