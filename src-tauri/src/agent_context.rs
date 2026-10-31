@@ -861,7 +861,13 @@ impl Session {
             let remaining_attempts = answer.remaining_attempts();
             let next_new_section_order = answer
                 .next_new_section_order_with_limit(mode.section_limit.unwrap_or(6));
-            let finish_now = remaining_attempts == 0 || next_new_section_order.is_none();
+            let slide_correction_limit_reached = mode.section_limit == Some(1)
+                && findings
+                    .iter()
+                    .any(|finding| finding["code"].as_str() == Some("proposalCorrectionLimit"));
+            let finish_now = remaining_attempts == 0
+                || next_new_section_order.is_none()
+                || slide_correction_limit_reached;
             if let Some(notice) = generation.as_deref().and_then(|id| answer.notice(id)) {
                 (mode.notify)(notice);
             }
