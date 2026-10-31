@@ -410,3 +410,19 @@ re-read and reconcile the latest saved record. No tests, build, provider
 request, or packaged-app check was run, per the source-review-only instruction.
 Keep this task open for race regressions, restart/recovery, playback, visual,
 audio, accessibility, timing, and content-quality acceptance.
+
+## Queue live Guide events behind conversation restore — 31 October 2026
+
+Source review found that workspace listeners are registered before the native
+conversation finishes loading. A slide publication, Guide update, or playback
+receipt arriving in that interval could read an empty/stale in-memory tree or
+hit the store's deliberate `loading` guard; a one-shot event could then be
+missed by that window. The listeners now wait for the same scoped conversation
+load before adopting the durable Guide state or queuing its refill receipt. If
+the Guide owner is not yet in the loaded tree, the handler reconciles from the
+saved native Guide record. This performs local reads only and never starts or
+replays generation.
+
+Source-only correction; no test, build, provider request, or packaged app
+interaction was run. Verify the publication/refill race across a WebView reload
+and a second window before closing `3bz5`.

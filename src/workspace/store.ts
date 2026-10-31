@@ -416,6 +416,17 @@ function publishRestoration(scope: string, availability: RestorationAvailability
  * events does not dispatch a question; Stop uses the persisted native run ID. */
 export async function watchWorkspaceAnswers(project: string, snapshot: string, onAvailability?: (availability: RestorationAvailability) => void): Promise<() => void> {
   let closed = false;
+  const whenConversationReady = (action: () => void | Promise<void>) => {
+    // Listeners are installed before startup restoration begins. A native Guide
+    // can publish between those steps; wait for the saved tree before merging
+    // its durable event so updateWorkspace never drops it during `loading`.
+    void prepareWorkspaceConversation(project,snapshot).then(()=>{
+      if(!closed)return action();
+    }).catch(()=>{
+      // Keep the native Guide record intact. A later local refresh can adopt it
+      // after the conversation becomes readable; never dispatch inference here.
+    });
+  };
   const refresh = (scope: {projectId:string;snapshotId:string;runId:string}) => {
     if (closed || scope.projectId !== project || scope.snapshotId !== snapshot) return;
     const turns = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns);
@@ -439,27 +450,34 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
         if (closed || payload.projectId !== project || payload.snapshotId !== snapshot) return;
         // Events invalidate saved data. Reading it again also verifies the
         // latest guide instead of allowing an older event payload to win.
-        void restoreChangedRepositoryGuide(project,snapshot,payload.id).catch(() => {});
+        whenConversationReady(()=>restoreChangedRepositoryGuide(project,snapshot,payload.id));
       });
       guideSection = await listen<{guideId:string;section:PublishedSection & {projectId:string;snapshotId:string}}>('repository-guide-section-published',({payload}) => {
         const section = payload.section;
         if (closed || !payload.guideId || section.projectId !== project || section.snapshotId !== snapshot) return;
-        const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === payload.guideId);
         // The progressive answer receipt is already durable, but repository-guide
         // summaries arrive only after a whole investigation unit. Adopt this exact
         // validated section now so local narration can warm while that unit continues.
-        void adoptSection(project,snapshot,owner?.id,section,true).catch(() => {
-          void restoreChangedRepositoryGuide(project,snapshot,payload.guideId).catch(() => {});
+        whenConversationReady(async()=>{
+          const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === payload.guideId);
+          if(!owner){
+            await restoreChangedRepositoryGuide(project,snapshot,payload.guideId);
+            return;
+          }
+          try{await adoptSection(project,snapshot,owner.id,section,true);}
+          catch{await restoreChangedRepositoryGuide(project,snapshot,payload.guideId);}
         });
       });
       guideAdvance = await listen<{guideId:string;projectId:string;snapshotId:string;revisionId:string;rendererSessionId:string}>('repository-guide-slide-consumed',({payload}) => {
         if (closed || payload.rendererSessionId === rendererSessionId || payload.projectId !== project || payload.snapshotId !== snapshot
           || !payload.guideId || payload.guideId.length > 256 || !payload.revisionId || payload.revisionId.length > 256) return;
-        const turn = getWorkspace(project,snapshot).explorations.flatMap((exploration) => exploration.turns)
-          .find((candidate) => candidate.guideId === payload.guideId);
-        if (!turn) return;
-        const owner = jobs.get(turn.id);
-        if (owner) queuePendingGuideAdvance(owner,payload.revisionId);
+        whenConversationReady(()=>{
+          const turn = getWorkspace(project,snapshot).explorations.flatMap((exploration) => exploration.turns)
+            .find((candidate) => candidate.guideId === payload.guideId);
+          if (!turn) return;
+          const owner = jobs.get(turn.id);
+          if (owner) queuePendingGuideAdvance(owner,payload.revisionId);
+        });
       });
       const unobserve = onAvailability ? observeRestoration(key(project,snapshot),(availability) => { if (!closed) onAvailability(availability); }) : undefined;
       return () => {closed=true;unobserve?.();section();finished();guide?.();guideSection?.();guideAdvance?.();};
