@@ -11,7 +11,21 @@ labels: product-quality
 A newcomer can follow a real feature end to end, understand each relevant file, and choose deeper explanations without hearing a list of document summaries.
 
 ## Current evidence
-The implementation generates bounded file chapters and an optional orientation chapter from 1–12 selected files. The file quality gate does not qualify a complete repository narrative. There is no demonstrated whole-repository story planner or cross-language end-to-end quality report.
+The current repository Guide starts from the user's question, saves a compact
+source-grounded outline, then investigates its opening and each follow-on topic
+as separate bounded operations. It publishes a validated slide without waiting
+for the whole guide, and keeps up to five ready slides buffered. The native
+plan allows up to twenty follow-on units and records routes that remain
+uncovered. Research uses captured source ranges; each slide supplies its own
+evidence and passes local claim, citation, visual and storage validation before
+publication. New repository explanation uses this Guide flow, not the older
+manual file-selected overview.
+
+This is implementation evidence, not acceptance of complete repository
+coverage, cross-language behavior, visual/narrative quality, or reader
+comprehension. A bounded Guide can still have uncovered routes, and a saved
+outline or first slide does not prove the later topics. Large-repository,
+representative whole-project and comprehension qualification remain open.
 
 ### Chapter-record policy — 23 October 2026
 The current app supports chapter schema 5 only. Earlier task notes below that describe schema 4 or legacy chapter reads are dated implementation history; older chapter versions are not read or migrated. The live schema task `8bw6` is closed, so its historical v4 notes do not require reopening. Repository-scale generation, account-backed runtime acceptance and narrative quality remain open under this task.

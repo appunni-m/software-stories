@@ -8,6 +8,14 @@ labels: phase-2, orientation, chapters
 blocked_by: t12
 ---
 
+> **Superseded product path — 31 October 2026:** this task describes the earlier
+> manually selected overview workflow. New repository explanations now use the
+> question-led Guide, which discovers relevant captured source automatically;
+> the current UI does not start new manually selected overviews. Existing saved
+> overview revisions remain readable, and already-reviewed operations remain
+> recoverable. Do not reintroduce the manual file-selection flow from this
+> historical contract.
+
 ## User outcome
 The user can start with a concise repository map before choosing any file chapter, or skip the overview entirely.
 

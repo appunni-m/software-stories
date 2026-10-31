@@ -34,7 +34,7 @@ Chapter Studio transitions are append-only: edit creates a draft from the curren
 
 ## Generated file-chapter proposal
 
-File generation accepts a separate, strict proposal, defined by the `GeneratedChapter*` structs in `src-tauri/src/chapters.rs`. It describes one selected target file and can cite up to eleven explicitly selected supporting files. Every property below is required at its respective level; unknown properties are rejected. The local request requires JSON output, one candidate, temperature 0.2, and at most 8,192 output tokens. The selected Rig provider wire maps the schema and generation settings to Gemini `responseSchema`, OpenAI Responses structured output, or Anthropic Messages structured output; the returned proposal is still validated locally. Repository-overview generation is a separate request purpose and canonicalization path; this subsection documents the file-target proposal.
+File generation accepts a separate, strict proposal, defined by the `GeneratedChapter*` structs in `src-tauri/src/chapters.rs`. It describes one selected target file and can cite up to eleven explicitly selected supporting files. Every property below is required at its respective level; unknown properties are rejected. The local request requires JSON output, one candidate, temperature 0.2, and at most 8,192 output tokens. The selected Rig provider wire maps the schema and generation settings to Gemini `responseSchema`, OpenAI Responses structured output, or Anthropic Messages structured output; the returned proposal is still validated locally. The older repository-overview request has a separate purpose and canonicalization path retained for operation recovery. The current UI starts new repository exploration through the Guide instead of a manually selected overview request; this subsection documents the file-target proposal.
 
 ```json
 {
@@ -102,14 +102,15 @@ An evidence item contains only a selected captured `path` and an exact `quote`. 
 
 A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hierarchy`). Current generation schemas require each node/edge's evidence to contain references such as `{"claimIndex":0,"evidenceIndex":0}`. Both indexes are zero-based within that same section's claims and their evidence arrays. The app validates the claims first, resolves existing references to exact anchors, then constructs diagram and source-link IDs. Missing or duplicate references, foreign fields, malformed indexes and invalid graph edges reject the proposal. A reference does not establish that a diagram's semantic interpretation is correct; content review remains necessary. Legacy visual proposals using `{path, quote}` are not part of the current proposal contract. Stored visual schema and anchor destinations use the current v3 visual contract.
 
-Fresh file chapters, repository overviews and single-section repairs request
-`presentation`, either `null` for no composition or a version-3 narrated
-[visual scene composition](VISUAL_SCENES.md). The prompt identities are
-`structured-file-chapter-v11`, `structured-repository-overview-v11` and
-`structured-single-section-update-v9`. The shared context builder supplies this
-contract to account-agent and direct-provider chapter requests. Existing
-five-tool retrieval schemas and progressive tool catalogs retain their pinned
-historical identities.
+Fresh file chapters and single-section repairs request `presentation`, either
+`null` for no composition or a version-3 narrated
+[visual scene composition](VISUAL_SCENES.md). Their prompt identities are
+`structured-file-chapter-v11` and `structured-single-section-update-v9`. The
+older `structured-repository-overview-v11` proposal contract remains in source
+for recovery of already-reviewed requests; the current UI does not offer new
+manually selected overviews. New repository explanations use the progressive
+Guide. Existing five-tool retrieval schemas and progressive tool catalogs
+retain their pinned historical identities.
 
 Ordinary and progressive requests share the current scene, teaching and reader
 language instructions. Progressive contracts fingerprint the current source

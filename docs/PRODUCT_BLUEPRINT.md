@@ -23,14 +23,16 @@ The older Guide / Files / Changes vector proposals are summarized in [PROPOSED_S
 
 The following capability descriptions use Guide, Files, and Changes as concepts, not as three primary destinations:
 
-### Guide view — orient, continue, or choose a file
+### Guide view — ask, follow the code, and choose when to continue
 
-![Proposed Guide home with a repository guide, file coverage, and direct next actions](design/proposed-01-guide-home.svg)
+The current Guide follows the [conversational workspace design](design/WORKSPACE_EXPLORATION.md). The adjacent proposed Guide-home SVG below is an earlier dashboard proposal and is not the current screen.
 
-- Start or continue an accepted repository overview when one exists. The tour is an optional orientation layer; it never substitutes for per-file explanations.
-- Show progress for captured, readable files and offer direct links to files that need attention or already have explanations.
-- Keep the full, paginated file-by-file coverage manager available as a secondary Guide view. It accounts for every path and shows exclusions, skips, drafts, stale revisions, and unsupported content.
-- The section-by-section Walkthrough is the reading mode for accepted chapters. Previous, Continue, hotspots, and citations remain under reader control.
+- Put the pinned composer and two clear actions—**Guide me** and **Show the flow**—at the center of repository exploration.
+- For a Guide, let AI find the relevant captured implementation in the background. Present one visual, source-backed section at a time with narration and explicit previous/next navigation.
+- Keep detailed prose collapsed until the reader asks to inspect it. Citations open their exact captured lines beside the explanation.
+- Let **Explore further** create a nested question from the current answer. Back and the exploration tree return to the exact parent context.
+- Keep the file explorer available for direct source access. A selected file or code range can be attached to chat or explained at the current exploration level.
+- Do not ask users to choose reference files for a repository-level explanation. Existing saved overview revisions may remain readable; new repository explanations use the Guide.
 
 ### Explorer and source — inspect one file beside its explanation
 
@@ -114,13 +116,13 @@ No transition silently switches repository snapshots. A snapshot change is an ex
 
 1. **Open a repository.** The user chooses a local working copy. The app explains snapshot boundaries and does not scan source until the user starts a capture.
 2. **Capture once.** The app shows progress and a final inventory for an immutable snapshot. It reports skipped paths and limits rather than hiding them.
-3. **Start in Guide.** Read a saved accepted repository overview if present, or choose a captured file to understand. A missing overview is never fabricated.
-4. **Inspect in Files.** Read the selected source beside its file explanation. Follow each evidence link to exact captured lines and return to the same file.
-5. **Review coverage when needed.** Guide's file-by-file view lists every inventory path, chapter state, and skip/exclusion reason. Eligible text/source files default to one independent chapter each.
-6. **Request one chapter.** The user selects a file, reviews the exact context and provider disclosures, and separately confirms sending that request. No request is sent by opening settings or the review screen.
-7. **Review the draft.** Chapter Studio shows claims beside their cited source. The user edits, validates, rejects, or accepts; generation never auto-accepts.
-8. **Learn.** The user reads one accepted chapter section at a time, opens a hotspot in Files, returns to the same place, and chooses when to continue.
-9. **Update after code changes.** A new snapshot identifies affected sections and dependent assets. The user compares the source change, carries forward a safe anchor or regenerates one selected section, then reviews a new draft.
+3. **Ask from the workspace.** Enter what you want to understand and choose Guide or Flow. On the first question for that snapshot, review and grant the scoped sharing permission.
+4. **Follow the explanation.** AI finds relevant captured implementation in the background. Read or listen to the first visual section, open its citations, and choose when to move on.
+5. **Explore at any depth.** Ask a follow-up in the current exploration, or choose **Explore further** on an answer to branch from it. Back and the exploration tree restore the parent reading context.
+6. **Open code directly when useful.** Search or browse the file explorer, inspect the selected snapshot, and attach a file or selected range to the current question.
+7. **Review saved file chapters.** Chapter Studio supports local edits, source-linked validation, immutable revisions, and explicit accept/reject decisions; generation never auto-accepts.
+8. **Understand changes.** Select a local commit or PR comparison, inspect bounded diff evidence, and request a cited Guide or hunk explanation.
+9. **Update after code changes.** Load a new snapshot, inspect affected sections and dependent assets, then carry forward safe evidence or regenerate only the selected section.
 
 ## File coverage contract
 
@@ -176,7 +178,7 @@ This model makes the editing unit a section with explicit evidence dependencies.
 
 ## AI backend choices, cost, and privacy
 
-Gemini, OpenAI, and Anthropic direct API routes are implemented for file chapters, optional orientation, selective section updates, PR Guides, transient single-hunk PR change explanations, and transient source-range explanations shown in Files. Offline mock fixtures cover each wired provider/operation pair. The PR change flow sends one reviewed hunk and returns temporary side-aware citations without creating PR Guide history. Full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Optional Gemini TTS is a separate speech path. Coding-agent runtimes such as OpenAI Codex, Claude Agent (powered by Claude Code), Gemini CLI, and Google Antigravity remain separate planned integrations. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login.
+Gemini, OpenAI, and Anthropic direct API routes are implemented for file chapters, selective section updates, PR Guides, transient single-hunk PR change explanations, and transient source-range explanations shown in Files. The current UI does not offer new manually selected repository-overview requests; only previously reviewed requests can be recovered. Offline mock fixtures cover each wired provider/operation pair. The PR change flow sends one reviewed hunk and returns temporary side-aware citations without creating PR Guide history. Full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Optional Gemini TTS is a separate speech path. Codex uses its managed account runtime in the question-led Guide; automatic Claude Agent remains deferred, and Antigravity/Gemini CLI have separate evaluation and acceptance gates. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login.
 
 Each candidate remains unavailable until its exact version, authentication and terms, capability limits, request scope, cancellation behavior, and read-only boundary pass the relevant acceptance gate. Prefer an existing vendor-supported SDK/app-server or a protocol adapter where it fits; do not build a new agent loop or infer equivalent permissions across runtimes. The user chooses an API provider or an agent runtime for each supported operation. These execution modes have different capabilities, authentication, and usage behavior. The product does not host a model gateway or switch provider silently. See the [M7 capability matrix](research/ai-backend-capability-matrix.md) for dated candidate research and status.
 

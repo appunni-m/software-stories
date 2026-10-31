@@ -10,19 +10,19 @@ Coding agents are primary generation options. Direct API keys are optional. Code
 
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
-| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews, one-section repairs, exact code selections, PR Guides, single hunks and bounded learning plans; runtime/account/package qualification pending |
+| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | Question-led repository Guides plus file chapters, one-section repairs, exact code selections, PR Guides, single hunks and bounded learning plans; runtime/account/package qualification pending. Previously reviewed overview requests are recovery-only. |
 | Claude Agent · setup and offline review | Explicit native version/account/catalog inspection, then a local request preview | Advertised model/effort, fixed approval and turn limit; preview only | File/overview/section/range/PR Guide/hunk/planning review and gated generation UI; automatic generation remains unavailable |
-| Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters and selected-source overviews; automatic Claude Agent adapter remains required |
+| Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters; overview requests are recovery-only. The automatic Claude Agent adapter remains required. |
 | Antigravity or another agent · manual handoff | Same user-operated text exchange | In the external agent; unverified here | Same bounded chapters; automatic vendor integrations remain pending |
 | Direct API | An explicitly selected API provider | In its Code Atlas request dialog | Existing API operation matrix; separate API key and billing |
 
 ## Codex
 
-1. Capture source, then choose **Explain** on a file or **Create repository tour** from Guide.
-2. Codex opens directly when it is your saved backend. The app silently reuses the account managed by the installed Codex, including after restarting Code Atlas. If there is no valid ChatGPT sign-in, select **Connect Codex** once to open browser sign-in. Opening an explanation never starts browser sign-in by itself. No direct API key is required.
-3. Models load automatically. Saved supported settings are retained; the initial preference is GPT-6 Luna with max reasoning when available. Expand **Connection settings → Model settings** to change them. These settings are shared across projects and generation entry points. Catalog membership is not proof of entitlement or remaining quota.
-4. Ordinary file explanations prepare their source review automatically. For other scopes, choose **Continue to source review**. Inspect the selected source, confirm sharing it through Codex, then generate. This per-request source confirmation is separate from connection setup.
-5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
+1. Capture a repository, then ask a question in the pinned workspace composer. Choose **Guide me** for a narrated explanation or **Show the flow** to inspect relationships. For a file-specific chapter, open that file in Chapter Studio and choose its generation action.
+2. Codex opens directly when it is your saved backend. The app silently reuses the account managed by the installed Codex, including after restarting Code Atlas. If there is no valid ChatGPT sign-in, choose **Connect Codex** once to open browser sign-in. Opening an explanation never starts browser sign-in by itself. No direct API key is required.
+3. Models load automatically. Saved supported settings are retained; the initial preference is GPT-6 Luna with max reasoning when available. Change supported model and reasoning in the shared **Connections** settings. These settings are reused across projects. Catalog membership is not proof of entitlement or remaining quota.
+4. For a workspace question, the first request for a snapshot asks you to grant scoped sharing permission. Codex then discovers relevant captured source ranges in the background; no reference-file checklist or second generation stage is required. Advanced editor, PR and recovery operations keep their exact request reviews.
+5. Read the published Guide section beside its cited code, then choose when to continue or explore a detail. The answer stays a local draft until reviewed and accepted in the app's editing workflow.
 
 **Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections and Git comparisons/hunks. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
 
