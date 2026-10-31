@@ -1250,3 +1250,14 @@ internal structure needs one.
 These are source-level corrections only. No tests, builds, provider calls,
 packaged review or human comprehension checks were run. Keep visual quality,
 navigation and accessibility acceptance open.
+
+## Avoid duplicate label/value cues — source correction, 31 October 2026
+
+The packaged Guide showed a decision cue repeated in both the visible node
+label and its value. The renderer now compares the user-visible plain text and
+suppresses duplicates in simple text-like elements. The generation prompt also
+requires each nonempty value to add complementary information beyond its
+label; the visual-policy version was advanced to `ai-html-compositions-v66` so
+new requests use the rule. Saved visual content was not rewritten. This is a
+source-only correction; no test, build, provider request, or packaged review
+ran. Keep generated-visual quality and comprehension acceptance open.
