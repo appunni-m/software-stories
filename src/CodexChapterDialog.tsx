@@ -141,7 +141,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const lifetime = useRef(0);
   const activeBusy = useRef<Busy | null>(null);
   const automaticReviewKey = useRef<string | null>(null);
-  const resources = useRef<{ login: string | null; review: string | null; draft: string | null; run: string | null }>({ login: null, review: null, draft: null, run: null });
+  const resources = useRef<{ login: string | null; review: string | null; draft: string | null; run: string | null; submittedPrGuide: boolean }>({ login: null, review: null, draft: null, run: null, submittedPrGuide: false });
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const cancelRequested = useRef(false);
   const closeRef = useRef(onClose);
@@ -278,11 +278,11 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       unlistenRef.current?.();
       unlistenRef.current = null;
       const pending = resources.current;
-      resources.current = { login: null, review: null, draft: null, run: null };
+      resources.current = { login: null, review: null, draft: null, run: null, submittedPrGuide: false };
       if (native) {
         if (pending.login) void cancelCodexLogin(pending.login).catch(() => {});
-        if (pending.run) void cancelCodexChapterRequest(pending.run).catch(() => {});
-        if (pending.review) void discardProviderRequestReview(pending.review).catch(() => {});
+        if (pending.run && !pending.submittedPrGuide) void cancelCodexChapterRequest(pending.run).catch(() => {});
+        if (pending.review && !pending.submittedPrGuide) void discardProviderRequestReview(pending.review).catch(() => {});
         // An in-flight save owns its draft until the command resolves.
         if (pending.draft && activeBusy.current !== 'save') void discardGeneratedChapterDraft(pending.draft).catch(() => {});
       }
@@ -486,10 +486,12 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     if (epoch === null) return;
     const runId = review.reviewId;
     resources.current.run = runId;
+    resources.current.submittedPrGuide = false;
     cancelRequested.current = false;
     setCancelling(false);
     setProgress({ runId, phase: 'preparing', message: 'Preparing the reviewed Codex request.', threadId: null, turnId: null });
     let unlisten: UnlistenFn | null = null;
+    let submittedPrGuide = false;
     const finishRecovery = () => {
       if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
     };
@@ -519,6 +521,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         return;
       }
       if (gitGuide) {
+        submittedPrGuide = true;
+        resources.current.submittedPrGuide = true;
         const result = await sendCodexPrGuideRequest(review.reviewId, review.fingerprint, true);
         if (lifetime.current !== epoch) return;
         if (result.status === 'error') setError(result.error.kind === 'localStorageUnavailable'
@@ -585,9 +589,14 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       if (unlistenRef.current === unlisten) unlistenRef.current = null;
       if (lifetime.current === epoch) {
         resources.current.run = null;
+        resources.current.submittedPrGuide = false;
         releaseReview();
         setCancelling(false);
         setProgress(null);
+      } else if (gitGuide && submittedPrGuide) {
+        // Navigation leaves an admitted PR Guide native-owned. Release any
+        // review that the native command did not consume after it settles.
+        await discardProviderRequestReview(review.reviewId).catch(() => {});
       }
       finish(epoch);
       // A saved preview may exist even after a failed reply or journal cleanup.

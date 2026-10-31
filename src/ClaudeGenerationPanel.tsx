@@ -97,7 +97,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
   const callbacks = useRef({ onHoldChange, onPrGuideReady, onRecoveryResultReady });
   callbacks.current = { onHoldChange, onPrGuideReady, onRecoveryResultReady };
   const state = useRef({ mounted: false, version: 0, active: false, attempted: false,
-    run: null as string | null, draft: null as string | null, saving: false, cancelled: false,
+    run: null as string | null, draft: null as string | null, saving: false, cancelled: false, submittedPrGuide: false,
     unlisten: null as UnlistenFn | null });
 
   const notify = () => {
@@ -118,7 +118,9 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       current.mounted = false; ++current.version;
       current.cancelled = true;
       current.unlisten?.(); current.unlisten = null;
-      if (native && current.run) void cancelClaudeAgentOperation(current.run).catch(() => {});
+      if (native && current.run && !(mode.kind === 'pr-guide' && current.submittedPrGuide)) {
+        void cancelClaudeAgentOperation(current.run).catch(() => {});
+      }
       // A save may already have written an immutable draft. Let its completion
       // reconcile history; a lost reply must not erase its recoverable preview.
       if (native && current.draft && !current.saving) {
@@ -137,6 +139,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     if (Date.now() >= review.expiresAtUnixMs) { setError('This review expired. Prepare a fresh request.'); return; }
     const version = ++current.version;
     current.active = true; current.attempted = true; current.cancelled = false;
+    current.submittedPrGuide = false;
     current.run = review.reviewId;
     callbacks.current.onHoldChange(true);
     setAttempted(true); setBusy('send'); setError(null); setNote(null);
@@ -153,6 +156,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       if (!current.mounted || current.version !== version || current.cancelled) return;
       current.unlisten = unlisten;
       invoked = true;
+      current.submittedPrGuide = mode.kind === 'pr-guide';
       const response = await send(mode, review);
       if (response.status === 'error') {
         if (current.mounted && current.version === version) {
@@ -214,7 +218,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       unlisten?.();
       if (unclaimedDraft) await discardGeneratedChapterDraft(unclaimedDraft).catch(() => {});
       if (current.unlisten === unlisten) current.unlisten = null;
-      current.run = null; current.active = false;
+      current.run = null; current.active = false; current.submittedPrGuide = false;
       if (current.mounted && current.version === version) {
         setBusy(null); setProgress(null); setCancelling(false); setConsent(false);
         if (!invoked && current.cancelled) setNote('Cancelled before sending. Prepare a fresh review before another attempt.');
