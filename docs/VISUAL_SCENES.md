@@ -35,7 +35,10 @@ The design pass starts with what the cited code does to its input or state:
 change it, select it, move it, wait, branch, or fail. Each scene centers one
 focal object or relationship and uses the narrowest semantic form that makes it
 visible. Rows, columns, and groups arrange the visual; they are not a visual
-idea by themselves. With narration collapsed,
+idea by themselves. A value transformation uses the three-slot transform
+form with separately cited input, operation, and result; a bare row and
+arrow hides the operation. Guarded choices use a branch, ordered first-match
+probes use a selector, and verified call order uses a timeline. With narration collapsed,
 the source-specific values and layout should still expose the claim's main
 change or decision. Avoid dashboards, component inventories, collages, and
 interchangeable card piles. Different behavior can justify a different form;
@@ -61,7 +64,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v65`, teaching policy `meaning-first-v31`, and reader
+`ai-html-compositions-v67`, teaching policy `meaning-first-v32`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
