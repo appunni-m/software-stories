@@ -9,6 +9,7 @@ const FLOW_NODE_WIDTH = 250;
 // when placing edge labels so a diagram remains readable before React Flow has
 // measured each DOM node.
 const FLOW_NODE_HEIGHT = 120;
+const FLOW_REFERENCE_VIEWPORT = { width: 700, height: 500 };
 
 function rankAcyclicProjection(
   nodes: Pick<LinkedVisualNode, 'nodeId'>[],
@@ -55,6 +56,61 @@ function stableFallback(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: Vi
   }));
 }
 
+function placeRankedLayers(
+  layers: Map<number, string[]>,
+  direction: VisualLayoutDirection,
+  lastRank: number,
+  ranksPerBand: number,
+  compact: boolean,
+): Map<string, FlowPoint> {
+  const isHorizontal = direction === 'leftToRight';
+  const depthSpacing = compact ? (isHorizontal ? 290 : 175) : (isHorizontal ? 340 : 260);
+  const siblingSpacing = compact ? (isHorizontal ? 150 : 280) : (isHorizontal ? 260 : 320);
+  const bands = new Map<number, number>();
+  for (const [layerRank, layer] of layers) {
+    const band = Math.floor(layerRank / ranksPerBand);
+    bands.set(band, Math.max(bands.get(band) ?? 0, layer.length));
+  }
+
+  const bandOffsets = new Map<number, number>();
+  let bandOffset = 0;
+  for (const [band, largestLayer] of [...bands].sort(([left], [right]) => left - right)) {
+    bandOffsets.set(band, bandOffset);
+    const bandWidth = compact
+      ? (largestLayer - 1) * siblingSpacing + FLOW_NODE_WIDTH + 30
+      : (largestLayer - 1) * siblingSpacing + 200;
+    bandOffset += Math.max(300, bandWidth);
+  }
+
+  const positions = new Map<string, FlowPoint>();
+  for (const [layerRank, layer] of layers) {
+    const center = (layer.length - 1) / 2;
+    const band = Math.floor(layerRank / ranksPerBand);
+    const rankInBand = layerRank % ranksPerBand;
+    const bandLength = Math.min(ranksPerBand, lastRank - band * ranksPerBand + 1);
+    const rankSlot = band % 2 === 1
+      ? (compact ? bandLength : ranksPerBand) - 1 - rankInBand
+      : rankInBand;
+    const bandCrossOffset = bandOffsets.get(band) ?? 0;
+    layer.forEach((nodeId, index) => {
+      const sibling = (index - center) * siblingSpacing;
+      positions.set(nodeId, isHorizontal
+        ? { x: rankSlot * depthSpacing, y: bandCrossOffset + sibling }
+        : { x: bandCrossOffset + sibling, y: rankSlot * depthSpacing });
+    });
+  }
+  return positions;
+}
+
+function fitScale(positions: Map<string, FlowPoint>): number {
+  if (positions.size === 0) return 0;
+  const xs = [...positions.values()].map((point) => point.x);
+  const ys = [...positions.values()].map((point) => point.y);
+  const width = Math.max(...xs) - Math.min(...xs) + FLOW_NODE_WIDTH;
+  const height = Math.max(...ys) - Math.min(...ys) + FLOW_NODE_HEIGHT;
+  return Math.min(FLOW_REFERENCE_VIEWPORT.width / width, FLOW_REFERENCE_VIEWPORT.height / height);
+}
+
 /** Place acyclic evidence graphs in rank layers while retaining source order in each layer. */
 export function layoutFlowNodes(
   nodes: Pick<LinkedVisualNode, 'nodeId'>[],
@@ -94,42 +150,35 @@ export function layoutFlowNodes(
   // read as a compact overview. Keep small diagrams in their familiar layout.
   if (layers.size === 1 && nodes.length >= 7) return stableFallback(nodes, direction);
 
-  const isHorizontal = direction === 'leftToRight';
-  const depthSpacing = isHorizontal ? 340 : 260;
-  const siblingSpacing = isHorizontal ? 260 : 320;
-  const positions = new Map<string, FlowPoint>();
   const lastRank = Math.max(...layers.keys());
-  // The explanation column is usually narrower than the repository/source
-  // panes. Wrap a five-rank path into two bands before fitView shrinks every
-  // 250px card into a thin, hard-to-read strip.
-  const ranksPerBand = lastRank >= 4 ? 3 : lastRank + 1;
-  const bands = new Map<number, number>();
-  for (const [layerRank, layer] of layers) {
-    const band = Math.floor(layerRank / ranksPerBand);
-    bands.set(band, Math.max(bands.get(band) ?? 0, layer.length));
+  for (const layer of layers.values()) layer.sort((left, right) => nodeOrder.get(left)! - nodeOrder.get(right)!);
+
+  // Long branched paths can become unreadable if every node is fitted into one
+  // tall layout. Try bounded rank-band widths and both orientations, then keep
+  // the arrangement that uses a typical reader pane best. Prefer the author's
+  // requested direction when two layouts are nearly equivalent.
+  const compact = nodes.length >= 10;
+  const preferredDirection = direction === 'leftToRight' ? 'leftToRight' : 'topToBottom';
+  const directions: VisualLayoutDirection[] = compact
+    ? preferredDirection === 'leftToRight' ? ['leftToRight', 'topToBottom'] : ['topToBottom', 'leftToRight']
+    : [preferredDirection];
+  const bandWidths = compact && lastRank >= 4
+    ? Array.from({ length: lastRank }, (_, index) => index + 2)
+    : [lastRank >= 4 ? 3 : lastRank + 1];
+  let bestPositions: Map<string, FlowPoint> | undefined;
+  let bestScore = -1;
+  for (const candidateDirection of directions) {
+    for (const ranksPerBand of bandWidths) {
+      const candidate = placeRankedLayers(layers, candidateDirection, lastRank, ranksPerBand, compact);
+      const directionPreference = candidateDirection === preferredDirection ? 1 : 0.92;
+      const score = fitScale(candidate) * directionPreference;
+      if (score > bestScore) {
+        bestScore = score;
+        bestPositions = candidate;
+      }
+    }
   }
-  const bandOffsets = new Map<number, number>();
-  let bandOffset = 0;
-  for (const [band, largestLayer] of [...bands].sort(([left], [right]) => left - right)) {
-    bandOffsets.set(band, bandOffset);
-    bandOffset += Math.max(300, (largestLayer - 1) * siblingSpacing + 200);
-  }
-  for (const [layerRank, layer] of layers) {
-    layer.sort((left, right) => nodeOrder.get(left)! - nodeOrder.get(right)!);
-    const center = (layer.length - 1) / 2;
-    const band = Math.floor(layerRank / ranksPerBand);
-    const rankInBand = layerRank % ranksPerBand;
-    const reverse = band % 2 === 1;
-    const rankSlot = reverse ? ranksPerBand - 1 - rankInBand : rankInBand;
-    const bandCrossOffset = bandOffsets.get(band) ?? 0;
-    layer.forEach((nodeId, index) => {
-      const sibling = (index - center) * siblingSpacing;
-      positions.set(nodeId, isHorizontal
-        ? { x: rankSlot * depthSpacing, y: bandCrossOffset + sibling }
-        : { x: bandCrossOffset + sibling, y: rankSlot * depthSpacing });
-    });
-  }
-  return positions;
+  return bestPositions ?? fallback;
 }
 
 /** Move relationship labels off dense edge crossings while keeping them near their link. */

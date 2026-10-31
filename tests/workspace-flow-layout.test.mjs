@@ -118,6 +118,32 @@ test('five-rank evidence loops wrap into the narrow reader instead of a tiny wid
   assert.deepEqual(points.get('none'), {x: 340, y: 430});
 });
 
+test('a long branched flow fills more of the reader pane without card overlap', () => {
+  const flow = Array.from({length: 12}, (_, index) => ({nodeId: `step-${index}`}));
+  const flowEdges = [
+    [0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [4, 5], [4, 6],
+    [5, 7], [6, 7], [7, 8], [8, 9], [8, 10], [9, 11], [10, 11],
+  ].map(([from, to]) => ({fromNodeId: flow[from].nodeId, toNodeId: flow[to].nodeId}));
+  const points = layoutFlowNodes(flow, flowEdges, 'auto');
+  const xs = [...points.values()].map((point) => point.x);
+  const ys = [...points.values()].map((point) => point.y);
+  const fittedZoom = Math.min(
+    700 / (Math.max(...xs) - Math.min(...xs) + 250),
+    500 / (Math.max(...ys) - Math.min(...ys) + 120),
+  );
+
+  assert.equal(points.size, flow.length);
+  assert.ok(fittedZoom >= 0.4, `expected a useful overview scale, got ${fittedZoom.toFixed(2)}`);
+  for (let left = 0; left < flow.length; left += 1) {
+    const a = points.get(flow[left].nodeId);
+    for (let right = left + 1; right < flow.length; right += 1) {
+      const b = points.get(flow[right].nodeId);
+      const overlaps = Math.abs(a.x - b.x) < 250 && Math.abs(a.y - b.y) < 120;
+      assert.equal(overlaps, false, `${flow[left].nodeId} overlaps ${flow[right].nodeId}`);
+    }
+  }
+});
+
 test('dense graph edge labels move into stable lanes instead of stacking on crossings', () => {
   const graphNodes = ['records', 'tag', 'offset', 'input', 'range', 'slice', 'none'].map((nodeId) => ({nodeId}));
   const graphEdges = [
