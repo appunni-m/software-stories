@@ -556,3 +556,14 @@ screens were reviewed live but no screenshot file was retained. This focused
 spot check does not qualify multi-scene Previous/Next controls, narrow/high
 zoom layouts, VoiceOver, keyboard, contrast or motion. Keep `x21h` and `13yp`
 open for those remaining acceptance gates.
+
+### Duplicate visual cue text — source correction, 31 October 2026
+
+The current packaged Guide showed a decision cue twice: once as its visible
+label and again as its value. The renderer already hides exact label/value
+duplicates for simple text-like elements, but compared raw model strings. It
+now compares rendered plain text after Unicode normalization, inline-code
+removal, whitespace normalization and sentence-ending punctuation cleanup.
+This keeps useful distinct values while avoiding a second copy of the same
+visual cue. Source-only correction; no build, test or packaged recheck ran.
+Keep the full visual-quality and packaged UI acceptance open.

@@ -6,6 +6,16 @@ import { InlineCodeText } from './InlineCodeText';
 import { plainInlineCodeText } from './lib/inlineCode';
 import './html-scene.css';
 
+function comparableSceneText(value: string): string {
+  return plainInlineCodeText(value)
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .replace(/[.!?…。！？]+$/u, '')
+    .toLowerCase();
+}
+
 /** The AI composes HTML from bounded layout/data primitives. React owns every
  * tag, style and event; model strings never become executable DOM or CSS.
  */
@@ -125,7 +135,8 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     // explanatory value. The label already carries the same visible cue, so
     // rendering the identical value below it adds visual noise without detail.
     const repeatsPlainLabel = ['card', 'token', 'text'].includes(e.kind)
-      && value.trim().replace(/\s+/gu, ' ') === node.label.trim().replace(/\s+/gu, ' ');
+      && comparableSceneText(value) !== ''
+      && comparableSceneText(value) === comparableSceneText(node.label);
     const displayValue = repeatsPlainLabel ? '' : value;
     const sourceValue = e.valueOrigin === 'source' ? value : undefined;
     const focusAnchorId = sourceAnchorIdForNode?.(node.nodeId, sourceValue, sourceAnchorIds) ?? node.sourceAnchorId ?? node.evidenceAnchorIds[0];
