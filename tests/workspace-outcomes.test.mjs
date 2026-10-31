@@ -54,7 +54,8 @@ test('Guide and History show the question topic and preserve the exact prompt in
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{questionSummaryText\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
   assert.match(source, /const displayTitle=e\.id==='root'\?projectName:questionSummaryText\(title\)/);
-  assert.match(source, /title=\{`\$\{plainInlineCodeText\(displayTitle\)\} · \$\{questionCount\} · \$\{childCount\}`\}/);
+  assert.ok(source.includes('const accessibilityLabel=counts.children?`${plainInlineCodeText(displayTitle)}, ${childCount}`:plainInlineCodeText(displayTitle);'));
+  assert.ok(!source.includes('{counts.questions} Q'), 'exploration rows should not expose raw question totals');
 });
 
 test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {

@@ -528,3 +528,31 @@ Changes/Explorations rail and Guide/Flow/Chat-history views are present in the
 workspace. This recheck used source plus the app accessibility tree; it did not
 exercise a narrow viewport, sharing action, or visual pixel alignment. Keep
 those packaged and accessibility acceptance gates open.
+
+### Packaged activity sweep and quieter history — 31 October 2026
+
+Inspected Explorer, Search, Changes, Explorations, Guide, Flow and Chat history
+in the rebuilt Fontdone app at a 1440 CSS-pixel window. The corrected topbar
+keeps repository/snapshot/refresh and connection/appearance/notifications/help
+on one in-flow row. Explorer and Search retain the source pane and pinned
+composer; Changes shows the recent commit list, local base/head comparison,
+changed files and textual diff; Flow uses source-point cards for this
+two-condition explanation, where a graph would imply an unsupported path.
+
+The populated Chat history showed 110 root questions, with many repeated,
+failed or stopped attempts taking up the reading surface. History now shows
+saved explanations and active questions first, places other unanswered or
+unavailable questions under a collapsed disclosure, and retains every attempt
+inside its question group. A retry group favors its current active or most
+recent available answer. The exploration tree no longer displays a raw question
+total; child exploration count remains visible. Search still exposes matching
+history, and no question, receipt, answer, or notification was deleted.
+
+The rebuilt unsigned macOS app and DMG passed license, metadata and checksum
+verification; the packaged app opened with the new one-row header and condensed
+history. Build executable SHA-256:
+`2aafec3ae5063e6e5852dcac0081aac6996aec39da5a2cfe871a53deb6953697`. The
+screens were reviewed live but no screenshot file was retained. This focused
+spot check does not qualify multi-scene Previous/Next controls, narrow/high
+zoom layouts, VoiceOver, keyboard, contrast or motion. Keep `x21h` and `13yp`
+open for those remaining acceptance gates.

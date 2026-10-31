@@ -130,6 +130,14 @@ function isActiveQuestion(turn: Turn): boolean {
   return turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 }
 
+function hasAvailableHistoryAnswer(turn: Turn, availableRevisionIds: ReadonlySet<string>, loading: boolean): boolean {
+  const revisionIds = [turn.revisionId,
+    ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+    ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
+  return revisionIds.some((revisionId) => revisionId && (availableRevisionIds.has(revisionId) || loading))
+    || (loading && turn.status === 'ready');
+}
+
 function groupGuideAttempts(turns: readonly Turn[], featuredTurnId: string | null) {
   const order = new Map<string, number>();
   turns.forEach((turn, index) => order.set(turn.id, index));
@@ -831,6 +839,25 @@ export function DeveloperWorkspace(props:Props) {
       {turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}
     </article>;
   }
+  function renderHistoryGroup(exploration:Exploration,group:{key:string;turns:Turn[]}){
+    const currentTurn=exploration.id===current.id?group.turns.find((turn)=>turn.id===historyTurnId):undefined;
+    const visibleTurn=(currentTurn&&(hasAvailableHistoryAnswer(currentTurn,availableRevisionIds,chaptersLoading)||isActiveQuestion(currentTurn)))
+      ?currentTurn
+      :[...group.turns].reverse().find((turn)=>hasAvailableHistoryAnswer(turn,availableRevisionIds,chaptersLoading))
+        ??currentTurn
+        ??[...group.turns].reverse().find(isActiveQuestion)
+        ??group.turns.at(-1)!;
+    const isCurrent=exploration.id===current.id&&visibleTurn.id===historyTurnId;
+    const entry=historyEntry(visibleTurn,availableRevisionIds,chaptersLoading);
+    if(group.turns.length===1)return renderHistoryTurn(exploration,visibleTurn);
+    const visibleMarker=isCurrent?'Current':visibleTurn.id===group.turns.at(-1)?.id?'Latest':'Saved answer';
+    return <div key={group.key} className={`dw-history-retry-group${isCurrent?' is-current':''}`}>
+      <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong></div>
+      <p><InlineCodeText text={entry.text}/></p>
+      <AppButton intent="custom" className="dw-text-action" aria-current={isCurrent?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,isCurrent?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{visibleMarker}</small></AppButton>
+      <details className="dw-history-retries"><summary>Show {group.turns.length-1} other outcome{group.turns.length===2?'':'s'}</summary>{group.turns.filter((turn)=>turn.id!==visibleTurn.id).map((turn)=>renderHistoryTurn(exploration,turn))}</details>
+    </div>;
+  }
   function openDestination(destination:HotspotDestination) {
     if(destination.kind==='atlasFile' && rows.some((r)=>r.path===destination.path)) openFile({path:destination.path});
     else if(destination.kind==='atlasSymbol') {
@@ -918,14 +945,14 @@ export function DeveloperWorkspace(props:Props) {
         const counts=explorationCounts.get(e.id)!;
         const siblingPosition=siblingPositions.get(e.id);
         const expanded=expandedExplorations.has(e.id)||currentPathIds.has(e.id)||explorationFilterResult.expandedIds.has(e.id);
-        const questionCount=`${counts.questions} ${counts.questions===1?'question':'questions'}`;
         const childCount=`${counts.children} ${counts.children===1?'child exploration':'child explorations'}`;
+        const accessibilityLabel=counts.children?`${plainInlineCodeText(displayTitle)}, ${childCount}`:plainInlineCodeText(displayTitle);
         const nested=expanded?(childrenByParent.get(e.id)??[]).map((child)=>rendered.get(child.id)):[];
         rendered.set(e.id,<li key={e.id} role="none">
           <div className="dw-exploration-row" style={{paddingLeft:10+depth*12}}>
             <AppButton intent="custom" size="1" role="treeitem" data-exploration-row={e.id} data-parent-exploration={e.parentId??''}
-              title={`${plainInlineCodeText(displayTitle)} · ${questionCount} · ${childCount}`}
-              aria-label={`${plainInlineCodeText(displayTitle)}, ${questionCount}, ${childCount}`}
+              title={accessibilityLabel}
+              aria-label={accessibilityLabel}
               aria-current={e.id===current.id?'page':undefined} aria-selected={e.id===current.id}
               aria-expanded={counts.children>0?expanded:undefined} aria-level={depth+1}
               aria-posinset={siblingPosition?.position} aria-setsize={siblingPosition?.size}
@@ -953,7 +980,6 @@ export function DeveloperWorkspace(props:Props) {
                 }
               }}>
               <MessageSquare size={13}/><span><InlineCodeText text={displayTitle}/></span>
-              <small title={`${questionCount} in this exploration`}>{counts.questions} Q</small>
               {counts.children>0&&<small className="dw-child-count" title={childCount}><GitBranch size={11} aria-hidden="true"/>{counts.children}</small>}
             </AppButton>
             {counts.children>0&&<IconButton size="1" variant="ghost" color="gray" className="dw-exploration-toggle"
@@ -1096,28 +1122,29 @@ export function DeveloperWorkspace(props:Props) {
                     const isCurrentLevel=exploration.id===current.id;
                     const level=ancestors(state,exploration.id).length;
                     const levelTitle=exploration.id==='root'?projectName:questionSummaryText(exploration.title);
-                    const entries=groups.map((group)=>{
-                      const currentTurn=exploration.id===current.id?group.turns.find((turn)=>turn.id===historyTurnId):undefined;
-                      const latestTurn=group.turns.at(-1)!;
-                      const visibleTurn=currentTurn??latestTurn;
-                      const entry=historyEntry(visibleTurn,availableRevisionIds,chaptersLoading);
-                      if(group.turns.length===1)return renderHistoryTurn(exploration,visibleTurn);
-                      return <div key={group.key} className={`dw-history-retry-group${currentTurn?' is-current':''}`}>
-                        <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong></div>
-                        <p><InlineCodeText text={entry.text}/></p>
-                        <AppButton intent="custom" className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest'}</small></AppButton>
-                        <details className="dw-history-retries"><summary>Show earlier outcomes</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
-                      </div>;
-                    });
+                    const groupHasUsefulAnswer=(group:{turns:Turn[]})=>group.turns.some((turn)=>
+                      hasAvailableHistoryAnswer(turn,availableRevisionIds,chaptersLoading)||isActiveQuestion(turn)
+                      ||(isCurrentLevel&&turn.id===historyTurnId));
+                    const visibleGroups=historySearchTerm?groups:groups.filter(groupHasUsefulAnswer);
+                    const unansweredGroups=historySearchTerm?[]:groups.filter((group)=>!groupHasUsefulAnswer(group));
+                    const entries=visibleGroups.map((group)=>renderHistoryGroup(exploration,group));
                     if(isCurrentLevel||historySearchTerm)return <section key={exploration.id}>
                       <AppButton intent="custom" className="dw-history-level" aria-current={isCurrentLevel?'location':undefined} onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{levelTitle}<small>Level {level}</small></AppButton>
                       {entries}
+                      {unansweredGroups.length>0&&<details className="dw-history-unanswered">
+                        <summary>Other questions without a saved answer <small>{unansweredGroups.length}</small></summary>
+                        <div>{unansweredGroups.map((group)=>renderHistoryGroup(exploration,group))}</div>
+                      </details>}
                     </section>;
                     return <details key={exploration.id} className="dw-history-ancestor">
                       <summary><ChevronRight size={13} className="dw-history-ancestor-chevron"/><span><InlineCodeText text={levelTitle}/></span><small>Level {level} · {groups.length} {groups.length===1?'question':'questions'} · {turns.length} {turns.length===1?'attempt':'attempts'}</small></summary>
                       <div className="dw-history-ancestor-content">
                         <AppButton intent="custom" className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>Open this level<small>Level {level}</small></AppButton>
                         {entries}
+                        {unansweredGroups.length>0&&<details className="dw-history-unanswered">
+                          <summary>Other questions without a saved answer <small>{unansweredGroups.length}</small></summary>
+                          <div>{unansweredGroups.map((group)=>renderHistoryGroup(exploration,group))}</div>
+                        </details>}
                       </div>
                     </details>;
                   })}
