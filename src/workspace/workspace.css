@@ -223,7 +223,7 @@
 .dw-search-coverage small {display:block;padding-bottom:var(--space-2);color:var(--dim);}
 .dw-suggestions .dw-search-coverage {margin:var(--space-1) 0;}
 .dw-search-results strong {font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dw-search-results .dw-search-file-heading > strong {font-weight:600;}
+.dw-search-results .dw-search-file-heading > strong {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere;line-height:1.35;font-weight:600;}
 .dw-search-results .rt-Button {margin-top:var(--space-3);}
 .dw-commits {overflow:auto;padding:var(--space-2) var(--space-2) var(--space-5);}
 .dw-commits p {padding:var(--space-3);color:var(--muted);font-size:12px;}
