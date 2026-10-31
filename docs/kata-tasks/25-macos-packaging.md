@@ -295,3 +295,16 @@ recent-run sample does not erase them.
 There is still no published GitHub release or release tag. Package verification
 is unsigned and does not produce an installable artifact, so the first signed
 release remains pending signing/notarization credentials and product acceptance.
+
+## Live package-run queue — 2026-10-31 14:31 UTC
+
+GitHub reports run [#1503](https://github.com/appunni-m/software-stories/actions/runs/41209464592)
+for `76b0d53` still in progress. Run [#1504](https://github.com/appunni-m/software-stories/actions/runs/41209769861)
+for `a90f1eb` was cancelled with no job result when a newer push replaced the
+single pending slot; this is queue replacement, not a package failure. The
+current commit `421ac42` is run [#1505](https://github.com/appunni-m/software-stories/actions/runs/41210176745)
+and remains pending behind the active macOS build. Do not mark the current
+source verified until #1505 completes successfully. This does not change the
+first-release gate: there is no signed release artifact, tag or published
+release, and signing, notarization, clean-account installation, and product /
+accessibility acceptance remain open.
