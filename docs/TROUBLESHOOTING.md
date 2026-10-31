@@ -42,7 +42,7 @@ See the [language capability matrix](LANGUAGE_CAPABILITIES.md) for the current p
 
 ### A file opens, but AI cannot explain it
 
-Capture, indexing and AI context have different limits. Current question discovery excludes an entire file above 250,000 bytes, even if its captured source opens and its symbols were indexed. A large core module can therefore be absent from an otherwise valid answer. This was observed with Fontdone's `src/font.rs`; it is an app limitation, not evidence that the file is irrelevant. Bounded range retrieval is pending in [the large-source task](kata-tasks/66-large-source-discovery.md).
+Capture, indexing and AI context have different limits. A source file above 250,000 bytes is not sent as a whole-file input, but readable captured files can be offered to Codex as range-only candidates; the owned reader retrieves bounded ranges from the selected immutable snapshot. The earlier Fontdone `src/font.rs` eligibility failure is addressed in the current source. Retrieval can still miss relevant ranges, and broad-repository recall and answer quality remain unqualified. Try a focused question about one behavior or symbol; if needed, use Search or Explorer to open the relevant code and ask about that selection. See the [large-source task](kata-tasks/66-large-source-discovery.md) and [retrieval contract](architecture/repository-retrieval.md) for current limits.
 
 ### Questions queued after Stop fail to connect
 
