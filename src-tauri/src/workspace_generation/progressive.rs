@@ -341,7 +341,7 @@ pub(crate) fn run_with_starting_ranges_at(
     // Register the job as soon as the local worker owns it. Failures in the
     // remaining preparation stages can then be retained and exported without
     // putting source or raw errors into diagnostics.
-    preparation.run_stage(
+    let registration = preparation.run_stage(
         crate::generation_timing::PreparationKind::JobRegistration,
         || {
             let registered = super::jobs::start(
@@ -363,7 +363,22 @@ pub(crate) fn run_with_starting_ranges_at(
             }
             Ok(())
         },
-    )?;
+    );
+    if let Err(error) = registration {
+        if error == "Stopped" {
+            preparation.mark_last_stopped();
+            let _ = reading::interrupt(storage, &input.run_id, Outcome::Stopped);
+            if let Err(save_error) = super::jobs::finish_preparation_failure(
+                storage,
+                &input.run_id,
+                super::jobs::JobState::Stopped,
+                preparation.into_stages(),
+            ) {
+                eprintln!("Stopped workspace preparation could not be saved: {save_error}");
+            }
+        }
+        return Err(error);
+    }
     // Interactive code investigations are explicitly stoppable. Native source,
     // call, proposal and storage budgets bound work; elapsed time does not.
     let run_deadline = RunDeadline::UserControlled;
