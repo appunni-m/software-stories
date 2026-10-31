@@ -802,9 +802,15 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
         .iter()
         .filter(|value| value.is_some())
         .count();
+    // A guide slide is scoped by its durable guide operation, not by a chat turn.
+    let missing_required_scope = match job.kind {
+        Some(JobKind::WorkspaceQuestion) => job.conversation_turn_id.is_none(),
+        Some(JobKind::RepositoryGuideSlide) => false,
+        None => true,
+    };
     if (saved_hash_count != 0 && saved_hash_count != identity_hashes.len())
         || (saved_hash_count == identity_hashes.len()
-            && (job.conversation_turn_id.is_none()
+            && (missing_required_scope
                 || job.model_id.is_none()
                 || job.reasoning_effort.is_none()))
     {
