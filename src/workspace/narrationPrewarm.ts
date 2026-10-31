@@ -12,7 +12,10 @@ export function localNarrationPrewarmInputs(
   const requests: NarrationSynthesisInput[] = [];
   for (const section of revision.sections) {
     try {
-      for (const scope of sectionNarrationScopes(revision, section, read)) {
+      for (const scope of sectionNarrationScopes(revision, section, read, () => {
+        // An unreadable scene cannot identify its cached audio; keep warming
+        // valid sibling scenes instead of dropping this whole section.
+      })) {
         const preferences = applyVoiceConnection(scope.preferences, connection);
         if (preferences.backend !== 'pocket-tts') continue;
         if (!preferences.spokenText.trim()) continue;

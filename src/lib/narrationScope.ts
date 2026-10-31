@@ -29,17 +29,33 @@ export interface NarrationScope {
 }
 
 /** Match the scopes actually used by VisualStory/NarrationPlayer. A custom
- * whole-section script stays one track, with no guessed cuts.
+ * whole-section script stays one track, with no guessed cuts. When supplied,
+ * onSceneError lets a background caller skip one unreadable scene and retain
+ * valid siblings; without it, the first scene error is propagated.
  */
-export function sectionNarrationScopes(revision: ChapterRevision, section: ChapterSection, read: ReadNarrationStorage): NarrationScope[] {
+export function sectionNarrationScopes(
+  revision: ChapterRevision,
+  section: ChapterSection,
+  read: ReadNarrationStorage,
+  onSceneError?: (sceneId: string, error: unknown) => void,
+): NarrationScope[] {
   const baseKey = narrationStorageKey(revision.projectId, revision.chapterId, revision.revisionId, section.sectionId);
   const fallback = defaultNarrationText(section.spokenText);
   const parent = scopedNarrationPreferences(read, baseKey, fallback);
   const scenes = storyScenes(section, undefined, parent.spokenText !== fallback ? parent.spokenText : undefined);
   if (scenes.length === 1) return [{ label: section.title, preferences: parent }];
-  return scenes.map((scene, index) => ({
-    sceneId: scene.id,
-    label: `Scene ${index + 1}`,
-    preferences: scopedNarrationPreferences(read, `${baseKey}:scene:${scene.id}`, defaultNarrationText(scene.narration), baseKey),
-  }));
+  const scopes: NarrationScope[] = [];
+  scenes.forEach((scene, index) => {
+    try {
+      scopes.push({
+        sceneId: scene.id,
+        label: `Scene ${index + 1}`,
+        preferences: scopedNarrationPreferences(read, `${baseKey}:scene:${scene.id}`, defaultNarrationText(scene.narration), baseKey),
+      });
+    } catch (error) {
+      if (!onSceneError) throw error;
+      onSceneError(scene.id, error);
+    }
+  });
+  return scopes;
 }
