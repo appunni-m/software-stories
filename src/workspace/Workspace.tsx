@@ -84,9 +84,12 @@ function sourceSearchStateFor(previous:CapturedSourceSearchState,key:string,sear
   return previous.key===key?previous:{key,hits:[],limited:false,nextOffset:null,unavailableFiles:0,indexLimitOmissions:{sourceByteLimitedFiles:0,rangeLimitedFiles:0,files:[],filesTruncated:false},busy:searching,error:null};
 }
 
-function searchPathLabel(path:string):string {
+function searchPathParts(path:string):{name:string;parent:string} {
   const segments=path.split('/').filter(Boolean);
-  return segments.length>2?`…/${segments.slice(-2).join('/')}`:path;
+  return {
+    name:segments.at(-1)??path,
+    parent:segments.length>1?`…/${segments.at(-2)??''}`:'',
+  };
 }
 
 function SearchCoverageNote({unavailableFiles,omissions}:{unavailableFiles:number;omissions:IndexLimitOmissions}) {
@@ -997,8 +1000,9 @@ export function DeveloperWorkspace(props:Props) {
               const visibleHits=hits.slice(0,2);
               const remainingHits=hits.slice(2);
               const renderHit=(hit:CodeSearchHit,index:number)=><AppButton intent="custom" size="1" className="dw-search-file-match" key={`${hit.from??'file'}:${index}`} onClick={()=>openFile(hit)}><strong>{hit.from===undefined?'File match':`Line ${hit.from}${hit.to&&hit.to!==hit.from?`–${hit.to}`:''}`}</strong><span>{hit.text}</span></AppButton>;
+              const pathParts=searchPathParts(path);
               return <section className="dw-search-file-group" key={path}>
-                <div className="dw-search-file-heading"><FileCode2 size={13}/><strong title={path}>{searchPathLabel(path)}</strong><small>{hits.length} {hits.length===1?'match':'matches'}</small></div>
+                <div className="dw-search-file-heading"><FileCode2 size={13}/><span className="dw-search-file-path" title={path}><strong>{pathParts.name}</strong>{pathParts.parent&&<small>{pathParts.parent}</small>}</span><small className="dw-search-file-count">{hits.length} {hits.length===1?'match':'matches'}</small></div>
                 <div className="dw-search-file-matches">{visibleHits.map(renderHit)}
                   {remainingHits.length>0&&<details className="dw-search-more-matches"><summary>Show {remainingHits.length} more match{remainingHits.length===1?'':'es'}</summary>{remainingHits.map(renderHit)}</details>}
                 </div>
