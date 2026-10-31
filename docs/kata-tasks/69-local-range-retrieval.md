@@ -390,3 +390,22 @@ partial result at the 256-path ceiling (4 passed, 854 filtered out). This does
 not change direct range-search recall or qualify the agent's subsequent range
 selection; the Fontdone profile and answer-quality gates remain open. See
 [large source discovery](66-large-source-discovery.md).
+
+## Current focused retrieval regressions — 31 October 2026
+
+On current `main` at `28d65ce`, the focused native `source_discovery::tests`
+module passed **10/10**. Coverage includes large targets ranked beyond the
+first page, partial status at the 256-candidate ceiling, large unreadable-path
+exclusion, captured-text ranking, and bounded selection. The
+`repository_context::tests` module passed **46 tests; 1 saved-Fontdone profile
+was ignored** because its explicit data-directory variable was not configured.
+Passing cases include the >1 MiB parserless adapter, Unicode/CRLF and huge
+declaration offsets, exact range hash/UTF-8/byte bounds, changed snapshots,
+renames, exclusions, cancellation, atomic generation publication,
+deterministic pagination, and literal/regex fallback.
+
+This is current deterministic local-retrieval evidence. It does not rerun the
+saved Fontdone performance/recall profile, qualify packaged storage pressure,
+or establish Codex tool choice, large-file answer quality, or the broad
+Fontdone behavior path. No provider request was made. Keep `a699`, `0wdn`, and
+`gk46` open for those remaining acceptance points.
