@@ -1,13 +1,13 @@
 .visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.story-sticky-controls { position: static; inset: auto; z-index: auto; width: 100%; max-width: 100%; background: var(--surface); }
+.story-sticky-controls { position: sticky; inset-block-start: 0; z-index: 3; width: 100%; max-width: 100%; background: var(--surface); }
 .story-toolbar { position:static;inset:auto;box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
 .story-scene-title { grid-area:title;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
 .story-scene-progress { grid-area:progress;position:static;inset:auto;display:flex;justify-self:center;justify-content:center;align-items:center;gap:4px;box-sizing:border-box;min-width:0;max-width:100%;width:min(100%,604px);margin-inline:auto; }
-.story-scene-progress.has-multiple-scenes { display:flex; flex:0 1 auto; justify-self:center; width:max-content; max-width:100%; gap:8px; justify-content:center; align-items:center; }
+.story-scene-progress.has-multiple-scenes { display:flex; flex:0 1 auto; justify-self:center; width:min(100%,604px); max-width:100%; gap:8px; justify-content:center; align-items:center; }
 .story-scene-count { flex: 0 0 auto; color: var(--muted); font-size: 12px; white-space:nowrap; }
 .story-scene-position { position:static;inset:auto;display:flex;flex:0 1 auto;justify-content:center;align-items:center;gap:8px;min-width:0;max-width:100%; }
-.story-scene-progress.has-multiple-scenes > .story-scene-position { display:flex;flex:0 1 auto;justify-content:center;width:auto;min-width:0;max-width:calc(100% - 72px);gap:4px 10px; }
-.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 0 auto;align-self:center;width:max-content;min-width:0;max-width:100%;flex-wrap:nowrap;justify-content:center;align-content:center;overflow:visible; }
+.story-scene-progress.has-multiple-scenes > .story-scene-position { display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:center;width:auto;min-width:0;max-width:calc(100% - 72px);gap:4px 10px; }
+.story-scene-progress.has-multiple-scenes .story-scene-dots { position:static;inset:auto;display:flex;flex:0 1 auto;align-self:center;width:auto;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:center;align-content:center;overflow:visible; }
 .story-scene-progress.has-multiple-scenes .story-scene-dots.is-long { flex:0 1 auto;width:min(100%,168px);flex-wrap:wrap; }
 .story-scene-arrow { position:static;inset:auto;display: grid; flex:none; justify-self:center; place-items: center; width: 28px; min-width: 28px; max-width:28px; height: 28px; border: 0; border-radius: 5px; background: transparent; }
 .story-scene-arrow:not(:disabled):hover { background: var(--surface-hover); }
