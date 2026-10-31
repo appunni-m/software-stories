@@ -18,6 +18,17 @@ Move generation progress/results out of blocking dialogs only after background j
 ## Current implementation
 Global runtime, workspace, interrupted-operation and pending-preview banners now use a shared bell popover; actions still call existing explicit recovery methods. General notices use native schema-1 history with typed scoped recovery and replay-safe dismissal, bounded to 1,000 visible records, 2,048 dismissal keys and 16 MiB. Workspace outcomes keep the latest 50 non-dismissed terminal questions per snapshot and group repeated outcomes by question. Capture-specific views and generation dialogs still need migration. No automatic panel opening. This partial UI implementation does not satisfy the full job lifecycle.
 
+## Bound dismissal replay history — 31 October 2026
+
+Reaching the 2,048-key dismissal cap previously made every saved notice
+undismissible. Dismiss and Dismiss all now retain the newest 2,048 keys in FIFO
+acknowledgment order and evict the oldest key when needed. This keeps history
+bounded and preserves visible notices and saved explanations; after an old key
+ages out, the exact same notice may be published again. Invalid or oversized
+batches still fail atomically. Source and existing regression expectations were
+updated; tests and the packaged app were not run. Keep the broader notification,
+keyboard, zoom, theme, accessibility and background-job gates open.
+
 ## Acceptance
 Check empty/multiple/project-scoped entries, live completion while typing/playing, Escape/outside close, action opens source/guide, disabled missing previews, retry failures, focus into opened dialog and back, restart persistence, resolved dedupe, 200% zoom, dark/light contrast and screen reader announcements. Verify no banner stack in the main reading surface and no implicit save/accept/retry.
 

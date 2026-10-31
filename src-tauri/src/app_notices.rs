@@ -147,6 +147,25 @@ fn valid_key(id: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// Keep replay suppression bounded while allowing every visible notice to be
+/// dismissed. A notice dismissed more than `MAX_DISMISSED` newer notices ago
+/// may be published again; its saved work and notification content are never
+/// removed by this retention rule.
+fn append_dismissals(history: &mut History, ids: impl IntoIterator<Item = String>) {
+    let mut known = history.dismissed.iter().cloned().collect::<HashSet<_>>();
+    let additions = ids
+        .into_iter()
+        .filter(|id| known.insert(id.clone()))
+        .collect::<Vec<_>>();
+    let evicted = history
+        .dismissed
+        .len()
+        .saturating_add(additions.len())
+        .saturating_sub(MAX_DISMISSED);
+    history.dismissed.drain(..evicted).for_each(drop);
+    history.dismissed.extend(additions);
+}
+
 fn list(storage: &Path) -> Result<History, String> {
     let directory = storage.join("app-notices");
     match fs::symlink_metadata(&directory) {
@@ -270,14 +289,8 @@ fn apply(storage: &Path, operation: Operation) -> Result<History, String> {
             if !history.items.iter().any(|item| item.id == id) {
                 return Ok(history);
             }
-            if history.dismissed.len() >= MAX_DISMISSED {
-                return Err(
-                    "Saved update acknowledgments are full. Existing updates have been preserved."
-                        .into(),
-                );
-            }
             history.items.retain(|item| item.id != id);
-            history.dismissed.push(id);
+            append_dismissals(&mut history, [id]);
         }
         Operation::DismissMany { ids } => {
             if ids.is_empty() || ids.len() > MAX_DISMISSED {
@@ -296,15 +309,9 @@ fn apply(storage: &Path, operation: Operation) -> Result<History, String> {
             if existing.is_empty() {
                 return Ok(history);
             }
-            if history.dismissed.len().saturating_add(existing.len()) > MAX_DISMISSED {
-                return Err(
-                    "Saved update acknowledgments are full. Existing updates have been preserved."
-                        .into(),
-                );
-            }
             let dismissed = existing.iter().cloned().collect::<HashSet<_>>();
             history.items.retain(|item| !dismissed.contains(&item.id));
-            history.dismissed.extend(existing);
+            append_dismissals(&mut history, existing);
         }
     }
     let bytes = serde_json::to_vec(&history).map_err(|_| UNAVAILABLE)?;

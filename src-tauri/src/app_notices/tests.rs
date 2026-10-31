@@ -147,7 +147,7 @@ fn group_dismissal_is_atomic_idempotent_and_preserves_unrelated_notices() {
 }
 
 #[test]
-fn group_dismissal_rejects_invalid_batches_and_acknowledgment_overflow_without_mutation() {
+fn group_dismissal_rejects_invalid_batches_and_evicts_oldest_acknowledgments() {
     let f = Fixture::new();
     let notice = publish(&f, input("Keep me"));
     let id = notice.items[0].id.clone();
@@ -167,10 +167,13 @@ fn group_dismissal_rejects_invalid_batches_and_acknowledgment_overflow_without_m
         .filter(|candidate| candidate != &id)
         .take(MAX_DISMISSED)
         .collect();
+    let oldest = full.dismissed[0].clone();
     f.save(&serde_json::to_value(&full).unwrap());
-    let full_bytes = fs::read(f.path()).unwrap();
-    assert!(apply(&f.0, Operation::DismissMany { ids: vec![id] }).is_err());
-    assert_eq!(fs::read(f.path()).unwrap(), full_bytes);
+    let dismissed = apply(&f.0, Operation::DismissMany { ids: vec![id.clone()] }).unwrap();
+    assert!(dismissed.items.is_empty());
+    assert_eq!(dismissed.dismissed.len(), MAX_DISMISSED);
+    assert!(!dismissed.dismissed.contains(&oldest));
+    assert_eq!(dismissed.dismissed.last(), Some(&id));
 }
 
 #[test]
@@ -373,22 +376,22 @@ fn capacity_never_evicts_unread_work_and_dismissal_frees_one_visible_slot() {
 }
 
 #[test]
-fn acknowledgment_capacity_fails_without_losing_the_visible_update() {
+fn acknowledgment_retention_keeps_visible_updates_dismissible() {
     let f = Fixture::new();
     let mut history = publish(&f, input("Keep me"));
-    history.dismissed = (0..MAX_DISMISSED).map(|n| format!("{n:064x}")).collect();
+    let id = history.items[0].id.clone();
+    history.dismissed = (0..=MAX_DISMISSED)
+        .map(|n| format!("{n:064x}"))
+        .filter(|candidate| candidate != &id)
+        .take(MAX_DISMISSED)
+        .collect();
+    let oldest = history.dismissed[0].clone();
     f.save(&serde_json::to_value(&history).unwrap());
-    let before = fs::read(f.path()).unwrap();
-    assert!(
-        apply(
-            &f.0,
-            Operation::Dismiss {
-                id: history.items[0].id.clone()
-            }
-        )
-        .is_err()
-    );
-    assert_eq!(fs::read(f.path()).unwrap(), before);
+    let dismissed = apply(&f.0, Operation::Dismiss { id: id.clone() }).unwrap();
+    assert!(dismissed.items.is_empty());
+    assert_eq!(dismissed.dismissed.len(), MAX_DISMISSED);
+    assert!(!dismissed.dismissed.contains(&oldest));
+    assert_eq!(dismissed.dismissed.last(), Some(&id));
 }
 
 #[test]
