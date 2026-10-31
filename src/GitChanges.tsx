@@ -378,7 +378,7 @@ function ComparisonResults({
           <p>{comparison.relationshipImpact.message}</p>
         </div>
       )}
-      {comparison.changes.length === 0 && comparison.status !== 'chooseAgain' && comparison.status !== 'error' ? (
+      {comparison.changes.length === 0 && comparison.status === 'ready' ? (
         <p className="git-no-changes">These commits have no file changes in the comparison result.</p>
       ) : comparison.changes.length > 0 && !compact ? (
         <div className="git-change-list" role="group" aria-label="Changed files">
