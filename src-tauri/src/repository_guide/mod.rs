@@ -202,8 +202,7 @@ fn valid_omissions(omissions: &[String]) -> bool {
     }
     let mut seen = std::collections::HashSet::new();
     omissions.iter().all(|omission| {
-        text(omission, 1, MAX_OMISSION_BYTES)
-            && seen.insert(normalize_topic(omission))
+        text(omission, 1, MAX_OMISSION_BYTES) && seen.insert(normalize_topic(omission))
     })
 }
 
@@ -374,10 +373,7 @@ fn unit_retryable(record: &Record, index: usize) -> bool {
                     .last()
                     .and_then(|attempt| attempt.summary.as_ref())
                     .is_some_and(|answer| {
-                        !matches!(
-                            &answer.outcome,
-                            &Outcome::Working | &Outcome::Complete
-                        )
+                        !matches!(&answer.outcome, &Outcome::Working | &Outcome::Complete)
                     })
         })
 }
@@ -440,7 +436,8 @@ fn finalize_slide_run(
                 starting_consumed_count,
                 current,
                 follow_playback,
-            ) && opening_continuation::remaining_operations(current) > 0
+            )
+            && opening_continuation::remaining_operations(current) > 0
         {
             Status::WaitingForPlayback
         } else {
@@ -2054,7 +2051,10 @@ pub(crate) async fn retry_repository_guide_unit(
     let manager = app.state::<codex_agent::CodexAgentManager>();
     let latest = store::read(&storage, &id)?;
     let record = reconcile(&storage, &latest, &manager)?;
-    let plan = record.plan.as_ref().ok_or("The guide outline is not ready.")?;
+    let plan = record
+        .plan
+        .as_ref()
+        .ok_or("The guide outline is not ready.")?;
     let index = plan
         .units
         .iter()
@@ -2065,13 +2065,7 @@ pub(crate) async fn retry_repository_guide_unit(
     }
     let expected_revision = record.revision;
     let runtime = manager.review_runtime(&storage)?;
-    workspace::check_retrieval_grant(
-        &storage,
-        &grant_id,
-        &project_id,
-        &snapshot_id,
-        &runtime,
-    )?;
+    workspace::check_retrieval_grant(&storage, &grant_id, &project_id, &snapshot_id, &runtime)?;
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         &storage,
         &answer_reservation(&record),

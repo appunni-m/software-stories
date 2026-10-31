@@ -1515,8 +1515,8 @@ export async function buildCodexCodeLensReview(input: {
 export async function sendCodexCodeLensRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
   return invoke('send_codex_code_lens_request', { reviewId, fingerprint, consent });
 }
-export async function sendCodexChapterRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<ChapterDraftPreview>> {
-  return invoke('send_codex_chapter_request', { reviewId, fingerprint, consent });
+export async function sendCodexChapterRequest(reviewId: string, fingerprint: string, consent: boolean, workspaceGrant?: string): Promise<ProviderCommandResult<ChapterDraftPreview>> {
+  return invoke('send_codex_chapter_request', { reviewId, fingerprint, consent, workspaceGrant: workspaceGrant ?? null });
 }
 export async function cancelCodexChapterRequest(runId: string): Promise<boolean> {
   return invoke('cancel_codex_chapter_request', { runId });

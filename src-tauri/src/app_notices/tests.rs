@@ -169,7 +169,13 @@ fn group_dismissal_rejects_invalid_batches_and_evicts_oldest_acknowledgments() {
         .collect();
     let oldest = full.dismissed[0].clone();
     f.save(&serde_json::to_value(&full).unwrap());
-    let dismissed = apply(&f.0, Operation::DismissMany { ids: vec![id.clone()] }).unwrap();
+    let dismissed = apply(
+        &f.0,
+        Operation::DismissMany {
+            ids: vec![id.clone()],
+        },
+    )
+    .unwrap();
     assert!(dismissed.items.is_empty());
     assert_eq!(dismissed.dismissed.len(), MAX_DISMISSED);
     assert!(!dismissed.dismissed.contains(&oldest));

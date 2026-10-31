@@ -218,9 +218,9 @@ pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
             .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
         let scope: RecordScope = serde_json::from_value(value.clone())
             .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-        let contract: RecordContract = serde_json::from_value(value.clone()).map_err(|_| {
-            "Saved guide capacity could not be verified. Existing work was preserved."
-        })?;
+        let contract: RecordContract = serde_json::from_value(value.clone()).map_err(
+            |_| "Saved guide capacity could not be verified. Existing work was preserved.",
+        )?;
         if contract.schema_version > RECORD_SCHEMA_VERSION {
             return Err(
                 "A saved repository guide uses a newer format; answer capacity could not be verified."

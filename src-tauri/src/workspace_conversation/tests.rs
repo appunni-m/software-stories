@@ -266,8 +266,7 @@ fn focused_flow_edge_round_trips_without_a_saved_viewport() {
         .remove("viewport");
     let record = save(&f.0, "project", "snapshot", None, s).unwrap();
     assert_eq!(
-        record.state["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
-            ["focusedEdgeId"],
+        record.state["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]["focusedEdgeId"],
         "edge:subtotal"
     );
     let reopened = load(&f.0, "project", "snapshot").unwrap().unwrap();
@@ -404,9 +403,11 @@ fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() 
         json!({"x":0,"y":0,"zoom":1}),
         "reset only the malformed Flow viewport"
     );
-    assert!(turn["presentation"]["diagrams"][0]
-        .get("focusedEdgeId")
-        .is_none());
+    assert!(
+        turn["presentation"]["diagrams"][0]
+            .get("focusedEdgeId")
+            .is_none()
+    );
     assert_eq!(
         turn["question"],
         "What happens to the font bytes?\nShow the failure path."

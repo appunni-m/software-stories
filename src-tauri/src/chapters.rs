@@ -3562,18 +3562,17 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("visual");
-        assert!(decode_chapter_revision(&serde_json::to_vec(&missing_visual_choice).unwrap())
-            .is_err());
+        assert!(
+            decode_chapter_revision(&serde_json::to_vec(&missing_visual_choice).unwrap()).is_err()
+        );
 
         let mut missing_presentation = current.clone();
         missing_presentation["sections"][0]["visual"]
             .as_object_mut()
             .unwrap()
             .remove("presentation");
-        let unavailable_visual = decode_chapter_revision(
-            &serde_json::to_vec(&missing_presentation).unwrap(),
-        )
-        .unwrap();
+        let unavailable_visual =
+            decode_chapter_revision(&serde_json::to_vec(&missing_presentation).unwrap()).unwrap();
         assert!(matches!(
             unavailable_visual.sections[0].visual.as_ref(),
             Some(ChapterVisualPayload::Unavailable(_))

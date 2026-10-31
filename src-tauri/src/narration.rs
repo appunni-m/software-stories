@@ -385,7 +385,9 @@ impl NarrationPrewarmQueue {
                 && entry.state == NarrationPrewarmState::Preparing
             {
                 entry.state = NarrationPrewarmState::Unavailable;
-                entry.updates.send_replace(NarrationPrewarmState::Unavailable);
+                entry
+                    .updates
+                    .send_replace(NarrationPrewarmState::Unavailable);
                 cancellation = entry.cancellation.take();
                 work = entry.work.take();
             }
@@ -421,7 +423,9 @@ impl NarrationPrewarmQueue {
                 return false;
             };
             entry.state = NarrationPrewarmState::Unavailable;
-            entry.updates.send_replace(NarrationPrewarmState::Unavailable);
+            entry
+                .updates
+                .send_replace(NarrationPrewarmState::Unavailable);
             cancellation = entry.cancellation.take();
             work = entry.work.take();
             true

@@ -235,6 +235,13 @@ fn current_reads_issue_only_short_operation_references_and_reuse_them() {
             .unwrap(),
         crate::native_citations::Resolution::Ready(_)
     ));
+    let undelivered = citation_response("code:2");
+    assert!(matches!(
+        ledger
+            .resolve_citations(&undelivered, &f.manifest, &runtime, &cancel)
+            .unwrap(),
+        crate::native_citations::Resolution::Invalid(_)
+    ));
     let old_version = response.replace(crate::native_citations::SHORT_VERSION, "nativeEvidenceV1");
     assert!(matches!(
         ledger

@@ -126,7 +126,17 @@ fn context(v: &Value) -> Result<(), String> {
 }
 
 fn guide_unit(v: &Value) -> Result<(), String> {
-    let o = object(v, &["key", "question", "prerequisites", "status", "canRetry", "runIds"])?;
+    let o = object(
+        v,
+        &[
+            "key",
+            "question",
+            "prerequisites",
+            "status",
+            "canRetry",
+            "runIds",
+        ],
+    )?;
     let key = string(o, "key")?;
     let prerequisites = o
         .get("prerequisites")
@@ -377,9 +387,9 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             if key == "stories" {
                 if !p.get("sceneId").is_some_and(id)
                     || !p.get("fullMap").is_some_and(Value::is_boolean)
-                    || !p.get("focusLayoutVersion").is_some_and(|v| {
-                        v.as_u64() == Some(FOCUSED_STORY_LAYOUT_VERSION)
-                    })
+                    || !p
+                        .get("focusLayoutVersion")
+                        .is_some_and(|v| v.as_u64() == Some(FOCUSED_STORY_LAYOUT_VERSION))
                     || !optional(p, "focusedNodeId", id)
                     || !optional(p, "focusedEdgeId", id)
                 {

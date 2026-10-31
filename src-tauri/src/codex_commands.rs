@@ -5,11 +5,14 @@ use super::{
     PreviewPublication, ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
     provider, publish_chapter_candidate, publish_pr_guide_candidate, recovery,
     validate_chapter_draft_preview, validate_pr_guide_preview,
+    validate_retrieved_codex_chapter_draft_preview,
 };
 use crate::generation_timing::{Preparation, PreparationKind, PreparationStage};
+use crate::repository_context_commands::RepositoryContextJobs;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, State};
 
@@ -342,12 +345,14 @@ pub(crate) async fn send_codex_chapter_request(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     manager: State<'_, codex_agent::CodexAgentManager>,
+    context_jobs: State<'_, RepositoryContextJobs>,
     reviews: State<'_, provider::PendingProviderReviews>,
     drafts: State<'_, chapters::PendingChapterDrafts>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     review_id: String,
     fingerprint: String,
     consent: bool,
+    workspace_grant: Option<String>,
 ) -> Result<provider::ProviderCommandResult<chapters::ChapterDraftPreview>, String> {
     use provider::{ProviderCommandResult as ResultEnvelope, ProviderFailureKind as Kind};
     let chapter_drafts = drafts.inner().clone();
@@ -361,8 +366,15 @@ pub(crate) async fn send_codex_chapter_request(
         &fingerprint,
         consent,
         CodexOperation::Chapter,
-        |storage, _, review, response, _| {
-            let mut candidate = validate_chapter_draft_preview(storage, review, response)?;
+        workspace_grant.map(|grant| (grant, context_jobs.inner().clone())),
+        |storage, _, review, response, access, retrieval| {
+            let mut candidate = if let Some(retrieval) = retrieval {
+                validate_retrieved_codex_chapter_draft_preview(
+                    storage, review, response, access, retrieval,
+                )?
+            } else {
+                validate_chapter_draft_preview(storage, review, response)?
+            };
             super::attach_agent_generation_origin(&mut candidate, review)?;
             Ok(candidate)
         },
@@ -419,7 +431,8 @@ pub(crate) async fn send_codex_code_lens_request(
         &fingerprint,
         consent,
         CodexOperation::CodeLens,
-        |storage, _, review, response, _| {
+        None,
+        |storage, _, review, response, _, _| {
             provider::canonicalize_code_lens_explanation(storage, review, &response)
         },
         |_, preview| Ok(preview),
@@ -481,6 +494,7 @@ pub(crate) async fn send_codex_repository_plan_request(
         &fingerprint,
         consent,
         CodexOperation::RepositoryPlan,
+        None,
     )
     .await
     {
@@ -567,7 +581,8 @@ pub(crate) async fn send_codex_pr_guide_request(
         &fingerprint,
         consent,
         CodexOperation::PrGuide,
-        |_, _, review, response, _| validate_pr_guide_preview(review, response),
+        None,
+        |_, _, review, response, _, _| validate_pr_guide_preview(review, response),
         |storage, candidate| {
             publish_pr_guide_candidate(storage, candidate, PreviewPublication::AgentOwned)
         },
@@ -621,7 +636,8 @@ pub(crate) async fn send_codex_pr_change_request(
         &fingerprint,
         consent,
         CodexOperation::PrChange,
-        |storage, repository, review, response, access| {
+        None,
+        |storage, repository, review, response, access, _| {
             provider::canonicalize_codex_pr_change_explanation(
                 storage, repository, review, &response, access,
             )
@@ -763,6 +779,7 @@ async fn prepare_codex_operation(
     fingerprint: &str,
     consent: bool,
     operation: CodexOperation,
+    context_access: Option<(String, RepositoryContextJobs)>,
 ) -> Result<PreparedCodexOperation, provider::ProviderFailure> {
     use provider::ProviderFailureKind as Kind;
     let started_at = Instant::now();
@@ -802,14 +819,15 @@ async fn prepare_codex_operation(
             Ok((pending, repository, storage))
         },
     )?;
-    let runtime = manager.clone();
+    let runtime_for_review = manager.clone();
+    let runtime_for_context = manager.clone();
     let reviewed = pending.review.clone();
     let storage_for_review = storage.clone();
     let repository_for_review = repository.clone();
     if let Err(error) = preparation
         .run_async_stage(PreparationKind::RuntimeReview, || async move {
             tauri::async_runtime::spawn_blocking(move || {
-                let identity = runtime
+                let identity = runtime_for_review
                     .review_runtime(&storage_for_review)
                     .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
                 match operation {
@@ -865,12 +883,85 @@ async fn prepare_codex_operation(
     })?;
     let review = pending.review;
     let input = preparation.run_stage_with_error(PreparationKind::RequestPreparation, || {
+        let snapshot_retrieval = review
+            .generation_config
+            .get("codexSnapshotRetrieval")
+            .is_some();
+        let retrieval = if snapshot_retrieval {
+            let (grant, jobs) = context_access.as_ref().ok_or_else(|| {
+                command_failure(
+                    Kind::ConsentRequired,
+                    "Allow Codex to explore this captured snapshot before generating.",
+                )
+            })?;
+            if grant.is_empty() {
+                return Err(command_failure(
+                    Kind::ConsentRequired,
+                    "Allow Codex to explore this captured snapshot before generating.",
+                ));
+            }
+            let identity = runtime_for_context
+                .review_runtime(&storage)
+                .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
+            crate::workspace::check_retrieval_grant(
+                &storage,
+                grant,
+                &review.project_id,
+                &review.snapshot_id,
+                &identity,
+            )
+            .map_err(|message| command_failure(Kind::ConsentRequired, message))?;
+            let manifest = crate::snapshot::load_snapshot_manifest(
+                &storage,
+                &review.project_id,
+                &review.snapshot_id,
+            )
+            .map_err(|_| {
+                command_failure(
+                    Kind::InvalidReview,
+                    "The captured source snapshot is unavailable. Build a fresh review.",
+                )
+            })?;
+            #[cfg(unix)]
+            {
+                let session = crate::agent_context::Session::new_research(
+                    &storage,
+                    &review.review_id,
+                    manifest,
+                    &identity,
+                    grant,
+                    jobs.clone(),
+                    &review.fingerprint,
+                    &review.model_id,
+                    review.generation_config["effort"].as_str().unwrap_or(""),
+                    Arc::new(|_| {}),
+                )
+                .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
+                Some(Arc::new(Mutex::new(session)))
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = (manifest, jobs);
+                return Err(command_failure(
+                    Kind::ReviewUnavailable,
+                    "Captured-code retrieval is not available on this platform.",
+                ));
+            }
+        } else {
+            if context_access.is_some() {
+                return Err(command_failure(
+                    Kind::InvalidReview,
+                    "This operation does not use snapshot retrieval.",
+                ));
+            }
+            None
+        };
         Ok::<_, provider::ProviderFailure>(codex_agent::CodexRunInput {
             run_id: review_id.to_owned(),
             model: review.model_id.clone(),
             expected_runtime: provider::codex_runtime_from_review(&review)?,
-            prompt_contract_version:
-                provider::prompt_contract_version_for_purpose(&review.purpose).to_owned(),
+            prompt_contract_version: provider::prompt_contract_version_for_purpose(&review.purpose)
+                .to_owned(),
             effort: review.generation_config["effort"]
                 .as_str()
                 .unwrap_or("")
@@ -883,33 +974,39 @@ async fn prepare_codex_operation(
             system_instruction: review.system_instruction.clone(),
             user_prompt: provider::codex_prompt_after_consent(&review)?,
             output_schema: review.generation_config["outputSchema"].clone(),
-            correction_policy: if matches!(operation, CodexOperation::Chapter) {
+            correction_policy: if matches!(operation, CodexOperation::Chapter)
+                && !snapshot_retrieval
+            {
                 crate::claim_alignment::CorrectionPolicy::from_generation_config(
                     &review.generation_config,
                 )
             } else {
                 crate::claim_alignment::CorrectionPolicy::Disabled
             },
-            retrieval: None,
-            sources: review
-                .selected_files
-                .iter()
-                .enumerate()
-                .map(|(index, file)| codex_agent::CodexSourceFile {
-                    path: if matches!(
-                        operation,
-                        CodexOperation::PrGuide | CodexOperation::PrChange
-                    ) {
-                        provider::agent_diff_source_name(index)
-                    } else {
-                        file.path.clone()
-                    },
-                    // Code Lens stages only the reviewed excerpt. Its integrity digest
-                    // differs from the original file identity retained in the review.
-                    sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
-                    contents: file.contents.clone(),
-                })
-                .collect(),
+            retrieval,
+            sources: if snapshot_retrieval {
+                Vec::new()
+            } else {
+                review
+                    .selected_files
+                    .iter()
+                    .enumerate()
+                    .map(|(index, file)| codex_agent::CodexSourceFile {
+                        path: if matches!(
+                            operation,
+                            CodexOperation::PrGuide | CodexOperation::PrChange
+                        ) {
+                            provider::agent_diff_source_name(index)
+                        } else {
+                            file.path.clone()
+                        },
+                        // Code Lens stages only the reviewed excerpt. Its integrity digest
+                        // differs from the original file identity retained in the review.
+                        sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
+                        contents: file.contents.clone(),
+                    })
+                    .collect()
+            },
         })
     })?;
     Ok(PreparedCodexOperation {
@@ -934,12 +1031,14 @@ async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
     fingerprint: &str,
     consent: bool,
     operation: CodexOperation,
+    context_access: Option<(String, RepositoryContextJobs)>,
     validate: impl FnOnce(
         &Path,
         &Path,
         &provider::ProviderRequestReview,
         provider::ProviderSendResult,
         &codex_agent::CodexResultAccess<'_>,
+        Option<&Arc<Mutex<crate::agent_context::Session>>>,
     ) -> Result<C, provider::ProviderFailure>
     + Send
     + 'static,
@@ -956,6 +1055,7 @@ async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
         fingerprint,
         consent,
         operation,
+        context_access,
     )
     .await?;
     let storage = prepared.storage.clone();
@@ -974,6 +1074,7 @@ async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
             started_at,
             preparation_stages,
         } = prepared;
+        let retrieval = input.retrieval.clone();
         runtime.run_with_result_and_publish_and_preparation(
             &storage,
             input,
@@ -1012,6 +1113,7 @@ async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
                         output_tokens: None,
                     },
                     access,
+                    retrieval.as_ref(),
                 )
             },
             |candidate| candidate.and_then(|candidate| publish(&storage, candidate)),

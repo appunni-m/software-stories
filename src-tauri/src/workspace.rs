@@ -205,7 +205,7 @@ pub(crate) async fn list_workspace_commits(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
+    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
     fn runtime() -> CodexReviewRuntime {
         CodexReviewRuntime {
             connection_id: Uuid::new_v4().to_string(),
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn codex_file_and_overview_chapters_request_layout_correction_without_a_chat_question() {
+    fn codex_file_and_overview_chapters_review_small_snapshot_scopes_without_source_bundles() {
         let fixture = Fixture::new();
         let runtime = runtime();
         for target_path in [Some(SIMPLE_PATH.to_owned()), None] {
@@ -238,22 +238,77 @@ mod tests {
                 crate::provider::build_codex_chapter_review(&fixture.storage, &input, &runtime)
                     .unwrap()
                     .review;
+            assert_eq!(review.source_bytes, 0);
+            assert_eq!(review.selected_files.len(), 1);
+            assert!(review.selected_files[0].contents.is_empty());
+            assert_eq!(
+                review.generation_config["codexSnapshotRetrieval"]["maxFiles"],
+                12
+            );
+            assert_eq!(
+                review.generation_config["codexSnapshotRetrieval"]["maxSourceBytes"],
+                250_000
+            );
             assert_eq!(
                 crate::claim_alignment::CorrectionPolicy::from_generation_config(
                     &review.generation_config
                 ),
-                crate::claim_alignment::CorrectionPolicy::ChapterScenesV7
+                crate::claim_alignment::CorrectionPolicy::Disabled
             );
             assert!(
                 review
                     .generation_config
-                    .get("claimAlignmentCorrection")
+                    .get("candidateCorrection")
                     .is_none()
             );
-            assert!(review.system_instruction.contains("one correction"));
+            assert!(review.system_instruction.contains("native reference IDs"));
+            assert!(review.user_prompt.contains("search_code and read_code"));
+            assert!(!review.user_prompt.contains("export function greeting"));
+            assert!(
+                !review
+                    .request_body_preview
+                    .to_string()
+                    .contains(SIMPLE_SOURCE)
+            );
+            assert!(review.request_body_bytes < 64 * 1024);
             crate::provider::revalidate_codex_request_review(&fixture.storage, &review, &runtime)
                 .unwrap();
         }
+    }
+
+    #[test]
+    fn large_codex_starting_file_is_reviewed_by_metadata_without_copying_its_source() {
+        let mut fixture = Fixture::new();
+        let large_source = format!(
+            "pub fn selected_target() {{}}\n{}",
+            "// captured line\n".repeat(18_000)
+        );
+        fixture.recapture_with_source(SIMPLE_PATH, &large_source);
+        let runtime = runtime();
+        let input = crate::provider::BuildCodexReviewInput {
+            project_id: fixture.manifest.summary.project_id.clone(),
+            snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+            target_path: Some(SIMPLE_PATH.to_owned()),
+            selected_paths: vec![SIMPLE_PATH.to_owned()],
+            model_id: "gpt-6-luna".into(),
+            effort: "max".into(),
+            approval_policy: "never".into(),
+            section_update: None,
+            question: Some("How does the selected target behave?".into()),
+            focus: vec![],
+            workspace_grant: None,
+        };
+        let review =
+            crate::provider::build_codex_chapter_review(&fixture.storage, &input, &runtime)
+                .unwrap()
+                .review;
+        assert!(review.selected_files[0].size_bytes > 250_000);
+        assert!(review.selected_files[0].contents.is_empty());
+        assert!(review.request_body_bytes < 64 * 1024);
+        assert!(
+            crate::provider::revalidate_codex_request_review(&fixture.storage, &review, &runtime)
+                .is_ok()
+        );
     }
     fn save_grant(fixture: &Fixture, runtime: &CodexReviewRuntime) -> String {
         let id = Uuid::new_v4().to_string();
@@ -348,7 +403,7 @@ mod tests {
         assert!(check_retrieval_grant(&fixture.storage, &old, p, s, &runtime).is_err());
     }
     #[test]
-    fn question_and_permission_are_fingerprinted_and_rechecked_before_send() {
+    fn chapter_question_and_retrieval_policy_are_fingerprinted() {
         let fixture = Fixture::new();
         let runtime = runtime();
         let grant = save_grant(&fixture, &runtime);
@@ -377,12 +432,16 @@ mod tests {
             crate::provider::revalidate_codex_request_review(&fixture.storage, &first, &runtime)
                 .is_ok()
         );
-        assert_eq!(
-            first.generation_config["candidateCorrection"],
-            crate::claim_alignment::chapter_correction_config()
+        assert!(first.generation_config.get("candidateCorrection").is_none());
+        assert!(first.generation_config.get("workspaceGrant").is_none());
+        assert!(
+            first
+                .generation_config
+                .get("codexSnapshotRetrieval")
+                .is_some()
         );
         let mut tampered = first.clone();
-        tampered.generation_config["candidateCorrection"]["maxAttempts"] = serde_json::json!(2);
+        tampered.generation_config["codexSnapshotRetrieval"]["maxFiles"] = serde_json::json!(11);
         assert!(
             crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime)
                 .is_err()
@@ -396,7 +455,8 @@ mod tests {
         fs::remove_file(grant_path(&fixture.storage, &grant).unwrap()).unwrap();
         assert!(
             crate::provider::revalidate_codex_request_review(&fixture.storage, &first, &runtime)
-                .is_err()
+                .is_ok(),
+            "the user grant is validated at dispatch, not embedded in the request review"
         );
     }
 }

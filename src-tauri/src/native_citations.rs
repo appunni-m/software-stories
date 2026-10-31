@@ -11,6 +11,7 @@ pub(crate) const SHORT_VERSION: &str = "nativeEvidenceV2";
 pub(crate) const MAX_REFERENCES: usize = 512;
 pub(crate) const MAX_SPAN: usize = 1_000;
 const MAX_CITATION_SECTIONS: usize = 13;
+const MAX_CITATION_LIMITS: usize = 5;
 const MAX_ISSUES: usize = 64;
 
 /// One-based ordinal in an immutable operation/checkpoint, never a source hash.
@@ -114,6 +115,7 @@ pub(crate) fn spans(source: &str, start: usize, end: usize) -> Result<Vec<(usize
 pub(crate) struct Resolved {
     text: String,
     spans: Vec<Vec<Vec<Citation>>>,
+    evidence_limit_spans: Option<Vec<Vec<Citation>>>,
 }
 impl Resolved {
     pub(crate) fn text(&self) -> &str {
@@ -121,6 +123,12 @@ impl Resolved {
     }
     pub(crate) fn claim_spans(&self, section: usize, claim: usize) -> Option<&[Citation]> {
         self.spans.get(section)?.get(claim).map(Vec::as_slice)
+    }
+    pub(crate) fn evidence_limit_spans(&self, limit: usize) -> Option<&[Citation]> {
+        self.evidence_limit_spans
+            .as_ref()?
+            .get(limit)
+            .map(Vec::as_slice)
     }
 
     /// Compile bounded name metadata from authored prose and its own evidence.
@@ -208,6 +216,46 @@ pub(crate) fn resolve(
         }
         spans.push(section_spans);
     }
+    let evidence_limit_spans = if let Some(limits) = value.get_mut("evidenceLimits") {
+        let Some(limits) = limits.as_array_mut() else {
+            return invalid("/evidenceLimits", "citationShape");
+        };
+        if limits.is_empty() || limits.len() > MAX_CITATION_LIMITS {
+            return invalid("/evidenceLimits", "citationShape");
+        }
+        let mut limit_spans = Vec::with_capacity(limits.len());
+        for (li, limit) in limits.iter_mut().enumerate() {
+            let location = format!("/evidenceLimits/{li}/evidence");
+            let Some(evidence) = limit.get_mut("evidence").and_then(Value::as_array_mut) else {
+                return invalid(&location, "citationShape");
+            };
+            if evidence.is_empty() || evidence.len() > 8 {
+                return invalid(&location, "citationShape");
+            }
+            let mut citations = Vec::with_capacity(evidence.len());
+            for (ei, item) in evidence.iter_mut().enumerate() {
+                let location = format!("{location}/{ei}");
+                let reference = item
+                    .as_object()
+                    .filter(|object| object.len() == 1)
+                    .and_then(|object| object.get("referenceId"))
+                    .and_then(Value::as_str)
+                    .filter(|id| reference_shape(id));
+                match reference.ok_or("referenceShape").and_then(&mut lookup) {
+                    Ok(citation) => {
+                        *item = json!({"path":citation.range.path,"quote":citation.excerpt});
+                        citations.push(citation);
+                    }
+                    Err(code) if issues.len() < MAX_ISSUES => issues.push(issue(&location, code)),
+                    Err(_) => {}
+                }
+            }
+            limit_spans.push(citations);
+        }
+        Some(limit_spans)
+    } else {
+        None
+    };
     if !issues.is_empty() {
         return Resolution::Invalid(issues);
     }
@@ -217,7 +265,11 @@ pub(crate) fn resolve(
     if text.len() > MAX_GENERATED_RESPONSE_BYTES {
         return invalid("", "citationExpansionLimit");
     }
-    Resolution::Ready(Resolved { text, spans })
+    Resolution::Ready(Resolved {
+        text,
+        spans,
+        evidence_limit_spans,
+    })
 }
 
 #[cfg(test)]

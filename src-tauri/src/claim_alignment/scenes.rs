@@ -165,8 +165,9 @@ pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Opt
 }
 
 pub(super) fn graph_scene_is_overcrowded(section: &Value, claim_index: usize) -> Option<bool> {
-    graph_scene_metrics(section, claim_index)
-        .map(|(count, focused)| focused && count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
+    graph_scene_metrics(section, claim_index).map(|(count, focused)| {
+        focused && count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
+    })
 }
 
 fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bool)> {

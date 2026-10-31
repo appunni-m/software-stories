@@ -343,23 +343,17 @@ fn start_snapshot_indexing(
         let mut last_emitted_at = Instant::now();
         let mut last_emitted_files = 0_usize;
         let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            index::build_snapshot_index(
-                &storage_dir,
-                &manifest,
-                &job_id,
-                &cancellation,
-                |update| {
-                    jobs_for_task.update(update.clone());
-                    let should_emit = update.status != index::IndexJobStatus::Running
-                        || update.files_processed.saturating_sub(last_emitted_files) >= 32
-                        || last_emitted_at.elapsed() >= Duration::from_millis(120);
-                    if should_emit {
-                        last_emitted_at = Instant::now();
-                        last_emitted_files = update.files_processed;
-                        let _ = app_for_task.emit("index-progress", update.clone());
-                    }
-                },
-            )
+            index::build_snapshot_index(&storage_dir, &manifest, &job_id, &cancellation, |update| {
+                jobs_for_task.update(update.clone());
+                let should_emit = update.status != index::IndexJobStatus::Running
+                    || update.files_processed.saturating_sub(last_emitted_files) >= 32
+                    || last_emitted_at.elapsed() >= Duration::from_millis(120);
+                if should_emit {
+                    last_emitted_at = Instant::now();
+                    last_emitted_files = update.files_processed;
+                    let _ = app_for_task.emit("index-progress", update.clone());
+                }
+            })
         }));
         let result = match built {
             Ok(result) => result,
@@ -829,7 +823,9 @@ fn start_section_repair_session(
     let base = history
         .iter()
         .find(|revision| revision.revision_id == base_revision_id)
-        .ok_or_else(|| "The selected accepted chapter revision is no longer available.".to_owned())?;
+        .ok_or_else(|| {
+            "The selected accepted chapter revision is no longer available.".to_owned()
+        })?;
     if base.lifecycle != chapters::RevisionLifecycle::Accepted {
         return Err("Section repair requires an accepted chapter revision.".to_owned());
     }
@@ -863,7 +859,9 @@ fn start_section_repair_session(
         .sections
         .iter()
         .find(|item| item.section_id == section_id)
-        .ok_or_else(|| "The selected section is missing from the freshness assessment.".to_owned())?;
+        .ok_or_else(|| {
+            "The selected section is missing from the freshness assessment.".to_owned()
+        })?;
     if selected.section_revision_id != section_revision_id
         || selected.status != chapter_freshness::SectionFreshnessStatus::Stale
     {
@@ -2014,12 +2012,7 @@ fn validate_chapter_draft_preview(
     result: provider::ProviderSendResult,
 ) -> Result<PreparedChapterDraftPreview, provider::ProviderFailure> {
     let failure = |kind, message: String| provider::ProviderFailure { kind, message };
-    if result.review_id != review.review_id
-        || result.fingerprint != review.fingerprint
-        || result.model_id != review.model_id
-    {
-        return Err(failure(provider::ProviderFailureKind::InvalidReview, "The returned chapter does not match the reviewed request identity. No draft was created.".to_owned()));
-    }
+    validate_chapter_result_identity(review, &result)?;
     let manifest = snapshot::load_snapshot_manifest(storage_dir, &review.project_id, &review.snapshot_id)
         .map_err(|_| failure(provider::ProviderFailureKind::InvalidReview, "The exact source snapshot became unavailable. The provider returned text, but no chapter draft was created.".to_owned()))?;
     let snapshot_index =
@@ -2040,24 +2033,179 @@ fn validate_chapter_draft_preview(
         .iter()
         .map(|relationship| relationship.relationship_id.clone())
         .collect::<std::collections::HashSet<_>>();
+    validate_chapter_draft_preview_with_evidence(
+        storage_dir,
+        review,
+        result,
+        &manifest,
+        snapshot_index.as_ref(),
+        &sources,
+        &allowed_relationships,
+        None,
+    )
+}
+
+fn validate_retrieved_codex_chapter_draft_preview(
+    storage_dir: &std::path::Path,
+    review: &provider::ProviderRequestReview,
+    result: provider::ProviderSendResult,
+    access: &codex_agent::CodexResultAccess<'_>,
+    retrieval: &Arc<Mutex<agent_context::Session>>,
+) -> Result<PreparedChapterDraftPreview, provider::ProviderFailure> {
+    use provider::ProviderFailureKind as Kind;
+    let failure = |kind, message: String| provider::ProviderFailure { kind, message };
+    validate_chapter_result_identity(review, &result)?;
+    if review
+        .generation_config
+        .get("codexSnapshotRetrieval")
+        .is_none()
+        || review.selected_files.is_empty()
+        || !matches!(
+            review.purpose.as_str(),
+            "fileChapter" | "repositoryOverview"
+        )
+    {
+        return Err(failure(
+            Kind::InvalidReview,
+            "The retrieved-source operation does not match its reviewed scope. No draft was saved."
+                .to_owned(),
+        ));
+    }
+    let manifest = snapshot::load_snapshot_manifest(storage_dir, &review.project_id, &review.snapshot_id)
+        .map_err(|_| failure(Kind::InvalidReview, "The exact source snapshot became unavailable. The provider returned text, but no chapter draft was created.".to_owned()))?;
+    let snapshot_index =
+        index::load_snapshot_index(storage_dir, &review.project_id, &review.snapshot_id)
+            .ok()
+            .flatten();
+    let (resolved, sources) = {
+        let mut owned = retrieval.lock().map_err(|_| {
+            failure(
+                Kind::ReviewUnavailable,
+                "The captured-code evidence record is unavailable. No chapter draft was saved."
+                    .to_owned(),
+            )
+        })?;
+        owned.check_complete().map_err(|_| {
+            failure(
+                Kind::MalformedProviderResponse,
+                "Codex did not finish its captured-code investigation. No chapter draft was saved."
+                    .to_owned(),
+            )
+        })?;
+        let resolved = match owned.ledger.resolve_citations(
+            &result.response_text,
+            &manifest,
+            access.runtime(),
+            access.cancelled(),
+        ).map_err(|_| failure(
+            Kind::MalformedProviderResponse,
+            "The chapter cited unavailable or undelivered captured code. No draft was saved.".to_owned(),
+        ))? {
+            native_citations::Resolution::Ready(resolved) => resolved,
+            native_citations::Resolution::Invalid(_) => return Err(failure(
+                Kind::MalformedProviderResponse,
+                "The chapter cited unavailable or undelivered captured code. No draft was saved.".to_owned(),
+            )),
+        };
+        let sources = owned
+            .ledger
+            .validation_sources(&manifest, access.runtime(), access.cancelled())
+            .map_err(|_| {
+                failure(
+                    Kind::InvalidReview,
+                    "Retrieved captured source could not be revalidated. No draft was saved."
+                        .to_owned(),
+                )
+            })?;
+        owned.finish_research().map_err(|_| {
+            failure(
+                Kind::ReviewChanged,
+                "The captured-code evidence scope changed before validation. No draft was saved."
+                    .to_owned(),
+            )
+        })?;
+        (resolved, sources)
+    };
+    validate_chapter_draft_preview_with_evidence(
+        storage_dir,
+        review,
+        result,
+        &manifest,
+        snapshot_index.as_ref(),
+        &sources,
+        &std::collections::HashSet::new(),
+        Some(&resolved),
+    )
+}
+
+fn validate_chapter_result_identity(
+    review: &provider::ProviderRequestReview,
+    result: &provider::ProviderSendResult,
+) -> Result<(), provider::ProviderFailure> {
+    if result.review_id != review.review_id
+        || result.fingerprint != review.fingerprint
+        || result.model_id != review.model_id
+    {
+        return Err(provider::ProviderFailure {
+            kind: provider::ProviderFailureKind::InvalidReview,
+            message: "The returned chapter does not match the reviewed request identity. No draft was created.".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_chapter_draft_preview_with_evidence(
+    storage_dir: &std::path::Path,
+    review: &provider::ProviderRequestReview,
+    result: provider::ProviderSendResult,
+    manifest: &SnapshotManifest,
+    snapshot_index: Option<&index::SnapshotIndex>,
+    sources: &[SnapshotSource],
+    allowed_relationships: &std::collections::HashSet<String>,
+    native_citations: Option<&native_citations::Resolved>,
+) -> Result<PreparedChapterDraftPreview, provider::ProviderFailure> {
+    let failure = |kind, message: String| provider::ProviderFailure { kind, message };
     let (mut revision, update_notes) = match (review.purpose.as_str(), review.target_path.as_deref()) {
-        ("fileChapter", Some(target_path)) => chapter_generation::canonicalize_file_chapter(
-            &review.project_id,
-            &manifest,
-            snapshot_index.as_ref(),
-            target_path,
-            &sources,
-            &allowed_relationships,
-            &result.response_text,
-        ).map(|revision| (revision, Vec::new())),
-        ("repositoryOverview", None) => chapter_generation::canonicalize_authored_repository_overview(
-            &review.project_id,
-            &manifest,
-            snapshot_index.as_ref(),
-            &sources,
-            &allowed_relationships,
-            &result.response_text,
-        ).map(|revision| (revision, Vec::new())),
+        ("fileChapter", Some(target_path)) => {
+            let revision = if let Some(resolved) = native_citations {
+                chapter_generation::canonicalize_file_chapter_with_citations(
+                    &review.project_id, manifest, snapshot_index, target_path, sources,
+                    allowed_relationships, resolved,
+                )
+            } else {
+                chapter_generation::canonicalize_file_chapter(
+                    &review.project_id, manifest, snapshot_index, target_path, sources,
+                    allowed_relationships, &result.response_text,
+                )
+            }
+            .map_err(|message| {
+                failure(
+                    provider::ProviderFailureKind::MalformedProviderResponse,
+                    message,
+                )
+            })?;
+            Ok((revision, Vec::new()))
+        }
+        ("repositoryOverview", None) => {
+            let revision = if let Some(resolved) = native_citations {
+                chapter_generation::canonicalize_codex_repository_overview_with_citations(
+                    &review.project_id, manifest, snapshot_index, sources,
+                    allowed_relationships, resolved,
+                )
+            } else {
+                chapter_generation::canonicalize_authored_repository_overview(
+                    &review.project_id, manifest, snapshot_index, sources,
+                    allowed_relationships, &result.response_text,
+                )
+            }
+            .map_err(|message| {
+                failure(
+                    provider::ProviderFailureKind::MalformedProviderResponse,
+                    message,
+                )
+            })?;
+            Ok((revision, Vec::new()))
+        }
         ("sectionUpdate", _) => {
             let context = review.section_update_context.as_ref().ok_or_else(|| failure(
                 provider::ProviderFailureKind::InvalidReview,
@@ -2070,13 +2218,13 @@ fn validate_chapter_draft_preview(
             chapter_generation::canonicalize_section_update(
                 storage_dir,
                 base,
-                &manifest,
-                snapshot_index.as_ref(),
-                &sources,
+                manifest,
+                snapshot_index,
+                sources,
                 &context.section_id,
                 &context.section_revision_id,
                 context.repair_session_id.as_deref(),
-                &allowed_relationships,
+                allowed_relationships,
                 &result.response_text,
             )
         },
@@ -2108,12 +2256,8 @@ fn validate_chapter_draft_preview(
             )
         })?;
     }
-    let validation = chapters::validate_chapter_revision(
-        storage_dir,
-        &manifest,
-        snapshot_index.as_ref(),
-        &revision,
-    );
+    let validation =
+        chapters::validate_chapter_revision(storage_dir, &manifest, snapshot_index, &revision);
     if validation.status != chapters::ValidationReportStatus::Valid {
         let detail = validation
             .issues
@@ -2990,14 +3134,13 @@ mod chapter_pipeline_tests {
             &multiple_stale_freshness,
         )
         .unwrap();
-        let repair_target = |section: &chapters::ChapterSection| {
-            provider::SectionUpdateReviewTarget {
+        let repair_target =
+            |section: &chapters::ChapterSection| provider::SectionUpdateReviewTarget {
                 chapter_revision_id: accepted.revision_id.clone(),
                 section_id: section.section_id.clone(),
                 section_revision_id: section.section_revision_id.clone(),
                 repair_session_id: Some(repair_session.session_id.clone()),
-            }
-        };
+            };
         let section_response = |title: &str, prose: &str, identifier: &str, quote: &str| {
             serde_json::json!({
                 "title": title,
@@ -3051,15 +3194,24 @@ mod chapter_pipeline_tests {
         )
         .err()
         .expect("the first repaired section should be saved as incremental progress");
-        assert_eq!(first_result.kind, provider::ProviderFailureKind::RepairProgress);
+        assert_eq!(
+            first_result.kind,
+            provider::ProviderFailureKind::RepairProgress
+        );
         let progress = section_repair_session::load(
             &fixture.storage,
             &accepted.project_id,
             &repair_session.session_id,
         )
         .unwrap();
-        assert_eq!(progress.sections[0].state, section_repair_session::RepairSectionState::Replaced);
-        assert_eq!(progress.sections[1].state, section_repair_session::RepairSectionState::Stale);
+        assert_eq!(
+            progress.sections[0].state,
+            section_repair_session::RepairSectionState::Replaced
+        );
+        assert_eq!(
+            progress.sections[1].state,
+            section_repair_session::RepairSectionState::Stale
+        );
 
         let second_review = build_section_review(&old_unrelated_section);
         let second_result = validate_chapter_draft_preview(
@@ -3082,7 +3234,10 @@ mod chapter_pipeline_tests {
         )
         .err()
         .expect("the second repaired section should remain incremental while another is stale");
-        assert_eq!(second_result.kind, provider::ProviderFailureKind::RepairProgress);
+        assert_eq!(
+            second_result.kind,
+            provider::ProviderFailureKind::RepairProgress
+        );
         let progress = section_repair_session::load(
             &fixture.storage,
             &accepted.project_id,
@@ -3115,7 +3270,10 @@ mod chapter_pipeline_tests {
             },
         )
         .unwrap_or_else(|error| panic!("the completed repair session should form a draft: {error:?}"));
-        assert_eq!(final_preview.revision.snapshot_id, fixture.manifest.summary.snapshot_id);
+        assert_eq!(
+            final_preview.revision.snapshot_id,
+            fixture.manifest.summary.snapshot_id
+        );
         assert_eq!(
             final_preview.validation.status,
             chapters::ValidationReportStatus::Valid,
@@ -3649,10 +3807,7 @@ mod chapter_pipeline_tests {
         let file_preview = prepare_chapter_draft_preview(
             &fixture.storage,
             &file_review,
-            response(
-                &file_review,
-                simple_proposal_text(),
-            ),
+            response(&file_review, simple_proposal_text()),
             &file_pending,
         )
         .unwrap();

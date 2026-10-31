@@ -181,18 +181,20 @@ fn greenfield_current_format_rejects_legacy_timing_schema_without_rewriting() {
     let original = fs::read(&file).unwrap();
 
     assert!(inspect(&f.0, &id).is_err());
-    assert!(record_application_result(
-        &f.0,
-        &id,
-        ApplicationResult {
-            outcome: ApplicationOutcome::Interrupted,
-            observation: ApplicationObservation::Reconciled,
-            observed_elapsed_ms: None,
-            published_section_count: 1,
-            first_useful_elapsed_ms: Some(0),
-        },
-    )
-    .is_err());
+    assert!(
+        record_application_result(
+            &f.0,
+            &id,
+            ApplicationResult {
+                outcome: ApplicationOutcome::Interrupted,
+                observation: ApplicationObservation::Reconciled,
+                observed_elapsed_ms: None,
+                published_section_count: 1,
+                first_useful_elapsed_ms: Some(0),
+            },
+        )
+        .is_err()
+    );
     assert_eq!(fs::read(&file).unwrap(), original);
 }
 
@@ -406,8 +408,14 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     // of the diagnostic contract.
     let file = path(&f.0, &id).unwrap();
     let mut incomplete: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
-    incomplete.as_object_mut().unwrap().remove("preparationStages");
-    incomplete.as_object_mut().unwrap().remove("rendererQueueWaitMs");
+    incomplete
+        .as_object_mut()
+        .unwrap()
+        .remove("preparationStages");
+    incomplete
+        .as_object_mut()
+        .unwrap()
+        .remove("rendererQueueWaitMs");
     fs::write(&file, serde_json::to_vec(&incomplete).unwrap()).unwrap();
     let original = fs::read(&file).unwrap();
     assert!(inspect(&f.0, &id).is_err());
@@ -750,10 +758,7 @@ fn greenfield_current_format_requires_context_stages() {
         stages: Vec::new(),
     };
     let mut value = serde_json::to_value(call).unwrap();
-    value
-        .as_object_mut()
-        .unwrap()
-        .remove("stages");
+    value.as_object_mut().unwrap().remove("stages");
     assert!(serde_json::from_value::<ContextCall>(value).is_err());
 }
 

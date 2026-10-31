@@ -25,8 +25,8 @@ pub(crate) const REPOSITORY_PLAN_CALL_LIMIT: usize = 12;
 pub(crate) const REPOSITORY_GUIDE_SLIDE_CALL_LIMIT: usize = 18;
 const FINALIZATION_CALL_RESERVE: usize = 6;
 const FINALIZATION_TIME_RESERVE: Duration = Duration::from_secs(60);
-const MAX_FILES: usize = 12;
-const MAX_SOURCE: usize = 250_000;
+pub(crate) const MAX_FILES: usize = 12;
+pub(crate) const MAX_SOURCE_BYTES: usize = 250_000;
 const MAX_METADATA: usize = 256_000;
 const MAX_WIRE: usize = 1_000_000;
 const MAX_RESPONSE: usize = 128_000;
@@ -755,7 +755,7 @@ impl Ledger {
                         .collect::<BTreeSet<_>>()
                         .len(),
                 ),
-                source_bytes: MAX_SOURCE.saturating_sub(source),
+                source_bytes: MAX_SOURCE_BYTES.saturating_sub(source),
                 metadata_bytes: MAX_METADATA
                     .saturating_sub(metadata)
                     .saturating_sub(reserved),
@@ -1114,7 +1114,7 @@ impl Ledger {
                 .or_else(|| {
                     if self.record.calls.len() == MAX_CALLS {
                         Some(LimitReason::Calls)
-                    } else if prior_source + source_bytes > MAX_SOURCE {
+                    } else if prior_source + source_bytes > MAX_SOURCE_BYTES {
                         Some(LimitReason::SourceBytes)
                     } else if files > MAX_FILES {
                         Some(LimitReason::Files)
@@ -1569,7 +1569,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
             .iter()
             .map(|c| c.source_bytes as u128)
             .sum::<u128>()
-            > MAX_SOURCE as u128
+            > MAX_SOURCE_BYTES as u128
         || record
             .calls
             .iter()

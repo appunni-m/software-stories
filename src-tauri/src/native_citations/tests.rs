@@ -73,6 +73,62 @@ fn short_reference_transport_keeps_exact_bytes_and_does_not_guess_unknown_ids() 
         "referenceShape"
     );
 }
+
+#[test]
+fn evidence_limits_resolve_only_exact_delivered_native_references() {
+    let text = "fn process() {\n    parse();\n    persist();\n}\n";
+    let source = source(text);
+    let parse_start = text.find("parse();").unwrap();
+    let persist_start = text.find("persist();").unwrap();
+    let parse_range =
+        context::range_from_source(&source, parse_start, parse_start + "parse();".len())
+            .unwrap()
+            .range;
+    let persist_range =
+        context::range_from_source(&source, persist_start, persist_start + "persist();".len())
+            .unwrap()
+            .range;
+    let parse = Citation::checked(&parse_range, &source).unwrap();
+    let persist = Citation::checked(&persist_range, &source).unwrap();
+    let response = json!({
+        "citationVersion": SHORT_VERSION,
+        "sections": [{"claims": [{"evidence": [{"referenceId": "code:1"}]}]}],
+        "evidenceLimits": [{"evidence": [{"referenceId": "code:2"}]}]
+    })
+    .to_string();
+
+    let resolved = ready(resolve(&response, |id| match id {
+        "code:1" => Ok(parse.clone()),
+        "code:2" => Ok(persist.clone()),
+        _ => Err("referenceUnavailable"),
+    }));
+    let expanded: Value = serde_json::from_str(resolved.text()).unwrap();
+    assert_eq!(
+        expanded["evidenceLimits"][0]["evidence"][0]["path"],
+        "src/code.rs"
+    );
+    assert_eq!(
+        expanded["evidenceLimits"][0]["evidence"][0]["quote"],
+        "persist();"
+    );
+    assert_eq!(
+        resolved.evidence_limit_spans(0).unwrap()[0]
+            .checked_start("src/code.rs", "persist();", &source)
+            .unwrap(),
+        persist_start
+    );
+    assert!(resolved.evidence_limit_spans(1).is_none());
+
+    let unavailable = response.replace("code:2", "code:3");
+    assert_eq!(
+        issues(resolve(&unavailable, |id| match id {
+            "code:1" => Ok(parse.clone()),
+            _ => Err("referenceUnavailable"),
+        }))[0]["citationProblem"],
+        "referenceUnavailable"
+    );
+}
+
 fn issues(resolution: Resolution) -> Vec<Value> {
     match resolution {
         Resolution::Ready(_) => panic!("Unexpected valid references"),

@@ -183,9 +183,8 @@ async fn terminal_playback_receipt_waits_for_the_owner_lease_then_claims_refill(
 
     let storage = f.storage.clone();
     let id = record.id.clone();
-    let handoff = tokio::spawn(async move {
-        wait_for_terminal_guide_handoff(&storage, &id, &receipt).await
-    });
+    let handoff =
+        tokio::spawn(async move { wait_for_terminal_guide_handoff(&storage, &id, &receipt).await });
     tokio::time::sleep(std::time::Duration::from_millis(45)).await;
     assert!(
         !handoff.is_finished(),
@@ -235,7 +234,15 @@ fn playback_saved_after_the_unit_boundary_extends_runway_during_finalization() {
 
     let mut without_receipt = receipt;
     without_receipt.consumed_slide_revisions.clear();
-    assert!(finalize_slide_run(&mut without_receipt, None, 1, 0, 0, 1, true));
+    assert!(finalize_slide_run(
+        &mut without_receipt,
+        None,
+        1,
+        0,
+        0,
+        1,
+        true
+    ));
     assert_eq!(without_receipt.status, Status::WaitingForPlayback);
 }
 
@@ -951,9 +958,11 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     let reservations = answer_reservations(&f.storage)
         .expect("unsupported saved guides keep their capacity reserved");
     assert_eq!(reservations.len(), 2);
-    assert!(reservations
-        .iter()
-        .any(|reservation| reservation.guide_id == selected.id));
+    assert!(
+        reservations
+            .iter()
+            .any(|reservation| reservation.guide_id == selected.id)
+    );
     let opaque = reservations
         .iter()
         .find(|reservation| reservation.guide_id == unrelated.id)

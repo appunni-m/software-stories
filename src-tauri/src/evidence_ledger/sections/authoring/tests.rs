@@ -134,9 +134,11 @@ fn authored_nodes_must_explicitly_declare_null_or_bound_source() {
             "code":"sceneAuthoringShape"
         })
     );
-    assert!(!jsonschema::validator_for(&section_schema())
-        .unwrap()
-        .is_valid(&raw));
+    assert!(
+        !jsonschema::validator_for(&section_schema())
+            .unwrap()
+            .is_valid(&raw)
+    );
 }
 
 #[test]

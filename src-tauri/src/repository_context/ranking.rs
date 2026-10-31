@@ -11,10 +11,7 @@ use tantivy::{
 
 type CandidateKey = (
     f32,
-    (
-        Option<String>,
-        (Option<u64>, (Option<u64>, Option<String>)),
-    ),
+    (Option<String>, (Option<u64>, (Option<u64>, Option<String>))),
 );
 
 pub(super) fn candidates(

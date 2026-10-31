@@ -277,10 +277,16 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("compact, source-grounded initial outline before slide content is generated"));
+    assert!(
+        instructions
+            .contains("compact, source-grounded initial outline before slide content is generated")
+    );
     assert!(instructions.contains("two to five focused behavior questions"));
     assert!(instructions.contains("five-unit limit so the first useful slide is not blocked"));
-    assert!(instructions.contains("Do not deeply investigate pending routes in this planning operation"));
+    assert!(
+        instructions
+            .contains("Do not deeply investigate pending routes in this planning operation")
+    );
     assert!(instructions.contains(
         "Record every additional route that needs its own explanation as a concise, explicit pending omission"
     ));
@@ -300,19 +306,15 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(instructions.contains(
         "do not count a language as covered because another language's example reaches the same engine"
     ));
-    assert!(instructions.contains(
-        "Give each materially different surface its own question or pending topic"
-    ));
+    assert!(
+        instructions
+            .contains("Give each materially different surface its own question or pending topic")
+    );
     assert!(instructions.contains(
         "creating a face from memory and loading a glyph into an existing face are separate topics"
     ));
-    assert!(instructions.contains(
-        "Plan the initial five slides in source-grounded reading order"
-    ));
-    assert!(
-        instructions
-            .contains("Never imply that a pending omission is covered")
-    );
+    assert!(instructions.contains("Plan the initial five slides in source-grounded reading order"));
+    assert!(instructions.contains("Never imply that a pending omission is covered"));
     assert!(
         instructions.contains("Never present one representative path as whole-project coverage")
     );
@@ -334,10 +336,13 @@ fn plan_instructions_keep_the_full_requested_scope() {
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("begin with one focused search_code call using resultKind:files")
     );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS
-        .contains("Do not make a full module inventory a prerequisite for the first useful outline"));
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS
-        .contains("Use list_modules only for a specific inventory question"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
+        "Do not make a full module inventory a prerequisite for the first useful outline"
+    ));
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("Use list_modules only for a specific inventory question")
+    );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("multiple relevant implementation files")
@@ -355,7 +360,9 @@ fn plan_instructions_keep_the_full_requested_scope() {
             .contains("name remaining work as not yet covered")
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("twenty-unit limit"));
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("compact, navigable initial outline"));
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("compact, navigable initial outline")
+    );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
     );

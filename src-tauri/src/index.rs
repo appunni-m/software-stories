@@ -402,11 +402,7 @@ impl SnapshotIndexJobs {
                 && job.progress.snapshot_id == snapshot_id
                 && job.progress.status == IndexJobStatus::Running
         }) {
-            return Ok((
-                job.progress.clone(),
-                Arc::clone(&job.cancellation),
-                false,
-            ));
+            return Ok((job.progress.clone(), Arc::clone(&job.cancellation), false));
         }
         while jobs.len() >= MAX_RETAINED_JOBS {
             let removable = jobs

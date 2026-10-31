@@ -124,8 +124,7 @@ fn validate(input: &Input) -> Result<(), String> {
     if matches!(
         input.target,
         Some(Target::RetryConversation {} | Target::DiscardBrowserPreview {})
-    )
-        && (input.project_id.is_none() || input.snapshot_id.is_none())
+    ) && (input.project_id.is_none() || input.snapshot_id.is_none())
     {
         return Err("This update has no saved conversation context.".into());
     }

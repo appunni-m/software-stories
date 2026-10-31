@@ -887,8 +887,7 @@ mod tests {
             "../../docs/acceptance/artifacts/2026-10-17-fontdone-complete-script-partial.json"
         ))
         .unwrap();
-        let section =
-            &artifact["answer"]["sections"][0]["preview"]["revision"]["sections"][0];
+        let section = &artifact["answer"]["sections"][0]["preview"]["revision"]["sections"][0];
         // Reuse only the stable node/claim payloads from this historical
         // artifact. Its chapter and visual envelopes use superseded schemas.
         let nodes: Vec<VisualNode> =
@@ -897,8 +896,7 @@ mod tests {
             serde_json::from_value(section["claims"].clone()).unwrap();
         for claim in &mut claims {
             claim.prose =
-                "The implementation transforms the selected input and returns its result."
-                    .into();
+                "The implementation transforms the selected input and returns its result.".into();
         }
         let mut scenes: Vec<_> = claims
             .iter()

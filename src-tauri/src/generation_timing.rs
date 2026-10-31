@@ -413,7 +413,10 @@ fn read(path: &Path) -> Result<Record, String> {
         "writeFailures",
         "truncated",
     ];
-    if !REQUIRED_FIELDS.iter().all(|field| value.get(*field).is_some()) {
+    if !REQUIRED_FIELDS
+        .iter()
+        .all(|field| value.get(*field).is_some())
+    {
         return Err("Timing diagnostics are damaged.".into());
     }
     let record: Record =

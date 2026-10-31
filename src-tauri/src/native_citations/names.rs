@@ -132,6 +132,7 @@ pub(super) fn compile_grounded(resolved: Resolved) -> Result<Resolved, Vec<Value
     Ok(Resolved {
         text,
         spans: resolved.spans,
+        evidence_limit_spans: resolved.evidence_limit_spans,
     })
 }
 

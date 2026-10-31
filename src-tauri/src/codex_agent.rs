@@ -1586,7 +1586,10 @@ impl ServerProcess {
                 return Err("Codex stopped because Code Atlas is closing.".to_owned());
             }
             if input.run_deadline.exceeded(started_at) {
-                return Err("The Codex account probe exceeded its ten-minute limit and was stopped.".to_owned());
+                return Err(
+                    "The Codex account probe exceeded its ten-minute limit and was stopped."
+                        .to_owned(),
+                );
             }
             if cancelled.load(Ordering::Acquire) && cancel_at.is_none() {
                 cancel_at = Some(Instant::now());
@@ -2046,9 +2049,7 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
     if input.run_id.is_empty() || input.run_id.len() > 256 {
         return Err("The Codex request identity is invalid.".to_owned());
     }
-    if !crate::generation_timing::valid_prompt_contract_version(
-        &input.prompt_contract_version,
-    ) {
+    if !crate::generation_timing::valid_prompt_contract_version(&input.prompt_contract_version) {
         return Err("The Codex prompt contract version is invalid.".to_owned());
     }
     validate_model_source_mode(
@@ -2103,7 +2104,10 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
             return Err("The reviewed Codex source exceeds 256 KB. Narrow the selected files; no Codex turn was sent.".to_owned());
         }
         if hex_digest(source.contents.as_bytes()) != source.sha256 {
-            return Err("The reviewed Codex source changed after review. Build a fresh request review.".to_owned());
+            return Err(
+                "The reviewed Codex source changed after review. Build a fresh request review."
+                    .to_owned(),
+            );
         }
     }
     Ok(())

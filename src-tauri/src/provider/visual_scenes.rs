@@ -210,13 +210,21 @@ pub(crate) mod tests {
         assert!(instructions.contains("Visual composition review v62"));
         assert!(instructions.contains("mutually exclusive enum, match, switch or pattern match over one input uses a branch composition"));
         assert!(instructions.contains("use a selector only when the source actually tries candidates in order and continues after a miss"));
-        assert!(instructions.contains("Use a text-only section only for context or an evidence boundary"));
+        assert!(
+            instructions
+                .contains("Use a text-only section only for context or an evidence boundary")
+        );
         assert!(instructions.contains("Raw JavaScript and 3-D/WebGL are unsupported"));
         assert!(instructions.contains("with narration collapsed"));
         assert!(instructions.contains("those containers are layout, not the visual idea"));
         assert!(instructions.contains("Every non-none visual requires this presentation"));
-        assert!(instructions.contains("presentation:null, and put the complete natural script in section.spokenText"));
-        assert!(instructions.contains("Within a chapter presentation, mode is composition or graph only"));
+        assert!(instructions.contains(
+            "presentation:null, and put the complete natural script in section.spokenText"
+        ));
+        assert!(
+            instructions
+                .contains("Within a chapter presentation, mode is composition or graph only")
+        );
         assert!(!instructions.contains("mode:narration"));
         assert!(
             instructions.contains(
@@ -294,7 +302,9 @@ pub(crate) mod tests {
         assert!(instructions.contains("Raw JavaScript and 3-D/WebGL are unsupported"));
         assert!(instructions.contains("The app owns HTML, styling and interactions"));
         assert!(instructions.contains("whole section allows at most 12 nodes and 20 edges"));
-        assert!(instructions.contains("each scene allows at most 48 elements and 12 content leaves"));
+        assert!(
+            instructions.contains("each scene allows at most 48 elements and 12 content leaves")
+        );
         assert!(instructions.contains("Default every visual node source to null"));
         assert!(instructions.contains("never imply unobserved execution, priority or values"));
         assert!(instructions.contains(
@@ -318,9 +328,7 @@ pub(crate) mod tests {
                 .contains("Tell what the real subject does and why it matters")
         );
         assert!(SECTION_NARRATION_INSTRUCTIONS.contains("Never narrate the artifact itself"));
-        assert!(
-            SECTION_NARRATION_INSTRUCTIONS.contains("Start at the caller, input or decision")
-        );
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("Start at the caller, input or decision"));
         assert!(SECTION_NARRATION_INSTRUCTIONS.contains("same story-first style"));
         assert!(
             super::instructions()
@@ -378,7 +386,9 @@ pub(crate) mod tests {
         assert!(super::instructions().contains(
             "A mutually exclusive enum/match/switch over one input is a branch of matched cases and results"
         ));
-        assert!(shared.contains("Do not repeat the same generic row/cards/arrow skeleton with only labels changed"));
+        assert!(shared.contains(
+            "Do not repeat the same generic row/cards/arrow skeleton with only labels changed"
+        ));
         assert!(shared.contains("pointFlow takes precedence and keeps point markers on both sides without invented coordinates"));
         assert!(shared.contains("speak the role they play in the behavior"));
         assert!(shared.contains("rejected for correction"));
@@ -435,11 +445,14 @@ pub(crate) mod tests {
             "Use cards only as concise labels/values inside a semantic visual, not as the visual itself"
         ));
         assert!(shared.contains("Show every supported outcome with its guard and destination"));
-        assert!(shared.contains("When every claim is context or an evidence boundary without an honest visual form"));
-        assert!(!shared.contains("mode:narration"));
         assert!(shared.contains(
-            "Every generated visual scene must have at least one source-linked node"
+            "When every claim is context or an evidence boundary without an honest visual form"
         ));
+        assert!(!shared.contains("mode:narration"));
+        assert!(
+            shared
+                .contains("Every generated visual scene must have at least one source-linked node")
+        );
         assert!(shared.contains("a visual section may mix composition and graph scenes"));
         assert!(shared.contains("never describes the artifact"));
         assert!(shared.contains("Do not speak function, method, type, field or error identifiers"));

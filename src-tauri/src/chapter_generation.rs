@@ -327,11 +327,8 @@ pub fn canonicalize_section_update(
     )?;
     let repair_session = repair_session_id
         .map(|session_id| {
-            let session = crate::section_repair_session::load(
-                storage_dir,
-                &base.project_id,
-                session_id,
-            )?;
+            let session =
+                crate::section_repair_session::load(storage_dir, &base.project_id, session_id)?;
             crate::section_repair_session::verify_binding(&session, base, &freshness)?;
             Ok::<_, String>(session)
         })
@@ -382,11 +379,11 @@ pub fn canonicalize_section_update(
     let sources = checked_sources(current_manifest, current_sources)?;
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     if sources.is_empty()
-        || target_path.is_some_and(|target| !sources.contains_key(target) || !selected_paths.contains(target))
+        || target_path
+            .is_some_and(|target| !sources.contains_key(target) || !selected_paths.contains(target))
     {
         return Err(
-            "The selected section's current source evidence is missing or incomplete."
-                .to_owned(),
+            "The selected section's current source evidence is missing or incomplete.".to_owned(),
         );
     }
     let mut generated_value =
@@ -418,11 +415,9 @@ pub fn canonicalize_section_update(
             &mut isolated,
             Some(selected_section_id),
         )?;
-        let prepared = isolated
-            .sections
-            .into_iter()
-            .next()
-            .ok_or_else(|| "The generated section could not be prepared for its visual scene.".to_owned())?;
+        let prepared = isolated.sections.into_iter().next().ok_or_else(|| {
+            "The generated section could not be prepared for its visual scene.".to_owned()
+        })?;
         let session = crate::section_repair_session::record_canonicalized_replacement(
             storage_dir,
             &base.project_id,
@@ -475,24 +470,32 @@ pub fn canonicalize_section_update(
                 .sections
                 .iter()
                 .find(|item| item.section_id == previous.section_id)
-                .ok_or_else(|| "A chapter section is missing from the local repair session.".to_owned())?;
+                .ok_or_else(|| {
+                    "A chapter section is missing from the local repair session.".to_owned()
+                })?;
             let mut updated = match repair.state {
-                crate::section_repair_session::RepairSectionState::Replaced => repair
-                    .replacement
-                    .clone()
-                    .ok_or_else(|| "A completed section repair has no validated replacement.".to_owned())?,
+                crate::section_repair_session::RepairSectionState::Replaced => {
+                    repair.replacement.clone().ok_or_else(|| {
+                        "A completed section repair has no validated replacement.".to_owned()
+                    })?
+                }
                 crate::section_repair_session::RepairSectionState::Current
-                | crate::section_repair_session::RepairSectionState::SafeToCarry => remap_carried_section(
-                    storage_dir,
-                    &old_manifest,
-                    old_index.as_ref(),
-                    current_manifest,
-                    current_index,
-                    previous,
-                )?,
+                | crate::section_repair_session::RepairSectionState::SafeToCarry => {
+                    remap_carried_section(
+                        storage_dir,
+                        &old_manifest,
+                        old_index.as_ref(),
+                        current_manifest,
+                        current_index,
+                        previous,
+                    )?
+                }
                 crate::section_repair_session::RepairSectionState::Stale
                 | crate::section_repair_session::RepairSectionState::NeedsReview => {
-                    return Err("The local repair session is not ready to assemble a chapter draft.".to_owned());
+                    return Err(
+                        "The local repair session is not ready to assemble a chapter draft."
+                            .to_owned(),
+                    );
                 }
             };
             updated.order = order as u32;
@@ -933,6 +936,49 @@ pub fn canonicalize_file_chapter(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
+    canonicalize_file_chapter_inner(
+        project_id,
+        manifest,
+        index,
+        target_path,
+        selected_sources,
+        allowed_relationship_ids,
+        response_text,
+        None,
+    )
+}
+
+pub(crate) fn canonicalize_file_chapter_with_citations(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    target_path: &str,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response: &crate::native_citations::Resolved,
+) -> Result<ChapterRevision, String> {
+    canonicalize_file_chapter_inner(
+        project_id,
+        manifest,
+        index,
+        target_path,
+        selected_sources,
+        allowed_relationship_ids,
+        response.text(),
+        Some(response),
+    )
+}
+
+fn canonicalize_file_chapter_inner(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    target_path: &str,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response_text: &str,
+    native_citations: Option<&crate::native_citations::Resolved>,
+) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err("The generated chapter exceeds the 300 KB structured-draft limit.".to_owned());
     }
@@ -974,8 +1020,15 @@ pub fn canonicalize_file_chapter(
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
         let mut section_dependencies = Vec::new();
         let mut anchors_target = false;
-        for proposed_claim in &proposed_section.claims {
-            let (claim, dependencies, target_anchored) = build_claim(
+        for (claim_order, proposed_claim) in proposed_section.claims.iter().enumerate() {
+            let native_spans = native_citations
+                .map(|resolved| {
+                    resolved
+                        .claim_spans(order, claim_order)
+                        .ok_or("The native citation positions do not match the explanation.")
+                })
+                .transpose()?;
+            let (claim, dependencies, target_anchored) = build_claim_with_spans(
                 proposed_claim,
                 &section_id,
                 Some(target_path),
@@ -983,6 +1036,7 @@ pub fn canonicalize_file_chapter(
                 &sources,
                 index,
                 allowed_relationship_ids,
+                native_spans,
             )?;
             if proposed_claim.aspect == "responsibility" {
                 if !target_anchored {
@@ -1029,14 +1083,22 @@ pub fn canonicalize_file_chapter(
     let mut limit_dependencies = Vec::new();
     let mut limits_prose = Vec::new();
     let mut limits_target_anchored = false;
-    for limit in &proposal.evidence_limits {
-        let (claim, dependencies, target_anchored) = build_evidence_limit(
+    for (limit_order, limit) in proposal.evidence_limits.iter().enumerate() {
+        let native_spans = native_citations
+            .map(|resolved| {
+                resolved.evidence_limit_spans(limit_order).ok_or(
+                    "The native evidence-limit citation positions do not match the explanation.",
+                )
+            })
+            .transpose()?;
+        let (claim, dependencies, target_anchored) = build_evidence_limit_with_spans(
             limit,
             &limits_section_id,
             target_path,
             &selected_paths,
             &sources,
             index,
+            native_spans,
         )?;
         if !target_anchored {
             return Err(
@@ -1116,6 +1178,25 @@ pub(crate) fn canonicalize_authored_repository_overview(
         allowed_relationship_ids,
         response_text,
         None,
+    )
+}
+
+pub(crate) fn canonicalize_codex_repository_overview_with_citations(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response: &crate::native_citations::Resolved,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(
+        project_id,
+        manifest,
+        index,
+        selected_sources,
+        allowed_relationship_ids,
+        response.text(),
+        Some(response),
     )
 }
 
@@ -1596,13 +1677,14 @@ fn build_claim_with_spans(
     Ok((claim, dependencies, target_anchored))
 }
 
-fn build_evidence_limit(
+fn build_evidence_limit_with_spans(
     proposed: &GeneratedChapterEvidenceLimit,
     _section_id: &str,
     target_path: &str,
     selected_paths: &HashSet<String>,
     sources: &HashMap<String, &SnapshotSource>,
     index: Option<&SnapshotIndex>,
+    native_spans: Option<&[crate::native_citations::Citation]>,
 ) -> Result<(ChapterClaim, Vec<SectionDependency>, bool), String> {
     let (anchors, dependencies, target_anchored) = build_anchors(
         &proposed.prose,
@@ -1613,7 +1695,7 @@ fn build_evidence_limit(
         selected_paths,
         sources,
         index,
-        None,
+        native_spans,
     )?;
     Ok((
         ChapterClaim {
@@ -2099,6 +2181,68 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn codex_native_references_anchor_claims_and_evidence_limits_at_delivered_ranges() {
+        let fixture = Fixture::new();
+        let source = fixture.sources(&[SIMPLE_PATH]).remove(0);
+        let claim_start = source.contents.find(SIMPLE_FUNCTION).unwrap();
+        let limit_quote = "export function greeting(name: string): string {";
+        let limit_start = source.contents.find(limit_quote).unwrap();
+        let claim_range = crate::repository_context::range_from_source(
+            &source,
+            claim_start,
+            claim_start + SIMPLE_FUNCTION.len(),
+        )
+        .unwrap()
+        .range;
+        let limit_range = crate::repository_context::range_from_source(
+            &source,
+            limit_start,
+            limit_start + limit_quote.len(),
+        )
+        .unwrap()
+        .range;
+        let claim_citation =
+            crate::native_citations::Citation::checked(&claim_range, &source).unwrap();
+        let limit_citation =
+            crate::native_citations::Citation::checked(&limit_range, &source).unwrap();
+
+        let mut response = simple_proposal_value();
+        response["citationVersion"] = serde_json::json!(crate::native_citations::SHORT_VERSION);
+        response["sections"][0]["claims"][0]["evidence"] =
+            serde_json::json!([{"referenceId":"code:1"}]);
+        response["evidenceLimits"][0]["evidence"] = serde_json::json!([{"referenceId":"code:2"}]);
+        let resolved =
+            match crate::native_citations::resolve(&response.to_string(), |id| match id {
+                "code:1" => Ok(claim_citation.clone()),
+                "code:2" => Ok(limit_citation.clone()),
+                _ => Err("referenceUnavailable"),
+            }) {
+                crate::native_citations::Resolution::Ready(resolved) => resolved,
+                crate::native_citations::Resolution::Invalid(issues) => panic!("{issues:?}"),
+            };
+
+        let revision = canonicalize_file_chapter_with_citations(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &[source],
+            &HashSet::new(),
+            &resolved,
+        )
+        .unwrap();
+
+        assert_eq!(
+            revision.sections[0].claims[0].anchors[0].start_byte,
+            claim_start as u64
+        );
+        assert_eq!(
+            revision.sections[1].claims[0].anchors[0].start_byte,
+            limit_start as u64
+        );
+    }
+
+    #[test]
     fn generated_visual_choices_and_presentations_are_required() {
         let mut missing_visual = simple_proposal_value();
         missing_visual["sections"][0]
@@ -2432,17 +2576,20 @@ pub(crate) mod tests {
             "cart.ts",
             include_str!("../../benchmarks/codex-account-smoke/cart.ts"),
         );
-        let obsolete = include_str!("../../benchmarks/codex-account-smoke/2026-10-16-native-proposal.json");
-        assert!(canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id,
-            &fixture.manifest,
-            None,
-            "cart.ts",
-            &fixture.sources(&["cart.ts"]),
-            &HashSet::new(),
-            obsolete,
-        )
-        .is_err());
+        let obsolete =
+            include_str!("../../benchmarks/codex-account-smoke/2026-10-16-native-proposal.json");
+        assert!(
+            canonicalize_file_chapter(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                None,
+                "cart.ts",
+                &fixture.sources(&["cart.ts"]),
+                &HashSet::new(),
+                obsolete,
+            )
+            .is_err()
+        );
 
         let response = simple_proposal_value();
         let sources = fixture.sources(&[SIMPLE_PATH]);
@@ -3168,7 +3315,10 @@ pub(crate) mod tests {
             &unknown.to_string(),
         )
         .unwrap_err();
-        assert!(error.contains("strict repository overview schema"), "{error}");
+        assert!(
+            error.contains("strict repository overview schema"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -3566,10 +3716,7 @@ pub(crate) mod tests {
         for (text, expected_error) in [
             ("not JSON".to_owned(), "not valid JSON"),
             (
-                format!(
-                    "```json\n{}\n```",
-                    chapter_proposal_text(&proposal)
-                ),
+                format!("```json\n{}\n```", chapter_proposal_text(&proposal)),
                 "not valid JSON",
             ),
             (unknown_field.to_string(), "strict chapter proposal schema"),

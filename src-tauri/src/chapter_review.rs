@@ -809,17 +809,21 @@ mod tests {
             issue.message
                 == "Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved."
         }));
-        assert!(chapter_store::list_for_project(&fixture.storage, &base.project_id)
-            .unwrap()
-            .iter()
-            .any(|revision| revision.revision_id == invalid.revision.revision_id));
-        assert!(accept_draft(
-            &fixture.storage,
-            &lock,
-            &base.project_id,
-            &invalid.revision.revision_id,
-        )
-        .is_err());
+        assert!(
+            chapter_store::list_for_project(&fixture.storage, &base.project_id)
+                .unwrap()
+                .iter()
+                .any(|revision| revision.revision_id == invalid.revision.revision_id)
+        );
+        assert!(
+            accept_draft(
+                &fixture.storage,
+                &lock,
+                &base.project_id,
+                &invalid.revision.revision_id,
+            )
+            .is_err()
+        );
 
         let mut repaired_proposal = invalid.revision.clone();
         let supported_copy =

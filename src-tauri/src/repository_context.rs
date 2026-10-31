@@ -548,8 +548,8 @@ fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<Str
         .filter(|word| {
             word.len() > 2
                 && !crate::source_discovery::QUERY_STOPWORDS
-                .iter()
-                .any(|stopword| word.eq_ignore_ascii_case(stopword))
+                    .iter()
+                    .any(|stopword| word.eq_ignore_ascii_case(stopword))
         })
         .cloned()
         .collect()
@@ -1016,11 +1016,10 @@ fn prepare_cached(
                     && source.contents.is_char_boundary(s.anchor.end_byte)
             })
             .collect::<Vec<_>>();
-        let indexed_file = syntax
-            .and_then(|s| {
-                s.files
-                    .iter()
-                    .find(|f| f.path == file.path && f.source_sha256 == file.sha256)
+        let indexed_file = syntax.and_then(|s| {
+            s.files
+                .iter()
+                .find(|f| f.path == file.path && f.source_sha256 == file.sha256)
         });
         coverage.parser = indexed_file.and_then(|file| file.parser.clone());
         coverage.status = indexed_file.map(|file| file.status.clone());
@@ -2227,11 +2226,7 @@ fn search_files_with_candidate_window(
         budget.check()?;
         let mut matching_ranges = BTreeSet::new();
         for (term_field, term) in variants {
-            let query = scoped(
-                term_query(*term_field, term),
-                &prepared.index,
-                path,
-            )?;
+            let query = scoped(term_query(*term_field, term), &prepared.index, path)?;
             let documents = searcher
                 .search(&query, &tantivy::collector::DocSetCollector)
                 .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
@@ -2327,13 +2322,12 @@ fn search_files_with_candidate_window(
                 declaration_paths.insert(range.path.as_str());
             }
         }
-        let declaration_weight = if declaration_paths.is_empty()
-            || declaration_paths.len() >= total_paths
-        {
-            0.0
-        } else {
-            (((total_paths + 1) as f32) / ((declaration_paths.len() + 1) as f32)).ln()
-        };
+        let declaration_weight =
+            if declaration_paths.is_empty() || declaration_paths.len() >= total_paths {
+                0.0
+            } else {
+                (((total_paths + 1) as f32) / ((declaration_paths.len() + 1) as f32)).ln()
+            };
         declaration_term_weights[term_index] = declaration_weight;
         if declaration_weight > 0.0 {
             let declaration_bit = 1u32 << term_index;
@@ -2435,9 +2429,7 @@ fn search_files_with_candidate_window(
             let matched_terms = words
                 .iter()
                 .enumerate()
-                .filter_map(|(index, word)| {
-                    (mask & (1u32 << index) != 0).then(|| word.clone())
-                })
+                .filter_map(|(index, word)| (mask & (1u32 << index) != 0).then(|| word.clone()))
                 .collect::<Vec<_>>();
             let hint_coverage = path_hint_terms
                 .get(file_path)
@@ -2565,9 +2557,7 @@ fn merge_query_term_candidate(
     score: f32,
     term_bit: u32,
 ) {
-    let candidate = candidates
-        .entry(range_id)
-        .or_insert((false, false, score));
+    let candidate = candidates.entry(range_id).or_insert((false, false, score));
     candidate.2 = candidate.2.max(score);
     *term_coverage.entry(range_id).or_default() |= term_bit;
 }
@@ -2800,8 +2790,10 @@ fn search_ranked(
             // 256-result window is selected. A BM25 TopDocs cap here can hide
             // a low-score match that covers a distinctive query term. The
             // immutable range index itself is bounded by MAX_CHUNKS.
-            let (term_matches, count) = ranking::candidates_with_limit(&searcher, &term, MAX_CHUNKS)
-                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+            let (term_matches, count) =
+                ranking::candidates_with_limit(&searcher, &term, MAX_CHUNKS).map_err(|_| {
+                    "Code search failed. Try rebuilding its local index.".to_owned()
+                })?;
             coverage_limited |= count > MAX_CHUNKS;
             // Weight distinct query terms by their rarity across the scoped
             // range corpus. This mirrors file discovery's IDF ranking and
@@ -2912,24 +2904,24 @@ fn search_ranked(
         .collect::<Vec<_>>();
     ranked.sort_by(
         |(a, (ae, ad, asw, asc, aw, ac, ascore)), (b, (be, bd, bsw, bsc, bw, bc, bscore))| {
-        bd.cmp(ad)
-            .then_with(|| be.cmp(ae))
-            .then_with(|| bsw.total_cmp(asw))
-            .then_with(|| bsc.cmp(asc))
-            .then_with(|| bc.cmp(ac))
-            .then_with(|| bw.total_cmp(aw))
-            .then_with(|| bscore.total_cmp(ascore))
-            .then_with(|| {
-                prepared.metadata.ranges[*a]
-                    .path
-                    .cmp(&prepared.metadata.ranges[*b].path)
-            })
-            .then_with(|| {
-                prepared.metadata.ranges[*a]
-                    .start_byte
-                    .cmp(&prepared.metadata.ranges[*b].start_byte)
-            })
-            .then_with(|| a.cmp(b))
+            bd.cmp(ad)
+                .then_with(|| be.cmp(ae))
+                .then_with(|| bsw.total_cmp(asw))
+                .then_with(|| bsc.cmp(asc))
+                .then_with(|| bc.cmp(ac))
+                .then_with(|| bw.total_cmp(aw))
+                .then_with(|| bscore.total_cmp(ascore))
+                .then_with(|| {
+                    prepared.metadata.ranges[*a]
+                        .path
+                        .cmp(&prepared.metadata.ranges[*b].path)
+                })
+                .then_with(|| {
+                    prepared.metadata.ranges[*a]
+                        .start_byte
+                        .cmp(&prepared.metadata.ranges[*b].start_byte)
+                })
+                .then_with(|| a.cmp(b))
         },
     );
     if path.is_none() {
@@ -3003,12 +2995,8 @@ fn search_ranked(
             if captured.sha256 != range.source_sha256 {
                 return Err("A code result belongs to a different source version.".to_owned());
             }
-            let read = range_from_source_at_lines(
-                &captured,
-                range.start_byte,
-                range.end_byte,
-                &starts,
-            )?;
+            let read =
+                range_from_source_at_lines(&captured, range.start_byte, range.end_byte, &starts)?;
             if read.range.chunk_sha256 != range.chunk_sha256
                 || read.range.start_line != range.start_line
                 || read.range.end_line != range.end_line
@@ -3048,17 +3036,13 @@ fn search_ranked(
                 declaration_match,
                 score,
                 query_coverage: natural_query_coverage.then(|| {
-                    let matched_terms = term_coverage
-                        .get(&id)
-                        .copied()
-                        .unwrap_or_default();
+                    let matched_terms = term_coverage.get(&id).copied().unwrap_or_default();
                     QueryCoverage {
                         matched_terms: coverage_words
                             .iter()
                             .enumerate()
                             .filter_map(|(term_index, word)| {
-                                (matched_terms & (1u32 << term_index) != 0)
-                                    .then(|| word.clone())
+                                (matched_terms & (1u32 << term_index) != 0).then(|| word.clone())
                             })
                             .collect(),
                         total_terms: coverage_words.len(),

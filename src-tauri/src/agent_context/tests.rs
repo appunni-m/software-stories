@@ -91,7 +91,12 @@ fn only_literal_matcher_failures_get_correctable_query_feedback() {
 #[test]
 fn proposal_correction_exhaustion_finishes_only_a_one_slide_job() {
     let correction_limit = json!([{"code":"proposalCorrectionLimit"}]);
-    assert!(proposal_finish_now(Some(1), correction_limit.as_array().unwrap(), 6, Some(0)));
+    assert!(proposal_finish_now(
+        Some(1),
+        correction_limit.as_array().unwrap(),
+        6,
+        Some(0)
+    ));
     assert!(!proposal_finish_now(
         Some(6),
         correction_limit.as_array().unwrap(),

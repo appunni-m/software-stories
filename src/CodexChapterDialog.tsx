@@ -11,6 +11,7 @@ import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
 import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { requestScopeKey } from './lib/requestScopeKey';
+import { authorizeWorkspace, getWorkspace } from './workspace/store';
 import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, type PlannedChapterScope } from './lib/plannedChapters';
 import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
 import {
@@ -147,9 +148,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
+  const snapshotRetrievalRoute = !sectionUpdate && !planning && !plannedChapter && !gitOperation && !codeLensTarget;
   const eligibleFiles = useMemo(() => (manifest?.files ?? []).filter((file) => file.kind === 'file'
-    && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && (Boolean(codeLensTarget) || file.sizeBytes <= 250_000))
-    .sort((left, right) => left.path.localeCompare(right.path)), [manifest, codeLensTarget]);
+    && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && (snapshotRetrievalRoute || Boolean(codeLensTarget) || file.sizeBytes <= 250_000))
+    .sort((left, right) => left.path.localeCompare(right.path)), [manifest, codeLensTarget, snapshotRetrievalRoute]);
   const filteredFiles = eligibleFiles.filter((file) => (!sectionUpdate || paths.includes(file.path))
     && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
@@ -167,6 +169,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     : Boolean(manifest && paths.length > 0 && paths.length <= 12
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
     && (mode === 'settings' || mode.kind === 'overview' || planning || targetPath));
+  const retrievalLimits = review?.generationConfig.codexSnapshotRetrieval as { maxFiles?: number; maxSourceBytes?: number } | undefined;
   const hasResult = preview !== null || codeLensResult !== null || prGuideResult !== null || prChangeResult !== null || planResult !== null;
   const locked = busy !== null || hasResult;
   const otherRun = Boolean(status?.activeRunId && status.activeRunId !== resources.current.run);
@@ -496,6 +499,11 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
     };
     try {
+      let workspaceGrant: string | undefined;
+      if (review.generationConfig.codexSnapshotRetrieval) {
+        workspaceGrant = getWorkspace(review.projectId, review.snapshotId).grantId
+          ?? await authorizeWorkspace(review.projectId, review.snapshotId);
+      }
       unlisten = await listen<CodexProgress>('codex-agent-progress', ({ payload }) => {
         if (lifetime.current !== epoch || payload.runId !== runId) return;
         setProgress(payload);
@@ -558,7 +566,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         else { setCodeLensResult(result.data); finishRecovery(); }
         return;
       }
-      const result = await sendCodexChapterRequest(review.reviewId, review.fingerprint, true);
+      const result = await sendCodexChapterRequest(review.reviewId, review.fingerprint, true, workspaceGrant);
       if (result.status === 'error') {
         if (lifetime.current === epoch) {
           if (cancelRequested.current) setNote('Generation was cancelled. No response was accepted. Source may already have been shared and account quota used.');
@@ -575,12 +583,13 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       resources.current.draft = result.data.generationId;
       setPreview(result.data);
       finishRecovery();
-    } catch {
+    } catch (failure) {
       if (lifetime.current === epoch) {
         if (planning) setError('The plan reply could not be confirmed. Check Learning plans and recovery before generating again; an unaccepted plan may already be saved.');
         else if (gitGuide) setError('The PR Guide result could not be confirmed. Check PR Guide history before generating again; a validated response may already be saved as an unaccepted draft.');
         else if (cancelRequested.current) setNote('Cancellation was requested. No returned response was accepted. Source may already have been shared and account quota used.');
         else if (codeLensTarget) setError('Code Lens could not confirm a usable explanation. The selected source may already have been shared. Try one behavior or a smaller range, then review the request again.');
+        else if (review?.generationConfig.codexSnapshotRetrieval) setError(errorMessageOr(failure, 'Codex could not access the captured snapshot. Review the snapshot permission and try again.'));
         else setError('The Codex run did not return a usable result. Source may already have been shared. Review a new request before retrying.');
       }
     }
@@ -754,25 +763,25 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                     ? sectionUpdate ? 'This fixed repair scope exceeds 12 files. Reopen the section to correct its declared source scope.' : 'This selection exceeds 12 files. Remove supporting files before reviewing.'
                     : 'The target or a selected file is unavailable for this request. Use an eligible captured text file.'}</p>}
                 </>}
-                <p className="provider-small-note">Review the captured code above before sending. Files that look private or cannot be read are left out.</p>
+                <p className="provider-small-note">{snapshotRetrievalRoute ? 'These are starting points. After consent, Codex reads only relevant ranges from this captured snapshot; your live working files are excluded.' : 'Review the captured code above before sending. Files that look private or cannot be read are left out.'}</p>
               </div>}
               <AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>{gitOperation ? 'Comparison identity' : 'Source snapshot'}</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
-                  <div><span>{sectionUpdate ? 'Current files · source bytes across both snapshots' : 'Selected source'}</span><strong>{review.selectedFiles.length} files · {review.sourceBytes.toLocaleString()} bytes</strong></div>
+                  <div><span>{retrievalLimits ? 'Snapshot retrieval limit' : sectionUpdate ? 'Current files · source bytes across both snapshots' : 'Selected source'}</span><strong>{retrievalLimits ? `Up to ${retrievalLimits.maxFiles ?? 12} files · ${(retrievalLimits.maxSourceBytes ?? 250000).toLocaleString()} source bytes` : `${review.selectedFiles.length} files · ${review.sourceBytes.toLocaleString()} bytes`}</strong></div>
                   <div><span>Input estimate</span><strong>About {review.estimatedInputTokens.toLocaleString()} tokens</strong></div>
                   <div><span>Review expiry</span><strong>{new Date(review.expiresAtUnixMs).toLocaleTimeString()}</strong></div>
                 </div>
-                {review.selectedFiles.map((file, index) => <details className="provider-source-file" key={`${index}:${file.sha256}`}><summary><code>{file.path}</code><span>{codeLensTarget ? 'Captured file SHA-256' : 'SHA-256'} {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
+                {review.selectedFiles.map((file, index) => <details className="provider-source-file" key={`${index}:${file.sha256}`}><summary><code>{file.path}</code><span>{retrievalLimits ? 'Starting point · captured snapshot' : `${codeLensTarget ? 'Captured file SHA-256' : 'SHA-256'} ${file.sha256}`}</span></summary>{retrievalLimits ? <p>Codex may retrieve relevant source ranges from this snapshot and follow supporting code within the limit above. The full file is not sent in this review.</p> : <pre><code>{file.contents}</code></pre>}</details>)}
                 {gitOperation && <details className="provider-index-preview"><summary>Exact Git evidence and target</summary><pre>{JSON.stringify({ comparison: review.prGuideContext, hunk: review.prChangeContext }, null, 2)}</pre></details>}
                 <details className="provider-index-preview"><summary>Exact declarations and relationships</summary><pre>{JSON.stringify({ symbols: review.selectedSymbols, relationships: review.selectedRelationships, truncated: review.indexEvidenceTruncated }, null, 2)}</pre></details>
                 <p className="provider-small-note">This review is bound to the running Codex connection and observed ChatGPT account. Reconnecting, changing the account or replacing the executable requires a fresh review.</p>
                 <details className="provider-prompt-preview"><summary>Exact prompt, output schema and agent settings</summary><div><strong>System instruction</strong><pre>{review.systemInstruction}</pre><strong>User prompt</strong><pre>{review.userPrompt}</pre><strong>Settings and output schema</strong><pre>{JSON.stringify(review.generationConfig, null, 2)}</pre><strong>Effective agent request · SHA-256 {review.requestBodySha256}</strong><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></div></details>
                 <details className="provider-fingerprint"><summary>Request identity</summary><code>{review.fingerprint}</code><small>Changing the source or settings requires a fresh review.</small></details>
                 {Boolean(review.generationConfig.candidateCorrection) && <p className="provider-small-note">If local checks reject the first chapter, Codex may receive at most one correction request using the same reviewed source, model, schema and deadline. It may use additional account quota, and the corrected chapter must pass the same checks.</p>}
-                <div className="provider-consent-list"><label><input type="checkbox" checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span><strong>Send this reviewed context through my Codex account</strong>I have reviewed the exact source, prompt and settings. This shares the selected code with OpenAI through Codex, under my account’s terms and plan quota. No API key is used; availability and remaining quota are not guaranteed.</span></label></div>
+                <div className="provider-consent-list"><label><input type="checkbox" checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span><strong>{retrievalLimits ? 'Allow Codex to explore this snapshot' : 'Send this reviewed context through my Codex account'}</strong>{retrievalLimits ? `I reviewed the starting files and prompt. Codex may read relevant captured code across this snapshot, up to ${retrievalLimits.maxFiles ?? 12} files and ${(retrievalLimits.maxSourceBytes ?? 250000).toLocaleString()} source bytes. Live working files stay private. This uses my Codex account and plan quota.` : 'I have reviewed the exact source, prompt and settings. This shares the selected code with OpenAI through Codex, under my account’s terms and plan quota. No API key is used; availability and remaining quota are not guaranteed.'}</span></label></div>
               </>}
               {busy === 'send' && <div className="provider-loading" role="status" aria-live="polite"><Sparkles size={16} /><div><strong>{cancelling ? 'Cancelling Codex generation…' : progress?.message ?? 'Generating explanation…'}</strong><p>{progress?.phase ?? 'preparing'} · {planning ? 'A validated route is saved as an unaccepted plan.' : gitGuide ? 'A validated response is saved as an unaccepted PR Guide draft.' : codeLensTarget || gitChange ? 'This explanation will not be saved to history.' : 'No draft is saved until you choose Save.'}</p></div></div>}
               {prGuideResult && <section className="provider-response" aria-labelledby="codex-pr-guide-result-title">

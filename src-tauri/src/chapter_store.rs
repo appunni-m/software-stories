@@ -190,9 +190,8 @@ fn append_revision(
             }
             last_number = last_number.max(item.revision_number);
             if item.snapshot_id == revision.snapshot_id
-                && latest_unsupported_for_snapshot.is_none_or(|latest| {
-                    item.revision_number > latest.revision_number
-                })
+                && latest_unsupported_for_snapshot
+                    .is_none_or(|latest| item.revision_number > latest.revision_number)
             {
                 latest_unsupported_for_snapshot = Some(item);
             }
@@ -404,10 +403,7 @@ fn load_project_revisions(
                 Err(error) => {
                     if let Some(identity) = unsupported_revision_identity(&bytes) {
                         validate_unsupported_revision_identity(
-                            &identity,
-                            project_id,
-                            &target_id,
-                            &path,
+                            &identity, project_id, &target_id, &path,
                         )?;
                         result.unsupported_revisions.push(identity);
                         continue;
@@ -478,10 +474,7 @@ fn unsupported_revision_identity(bytes: &[u8]) -> Option<UnsupportedRevisionIden
     let value = crate::strict_json::from_slice(bytes).ok()?;
     let header: RevisionHeader = serde_json::from_value(value).ok()?;
     if header.schema_version != chapters::CHAPTER_SCHEMA_VERSION
-        || header
-            .generation_origin
-            .as_ref()?
-            .schema_version
+        || header.generation_origin.as_ref()?.schema_version
             == crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION
     {
         return None;
@@ -524,9 +517,7 @@ fn validate_unsupported_revision_identity(
             identity.target.target_id == "target:overview"
                 && identity.chapter_id == "chapter:overview"
         }
-        chapters::ChapterTargetScope::File { path } => {
-            crate::repository_context::safe_path(path)
-        }
+        chapters::ChapterTargetScope::File { path } => crate::repository_context::safe_path(path),
         chapters::ChapterTargetScope::Group { paths } => {
             !paths.is_empty()
                 && paths
@@ -636,7 +627,9 @@ fn validate_project_revision_order(
     for revision in revisions {
         if let Some(parent_id) = revision.based_on_revision_id.as_deref() {
             let Some(parent) = revisions.iter().find(|item| item.revision_id == parent_id) else {
-                let Some(parent) = unsupported.iter().find(|item| item.revision_id == parent_id)
+                let Some(parent) = unsupported
+                    .iter()
+                    .find(|item| item.revision_id == parent_id)
                 else {
                     return Err(
                         "A local chapter review revision refers to a missing parent.".to_owned(),
@@ -973,8 +966,7 @@ mod tests {
         let mut legacy_payload: serde_json::Value =
             serde_json::from_slice(&fs::read(&legacy_path).unwrap()).unwrap();
         legacy_payload["sections"][0]["prose"] = serde_json::Value::String("main".into());
-        legacy_payload["sections"][0]["spokenText"] =
-            serde_json::Value::String("main".into());
+        legacy_payload["sections"][0]["spokenText"] = serde_json::Value::String("main".into());
         let legacy_bytes = serde_json::to_vec(&legacy_payload).unwrap();
         fs::write(&legacy_path, &legacy_bytes).unwrap();
         let loaded_legacy = list_for_project(&temp.0, "project-test").unwrap();

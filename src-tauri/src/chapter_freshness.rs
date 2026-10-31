@@ -334,11 +334,7 @@ fn assess_section(
     for claim in &section.claims {
         dependencies.extend(claim.dependencies.iter().map(DependencyKey::from));
     }
-    dependencies.extend(
-        retrieval_index_dependencies
-            .iter()
-            .map(DependencyKey::from),
-    );
+    dependencies.extend(retrieval_index_dependencies.iter().map(DependencyKey::from));
 
     let mut anchored_paths = HashSet::new();
     for anchor in anchors.values() {
@@ -1066,7 +1062,10 @@ fn assess_retrieval_index_context(
         );
         return;
     };
-    let from_identity = format!("{}:{}", from_index.schema_version, from_index.indexer_version);
+    let from_identity = format!(
+        "{}:{}",
+        from_index.schema_version, from_index.indexer_version
+    );
     let to_identity = format!("{}:{}", to_index.schema_version, to_index.indexer_version);
     if from_identity != recorded_index_identity || to_identity != recorded_index_identity {
         result.unknown(
@@ -1207,8 +1206,7 @@ fn retrieval_relationships(
                 .target_id
                 .as_ref()
                 .is_some_and(|target| symbol_ids.contains(target))
-    })
-    {
+    }) {
         let key = (
             relationship_descriptor(index, relationship),
             relationship.evidence.path.clone(),
@@ -2257,7 +2255,10 @@ fn retrieved_index_dependencies(
         return Vec::new();
     };
     if recorded_identity
-        != format!("{}:{}", source_index.schema_version, source_index.indexer_version)
+        != format!(
+            "{}:{}",
+            source_index.schema_version, source_index.indexer_version
+        )
     {
         return Vec::new();
     }
@@ -2341,8 +2342,7 @@ fn retrieved_index_dependencies(
             .iter()
             .find(|file| file.path == evidence.path);
         if !index_file.is_some_and(|file| {
-            file.status == IndexFileStatus::Indexed
-                && file.source_sha256 == evidence.source_sha256
+            file.status == IndexFileStatus::Indexed && file.source_sha256 == evidence.source_sha256
         }) || !manifest_file.is_some_and(|file| file.sha256 == evidence.source_sha256)
         {
             continue;
@@ -2361,8 +2361,8 @@ fn retrieved_index_dependencies(
             },
         );
 
-        for endpoint_id in std::iter::once(&relationship.source_id)
-            .chain(relationship.target_id.iter())
+        for endpoint_id in
+            std::iter::once(&relationship.source_id).chain(relationship.target_id.iter())
         {
             if symbol_ids.contains(endpoint_id) {
                 continue;
@@ -3114,11 +3114,15 @@ mod tests {
 
         let mut no_visual = revision.clone();
         no_visual.sections[0].visual = None;
-        assert!(build_reverse_dependencies(&no_visual, &[]).iter().all(|item| {
-            item.asset_ids
+        assert!(
+            build_reverse_dependencies(&no_visual, &[])
                 .iter()
-                .all(|asset| !asset.starts_with("visual:"))
-        }));
+                .all(|item| {
+                    item.asset_ids
+                        .iter()
+                        .all(|asset| !asset.starts_with("visual:"))
+                })
+        );
     }
 
     #[test]

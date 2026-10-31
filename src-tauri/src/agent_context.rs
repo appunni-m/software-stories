@@ -872,8 +872,8 @@ impl Session {
                 Ok(())
             })?;
             let remaining_attempts = answer.remaining_attempts();
-            let next_new_section_order = answer
-                .next_new_section_order_with_limit(mode.section_limit.unwrap_or(6));
+            let next_new_section_order =
+                answer.next_new_section_order_with_limit(mode.section_limit.unwrap_or(6));
             let finish_now = proposal_finish_now(
                 mode.section_limit,
                 &findings,
@@ -932,13 +932,8 @@ impl Session {
                         message: "No code or search results were returned. Use 2–240 printable characters and at most 32 searchable terms. Code punctuation is literal. Prefer a code identifier or a short phrase and narrow the captured scope when needed.",
                     }, &[], &fresh, &self.runtime, cancelled, send);
                 }
-                let successful_search = search_key(
-                    &args.query,
-                    query_scope,
-                    limit,
-                    args.offset,
-                    result_kind,
-                )?;
+                let successful_search =
+                    search_key(&args.query, query_scope, limit, args.offset, result_kind)?;
                 if self.successful_searches.contains(&successful_search) {
                     return self.ledger.deliver(
                         token,

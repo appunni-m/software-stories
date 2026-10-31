@@ -82,9 +82,7 @@ pub struct ChapterGenerationOrigin {
 }
 
 impl ChapterGenerationOrigin {
-    pub(crate) fn retrieval_ranges(
-        &self,
-    ) -> Option<&[crate::repository_context::CodeRange]> {
+    pub(crate) fn retrieval_ranges(&self) -> Option<&[crate::repository_context::CodeRange]> {
         self.retrieval
             .as_ref()
             .map(|retrieval| retrieval.ranges.as_slice())
@@ -300,8 +298,7 @@ impl ChapterGenerationOrigin {
             let current_retrieval = self.schema_version == CHAPTER_ORIGIN_SCHEMA_VERSION
                 && matches!(
                     &retrieval.index_identity,
-                    RecordedIndexIdentity::Available { .. }
-                        | RecordedIndexIdentity::Unavailable
+                    RecordedIndexIdentity::Available { .. } | RecordedIndexIdentity::Unavailable
                 );
             let fingerprint_valid = current_retrieval
                 && serde_json::to_vec(&(
@@ -526,7 +523,9 @@ fn digest(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal_text};
+    use crate::chapter_generation::tests::{
+        Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal_text,
+    };
 
     fn chapter(f: &Fixture) -> ChapterRevision {
         crate::chapter_generation::canonicalize_file_chapter(

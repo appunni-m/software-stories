@@ -409,7 +409,9 @@ fn save_new(
         Ok(_) => return Err("This section repair session already exists.".to_owned()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => {
-            return Err("The section repair session destination could not be inspected.".to_owned())
+            return Err(
+                "The section repair session destination could not be inspected.".to_owned(),
+            );
         }
     }
     atomic_write(&path, &bytes)?;
@@ -867,17 +869,21 @@ mod tests {
         let session = get_or_create(&temp.0, &base, &report(&base)).unwrap();
         let path = session_path(&temp.0, &base.project_id, &session.session_id).unwrap();
         fs::write(&path, b"{").unwrap();
-        assert!(load(&temp.0, &base.project_id, &session.session_id)
-            .unwrap_err()
-            .contains("corrupt"));
+        assert!(
+            load(&temp.0, &base.project_id, &session.session_id)
+                .unwrap_err()
+                .contains("corrupt")
+        );
 
         fs::File::create(&path)
             .unwrap()
             .set_len((MAX_SESSION_BYTES + 1) as u64)
             .unwrap();
-        assert!(load(&temp.0, &base.project_id, &session.session_id)
-            .unwrap_err()
-            .contains("safety limit"));
+        assert!(
+            load(&temp.0, &base.project_id, &session.session_id)
+                .unwrap_err()
+                .contains("safety limit")
+        );
     }
 
     #[test]
@@ -885,9 +891,11 @@ mod tests {
         let base = base();
         let mut report = report(&base);
         report.sections.pop();
-        assert!(SectionRepairSession::from_freshness(&base, &report)
-            .unwrap_err()
-            .contains("every section"));
+        assert!(
+            SectionRepairSession::from_freshness(&base, &report)
+                .unwrap_err()
+                .contains("every section")
+        );
     }
 
     #[test]

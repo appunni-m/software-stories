@@ -491,8 +491,8 @@ pub(crate) async fn search_workspace_source(
     let request = jobs.begin(&request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mode = mode.unwrap_or_default();
-        let discover_files = mode == context::SearchMode::Code
-            && context::should_discover_files(&query, None);
+        let discover_files =
+            mode == context::SearchMode::Code && context::should_discover_files(&query, None);
         let input = SearchInput {
             request_id,
             project_id,
@@ -503,14 +503,9 @@ pub(crate) async fn search_workspace_source(
             limit: 32,
             offset,
         };
-        let result = search_snapshot_kind(
-            &storage,
-            &input,
-            &request,
-            discover_files,
-            Instant::now(),
-        )
-        .result?;
+        let result =
+            search_snapshot_kind(&storage, &input, &request, discover_files, Instant::now())
+                .result?;
         Ok(WorkspaceSearchResult {
             matches: result
                 .matches

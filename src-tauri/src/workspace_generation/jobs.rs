@@ -610,13 +610,17 @@ pub(crate) fn finish_preparation_failure(
     if stages.last().is_none_or(|stage| stage.outcome != expected) {
         return Err("The final preparation stage does not match its job outcome.".into());
     }
-    if stages.iter().take(stages.len().saturating_sub(1)).any(|stage| {
-        matches!(
-            stage.outcome,
-            crate::generation_timing::PreparationOutcome::Failed
-                | crate::generation_timing::PreparationOutcome::Stopped
-        )
-    }) {
+    if stages
+        .iter()
+        .take(stages.len().saturating_sub(1))
+        .any(|stage| {
+            matches!(
+                stage.outcome,
+                crate::generation_timing::PreparationOutcome::Failed
+                    | crate::generation_timing::PreparationOutcome::Stopped
+            )
+        })
+    {
         return Err("A preparation failure contains an earlier failed stage.".into());
     }
     let _guard = lock()?;
