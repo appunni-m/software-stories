@@ -245,6 +245,8 @@
 .dw-commit:hover {background:var(--surface-hover);}
 .dw-commits .dw-commit.rt-Button {display:grid;width:100%;min-width:0;max-width:100%;height:auto;min-height:28px;grid-template-columns:16px minmax(0,1fr);justify-content:stretch;border:0;border-radius:0;background:transparent;color:var(--text);box-shadow:none;white-space:normal;}
 .dw-commits .dw-commit.rt-Button:hover {background:var(--surface-hover);}
+.dw-commits .dw-commit.rt-Button[aria-pressed="true"] {background:var(--surface-hover);box-shadow:inset 2px 0 0 var(--accent);}
+.dw-commit-current {color:var(--accent-strong);font-weight:600;}
 .dw-tool-content {flex:1;overflow:auto;min-height:0;padding:var(--space-4) var(--space-4) var(--space-6);}
 .dw-tool-reading > #explanations {display:flex;flex-direction:column;min-height:0;}
 .dw-tool-content .empty-workspace {min-height:0;margin:0;padding:var(--space-3) 0;border:0;max-width:none;}

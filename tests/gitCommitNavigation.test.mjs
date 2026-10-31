@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commitHistoryEmptyMessage, nextFocusableCommitIndex } from '../src/workspace/gitCommitNavigation.ts';
+import { commitHistoryEmptyMessage, isComparisonHeadCommit, nextFocusableCommitIndex } from '../src/workspace/gitCommitNavigation.ts';
 
 const commits = [
   { parents: ['parent'], isHead: true },
@@ -15,6 +15,14 @@ test('commit arrows move to adjacent comparable commits and skip the initial com
   assert.equal(nextFocusableCommitIndex(commits, 1, 1), 3);
   assert.equal(nextFocusableCommitIndex(commits, 3, -1), 1);
   assert.equal(nextFocusableCommitIndex(commits, 3, 1), 3);
+});
+
+test('the resolved comparison ending commit is identifiable for symbolic and full refs', () => {
+  const selected = { oid: 'b'.repeat(40) };
+  assert.equal(isComparisonHeadCommit(selected, selected.oid), true);
+  assert.equal(isComparisonHeadCommit(selected, ` ${selected.oid} `), true);
+  assert.equal(isComparisonHeadCommit(selected, 'main'), false);
+  assert.equal(isComparisonHeadCommit(selected, undefined), false);
 });
 
 test('commit navigation is stable for empty, all-initial, and invalid positions', () => {

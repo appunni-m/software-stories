@@ -8,6 +8,14 @@ export function commitDateLabel(timestamp: string): string | null {
   return Number.isFinite(date.getTime()) ? commitDateFormatter.format(date) : null;
 }
 
+/** Highlight the resolved commit selected as the comparison's ending revision. */
+export function isComparisonHeadCommit(
+  commit: Pick<GitCommit, 'oid'>,
+  resolvedHeadOid: string | undefined,
+): boolean {
+  return Boolean(resolvedHeadOid && commit.oid === resolvedHeadOid.trim());
+}
+
 /** Move inside the commit list without adding every history row to Tab order. */
 export function nextFocusableCommitIndex(
   commits: readonly Pick<GitCommit, 'parents'>[],

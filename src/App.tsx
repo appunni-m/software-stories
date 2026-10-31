@@ -505,6 +505,11 @@ function App() {
   const selectedRouteGitComparison = navigation.current.projectId
     ? gitComparisonsByProject[navigation.current.projectId]
     : undefined;
+  const comparisonResolvedHeadOid = selectedRouteGitComparison
+    && selectedRouteGitComparison.baseRef === navigation.current.baseRef
+    && selectedRouteGitComparison.headRef === navigation.current.headRef
+    ? selectedRouteGitComparison.result.head?.objectId ?? undefined
+    : undefined;
 
   // A saved explicit range is an existing user choice. Reopen its local,
   // read-only comparison automatically when Changes is entered after app
@@ -2016,7 +2021,7 @@ function App() {
               onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileRequest((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
-              comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef}}
+              comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef,resolvedHeadOid:comparisonResolvedHeadOid}}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               routeSearchQuery={navigation.current.searchQuery} routeSearchMode={navigation.current.searchMode} routeSidebarActivity={navigation.current.sidebarActivity}
               onRememberSearch={(searchQuery,searchMode,sidebarActivity) => setNavigation((state) => replaceCurrentRoute(state, {
