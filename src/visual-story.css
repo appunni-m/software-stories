@@ -31,7 +31,7 @@
 .visual-story .story-node-active { border: 2px solid var(--accent); background: var(--surface-raised); }
 .visual-story .story-node-focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
 .visual-story .story-node-context { border-style: dashed; color: var(--muted); }
-.visual-story .story-node-button { box-sizing: border-box; width: 100%; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
+.visual-story .story-node-button { box-sizing: border-box; display: block; width: 100%; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
 .visual-story .story-node-title { display: block; }
 .visual-story .story-node-detail { display: -webkit-box; margin-top: 5px; overflow: hidden; color: var(--text); opacity: .82; font: 400 12px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; overflow-wrap: break-word; word-break: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .visual-story .story-node-active .story-node-detail { -webkit-line-clamp: 4; }
