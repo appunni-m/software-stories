@@ -19,11 +19,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
   const draw = (index: number): ReactNode => {
     const e = scene.elements[index];
     const childIndices = sceneChildIndices(scene.elements, index);
-    // Stack entries are authored oldest-to-newest (bottom-to-top). Reverse the
-    // rendered order so visual order and keyboard/screen-reader order both run
-    // from the next item to pop down through the older entries.
-    const renderedChildIndices = e.kind === 'stack' ? [...childIndices].reverse() : childIndices;
-    const children = renderedChildIndices.map(draw);
+    const children = childIndices.map(draw);
     const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}${hasArrows ? ' has-arrows' : ''}`;
     if (containerKinds.has(e.kind)) {
