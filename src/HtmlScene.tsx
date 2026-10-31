@@ -17,23 +17,39 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
   /** Hide the in-canvas heading when a persistent reader toolbar already names the scene. */
   showTitle?: boolean;
 }) {
-  const draw = (index: number, collapseRepeatedSelectorLabel = false): ReactNode => {
+  const firstNodeIndices = new Map<number, number | null>();
+  function firstNodeIndex(index: number): number | null {
+    if (firstNodeIndices.has(index)) return firstNodeIndices.get(index) ?? null;
+    const element = scene.elements[index];
+    if (element?.nodeIndex !== null && element?.nodeIndex !== undefined) {
+      firstNodeIndices.set(index, element.nodeIndex);
+      return element.nodeIndex;
+    }
+    for (const childIndex of sceneChildIndices(scene.elements, index)) {
+      const nodeIndex = firstNodeIndex(childIndex);
+      if (nodeIndex !== null) {
+        firstNodeIndices.set(index, nodeIndex);
+        return nodeIndex;
+      }
+    }
+    firstNodeIndices.set(index, null);
+    return null;
+  }
+  const draw = (index: number, collapseNodeLabelIndex: number | null = null): ReactNode => {
     const e = scene.elements[index];
     const childIndices = sceneChildIndices(scene.elements, index);
-    const firstBranchChild = e.kind === 'branch' && childIndices.length > 1
-      ? scene.elements[childIndices[0]]
-      : undefined;
-    const firstBranchLabel = firstBranchChild?.nodeIndex !== null && firstBranchChild?.nodeIndex !== undefined
-      ? visual.nodes[firstBranchChild.nodeIndex]?.label.trim().toLowerCase()
-      : undefined;
-    const repeatedSelectorLabels = collapseRepeatedSelectorLabel && e.kind === 'branch'
-      && firstBranchLabel !== undefined && childIndices.every((childIndex) => {
-        const child = scene.elements[childIndex];
-        return child.nodeIndex !== null
-          && visual.nodes[child.nodeIndex]?.label.trim().toLowerCase() === firstBranchLabel;
-      });
-    const children = childIndices.map((childIndex, childPosition) =>
-      draw(childIndex, repeatedSelectorLabels && childPosition > 0));
+    const childNodeIndices = childIndices.map(firstNodeIndex);
+    const childNodeLabels = childNodeIndices.map((nodeIndex) =>
+      nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label.trim().toLowerCase());
+    const firstChildLabel = childNodeLabels[0];
+    const repeatedBranchLabels = collapseNodeLabelIndex === null && e.kind === 'branch'
+      && childNodeLabels.length > 1 && firstChildLabel !== undefined
+      && childNodeLabels.every((childLabel) => childLabel === firstChildLabel);
+    const children = childIndices.map((childIndex, childPosition) => {
+      const childCollapseIndex = collapseNodeLabelIndex
+        ?? (repeatedBranchLabels && childPosition > 0 ? childNodeIndices[childPosition] : null);
+      return draw(childIndex, childCollapseIndex);
+    });
     const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}${hasArrows ? ' has-arrows' : ''}`;
     if (containerKinds.has(e.kind)) {
@@ -48,10 +64,12 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       };
       const label = labels[e.kind];
       if (e.kind === 'selector') {
+        const repeatedSelectorLabels = childNodeLabels.length > 1 && firstChildLabel !== undefined
+          && childNodeLabels.every((childLabel) => childLabel === firstChildLabel);
         return <div key={index} className={className} role="group" aria-label={label}>
           {childIndices.map((check, checkIndex) => <div className="html-scene-selector-step" key={check}>
             <span className="html-scene-selector-label" role="img" aria-label={`Probe ${checkIndex + 1}`} title={`Probe ${checkIndex + 1}`}>{String(checkIndex + 1).padStart(2, '0')}</span>
-            {draw(check, true)}
+            {draw(check, repeatedSelectorLabels && checkIndex > 0 ? childNodeIndices[checkIndex] : null)}
             {checkIndex < childIndices.length - 1 && <div className="html-scene-selector-handoff">
               <ArrowDown aria-hidden="true" size={18}/><span>No match · continue</span>
             </div>}
@@ -123,7 +141,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, value, e.valueOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
-      {!collapseRepeatedSelectorLabel && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
+      {collapseNodeLabelIndex !== e.nodeIndex && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
       {body}
       {originLabel && <small className="html-origin-label">{originLabel}</small>}
     </div>;
