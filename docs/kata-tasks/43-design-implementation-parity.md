@@ -148,3 +148,11 @@ This verifies one packaged multi-scene navigation path and its placement at
 one desktop size. A durable screenshot matrix, other pages, narrow/high-zoom
 layouts, keyboard and accessibility acceptance remain open; keep `13yp` and
 `x21h` open.
+
+The second scene's “Active strike unmatched” visual control also opened its
+inline code-detail card. Selecting the card's `src/api.rs:706–726` citation
+loaded that exact snapshot range into the source pane while keeping the same
+exploration and Guide visible. The Explorer activity could then be opened with
+the file still selected and the source/Guide state intact. This verifies one
+visual-to-detail-to-source path and one activity-bar transition; it does not
+qualify the original Code Lens exception report or other navigation routes.
