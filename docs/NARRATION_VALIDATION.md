@@ -1,9 +1,9 @@
 # Narration acceptance run sheet
 
-Use this run sheet on the packaged macOS app after the narration feature or its
-provider/model settings change. It records the human listening checks for
-`70x5`; it does not replace automated cache, segmentation, cancellation, or
-offline-export checks.
+Use this run sheet on the packaged macOS app after narration changes. It covers
+Pocket's default/cache behavior (`dbmd`), human listening checks (`70x5`), and
+generation-time prewarming (`tp6r`). It does not replace automated cache,
+segmentation, cancellation, or offline-export checks.
 
 ## Pocket setup and recovery
 
@@ -20,9 +20,10 @@ offline-export checks.
 - If setup fails, follow its visible network, disk, or memory guidance and
   retry **Prepare voice**. If a previously ready installation is damaged, use
   **Voice details and troubleshooting → Repair voice setup**. Repair rebuilds
-  the app-managed Python environment and retains download caches. Preserve the
-  app data folder; deleting it also deletes local snapshots, revisions, and
-  saved audio.
+  the app-managed Python environment. Failed setup leaves download caches for
+  an explicit retry; successful setup removes those temporary caches after
+  verifying the runtime. Preserve the app data folder; deleting it also deletes
+  local snapshots, revisions, and saved audio.
 - Pocket currently offers one English voice: Alba. The source recording is by
   Alba MacKenna and is licensed under CC BY 4.0; Voice details links to the
   official [voice catalog](https://huggingface.co/kyutai/tts-voices) and
@@ -31,14 +32,19 @@ offline-export checks.
 
 ## Before generation
 
-- Record app version/commit, macOS version, selected chapter/section, model ID,
-  voice and delivery style from Connections → Voice. Only for explicitly selected Google speech, record the key's project tier; the app cannot inspect tier, quota or remaining usage.
+- Record app version/commit, macOS version, selected chapter/section, and
+  selected backend. Pocket uses the pinned local runtime and fixed English Alba
+  voice; do not expect a model or delivery-style selector in its setup. For
+  explicitly selected Google speech, record the displayed model, voice and
+  style, and the key's project tier if known; the app cannot inspect tier,
+  quota or remaining usage.
 - Keep narration optional. Captured code, source links and a readable narration
   disclosure must remain available with audio unavailable; the script starts collapsed.
 - Newly generated behavior sections should already contain a concise natural
-  speech script; this script is still editable, and no audio is synthesized
-  until the reader explicitly requests it. App-generated evidence-limit
-  sections may remain silent.
+  speech script; this script is still editable. A saved, validated Pocket
+  section may be synthesized in the background. That preparation must not
+  start playback; ordinary on-demand synthesis begins when the reader chooses
+  **Play**. App-generated evidence-limit sections may remain silent.
 - Use only the synthetic speech text below for this pass. Do not put source
   code, private repository details, or credentials in the script.
 - Review the current model terms, quota, and pricing in the request dialog.
@@ -95,25 +101,77 @@ Record the result before closing `70x5`:
 Date/time and listener:
 macOS version / app version+commit:
 Chapter/section and source snapshot:
-Provider/model ID and returned model version (if shown):
-Free Tier and current terms/pricing reviewed: yes | no:
-Voice / delivery style:
+Selected backend: Pocket TTS | Google Gemini:
+Pocket runtime/voice (Pocket TTS 3.3.0 / English Alba) or Google model/version:
+Google Free Tier and current terms/pricing reviewed: yes | no | not applicable:
+Voice/style (Pocket fixed Alba, English | Google selected settings):
 Natural-script pronunciation, pacing, clarity: pass | fail — notes:
 Opt-in identifier pronunciation: pass | fail — notes:
-Exact request excludes source/path/citations: pass | fail — notes:
+Exact request excludes source/path/citations: pass | fail | not applicable for local Pocket — notes:
 Review invalidates on script/settings changes: pass | fail — notes:
 Captions, transcript, playback controls: pass | fail — notes:
 Cached offline replay and cache invalidation: pass | fail | not run — notes:
-Provider-error recovery / no paid fallback: pass | fail | not observed — notes:
+Provider-error recovery / no paid fallback: pass | fail | not observed | not applicable for local Pocket — notes:
+Unresolved issues:
+```
+
+## Generation-time Pocket prewarming — `tp6r`
+
+Use a newly published answer containing a validated narration section and
+select Pocket in **Connections → Voice**. Do not use an older saved answer as
+the only prewarming sample: its first listen may legitimately synthesize on
+demand. For a delayed-worker acceptance fixture, keep model generation out of
+the test; use synthetic chapter text through the local save and prewarming path.
+
+1. As soon as the section is published, confirm its explanation, visual, source
+   links, and transcript are usable while the player reports **Preparing
+   audio**. Continue reading or navigate to another section; generation must
+   not block the reader.
+2. Confirm audio changes to **Ready to play** or reports **Audio unavailable**.
+   Prewarming itself must not start playback. Record how long the first section
+   took to become ready from when it appeared.
+3. After it is ready, select **Play** and confirm it uses the prepared audio
+   without starting another synthesis. Navigate away and back, then restart the
+   app and reopen the same section to confirm the unchanged script still has
+   matching audio.
+4. Change only the narration text or an enabled pronunciation substitution,
+   then change the selected voice connection/runtime where supported. Confirm
+   stale audio is not played for the changed speech inputs.
+5. If prewarming fails or is cancelled, confirm the transcript, explanation,
+   source links, earlier revision audio, and preparation of a later section
+   remain available. Confirm the app never switches to Google automatically.
+
+Record this separately from the speech-quality judgment above:
+
+```text
+New section / snapshot:
+Section visible before audio ready: pass | fail — notes:
+Prewarm status: preparing → ready | unavailable | not observed:
+Time from section publication to audio ready:
+Reader remained usable while audio prepared: pass | fail — notes:
+No autoplay: pass | fail — notes:
+Play after ready reused audio: pass | fail | not observed — notes:
+Unchanged cache survived navigation/restart: pass | fail | not observed — notes:
+Changed speech inputs invalidated old audio: pass | fail | not observed — notes:
+Cancellation/failure preserved transcript and earlier audio: pass | fail | not run — notes:
 Unresolved issues:
 ```
 
 
 
-## Current Connections workflow (source-checked 25 October 2026)
+## Current Connections workflow (source-checked 31 October 2026)
 Open the header's connection button, then **Voice**. Pocket/Alba is the default and is shared across answers and repositories. Prepare it once; setup status, recovery, and license attribution are under **Voice details and troubleshooting**. Google is optional and explicitly selected here, with its key saved in Keychain. Voice preferences apply to export cache matching. Existing per-section text and pronunciation edits remain local; legacy cloud settings do not override the global choice.
 
-On an answer choose **Play**. Local review/cache lookup and synthesis run behind playback controls. **Read narration** reveals the final pronunciation-expanded script; it starts collapsed. Pause, replay, seek and section Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
+On a newly validated answer, local Pocket sections are queued for background
+preparation; the transcript and source remain usable while the player reports
+**Preparing audio**. Older sections or changed speech inputs may use the
+on-demand **Create & play** action. **Read narration** reveals the final
+pronunciation-expanded script; it starts collapsed. Pause, replay, seek and
+section Next stay deliberate. The engine and runtime setup do not appear on
+each section. Optional transcript/pronunciation editing remains beside the
+section. For Google, inspect the exact text and provider terms and consent
+before sending; choosing the engine alone never authorizes a request. No cloud
+fallback is used.
 
 Validate across two answers and app restart. Changing Connections during a request must invalidate its review and prevent a stale result from playing. Export must scan the selected connection's matching audio without generating speech. Setup/key updates must refresh the open player when Connections closes. Human speech quality and code-name pronunciation still require listening review.
 

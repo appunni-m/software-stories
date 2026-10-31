@@ -115,7 +115,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
     finally { if (alive.current) setBusy(false); }
   };
   return <div className="provider-dialog-content connections-voice">
-    <div><h3>Voice for your explanations</h3><p>Choose once, then press Listen on any answer.</p></div>
+    <div><h3>Voice for your explanations</h3><p>Choose once, then press Play on any answer.</p></div>
     <label className="walkthrough-narration-field">Voice engine<AppSelect ariaLabel="Voice engine" size="1" value={settings.backend} disabled={busy} options={[{value:'pocket-tts',label:'Pocket TTS — on this Mac, free'},{value:'gemini',label:'Google Gemini — cloud'}]} onValueChange={(backend)=>save({backend:backend==='gemini'?'gemini':'pocket-tts'})}/></label>
     {!native && <p role="status">Voice setup is available in the Code Atlas Mac app.</p>}
     {settings.backend === 'pocket-tts' ? <>

@@ -114,9 +114,11 @@ Pocket synthesizes locally and has no provider usage fee. If setup fails, follow
 the visible connection or storage guidance and choose **Prepare voice** again.
 If an already prepared installation needs repair, open **Voice details and
 troubleshooting → Repair voice setup**. Repair rebuilds the app-managed Python
-environment and retains download caches. Do not delete the app data folder to
-repair narration; that folder also contains snapshots, indexes, revisions, and
-saved audio.
+environment. Setup-only download caches remain available if setup fails so an
+explicit retry can reuse them; after a successful setup, Code Atlas removes
+those temporary caches and keeps the verified runtime and voice assets. Do not
+delete the app data folder to repair narration; that folder also contains
+snapshots, indexes, revisions, and saved audio.
 
 Pocket currently offers the English Alba voice only; voice/style controls for
 Google do not apply to Pocket. Alba MacKenna's source recording is credited
@@ -134,6 +136,20 @@ speech settings, not source excerpts by default. A script can contain up to
 16,000 UTF-8 bytes; longer scripts should be divided into separate sections.
 The review shows the exact sequential requests of at most 4,000 bytes each,
 split at sentence boundaries when possible and whole-word boundaries otherwise.
+
+### Pocket audio stays preparing
+
+For a newly saved, validated section, the app can prepare Pocket audio in the
+background. Keep reading while the section remains available; the player shows
+**Preparing audio**, then **Ready to play** or **Audio unavailable**.
+Prewarming never starts playback by itself. Once ready, **Play** loads the matching local cache. A saved
+section from before background preparation was available, or a section whose
+spoken text or voice settings changed, may need a first synthesis instead.
+Select **Create & play** once; Code Atlas keeps the transcript and source
+available while it works. If prewarming reports unavailable audio but Pocket is
+ready, choose **Play** to use the on-demand local path. If Pocket is not ready,
+use **Prepare voice** or **Repair voice setup** under **Connections → Voice**.
+Gemini is never used as an automatic fallback.
 
 ## A capture or save fails while the Mac is low on disk space
 
