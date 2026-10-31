@@ -49,9 +49,9 @@ export function explanationErrorMessage(error: string): string {
     return 'Your question is still here, but it was not sent because this conversation changed in another window. Choose “Keep this window” or “Keep saved value” above, then try again.';
   }
   if (
-    /^(?:The private Codex file could not be (?:created|saved)\. )?Local storage is full\. Free disk space, then try again\.$/u.test(error)
+    /^(?:The private Codex file could not be (?:created|saved)\. )?Local storage is full\. Free disk space, then (?:try again|retry saving)(?:; your changes remain open in this window)?\.$/u.test(error)
   ) {
-    return 'Code Atlas could not prepare the selected code because local storage is full. Free some space, then try again.';
+    return 'Local storage is full. Free up disk space, then try again. Existing saved explanations are preserved.';
   }
   if (
     /^The AI explanation does not (?:name its declared source identifier|connect source identifier) '[^']+'(?: to its cited code)?\. No draft was saved\.$/u.test(error)
