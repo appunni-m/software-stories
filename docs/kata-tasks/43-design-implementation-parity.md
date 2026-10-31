@@ -131,3 +131,20 @@ The selected saved Guide contains one scene, so it displays “Scene 1 of 1” a
 does not render previous/next arrows. This check does not qualify multi-scene
 navigation, narrower widths, zoom or accessibility. No screenshot file was
 retained; keep `13yp` and `x21h` open for remaining packaged acceptance.
+
+## Packaged multi-scene pager check — 31 October 2026
+
+On the rebuilt packaged app from `890f5db` (executable SHA-256
+`2aafec3ae5063e6e5852dcac0081aac6996aec39da5a2cfe871a53deb6953697`), the
+existing Fontdone `main@5249b72371` nested Guide contained four saved scenes.
+Selecting scene 1 showed the pager between the visual title and scene content;
+Next changed it to scene 2 of 4, enabled Previous, and replaced the scene with
+the unmatched-strike decision and outcomes. The pager stayed inside the visual
+card in normal flow. The same 1440-CSS-pixel window kept the workspace header
+on one row. No content was generated or changed, and no provider request or
+test suite ran.
+
+This verifies one packaged multi-scene navigation path and its placement at
+one desktop size. A durable screenshot matrix, other pages, narrow/high-zoom
+layouts, keyboard and accessibility acceptance remain open; keep `13yp` and
+`x21h` open.
