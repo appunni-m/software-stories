@@ -160,6 +160,37 @@ test('dense disconnected maps use compact cards and keep source order without ov
   }
 });
 
+test('dense sparse-edge maps grid a wide rank while preserving its real links', () => {
+  const many = Array.from({length: 12}, (_, index) => ({nodeId: `node-${index}`}));
+  const edges = [
+    {fromNodeId: 'node-9', toNodeId: 'node-11'},
+    {fromNodeId: 'node-10', toNodeId: 'node-11'},
+  ];
+  const points = layoutFlowNodes(many, edges, 'auto');
+  const authoredLeftToRight = layoutFlowNodes(many, edges, 'leftToRight');
+  const {width, height} = flowNodeSize(many.length);
+  const xs = [...points.values()].map((point) => point.x);
+  const ys = [...points.values()].map((point) => point.y);
+  const fittedZoom = Math.min(
+    700 / (Math.max(...xs) - Math.min(...xs) + width),
+    500 / (Math.max(...ys) - Math.min(...ys) + height),
+  );
+
+  assert.deepEqual(points.get('node-0'), {x: 0, y: 0});
+  assert.deepEqual(points.get('node-4'), {x: 250, y: 0});
+  assert.deepEqual(points.get('node-8'), {x: 500, y: 0});
+  assert.deepEqual(points.get('node-11'), {x: 500, y: 396});
+  assert.ok(fittedZoom >= 0.9, `expected compact sparse-edge overview scale, got ${fittedZoom.toFixed(2)}`);
+  assert.deepEqual([...authoredLeftToRight], [...points], 'sparse evidence should choose the best-fit grid regardless of rank direction');
+  for (let left = 0; left < many.length; left += 1) {
+    const a = points.get(many[left].nodeId);
+    for (let right = left + 1; right < many.length; right += 1) {
+      const b = points.get(many[right].nodeId);
+      assert.equal(Math.abs(a.x - b.x) < width && Math.abs(a.y - b.y) < height, false);
+    }
+  }
+});
+
 test('dense graph edge labels move into stable lanes instead of stacking on crossings', () => {
   const graphNodes = ['records', 'tag', 'offset', 'input', 'range', 'slice', 'none'].map((nodeId) => ({nodeId}));
   const graphEdges = [

@@ -69,6 +69,14 @@ function stableFallback(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: Vi
   }));
 }
 
+function bestGridFit(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: VisualLayoutDirection): Map<string, FlowPoint> {
+  const preferred = stableFallback(nodes, direction);
+  const alternateDirection = direction === 'leftToRight' ? 'auto' : 'leftToRight';
+  const alternate = stableFallback(nodes, alternateDirection);
+  const { width, height } = flowNodeSize(nodes.length);
+  return fitScale(alternate, width, height) > fitScale(preferred, width, height) ? alternate : preferred;
+}
+
 function placeRankedLayers(
   layers: Map<number, string[]>,
   direction: VisualLayoutDirection,
@@ -165,9 +173,14 @@ export function layoutFlowNodes(
     layers.set(layerRank, layer);
   }
 
-  // A wide rank of unrelated nodes (common for disconnected evidence) should
-  // read as a compact overview. Keep small diagrams in their familiar layout.
-  if (layers.size === 1 && nodes.length >= 7) return stableFallback(nodes, direction);
+  // Wide, mostly unrelated evidence is a source index, not a useful rank row.
+  // Lay it out as a grid while keeping its actual edges. This also covers a
+  // mostly disconnected set with a few real calls (for example, many source
+  // points plus two wrappers converging on one shared entry point).
+  const widestLayer = Math.max(...[...layers.values()].map((layer) => layer.length));
+  if (nodes.length >= 7 && widestLayer >= Math.ceil(nodes.length * 0.6)) {
+    return bestGridFit(nodes, direction);
+  }
 
   const lastRank = Math.max(...layers.keys());
   for (const layer of layers.values()) layer.sort((left, right) => nodeOrder.get(left)! - nodeOrder.get(right)!);
