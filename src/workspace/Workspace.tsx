@@ -293,6 +293,10 @@ export function DeveloperWorkspace(props:Props) {
     });
     return {exploration,turns,groups:groupQuestionAttempts(turns)};
   }).filter(({turns})=>!historySearchTerm||turns.length>0);
+  const orderedHistorySections=historySearchTerm?historySections:[
+    ...historySections.filter(({exploration})=>exploration.id===current.id),
+    ...historySections.filter(({exploration})=>exploration.id!==current.id).reverse(),
+  ];
   const matchingSavedExplanations=historySearchTerm
     ? chapters.filter((revision)=>matchesHistorySearch(historySearchTerm,[revision.title,revision.lifecycle,...revision.sections.map((section)=>section.title)]))
       .sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs)
@@ -1088,9 +1092,11 @@ export function DeveloperWorkspace(props:Props) {
                     <strong>Saved explanations</strong>
                     {matchingSavedExplanations.map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}
                   </div>}
-                  {historySections.map(({exploration,groups})=><section key={exploration.id}>
-                    <AppButton intent="custom" className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{exploration.id==='root'?projectName:<InlineCodeText text={questionSummaryText(exploration.title)}/>}<small>Level {ancestors(state,exploration.id).length}</small></AppButton>
-                    {groups.map((group)=>{
+                  {orderedHistorySections.map(({exploration,turns,groups})=>{
+                    const isCurrentLevel=exploration.id===current.id;
+                    const level=ancestors(state,exploration.id).length;
+                    const levelTitle=exploration.id==='root'?projectName:questionSummaryText(exploration.title);
+                    const entries=groups.map((group)=>{
                       const currentTurn=exploration.id===current.id?group.turns.find((turn)=>turn.id===historyTurnId):undefined;
                       const latestTurn=group.turns.at(-1)!;
                       const visibleTurn=currentTurn??latestTurn;
@@ -1102,8 +1108,19 @@ export function DeveloperWorkspace(props:Props) {
                         <AppButton intent="custom" className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest'}</small></AppButton>
                         <details className="dw-history-retries"><summary>Show earlier outcomes</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
                       </div>;
-                    })}
-                  </section>)}
+                    });
+                    if(isCurrentLevel||historySearchTerm)return <section key={exploration.id}>
+                      <AppButton intent="custom" className="dw-history-level" aria-current={isCurrentLevel?'location':undefined} onClick={()=>go(exploration.id)}><MessageSquare size={13}/>{levelTitle}<small>Level {level}</small></AppButton>
+                      {entries}
+                    </section>;
+                    return <details key={exploration.id} className="dw-history-ancestor">
+                      <summary><ChevronRight size={13} className="dw-history-ancestor-chevron"/><span><InlineCodeText text={levelTitle}/></span><small>Level {level} · {groups.length} {groups.length===1?'question':'questions'} · {turns.length} {turns.length===1?'attempt':'attempts'}</small></summary>
+                      <div className="dw-history-ancestor-content">
+                        <AppButton intent="custom" className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>Open this level<small>Level {level}</small></AppButton>
+                        {entries}
+                      </div>
+                    </details>;
+                  })}
                   {historySearchTerm&&!historyTurnMatchCount&&!matchingSavedExplanations.length&&<p className="dw-history-empty" role="status">No questions or saved explanations match this search.</p>}
                   {!historySearchTerm&&!path.some((exploration)=>exploration.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}
                   {!historySearchTerm&&chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}</details>}
