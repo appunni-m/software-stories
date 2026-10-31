@@ -406,12 +406,12 @@ describe('visual story scenes', () => {
       'wide Guide panes must not pull scene navigation into the title row');
     assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*width:min\(100%,604px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:flex;[^}]*justify-self:center;[^}]*width:max-content;[^}]*max-width:100%;[^}]*gap:8px;[^}]*align-items:center/u,
-      'multi-scene navigation stays centered in a width-bounded flex row');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*min-width:0;[^}]*max-width:calc\(100% - 72px\)/u,
-      'scene navigation content should shrink between the fixed arrow buttons');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:nowrap;[^}]*overflow:visible/u,
-      'short scene indexes stay on one line inside the bounded navigation group');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*grid-template-areas:"previous position next";[^}]*width:min\(100%,604px\);[^}]*max-width:100%/u,
+      'multi-scene navigation keeps arrows in fixed columns and lets the centered position shrink');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*grid-area:position;[^}]*flex-wrap:wrap;[^}]*min-width:0;[^}]*max-width:100%/u,
+      'scene position wraps inside the grid track between the fixed arrow buttons');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:wrap;[^}]*overflow:visible/u,
+      'scene indexes can wrap rather than overflow a narrow Guide pane');
     assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\.is-long\s*\{[^}]*width:min\(100%,168px\);[^}]*flex-wrap:wrap/u,
       'long scene indexes wrap into a bounded strip');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
@@ -536,7 +536,7 @@ describe('visual story scenes', () => {
       'the Guide canvas hydrates its nodes and edges after React Flow initializes');
   });
 
-  it('rehydrates the Guide diagram after data arrives and after the first layout frame', () => {
+  it('rehydrates Guide nodes and fits only after React Flow measures the first-open graph', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     assert.match(story, /if \(!visual \|\| focusInitialized\.current\) return;[\s\S]*?setFocusedNode\(restoredFocus\.nodeId\);\s*setFocusedEdge\(restoredFocus\.edgeId\);/u,
       'a saved focus is restored if the source-backed diagram arrives after the reader mounts');
@@ -544,12 +544,18 @@ describe('visual story scenes', () => {
       'a node measurement that arrives during fitView schedules a second bounds check');
     assert.match(story, /finally\(\(\) => \{\s*if \(generation === flowFitGeneration\.current\) \{\s*flowFitInProgress\.current = false;\s*if \(flowFitCheckPending\.current\) \{\s*flowFitCheckPending\.current = false;\s*scheduleViewportCheck\.current\(\);/u,
       'the pending first-mount bounds check runs after fitView settles');
-    assert.match(story, /<ReactFlow key=\{`\$\{section\.sectionRevisionId\}:\$\{index\}:\$\{fullMap\}:\$\{visibleNodeKey\}`\}/u,
-      'the canvas remounts when a restored section hydrates its actual visible node set');
+    assert.match(story, /const flowCanvasKey = `\$\{section\.sectionRevisionId\}:\$\{index\}:\$\{fullMap\}:\$\{visibleNodeKey\}`;[\s\S]*?<ReactFlow key=\{flowCanvasKey\}/u,
+      'the canvas key includes the saved section and currently visible nodes without retry remounts');
+    assert.match(story, /const measured = expected\.every\(\(id\) => \{[\s\S]*?node\.measured\?\.width[\s\S]*?node\.measured\?\.height[\s\S]*?renderedCount < expected\.length\) return true;/u,
+      'the initial fit waits for every expected graph node to exist and report measured dimensions');
+    assert.match(story, /instance\.fitView\(\{ nodes: expected\.map\(\(id\) => \(\{ id \}\)\), padding: \.06, minZoom: \.18, maxZoom: 1\.1 \}\)/u,
+      'the fit targets only the visible, measured nodes in this story scene');
+    assert.doesNotMatch(story, /flowRemount|recoverInitialFlowCanvas|initialFlowRepairState/u,
+      'late measurements retry through React Flow events instead of exhausting timed canvas remounts');
     assert.match(story, /useEffect\(\(\)\s*=>\s*\{[\s\S]*?const instance = flowInstance\.current;\s*if \(!instance\?\.viewportInitialized\) return;[\s\S]*?const current = graphData\.current;\s*instance\.setNodes\(current\.nodes\);\s*instance\.setEdges\(current\.edges\);[\s\S]*?\}, \[visual, visibleNodeKey, scene\.id, fullMap, revision\.revisionId, section\.sectionRevisionId\]\)/u,
       'newly restored visual data replaces the graph initialized from older saved state');
-    assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*const latest = graphData\.current;\s*instance\.setNodes\(latest\.nodes\);\s*instance\.setEdges\(latest\.edges\);\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
-      'the first Guide mount reconciles the controlled graph after React Flow has completed a browser layout frame');
+    assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*const latest = graphData\.current;\s*instance\.setNodes\(latest\.nodes\);\s*instance\.setEdges\(latest\.edges\);\s*if\s*\(fitHydratedStoryGraph\(instance\)\)\s*return;\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
+      'the first Guide mount reconciles graph data, then waits for actual node measurement before fitting');
   });
 
   it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
@@ -678,7 +684,7 @@ describe('visual story scenes', () => {
 
   it('reserves a clear label lane between horizontal graph columns', () => {
     const nodes = new Map(storyLayout({ ...visual, layoutHint: { direction: 'leftToRight' } }).map((node) => [node.id, node.position]));
-    assert.equal(nodes.get('check').x - nodes.get('entry').x, 340);
+    assert.equal(nodes.get('check').x - nodes.get('entry').x, 360);
   });
 
   it('keeps a deep route readable in the Guide canvas even when its preferred direction is horizontal', () => {
@@ -720,15 +726,15 @@ describe('visual story scenes', () => {
     assert.equal(result.direction, 'vertical');
 
     const lane = storyEdgeLabelPosition(0, 0, 0, 47, true, 1);
-    assert.equal(lane.x, 199.5);
+    assert.equal(lane.x, 184.5);
     assert.equal(lane.y, 47);
-    assert.ok(lane.x - 180 / 2 >= 195 / 2 + 12,
+    assert.ok(lane.x - 150 / 2 >= 195 / 2 + 12,
       'the label begins at least twelve pixels beyond the centered node card');
 
     const branch = storyEdgeLabelPosition(0, 118, 59, 47, true, 1);
-    assert.ok(branch.x - 180 / 2 >= 118 + 195 / 2 + 12,
+    assert.ok(branch.x - 150 / 2 >= 118 + 195 / 2 + 12,
       'a diagonal branch label clears both endpoint cards');
-    assert.deepEqual(storyEdgeLabelPosition(0, 340, 170, 0, false, 1), { x: 170, y: 0 },
+    assert.deepEqual(storyEdgeLabelPosition(0, 360, 180, 0, false, 1), { x: 180, y: 0 },
       'the existing horizontal label lane is unchanged');
 
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
@@ -739,7 +745,7 @@ describe('visual story scenes', () => {
   it('keeps Guide edge labels readable at the node and canvas scale', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const labelRule = styles.match(/\.visual-story \.story-edge-label\s*\{([^}]+)\}/u)?.[1] ?? '';
-    assert.match(labelRule, /max-width:\s*180px/u);
+    assert.match(labelRule, /max-width:\s*150px/u);
     assert.match(labelRule, /max-height:\s*40px/u);
     assert.match(labelRule, /font:\s*500 12px\/1\.2/u);
     const textRule = styles.match(/\.visual-story \.story-edge-label-text\s*\{([^}]+)\}/u)?.[1] ?? '';

@@ -124,7 +124,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["fileFlow"] = json!({"path":"src/font.rs","showAll":true});
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
-        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":6}],
+        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":7}],
         "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"focusedEdgeId":"edge:subtotal","layoutVersion":FLOW_DIAGRAM_LAYOUT_VERSION}]
     });
     s
@@ -304,6 +304,27 @@ fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() 
         original_bytes,
         "reader-position recovery must not rewrite the durable conversation"
     );
+}
+
+#[test]
+fn opening_v6_guide_layout_refits_camera_and_preserves_reading_location() {
+    let f = Fixture::new();
+    let state = presentation_state();
+    let record = save(&f.0, "project", "snapshot", None, state).unwrap();
+    let mut stored = serde_json::to_value(record).unwrap();
+    let story = &mut stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0];
+    story["focusLayoutVersion"] = json!(6);
+    fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
+    let original_bytes = fs::read(f.path()).unwrap();
+
+    let restored = load(&f.0, "project", "snapshot").unwrap().unwrap();
+    let story = &restored.state["explorations"][0]["turns"][0]["presentation"]["stories"][0];
+    assert_eq!(story["focusLayoutVersion"], json!(FOCUSED_STORY_LAYOUT_VERSION));
+    assert_eq!(story["sceneId"], "claim:second");
+    assert_eq!(story["positions"]["claim:second"], json!(3.2));
+    assert_eq!(story["focusedNodeId"], "claim:second");
+    assert!(story.get("viewport").is_none());
+    assert_eq!(fs::read(f.path()).unwrap(), original_bytes, "opening migrates only in memory");
 }
 
 #[test]

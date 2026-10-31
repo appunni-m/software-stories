@@ -1,7 +1,7 @@
 /** Presentation metadata only. None of these records grants access or starts playback. */
 export interface SectionIdentity { revisionId:string; sectionId:string; sectionRevisionId:string }
 export interface FlowViewport { x:number; y:number; zoom:number }
-export const FOCUSED_STORY_LAYOUT_VERSION = 6 as const;
+export const FOCUSED_STORY_LAYOUT_VERSION = 7 as const;
 export const FLOW_DIAGRAM_LAYOUT_VERSION = 5 as const;
 export interface StoryProgress extends SectionIdentity {
   sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport;
@@ -29,10 +29,9 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   const allowed=[...required,'viewport','focusedNodeId','focusedEdgeId'];
   if(!object(value)||!only(value,allowed)||!required.every(key=>Object.hasOwn(value,key))
     ||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
-  // Versions 4 and 5 stored camera positions for wider edge labels. Keep the
-  // selected scene, narration positions and focus, but refit the compact v6
-  // labels so a saved camera cannot hide the graph.
-  if(value.focusLayoutVersion!==4 && value.focusLayoutVersion!==5 && value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
+  // Older layouts may frame the wider v7 label lanes incorrectly. Preserve
+  // the selected scene, narration positions and focus, then refit the graph.
+  if(value.focusLayoutVersion!==4 && value.focusLayoutVersion!==5 && value.focusLayoutVersion!==6 && value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
   if(Object.hasOwn(value,'focusedNodeId')&&!id(value.focusedNodeId)
     ||Object.hasOwn(value,'focusedEdgeId')&&!id(value.focusedEdgeId))return undefined;
   const entries=Object.entries(value.positions);

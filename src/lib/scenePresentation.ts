@@ -1,5 +1,5 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
-import { plainInlineCodeText } from './inlineCode';
+import { plainInlineCodeText } from './inlineCode.ts';
 
 export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'pointFlow' | 'tree' | 'queue'
   | 'selector' | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';

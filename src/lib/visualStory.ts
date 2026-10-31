@@ -21,7 +21,7 @@ export function supportsStoryFullMap(visual: EvidenceLinkedVisualSpec | undefine
 }
 
 export const STORY_NODE_WIDTH = 195;
-export const STORY_EDGE_LABEL_MAX_WIDTH = 120;
+export const STORY_EDGE_LABEL_MAX_WIDTH = 150;
 export const STORY_EDGE_LABEL_HEIGHT = 40;
 export const STORY_EDGE_LABEL_GAP = 12;
 
@@ -325,7 +325,7 @@ export function storyLayoutWithDirection(visual: EvidenceLinkedVisualSpec, inclu
       const level = rank.get(node.nodeId) ?? 0;
       const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
       const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
-      return { id: node.nodeId, position: horizontal ? { x: level * 340, y: across } : { x: across * 1.8, y: level * 94 } };
+      return { id: node.nodeId, position: horizontal ? { x: level * 360, y: across } : { x: across * 1.8, y: level * 94 } };
     }),
   };
 }
@@ -447,6 +447,6 @@ function isCurrentStoryProgress(value: unknown): value is Record<string, unknown
   const actual = Object.keys(record);
   return actual.every(key => allowed.includes(key))
     && required.every(key => Object.hasOwn(record, key))
-    && (record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION || record.focusLayoutVersion === 4 || record.focusLayoutVersion === 5)
+    && (record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION || record.focusLayoutVersion === 4 || record.focusLayoutVersion === 5 || record.focusLayoutVersion === 6)
     && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }

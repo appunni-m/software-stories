@@ -1295,17 +1295,43 @@ packaged review ran. Keep `j53m` open.
 The packaged Fontdone workspace restored Scene 4 with its graph pane blank
 until the reader left the scene and returned. The first repair checked only
 after graph hydration and the initial React Flow frames, which could finish
-before the split pane acquired its final size. The Guide now retries its
-one-time missing-node/camera recovery from the canvas resize path once the pane
-has nonzero dimensions. This discards only the stale camera when repair is
-needed; the scene, audio position and focus remain saved. The app also keeps
-edge labels to 120 px, moves React Flow controls to the lower-right and
-migrates saved v4/v5 Guide positions to v6 without the old camera.
+before the split pane acquired its final size. The Guide retries its bounded
+missing-node/camera recovery from the canvas resize path once the pane has
+nonzero dimensions. This discards only the stale camera when repair is needed;
+the scene, audio position and focus remain saved. The app also moves
+React Flow controls to the lower-right and migrates older Guide camera layouts
+without discarding the saved scene, narration position or focus. A follow-up
+readability correction widens edge labels from 120 to 150 px and separates
+horizontal graph columns by 360 px, enough for a two-line label without
+overlapping a node card. Saved v4/v5/v6 Guide positions migrate to v7 and refit
+the graph instead of restoring a camera from the narrower layout.
 
 The optimized unsigned macOS package and metadata/checksum verification
 completed. The rebuilt app was installed and opened on the saved Fontdone
 workspace directly at Scene 4; the graph and its three source-backed nodes and
 two edges were visible on first open, without navigating away and back. This
-is a bounded packaged startup check, not a visual-quality, accessibility,
-comprehension or audio acceptance pass. No test suite or provider request ran;
-keep `j53m` open for the remaining gates.
+v6 check passed at that revision. A subsequent v7 launch exposed one more
+first-open race: its single remount could occur before React Flow painted, and
+the graph appeared only after changing scenes. Recovery now permits at most two
+remounts per section and settles as soon as the graph is complete. The v7
+package and first-open verification are in progress. Keep `j53m` open for the
+remaining visual-quality, accessibility, comprehension and audio gates.
+
+### First-open fit waits for measured nodes — 31 October 2026
+
+The next packaged Fontdone `main@5249b72371` launch restored Scene 4 with no
+saved viewport and an empty React Flow canvas. The fixed number of animation
+frame retries could run before node measurements arrived, then stop. Guide now
+waits until every visible node exists in the canvas and reports measured
+dimensions before fitting that scene; later dimension events retry through the
+normal viewport check. It no longer remounts the canvas on a timer.
+
+After rebuilding and installing Code Atlas 0.1.0 (executable SHA-256
+`1d624fb8292e831f1b4940903ad3c5287e121f8d0da3f89fa133669052a2a91e`), the app
+reopened that same saved Scene 4 with no `viewport` field in its stored reading
+position. The first-open canvas showed its three nodes and two source-linked
+edges without changing scenes. The 2880×1680 screenshot also showed the top
+header and scene pager in their allocated rows. This verifies the repaired
+first fit and this window size only; broad chapter visual quality, narrow
+windows, accessibility, comprehension, audio and export acceptance remain
+open. Keep `j53m` open.

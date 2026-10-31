@@ -12,7 +12,7 @@ use tauri::AppHandle;
 
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
 const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 5;
-const FOCUSED_STORY_LAYOUT_VERSION: u64 = 6;
+const FOCUSED_STORY_LAYOUT_VERSION: u64 = 7;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
@@ -794,11 +794,11 @@ fn discard_stale_reader_positions(state: &mut Value) {
 fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
     let story = story.as_object_mut()?;
     let layout_version = story.get("focusLayoutVersion").and_then(Value::as_u64)?;
-    if !matches!(layout_version, 4 | 5 | FOCUSED_STORY_LAYOUT_VERSION) {
+    if !matches!(layout_version, 4 | 5 | 6 | FOCUSED_STORY_LAYOUT_VERSION) {
         return None;
     }
 
-    // The Guide scene graph changed edge-label sizing in v6. Older saved
+    // The Guide scene graph changed edge-label sizing in v7. Older saved
     // cameras may frame that layout incorrectly, so retain the reading
     // location and focus while letting the frontend fit the new scene.
     if layout_version != FOCUSED_STORY_LAYOUT_VERSION {

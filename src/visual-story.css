@@ -38,7 +38,7 @@
 .visual-story .story-node-focus .story-node-detail { -webkit-line-clamp: 6; }
 .visual-story .story-edge-active path { stroke: var(--accent); stroke-width: 2; }
 .visual-story .react-flow__edge-text { font-size: 12px; }
-.visual-story .story-edge-label { display: inline-flex; align-items: center; gap: 4px; max-width: 120px; max-height: 40px; height: auto; min-height: 0; overflow: hidden; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; white-space: normal; box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 14%, transparent); }
+.visual-story .story-edge-label { display: inline-flex; align-items: center; gap: 4px; max-width: 150px; max-height: 40px; height: auto; min-height: 0; overflow: hidden; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; white-space: normal; box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 14%, transparent); }
 .visual-story .story-edge-label-text { display: -webkit-box; min-width: 0; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .visual-story .story-edge-label svg { flex: 0 0 12px; }
 .visual-story .story-edge-label:hover, .visual-story .story-edge-label:focus-visible, .visual-story .story-edge-label-focused { border-color: var(--accent); background: var(--surface-raised); color: var(--accent); }
