@@ -161,6 +161,17 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   };
   const anchor = anchors.find((item) => scene.anchorIds.includes(item.anchorId));
   const activeIds = new Set(scene.nodeIds);
+  const activeSceneNodes = visual
+    ? scene.nodeIds.flatMap((nodeId) => {
+      const node = visual.nodes.find((candidate) => candidate.nodeId === nodeId);
+      return node ? [node] : [];
+    })
+    : [];
+  const activeSceneLabels = new Set(activeSceneNodes.map((node) => plainInlineCodeText(node.label).trim().toLowerCase()));
+  const activeSceneDetails = new Set(activeSceneNodes.map((node) => plainInlineCodeText(node.detail ?? '').trim()).filter(Boolean));
+  const collapseRepeatedActiveLabels = !fullMap && activeSceneNodes.length > 1
+    && activeSceneLabels.size === 1 && activeSceneDetails.size === activeSceneNodes.length;
+  const firstActiveSceneNodeId = activeSceneNodes[0]?.nodeId;
   const visibleIds = visual && !fullMap && activeIds.size ? sceneNodeIds(visual, scene) : new Set(visual?.nodes.map((node) => node.nodeId));
   const focus = visual?.nodes.find((node) => node.nodeId === focusedNode) ?? visual?.nodes.find((node) => activeIds.has(node.nodeId));
   const focusSourceValue = focusedSourceValue ?? focus?.sourceValue ?? (focus ? sourceValues.get(focus.nodeId) : undefined);
@@ -253,10 +264,11 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     const label = plainInlineCodeText(data.label);
     const detail = data.detail ? plainInlineCodeText(data.detail) : '';
+    const showTitle = !collapseRepeatedActiveLabels || node.id === firstActiveSceneNodeId;
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
       data: { label: <AppButton intent="custom" size="1" className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id, undefined, scene.anchorIds) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
-        <span className="story-node-title"><InlineCodeText text={data.label}/></span>
+        {showTitle && <span className="story-node-title"><InlineCodeText text={data.label}/></span>}
         {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
       </AppButton> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
