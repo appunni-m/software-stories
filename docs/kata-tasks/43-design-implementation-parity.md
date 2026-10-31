@@ -192,6 +192,8 @@ On the same installed build and selected Fontdone snapshot, a unique local query
 produced “No local match; search coverage is incomplete” with an “Explore with
 AI” action. The action was not used; no provider request or content change
 occurred. The prior `memory_face` query was restored afterward. This confirms
-the local no-result fallback and its incomplete-index wording only. The native
-screenshot and window dimensions were not retained, and keyboard/focus behavior,
-search ranking, and the remaining screen matrix remain unqualified.
+the local no-result fallback and its incomplete-index wording. Pressing the
+documented `⌘⇧F` shortcut returned focus to Search and selected the existing
+`memory_face` query. The native screenshot and window dimensions were not
+retained; broader keyboard/focus behavior, search ranking, and the remaining
+screen matrix remain unqualified.
