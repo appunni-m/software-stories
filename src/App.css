@@ -643,6 +643,7 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {whit
 .chapter-freshness-clear { margin: 8px 0 0; }
 .chapter-freshness-section .chapter-section-title-row > button { flex: 0 0 auto; margin-left: auto; }
 .chapter-freshness-assets { display: grid; gap: 5px; margin-top: 9px; padding: 8px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); background: var(--surface); font-size: 12px; line-height: 1.5; }
+.chapter-freshness-assets > summary { color: var(--text); font-weight: 600; cursor: pointer; }
 .chapter-freshness-assets > strong { color: var(--muted); font-size: 12px; }
 .chapter-freshness-assets ul { display: grid; gap: 3px; margin: 0; padding-left: 15px; }
 .chapter-freshness-assets code { color: var(--accent); font: 12px var(--mono); overflow-wrap: anywhere; }

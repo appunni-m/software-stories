@@ -5040,7 +5040,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               })}
                             </div>}
                             {dependentSections.length > 0 && <p className="chapter-freshness-clear"><strong>Other sections share changed evidence:</strong> {dependentSections.map((id, index) => <span key={id}>{index > 0 ? ', ' : ''}<InlineCodeText text={activeDocument.sections.find((item) => item.sectionId === id)?.title ?? id}/></span>)}. Each section is reviewed and updated separately.</p>}
-                            <div className="chapter-freshness-assets">
+                            <details className="chapter-freshness-assets">
+                              <summary>Asset reuse details</summary>
                               <strong>Assets linked to changed evidence</strong>
                               {visualFingerprints.length > 0
                                 ? <><span>Visual asset fingerprints</span><ul>{visualFingerprints.map((fingerprint) => <li key={fingerprint}><code>{fingerprint}</code></li>)}</ul></>
@@ -5050,7 +5051,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               {sectionResult.narrationScriptSha256
                                 ? <span>Narration script SHA-256 <code>{sectionResult.narrationScriptSha256}</code>. Audio cache keys also include the chosen model, voice, style, and format.</span>
                                 : <span>No narration script is attached to this section.</span>}
-                            </div>
+                            </details>
                             {sectionResult.reasons.length === 0 && sectionResult.sourceChanges.length === 0 && <p className="chapter-freshness-clear">{sectionResult.status === 'needsReview' || sectionResult.evidenceState !== 'complete' ? 'The available index evidence is not enough to confirm this section.' : 'No changed evidence was found for this section.'}</p>}
                           </article>;
                         })}

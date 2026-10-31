@@ -190,3 +190,12 @@ ignored. This is subsystem evidence only; the historical full-suite result of
 modules remain untriaged. This does not change the selective-repair acceptance:
 real repair, unaffected assets, cancellation/failure, and packaged workflow
 checks remain open.
+
+### Keep asset fingerprints available without cluttering the repair view — 31 October 2026
+
+Chapter Studio now keeps per-section asset reuse fingerprints in a collapsed
+“Asset reuse details” disclosure. Stale status, reasons, affected sections,
+source diffs, and the one-section repair action remain visible. The IDs and
+narration script hash remain available on demand for review. Source-only UI
+change; selective-repair provider, unaffected-audio reuse, cancellation, and
+packaged acceptance remain open.
