@@ -118,3 +118,16 @@ or saved-answer change occurred.
 The pair's persistence and visible restoration are now qualified. Empty and
 initial history, distinct failure states, and partial/oversized comparisons
 remain to be checked; keep Kata `0vd8` open.
+
+## Missing-ref feedback in the packaged app — 31 October 2026
+
+With the same Fontdone snapshot, submitted `missing-ref-codeatlas-acceptance`
+as the starting ref and `main` as the ending ref. The Changes view reported
+that no matching local branch, tag, remote-tracking ref, or full commit ID was
+found, identified the missing starting ref, and asked for another ref. This
+was a local read-only lookup with no repository changes or AI request. I then
+restored the valid `v2.14.3 → main` comparison and returned to the original
+Guide/source selection.
+
+The missing-ref case is qualified. Empty/initial history, native bridge
+failure, and partial/oversized comparison behavior remain separate open cases.
