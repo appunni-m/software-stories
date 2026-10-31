@@ -38,3 +38,27 @@ unchanged.
 This verifies one packaged local-result and no-match path. Search-result races,
 large repositories, keyboard shortcuts, drag/drop, source selection, snapshot
 changes, and exact-citation revalidation remain open; keep Kata `nsfd` open.
+
+## Rechecked with the current packaged workspace — 31 October 2026
+
+On the installed Code Atlas app built from source commit `362dd44` (executable
+SHA-256 `45f9d1a5bd4056b4603938b5b6215169d80e1daf732447b81c1be6f6a3c97feb`),
+Fontdone `main@5249b72371`, the `memory_face` query again returned 78 local
+matches across 22 files and displayed the incomplete-coverage label. The unique
+query `QXZVBRUNIPTOLK` settled to “No local match; search coverage is
+incomplete.” and offered **Explore with AI**. I did not activate it. The
+previous `memory_face` query, Explorer, Guide/Chat history, and `src/api.rs`
+selection at lines 710–728 were restored; no provider or repository action
+occurred.
+
+This reconfirms the basic packaged local-match/no-match path on the current
+bundle. Shortcut activation, result races, drag/drop, source selection,
+snapshot changes, and exact-citation revalidation remain open.
+
+A follow-up click on the `src/font.rs` local match opened the captured file at
+the exact returned range (`4053–4115`) and kept the current exploration. The
+reader's **Back to explanation** action returned to the same Guide section, but
+the selected source remained the search result until I followed that scene's
+`src/api.rs:710–728` citation. This is expected source-pane selection today;
+there is no one-step restore of the prior source selection. The cited source
+and Chat history tab are now restored. No AI action was sent.
