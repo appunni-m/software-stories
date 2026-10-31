@@ -162,6 +162,50 @@ fn playback_receipt_is_durable_while_a_guide_worker_owns_the_runway() {
     assert_eq!(slide_run_limit(5, 0, &repeated, false), 5);
 }
 
+#[tokio::test]
+async fn terminal_playback_receipt_waits_for_the_owner_lease_then_claims_refill() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    let completed = attempt(&record, Outcome::Complete);
+    let revision_id = completed.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    record.units[0].attempts.push(completed);
+    record.status = Status::WaitingForPlayback;
+    store::create(&f.storage, &record).unwrap();
+
+    // Model the finalization/lease-drop interval: the guide is terminal, but
+    // its native worker still owns the lease when the reader records playback.
+    let owner = store::lease(&f.storage, &record.id).unwrap().unwrap();
+    let receipt = record_consumed_slide(&f.storage, &record.id, &revision_id).unwrap();
+    assert_eq!(receipt.status, Status::WaitingForPlayback);
+    assert!(guide_buffer_gap(&receipt) > 0);
+
+    let storage = f.storage.clone();
+    let id = record.id.clone();
+    let handoff = tokio::spawn(async move {
+        wait_for_terminal_guide_handoff(&storage, &id, &receipt).await
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(45)).await;
+    assert!(
+        !handoff.is_finished(),
+        "a second worker cannot start before the original lease is released"
+    );
+    drop(owner);
+
+    let refill = handoff
+        .await
+        .unwrap()
+        .unwrap()
+        .expect("the terminal guide should hand off its refill lease");
+    assert!(
+        store::lease(&f.storage, &record.id).unwrap().is_none(),
+        "the refill worker must own the exclusive lease"
+    );
+    drop(refill);
+    assert!(store::lease(&f.storage, &record.id).unwrap().is_some());
+}
+
 #[test]
 fn one_slide_retry_requires_a_terminal_failure_and_a_free_runway_slot() {
     let f = Fixture::new();
