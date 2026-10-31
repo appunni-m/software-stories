@@ -89,7 +89,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 /* Let the header stay on one row only while repository and app controls have
    enough room. Below that, keep both groups in normal flow on separate rows. */
-@container app-window (max-width: 1280px) {
+@container app-window (max-width: 1440px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";
