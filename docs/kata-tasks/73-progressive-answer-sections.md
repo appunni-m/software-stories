@@ -395,3 +395,18 @@ past ten minutes while a probe stays bounded. This is a source-level lifetime
 check: no provider call, fresh Fontdone Guide or packaged UI qualification was
 performed. Keep `3bz5` open for the original quality, progress, reader, audio,
 accessibility and recovery gates.
+
+## Playback refill handoff — 31 October 2026
+
+Static review found a narrow lost-refill race: a durable playback receipt could
+arrive after the active Guide worker's final unit-boundary check, or during the
+terminal-state/lease-release interval. The worker now resumes from the next
+unprocessed outline unit when the final transaction sees newly authorized
+runway, and it starts with the latest durable buffer gap so receipts saved
+before the build boundary count toward the initial refill budget. Playback waits
+briefly for a terminal worker's local lease handoff before returning without a
+refill. After acquiring a lease, playback, resume and slide-retry commands
+re-read and reconcile the latest saved record. No tests, build, provider
+request, or packaged-app check was run, per the source-review-only instruction.
+Keep this task open for race regressions, restart/recovery, playback, visual,
+audio, accessibility, timing, and content-quality acceptance.

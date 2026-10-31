@@ -1258,9 +1258,18 @@ fn build_inner(
     changed: impl Fn(&GuideSummary),
 ) -> Result<GuideSummary, String> {
     let mut record = store::read(storage, id)?;
+    let follow_playback = only_unit_key.is_none();
+    // Receipts may be saved after the caller computes its initial slide count
+    // but before this native worker reaches the planning/build boundary. Start
+    // with the latest durable buffer gap so those receipts are not absorbed
+    // into the baseline and then accidentally omitted from this run's budget.
+    let max_new_slides = if follow_playback {
+        max_new_slides.max(guide_buffer_gap(&record))
+    } else {
+        max_new_slides
+    };
     let starting_slide_count = published_slide_count(&record);
     let starting_consumed_count = record.consumed_slide_revisions.len();
-    let follow_playback = only_unit_key.is_none();
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         storage,
         &answer_reservation(&record),
@@ -1375,212 +1384,247 @@ fn build_inner(
         record = append_omission_units(storage, &record)?;
         changed(&summary(storage, &record)?);
     }
-    for index in 0..record.units.len() {
-        record = store::read(storage, id)?;
-        if only_unit_key.is_some_and(|unit_key| {
-            record
-                .plan
-                .as_ref()
-                .and_then(|plan| plan.units.get(index))
-                .is_none_or(|unit| unit.key != unit_key)
-        }) {
-            continue;
-        }
-        if record.status == Status::Stopped {
-            break;
-        }
-        if published_slide_count(&record).saturating_sub(starting_slide_count)
-            >= slide_run_limit(
-                max_new_slides,
-                starting_consumed_count,
-                &record,
-                follow_playback,
-            )
-        {
-            break;
-        }
-        for section in record.units[index]
-            .attempts
-            .iter()
-            .filter_map(|a| a.summary.as_ref())
-            .flat_map(|s| &s.sections)
-        {
-            adopt(section)?;
-        }
-        let mut automatic_retry = false;
-        loop {
+    let mut next_unit_index = 0;
+    loop {
+        let unit_count = store::read(storage, id)?.units.len();
+        for index in next_unit_index..unit_count {
             record = store::read(storage, id)?;
-            if record.status == Status::Stopped || !unit_research_eligible(&record, index) {
-                break;
-            }
-            checked_manifest(storage, &record)?;
-            let runtime = manager.review_runtime(storage)?;
-            workspace::check_retrieval_grant(
-                storage,
-                &record.grant_id,
-                &record.project_id,
-                &record.snapshot_id,
-                &runtime,
-            )?;
-            let question = continuation(storage, &record, index)?;
-            let guide_intent = unit_intent(&record, index)?;
-            let run_id = Uuid::new_v4().to_string();
-            record = begin_unit_with_retry(
-                storage,
-                &record,
-                index,
-                &run_id,
-                &question,
-                automatic_retry,
-            )?;
-            changed(&summary(storage, &record)?);
-            let references = record.plan.as_ref().unwrap().units[index]
-                .starting_ranges
-                .iter()
-                .map(|r| Reference {
-                    path: r.path.clone(),
-                    sha256: Some(r.source_sha256.clone()),
-                    from: Some(r.start_line as u32),
-                    to: Some(r.end_line as u32),
-                })
-                .collect();
-            // Keep the command origin until this operation publishes its first
-            // section. On a fresh guide this includes planning; on a refill it
-            // excludes time spent waiting for the reader to consume a slide.
-            let slide_started_at = if published_slide_count(&record) == starting_slide_count {
-                operation_started_at
-            } else {
-                Instant::now()
-            };
-            let result = workspace_generation::progressive::run_with_starting_ranges_at(
-                storage,
-                Input {
-                    run_id: run_id.clone(),
-                    turn_id: None,
-                    project_id: record.project_id.clone(),
-                    snapshot_id: record.snapshot_id.clone(),
-                    grant_id: record.grant_id.clone(),
-                    question: question.clone(),
-                    references,
-                    model_id: record.model_id.clone(),
-                    effort: record.reasoning_effort.clone(),
-                    renderer_queue_wait_ms: renderer_queue_wait_ms.take(),
-                },
-                &record.plan.as_ref().unwrap().units[index].starting_ranges,
-                Some(&guide_intent),
-                manager,
-                jobs.clone(),
-                journal,
-                slide_started_at,
-                &progress,
-                Arc::clone(&notify),
-            );
-            let operation_error = result.as_ref().err().cloned();
-            let answer = match result {
-                Ok(answer) => answer,
-                Err(error) => {
-                    #[cfg(test)]
-                    eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
-                    if reading::exists(storage, &run_id)? {
-                        reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?
-                            .summary()
-                    } else {
-                        synthetic_failed_slide(
-                            &run_id,
-                            &record.project_id,
-                            &record.snapshot_id,
-                            &question,
-                        )
-                    }
-                }
-            };
-            for section in &answer.sections {
-                adopt(section)?;
-            }
-            let retryable_content_gap =
-                answer.outcome != Outcome::Complete && answer.sections.is_empty();
-            record = store::update(storage, id, |current| {
-                let attempt = current.units[index]
-                    .attempts
-                    .last_mut()
-                    .ok_or("The guide unit disappeared.")?;
-                if attempt.run_id != run_id {
-                    return Err("The guide's investigation owner changed.".into());
-                }
-                if answer.outcome == Outcome::Stopped {
-                    current.status = Status::Stopped;
-                }
-                attempt.summary = Some(answer);
-                current.active_run_id = None;
-                Ok(())
-            })?;
-            changed(&summary(storage, &record)?);
-
-            let saved_answer = if reading::exists(storage, &run_id)? {
-                Some(reading::scoped(
-                    storage,
-                    &run_id,
-                    &record.project_id,
-                    &record.snapshot_id,
-                )?)
-            } else {
-                None
-            };
-            if operation_requires_halt(
-                operation_error.as_deref(),
-                saved_answer.as_ref(),
-                &record.status,
-            ) {
-                if record.status == Status::Stopped {
-                    break;
-                }
-                return Err(operation_error.unwrap_or_else(|| {
-                    "The guide could not continue safely. Saved sections remain available.".into()
-                }));
-            }
-            if let Some(answer) = saved_answer.as_ref() {
-                check_research_outcome(&record, answer)?;
-            }
-            let can_retry = retryable_content_gap
-                && record.units[index]
-                    .attempts
-                    .iter()
-                    .filter(|attempt| attempt.automatic_retry)
-                    .count()
-                    < usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
-                && automatic_slide_retry_allowed(
-                    saved_answer.as_ref(),
-                    operation_error.as_deref(),
-                    &record.status,
-                );
-            if can_retry {
-                automatic_retry = true;
+            if only_unit_key.is_some_and(|unit_key| {
+                record
+                    .plan
+                    .as_ref()
+                    .and_then(|plan| plan.units.get(index))
+                    .is_none_or(|unit| unit.key != unit_key)
+            }) {
+                next_unit_index = index + 1;
                 continue;
             }
-            break;
-        }
-    }
-    record = store::update(storage, id, |current| {
-        if current.status != Status::Stopped {
-            current.status = if terminal_guide_status(current) == Status::Ready {
-                Status::Ready
-            } else if published_slide_count(current).saturating_sub(starting_slide_count)
+            if record.status == Status::Stopped {
+                break;
+            }
+            if published_slide_count(&record).saturating_sub(starting_slide_count)
                 >= slide_run_limit(
                     max_new_slides,
                     starting_consumed_count,
-                    current,
+                    &record,
                     follow_playback,
                 )
-                && opening_continuation::remaining_operations(current) > 0
             {
-                Status::WaitingForPlayback
-            } else {
-                Status::Partial
-            };
+                break;
+            }
+            next_unit_index = index + 1;
+            for section in record.units[index]
+                .attempts
+                .iter()
+                .filter_map(|a| a.summary.as_ref())
+                .flat_map(|s| &s.sections)
+            {
+                adopt(section)?;
+            }
+            let mut automatic_retry = false;
+            loop {
+                record = store::read(storage, id)?;
+                if record.status == Status::Stopped || !unit_research_eligible(&record, index) {
+                    break;
+                }
+                checked_manifest(storage, &record)?;
+                let runtime = manager.review_runtime(storage)?;
+                workspace::check_retrieval_grant(
+                    storage,
+                    &record.grant_id,
+                    &record.project_id,
+                    &record.snapshot_id,
+                    &runtime,
+                )?;
+                let question = continuation(storage, &record, index)?;
+                let guide_intent = unit_intent(&record, index)?;
+                let run_id = Uuid::new_v4().to_string();
+                record = begin_unit_with_retry(
+                    storage,
+                    &record,
+                    index,
+                    &run_id,
+                    &question,
+                    automatic_retry,
+                )?;
+                changed(&summary(storage, &record)?);
+                let references = record.plan.as_ref().unwrap().units[index]
+                    .starting_ranges
+                    .iter()
+                    .map(|r| Reference {
+                        path: r.path.clone(),
+                        sha256: Some(r.source_sha256.clone()),
+                        from: Some(r.start_line as u32),
+                        to: Some(r.end_line as u32),
+                    })
+                    .collect();
+                // Keep the command origin until this operation publishes its first
+                // section. On a fresh guide this includes planning; on a refill it
+                // excludes time spent waiting for the reader to consume a slide.
+                let slide_started_at = if published_slide_count(&record) == starting_slide_count {
+                    operation_started_at
+                } else {
+                    Instant::now()
+                };
+                let result = workspace_generation::progressive::run_with_starting_ranges_at(
+                    storage,
+                    Input {
+                        run_id: run_id.clone(),
+                        turn_id: None,
+                        project_id: record.project_id.clone(),
+                        snapshot_id: record.snapshot_id.clone(),
+                        grant_id: record.grant_id.clone(),
+                        question: question.clone(),
+                        references,
+                        model_id: record.model_id.clone(),
+                        effort: record.reasoning_effort.clone(),
+                        renderer_queue_wait_ms: renderer_queue_wait_ms.take(),
+                    },
+                    &record.plan.as_ref().unwrap().units[index].starting_ranges,
+                    Some(&guide_intent),
+                    manager,
+                    jobs.clone(),
+                    journal,
+                    slide_started_at,
+                    &progress,
+                    Arc::clone(&notify),
+                );
+                let operation_error = result.as_ref().err().cloned();
+                let answer = match result {
+                    Ok(answer) => answer,
+                    Err(error) => {
+                        #[cfg(test)]
+                        eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
+                        if reading::exists(storage, &run_id)? {
+                            reading::scoped(
+                                storage,
+                                &run_id,
+                                &record.project_id,
+                                &record.snapshot_id,
+                            )?
+                            .summary()
+                        } else {
+                            synthetic_failed_slide(
+                                &run_id,
+                                &record.project_id,
+                                &record.snapshot_id,
+                                &question,
+                            )
+                        }
+                    }
+                };
+                for section in &answer.sections {
+                    adopt(section)?;
+                }
+                let retryable_content_gap =
+                    answer.outcome != Outcome::Complete && answer.sections.is_empty();
+                record = store::update(storage, id, |current| {
+                    let attempt = current.units[index]
+                        .attempts
+                        .last_mut()
+                        .ok_or("The guide unit disappeared.")?;
+                    if attempt.run_id != run_id {
+                        return Err("The guide's investigation owner changed.".into());
+                    }
+                    if answer.outcome == Outcome::Stopped {
+                        current.status = Status::Stopped;
+                    }
+                    attempt.summary = Some(answer);
+                    current.active_run_id = None;
+                    Ok(())
+                })?;
+                changed(&summary(storage, &record)?);
+
+                let saved_answer = if reading::exists(storage, &run_id)? {
+                    Some(reading::scoped(
+                        storage,
+                        &run_id,
+                        &record.project_id,
+                        &record.snapshot_id,
+                    )?)
+                } else {
+                    None
+                };
+                if operation_requires_halt(
+                    operation_error.as_deref(),
+                    saved_answer.as_ref(),
+                    &record.status,
+                ) {
+                    if record.status == Status::Stopped {
+                        break;
+                    }
+                    return Err(operation_error.unwrap_or_else(|| {
+                        "The guide could not continue safely. Saved sections remain available."
+                            .into()
+                    }));
+                }
+                if let Some(answer) = saved_answer.as_ref() {
+                    check_research_outcome(&record, answer)?;
+                }
+                let can_retry = retryable_content_gap
+                    && record.units[index]
+                        .attempts
+                        .iter()
+                        .filter(|attempt| attempt.automatic_retry)
+                        .count()
+                        < usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
+                    && automatic_slide_retry_allowed(
+                        saved_answer.as_ref(),
+                        operation_error.as_deref(),
+                        &record.status,
+                    );
+                if can_retry {
+                    automatic_retry = true;
+                    continue;
+                }
+                break;
+            }
         }
-        current.active_run_id = None;
-        Ok(())
-    })?;
+        let mut more_slides_authorized = false;
+        record = store::update_if_changed(storage, id, |current| {
+            // A playback receipt can arrive after the last unit-boundary
+            // check. Keep this worker active and resume at the next unit when
+            // that durable receipt extended the runway. The transaction lock
+            // serializes this decision with receipt persistence.
+            if current.status != Status::Stopped
+                && only_unit_key.is_none()
+                && next_unit_index < current.units.len()
+                && published_slide_count(current).saturating_sub(starting_slide_count)
+                    < slide_run_limit(
+                        max_new_slides,
+                        starting_consumed_count,
+                        current,
+                        follow_playback,
+                    )
+            {
+                more_slides_authorized = true;
+                return Ok(false);
+            }
+            if current.status != Status::Stopped {
+                current.status = if terminal_guide_status(current) == Status::Ready {
+                    Status::Ready
+                } else if published_slide_count(current).saturating_sub(starting_slide_count)
+                    >= slide_run_limit(
+                        max_new_slides,
+                        starting_consumed_count,
+                        current,
+                        follow_playback,
+                    )
+                    && opening_continuation::remaining_operations(current) > 0
+                {
+                    Status::WaitingForPlayback
+                } else {
+                    Status::Partial
+                };
+            }
+            current.active_run_id = None;
+            Ok(true)
+        })?;
+        if more_slides_authorized {
+            continue;
+        }
+        break;
+    }
     let result = summary(storage, &record)?;
     changed(&result);
     Ok(result)
@@ -1783,7 +1827,8 @@ pub(crate) async fn resume_repository_guide(
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
     let manager = app.state::<codex_agent::CodexAgentManager>();
-    let record = reconcile(&storage, &record, &manager)?;
+    let latest = store::read(&storage, &id)?;
+    let record = reconcile(&storage, &latest, &manager)?;
     let expected_revision = record.revision;
     let runtime = manager.review_runtime(&storage)?;
     workspace::check_retrieval_grant(
@@ -1872,12 +1917,20 @@ pub(crate) async fn advance_repository_guide(
         .state::<codex_agent::CodexAgentManager>()
         .inner()
         .clone();
-    let Some(lease) = store::lease(&storage, &id)? else {
-        // The receipt is durable before checking ownership. The active owner
-        // observes it at the next slide boundary and extends its bounded runway.
-        return summary(&storage, &record);
+    let lease = match store::lease(&storage, &id)? {
+        Some(lease) => lease,
+        None => {
+            let Some(lease) = wait_for_terminal_guide_handoff(&storage, &id, &record).await? else {
+                // A planning/building owner reads this durable receipt at its
+                // next boundary. A terminal owner gets a short local handoff
+                // window; no provider wait is introduced here.
+                return summary(&storage, &store::read(&storage, &id)?);
+            };
+            lease
+        }
     };
-    let record = reconcile(&storage, &record, &manager)?;
+    let latest = store::read(&storage, &id)?;
+    let record = reconcile(&storage, &latest, &manager)?;
     let slides_needed = guide_buffer_gap(&record);
     if slides_needed == 0
         || record.status == Status::Stopped
@@ -1920,6 +1973,40 @@ pub(crate) async fn advance_repository_guide(
     .await
 }
 
+/// A guide worker can commit its terminal state a few instructions before its
+/// native lease drops. If a playback receipt lands in that interval, wait for
+/// the local lease handoff and take ownership of the requested refill. Live
+/// planning/building runs are left alone: their saved receipt is observed by
+/// the owner's boundary/finalization transaction.
+async fn wait_for_terminal_guide_handoff(
+    storage: &Path,
+    id: &str,
+    receipt_record: &Record,
+) -> Result<Option<crate::file_lease::Lease>, String> {
+    if receipt_record.status == Status::Stopped
+        || receipt_record.active_run_id.is_some()
+        || matches!(&receipt_record.status, Status::Planning | Status::Building)
+    {
+        return Ok(None);
+    }
+    for _ in 0..50 {
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        let current = store::read(storage, id)?;
+        if current.status == Status::Stopped
+            || current.active_run_id.is_some()
+            || matches!(&current.status, Status::Planning | Status::Building)
+            || guide_buffer_gap(&current) == 0
+            || opening_continuation::remaining_operations(&current) == 0
+        {
+            return Ok(None);
+        }
+        if let Some(lease) = store::lease(storage, id)? {
+            return Ok(Some(lease));
+        }
+    }
+    Ok(None)
+}
+
 /// Retry one terminally incomplete outline unit without replaying or advancing
 /// other guide content. A replacement snapshot grant is accepted only after
 /// the native source scope and active Codex runtime have been revalidated.
@@ -1946,7 +2033,8 @@ pub(crate) async fn retry_repository_guide_unit(
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
     let manager = app.state::<codex_agent::CodexAgentManager>();
-    let record = reconcile(&storage, &record, &manager)?;
+    let latest = store::read(&storage, &id)?;
+    let record = reconcile(&storage, &latest, &manager)?;
     let plan = record.plan.as_ref().ok_or("The guide outline is not ready.")?;
     let index = plan
         .units
