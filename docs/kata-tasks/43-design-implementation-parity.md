@@ -115,3 +115,19 @@ A single reconciled reference set, updated product/design contracts, the impleme
 The packaged Fontdone Flow for “The Rust example classifies the constructor result” contained four source-backed nodes and zero edges. The canvas placed them as isolated graph nodes, which looked broken and called them “steps” even though no order or transition was present. Source now renders an edge-free visual as an unordered set of clickable source-point cards with exact source locations, and states that the evidence does not define a path. Real graphs remain interactive; the graph accessibility label now calls their items nodes.
 
 The focused Flow suite passes **6/6**, and `npm run build` passes with the existing large-bundle warning. The app package was not rebuilt because available disk space was 962 MiB, below the previously established 5 GB safe-build threshold after a prior truncated package. This is source/build evidence only; `13yp` still needs a verified native package and screenshot plus its broader screen, theme, and accessibility matrix.
+
+## Fit the current desktop header on one row — 31 October 2026
+
+The open packaged Fontdone window was 1440 CSS pixels wide. Its 1440-pixel
+compact breakpoint put repository controls on a second row even though they
+fit alongside the connection, appearance, notifications and help controls.
+Lowered the compact breakpoint to 1280 pixels. The macOS app and DMG rebuilt
+successfully from source `ebbf189` plus this CSS change; license and bundle
+metadata checks and the DMG checksum passed. The packaged app reopened at the
+same size with all header controls on one in-flow row. Executable SHA-256:
+`0ecf7c68679bade8d91e3f0cfbae60272111dbf1046f8cdb4a1f462aeb1b461f`.
+
+The selected saved Guide contains one scene, so it displays “Scene 1 of 1” and
+does not render previous/next arrows. This check does not qualify multi-scene
+navigation, narrower widths, zoom or accessibility. No screenshot file was
+retained; keep `13yp` and `x21h` open for remaining packaged acceptance.
