@@ -1261,3 +1261,13 @@ label; the visual-policy version was advanced to `ai-html-compositions-v66` so
 new requests use the rule. Saved visual content was not rewritten. This is a
 source-only correction; no test, build, provider request, or packaged review
 ran. Keep generated-visual quality and comprehension acceptance open.
+
+### Keep origin badges aligned with visible values — source correction, 31 October 2026
+
+When the reader suppresses a repeated value because the node label already
+shows it, the renderer now also suppresses the value-origin badge and omits
+that redundant origin phrase from the accessibility name. The node remains
+clickable and keeps its original source value for exact citation navigation.
+This prevents a dangling “Source value” or “Illustrative example” label from
+appearing without the corresponding value. Source-only review; no tests,
+build, provider request, or packaged review ran. Keep `j53m` open.

@@ -129,7 +129,6 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
     if (e.kind === 'divider') return <hr key={index} className={className}/>;
     const node = visual.nodes[e.nodeIndex!];
-    const originLabel = e.valueOrigin === 'source' ? 'Source value' : e.valueOrigin === 'illustration' ? 'Illustrative example' : null;
     const value = e.value;
     // Some saved scenes repeat the same phrase as both the node label and its
     // explanatory value. The label already carries the same visible cue, so
@@ -138,6 +137,8 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       && comparableSceneText(value) !== ''
       && comparableSceneText(value) === comparableSceneText(node.label);
     const displayValue = repeatsPlainLabel ? '' : value;
+    const displayOrigin = displayValue ? e.valueOrigin : 'none';
+    const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : null;
     const sourceValue = e.valueOrigin === 'source' ? value : undefined;
     const focusAnchorId = sourceAnchorIdForNode?.(node.nodeId, sourceValue, sourceAnchorIds) ?? node.sourceAnchorId ?? node.evidenceAnchorIds[0];
     let body: ReactNode = displayValue ? <span className="html-scene-value">{e.valueOrigin === 'source' ? displayValue : <InlineCodeText text={displayValue}/>}</span> : null;
@@ -156,7 +157,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       role="button" tabIndex={0} title={node.detail ? plainInlineCodeText(node.detail) : undefined}
       aria-pressed={focusedNode === node.nodeId}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
-      aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, e.valueOrigin))}
+      aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
       {collapseNodeLabelIndex !== e.nodeIndex && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
       {body}
