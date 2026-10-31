@@ -558,7 +558,14 @@ export function DeveloperWorkspace(props:Props) {
     defaultComparedHead.current=comparisonKey;
     onCompare(head.parents[0],head.oid,false);
   },[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
-  function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false); }
+  function openFile(context:Context) {
+    // A code citation can open a file outside the current Explorer filter. Clear
+    // only a filter that would hide the newly opened source, so the tree and
+    // source pane continue to identify the same file after navigation.
+    const filter=fileFilter.trim().toLocaleLowerCase();
+    if(filter&&sourcePaths.includes(context.path)&&!context.path.toLocaleLowerCase().includes(filter))setFileFilter('');
+    update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false);
+  }
   function openQuickMatch(value:string) {
     const query=value.trim().toLowerCase();
     if(!query)return false;
