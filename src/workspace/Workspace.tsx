@@ -1431,6 +1431,9 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   });
   const nodeLabels=new Map(visual.nodes.map((node)=>[node.nodeId,node.label]));
   const selectedDetailTitle=selectedNode?.label??(selectedEdge?selectedEdge.label.trim()||`${nodeLabels.get(selectedEdge.fromNodeId)??selectedEdge.fromNodeId} → ${nodeLabels.get(selectedEdge.toNodeId)??selectedEdge.toNodeId}`:undefined);
+  const selectionGuidance=(prompt:string)=><p>{selectedDetailTitle
+    ? <>Showing <InlineCodeText text={selectedDetailTitle}/> below. Select another item to inspect.</>
+    : prompt}</p>;
   const edges=visual.edges.map((e)=>{
     const accessibleLabel=e.label.trim()||`${nodeLabels.get(e.fromNodeId)??e.fromNodeId} → ${nodeLabels.get(e.toNodeId)??e.toNodeId}`;
     return {id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:accessibleLabel,
@@ -1439,7 +1442,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   });
   return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{availableDiagramCount>1&&<AppSelect ariaLabel="Diagram section" size="1" value={String(selected)} options={diagrams.flatMap((diagram,index)=>diagram.status==='available'?[{value:String(index),label:plainInlineCodeText(revision.sections[index].title)}]:[])} onValueChange={(value)=>{const section=revision.sections[Number(value)];if(section)onSection(section.sectionId);}}/>}</div>
     {linearSteps ? <>
-      <p>Choose a step to see what the cited code does.</p>
+      {selectionGuidance('Choose a step to see what the cited code does.')}
       <ol className="dw-linear-flow" aria-label={`Steps in ${plainInlineCodeText(visual.title)}`}>
         {linearSteps.map(({node, next}, index) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
@@ -1459,7 +1462,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
         })}
       </ol>
     </> : unlinkedNodes ? <>
-      <p>Choose a card to see the code behind that idea.</p>
+      {selectionGuidance('Choose a card to see the code behind that idea.')}
       <ul className="dw-unlinked-flow" aria-label={`Source points in ${plainInlineCodeText(visual.title)}`}>
         {unlinkedNodes.map((node) => {
           const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
@@ -1475,7 +1478,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
         })}
       </ul>
     </> : <>
-      <p>Choose a point to see what the cited code does.</p>
+      {selectionGuidance('Choose a point to see what the cited code does.')}
       <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,...(selectedNode?{focusedNodeId:selectedNode.nodeId}:selectedEdge?{focusedEdgeId:selectedEdge.edgeId}:{}),layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
     {selectedDetailTitle&&<CodeDetail title={selectedDetailTitle} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
