@@ -10,10 +10,11 @@ const FLOW_NODE_WIDTH = 250;
 // measured each DOM node.
 const FLOW_NODE_HEIGHT = 120;
 // Dense overviews use compact title-only cards. Their full explanation and
-// citations are shown in the detail panel after selection, so a 3×4 map stays
-// readable in the workspace's narrow reader pane.
+// citations are shown in the detail panel after selection. Three visible title
+// lines make the 3×4 overview useful without forcing readers to select every
+// card just to distinguish long labels.
 const DENSE_FLOW_NODE_WIDTH = 140;
-const DENSE_FLOW_NODE_HEIGHT = 64;
+const DENSE_FLOW_NODE_HEIGHT = 72;
 const FLOW_REFERENCE_VIEWPORT = { width: 700, height: 500 };
 
 /** Dense maps use smaller cards so their overview remains readable in the workspace's side pane. */
