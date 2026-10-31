@@ -32,7 +32,7 @@ const MAX_RESPONSE_BYTES: usize = 300 * 1024;
 const MAX_CONTEXT_BYTES: usize = 256 * 1024;
 const MAX_SOURCE_FILES: usize = 24;
 const RPC_TIMEOUT: Duration = Duration::from_secs(30);
-const RUN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const ACCOUNT_PROBE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CANCEL_GRACE: Duration = Duration::from_secs(3);
 const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
 const MAX_CANCELLED_RUNS: usize = 256;
@@ -122,14 +122,14 @@ pub(crate) struct CodexRunInput {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RunDeadline {
-    TenMinutes,
+    BoundedProbe,
     UserControlled,
 }
 
 impl RunDeadline {
     pub(crate) fn duration(self) -> Option<Duration> {
         match self {
-            Self::TenMinutes => Some(RUN_TIMEOUT),
+            Self::BoundedProbe => Some(ACCOUNT_PROBE_TIMEOUT),
             Self::UserControlled => None,
         }
     }
@@ -197,7 +197,7 @@ impl CodexResultAccess<'_> {
         }
         check_cancelled(self.shutdown, Some(self.cancelled))?;
         if self.run_deadline.exceeded(self.started_at) {
-            return Err("The Codex operation exceeded ten minutes, including result validation. No late response was published.".to_owned());
+            return Err("The Codex account probe exceeded its ten-minute limit, including result validation. No late response was published.".to_owned());
         }
         Ok(())
     }
@@ -336,7 +336,7 @@ pub(crate) fn section_owner_for_test(
         runtime: runtime.clone(),
         cancelled: Arc::clone(&cancelled),
         started_at: Instant::now(),
-        run_deadline: RunDeadline::TenMinutes,
+        run_deadline: RunDeadline::BoundedProbe,
     };
     (manager, owner, cancelled)
 }
@@ -796,7 +796,7 @@ impl CodexAgentManager {
             check_cancelled(&self.0.shutdown, Some(&cancelled))?;
             if input.run_deadline.exceeded(started_at) {
                 return Err(
-                    "The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review."
+                    "The Codex account probe exceeded its ten-minute limit before dispatch. Prepare a fresh review."
                         .to_owned(),
                 );
             }
@@ -1408,7 +1408,7 @@ impl ServerProcess {
     {
         check_cancelled(&self.shutdown, Some(cancelled))?;
         if input.run_deadline.exceeded(started_at) {
-            return Err("The Codex operation exceeded ten minutes before creating a thread. No generation was started.".to_owned());
+            return Err("The Codex account probe exceeded its ten-minute limit before creating a thread. No generation was started.".to_owned());
         }
         validate_turn_frame(input, stage)?;
         let mut parameters = thread_start_parameters(
@@ -1555,7 +1555,7 @@ impl ServerProcess {
     {
         check_cancelled(&self.shutdown, Some(cancelled))?;
         if input.run_deadline.exceeded(started_at) {
-            return Err("The Codex operation exceeded ten minutes before starting the model turn. No generation was started.".to_owned());
+            return Err("The Codex account probe exceeded its ten-minute limit before starting the model turn. No generation was started.".to_owned());
         }
         validate_turn_prompt_frame(input, stage, thread_id, prompt)?;
         if self.account_revision != input.expected_runtime.account_revision {
@@ -1586,7 +1586,7 @@ impl ServerProcess {
                 return Err("Codex stopped because Code Atlas is closing.".to_owned());
             }
             if input.run_deadline.exceeded(started_at) {
-                return Err("The Codex run exceeded ten minutes and was stopped. Review again before retrying.".to_owned());
+                return Err("The Codex account probe exceeded its ten-minute limit and was stopped.".to_owned());
             }
             if cancelled.load(Ordering::Acquire) && cancel_at.is_none() {
                 cancel_at = Some(Instant::now());
@@ -3262,7 +3262,7 @@ mod section_publication_tests {
                 prompt_contract_version: "synthetic-cancellation-v1".into(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
-                run_deadline: RunDeadline::TenMinutes,
+                run_deadline: RunDeadline::BoundedProbe,
                 approval_policy: "never".into(),
                 system_instruction: "Synthetic cancellation test; no inference.".into(),
                 user_prompt: "Explain the synthetic constant.".into(),
@@ -3332,7 +3332,7 @@ mod section_publication_tests {
                 "run" => run = Uuid::new_v4().to_string(),
                 "fingerprint" => digest = "e".repeat(64),
                 "stop" => assert!(manager.cancel(&id)),
-                "deadline" => owner.started_at = Instant::now() - RUN_TIMEOUT,
+                "deadline" => owner.started_at = Instant::now() - ACCOUNT_PROBE_TIMEOUT,
                 "shutdown" => manager.0.shutdown.store(true, Ordering::Release),
                 "retired" => {
                     *manager.0.active.lock().unwrap() = Some(ActiveRun {
@@ -3357,9 +3357,9 @@ mod section_publication_tests {
     }
 
     #[test]
-    fn guide_run_has_no_wall_clock_deadline_but_standard_run_keeps_its_guard() {
+    fn user_controlled_runs_have_no_wall_clock_deadline_but_probes_remain_bounded() {
         let started_at = Instant::now() - Duration::from_secs(11 * 60);
-        assert!(RunDeadline::TenMinutes.exceeded(started_at));
+        assert!(RunDeadline::BoundedProbe.exceeded(started_at));
         assert!(!RunDeadline::UserControlled.exceeded(started_at));
         assert_eq!(RunDeadline::UserControlled.duration(), None);
     }
@@ -3415,7 +3415,7 @@ mod section_publication_tests {
                 Ok(())
             })
             .unwrap();
-        owner.started_at = Instant::now() - RUN_TIMEOUT + Duration::from_millis(200);
+        owner.started_at = Instant::now() - ACCOUNT_PROBE_TIMEOUT + Duration::from_millis(200);
         let written = AtomicBool::new(false);
         assert!(
             owner

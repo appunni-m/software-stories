@@ -883,6 +883,11 @@ impl Trace {
                 | "The Codex operation exceeded ten minutes before creating a thread. No generation was started."
                 | "The Codex operation exceeded ten minutes before starting the model turn. No generation was started.",
             ) => Terminal::TimedOut,
+            Err(error)
+                if error.starts_with("The Codex account probe exceeded its ten-minute limit") =>
+            {
+                Terminal::TimedOut
+            }
             Err(_) => Terminal::Failed,
         };
         self.update(|record| {

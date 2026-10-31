@@ -83,7 +83,7 @@ fn installed_codex_repairs_a_leaf_parent_once() {
                 prompt_contract_version: "synthetic-layout-correction-probe-v1".into(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
-                run_deadline: crate::codex_agent::RunDeadline::TenMinutes,
+                run_deadline: crate::codex_agent::RunDeadline::BoundedProbe,
                 approval_policy: "never".into(),
                 system_instruction: system.into(),
                 user_prompt: prompt.clone(),

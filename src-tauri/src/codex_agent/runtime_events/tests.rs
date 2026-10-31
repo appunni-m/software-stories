@@ -20,7 +20,7 @@ impl Fixture {
             prompt_contract_version: "synthetic-runtime-events-v1".into(),
             model: "gpt-6-luna".into(),
             effort: "max".into(),
-            run_deadline: super::super::RunDeadline::TenMinutes,
+            run_deadline: super::super::RunDeadline::BoundedProbe,
             approval_policy: "never".into(),
             system_instruction: "Synthetic protocol fixture, no model.".into(),
             user_prompt: "Synthetic question.".into(),

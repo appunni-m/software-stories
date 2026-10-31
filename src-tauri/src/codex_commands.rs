@@ -1047,7 +1047,10 @@ fn codex_run_failure_kind(message: &str) -> provider::ProviderFailureKind {
     use provider::ProviderFailureKind as Kind;
     if message.starts_with("The Codex run was cancelled locally.") {
         Kind::RequestCancelled
-    } else if message.contains("timed out") || message.contains("exceeded ten minutes") {
+    } else if message.contains("timed out")
+        || message.contains("exceeded ten minutes")
+        || message.starts_with("The Codex account probe exceeded its ten-minute limit")
+    {
         Kind::RequestTimedOut
     } else if message.starts_with("The prepared Codex turn exceeds Codex's local message limit.")
         || message.starts_with("The reviewed context exceeds Codex's local message limit.")
@@ -1087,5 +1090,15 @@ mod tests {
         ] {
             assert_eq!(operation.run_deadline(), RunDeadline::UserControlled);
         }
+    }
+
+    #[test]
+    fn bounded_account_probe_failure_keeps_timeout_classification() {
+        assert!(matches!(
+            super::codex_run_failure_kind(
+                "The Codex account probe exceeded its ten-minute limit before dispatch. Prepare a fresh review."
+            ),
+            crate::provider::ProviderFailureKind::RequestTimedOut
+        ));
     }
 }

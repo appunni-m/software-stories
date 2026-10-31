@@ -227,7 +227,7 @@ The eight-proposal failure is preserved unchanged. Before increasing proposal li
 
 A deterministic macOS queued-packet regression also exposed the intermittent native failure: setting a socket timeout after a peer closes returns OS error 22 while its complete packet remains readable. The owner now uses nonblocking I/O, preserving the 200 ms input/two-second output deadlines, Stop checks and size limits. The regression fails before the fix; the first fixed full suite passes 359 native tests (13 explicit probes ignored). [Contract, reproduction and remaining qualification](../acceptance/2026-10-17-short-native-references.md).
 
-- [x] Choose the bounded citation-transport correction before changing section-attempt allocation; keep eight proposals/six unique sections/64 calls/ten minutes and retain the failed broad artifact.
+- [x] Choose the bounded citation-transport correction before changing section-attempt allocation; keep eight proposals/six unique sections/64 calls and retain the failed broad artifact. These structural limits do not impose an elapsed-time deadline.
 - [ ] Qualify this exact implementation in a fresh isolated full Fontdone investigation. Preserve all rejected proposals and partial/terminal results, inspect actual source claims and scenes, and distinguish native arrival from UI-visible useful-answer timing.
 - [ ] Complete the existing installed reader, complete narrated story/Pocket and accessibility gates. Short-reference reliability and local packet tests do not satisfy these.
 
@@ -380,3 +380,18 @@ app-authored opening-range wording, exact discovery guidance and `nextOffset`
 gap rule; `plan_instructions_keep_the_full_requested_scope` passes. No Guide
 was generated and no provider request was made. Packaged latency, multi-slide
 playback, recovery, accessibility and content-quality acceptance remain open.
+
+## Make the remaining Codex deadline probe-specific — 31 October 2026
+
+All production Codex operations use `RunDeadline::UserControlled`: chapter,
+repository plan, Code Lens, PR Guide, PR Change, workspace question,
+repository discovery and progressive Guide. Their fixed source, call, proposal,
+storage, identity and shutdown guards remain. The only bounded Codex deadline
+is used by the explicit account-probe test. Rename the generic `TenMinutes`
+policy to `BoundedProbe` so a user-started operation cannot accidentally
+inherit it; timeout errors and provider failure classification now identify
+the probe. Focused regressions verify that user-controlled runs remain eligible
+past ten minutes while a probe stays bounded. This is a source-level lifetime
+check: no provider call, fresh Fontdone Guide or packaged UI qualification was
+performed. Keep `3bz5` open for the original quality, progress, reader, audio,
+accessibility and recovery gates.

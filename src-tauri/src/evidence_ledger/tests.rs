@@ -21,7 +21,7 @@ fn setup_with_model(
     model: &str,
     effort: &str,
 ) -> (Ledger, CodexReviewRuntime, AtomicBool) {
-    setup_with_deadline(f, model, effort, codex_agent::RunDeadline::TenMinutes)
+    setup_with_deadline(f, model, effort, codex_agent::RunDeadline::BoundedProbe)
 }
 
 fn setup_with_deadline(
