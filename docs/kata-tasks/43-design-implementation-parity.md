@@ -156,3 +156,21 @@ exploration and Guide visible. The Explorer activity could then be opened with
 the file still selected and the source/Guide state intact. This verifies one
 visual-to-detail-to-source path and one activity-bar transition; it does not
 qualify the original Code Lens exception report or other navigation routes.
+
+## Simplify the PR Guide empty state — 31 October 2026
+
+The Changes tab's PR Guide for `v2.14.3 → main` contained no explainable files:
+the Markdown README is unsupported and the retention inventory diff is too
+large. The packaged empty state repeated the same eligibility sentence and
+called the guide “separate, reviewable history” and a “local draft.” The UI now
+uses the reader-facing “PR GUIDE” / “Draft” labels, says unsupported or
+oversized changes stay out, and shows one concise next step to inspect the
+exclusion reasons or open Diff. File selection and evidence checks are
+unchanged.
+
+The updated app was built and installed, then inspected on the same real
+Fontdone comparison. The empty state and both exclusion reasons were visible;
+no provider request or test suite ran. Executable SHA-256:
+`e949ff72aa5afb5f347da3922ea41a99e0d4607ca4b838c3594f501fdeb5e8da`.
+The live screenshot was reviewed but not retained as a file. Keep the design
+parity and packaged-screen tasks open for their remaining screenshot matrix.

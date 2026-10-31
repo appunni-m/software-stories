@@ -547,10 +547,10 @@ export function PrGuideStudio({
   return (
     <section className="pr-guide-panel" aria-labelledby="pr-guide-title">
       <div className="git-changes-section-heading">
-        <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
-        <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
+        <div><span className="git-changes-kicker">PR GUIDE</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
+        <span className="git-readonly-badge"><BookOpenCheck size={14} /> Draft</span>
       </div>
-      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Files with complete, bounded source changes are included automatically; review the diff before sharing it.':'Select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
+      <p className="pr-guide-muted">{accountOnly?'Review the changes before creating a guide. Files with unsupported or oversized changes stay out of the request.':'Choose the files to explain and review the diff before sending. You can check every claim against its source before saving the guide.'}</p>
       {backend === 'handoff' && <p className="pr-guide-notice" role="status">Manual agent handoff is not available for PR Guides yet. Change the AI connection in the header to use a supported option.</p>}
       {backend === null && <p className="pr-guide-notice" role="alert">The saved AI connection could not be read. Choose a connection in the header before preparing a PR explanation. No request has been sent.</p>}
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
@@ -577,7 +577,7 @@ export function PrGuideStudio({
         <AppButton intent="custom" className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</AppButton></div></div>}
       <details className="pr-guide-included-files" open={accountOnly ? eligibleChanges.length === 0 : true}><summary>{selectedChanges.length} changed {selectedChanges.length===1?'file':'files'} included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
-        {eligibleChanges.length === 0 ? <p>No changed file has a complete, bounded source diff for a PR Guide.</p> : eligibleChanges.map((change) => {
+        {eligibleChanges.length === 0 ? <p>No files can be included in this guide.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
           const checked = selectedKeys.includes(key);
           const pathLabel = labelChange(change);
@@ -603,7 +603,7 @@ export function PrGuideStudio({
           );
         })}
       </fieldset></details>
-      {eligibleChanges.length === 0 && <p className="pr-guide-muted" role="status">No changed files have a complete, bounded source diff for a guide. Review the exclusion reasons below, then open Diff to inspect each change.</p>}
+      {eligibleChanges.length === 0 && <p className="pr-guide-muted" role="status">Check the exclusion reasons below, or open Diff to inspect these changes.</p>}
       {unavailableChanges.length > 0 && <details className="pr-guide-included-files pr-guide-unavailable-files" open={eligibleChanges.length === 0}>
         <summary>{unavailableChanges.length} changed {unavailableChanges.length === 1 ? 'file' : 'files'} available only in Diff</summary>
         <div className="pr-guide-unavailable-list">
