@@ -207,6 +207,39 @@ async fn terminal_playback_receipt_waits_for_the_owner_lease_then_claims_refill(
 }
 
 #[test]
+fn playback_saved_after_the_unit_boundary_extends_runway_during_finalization() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    let completed = attempt(&record, Outcome::Complete);
+    let revision_id = completed.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    record.units[0].attempts.push(completed);
+    store::create(&f.storage, &record).unwrap();
+
+    // The reader finishes this slide after the worker's last ordinary unit
+    // boundary, but before its transactional terminal-state decision.
+    let receipt = record_consumed_slide(&f.storage, &record.id, &revision_id).unwrap();
+    let mut keep_building = false;
+    let saved = store::update_if_changed(&f.storage, &record.id, |current| {
+        let finalized = finalize_slide_run(current, None, 1, 0, 0, 1, true);
+        keep_building = !finalized;
+        Ok(finalized)
+    })
+    .unwrap();
+
+    assert!(keep_building, "the newly heard slide extends the runway");
+    assert_eq!(saved.status, Status::Building);
+    assert_eq!(saved.revision, receipt.revision);
+    assert!(saved.active_run_id.is_none());
+
+    let mut without_receipt = receipt;
+    without_receipt.consumed_slide_revisions.clear();
+    assert!(finalize_slide_run(&mut without_receipt, None, 1, 0, 0, 1, true));
+    assert_eq!(without_receipt.status, Status::WaitingForPlayback);
+}
+
+#[test]
 fn one_slide_retry_requires_a_terminal_failure_and_a_free_runway_slot() {
     let f = Fixture::new();
     let mut record = record(&f);

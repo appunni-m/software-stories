@@ -406,6 +406,51 @@ fn slide_run_limit(
     }
 }
 
+fn finalize_slide_run(
+    current: &mut Record,
+    only_unit_key: Option<&str>,
+    next_unit_index: usize,
+    starting_slide_count: usize,
+    starting_consumed_count: usize,
+    max_new_slides: usize,
+    follow_playback: bool,
+) -> bool {
+    // Recheck the durable playback receipt under the same store transaction
+    // that publishes the terminal status. A receipt committed after the last
+    // unit-boundary check can therefore extend this worker's runway.
+    if current.status != Status::Stopped
+        && only_unit_key.is_none()
+        && next_unit_index < current.units.len()
+        && published_slide_count(current).saturating_sub(starting_slide_count)
+            < slide_run_limit(
+                max_new_slides,
+                starting_consumed_count,
+                current,
+                follow_playback,
+            )
+    {
+        return false;
+    }
+    if current.status != Status::Stopped {
+        current.status = if terminal_guide_status(current) == Status::Ready {
+            Status::Ready
+        } else if published_slide_count(current).saturating_sub(starting_slide_count)
+            >= slide_run_limit(
+                max_new_slides,
+                starting_consumed_count,
+                current,
+                follow_playback,
+            ) && opening_continuation::remaining_operations(current) > 0
+        {
+            Status::WaitingForPlayback
+        } else {
+            Status::Partial
+        };
+    }
+    current.active_run_id = None;
+    true
+}
+
 fn record_consumed_slide(
     storage: &Path,
     guide_id: &str,
@@ -1582,43 +1627,17 @@ fn build_inner(
         }
         let mut more_slides_authorized = false;
         record = store::update_if_changed(storage, id, |current| {
-            // A playback receipt can arrive after the last unit-boundary
-            // check. Keep this worker active and resume at the next unit when
-            // that durable receipt extended the runway. The transaction lock
-            // serializes this decision with receipt persistence.
-            if current.status != Status::Stopped
-                && only_unit_key.is_none()
-                && next_unit_index < current.units.len()
-                && published_slide_count(current).saturating_sub(starting_slide_count)
-                    < slide_run_limit(
-                        max_new_slides,
-                        starting_consumed_count,
-                        current,
-                        follow_playback,
-                    )
-            {
-                more_slides_authorized = true;
-                return Ok(false);
-            }
-            if current.status != Status::Stopped {
-                current.status = if terminal_guide_status(current) == Status::Ready {
-                    Status::Ready
-                } else if published_slide_count(current).saturating_sub(starting_slide_count)
-                    >= slide_run_limit(
-                        max_new_slides,
-                        starting_consumed_count,
-                        current,
-                        follow_playback,
-                    )
-                    && opening_continuation::remaining_operations(current) > 0
-                {
-                    Status::WaitingForPlayback
-                } else {
-                    Status::Partial
-                };
-            }
-            current.active_run_id = None;
-            Ok(true)
+            let finalized = finalize_slide_run(
+                current,
+                only_unit_key,
+                next_unit_index,
+                starting_slide_count,
+                starting_consumed_count,
+                max_new_slides,
+                follow_playback,
+            );
+            more_slides_authorized = !finalized;
+            Ok(finalized)
         })?;
         if more_slides_authorized {
             continue;
