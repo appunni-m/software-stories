@@ -197,3 +197,21 @@ documented `⌘⇧F` shortcut returned focus to Search and selected the existing
 `memory_face` query. The native screenshot and window dimensions were not
 retained; broader keyboard/focus behavior, search ranking, and the remaining
 screen matrix remain unqualified.
+
+## Responsive source lines in the packaged workspace — 31 October 2026
+
+The 31 October packaged screenshot showed long Rust lines extending past the
+visible source pane at a 1440 CSS-pixel-wide workspace. The CodeMirror pane now
+enables line wrapping when its own measured width is 640 CSS pixels or less and
+returns to the editor-style unwrapped view when wider. In Fontdone
+`main@5249b72371`, the installed app wrapped the long `src/font.rs` lines under
+their original line numbers; the code remains visible without horizontal
+scrolling. The app bundle identity is
+`e8b9098303599fe164624011489c25b0a805af4c527b0ec3bd9fe94de3812632`.
+
+This spot-check covers one dark-theme, narrow-pane, real-file state at a 2880 ×
+1680-pixel native screenshot size. The screenshot was visually reviewed but not
+retained as an artifact. Pane-resize transitions, wider source panes, other
+themes, keyboard access, 200% reflow, and the remaining screen matrix remain
+unqualified. The implementation is in `src/design/CodePane.tsx`; this does not
+close the design audit or product-design task.

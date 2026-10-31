@@ -178,6 +178,8 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
+const SOURCE_LINE_WRAP_WIDTH = 640;
+
 function sourceEditorTheme(theme: 'dark' | 'light'): Extension {
   return EditorView.theme({
     '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' },
@@ -204,13 +206,17 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
   const canExplainNow = useRef(canExplain); canExplainNow.current = canExplain;
   useEffect(() => {
     if (!host.current) return;
+    const sourceHost = host.current;
     const language = new Compartment();
     const appearance = new Compartment();
+    const wrapping = new Compartment();
+    let wrapsLongLines = sourceHost.clientWidth > 0 && sourceHost.clientWidth <= SOURCE_LINE_WRAP_WIDTH;
     editorTheme.current = appearance;
-    const view = new EditorView({ parent: host.current, state: EditorState.create({
+    const view = new EditorView({ parent: sourceHost, state: EditorState.create({
       doc: contents, extensions: [
         EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), drawSelection(), highlightActiveLine(),
-        language.of([]), appearance.of(sourceEditorTheme(currentTheme.current)), syntaxHighlighting(colors),
+        language.of([]), appearance.of(sourceEditorTheme(currentTheme.current)),
+        wrapping.of(wrapsLongLines ? EditorView.lineWrapping : []), syntaxHighlighting(colors),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}`, 'aria-readonly': 'true' }),
         keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (!canExplainNow.current || r.empty) return false; callback.current(codeSelectionContext(path, sha256, v.state.doc.lineAt(r.from).number, v.state.doc.lineAt(Math.max(r.from,r.to-1)).number)); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
@@ -221,20 +227,25 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
       ],
     }) });
     editor.current = view; setSelection(null);
-    // At high native zoom the source pane is temporarily display:none and
-    // becomes a full-width view only after the user chooses “Show source”.
-    // Request a fresh CodeMirror measurement when that hidden pane is revealed
-    // so its editor viewport paints at the new dimensions.
+    // Wrap long lines when the actual source pane is narrow, so the code remains
+    // readable without a hidden horizontal scrollbar. At high native zoom the
+    // pane may also be temporarily display:none; measure again when revealed.
     let measureFrame = 0;
     const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries.some((entry) => entry.contentRect.width > 0 && entry.contentRect.height > 0)) return;
+      const entry = entries.find((candidate) => candidate.target === sourceHost);
+      if (!entry || entry.contentRect.width <= 0 || entry.contentRect.height <= 0) return;
+      const shouldWrap = entry.contentRect.width <= SOURCE_LINE_WRAP_WIDTH;
+      if (shouldWrap !== wrapsLongLines) {
+        wrapsLongLines = shouldWrap;
+        view.dispatch({ effects: wrapping.reconfigure(shouldWrap ? EditorView.lineWrapping : []) });
+      }
       cancelAnimationFrame(measureFrame);
       measureFrame = requestAnimationFrame(() => {
         measureFrame = 0;
         if (editor.current === view && view.dom.isConnected) view.requestMeasure();
       });
     });
-    resizeObserver.observe(host.current);
+    resizeObserver.observe(sourceHost);
     const loading = loadLanguageForPath(path);
     if (loading) {
       void loading.then((support) => {
