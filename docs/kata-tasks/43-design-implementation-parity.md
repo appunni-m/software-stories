@@ -174,3 +174,24 @@ no provider request or test suite ran. Executable SHA-256:
 `e949ff72aa5afb5f347da3922ea41a99e0d4607ca4b838c3594f501fdeb5e8da`.
 The live screenshot was reviewed but not retained as a file. Keep the design
 parity and packaged-screen tasks open for their remaining screenshot matrix.
+
+## Packaged Search-to-source path — 31 October 2026
+
+On the same installed build, the preserved `memory_face` search showed local
+matches grouped by file, a visible “Local search may be incomplete” notice,
+and the current count (“78 matches found across 22 files; more matches
+available”). Opening `src/font.rs:4053–4115` loaded that captured range into the
+source pane and kept the same nested Guide visible. No AI request or content
+change occurred. This is one real-repository exact-result path; keyboard access,
+ranking, zoom and the rest of the screen matrix remain unqualified. The
+screenshot was reviewed but not retained.
+
+## Packaged Search no-result path — 31 October 2026
+
+On the same installed build and selected Fontdone snapshot, a unique local query
+produced “No local match; search coverage is incomplete” with an “Explore with
+AI” action. The action was not used; no provider request or content change
+occurred. The prior `memory_face` query was restored afterward. This confirms
+the local no-result fallback and its incomplete-index wording only. The native
+screenshot and window dimensions were not retained, and keyboard/focus behavior,
+search ranking, and the remaining screen matrix remain unqualified.
