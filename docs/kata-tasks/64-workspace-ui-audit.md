@@ -1674,3 +1674,10 @@ wrap inside their available pager lane. Source-only change; no build, tests,
 or installed-app inspection ran. Keep `x21h` and `13yp` open for a populated
 multi-scene Guide, responsive and high-zoom review, and keyboard/accessibility
 acceptance.
+
+### Compact repository/snapshot separator — 31 October 2026
+
+The compact header moves repository controls into their own wrapping row. Its
+vertical separator is now hidden at that breakpoint so it cannot become a
+stranded flex item between wrapped controls. Source-only correction; native
+visual, accessibility, and zoom acceptance remain open.

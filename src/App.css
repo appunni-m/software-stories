@@ -97,6 +97,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
     gap:4px 8px;
     padding:5px 10px;
   }
+  .topbar .header-divider {display:none;}
   .topbar .project-controls {grid-area:project;flex:0 1 auto;flex-wrap:wrap;width:100%;}
   .topbar .topbar-actions {grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;}
   .topbar .project-button {flex:0 1 auto;max-width:min(70cqi,520px);}
