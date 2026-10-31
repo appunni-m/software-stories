@@ -123,7 +123,7 @@ describe('owned local Git comparison client', () => {
     assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits/);
     assert.match(workspace, /<GitHistoryEmptyContext\.Provider value=\{commitHistoryEmpty\}>\{children\}<\/GitHistoryEmptyContext\.Provider>/);
     assert.match(screen, /useContext\(GitHistoryEmptyContext\)/);
-    assert.match(screen, /commitHistoryEmpty \?\? 'Select a commit on the left to inspect its changes\.'/);
+    assert.match(screen, /commitHistoryEmpty \?\? \(baseRef\.trim\(\) && headRef\.trim\(\)[\s\S]*'Compare the selected versions to inspect their changes\.'[\s\S]*'Select a commit on the left to inspect its changes\.'/);
   });
 
   it('keeps the Stop action visible when history starts a comparison in the collapsed ref panel', () => {

@@ -62,7 +62,7 @@ interface Props {
   onPendingLargeFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onReview:(revision:ChapterRevision)=>void;
-  onCompare:(base:string,head:string)=>void; onRememberFile:(path:string)=>void;
+  onCompare:(base:string,head:string,remember?:boolean)=>void; onRememberFile:(path:string)=>void;
   onAnswerRestoration:(state:WorkspaceAnswerRestoration)=>void;
   conversationAvailability?:'ready'|'unavailable';
 }
@@ -556,7 +556,7 @@ export function DeveloperWorkspace(props:Props) {
     const comparisonKey=`${projectId}:${head?.oid??''}`;
     if(!head?.parents[0]||defaultComparedHead.current===comparisonKey)return;
     defaultComparedHead.current=comparisonKey;
-    onCompare(head.parents[0],head.oid);
+    onCompare(head.parents[0],head.oid,false);
   },[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
   function openFile(context:Context) { update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false); }
   function openQuickMatch(value:string) {

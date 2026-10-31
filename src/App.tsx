@@ -175,6 +175,7 @@ import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
+import { readGitComparisonPreference, rememberGitComparisonPreference, restoreGitComparisonPreference } from './lib/gitComparisonPreferences';
 import {
   canNavigateBack,
   canNavigateForward,
@@ -489,7 +490,13 @@ function App() {
         const returnFocusTarget = activeElement instanceof HTMLElement
           ? activeElement.dataset.focusKey
           : undefined;
-        setNavigation((state) => navigateToWorkspace(state, workspace, returnFocusTarget));
+        setNavigation((state) => {
+          const next = navigateToWorkspace(state, workspace, returnFocusTarget);
+          if (workspace !== 'changes' || !next.current.projectId
+            || next.current.baseRef?.trim() || next.current.headRef?.trim()) return next;
+          const saved = readGitComparisonPreference(next.current.projectId);
+          return replaceCurrentRoute(next, restoreGitComparisonPreference(next.current, saved));
+        });
       },
     }),
     [],
@@ -1976,7 +1983,8 @@ function App() {
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision}
               onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
-              onCompare={(baseRef,headRef) => {
+              onCompare={(baseRef,headRef,remember=true) => {
+                if(remember&&currentProject)rememberGitComparisonPreference(currentProject.projectId,baseRef,headRef);
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
                 if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({projectId,title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
               }}>
@@ -2078,13 +2086,16 @@ function App() {
                   headRef={navigation.current.headRef ?? ''}
                   selectedChangePath={navigation.current.selectedChangePath}
                   comparison={currentProject ? gitComparisonsByProject[currentProject.projectId] ?? null : null}
-                  onRefsChange={(baseRef, headRef) => setNavigation((state) => replaceCurrentRoute(state, {
-                    ...state.current,
-                    baseRef,
-                    headRef,
-                    selectedChangePath: undefined,
-                    focusTarget: undefined,
-                  }))}
+                  onRefsChange={(baseRef, headRef, remember=false) => {
+                    if(remember&&currentProject)rememberGitComparisonPreference(currentProject.projectId,baseRef,headRef);
+                    setNavigation((state) => replaceCurrentRoute(state, {
+                      ...state.current,
+                      baseRef,
+                      headRef,
+                      selectedChangePath: undefined,
+                      focusTarget: undefined,
+                    }));
+                  }}
                   onSelectChange={(selectedChangePath) => setNavigation((state) => replaceCurrentRoute(state, {
                     ...state.current,
                     selectedChangePath,

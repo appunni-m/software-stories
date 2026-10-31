@@ -25,7 +25,7 @@ interface GitChangesScreenProps {
   headRef: string;
   selectedChangePath?: string;
   comparison: { baseRef: string; headRef: string; result: GitComparisonResult } | null;
-  onRefsChange: (baseRef: string, headRef: string) => void;
+  onRefsChange: (baseRef: string, headRef: string, remember?: boolean) => void;
   onSelectChange: (path: string | undefined) => void;
   onComparison: (projectId: string, baseRef: string, headRef: string, result: GitComparisonResult) => void;
   onOpenRepository: () => void;
@@ -57,7 +57,7 @@ export function GitChangesScreen({
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
   const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
-  const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(false);
+  const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(() => compact && Boolean(initialBaseRef.trim() || initialHeadRef.trim()));
   const previousComparisonResult = useRef(comparison?.result);
   const collapseAfterSuccessfulComparison = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
@@ -107,7 +107,7 @@ export function GitChangesScreen({
     const controller = new AbortController();
     activeRequest.current = controller;
     setError(null);
-    onRefsChange(nextBaseRef, nextHeadRef);
+    onRefsChange(nextBaseRef, nextHeadRef, true);
     try {
       const result = await compareLocalGitRevisions(projectId, nextBaseRef, nextHeadRef, controller.signal);
       if (sequence === requestSequence.current) onComparison(projectId, nextBaseRef, nextHeadRef, result);
@@ -151,7 +151,9 @@ export function GitChangesScreen({
   return (
     <div className="git-changes-workflow">
       <section className="git-ref-card" aria-labelledby="git-ref-title">
-        {compact && !matchingComparison && <p className="git-commit-hint">{commitHistoryEmpty ?? 'Select a commit on the left to inspect its changes.'}</p>}
+        {compact && !matchingComparison && <p className="git-commit-hint">{commitHistoryEmpty ?? (baseRef.trim() && headRef.trim()
+          ? 'Compare the selected versions to inspect their changes.'
+          : 'Select a commit on the left to inspect its changes.')}</p>}
         <details
           className="git-compare-options"
           open={!compact || busy || comparisonOptionsOpen}

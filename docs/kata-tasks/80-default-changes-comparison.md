@@ -96,3 +96,25 @@ or provider state changed.
 This reconfirms acceptance cases 1–2 on the current installed bundle. The
 branch/tag range, restart persistence of a custom range, empty/initial history,
 and distinct error states remain open; keep Kata `0vd8` open.
+
+## Custom branch/tag refs survive app restart — 31 October 2026
+
+The Changes screen now stores the last submitted explicit local ref pair in
+per-repository local storage. It restores that pair when Changes opens without
+route refs, opens the range editor so the values are visible, and leaves the
+automatic HEAD-versus-parent default unstored. Malformed, oversized, and
+unavailable preferences are ignored. Source coverage is in
+`tests/gitComparisonPreferences.test.mjs`.
+
+Packaged acceptance on the rebuilt app (executable SHA-256
+`45f9d1a5bd4056b4603938b5b6215169d80e1daf732447b81c1be6f6a3c97feb`):
+compared tag `v2.14.3` to branch `main` in Fontdone, quit and relaunched Code
+Atlas, then reopened Changes. The range editor showed the same `v2.14.3` and
+`main` refs with the prompt to compare them. The comparison is not silently
+rerun after restart; the user can activate **Compare versions**. I returned to
+the original Guide and `src/api.rs:710–728`. No AI request, repository write,
+or saved-answer change occurred.
+
+The pair's persistence and visible restoration are now qualified. Empty and
+initial history, distinct failure states, and partial/oversized comparisons
+remain to be checked; keep Kata `0vd8` open.
