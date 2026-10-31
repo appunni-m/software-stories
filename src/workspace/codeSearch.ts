@@ -61,8 +61,17 @@ function localMatcher(query:string,terms:readonly string[]):(value:string)=>numb
   return (value:string)=>{
     const parts=searchableParts(value);
     if(!parts.length)return 0;
-    const matched=terms.filter(term=>parts.some(part=>part===term
-      ||(Math.min(part.length,term.length)>=3&&(part.startsWith(term)||term.startsWith(part)))));
+    const matched=terms.filter(term=>parts.some(part=>{
+      if(part===term)return true;
+      if(Math.min(part.length,term.length)<3)return false;
+      if(part.startsWith(term))return true;
+      // Permit common plural endings when the user typed the longer form,
+      // but never let an unrelated long term match a short source token
+      // (for example, "nonexistent" matching the identifier "None").
+      if(!term.startsWith(part))return false;
+      const suffix=term.slice(part.length);
+      return suffix==='s'||suffix==='es';
+    }));
     if(!matched.length)return 0;
     const normalized=parts.join(' ');
     const exactPhrase=phrase&&normalized.includes(phrase)?1_000:0;
