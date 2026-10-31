@@ -1289,3 +1289,23 @@ repeating the same node name at every outcome. The offline renderer now applies
 the same normalized visible-label comparison and preserves the accessible node
 name and local source link. Source-only review; no tests, build, export, or
 packaged review ran. Keep `j53m` open.
+
+### Recover the focused Guide canvas after first layout — 31 October 2026
+
+The packaged Fontdone workspace restored Scene 4 with its graph pane blank
+until the reader left the scene and returned. The first repair checked only
+after graph hydration and the initial React Flow frames, which could finish
+before the split pane acquired its final size. The Guide now retries its
+one-time missing-node/camera recovery from the canvas resize path once the pane
+has nonzero dimensions. This discards only the stale camera when repair is
+needed; the scene, audio position and focus remain saved. The app also keeps
+edge labels to 120 px, moves React Flow controls to the lower-right and
+migrates saved v4/v5 Guide positions to v6 without the old camera.
+
+The optimized unsigned macOS package and metadata/checksum verification
+completed. The rebuilt app was installed and opened on the saved Fontdone
+workspace directly at Scene 4; the graph and its three source-backed nodes and
+two edges were visible on first open, without navigating away and back. This
+is a bounded packaged startup check, not a visual-quality, accessibility,
+comprehension or audio acceptance pass. No test suite or provider request ran;
+keep `j53m` open for the remaining gates.

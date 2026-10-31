@@ -55,7 +55,7 @@ test('focused graph progress keeps its current layout and exact section position
     assert.deepEqual(browserProgress.progress.viewport,story.viewport);
   }
   assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(focused)),undefined);
-  assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-2}),undefined);
+  assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:3}),undefined);
   assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:1}),undefined);
 });
 

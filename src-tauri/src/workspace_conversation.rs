@@ -12,7 +12,7 @@ use tauri::AppHandle;
 
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
 const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 5;
-const FOCUSED_STORY_LAYOUT_VERSION: u64 = 4;
+const FOCUSED_STORY_LAYOUT_VERSION: u64 = 6;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
@@ -789,15 +789,24 @@ fn discard_stale_reader_positions(state: &mut Value) {
 
 /// Keep a saved Guide position only when its answer/section ownership fields
 /// are syntactically usable. Ownership itself remains checked by `validate`.
-/// Optional progress fields are disposable and are repaired independently so
-/// one malformed scene offset does not hide the saved conversation.
+/// Older camera layouts retain scene/audio/focus state but discard the viewport
+/// so the reader can fit the current visual without hiding the saved answer.
 fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
     let story = story.as_object_mut()?;
-    if !matches!(
-        story.get("focusLayoutVersion").and_then(Value::as_u64),
-        Some(FOCUSED_STORY_LAYOUT_VERSION)
-    ) {
+    let layout_version = story.get("focusLayoutVersion").and_then(Value::as_u64)?;
+    if !matches!(layout_version, 4 | 5 | FOCUSED_STORY_LAYOUT_VERSION) {
         return None;
+    }
+
+    // The Guide scene graph changed edge-label sizing in v6. Older saved
+    // cameras may frame that layout incorrectly, so retain the reading
+    // location and focus while letting the frontend fit the new scene.
+    if layout_version != FOCUSED_STORY_LAYOUT_VERSION {
+        story.remove("viewport");
+        story.insert(
+            "focusLayoutVersion".into(),
+            Value::from(FOCUSED_STORY_LAYOUT_VERSION),
+        );
     }
 
     let revision = story.get("revisionId").and_then(Value::as_str)?.to_owned();

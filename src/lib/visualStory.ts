@@ -21,7 +21,7 @@ export function supportsStoryFullMap(visual: EvidenceLinkedVisualSpec | undefine
 }
 
 export const STORY_NODE_WIDTH = 195;
-export const STORY_EDGE_LABEL_MAX_WIDTH = 180;
+export const STORY_EDGE_LABEL_MAX_WIDTH = 120;
 export const STORY_EDGE_LABEL_HEIGHT = 40;
 export const STORY_EDGE_LABEL_GAP = 12;
 
@@ -322,11 +322,9 @@ export function storyLayoutWithDirection(visual: EvidenceLinkedVisualSpec, inclu
   return {
     direction: horizontal ? 'horizontal' : 'vertical',
     nodes: nodes.map((node) => {
-    const level = rank.get(node.nodeId) ?? 0;
-    const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
-    const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
-    // Leave enough horizontal room for a source-linked edge label between
-    // adjacent nodes instead of placing the label over one of the nodes.
+      const level = rank.get(node.nodeId) ?? 0;
+      const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
+      const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
       return { id: node.nodeId, position: horizontal ? { x: level * 340, y: across } : { x: across * 1.8, y: level * 94 } };
     }),
   };
@@ -441,7 +439,7 @@ export function readSectionStoryProgress(progress:StoryProgress|undefined,identi
   return result;
 }
 
-function isCurrentStoryProgress(value: unknown): value is StoryProgress {
+function isCurrentStoryProgress(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   const required = ['revisionId', 'sectionId', 'sectionRevisionId', 'sceneId', 'positions', 'fullMap', 'focusLayoutVersion'];
@@ -449,6 +447,6 @@ function isCurrentStoryProgress(value: unknown): value is StoryProgress {
   const actual = Object.keys(record);
   return actual.every(key => allowed.includes(key))
     && required.every(key => Object.hasOwn(record, key))
-    && record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION
+    && (record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION || record.focusLayoutVersion === 4 || record.focusLayoutVersion === 5)
     && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }

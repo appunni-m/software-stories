@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
+import { FOCUSED_STORY_LAYOUT_VERSION } from '../src/lib/readerProgress.ts';
 import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceEvidenceAnchorForVisualNodeInScene, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
@@ -783,7 +784,7 @@ describe('visual story scenes', () => {
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 4 };
     const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
-    assert.deepEqual(progress, { status: 'available', progress: saved });
+    assert.deepEqual(progress, { status: 'available', progress: { ...saved, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION } });
     const restored = readSectionStoryProgress(progress.status === 'available' ? progress.progress : undefined, identity, scenes);
     assert.deepEqual(restored, { index: 1, positions: [['entry', 12.4], ['check', 3.2]], fullMap: false, viewport: undefined });
     assert.equal('autoPlay' in restored, false);

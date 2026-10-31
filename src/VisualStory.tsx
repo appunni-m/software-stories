@@ -145,6 +145,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const [focusedSourceValue, setFocusedSourceValue] = useState<string | undefined>();
   const [focusedSourceAnchorId, setFocusedSourceAnchorId] = useState<string | undefined>();
   const [sceneDetailsOpen, setSceneDetailsOpen] = useState(false);
+  const [flowRemount, setFlowRemount] = useState(0);
+  const initialFlowRepairKey = useRef<string | null>(null);
   const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
   const authoredScenes = visual?.presentation.scenes.filter((item) => scenes.length === 1
@@ -319,8 +321,33 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       }];
     });
   };
+  const recoverInitialFlowCanvas = (instance: FlowViewportInstance) => {
+    if (!graphData.current.nodes.length || initialFlowRepairKey.current === section.sectionRevisionId) return false;
+    const stage = storyStage.current;
+    const size = stage?.getBoundingClientRect();
+    if (!stage || !size || size.width <= 0 || size.height <= 0) return false;
+    const expected = graphData.current.nodes.map((node) => node.id);
+    const present = new Set(instance.getNodes().map((node) => node.id));
+    const renderedCount = stage.querySelectorAll('.react-flow__node').length;
+    const incomplete = expected.some((id) => !present.has(id)) || renderedCount < expected.length;
+    const nodeBounds = instance.getNodesBounds(expected);
+    const bounds = storyViewportBounds(nodeBounds, edgeLabelBoundsFor(instance));
+    const needsRefit = bounds.width > 0 && bounds.height > 0
+      && storyViewportNeedsRefit(bounds, instance.getViewport(), size.width, size.height, 28);
+    const missingBounds = bounds.width <= 0 || bounds.height <= 0;
+    initialFlowRepairKey.current = section.sectionRevisionId;
+    if (incomplete || missingBounds || needsRefit) {
+      // The reader progress keeps its scene, audio offset, and focus. Only the
+      // camera is discarded so the remounted canvas performs a fresh fit.
+      canvasViewport.current = undefined;
+      setFlowRemount((value) => value + 1);
+      return true;
+    }
+    return false;
+  };
 
   const visibleNodeKey = JSON.stringify([...visibleIds]);
+  const flowCanvasKey = `${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`;
   useEffect(() => {
     // Saved chapter data can hydrate after the native reader mounts its Guide
     // canvas. Reconcile that new graph even when React Flow initialized with
@@ -335,7 +362,11 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       const latest = graphData.current;
       instance.setNodes(latest.nodes);
       instance.setEdges(latest.edges);
-      scheduleViewportCheck.current();
+      requestAnimationFrame(() => {
+        if (flowInstance.current !== instance) return;
+        scheduleViewportCheck.current();
+        recoverInitialFlowCanvas(instance);
+      });
     });
   }, [visual, visibleNodeKey, scene.id, fullMap, revision.revisionId, section.sectionRevisionId]);
   useEffect(() => {
@@ -350,6 +381,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         const instance = flowInstance.current;
         const currentStage = storyStage.current;
         if (!instance?.viewportInitialized || !currentStage) return;
+        const size = currentStage.getBoundingClientRect();
+        if (size.width <= 0 || size.height <= 0) return;
+        // The pane can acquire its final dimensions after the initial mount
+        // and hydration frames. Retry the one-time graph repair once that
+        // layout is usable, rather than relying on a later scene change.
+        if (recoverInitialFlowCanvas(instance)) return;
         if (flowFitInProgress.current) {
           // Node measurements can arrive while fitView is running. Preserve
           // that invalidation so its final viewport is checked against the
@@ -359,7 +396,6 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         }
         const nodeBounds = instance.getNodesBounds([...visibleIds]);
         const bounds = storyViewportBounds(nodeBounds, edgeLabelBoundsFor(instance));
-        const size = currentStage.getBoundingClientRect();
         if (!bounds.width || !bounds.height) return;
         if (!storyViewportNeedsRefit(bounds, instance.getViewport(), size.width, size.height, 28)) return;
 
@@ -420,7 +456,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode}
         sourceAnchorIdForNode={sourceAnchorIdForNode} sourceAnchorIds={section.claims[item.claimIndex]?.anchors.map((itemAnchor) => itemAnchor.anchorId) ?? []} focusedNode={focusedNode} showTitle={false}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
-      <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
+      <ReactFlow key={`${flowCanvasKey}:${flowRemount}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
         aria-label={`Read-only visual explanation: ${plainInlineCodeText(visual.title)}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
         onInit={(instance) => {
           flowInstance.current = instance;
@@ -439,6 +475,15 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
             instance.setEdges(latest.edges);
             scheduleViewportCheck.current();
           });
+          if (graphData.current.nodes.length && initialFlowRepairKey.current !== section.sectionRevisionId) {
+            // A restored Guide can initialize React Flow before its controlled
+            // canvas has painted its controlled nodes. Retry after the first
+            // layout frames and remount only if visible nodes are missing or
+            // the restored camera still clips the scene.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              if (flowInstance.current === instance) recoverInitialFlowCanvas(instance);
+            }));
+          }
           const saved = canvasViewport.current;
           if (saved) {
             void instance.setViewport(saved, { duration: 0 }).then(() => {
@@ -452,7 +497,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         onNodesChange={(changes) => { if (changes.some((change) => change.type === 'dimensions')) scheduleViewportCheck.current(); }}
         onMoveEnd={(_event,viewport)=>{const clean=cleanFlowViewport(viewport);if(clean&&activeScene.current===scene.id&&mapView.current===fullMap){canvasViewport.current=clean;savePosition(scene.id);}}}
         minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} preventScrolling={false} colorMode="system">
-        <Background gap={24} /><Controls showInteractive={false} />
+        <Background gap={24} /><Controls position="bottom-right" showInteractive={false} />
       </ReactFlow>
     </div> : <div className="story-source-stage">
       <div className={`story-no-visual${anchor ? ' story-source-fallback' : ''}${(canRefreshSavedVisual && onRefreshVisual) || anchor ? ' has-actions' : ''}`} role="group"
