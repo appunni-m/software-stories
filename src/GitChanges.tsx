@@ -163,8 +163,10 @@ export function GitChangesScreen({
           {compact && matchingComparison && <span
             className="git-compare-summary-pair"
             title={`From ${matchingComparison.baseRef} to ${matchingComparison.headRef}`}
-            aria-label={`Current comparison, from ${matchingComparison.baseRef} to ${matchingComparison.headRef}`}
-          >{shortGitRef(matchingComparison.baseRef)} <span aria-hidden="true">→</span> {shortGitRef(matchingComparison.headRef)}</span>}
+          >
+            <span aria-hidden="true">{shortGitRef(matchingComparison.baseRef)} → {shortGitRef(matchingComparison.headRef)}</span>
+            <span className="sr-only">Current comparison, from {matchingComparison.baseRef} to {matchingComparison.headRef}</span>
+          </span>}
         </summary>
         <div className="git-changes-section-heading">
           <div>
