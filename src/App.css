@@ -132,9 +132,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .connection-header {flex:1 1 100%;width:100%;max-width:min(100%,230px);}
 }
 html[data-app-zoom-compact="true"] .topbar {
-  grid-template-columns:minmax(0,1fr);
-  grid-template-areas:"brand" "actions" "project";
-  align-items:stretch;
+  grid-template-columns:auto minmax(0,1fr);
+  grid-template-areas:"brand actions" "project project";
+  align-items:center;
   gap:4px 8px;
   padding:4px 8px;
 }
@@ -159,6 +159,13 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;
 html[data-app-zoom-compact="true"] .topbar .snapshot-button {width:100%;max-width:100%;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button {white-space:normal;}
 html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {white-space:normal;}
+@container app-window (max-width:680px) {
+  html[data-app-zoom-compact="true"] .topbar {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"brand" "actions" "project";
+    align-items:stretch;
+  }
+}
 
 .app-body { flex: 1; min-height: 0; display: flex; }
 .workspace { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
