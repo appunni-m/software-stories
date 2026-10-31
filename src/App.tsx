@@ -2119,11 +2119,6 @@ function App() {
                     },
                   });
                 }}
-                onGenerateOverview={() => setProviderDialog({
-                  kind: 'overview',
-                  projectId: currentProject.projectId,
-                  snapshotId: selectedSnapshot.snapshotId,
-                })}
                 onGenerate={(targetPath) => reviewFileWithProvider(targetPath)}
               />
             ) : currentWorkspace === 'chapter-studio' && selectedSnapshot ? (
@@ -4331,7 +4326,7 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
   </details>;
 }
 
-function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {
+function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection }: {
   projectId: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
@@ -4344,7 +4339,6 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   onGoPlan: () => void;
   onGenerate: (path: string) => void;
   onRegenerateSection: (revision: ChapterRevision, section: ChapterSection, selectedPaths: string[], repairSessionId: string) => void;
-  onGenerateOverview: () => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
   const nativeRuntime = isNativeRuntime();
@@ -4879,7 +4873,6 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <p>Choose a file, check its cited lines, and edit one section at a time.</p>
           </div>
           <div className="chapter-studio-top-actions">
-            <AppButton intent="primary" onClick={onGenerateOverview} disabled={!nativeRuntime || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason)} title={!nativeRuntime ? 'Open the Mac app to check saved chapter history before generating an overview.' : preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : editing || pendingDraft ? 'Restore, discard, save, or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</AppButton>
             <AppButton intent="secondary" onClick={onGoPlan}><ListChecks size={14} /> Guide</AppButton>
             <span className="chapter-studio-snapshot">Snapshot <code>{snapshotId.slice(-12)}</code></span>
           </div>
@@ -4948,7 +4941,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   {chapterStudioCanGenerate(historyAvailability, status) && !pendingDraft ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <AppButton intent="secondary" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</AppButton>}
                     {selectedTarget.overview && !selectedTarget.latestCurrent
-                      ? <AppButton intent="primary" onClick={onGenerateOverview} disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined}><Sparkles size={14} /> Generate current overview</AppButton>
+                      ? <AppButton intent="primary" onClick={onGoPlan}><ListChecks size={14} /> Open Guide</AppButton>
                       : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
                         && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
                         && <AppButton intent="primary" disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined} onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</AppButton>}

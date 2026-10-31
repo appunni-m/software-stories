@@ -592,7 +592,10 @@ export function DeveloperWorkspace(props:Props) {
     // source pane continue to identify the same file after navigation.
     const filter=fileFilter.trim().toLocaleLowerCase();
     if(filter&&sourcePaths.includes(context.path)&&!context.path.toLocaleLowerCase().includes(filter))setFileFilter('');
-    update((s)=>rememberSourceContext(s,s.currentId,context));setReveal(context);setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false);
+    update((s)=>rememberSourceContext(s,s.currentId,context));
+    // Reopening the same result after scrolling must run CodePane's reveal effect again.
+    setReveal({...context});
+    setCodeOpen(true);setNarrowPane('source');onRememberFile(context.path);setSearchFocused(false);
   }
   function openQuickMatch(value:string) {
     const query=value.trim().toLowerCase();

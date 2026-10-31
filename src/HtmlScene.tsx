@@ -121,25 +121,31 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     const node = visual.nodes[e.nodeIndex!];
     const originLabel = e.valueOrigin === 'source' ? 'Source value' : e.valueOrigin === 'illustration' ? 'Illustrative example' : null;
     const value = e.value;
+    // Some saved scenes repeat the same phrase as both the node label and its
+    // explanatory value. The label already carries the same visible cue, so
+    // rendering the identical value below it adds visual noise without detail.
+    const repeatsPlainLabel = ['card', 'token', 'text'].includes(e.kind)
+      && value.trim().replace(/\s+/gu, ' ') === node.label.trim().replace(/\s+/gu, ' ');
+    const displayValue = repeatsPlainLabel ? '' : value;
     const sourceValue = e.valueOrigin === 'source' ? value : undefined;
     const focusAnchorId = sourceAnchorIdForNode?.(node.nodeId, sourceValue, sourceAnchorIds) ?? node.sourceAnchorId ?? node.evidenceAnchorIds[0];
-    let body: ReactNode = value ? <span className="html-scene-value">{e.valueOrigin === 'source' ? value : <InlineCodeText text={value}/>}</span> : null;
-    if (e.kind === 'bytes') body = <span className="html-byte-strip">{value.trim().split(/\s+/u).map((cell, i) => <span key={i}><b>{cell}</b><small>{i}</small></span>)}</span>;
+    let body: ReactNode = displayValue ? <span className="html-scene-value">{e.valueOrigin === 'source' ? displayValue : <InlineCodeText text={displayValue}/>}</span> : null;
+    if (e.kind === 'bytes') body = <span className="html-byte-strip">{displayValue.trim().split(/\s+/u).map((cell, i) => <span key={i}><b>{cell}</b><small>{i}</small></span>)}</span>;
     if (e.kind === 'matrix') {
-      const rows = value.trimEnd().split(/\r?\n/u);
+      const rows = displayValue.trimEnd().split(/\r?\n/u);
       const matrixLabel = [
         `${rows.length} by ${rows[0].length} cell representation`,
         ...rows.map((row, rowIndex) => `row ${rowIndex + 1}: ${row}`),
       ].join('; ');
       body = <span className="html-pixel-matrix" role="img" aria-label={matrixLabel} style={{ gridTemplateColumns: `repeat(${rows[0].length}, 1fr)` }}>{rows.flatMap((row, y) => [...row].map((cell, x) => <i key={`${x}:${y}`} className={cell === '1' ? 'is-filled' : ''}/>))}</span>;
     }
-    if (e.kind === 'table') body = <table><tbody>{value.trimEnd().split(/\r?\n/u).map((row, i) => <tr key={i}>{row.split('|').map((cell, j) => i === 0 ? <th key={j} scope="col">{cell}</th> : <td key={j}>{cell}</td>)}</tr>)}</tbody></table>;
-    if (e.kind === 'code') body = value ? <pre><code>{value}</code></pre> : null;
+    if (e.kind === 'table') body = <table><tbody>{displayValue.trimEnd().split(/\r?\n/u).map((row, i) => <tr key={i}>{row.split('|').map((cell, j) => i === 0 ? <th key={j} scope="col">{cell}</th> : <td key={j}>{cell}</td>)}</tr>)}</tbody></table>;
+    if (e.kind === 'code') body = displayValue ? <pre><code>{displayValue}</code></pre> : null;
     return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ? plainInlineCodeText(node.detail) : undefined}
       aria-pressed={focusedNode === node.nodeId}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
-      aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, value, e.valueOrigin))}
+      aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, e.valueOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
       {collapseNodeLabelIndex !== e.nodeIndex && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
       {body}
