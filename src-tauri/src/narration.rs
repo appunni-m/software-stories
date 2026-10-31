@@ -3439,4 +3439,31 @@ mod tests {
         assert!(!temporary.exists());
         assert_eq!(fs::read_dir(storage.path()).unwrap().count(), 0);
     }
+
+    #[test]
+    fn pocket_audio_cache_pruning_keeps_recent_entry_within_file_limit() {
+        let storage = TestStorage::new();
+        let cache_dir = storage.path().join("pocket-cache");
+        fs::create_dir_all(&cache_dir).expect("cache directory should be created");
+
+        let oldest = cache_dir.join(format!("{:064x}.wav", 0));
+        let newest = cache_dir.join(format!("{:064x}.wav", MAX_POCKET_CACHE_FILES));
+        for index in 0..=MAX_POCKET_CACHE_FILES {
+            let path = cache_dir.join(format!("{index:064x}.wav"));
+            fs::write(&path, [index as u8]).expect("cache entry should be written");
+            fs::File::open(&path)
+                .expect("cache entry should be open")
+                .set_modified(UNIX_EPOCH + Duration::from_secs(index as u64 + 1))
+                .expect("cache access time should be controllable");
+        }
+
+        prune_pocket_audio_cache(&cache_dir, Some(&newest));
+
+        let remaining = fs::read_dir(&cache_dir)
+            .expect("cache directory should remain readable")
+            .count();
+        assert_eq!(remaining, MAX_POCKET_CACHE_FILES);
+        assert!(!oldest.exists(), "oldest cached audio should be pruned");
+        assert!(newest.exists(), "the just-used audio should be preserved");
+    }
 }
