@@ -37,7 +37,7 @@ test('commit history gives useful empty and initial-only guidance only after loa
   assert.equal(commitHistoryEmptyMessage([], { ...ready, loaded: false }), null, 'do not flash an empty state before the first read');
   assert.equal(commitHistoryEmptyMessage([], { ...ready, loading: true }), null);
   assert.equal(commitHistoryEmptyMessage([], { ...ready, stopped: true }), null);
-  assert.equal(commitHistoryEmptyMessage([], { ...ready, error: 'Git unavailable' }), null);
+  assert.match(commitHistoryEmptyMessage([], { ...ready, error: 'Git unavailable' }), /history could not load.*error in the sidebar.*refresh/i);
   assert.match(commitHistoryEmptyMessage([], ready), /No commits yet.*create the first commit.*refresh/i);
   assert.match(commitHistoryEmptyMessage([{ parents: [], isHead: true }], ready), /initial commit.*create another commit/i);
   assert.equal(commitHistoryEmptyMessage(commits, ready), null, 'a comparable history keeps its commit list');

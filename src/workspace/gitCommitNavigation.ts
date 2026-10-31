@@ -34,7 +34,8 @@ export function commitHistoryEmptyMessage(
   commits: readonly Pick<GitCommit, 'parents' | 'isHead'>[],
   state: { loaded: boolean; loading: boolean; stopped: boolean; error: string | null },
 ): string | null {
-  if (!state.loaded || state.loading || state.stopped || state.error) return null;
+  if (state.error) return 'Commit history could not load. Review the error in the sidebar, then select Refresh to try again.';
+  if (!state.loaded || state.loading || state.stopped) return null;
   if (commits.length === 0) return 'No commits yet. Create the first commit in your Git tool, then select Refresh here.';
   const head = commits.find((commit) => commit.isHead);
   if (!head) return 'The current commit is unavailable in this history. Refresh to try again.';
