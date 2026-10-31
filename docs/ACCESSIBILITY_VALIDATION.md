@@ -295,3 +295,30 @@ Unresolved controls or announcements: spoken VoiceOver output; a complete
 The accessibility settings and page zoom were restored to their original
 off/100% values. The saved scene was returned to scene 1; no narration played,
 and no answer, notice, or receipt was modified.
+
+### Packaged workspace Tab-focus follow-up — 2026-10-31
+
+```text
+Tester: Codex via native computer use
+App: Code Atlas 0.1.0, source commit 362dd44, executable SHA-256
+  45f9d1a5bd4056b4603938b5b6215169d80e1daf732447b81c1be6f6a3c97feb
+Repository / snapshot ID: fontdone / main@5249b72371
+Journey: with the saved Guide open on Chat history, Tab reached Explorer,
+  Search, Changes, Explorations, file filter, selected src/api.rs, source/Guide
+  splitter, exploration breadcrumb, Guide me, Show the flow, chat composer,
+  attach-open-file, source-pane close, Explain this code, Add selection to chat,
+  Guide/Flow/Chat history tabs, history search, a saved-question summary and its
+  Open question action.
+Visible focus: pass for this sampled path. The screenshot showed a clear focus
+  outline around Open question. No controls were activated; no provider request,
+  repository change, or saved-answer change occurred.
+Keyboard-only journey: partial only. This was Tab traversal on one populated
+  Guide/Chat history state; Return/Space activation, exact focus return, source
+  citation/back, Search, Changes, Guide/Flow, dialogs, and recovery remain
+  unverified. The screenshot was inspected in-session but not persisted as a
+  repository artifact.
+VoiceOver, 200% zoom, contrast, and Reduce Motion: not checked in this pass.
+```
+
+This narrows the focus-order gap for one workspace state but does not satisfy
+the native acceptance run sheet. Keep `bcn2` open.
