@@ -1212,8 +1212,8 @@ function Answer(props:AnswerProps){
   const unavailableSequenceCount=sectionItems.reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const mappedErrorMessage=turn.error?explanationErrorMessage(turn.error):undefined;
-  const failureMessage=explanationFailureMessage(turn.failureCode)
-    ??(mappedErrorMessage!==turn.error?mappedErrorMessage:undefined);
+  const failureMessage=(mappedErrorMessage!==turn.error?mappedErrorMessage:undefined)
+    ??explanationFailureMessage(turn.failureCode);
   const progressText=questionProgressText(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide,sections.length>0);
   const completedSequenceLabel=()=>{
@@ -1254,7 +1254,7 @@ function Answer(props:AnswerProps){
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!props.hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
-    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={props.onStop}><Square size={12}/>Stop</AppButton></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?guideRecovery.action:'Explain again'}</AppButton>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</AppButton></>}</div>
+    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={props.onStop}><Square size={12}/>Stop</AppButton></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?guideRecovery.action:'Explain again'}</AppButton>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?failureMessage??'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</AppButton></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
@@ -1353,7 +1353,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   };
   const readableError=turn.error?explanationErrorMessage(turn.error):undefined;
   const knownEvidenceError=!!turn.error&&readableError!==turn.error;
-  const failureMessage=explanationFailureMessage(turn.failureCode);
+  const failureMessage=(knownEvidenceError?readableError:undefined)??explanationFailureMessage(turn.failureCode);
   const terminalStatus=turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped';
   const terminalMessage=turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':failureMessage??(knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.');
   const terminalNotice=terminalStatus&&<><p className="dw-error" role="status">{terminalMessage}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<AppButton size="1" intent="secondary" onClick={onRetry}>Try this question again</AppButton></>;
