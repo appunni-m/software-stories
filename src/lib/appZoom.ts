@@ -24,6 +24,10 @@ export function installAppZoom():Promise<void> {
       }
       document.documentElement.dataset.appZoom=String(percent);
       document.documentElement.dataset.appZoomCompact=String(compactZoomLayout(percent));
+      // The app header contains both repository controls and app-wide actions.
+      // It runs out of breathing room before the deeper workspace should switch
+      // to its compact single-pane layout, so reflow just the header at 160%.
+      document.documentElement.dataset.appZoomHeaderCompact=String(percent>=160);
       if(event.persist===true)try{localStorage.setItem(APP_ZOOM_KEY,String(percent));}catch{/* Zoom still works for this window. */}
     };
     let percent=100;try{percent=savedZoom(localStorage.getItem(APP_ZOOM_KEY));}catch{/* Open at the actual default. */}

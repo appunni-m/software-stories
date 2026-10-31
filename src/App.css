@@ -131,36 +131,36 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 @container app-window (max-width: 420px) {
   .topbar .connection-header {flex:1 1 100%;width:100%;max-width:min(100%,230px);}
 }
-html[data-app-zoom-compact="true"] .topbar {
+html[data-app-zoom-header-compact="true"] .topbar {
   grid-template-columns:auto minmax(0,1fr);
   grid-template-areas:"brand actions" "project project";
   align-items:center;
   gap:4px 8px;
   padding:4px 8px;
 }
-html[data-app-zoom-compact="true"] .topbar .project-controls {
+html[data-app-zoom-header-compact="true"] .topbar .project-controls {
   grid-area:project;
   flex:0 1 auto;
   flex-wrap:wrap;
   width:100%;
   max-width:100%;
 }
-html[data-app-zoom-compact="true"] .topbar .topbar-actions {
+html[data-app-zoom-header-compact="true"] .topbar .topbar-actions {
   grid-area:actions;
   flex-flow:row wrap;
   width:100%;
-  justify-content:flex-start;
+  justify-content:flex-end;
   gap:8px;
   margin-left:0;
   padding-inline:0;
 }
-html[data-app-zoom-compact="true"] .topbar .project-button {flex:0 1 auto;max-width:min(70cqi,520px);}
-html[data-app-zoom-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(70cqi,360px);}
-html[data-app-zoom-compact="true"] .topbar .snapshot-button {width:100%;max-width:100%;}
-html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button {white-space:normal;}
-html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {white-space:normal;}
+html[data-app-zoom-header-compact="true"] .topbar .project-button {flex:0 1 auto;max-width:min(70cqi,520px);}
+html[data-app-zoom-header-compact="true"] .topbar .snapshot-picker-wrap {flex:0 1 auto;max-width:min(70cqi,360px);}
+html[data-app-zoom-header-compact="true"] .topbar .snapshot-button {width:100%;max-width:100%;}
+html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button {white-space:normal;}
+html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > span {white-space:normal;}
 @container app-window (max-width:680px) {
-  html[data-app-zoom-compact="true"] .topbar {
+  html[data-app-zoom-header-compact="true"] .topbar {
     grid-template-columns:minmax(0,1fr);
     grid-template-areas:"brand" "actions" "project";
     align-items:stretch;
