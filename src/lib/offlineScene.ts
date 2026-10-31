@@ -10,11 +10,39 @@ export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, cha
  * Destinations are generated package anchors; no model HTML, CSS or URL runs.
  */
 export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLinkedVisualSpec, evidenceHref: (nodeIndex: number, sourceValue?: string) => string | undefined): string {
-  const draw = (index: number): string => {
+  const firstNodeIndices = new Map<number, number | null>();
+  const firstNodeIndex = (index: number): number | null => {
+    if (firstNodeIndices.has(index)) return firstNodeIndices.get(index) ?? null;
+    const element = scene.elements[index];
+    if (element?.nodeIndex !== null && element?.nodeIndex !== undefined) {
+      firstNodeIndices.set(index, element.nodeIndex);
+      return element.nodeIndex;
+    }
+    for (const childIndex of sceneChildIndices(scene.elements, index)) {
+      const nodeIndex = firstNodeIndex(childIndex);
+      if (nodeIndex !== null) {
+        firstNodeIndices.set(index, nodeIndex);
+        return nodeIndex;
+      }
+    }
+    firstNodeIndices.set(index, null);
+    return null;
+  };
+  const draw = (index: number, collapseNodeLabelIndex: number | null = null): string => {
     const element = scene.elements[index];
     const cls = `scene-element scene-${element.kind} scene-tone-${element.tone}`;
     if (containerKinds.has(element.kind)) {
       const childIndices = sceneChildIndices(scene.elements, index);
+      const childNodeIndices = childIndices.map(firstNodeIndex);
+      const childNodeLabels = childNodeIndices.map(nodeIndex => nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label);
+      const firstChildLabel = childNodeLabels[0];
+      const repeatedBranchLabels = collapseNodeLabelIndex === null && element.kind === 'branch'
+        && childNodeLabels.length > 1 && firstChildLabel !== undefined
+        && childNodeLabels.every(childLabel => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
+      const children = childIndices.map((childIndex, childPosition) => draw(
+        childIndex,
+        collapseNodeLabelIndex ?? (repeatedBranchLabels && childPosition > 0 ? childNodeIndices[childPosition] : null),
+      ));
       const labels: Record<string, string> = {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
         stack: 'Last-in, first-out stack. Top item is next to pop.',
@@ -26,9 +54,10 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
         selector: 'Ordered first-match selector; checks are evaluated in source order',
       };
       const label = labels[element.kind];
-      const children = childIndices.map(draw);
       if (element.kind === 'selector') {
-        return `<div class="${cls}" role="group" aria-label="${label}">${childIndices.map((check, checkIndex) => `<div class="scene-selector-step"><span class="scene-selector-label">Check ${checkIndex + 1}</span>${draw(check)}${checkIndex < childIndices.length - 1 ? '<div class="scene-selector-handoff"><span aria-hidden="true">↓</span><span>No match · continue</span></div>' : ''}</div>`).join('')}</div>`;
+        const repeatedSelectorLabels = childNodeLabels.length > 1 && firstChildLabel !== undefined
+          && childNodeLabels.every(childLabel => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
+        return `<div class="${cls}" role="group" aria-label="${label}">${childIndices.map((check, checkIndex) => `<div class="scene-selector-step"><span class="scene-selector-label">Check ${checkIndex + 1}</span>${draw(check, repeatedSelectorLabels && checkIndex > 0 ? childNodeIndices[checkIndex] : null)}${checkIndex < childIndices.length - 1 ? '<div class="scene-selector-handoff"><span aria-hidden="true">↓</span><span>No match · continue</span></div>' : ''}</div>`).join('')}</div>`;
       }
       if (element.kind === 'transform') {
         const slots = ['Input', 'Operation', 'Result'];
@@ -72,7 +101,7 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     }
     const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : '';
     const origin = originLabel ? `<small class="scene-origin">${originLabel}</small>` : '';
-    const content = `<span class="scene-label">${inlineCodeHtml(node.label)}</span>${body}${origin}`;
+    const content = `${collapseNodeLabelIndex === element.nodeIndex ? '' : `<span class="scene-label">${inlineCodeHtml(node.label)}</span>`}${body}${origin}`;
     const href = evidenceHref(element.nodeIndex!, element.valueOrigin === 'source' ? element.value : undefined);
     const accessibleLabel = escapeSceneText(plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin, 'Open supporting code')));
     // Even a programming error in the destination callback cannot introduce an

@@ -1280,3 +1280,12 @@ normalization now lives in the shared scene-presentation helper, and both
 renderers use it. Offline markup hides the same redundant cue and badge while
 preserving the original source value in its local citation target. Source-only
 review; no tests, build, export, or packaged review ran. Keep `j53m` open.
+
+### Keep repeated branch and selector labels consistent offline — source correction, 31 October 2026
+
+The live renderer also collapses identical child labels in branch outcomes and
+ordered selectors, keeping the decision/probe structure visible without
+repeating the same node name at every outcome. The offline renderer now applies
+the same normalized visible-label comparison and preserves the accessible node
+name and local source link. Source-only review; no tests, build, export, or
+packaged review ran. Keep `j53m` open.

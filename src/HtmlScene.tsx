@@ -40,11 +40,11 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     const childIndices = sceneChildIndices(scene.elements, index);
     const childNodeIndices = childIndices.map(firstNodeIndex);
     const childNodeLabels = childNodeIndices.map((nodeIndex) =>
-      nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label.trim().toLowerCase());
+      nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label);
     const firstChildLabel = childNodeLabels[0];
     const repeatedBranchLabels = collapseNodeLabelIndex === null && e.kind === 'branch'
       && childNodeLabels.length > 1 && firstChildLabel !== undefined
-      && childNodeLabels.every((childLabel) => childLabel === firstChildLabel);
+      && childNodeLabels.every((childLabel) => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
     const children = childIndices.map((childIndex, childPosition) => {
       const childCollapseIndex = collapseNodeLabelIndex
         ?? (repeatedBranchLabels && childPosition > 0 ? childNodeIndices[childPosition] : null);
@@ -65,7 +65,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       const label = labels[e.kind];
       if (e.kind === 'selector') {
         const repeatedSelectorLabels = childNodeLabels.length > 1 && firstChildLabel !== undefined
-          && childNodeLabels.every((childLabel) => childLabel === firstChildLabel);
+          && childNodeLabels.every((childLabel) => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
         return <div key={index} className={className} role="group" aria-label={label}>
           {childIndices.map((check, checkIndex) => <div className="html-scene-selector-step" key={check}>
             <span className="html-scene-selector-label" role="img" aria-label={`Probe ${checkIndex + 1}`} title={`Probe ${checkIndex + 1}`}>{String(checkIndex + 1).padStart(2, '0')}</span>
