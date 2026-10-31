@@ -27,12 +27,12 @@ export function commitHistoryEmptyMessage(
   state: { loaded: boolean; loading: boolean; stopped: boolean; error: string | null },
 ): string | null {
   if (!state.loaded || state.loading || state.stopped || state.error) return null;
-  if (commits.length === 0) return 'No commits yet. Create the first commit, then refresh to compare changes.';
+  if (commits.length === 0) return 'No commits yet. Create the first commit in your Git tool, then select Refresh here.';
   const head = commits.find((commit) => commit.isHead);
   if (!head) return 'The current commit is unavailable in this history. Refresh to try again.';
-  if (head.parents.length === 0) return 'The current commit is the initial commit. Create another commit to compare changes.';
+  if (head.parents.length === 0) return 'This is the initial commit. Create another commit in your Git tool, then select Refresh to compare changes.';
   if (!commits.some((commit) => commit.parents.length > 0)) {
-    return 'Only the initial commit is available. Create another commit to compare changes.';
+    return 'Only the initial commit is available. Create another commit in your Git tool, then select Refresh to compare changes.';
   }
   return null;
 }
