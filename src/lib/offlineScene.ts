@@ -1,5 +1,5 @@
 import type { EvidenceLinkedVisualSpec } from './commands';
-import { containerKinds, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './scenePresentation.ts';
+import { containerKinds, sameVisibleSceneText, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './scenePresentation.ts';
 import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
 
 export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, character => ({
@@ -46,9 +46,13 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     if (element.kind === 'arrow') return `<span class="${cls}" aria-hidden="true">↓</span>`;
     if (element.kind === 'divider') return `<hr class="${cls}">`;
     const node = visual.nodes[element.nodeIndex!];
+    const repeatsPlainLabel = ['card', 'token', 'text'].includes(element.kind)
+      && sameVisibleSceneText(element.value, node.label);
+    const displayValue = repeatsPlainLabel ? '' : element.value;
+    const displayOrigin = displayValue ? element.valueOrigin : 'none';
     const value = element.valueOrigin === 'source' || element.kind === 'code'
-      ? escapeSceneText(element.value)
-      : inlineCodeHtml(element.value);
+      ? escapeSceneText(displayValue)
+      : inlineCodeHtml(displayValue);
     let body = value ? `<span class="scene-value">${value}</span>` : '';
     if (element.kind === 'code' && value) body = `<pre><code>${value}</code></pre>`;
     if (element.kind === 'bytes') {
@@ -66,11 +70,11 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     if (element.kind === 'table') {
       body = `<table><tbody>${element.value.trimEnd().split(/\r?\n/u).map((row, i) => `<tr>${row.split('|').map(cell => i === 0 ? `<th scope="col">${escapeSceneText(cell)}</th>` : `<td>${escapeSceneText(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     }
-    const originLabel = element.valueOrigin === 'source' ? 'Source value' : element.valueOrigin === 'illustration' ? 'Illustrative example' : '';
+    const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : '';
     const origin = originLabel ? `<small class="scene-origin">${originLabel}</small>` : '';
     const content = `<span class="scene-label">${inlineCodeHtml(node.label)}</span>${body}${origin}`;
     const href = evidenceHref(element.nodeIndex!, element.valueOrigin === 'source' ? element.value : undefined);
-    const accessibleLabel = escapeSceneText(plainInlineCodeText(sceneNodeAccessibleLabel(node, element.value, element.valueOrigin, 'Open supporting code')));
+    const accessibleLabel = escapeSceneText(plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin, 'Open supporting code')));
     // Even a programming error in the destination callback cannot introduce an
     // external/local URL, attribute or executable link into the package.
     return href && /^#[a-zA-Z0-9-]+$/u.test(href)

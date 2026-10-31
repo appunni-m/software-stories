@@ -1,4 +1,5 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
+import { plainInlineCodeText } from './inlineCode';
 
 export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'pointFlow' | 'tree' | 'queue'
   | 'selector' | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
@@ -32,6 +33,19 @@ const index = (v: unknown, bound: number): v is number => typeof v === 'number' 
 export function sceneChildIndices(elements: readonly SceneElement[], parentIndex: number): number[] {
   const children = elements.flatMap((child, childIndex) => child.parentIndex === parentIndex ? [childIndex] : []);
   return elements[parentIndex]?.kind === 'stack' ? children.reverse() : children;
+}
+
+/** Compare the text readers actually see when detecting duplicate scene cues. */
+export function sameVisibleSceneText(left: string, right: string): boolean {
+  const comparable = (value: string) => plainInlineCodeText(value)
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .replace(/[.!?…。！？]+$/u, '')
+    .toLowerCase();
+  const normalizedLeft = comparable(left);
+  return normalizedLeft !== '' && normalizedLeft === comparable(right);
 }
 
 const requiresOrderedSelector = (claim: string, title: string, narration: string) => {

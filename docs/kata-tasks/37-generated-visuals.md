@@ -1271,3 +1271,12 @@ clickable and keeps its original source value for exact citation navigation.
 This prevents a dangling “Source value” or “Illustrative example” label from
 appearing without the corresponding value. Source-only review; no tests,
 build, provider request, or packaged review ran. Keep `j53m` open.
+
+### Keep offline scene cues consistent with the live reader — source correction, 31 October 2026
+
+The offline exporter previously rendered duplicate label/value text and its
+origin badge even after the live Guide suppressed them. Visible-text
+normalization now lives in the shared scene-presentation helper, and both
+renderers use it. Offline markup hides the same redundant cue and badge while
+preserving the original source value in its local citation target. Source-only
+review; no tests, build, export, or packaged review ran. Keep `j53m` open.

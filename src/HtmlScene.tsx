@@ -1,20 +1,10 @@
 import type { ReactNode } from 'react';
 import { ArrowDown, ArrowRight, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
-import { containerKinds, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
+import { containerKinds, sameVisibleSceneText, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
 import { InlineCodeText } from './InlineCodeText';
 import { plainInlineCodeText } from './lib/inlineCode';
 import './html-scene.css';
-
-function comparableSceneText(value: string): string {
-  return plainInlineCodeText(value)
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/gu, '')
-    .replace(/\s+/gu, ' ')
-    .trim()
-    .replace(/[.!?…。！？]+$/u, '')
-    .toLowerCase();
-}
 
 /** The AI composes HTML from bounded layout/data primitives. React owns every
  * tag, style and event; model strings never become executable DOM or CSS.
@@ -134,8 +124,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     // explanatory value. The label already carries the same visible cue, so
     // rendering the identical value below it adds visual noise without detail.
     const repeatsPlainLabel = ['card', 'token', 'text'].includes(e.kind)
-      && comparableSceneText(value) !== ''
-      && comparableSceneText(value) === comparableSceneText(node.label);
+      && sameVisibleSceneText(value, node.label);
     const displayValue = repeatsPlainLabel ? '' : value;
     const displayOrigin = displayValue ? e.valueOrigin : 'none';
     const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : null;
