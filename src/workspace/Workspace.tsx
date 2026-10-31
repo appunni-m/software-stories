@@ -315,7 +315,7 @@ export function DeveloperWorkspace(props:Props) {
   const guideStackHasHiddenQuestions=visibleGuideQuestionCount<allGuideQuestionCount;
   const showGuideStackControl=guideStackHasHiddenQuestions||groupedGuideAttemptCount>0||guideStackExpanded;
   const groupedGuideAttemptSummary=groupedGuideAttemptCount>0
-    ?' Earlier attempts are grouped under each question.'
+    ?' Earlier outcomes are kept under each question.'
     :'';
   const guideStackStatus=guideStackExpanded
     ?`Showing all ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
@@ -1028,7 +1028,7 @@ export function DeveloperWorkspace(props:Props) {
                     return <div className="dw-guide-attempt-group" key={group.key}>
                       {renderAnswer(group.representative,groupedBranches)}
                       <details className="dw-guide-attempt-history">
-                        <summary>Show {group.otherTurns.length} earlier attempt{group.otherTurns.length===1?'':'s'}</summary>
+                        <summary>Show earlier outcomes</summary>
                         {group.otherTurns.map((turn)=>renderAnswer(turn,[],true))}
                       </details>
                     </div>;
@@ -1070,10 +1070,10 @@ export function DeveloperWorkspace(props:Props) {
                       const entry=historyEntry(visibleTurn,availableRevisionIds,chaptersLoading);
                       if(group.turns.length===1)return renderHistoryTurn(exploration,visibleTurn);
                       return <div key={group.key} className={`dw-history-retry-group${currentTurn?' is-current':''}`}>
-                        <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong><span>{group.turns.length}{historySearchTerm?' matching':''} attempts</span></div>
+                        <div className="dw-history-retry-heading"><strong><InlineCodeText text={questionSummaryText(visibleTurn.question)}/></strong></div>
                         <p><InlineCodeText text={entry.text}/></p>
-                        <AppButton intent="custom" className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest attempt'}</small></AppButton>
-                        <details className="dw-history-retries"><summary>Show all attempts</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
+                        <AppButton intent="custom" className="dw-text-action" aria-current={currentTurn?'page':undefined} onClick={()=>{update((s)=>openWorkspaceQuestion(s,exploration.id,visibleTurn.id,currentTurn?historyTurnId??undefined:undefined));setNarrowPane('explanation');onWorkspace('guide-plan');}}>{entry.action}<ArrowRight size={13}/><small className="dw-history-current">{currentTurn?'Current':'Latest'}</small></AppButton>
+                        <details className="dw-history-retries"><summary>Show earlier outcomes</summary>{group.turns.map((turn)=>renderHistoryTurn(exploration,turn))}</details>
                       </div>;
                     })}
                   </section>)}
@@ -1224,7 +1224,7 @@ function Answer(props:AnswerProps){
       {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}
       <ExplorationBranchLinks branches={branches} onGo={props.onGo}/>
     </footer>}
-    {sections.length===0&&!progressText&&<p className="dw-empty-answer">No section was published for this attempt. Earlier saved explanations are still in the library.</p>}
+    {sections.length===0&&!progressText&&<p className="dw-empty-answer">No explanation was saved for this question. Earlier saved explanations are still in the library.</p>}
   </section>;
 }
 function AnswerDiagnostics({project,snapshot,runId}:{project:string;snapshot:string;runId:string}) {

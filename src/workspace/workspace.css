@@ -312,7 +312,6 @@
 .dw-history-retry-group.is-current {border-color:var(--accent);box-shadow:inset 2px 0 var(--accent);}
 .dw-history-retry-heading {display:flex;align-items:flex-start;gap:var(--space-2);}
 .dw-history-retry-heading strong {min-width:0;flex:1;font-size:13px;line-height:1.6;font-weight:600;overflow-wrap:anywhere;}
-.dw-history-retry-heading span {flex:none;color:var(--muted);font-size:12px;white-space:nowrap;}
 .dw-history-retry-group > p {margin:var(--space-2) 0;color:var(--muted);font-size:12px;line-height:1.6;}
 .dw-history-retries {margin-top:var(--space-2);border-top:1px solid var(--border);}
 .dw-history-retries > summary {padding-top:var(--space-2);color:var(--muted);font-size:12px;cursor:pointer;}

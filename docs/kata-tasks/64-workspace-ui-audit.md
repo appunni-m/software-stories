@@ -1681,3 +1681,16 @@ The compact header moves repository controls into their own wrapping row. Its
 vertical separator is now hidden at that breakpoint so it cannot become a
 stranded flex item between wrapped controls. Source-only correction; native
 visual, accessibility, and zoom acceptance remain open.
+
+### Keep generation run counts out of the reading surface — 31 October 2026
+
+Read-only inspection of the populated Fontdone workspace found raw generation
+run counts and repeated “attempt” labels in Guide, Chat history, and grouped
+notifications. Those counts describe platform work, not the explanation a
+developer came to read. The latest outcome remains visible, and earlier
+outcomes stay available under a disclosure; the visible labels now describe
+outcomes and updates without exposing run totals. The count-only heading style
+was removed. No question, source, revision, notification, or provider state was
+changed during inspection. This source change has not been rebuilt or reviewed
+in the installed app; keep `x21h` and `13yp` open for packaged-page, keyboard,
+VoiceOver, contrast, and high-zoom acceptance.

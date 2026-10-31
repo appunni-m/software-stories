@@ -1673,13 +1673,13 @@ function App() {
         id: `question:${projectId}:${snapshotId}:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
         message: `${projectName} · ${questionNotificationText(outcome.question, 140)}`,
         groupKey,
-        bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
+        bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'updates',
         read: outcome.read, tone: outcome.tone,
         groupActions: groupedOutcomes.length>1?[
           ...(unreadGroupedOutcomes.length?[{label:`Mark all ${unreadGroupedOutcomes.length} read`,run:()=>{
             if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,unreadGroupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'read'));
           }}]:[]),
-          {label:`Dismiss all ${groupedOutcomes.length} attempts`,run:()=>{
+          {label:`Dismiss all ${groupedOutcomes.length} updates`,run:()=>{
             if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,groupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'dismissed'));
           }}]:undefined,
         actions: [{ label: 'Open question', movesFocus: true, run: () => {
@@ -1739,7 +1739,7 @@ function App() {
     ...sortInterruptedOperations(interruptedOperations,currentProject?.projectId).map((operation): WorkspaceNotification => ({
       id: `interrupted:${operation.operationId}`, projectId: operation.projectId, snapshotId: operation.snapshotId ?? undefined, tone: 'warning',
       bucket: 'attention', groupKey: interruptedNotificationGroupKey(operation),
-      countLabel: operation.providerRequest?.repositoryPlan?.question ? 'attempts' : 'recoveries',
+      countLabel: operation.providerRequest?.repositoryPlan?.question ? 'updates' : 'recoveries',
       detail: `Started ${new Date(operation.startedAtUnixMs).toLocaleString()}`,
       title: operation.kind === 'capture' ? 'Repository update interrupted' : 'Explanation interrupted',
       message: interruptedNotificationMessage(operation, knownProjects[operation.projectId]?.displayName),
