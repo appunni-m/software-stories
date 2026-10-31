@@ -77,3 +77,22 @@ No repository files or refs changed and no AI operation ran.
 This covers explicit commit-range retention across activity navigation. A
 branch-name or tag-name range, custom comparison after restart, empty history,
 initial commit, failure messages, and partial/oversized states remain open.
+
+## Rechecked on the current packaged build — 31 October 2026
+
+On the installed app built from `d91e3f2759a065bea8e44a5ccdaab8a550898591`
+(executable SHA-256
+`e8c761717da958e3ef9efd8b7d9e621ec6659672f95bad61790da18d2c0fd93b`), Fontdone
+`main@5249b72371` opened Changes directly on `HEAD` versus its first parent:
+`7c48b706482b` → `5249b7237194`. The two changed files were shown with truthful
+`Unsupported` and `Oversized` labels; the README's textual hunk remained
+inspectable with its exact added line. Selecting `7c48b706482b` changed the
+comparison to its parent, `f3096b4e4c91` → `7c48b706482b`, and showed four
+changed files. Returning to the `HEAD` row restored the default comparison.
+I then restored the original Explorer, Fontdone exploration, Guide, selected
+`src/api.rs:710–728`, and scene 2 of 3. No repository ref or file, explanation,
+or provider state changed.
+
+This reconfirms acceptance cases 1–2 on the current installed bundle. The
+branch/tag range, restart persistence of a custom range, empty/initial history,
+and distinct error states remain open; keep Kata `0vd8` open.
