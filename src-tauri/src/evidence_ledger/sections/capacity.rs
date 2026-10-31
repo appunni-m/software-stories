@@ -66,6 +66,19 @@ fn owned(binding: &Binding, owner: &AnswerReservation) -> Result<(), String> {
     Ok(())
 }
 
+fn reserve_unreadable_record(
+    operation_id: &str,
+    owners: &HashMap<&str, &AnswerReservation>,
+    standalone_records: &mut usize,
+) -> Result<(), String> {
+    if !owners.contains_key(operation_id) {
+        *standalone_records = (*standalone_records)
+            .checked_add(1)
+            .ok_or("Saved answer capacity could not be counted.")?;
+    }
+    Ok(())
+}
+
 pub(super) fn check(
     storage: &Path,
     candidate: Option<&AnswerReservation>,
@@ -130,9 +143,6 @@ pub(super) fn check(
                 {
                     continue;
                 }
-                let bytes = read_bytes(&path)?;
-                let envelope: serde_json::Value = crate::strict_json::from_slice(&bytes)
-                    .map_err(|_| "A saved answer is damaged; it was preserved.")?;
                 let operation_id = path
                     .file_stem()
                     .and_then(|name| name.to_str())
@@ -140,19 +150,37 @@ pub(super) fn check(
                 if !canonical_uuid(operation_id) {
                     return Err("A saved answer identity is invalid; it was preserved.".into());
                 }
-                let schema_version = envelope
+                if incoming.is_some_and(|binding| binding.operation_id == operation_id) {
+                    return Err(
+                        "This investigation already has a saved answer. It was preserved.".into(),
+                    );
+                }
+                let bytes = match read_bytes(&path) {
+                    Ok(bytes) => bytes,
+                    Err(_) => {
+                        reserve_unreadable_record(operation_id, &owners, &mut standalone_records)?;
+                        continue;
+                    }
+                };
+                let envelope: serde_json::Value = match crate::strict_json::from_slice(&bytes) {
+                    Ok(envelope) => envelope,
+                    Err(_) => {
+                        reserve_unreadable_record(operation_id, &owners, &mut standalone_records)?;
+                        continue;
+                    }
+                };
+                let Some(schema_version) = envelope
                     .get("schemaVersion")
                     .and_then(serde_json::Value::as_u64)
-                    .ok_or("A saved answer has no valid schema version; it was preserved.")?;
+                else {
+                    reserve_unreadable_record(operation_id, &owners, &mut standalone_records)?;
+                    continue;
+                };
                 if schema_version < NARRATION_ANSWER_VERSION as u64 {
                     // Historical receipts stay byte-for-byte on disk and
                     // count toward the same total. Guide-owned paths are
                     // already covered by that guide's reserved lifetime slots.
-                    if !owners.contains_key(operation_id) {
-                        standalone_records = standalone_records
-                            .checked_add(1)
-                            .ok_or("Saved answer capacity could not be counted.")?;
-                    }
+                    reserve_unreadable_record(operation_id, &owners, &mut standalone_records)?;
                     continue;
                 }
                 if schema_version > NARRATION_ANSWER_VERSION as u64 {
@@ -160,18 +188,16 @@ pub(super) fn check(
                         "A newer saved answer exists. Update Code Atlas before starting another investigation.".into(),
                     );
                 }
-                let answer: Answer = serde_json::from_value(envelope)
-                    .map_err(|_| "A saved answer is damaged; it was preserved.")?;
+                let answer: Answer = match serde_json::from_value(envelope) {
+                    Ok(answer) => answer,
+                    Err(_) => {
+                        reserve_unreadable_record(operation_id, &owners, &mut standalone_records)?;
+                        continue;
+                    }
+                };
                 if answer.binding.operation_id != operation_id {
                     return Err(
                         "A saved answer identity changed. Existing work was preserved.".into(),
-                    );
-                }
-                if incoming
-                    .is_some_and(|binding| binding.operation_id == answer.binding.operation_id)
-                {
-                    return Err(
-                        "This investigation already has a saved answer. It was preserved.".into(),
                     );
                 }
                 if let Some(owner) = owners.get(answer.binding.operation_id.as_str()) {
