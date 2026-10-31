@@ -469,6 +469,14 @@ export function DeveloperWorkspace(props:Props) {
   },[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:sourcePaths[0],explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:sourcePaths[0]}:e)}));},[state.file,sourcePaths]);
   useEffect(()=>{
+    const selectedPath=state.file;
+    if(!selectedPath||!sourcePaths.includes(selectedPath))return;
+    setFileFilter((currentFilter)=>{
+      const filter=currentFilter.trim().toLocaleLowerCase();
+      return filter&&!selectedPath.toLocaleLowerCase().includes(filter)?'':currentFilter;
+    });
+  },[state.file,sourcePaths]);
+  useEffect(()=>{
     if(!routePath)return;
     if(!sourcePaths.includes(routePath)){
       sourceReadRevision.current+=1;
