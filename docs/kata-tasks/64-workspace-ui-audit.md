@@ -1718,3 +1718,21 @@ was removed. No question, source, revision, notification, or provider state was
 changed during inspection. This source change has not been rebuilt or reviewed
 in the installed app; keep `x21h` and `13yp` open for packaged-page, keyboard,
 VoiceOver, contrast, and high-zoom acceptance.
+
+### Keep visual source links inside their authored claim — 31 October 2026
+
+Source review found that the full Guide already resolves a visual cue against
+its scene's claim anchors, but stacked answer previews and offline exports
+could search the whole section. When two claims cite the same code value, a
+preview or exported scene could therefore open a different claim's source.
+Both paths now receive the scene's claim anchor IDs. A scene-local source
+binding wins when it contains the displayed value; otherwise the exact value
+is resolved only within that claim. Offline scenes with no matching claim
+evidence are left without a source link.
+
+Focused visual-story and offline-export suites pass 74/74, `npm run build`
+passes, and `git diff --check` is clean. The responsive-layout regression
+assertions were aligned to the current bounded flex pager rather than its
+superseded grid layout. This is source-level evidence: the new change has not
+been installed or checked in the packaged app. Keep `13yp` and `x21h` open for
+packaged click-through, keyboard, VoiceOver, zoom, contrast, and motion checks.

@@ -162,6 +162,24 @@ describe('offline chapter export', () => {
     assert.match(result.html, /href="#section-1-1-scene-2"/);
     assert.deepEqual(accepted, before);
   });
+
+  it('links an offline visual value to evidence from that scene claim', async () => {
+    const accepted = sceneChapter();
+    const section = accepted.sections[0];
+    section.visual.nodes[0].evidenceAnchorIds = ['anchor:entry', 'anchor:return'];
+    section.visual.presentation.scenes[1].elements[1].nodeIndex = 0;
+    const result = await buildOfflineGuideHtml([accepted], {
+      selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+    });
+    const sceneStarts = [...result.html.matchAll(/<section class="offline-story-scene"[^>]*>/gu)];
+    assert.equal(sceneStarts.length, 2, 'both authored claim scenes are present');
+    const secondSceneStart = sceneStarts[1].index;
+    assert.notEqual(secondSceneStart, undefined);
+    const secondSceneEnd = result.html.indexOf('</section>', secondSceneStart) + '</section>'.length;
+    const secondScene = result.html.slice(secondSceneStart, secondSceneEnd);
+    assert.match(secondScene, /class="scene-element scene-code scene-tone-accent scene-content" href="#evidence-1-2"/u);
+    assert.doesNotMatch(secondScene, /href="#evidence-1-1"/u);
+  });
   it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
     const accepted = chapter();
     const draft = chapter({ revisionId: 'revision:draft', lifecycle: 'draft' });

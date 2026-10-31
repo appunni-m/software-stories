@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceEvidenceAnchorForVisualNodeInScene, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -18,6 +18,23 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('keeps a composed cue on its claim citation when another claim repeats its code value', () => {
+    const early = { anchorId: 'a:early', excerpt: 'return run();' };
+    const current = { anchorId: 'a:current', excerpt: 'if (ok) return run();' };
+    const node = { evidenceAnchorIds: ['a:early', 'a:current'], sourceAnchorId: 'a:early' };
+    assert.equal(sourceEvidenceAnchorForVisualNodeInScene([early, current], node, 'run()', ['a:current']), current);
+    assert.equal(sourceEvidenceAnchorForVisualNodeInScene([early, current], node, 'run()'), early,
+      'the scene-specific lookup is what disambiguates the repeated value');
+  });
+
+  it('passes the authored claim anchors and exact cue citation through stacked answer previews', () => {
+    const preview = readFileSync(new URL('../src/workspace/AnswerVisualPreview.tsx', import.meta.url), 'utf8');
+    assert.match(preview, /const firstSceneAnchorIds = section\.claims\[firstScene\.claimIndex\]/u);
+    assert.match(preview, /sourceAnchorIds=\{firstSceneAnchorIds\}/u);
+    assert.match(preview, /sourceAnchorIdForNode=\{sourceAnchorIdForNode\}/u);
+    assert.match(preview, /sourceAnchorId\) => openNode\(visual, nodeId, sourceValue, sourceAnchorId, firstSceneAnchorIds\)/u);
+  });
+
   it('offers the full graph only when the section explicitly includes one', () => {
     const composed = {
       ...visual,
@@ -268,8 +285,8 @@ describe('visual story scenes', () => {
   it('passes only code values from the rendered composition into source navigation', () => {
     const component = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
     assert.match(component, /const sourceValue = e\.valueOrigin === 'source' \? value : undefined;/u);
-    assert.match(component, /onClick=\{\(\) => onOpenNode\(node\.nodeId, sourceValue\)\}/u);
-    assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
+    assert.match(component, /onClick=\{\(\) => onOpenNode\(node\.nodeId, sourceValue, focusAnchorId\)\}/u);
+    assert.match(component, /onOpenNode\(node\.nodeId, sourceValue, focusAnchorId\)/u);
   });
 
   it('keeps the live stack renderer aligned with the top-first child order', () => {
@@ -386,14 +403,16 @@ describe('visual story scenes', () => {
       'title, map, and scene controls must occupy explicit normal-flow rows');
     assert.doesNotMatch(styles, /@container\s+guide-pane\s*\(min-width:\s*560px\)/u,
       'wide Guide panes must not pull scene navigation into the title row');
-    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*max-width:min\(100%,604px\)/u,
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*width:min\(100%,604px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*justify-self:center;[^}]*width:min\(100%,604px\);[^}]*max-width:100%;/u,
-      'scene arrows should stay in fixed bounded tracks around the centered scene strip');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*width:100%;[^}]*min-width:0;/u,
-      'scene navigation content should shrink within its grid track');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*width:100%;[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:wrap;[^}]*overflow:visible/u,
-      'large scene indexes should wrap inside the centered navigation group');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:flex;[^}]*justify-self:center;[^}]*width:max-content;[^}]*max-width:100%;[^}]*gap:8px;[^}]*align-items:center/u,
+      'multi-scene navigation stays centered in a width-bounded flex row');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*min-width:0;[^}]*max-width:calc\(100% - 72px\)/u,
+      'scene navigation content should shrink between the fixed arrow buttons');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:nowrap;[^}]*overflow:visible/u,
+      'short scene indexes stay on one line inside the bounded navigation group');
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\.is-long\s*\{[^}]*width:min\(100%,168px\);[^}]*flex-wrap:wrap/u,
+      'long scene indexes wrap into a bounded strip');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible/u,
       'many scene controls should wrap within their bounded row');

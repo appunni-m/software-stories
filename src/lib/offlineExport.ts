@@ -890,20 +890,28 @@ function renderVisual(
     const prefix = sectionIds.get(`${revision.revisionId}:${section.section.sectionId}`)!;
     const scenes = visual.presentation!.scenes;
     const frames = scenes.map((scene, index) => {
+      const sceneReferences = section.claims[scene.claimIndex]?.references ?? [];
+      const sceneAnchorIds = new Set(sceneReferences.map((reference) => reference.anchorId));
       const href = (nodeIndex: number, sourceValue?: string) => {
         const node = visual.nodes[nodeIndex];
+        const boundSceneAnchor = node.sourceAnchorId && node.evidenceAnchorIds.includes(node.sourceAnchorId)
+          && sceneAnchorIds.has(node.sourceAnchorId)
+          ? sceneReferences.find((reference) => reference.anchorId === node.sourceAnchorId)
+          : undefined;
+        if (boundSceneAnchor && (!sourceValue || boundSceneAnchor.excerpt.includes(sourceValue))) {
+          const evidenceId = evidenceIds.get(`${revision.revisionId}:${boundSceneAnchor.anchorId}`);
+          if (evidenceId) return `#${evidenceId}`;
+        }
         const sourceValueAnchorId = sourceValue
-          ? section.references.find(reference => node.evidenceAnchorIds.includes(reference.anchorId)
+          ? sceneReferences.find(reference => node.evidenceAnchorIds.includes(reference.anchorId)
             && reference.excerpt.includes(sourceValue)
             && evidenceIds.has(`${revision.revisionId}:${reference.anchorId}`))?.anchorId
           : undefined;
         if (sourceValueAnchorId) return `#${evidenceIds.get(`${revision.revisionId}:${sourceValueAnchorId}`)}`;
-        const boundAnchorId = node.sourceAnchorId && node.evidenceAnchorIds.includes(node.sourceAnchorId)
-          ? node.sourceAnchorId
-          : undefined;
+        const boundAnchorId = boundSceneAnchor?.anchorId;
         const anchorId = boundAnchorId && evidenceIds.has(`${revision.revisionId}:${boundAnchorId}`)
           ? boundAnchorId
-          : node.evidenceAnchorIds.find(id => evidenceIds.has(`${revision.revisionId}:${id}`));
+          : node.evidenceAnchorIds.find(id => sceneAnchorIds.has(id) && evidenceIds.has(`${revision.revisionId}:${id}`));
         return anchorId ? `#${evidenceIds.get(`${revision.revisionId}:${anchorId}`)}` : undefined;
       };
       const representation = scene.mode === 'composition' ? renderOfflineScene(scene, visual, href)

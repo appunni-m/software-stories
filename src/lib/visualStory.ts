@@ -180,6 +180,35 @@ export function sourceEvidenceAnchorForVisualNode(
   return anchors.find((anchor) => allowed.has(anchor.anchorId));
 }
 
+/** Prefer evidence from the claim that authored this scene. This matters when
+ * the same literal appears in several claims and the visual node is reused.
+ */
+export function sourceEvidenceAnchorForVisualNodeInScene(
+  anchors: readonly ChapterSourceAnchor[],
+  node: Pick<LinkedVisualNode, 'evidenceAnchorIds' | 'sourceAnchorId'>,
+  sourceValue?: string,
+  sceneAnchorIds?: readonly string[],
+): ChapterSourceAnchor | undefined {
+  const allowed = new Set(node.evidenceAnchorIds);
+  if (sceneAnchorIds) {
+    const sceneAllowed = new Set(sceneAnchorIds);
+    const preferred = anchors.filter((anchor) => sceneAllowed.has(anchor.anchorId) && allowed.has(anchor.anchorId));
+    const boundSceneAnchor = preferred.find((anchor) => anchor.anchorId === node.sourceAnchorId);
+    if (boundSceneAnchor && (!sourceValue || boundSceneAnchor.excerpt.includes(sourceValue))) return boundSceneAnchor;
+    const exactSceneValueAnchor = sourceValue ? preferred.find((anchor) => anchor.excerpt.includes(sourceValue)) : undefined;
+    const preferredAnchor = exactSceneValueAnchor ?? boundSceneAnchor ?? preferred[0];
+    if (preferredAnchor) return preferredAnchor;
+  }
+  const boundAnchor = node.sourceAnchorId && allowed.has(node.sourceAnchorId)
+    ? anchors.find((anchor) => anchor.anchorId === node.sourceAnchorId)
+    : undefined;
+  if (boundAnchor && (!sourceValue || boundAnchor.excerpt.includes(sourceValue))) return boundAnchor;
+  const exactValueAnchor = sourceValue
+    ? anchors.find((anchor) => allowed.has(anchor.anchorId) && anchor.excerpt.includes(sourceValue))
+    : undefined;
+  return exactValueAnchor ?? boundAnchor ?? sourceEvidenceAnchorForVisualNode(anchors, node);
+}
+
 /** Resolve an edge only through its validated evidence bindings. */
 export function sourceEvidenceAnchorForVisualEdge(
   anchors: readonly ChapterSourceAnchor[],

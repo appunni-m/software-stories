@@ -12,7 +12,7 @@ import { defaultNarrationText, parseNarrationPreferences } from './lib/narration
 import { narrationStorageKey } from './lib/narrationScope';
 import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceEvidenceAnchorForVisualNodeInScene, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { plainInlineCodeText } from './lib/inlineCode';
@@ -152,19 +152,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const htmlScenes = !fullMap && authoredScenes.length > 0 && authoredScenes.every((item) => item.mode === 'composition') ? authoredScenes : [];
   const anchors = useMemo(() => section.claims.flatMap((claim) => claim.anchors), [section.claims]);
   const sourceValues = useMemo(() => visual ? sourceValuesByVisualNode(visual) : new Map<string, string>(), [visual]);
-  const evidenceAnchorForNode = (node: NonNullable<typeof visual>['nodes'][number], sourceValue?: string, preferredAnchorIds?: readonly string[]) => {
-    if (preferredAnchorIds) {
-      const preferred = anchors.filter((item) => preferredAnchorIds.includes(item.anchorId) && node.evidenceAnchorIds.includes(item.anchorId));
-      const exactSceneValueAnchor = sourceValue ? preferred.find((item) => item.excerpt.includes(sourceValue)) : undefined;
-      const boundSceneAnchor = preferred.find((item) => item.anchorId === node.sourceAnchorId);
-      const preferredAnchor = exactSceneValueAnchor ?? boundSceneAnchor ?? preferred[0];
-      if (preferredAnchor) return preferredAnchor;
-    }
-    const exactValueAnchor = sourceValue
-      ? anchors.find((item) => node.evidenceAnchorIds.includes(item.anchorId) && item.excerpt.includes(sourceValue))
-      : undefined;
-    return exactValueAnchor ?? sourceEvidenceAnchorForVisualNode(anchors, node);
-  };
+  const evidenceAnchorForNode = (node: NonNullable<typeof visual>['nodes'][number], sourceValue?: string, preferredAnchorIds?: readonly string[]) =>
+    sourceEvidenceAnchorForVisualNodeInScene(anchors, node, sourceValue, preferredAnchorIds);
   const sourceAnchorIdForNode = (nodeId: string, sourceValue?: string, preferredAnchorIds?: readonly string[]) => {
     const node = visual?.nodes.find((item) => item.nodeId === nodeId);
     const value = sourceValue ?? node?.sourceValue ?? sourceValues.get(nodeId);
