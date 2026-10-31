@@ -426,3 +426,17 @@ replays generation.
 Source-only correction; no test, build, provider request, or packaged app
 interaction was run. Verify the publication/refill race across a WebView reload
 and a second window before closing `3bz5`.
+
+## Encoded request-size failure clarified — 31 October 2026
+
+The historical message “The reviewed coding-agent operation exceeds 512 KB”
+comes from the local request-review encoder in `provider.rs`. It measures the
+serialized JSON contract against `MAX_REQUEST_BODY_BYTES` (512,000 bytes); it
+is not a model token or context-window error, and the failing request is rejected
+before dispatch. The encoder already retries after removing optional local
+symbol/relationship metadata and marks the index incomplete. If the exact
+remaining contract is still over the cap, it returns a focused-range message.
+Raising the wire cap would not address a whole-repository Guide that submits too
+much source at once. Keep plan and slide operations independently bounded, then
+qualify that route on the packaged large-repository workflow. No request, test,
+build, or app interaction was run for this diagnosis.
