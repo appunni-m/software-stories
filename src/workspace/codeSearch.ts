@@ -11,6 +11,9 @@ export interface IndexLimitOmissions {
 
 const SEARCH_STOP_WORDS = new Set(['a','an','and','are','does','for','from','how','in','is','of','on','or','the','this','to','what','where','which','why','with','work','works','explain','find','help','show','tell']);
 const SEARCH_EXPLORATION_CONTEXT_LIMIT = 4;
+const TEST_OR_FIXTURE_DIRECTORIES = new Set(['test','tests','__tests__','spec','specs','fixture','fixtures','testdata','test-data','test_fixtures','test-fixtures']);
+const TEST_OR_FIXTURE_QUERY_TERMS = new Set(['test','tests','fixture','fixtures','spec','specs','testcase','testcases','example','examples']);
+const TEST_OR_FIXTURE_FILENAME = /(^|[._-])(?:test|spec|fixture|fixtures)(?=$|[._-])/u;
 
 function searchableParts(value:string):string[]{
   return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -18,6 +21,26 @@ function searchableParts(value:string):string[]{
 
 function stableTextCompare(left:string,right:string):number{
   return left<right?-1:left>right?1:0;
+}
+
+function isTestOrFixturePath(path:string):boolean{
+  const parts=path.toLowerCase().split('/');
+  const filename=parts.at(-1)??'';
+  return parts.slice(0,-1).some(part=>TEST_OR_FIXTURE_DIRECTORIES.has(part))
+    || TEST_OR_FIXTURE_FILENAME.test(filename);
+}
+
+/** Put executable implementation ahead of supporting fixtures, unless the
+ * reader explicitly asks to inspect tests, fixtures, specs, or examples. */
+function prioritizeSearchHits<T extends {path:string}>(hits:readonly T[],query:string):T[]{
+  const testsFirst=searchableParts(query).some(part=>TEST_OR_FIXTURE_QUERY_TERMS.has(part));
+  return hits.map((hit,index)=>({hit,index})).sort((left,right)=>{
+    const leftIsTest=isTestOrFixturePath(left.hit.path);
+    const rightIsTest=isTestOrFixturePath(right.hit.path);
+    const leftPriority=leftIsTest===testsFirst?0:1;
+    const rightPriority=rightIsTest===testsFirst?0:1;
+    return leftPriority-rightPriority||left.index-right.index;
+  }).map(({hit})=>hit);
 }
 
 /** Extract useful identifiers from a natural-language query without treating
@@ -191,7 +214,7 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const seenFiles=new Set<string>();
   const seenLocations=new Map<string,number>();
   const unique:CodeSearchHit[]=[];
-  for(const hit of all){
+  for(const hit of mode==='code'?prioritizeSearchHits(all,query):all){
     if(hit.from===undefined){
       const key=JSON.stringify([hit.path,hit.text]);
       if(seenFiles.has(key))continue;
