@@ -567,13 +567,13 @@ export function DeveloperWorkspace(props:Props) {
     return()=>{active=false;controller.abort();if(gitRequest.current===controller)gitRequest.current=null;};
   },[projectId,showChanges,gitReload]);
   useEffect(()=>{
-    if(workspace!=='changes'||!gitLoaded||gitBusy||gitStopped||gitError||gitRequest.current||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
+    if(!showChanges||!gitLoaded||gitBusy||gitStopped||gitError||gitRequest.current||props.comparisonRefs?.baseRef?.trim()||props.comparisonRefs?.headRef?.trim())return;
     const head=commits.find((commit)=>commit.isHead);
     const comparisonKey=`${projectId}:${head?.oid??''}`;
     if(!head?.parents[0]||defaultComparedHead.current===comparisonKey)return;
     defaultComparedHead.current=comparisonKey;
     onCompare(head.parents[0],head.oid,false);
-  },[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
+  },[projectId,showChanges,gitLoaded,gitBusy,gitStopped,gitError,commits,props.comparisonRefs?.baseRef,props.comparisonRefs?.headRef,onCompare]);
   function openFile(context:Context) {
     // A code citation can open a file outside the current Explorer filter. Clear
     // only a filter that would hide the newly opened source, so the tree and
