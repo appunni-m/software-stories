@@ -86,7 +86,7 @@ function sourceSearchStateFor(previous:CapturedSourceSearchState,key:string,sear
 
 function searchPathLabel(path:string):string {
   const segments=path.split('/').filter(Boolean);
-  return segments.length>3?`…/${segments.slice(-3).join('/')}`:path;
+  return segments.length>2?`…/${segments.slice(-2).join('/')}`:path;
 }
 
 function SearchCoverageNote({unavailableFiles,omissions}:{unavailableFiles:number;omissions:IndexLimitOmissions}) {
