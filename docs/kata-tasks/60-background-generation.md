@@ -37,4 +37,32 @@ The broad native question had no validated answer after 606 seconds and was manu
 
 ### Industry review follow-up — October 17
 
-The timing checkbox now has a concrete child contract: [generation timing traces](71-generation-timing-traces.md), Kata `ps02`. Record queue/connection/index/retrieval/inference/validation/publication separately and distinguish first validated answer from first token. The [industry review](../research/2026-10-17-repository-context-and-indexing.md) recommends independently validated section publication and avoiding output the presentation layer discards. Progressive generation remains future work under this parent and repository narratives; research has not changed the running job pipeline or qualified its latency.
+The timing checkbox now has a concrete child contract: [generation timing traces](71-generation-timing-traces.md), Kata `ps02`. Record queue/connection/index/retrieval/inference/validation/publication separately and distinguish first validated answer from first token. The [industry review](../research/2026-10-17-repository-context-and-indexing.md) recommends independently validated section publication and avoiding output the presentation layer discards.
+
+## Current source state — 31 October 2026
+
+Progressive generation is implemented in the current source; it is no longer
+future work. `src-tauri/src/workspace_generation/progressive.rs` owns a
+user-started job and publishes validated answer sections independently.
+Repository Guides save an outline, then research the opening and planned topics
+as separate slide operations. `src-tauri/src/repository_guide/mod.rs` keeps a
+five-slide playback runway, while allowing the outline and first validated
+slide to appear without waiting for that buffer. Codex operations have no
+wall-clock deadline; explicit Stop and source, call, proposal, storage, account
+and grant checks remain in force. See [progressive answer sections](73-progressive-answer-sections.md)
+for implementation increments and remaining gates.
+
+`src-tauri/src/workspace_generation/jobs.rs` persists bounded, source-free job
+receipts and reconciles the previous renderer's active jobs against their
+saved answer records. Restart does not replay a provider request or resume a
+provider session. That preserves recovery evidence without pretending an
+in-flight model turn continued across app restart. The source covers a
+durable lifecycle record, not the complete installed-app journey.
+
+Still open: fresh packaged whole-repository generation, first useful-section
+latency and content quality, queued-question distinctions, Stop and save
+failure races, close/reopen recovery, changed account or revoked grant, and
+playback-paced slide refill. No new provider request, build, or test was run
+for this documentation correction. Keep `nw1h`, `3bz5`, `ps02`, and the
+dependent repository-narrative task open until their acceptance evidence is
+recorded.
