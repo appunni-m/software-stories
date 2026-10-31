@@ -178,7 +178,10 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
-const SOURCE_LINE_WRAP_WIDTH = 640;
+// Preserve ordinary code-line geometry in a normal split pane. Wrap only when
+// the pane is narrow enough that horizontal scrolling becomes more difficult
+// than following the source vertically.
+const SOURCE_LINE_WRAP_WIDTH = 420;
 
 function sourceEditorTheme(theme: 'dark' | 'light'): Extension {
   return EditorView.theme({
