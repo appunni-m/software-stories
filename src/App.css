@@ -89,7 +89,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 /* Let the header stay on one row only while repository and app controls have
    enough room. Below that, keep both groups in normal flow on separate rows. */
-@container app-window (max-width: 1600px) {
+@container app-window (max-width: 1280px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";
@@ -238,7 +238,6 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {whit
 .walkthrough-panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--border); }
 .walkthrough-panel-heading h3 { margin: 5px 0 0; color: var(--text); font-size: 12px; letter-spacing: -.015em; }
 .walkthrough-transcript { margin-top: 15px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.walkthrough-transcript { background: linear-gradient(140deg, var(--surface), var(--surface)); }
 .walkthrough-transcript-state { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 12px/1.35 system-ui, sans-serif; }
 .walkthrough-transcript-scroll { max-height: 190px; overflow: auto; margin-top: 8px; padding: 3px 4px; scrollbar-color: var(--muted) transparent; }
 .walkthrough-transcript-scroll p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
@@ -345,7 +344,6 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {whit
 }
 
 @media (max-width: 900px) {
-  .app-body { grid-template-columns: 205px minmax(0, 1fr); }
   .workspace-content { padding-top: 26px; }
   .empty-main-card { grid-template-columns: 1fr; }
   .atlas-preview { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--blue-border); }
@@ -801,7 +799,6 @@ html[data-app-zoom-compact="true"] .topbar .snapshot-refresh-button > span {whit
   .project-button, .snapshot-button { min-width: 0; max-width: calc(50% - 8px); overflow: hidden; }
   .project-button > span { max-width: min(145px, calc(100% - 38px)); }
   .header-divider { display: none; }
-  .app-body { grid-template-columns: minmax(0, 1fr); }
   .workspace, .workspace-content { min-width: 0; }
   .workspace-content { padding-right: 12px; padding-left: 12px; }
 }
