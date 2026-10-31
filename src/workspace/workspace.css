@@ -433,7 +433,8 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
   .dw-tool-reading>#explanations{display:flex!important;}
 }
 
-.dw-tool-content .git-compare-options > summary {cursor:pointer;color:var(--muted);font-size:12px;padding:var(--space-2) 0;}
+.dw-tool-content .git-compare-options > summary {display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);min-width:0;cursor:pointer;color:var(--muted);font-size:12px;padding:var(--space-2) 0;}
+.dw-tool-content .git-compare-summary-pair {min-width:0;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gray-11);font:11px var(--mono);text-align:right;}
 .dw-tool-content .git-commit-hint {margin:0 0 var(--space-2);color:var(--muted);font-size:13px;}
 .dw-tool-content .git-safety-note {display:none;}
 .dw-tool-content .git-ref-card {padding:var(--space-3) var(--space-4);}

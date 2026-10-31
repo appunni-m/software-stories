@@ -158,7 +158,14 @@ export function GitChangesScreen({
           onToggle={(event) => {
             if (compact && !busy) setComparisonOptionsOpen(event.currentTarget.open);
           }}
-        ><summary onClick={(event) => { if (busy) event.preventDefault(); }}>Compare branches or tags</summary>
+        ><summary onClick={(event) => { if (busy) event.preventDefault(); }}>
+          <span>Compare branches or tags</span>
+          {compact && matchingComparison && <span
+            className="git-compare-summary-pair"
+            title={`From ${matchingComparison.baseRef} to ${matchingComparison.headRef}`}
+            aria-label={`Current comparison, from ${matchingComparison.baseRef} to ${matchingComparison.headRef}`}
+          >{shortGitRef(matchingComparison.baseRef)} <span aria-hidden="true">→</span> {shortGitRef(matchingComparison.headRef)}</span>}
+        </summary>
         <div className="git-changes-section-heading">
           <div>
             <span className="git-changes-kicker">LOCAL COMPARISON</span>
@@ -238,6 +245,10 @@ export function GitChangesScreen({
       />}
     </div>
   );
+}
+
+function shortGitRef(ref: string): string {
+  return /^[a-f\d]{40,64}$/i.test(ref) ? ref.slice(0, 8) : ref;
 }
 
 function ComparisonResults({
