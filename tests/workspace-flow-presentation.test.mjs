@@ -51,7 +51,7 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /sourceAnchorForVisualNode\(evidenceAnchor,node,node\.sourceValue\?\?sourceValues\.get\(node\.nodeId\)\)/);
   assert.match(source, /node\.sourceAnchorId&&node\.evidenceAnchorIds\.includes\(node\.sourceAnchorId\)/);
   assert.match(source, /onClick=\{\(\)=>selectNode\(node\.nodeId\)\}/);
-  assert.match(source, /<CodeDetail title=\{selectedNode\.label\} claims=\{selectedClaims\} anchors=\{selectedAnchors\} onOpen=\{onOpen\}/);
+  assert.match(source, /<CodeDetail title=\{selectedDetailTitle\} claims=\{selectedClaims\} anchors=\{selectedAnchors\} onOpen=\{onOpen\}/);
   assert.match(source, /onClick=\{\(\)=>onOpen\(anchor\)\}/);
   assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
   assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{plainInlineCodeText\(visual\.title\)\}`\}/);

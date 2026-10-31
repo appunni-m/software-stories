@@ -9,8 +9,11 @@ const FLOW_NODE_WIDTH = 250;
 // when placing edge labels so a diagram remains readable before React Flow has
 // measured each DOM node.
 const FLOW_NODE_HEIGHT = 120;
-const DENSE_FLOW_NODE_WIDTH = 210;
-const DENSE_FLOW_NODE_HEIGHT = 96;
+// Dense overviews use compact title-only cards. Their full explanation and
+// citations are shown in the detail panel after selection, so a 3×4 map stays
+// readable in the workspace's narrow reader pane.
+const DENSE_FLOW_NODE_WIDTH = 140;
+const DENSE_FLOW_NODE_HEIGHT = 64;
 const FLOW_REFERENCE_VIEWPORT = { width: 700, height: 500 };
 
 /** Dense maps use smaller cards so their overview remains readable in the workspace's side pane. */
@@ -55,11 +58,16 @@ function stableFallback(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: Vi
 
   // Disconnected and cyclic graphs have no trustworthy rank order. Keep their
   // source order, but use the available canvas area instead of a tiny row.
-  const columns = Math.ceil(Math.sqrt(nodes.length));
+  // A 12-node overview fits the narrow pane better as three columns and four
+  // rows. The previous 4×3 grid forced React Flow to shrink the labels and
+  // placed the last column beyond the visible reader width.
+  const columns = nodes.length >= 10 && nodes.length <= 14
+    ? 3
+    : Math.ceil(Math.sqrt(nodes.length));
   const { width, height } = flowNodeSize(nodes.length);
   const dense = nodes.length >= 10;
-  const columnStep = dense ? width + 40 : 340;
-  const rowStep = dense ? height + 36 : 260;
+  const columnStep = dense ? width + 24 : 340;
+  const rowStep = dense ? height + 20 : 260;
   return new Map(nodes.map((node, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);
@@ -238,8 +246,8 @@ export function layoutFlowEdgeLabels(
     const to = positions.get(edge.toNodeId);
     if (!from || !to || !edge.label.trim()) continue;
 
-    // Flow nodes are 250px wide; their visual center is close enough for
-    // placing a detached edge label, while React Flow still routes the edge.
+    // Use the configured card center for detached edge labels while React Flow
+    // continues to route each relationship between the measured card bounds.
     const start = { x: from.x + nodeWidth / 2, y: from.y + nodeHeight / 2 };
     const end = { x: to.x + nodeWidth / 2, y: to.y + nodeHeight / 2 };
     const dx = end.x - start.x;

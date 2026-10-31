@@ -11,7 +11,7 @@ use std::{
 use tauri::AppHandle;
 
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
-const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 7;
+const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 8;
 const FOCUSED_STORY_LAYOUT_VERSION: u64 = 7;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =

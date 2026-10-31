@@ -134,7 +134,7 @@ test('a long branched flow fills more of the reader pane without card overlap', 
   );
 
   assert.equal(points.size, flow.length);
-  assert.deepEqual(flowNodeSize(flow.length), {width: 210, height: 96});
+  assert.deepEqual(flowNodeSize(flow.length), {width: 140, height: 64});
   assert.ok(fittedZoom >= 0.55, `expected readable dense overview scale, got ${fittedZoom.toFixed(2)}`);
   for (let left = 0; left < flow.length; left += 1) {
     const a = points.get(flow[left].nodeId);
@@ -150,7 +150,15 @@ test('dense disconnected maps use compact cards and keep source order without ov
   const many = Array.from({length: 12}, (_, index) => ({nodeId: `node-${index}`}));
   const points = layoutFlowNodes(many, [], 'leftToRight');
   const {width, height} = flowNodeSize(many.length);
-  assert.deepEqual(flowNodeSize(many.length), {width: 210, height: 96});
+  assert.deepEqual(flowNodeSize(many.length), {width: 140, height: 64});
+  assert.deepEqual(points.get('node-0'), {x: 0, y: 0});
+  assert.deepEqual(points.get('node-2'), {x: 328, y: 0});
+  assert.deepEqual(points.get('node-3'), {x: 0, y: 84});
+  assert.deepEqual(points.get('node-11'), {x: 328, y: 252});
+  const xs = [...points.values()].map((point) => point.x);
+  const ys = [...points.values()].map((point) => point.y);
+  assert.ok(Math.max(...xs) - Math.min(...xs) + width <= 500, '3-column overview fits the narrow pane width');
+  assert.ok(Math.max(...ys) - Math.min(...ys) + height <= 350, '4-row overview fits the narrow pane height');
   for (let left = 0; left < many.length; left += 1) {
     const a = points.get(many[left].nodeId);
     for (let right = left + 1; right < many.length; right += 1) {
@@ -177,9 +185,9 @@ test('dense sparse-edge maps grid a wide rank while preserving its real links', 
   );
 
   assert.deepEqual(points.get('node-0'), {x: 0, y: 0});
-  assert.deepEqual(points.get('node-4'), {x: 250, y: 0});
-  assert.deepEqual(points.get('node-8'), {x: 500, y: 0});
-  assert.deepEqual(points.get('node-11'), {x: 500, y: 396});
+  assert.deepEqual(points.get('node-4'), {x: 164, y: 84});
+  assert.deepEqual(points.get('node-8'), {x: 328, y: 168});
+  assert.deepEqual(points.get('node-11'), {x: 328, y: 252});
   assert.ok(fittedZoom >= 0.9, `expected compact sparse-edge overview scale, got ${fittedZoom.toFixed(2)}`);
   assert.deepEqual([...authoredLeftToRight], [...points], 'sparse evidence should choose the best-fit grid regardless of rank direction');
   for (let left = 0; left < many.length; left += 1) {
