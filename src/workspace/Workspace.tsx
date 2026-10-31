@@ -39,7 +39,7 @@ import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, re
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode, type IndexLimitOmissions } from './codeSearch';
 import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
-import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
+import { flowNodeSize, layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { commitDateLabel, commitHistoryEmptyMessage, isComparisonHeadCommit, nextFocusableCommitIndex } from './gitCommitNavigation';
 import { GitHistoryEmptyContext } from './gitHistoryContext';
 import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
@@ -1476,12 +1476,13 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   const selectEdge=(edgeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedEdgeId:edgeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
   const linearSteps=linearFlowSteps(visual);
   const unlinkedNodes=unlinkedFlowNodes(visual);
+  const nodeSize=flowNodeSize(visual.nodes.length);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
   const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
     const label=<><strong><InlineCodeText text={n.label}/></strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
-      data:{label:<AppButton intent="custom" size="1" className="dw-flow-select nodrag nopan" aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</AppButton>},style:{width:250}};
+      data:{label:<AppButton intent="custom" size="1" className="dw-flow-select nodrag nopan" title={`${plainInlineCodeText(n.label)}${n.detail?` — ${plainInlineCodeText(n.detail)}`:''}`} aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</AppButton>},style:{width:nodeSize.width}};
   });
   const nodeLabels=new Map(visual.nodes.map((node)=>[node.nodeId,node.label]));
   const selectedDetailTitle=selectedNode?.label??(selectedEdge?selectedEdge.label.trim()||`${nodeLabels.get(selectedEdge.fromNodeId)??selectedEdge.fromNodeId} → ${nodeLabels.get(selectedEdge.toNodeId)??selectedEdge.toNodeId}`:undefined);
@@ -1587,7 +1588,7 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
       generationRef.current+=1;fitInProgress.current=false;
     };
   },[revisionId,sectionId,sectionRevisionId,nodeKey]);
-  return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} edgeTypes={evidenceFlowEdgeTypes} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
+  return <div ref={stage} className={`dw-flow-canvas${nodes.length>=10?' is-dense':''}`}><ReactFlow nodes={nodes} edges={edges} edgeTypes={evidenceFlowEdgeTypes} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
     aria-label={`Read-only code relationship diagram: ${nodes.length} nodes`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
     onInit={(flow)=>{instance.current=flow;scheduleCheck.current();}}
     onNodesChange={(changes)=>{if(changes.some((change)=>change.type==='dimensions'))scheduleCheck.current();}}

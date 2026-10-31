@@ -9,7 +9,16 @@ const FLOW_NODE_WIDTH = 250;
 // when placing edge labels so a diagram remains readable before React Flow has
 // measured each DOM node.
 const FLOW_NODE_HEIGHT = 120;
+const DENSE_FLOW_NODE_WIDTH = 210;
+const DENSE_FLOW_NODE_HEIGHT = 96;
 const FLOW_REFERENCE_VIEWPORT = { width: 700, height: 500 };
+
+/** Dense maps use smaller cards so their overview remains readable in the workspace's side pane. */
+export function flowNodeSize(nodeCount: number): { width: number; height: number } {
+  return nodeCount >= 10
+    ? { width: DENSE_FLOW_NODE_WIDTH, height: DENSE_FLOW_NODE_HEIGHT }
+    : { width: FLOW_NODE_WIDTH, height: FLOW_NODE_HEIGHT };
+}
 
 function rankAcyclicProjection(
   nodes: Pick<LinkedVisualNode, 'nodeId'>[],
@@ -47,12 +56,16 @@ function stableFallback(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: Vi
   // Disconnected and cyclic graphs have no trustworthy rank order. Keep their
   // source order, but use the available canvas area instead of a tiny row.
   const columns = Math.ceil(Math.sqrt(nodes.length));
+  const { width, height } = flowNodeSize(nodes.length);
+  const dense = nodes.length >= 10;
+  const columnStep = dense ? width + 40 : 340;
+  const rowStep = dense ? height + 36 : 260;
   return new Map(nodes.map((node, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);
     return [node.nodeId, direction === 'leftToRight'
-      ? { x: column * 340, y: row * 260 }
-      : { x: row * 320, y: column * 260 }];
+      ? { x: column * columnStep, y: row * rowStep }
+      : { x: row * columnStep, y: column * rowStep }];
   }));
 }
 
@@ -62,10 +75,16 @@ function placeRankedLayers(
   lastRank: number,
   ranksPerBand: number,
   compact: boolean,
+  nodeWidth: number,
+  nodeHeight: number,
 ): Map<string, FlowPoint> {
   const isHorizontal = direction === 'leftToRight';
-  const depthSpacing = compact ? (isHorizontal ? 290 : 175) : (isHorizontal ? 340 : 260);
-  const siblingSpacing = compact ? (isHorizontal ? 150 : 280) : (isHorizontal ? 260 : 320);
+  const depthSpacing = compact
+    ? (isHorizontal ? nodeWidth + 36 : nodeHeight + 56)
+    : (isHorizontal ? 340 : 260);
+  const siblingSpacing = compact
+    ? (isHorizontal ? nodeHeight + 28 : nodeWidth + 32)
+    : (isHorizontal ? 260 : 320);
   const bands = new Map<number, number>();
   for (const [layerRank, layer] of layers) {
     const band = Math.floor(layerRank / ranksPerBand);
@@ -77,7 +96,7 @@ function placeRankedLayers(
   for (const [band, largestLayer] of [...bands].sort(([left], [right]) => left - right)) {
     bandOffsets.set(band, bandOffset);
     const bandWidth = compact
-      ? (largestLayer - 1) * siblingSpacing + FLOW_NODE_WIDTH + 30
+      ? (largestLayer - 1) * siblingSpacing + nodeWidth + 30
       : (largestLayer - 1) * siblingSpacing + 200;
     bandOffset += Math.max(300, bandWidth);
   }
@@ -102,12 +121,12 @@ function placeRankedLayers(
   return positions;
 }
 
-function fitScale(positions: Map<string, FlowPoint>): number {
+function fitScale(positions: Map<string, FlowPoint>, nodeWidth: number, nodeHeight: number): number {
   if (positions.size === 0) return 0;
   const xs = [...positions.values()].map((point) => point.x);
   const ys = [...positions.values()].map((point) => point.y);
-  const width = Math.max(...xs) - Math.min(...xs) + FLOW_NODE_WIDTH;
-  const height = Math.max(...ys) - Math.min(...ys) + FLOW_NODE_HEIGHT;
+  const width = Math.max(...xs) - Math.min(...xs) + nodeWidth;
+  const height = Math.max(...ys) - Math.min(...ys) + nodeHeight;
   return Math.min(FLOW_REFERENCE_VIEWPORT.width / width, FLOW_REFERENCE_VIEWPORT.height / height);
 }
 
@@ -158,6 +177,7 @@ export function layoutFlowNodes(
   // the arrangement that uses a typical reader pane best. Prefer the author's
   // requested direction when two layouts are nearly equivalent.
   const compact = nodes.length >= 10;
+  const { width: nodeWidth, height: nodeHeight } = flowNodeSize(nodes.length);
   const preferredDirection = direction === 'leftToRight' ? 'leftToRight' : 'topToBottom';
   const directions: VisualLayoutDirection[] = compact
     ? preferredDirection === 'leftToRight' ? ['leftToRight', 'topToBottom'] : ['topToBottom', 'leftToRight']
@@ -169,9 +189,9 @@ export function layoutFlowNodes(
   let bestScore = -1;
   for (const candidateDirection of directions) {
     for (const ranksPerBand of bandWidths) {
-      const candidate = placeRankedLayers(layers, candidateDirection, lastRank, ranksPerBand, compact);
+      const candidate = placeRankedLayers(layers, candidateDirection, lastRank, ranksPerBand, compact, nodeWidth, nodeHeight);
       const directionPreference = candidateDirection === preferredDirection ? 1 : 0.92;
-      const score = fitScale(candidate) * directionPreference;
+      const score = fitScale(candidate, nodeWidth, nodeHeight) * directionPreference;
       if (score > bestScore) {
         bestScore = score;
         bestPositions = candidate;
@@ -188,13 +208,14 @@ export function layoutFlowEdgeLabels(
   positions: Map<string, FlowPoint>,
 ): Map<string, FlowPoint> {
   const nodeOrder = new Map(nodes.map((node, index) => [node.nodeId, index]));
+  const { width: nodeWidth, height: nodeHeight } = flowNodeSize(nodes.length);
   const placed: { point: FlowPoint; width: number; height: number }[] = [];
   const nodeRects = nodes.flatMap((node) => {
     const point = positions.get(node.nodeId);
     return point ? [{
-      center: { x: point.x + FLOW_NODE_WIDTH / 2, y: point.y + FLOW_NODE_HEIGHT / 2 },
-      width: FLOW_NODE_WIDTH,
-      height: FLOW_NODE_HEIGHT,
+      center: { x: point.x + nodeWidth / 2, y: point.y + nodeHeight / 2 },
+      width: nodeWidth,
+      height: nodeHeight,
     }] : [];
   });
   const labels = new Map<string, FlowPoint>();
@@ -206,8 +227,8 @@ export function layoutFlowEdgeLabels(
 
     // Flow nodes are 250px wide; their visual center is close enough for
     // placing a detached edge label, while React Flow still routes the edge.
-    const start = { x: from.x + FLOW_NODE_WIDTH / 2, y: from.y + FLOW_NODE_HEIGHT / 2 };
-    const end = { x: to.x + FLOW_NODE_WIDTH / 2, y: to.y + FLOW_NODE_HEIGHT / 2 };
+    const start = { x: from.x + nodeWidth / 2, y: from.y + nodeHeight / 2 };
+    const end = { x: to.x + nodeWidth / 2, y: to.y + nodeHeight / 2 };
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const length = Math.hypot(dx, dy);

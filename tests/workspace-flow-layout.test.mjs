@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutFlowEdgeLabels, layoutFlowNodes } from '../src/workspace/flowLayout.ts';
+import { flowNodeSize, layoutFlowEdgeLabels, layoutFlowNodes } from '../src/workspace/flowLayout.ts';
 
 const nodes = ['entry', 'left', 'right', 'merge'].map((nodeId) => ({nodeId}));
 const edges = [
@@ -127,19 +127,35 @@ test('a long branched flow fills more of the reader pane without card overlap', 
   const points = layoutFlowNodes(flow, flowEdges, 'auto');
   const xs = [...points.values()].map((point) => point.x);
   const ys = [...points.values()].map((point) => point.y);
+  const {width, height} = flowNodeSize(flow.length);
   const fittedZoom = Math.min(
-    700 / (Math.max(...xs) - Math.min(...xs) + 250),
-    500 / (Math.max(...ys) - Math.min(...ys) + 120),
+    700 / (Math.max(...xs) - Math.min(...xs) + width),
+    500 / (Math.max(...ys) - Math.min(...ys) + height),
   );
 
   assert.equal(points.size, flow.length);
-  assert.ok(fittedZoom >= 0.4, `expected a useful overview scale, got ${fittedZoom.toFixed(2)}`);
+  assert.deepEqual(flowNodeSize(flow.length), {width: 210, height: 96});
+  assert.ok(fittedZoom >= 0.55, `expected readable dense overview scale, got ${fittedZoom.toFixed(2)}`);
   for (let left = 0; left < flow.length; left += 1) {
     const a = points.get(flow[left].nodeId);
     for (let right = left + 1; right < flow.length; right += 1) {
       const b = points.get(flow[right].nodeId);
-      const overlaps = Math.abs(a.x - b.x) < 250 && Math.abs(a.y - b.y) < 120;
+      const overlaps = Math.abs(a.x - b.x) < width && Math.abs(a.y - b.y) < height;
       assert.equal(overlaps, false, `${flow[left].nodeId} overlaps ${flow[right].nodeId}`);
+    }
+  }
+});
+
+test('dense disconnected maps use compact cards and keep source order without overlap', () => {
+  const many = Array.from({length: 12}, (_, index) => ({nodeId: `node-${index}`}));
+  const points = layoutFlowNodes(many, [], 'leftToRight');
+  const {width, height} = flowNodeSize(many.length);
+  assert.deepEqual(flowNodeSize(many.length), {width: 210, height: 96});
+  for (let left = 0; left < many.length; left += 1) {
+    const a = points.get(many[left].nodeId);
+    for (let right = left + 1; right < many.length; right += 1) {
+      const b = points.get(many[right].nodeId);
+      assert.equal(Math.abs(a.x - b.x) < width && Math.abs(a.y - b.y) < height, false);
     }
   }
 });

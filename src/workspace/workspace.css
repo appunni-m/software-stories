@@ -287,6 +287,9 @@
 .dw-flow-canvas .react-flow {--xy-background-color:var(--surface);--xy-node-color:var(--text);--xy-node-background-color:var(--surface-raised);--xy-node-border:1px solid var(--border-strong);--xy-controls-button-background-color:var(--surface);--xy-controls-button-color:var(--text);--xy-edge-stroke:var(--dim);--xy-edge-label-color:var(--muted);--xy-edge-label-background-color:var(--surface);}
 .dw-flow-canvas .react-flow__node strong {display:block;font-size:13px;line-height:1.5;}
 .dw-flow-canvas .react-flow__node small {display:block;font-size:12px;line-height:1.6;color:var(--muted);margin-top:var(--space-1);}
+.dw-flow-canvas.is-dense .react-flow__node {padding:8px;}
+.dw-flow-canvas.is-dense .react-flow__node strong {display:-webkit-box;overflow:hidden;overflow-wrap:anywhere;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+.dw-flow-canvas.is-dense .react-flow__node small {display:-webkit-box;overflow:hidden;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:1;}
 .dw-flow-canvas .dw-flow-edge-label {position:absolute;pointer-events:all;width:max-content;max-width:190px;overflow-wrap:anywhere;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);padding:var(--space-1) var(--space-2);color:var(--text);font-size:12px;font-weight:600;line-height:16px;text-align:center;box-shadow:0 1px 4px #0003;cursor:pointer;}
 .dw-flow-canvas .dw-flow-edge-label:hover,.dw-flow-canvas .dw-flow-edge-label.is-focused {border-color:var(--accent);background:var(--accent-soft);color:var(--text);}
 .dw-flow-canvas .dw-flow-edge-label:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
