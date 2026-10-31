@@ -202,6 +202,30 @@ This qualifies the explicit refresh action and its immutable snapshot behavior.
 It does not close the screen-by-screen design, keyboard, accessibility, or
 responsive acceptance; keep `na54` open.
 
+## Generation outcome labels — packaged check, 31 October 2026
+
+Built and installed commit `d91e3f2759a065bea8e44a5ccdaab8a550898591`
+(`Simplify workspace outcome history labels`). `npm run bundle:macos`
+completed, including the frontend production build, license and metadata
+checks, macOS app/DMG bundling, and DMG checksum verification. The installed
+executable SHA-256
+`e8c761717da958e3ef9efd8b7d9e621ec6659672f95bad61790da18d2c0fd93b` matches
+the release bundle.
+
+On the existing Fontdone `main@5249b72371` workspace, restart restored the
+selected `src/api.rs:710–728` source and Guide scene 2 of 3. Chat history
+showed `Latest` and `Show earlier outcomes`; grouped notifications used
+`updates` and `Dismiss all … updates`. Raw generation attempt counts and
+attempt labels were absent from these reviewed surfaces. The 49 unread update
+count remained unchanged. No provider request, source capture, saved answer,
+notification decision, or audio state was changed.
+
+This verifies the latest wording in the installed app and preserves the
+existing Fontdone reading position after restart. It does not close `x21h` or
+`13yp`: the complete page audit, long/narrow scene navigation, screenshots,
+keyboard and VoiceOver behavior, contrast, high-zoom reflow, and the remaining
+native screens still need acceptance.
+
 ## Source-linked preview overflow — source correction, 28 October 2026
 
 The small relationship previews embedded in stacked Guide answers now constrain
