@@ -451,3 +451,48 @@ This proves the filtered-term coverage path stays enabled for that fixture. It
 does not measure Fontdone recall or change the recorded 5/12 broad first-page
 results, and it does not qualify agent tool choice, packaged search, or answer
 quality. Keep `a699`, `0wdn`, and `gk46` open.
+
+## Fresh retrieval-cache Fontdone profile — 31 October 2026
+
+Ran the ignored native-service profile from Code Atlas source `d665e92` against
+the saved Fontdone `main@5249b72371` snapshot. The test used a disposable copy
+of the snapshot, objects and syntax indexes; it omitted `repository-context`
+so the retrieval index was built fresh. The app's original storage was not
+modified. No model, Codex, speech request or Fontdone code execution occurred.
+The disposable copy was removed after collecting the result. Command:
+
+```sh
+set -e
+source_data_dir="$HOME/Library/Application Support/com.codeatlas.desktop"
+profile_dir="$(mktemp -d /private/tmp/code-atlas-fontdone-retrieval.XXXXXX)"
+cp -R "$source_data_dir/snapshots" "$profile_dir/"
+cp -R "$source_data_dir/objects" "$profile_dir/"
+cp -R "$source_data_dir/indexes" "$profile_dir/"
+RUSTC_WRAPPER= CODE_ATLAS_FONTDONE_DATA_DIR="$profile_dir" \
+  cargo test --locked --manifest-path src-tauri/Cargo.toml --lib \
+  repository_context_commands::tests::fontdone_service_retrieval_profile -- --ignored --exact --nocapture
+rm -r "$profile_dir"
+```
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / captured source bytes / ranges | 1,621 / 19,296,074 / 3,462 |
+| Syntax / text-fallback files | 153 / 1,468 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| Fresh retrieval-index preparation plus `memory_face` search / warm search | 16,326 ms / 608 ms |
+| Serialized `memory_face` result; top hit | 23,276 bytes; `src/font.rs:4053` |
+| Named expected ranges, global / scoped | 12/12 / 12/12 |
+| Broad first-page recall, query 1 / query 2 | 5/12 / 5/12 |
+| Broad 256-candidate recall, query 1 / query 2 | 10/12 / 7/12 |
+| First 32-path file-discovery page, query 1 / query 2 | 7/7 / 7/7 expected paths |
+| Eight-page discovery followed by scoped range search | 7/7 expected paths; 12/12 ranges for both queries |
+| Eight-page discovery time, query 1 / query 2 | 1,433 ms / 1,388 ms |
+| Paged broad-range time, query 1 / query 2 | 8,811 ms / 8,585 ms |
+| Fresh `repository-context` cache after the run | 14 MiB |
+
+The fresh-cache run reproduces the prior recall profile: exact identifiers and
+file discovery followed by scoped search find the full expected range set, but
+a single broad range page remains at 5/12. It is a one-run local debug profile
+with no variance estimate. It does not prove Codex will choose the multi-step
+path, answer quality, packaged offline behavior, or production latency. Keep
+`a699`, `0wdn`, and `gk46` open.

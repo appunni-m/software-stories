@@ -409,3 +409,19 @@ saved Fontdone performance/recall profile, qualify packaged storage pressure,
 or establish Codex tool choice, large-file answer quality, or the broad
 Fontdone behavior path. No provider request was made. Keep `a699`, `0wdn`, and
 `gk46` open for those remaining acceptance points.
+
+## Fresh Fontdone retrieval-cache profile — 31 October 2026
+
+The current native-service profile ran against a disposable copy of the saved
+Fontdone `main@5249b72371` snapshot with no existing retrieval cache. The fresh
+retrieval index took 16,326 ms to prepare with the first `memory_face` search;
+the warm same-process search took 608 ms. The resulting retrieval cache was
+14 MiB. All 12 independently selected declarations were found globally and
+scoped. Both broad queries found 5/12 on the first range page and 10/12 or
+7/12 in the 256-candidate window. Eight pages of local file discovery found
+all 7/7 expected paths for both queries; scoped searches recovered 12/12
+ranges. This is one local debug measurement without variance. It does not
+qualify agent choice, answer quality, packaged offline search, or storage
+pressure. Full observations:
+[fresh-cache profile](../acceptance/2026-10-17-range-retrieval.md#fresh-retrieval-cache-fontdone-profile--31-october-2026). Keep
+`a699`, `0wdn`, and `gk46` open.
