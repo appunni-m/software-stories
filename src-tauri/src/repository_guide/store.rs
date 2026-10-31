@@ -69,11 +69,11 @@ fn opaque_answer_reservation(id: &str, scope: RecordScope) -> AnswerReservation 
         guide_id: id.to_owned(),
         project_id: scope.project_id,
         snapshot_id: scope.snapshot_id,
-        // Opaque records have no trusted run identities, so this reservation
-        // is accounting only and cannot establish answer ownership.
+        // Unsupported guides cannot publish future answers. Any saved answer
+        // receipts remain independently counted from answer-sections.
         manifest_sha256: String::new(),
         run_ids: Vec::new(),
-        reserved_records: MAX_GUIDE_ANSWER_RECORDS,
+        reserved_records: 0,
     }
 }
 pub(super) fn exists(storage: &Path, id: &str) -> Result<bool, String> {
@@ -228,9 +228,9 @@ pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
             );
         }
         if contract.schema_version != RECORD_SCHEMA_VERSION || contract.contract != CONTRACT {
-            // Old app-owned formats are unavailable to the current reader. Hold
-            // their maximum current allowance so ignoring one cannot reset the
-            // shared answer budget. No old content is parsed or rewritten.
+            // Old app-owned formats are unavailable to the current reader and
+            // cannot publish more answers. Existing answer receipts are counted
+            // separately; do not reserve hypothetical slots for unsupported work.
             reservations.push(opaque_answer_reservation(id, scope));
             continue;
         }

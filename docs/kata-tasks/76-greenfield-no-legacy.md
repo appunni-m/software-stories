@@ -62,3 +62,15 @@ old content cannot release its capacity. A record claiming a newer schema fails
 capacity inspection because its allowance cannot be known. The macOS data-format
 manifest now publishes the Guide schema and contract. Existing source-level
 fixtures were aligned to the current outline shape; no tests or build were run.
+
+## Follow-up: do not reserve future work for unsupported guides — 31 October 2026
+
+The packaged Fontdone workspace reached the 1,000-answer limit with 450 saved
+answer receipts and 37 unsupported Guide records. Each unavailable schema-6/7/8
+Guide reserved all 63 possible current answer slots, although the current app
+cannot resume those guides. This counted hypothetical work as stored data and
+blocked new explanations. Unsupported guides now reserve no future answer
+slots; every answer receipt remains counted separately from its file, including
+unreadable receipts. Old guide and answer bytes are preserved in place, and
+current-schema guides continue to reserve the attempts they can still publish.
+No test suite was run; package and fresh-section qualification remain pending.

@@ -968,7 +968,7 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
         .find(|reservation| reservation.guide_id == unrelated.id)
         .expect("the unsupported guide retains an opaque capacity reservation");
     assert!(opaque.run_ids.is_empty());
-    assert_eq!(opaque.reserved_records, MAX_GUIDE_ANSWER_RECORDS);
+    assert_eq!(opaque.reserved_records, 0);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
     let (unsupported, unavailable_count) = list_saved_guides_with_count(
