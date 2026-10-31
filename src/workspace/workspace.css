@@ -419,6 +419,14 @@ html[data-app-zoom-compact="true"] .dw-reading > #explanations {flex:1!important
 html[data-app-zoom-compact="true"] .developer-workspace .dw-narrow-toggle {display:inline-flex;margin-left:auto;}
 html[data-app-zoom-compact="true"] .dw-narrow-source .dw-reading > #source {display:flex!important;flex:1!important;max-width:none!important;}
 html[data-app-zoom-compact="true"] .dw-narrow-source .dw-reading > #explanations {display:none!important;}
+/* In compact zoom the source view is the whole reading surface. Keep the chat
+   input available, but reclaim the Guide/Flow action row and CodeMirror's
+   generous desktop padding so source lines remain visible in a short window. */
+html[data-app-zoom-compact="true"] .dw-narrow-source .dw-composer {padding:4px var(--space-2);}
+html[data-app-zoom-compact="true"] .dw-narrow-source .dw-composer-actions {margin-bottom:0!important;}
+html[data-app-zoom-compact="true"] .dw-narrow-source .dw-composer-actions > .rt-Button {display:none;}
+html[data-app-zoom-compact="true"] .dw-narrow-source .preview-editor .cm-scroller {font-size:12px;line-height:1.5;}
+html[data-app-zoom-compact="true"] .dw-narrow-source .preview-editor .cm-content {padding-block:2px;}
 html[data-app-zoom-compact="true"] .dw-answer-scroll {padding:var(--space-3) var(--space-2) var(--space-6);}
 html[data-app-zoom-compact="true"] .dw-answer-card {padding:var(--space-3);}
 html[data-app-zoom-compact="true"] .dw-section-controls {column-gap:var(--space-1);}

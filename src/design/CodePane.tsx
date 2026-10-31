@@ -221,6 +221,20 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
       ],
     }) });
     editor.current = view; setSelection(null);
+    // At high native zoom the source pane is temporarily display:none and
+    // becomes a full-width view only after the user chooses “Show source”.
+    // Request a fresh CodeMirror measurement when that hidden pane is revealed
+    // so its editor viewport paints at the new dimensions.
+    let measureFrame = 0;
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries.some((entry) => entry.contentRect.width > 0 && entry.contentRect.height > 0)) return;
+      cancelAnimationFrame(measureFrame);
+      measureFrame = requestAnimationFrame(() => {
+        measureFrame = 0;
+        if (editor.current === view && view.dom.isConnected) view.requestMeasure();
+      });
+    });
+    resizeObserver.observe(host.current);
     const loading = loadLanguageForPath(path);
     if (loading) {
       void loading.then((support) => {
@@ -232,6 +246,8 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
       });
     }
     return () => {
+      resizeObserver.disconnect();
+      cancelAnimationFrame(measureFrame);
       if (editor.current === view) editor.current = null;
       if (editorTheme.current === appearance) editorTheme.current = null;
       view.destroy();
