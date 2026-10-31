@@ -17,10 +17,23 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
   /** Hide the in-canvas heading when a persistent reader toolbar already names the scene. */
   showTitle?: boolean;
 }) {
-  const draw = (index: number): ReactNode => {
+  const draw = (index: number, collapseRepeatedSelectorLabel = false): ReactNode => {
     const e = scene.elements[index];
     const childIndices = sceneChildIndices(scene.elements, index);
-    const children = childIndices.map(draw);
+    const firstBranchChild = e.kind === 'branch' && childIndices.length > 1
+      ? scene.elements[childIndices[0]]
+      : undefined;
+    const firstBranchLabel = firstBranchChild?.nodeIndex !== null && firstBranchChild?.nodeIndex !== undefined
+      ? visual.nodes[firstBranchChild.nodeIndex]?.label.trim().toLowerCase()
+      : undefined;
+    const repeatedSelectorLabels = collapseRepeatedSelectorLabel && e.kind === 'branch'
+      && firstBranchLabel !== undefined && childIndices.every((childIndex) => {
+        const child = scene.elements[childIndex];
+        return child.nodeIndex !== null
+          && visual.nodes[child.nodeIndex]?.label.trim().toLowerCase() === firstBranchLabel;
+      });
+    const children = childIndices.map((childIndex, childPosition) =>
+      draw(childIndex, repeatedSelectorLabels && childPosition > 0));
     const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}${hasArrows ? ' has-arrows' : ''}`;
     if (containerKinds.has(e.kind)) {
@@ -38,7 +51,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
         return <div key={index} className={className} role="group" aria-label={label}>
           {childIndices.map((check, checkIndex) => <div className="html-scene-selector-step" key={check}>
             <span className="html-scene-selector-label" role="img" aria-label={`Probe ${checkIndex + 1}`} title={`Probe ${checkIndex + 1}`}>{String(checkIndex + 1).padStart(2, '0')}</span>
-            {draw(check)}
+            {draw(check, true)}
             {checkIndex < childIndices.length - 1 && <div className="html-scene-selector-handoff">
               <ArrowDown aria-hidden="true" size={18}/><span>No match · continue</span>
             </div>}
@@ -110,7 +123,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, value, e.valueOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
-      <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>
+      {!collapseRepeatedSelectorLabel && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
       {body}
       {originLabel && <small className="html-origin-label">{originLabel}</small>}
     </div>;
