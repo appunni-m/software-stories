@@ -143,6 +143,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const [focusedNode, setFocusedNode] = useState<string | null>(restoredFocus.nodeId);
   const [focusedEdge, setFocusedEdge] = useState<string | null>(restoredFocus.edgeId);
   const [focusedSourceValue, setFocusedSourceValue] = useState<string | undefined>();
+  const [focusedSourceAnchorId, setFocusedSourceAnchorId] = useState<string | undefined>();
   const [sceneDetailsOpen, setSceneDetailsOpen] = useState(false);
   const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
@@ -151,25 +152,35 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const htmlScenes = !fullMap && authoredScenes.length > 0 && authoredScenes.every((item) => item.mode === 'composition') ? authoredScenes : [];
   const anchors = useMemo(() => section.claims.flatMap((claim) => claim.anchors), [section.claims]);
   const sourceValues = useMemo(() => visual ? sourceValuesByVisualNode(visual) : new Map<string, string>(), [visual]);
-  const evidenceAnchorForNode = (node: NonNullable<typeof visual>['nodes'][number], sourceValue?: string) => {
+  const evidenceAnchorForNode = (node: NonNullable<typeof visual>['nodes'][number], sourceValue?: string, preferredAnchorIds?: readonly string[]) => {
+    if (preferredAnchorIds) {
+      const preferred = anchors.filter((item) => preferredAnchorIds.includes(item.anchorId) && node.evidenceAnchorIds.includes(item.anchorId));
+      const exactSceneValueAnchor = sourceValue ? preferred.find((item) => item.excerpt.includes(sourceValue)) : undefined;
+      const boundSceneAnchor = preferred.find((item) => item.anchorId === node.sourceAnchorId);
+      const preferredAnchor = exactSceneValueAnchor ?? boundSceneAnchor ?? preferred[0];
+      if (preferredAnchor) return preferredAnchor;
+    }
     const exactValueAnchor = sourceValue
       ? anchors.find((item) => node.evidenceAnchorIds.includes(item.anchorId) && item.excerpt.includes(sourceValue))
       : undefined;
     return exactValueAnchor ?? sourceEvidenceAnchorForVisualNode(anchors, node);
   };
-  const sourceAnchorIdForNode = (nodeId: string, sourceValue?: string) => {
+  const sourceAnchorIdForNode = (nodeId: string, sourceValue?: string, preferredAnchorIds?: readonly string[]) => {
     const node = visual?.nodes.find((item) => item.nodeId === nodeId);
     const value = sourceValue ?? node?.sourceValue ?? sourceValues.get(nodeId);
-    return node ? evidenceAnchorForNode(node, value)?.anchorId : undefined;
+    return node ? evidenceAnchorForNode(node, value, preferredAnchorIds)?.anchorId : undefined;
   };
   const anchor = anchors.find((item) => scene.anchorIds.includes(item.anchorId));
   const activeIds = new Set(scene.nodeIds);
   const visibleIds = visual && !fullMap && activeIds.size ? sceneNodeIds(visual, scene) : new Set(visual?.nodes.map((node) => node.nodeId));
   const focus = visual?.nodes.find((node) => node.nodeId === focusedNode) ?? visual?.nodes.find((node) => activeIds.has(node.nodeId));
   const focusSourceValue = focusedSourceValue ?? focus?.sourceValue ?? (focus ? sourceValues.get(focus.nodeId) : undefined);
-  const focusAnchor = focus
-    ? evidenceAnchorForNode(focus, focusSourceValue)
-    : anchor;
+  const selectedSourceAnchor = focusedSourceAnchorId && focus?.evidenceAnchorIds.includes(focusedSourceAnchorId)
+    ? anchors.find((item) => item.anchorId === focusedSourceAnchorId)
+    : undefined;
+  const focusAnchor = selectedSourceAnchor ?? (focus
+    ? evidenceAnchorForNode(focus, focusSourceValue, scene.anchorIds)
+    : anchor);
   const focusSourceAnchor = focus && focusAnchor
     ? sourceAnchorForVisualNode(focusAnchor, focus, focusSourceValue)
     : focusAnchor;
@@ -212,25 +223,25 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
         && visualNodes[element.nodeIndex]?.nodeId === node.nodeId
         && Boolean(targetAnchor?.excerpt.includes(element.value)))?.value
         ?? (node.sourceAnchorId === anchorId ? node.sourceValue : undefined);
-      setFocusedNode(node.nodeId); setFocusedEdge(null); setFocusedSourceValue(sourceValue);
+      setFocusedNode(node.nodeId); setFocusedEdge(null); setFocusedSourceValue(sourceValue); setFocusedSourceAnchorId(anchorId);
       savePosition(scene.id, undefined, {nodeId:node.nodeId,edgeId:null}, true); return;
     }
     const edge = visual?.edges.find((item) => activeFocusTarget?.startsWith(`reader-visual-edge:${item.edgeId}:`));
-    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); setFocusedSourceValue(undefined); savePosition(scene.id, undefined, {nodeId:edge.fromNodeId,edgeId:edge.edgeId}, true); }
+    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); setFocusedSourceValue(undefined); setFocusedSourceAnchorId(undefined); savePosition(scene.id, undefined, {nodeId:edge.fromNodeId,edgeId:edge.edgeId}, true); }
   }, [activeFocusTarget, visual, anchors]);
 
-  const select = (next: number, playing = false, nodeId: string | null = null, edgeId: string | null = null, sourceValue?: string) => {
+  const select = (next: number, playing = false, nodeId: string | null = null, edgeId: string | null = null, sourceValue?: string, sourceAnchorId?: string) => {
     if (next < 0 || next >= scenes.length) return;
     activeScene.current=scenes[next].id;
     if(next!==index)canvasViewport.current=undefined;
-    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId); setFocusedSourceValue(sourceValue); setSceneDetailsOpen(Boolean(nodeId));
+    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId); setFocusedSourceValue(sourceValue); setFocusedSourceAnchorId(sourceAnchorId); setSceneDetailsOpen(Boolean(nodeId));
     if (!playing) { setManualVisit((visit) => visit + 1); requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'start', behavior: 'instant' })); }
     if (playing) positions.current.set(scenes[next].id, 0);
     savePosition(scenes[next].id, undefined, {nodeId,edgeId}, true);
   };
-  const chooseNode = (id: string, sourceValue?: string) => {
+  const chooseNode = (id: string, sourceValue?: string, sourceAnchorId?: string) => {
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
-    select(next < 0 ? index : next, false, id, null, sourceValue);
+    select(next < 0 ? index : next, false, id, null, sourceValue, sourceAnchorId);
   };
   const chooseEdge = (edgeId: string) => {
     const edge = visual?.edges.find((item) => item.edgeId === edgeId);
@@ -255,7 +266,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     const detail = data.detail ? plainInlineCodeText(data.detail) : '';
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
-      data: { label: <AppButton intent="custom" size="1" className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
+      data: { label: <AppButton intent="custom" size="1" className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id, undefined, scene.anchorIds) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
         <span className="story-node-title"><InlineCodeText text={data.label}/></span>
         {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
       </AppButton> },
@@ -406,7 +417,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode}
-        sourceAnchorIdForNode={sourceAnchorIdForNode} focusedNode={focusedNode} showTitle={false}/>)}
+        sourceAnchorIdForNode={sourceAnchorIdForNode} sourceAnchorIds={section.claims[item.claimIndex]?.anchors.map((itemAnchor) => itemAnchor.anchorId) ?? []} focusedNode={focusedNode} showTitle={false}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={plainInlineCodeText(visual.title)}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
         aria-label={`Read-only visual explanation: ${plainInlineCodeText(visual.title)}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y

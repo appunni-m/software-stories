@@ -747,7 +747,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         )
     );
     assert!(instructions.contains(
-        "Transform has exactly three direct content-leaf children in input, operation, result order; each child's parentKey names the transform key. PointFlow has the same three direct slots and is reserved for a source-proved point or vector mapping; it shows symbolic point markers only, with no fabricated coordinates."
+        "Transform has exactly three direct children in input, operation, result order; each child's parentKey names the transform key. A direct child may be a nonempty group when that slot needs internal visual structure; keep its content source-linked. PointFlow has exactly three direct source-linked content children and is reserved for a source-proved point or vector mapping; it shows symbolic point markers only, with no fabricated coordinates."
     ));
     assert!(instructions.contains(
         "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
@@ -764,7 +764,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
             .contains("valueOrigin:illustration only for invented hypothetical inputs or outputs")
     );
     assert!(instructions.contains(
-        "transformShape means the transform must have exactly three direct content-leaf children"
+        "transformShape means transform and pointFlow need exactly three direct children in input, operation, result order"
     ));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));

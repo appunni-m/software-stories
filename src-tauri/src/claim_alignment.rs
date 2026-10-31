@@ -17,7 +17,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CorrectionPolicy {
     Disabled,
-    ChapterScenesV6,
+    ChapterScenesV7,
 }
 
 impl CorrectionPolicy {
@@ -25,7 +25,7 @@ impl CorrectionPolicy {
         if config.get("claimAlignmentCorrection").is_none()
             && config.get("candidateCorrection") == Some(&chapter_correction_config())
         {
-            Self::ChapterScenesV6
+            Self::ChapterScenesV7
         } else {
             Self::Disabled
         }
@@ -33,7 +33,7 @@ impl CorrectionPolicy {
 }
 
 pub(crate) fn chapter_correction_config() -> Value {
-    json!({"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":1})
+    json!({"policy":"chapter-scenes-identifiers-and-graph-density-v7","maxAttempts":1})
 }
 
 /// Chapter-specific preflight; full source and storage admission remain separate.
@@ -46,6 +46,13 @@ pub(crate) fn chapter_diagnostics(response: &str) -> Option<Vec<Value>> {
 /// Visible graph-node budget shared with the repository-guide scene compiler.
 pub(crate) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
     scenes::graph_scene_node_count(section, claim_index)
+}
+
+/// Whether a claim-focused graph view exceeds its visible node budget. A
+/// no-focus scene intentionally renders the complete graph and uses the
+/// section-wide node cap instead.
+pub(crate) fn graph_scene_is_overcrowded(section: &Value, claim_index: usize) -> Option<bool> {
+    scenes::graph_scene_is_overcrowded(section, claim_index)
 }
 
 /// Fixed-source chapters already reviewed these complete immutable files. Reuse
@@ -401,7 +408,7 @@ mod tests {
         let current = json!({"candidateCorrection":chapter_correction_config()});
         assert_eq!(
             CorrectionPolicy::from_generation_config(&current),
-            ChapterScenesV6
+            ChapterScenesV7
         );
         let legacy = json!({"workspaceQuestion":"Which path runs?", "claimAlignmentCorrection":{"policy":"identifier-alignment-v1","maxAttempts":1}});
         assert_eq!(CorrectionPolicy::from_generation_config(&legacy), Disabled);
@@ -412,6 +419,7 @@ mod tests {
             json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v5","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v5","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v5","maxAttempts":2}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"future","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":1,"extra":true}}),

@@ -73,8 +73,7 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationConciseness"}));
             }
             if scene.mode == SceneMode::Graph
-                && graph_scene_node_count(section, scene.claim_index)
-                    .is_some_and(|count| count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
+                && graph_scene_is_overcrowded(section, scene.claim_index).unwrap_or(false)
             {
                 if issues.len() >= super::MAX_ISSUES {
                     return;
@@ -162,6 +161,15 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
 /// context. A scene without a linked node shows the entire graph. Return None
 /// for an unknown proposal shape and leave it to full admission.
 pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
+    graph_scene_metrics(section, claim_index).map(|(count, _)| count)
+}
+
+pub(super) fn graph_scene_is_overcrowded(section: &Value, claim_index: usize) -> Option<bool> {
+    graph_scene_metrics(section, claim_index)
+        .map(|(count, focused)| focused && count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
+}
+
+fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bool)> {
     let visual = section.get("visual")?;
     let nodes = visual.get("nodes")?.as_array()?;
     let edges = visual.get("edges")?.as_array()?;
@@ -180,7 +188,7 @@ pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Opt
         }
     }
     if focused.is_empty() {
-        return Some(nodes.len());
+        return Some((nodes.len(), false));
     }
 
     let mut valid_edges = Vec::with_capacity(edges.len());
@@ -192,10 +200,9 @@ pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Opt
         }
         valid_edges.push((from, to));
     }
-    Some(crate::scene_presentation::visible_graph_node_count(
-        nodes.len(),
-        &focused,
-        valid_edges,
+    Some((
+        crate::scene_presentation::visible_graph_node_count(nodes.len(), &focused, valid_edges),
+        true,
     ))
 }
 

@@ -1234,3 +1234,19 @@ human comprehension study or a quality pass across other code patterns. Voice
 quality, 200% zoom/reflow, keyboard and VoiceOver operation, offline export,
 selective visual invalidation, and varied real-generated chapters remain open;
 keep `j53m` open.
+
+## Source audit corrections — 31 October 2026
+
+Composition cues now resolve source values within their own claim before
+falling back to general evidence, and retain that selected anchor when opening
+code details. Offline composition links likewise prefer the cited excerpt that
+contains the displayed source value and expose the cue's value and meaning to
+assistive technology. Focused graph scenes keep the eight-visible-node limit;
+an unfocused scene may use the full graph under the existing section-wide cap.
+The progressive transform guidance now matches the renderer and validator:
+each transform has three direct slots, and a slot may contain a group when its
+internal structure needs one.
+
+These are source-level corrections only. No tests, builds, provider calls,
+packaged review or human comprehension checks were run. Keep visual quality,
+navigation and accessibility acceptance open.

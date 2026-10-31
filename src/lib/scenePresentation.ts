@@ -46,7 +46,12 @@ const requiresOrderedSelector = (claim: string, title: string, narration: string
 /** Keep the visual cue's meaning available when the composition is explored
  * with a keyboard or screen reader, even while its prose stays collapsed.
  */
-export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 'detail'>, value: string, valueOrigin: SceneElement['valueOrigin']): string {
+export function sceneNodeAccessibleLabel(
+  node: Pick<LinkedVisualNode, 'label' | 'detail'>,
+  value: string,
+  valueOrigin: SceneElement['valueOrigin'],
+  action = 'Show code details and source links',
+): string {
   const sentence = (text: string) => text.trim().replace(/[.!?]+$/u, '');
   const origin = valueOrigin === 'source' ? 'Source value' : valueOrigin === 'illustration' ? 'Illustrative example' : '';
   return [
@@ -54,7 +59,7 @@ export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 
     value ? sentence(`Shown value: ${value}`) : '',
     node.detail ? sentence(`Meaning: ${node.detail}`) : '',
     origin,
-    'Show code details and source links',
+    action,
   ].filter(Boolean).join('. ');
 }
 

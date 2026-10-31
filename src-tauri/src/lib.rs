@@ -3205,7 +3205,7 @@ mod chapter_pipeline_tests {
             crate::claim_alignment::CorrectionPolicy::from_generation_config(
                 &codex_review.generation_config
             ),
-            crate::claim_alignment::CorrectionPolicy::ChapterScenesV6
+            crate::claim_alignment::CorrectionPolicy::ChapterScenesV7
         );
         provider::revalidate_codex_request_review(&fixture.storage, &codex_review, &codex_runtime)
             .unwrap();

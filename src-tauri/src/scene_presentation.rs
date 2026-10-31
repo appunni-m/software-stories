@@ -527,7 +527,7 @@ pub(crate) fn validate_graph_density(
             ))
         });
         let count = visible_graph_node_count(nodes.len(), &focused, graph_edges);
-        if count > MAX_FOCUSED_GRAPH_NODES {
+        if !focused.is_empty() && count > MAX_FOCUSED_GRAPH_NODES {
             return Err("A focused graph scene may show at most eight nodes, including one edge of context. Split the explanation into narrower claims and scenes or use a meaningful composition; preserve all outcomes and the full map.".into());
         }
     }

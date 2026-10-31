@@ -66,3 +66,13 @@ See [scoped evidence](../acceptance/2026-10-17-offline-visual-scenes.md).
 - [ ] Record human listening/comprehension independently of worker success.
 
 Keep this task open until the required installed/browser evidence is recorded.
+
+## Source audit correction — 31 October 2026
+
+The offline composition renderer now prefers the exported excerpt containing an
+exact source value shown in the scene. Its link's accessible name includes the
+shown value, node meaning, value origin and the action to open supporting code.
+This fixes source-level parity with the live composition reader. The app's
+native export preview, disconnected-browser navigation, audio combinations,
+keyboard/screen-reader use and manifest/hash checks remain unqualified; keep the
+task open.

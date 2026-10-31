@@ -242,7 +242,7 @@ mod tests {
                 crate::claim_alignment::CorrectionPolicy::from_generation_config(
                     &review.generation_config
                 ),
-                crate::claim_alignment::CorrectionPolicy::ChapterScenesV6
+                crate::claim_alignment::CorrectionPolicy::ChapterScenesV7
             );
             assert!(
                 review

@@ -1,5 +1,5 @@
 import type { EvidenceLinkedVisualSpec } from './commands';
-import { containerKinds, sceneChildIndices, type PresentationScene } from './scenePresentation.ts';
+import { containerKinds, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './scenePresentation.ts';
 import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
 
 export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, character => ({
@@ -9,7 +9,7 @@ export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, cha
 /** Render an already validated/sanitized composition using app-owned tags.
  * Destinations are generated package anchors; no model HTML, CSS or URL runs.
  */
-export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLinkedVisualSpec, evidenceHref: (nodeIndex: number) => string | undefined): string {
+export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLinkedVisualSpec, evidenceHref: (nodeIndex: number, sourceValue?: string) => string | undefined): string {
   const draw = (index: number): string => {
     const element = scene.elements[index];
     const cls = `scene-element scene-${element.kind} scene-tone-${element.tone}`;
@@ -69,11 +69,12 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     const originLabel = element.valueOrigin === 'source' ? 'Source value' : element.valueOrigin === 'illustration' ? 'Illustrative example' : '';
     const origin = originLabel ? `<small class="scene-origin">${originLabel}</small>` : '';
     const content = `<span class="scene-label">${inlineCodeHtml(node.label)}</span>${body}${origin}`;
-    const href = evidenceHref(element.nodeIndex!);
+    const href = evidenceHref(element.nodeIndex!, element.valueOrigin === 'source' ? element.value : undefined);
+    const accessibleLabel = escapeSceneText(plainInlineCodeText(sceneNodeAccessibleLabel(node, element.value, element.valueOrigin, 'Open supporting code')));
     // Even a programming error in the destination callback cannot introduce an
     // external/local URL, attribute or executable link into the package.
     return href && /^#[a-zA-Z0-9-]+$/u.test(href)
-      ? `<a class="${cls} scene-content" href="${href}" aria-label="${escapeSceneText(plainInlineCodeText(node.label))}. Open supporting code">${content}</a>`
+      ? `<a class="${cls} scene-content" href="${href}" aria-label="${accessibleLabel}">${content}</a>`
       : `<div class="${cls} scene-content">${content}<small>Supporting source omitted.</small></div>`;
   };
   return `<div class="offline-scene" role="group" aria-label="${escapeSceneText(plainInlineCodeText(scene.title))}"><h4>${inlineCodeHtml(scene.title)}</h4>${draw(0)}</div>`;

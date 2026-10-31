@@ -329,8 +329,8 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
         .enumerate()
     {
         if scene["mode"] == "graph"
-            && crate::claim_alignment::graph_scene_node_count(&compiled_section, claim_index)
-                .is_some_and(|count| count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
+            && crate::claim_alignment::graph_scene_is_overcrowded(&compiled_section, claim_index)
+                .unwrap_or(false)
         {
             return Err(issue(
                 &format!("/section/claims/{claim_index}/scene/nodes"),

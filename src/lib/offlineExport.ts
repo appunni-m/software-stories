@@ -890,8 +890,14 @@ function renderVisual(
     const prefix = sectionIds.get(`${revision.revisionId}:${section.section.sectionId}`)!;
     const scenes = visual.presentation!.scenes;
     const frames = scenes.map((scene, index) => {
-      const href = (nodeIndex: number) => {
+      const href = (nodeIndex: number, sourceValue?: string) => {
         const node = visual.nodes[nodeIndex];
+        const sourceValueAnchorId = sourceValue
+          ? section.references.find(reference => node.evidenceAnchorIds.includes(reference.anchorId)
+            && reference.excerpt.includes(sourceValue)
+            && evidenceIds.has(`${revision.revisionId}:${reference.anchorId}`))?.anchorId
+          : undefined;
+        if (sourceValueAnchorId) return `#${evidenceIds.get(`${revision.revisionId}:${sourceValueAnchorId}`)}`;
         const boundAnchorId = node.sourceAnchorId && node.evidenceAnchorIds.includes(node.sourceAnchorId)
           ? node.sourceAnchorId
           : undefined;
