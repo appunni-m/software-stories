@@ -127,7 +127,7 @@ export function mergeConversationStates(base:WorkspaceState,local:WorkspaceState
   return {state:value as unknown as WorkspaceState,conflictCount:0};
 }
 
-/** Explicit wire fields exclude transient focus requests and native job copies. */
+/** Explicit wire fields exclude transient focus requests, drafts and native job copies. */
 export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
   // Project the wire schema before validation. Runtime objects can carry
   // transient fields (for example selection text, rendered HTML or a native
@@ -176,7 +176,7 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
   };
   const durableState=project(state,['version','projectId','snapshotId','currentId','file','grantId','explorations']);
   if(isObject(durableState))durableState.explorations=projectList(durableState.explorations,value=>{
-    const exploration=project(value,['id','parentId','originTurnId','title','view','turns','focusedTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft']);
+    const exploration=project(value,['id','parentId','originTurnId','title','view','turns','focusedTurnId','file','reveal','codeOpen','fileFlow','scrollPositions']);
     if(!isObject(exploration))return exploration;
     if(Object.hasOwn(exploration,'turns'))exploration.turns=projectList(exploration.turns,projectTurn);
     if(Object.hasOwn(exploration,'reveal'))exploration.reveal=projectContext(exploration.reveal);
@@ -195,7 +195,6 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
   return JSON.parse(JSON.stringify({version,projectId,snapshotId,currentId,file,grantId,
     explorations:current.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
       file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
-      draft:e.draft?{question:e.draft.question,context:e.draft.context.map(context)}:undefined,
       turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,failureCode:t.failureCode,
         generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,sourceDiscoveryNotes:t.sourceDiscoveryNotes,
         guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,answerVersions:t.answerVersions?cleanAnswerVersions(t.answerVersions,t):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));

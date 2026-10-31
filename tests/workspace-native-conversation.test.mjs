@@ -350,7 +350,7 @@ test('invalid Code Lens source context cannot replace the current saved reveal',
   ]) assert.equal(rememberSourceContext(saved,'root',invalid),saved);
 });
 
-test('nested conversations retain parent turns, source, sections and last views in native storage',async()=>{
+test('nested conversations retain parent turns and last views while composer drafts stay transient',async()=>{
   const rootTurnId=runId(10);
   let state=createWorkspace('project','snapshot');state=addTurn(state,{id:rootTurnId,question:'Read bytes',context:[{path:'src/font.rs',from:3,to:7}],status:'stopped',failureCode:'stopped',revisionId:'revision-one',reading:{guide:{revisionId:'revision-one',sectionId:'section:two'}}},'guide');
   let parent=rootTurnId;for(let n=1;n<=5;n++){const turnId=runId(10+n);state=addTurn(state,{id:turnId,question:`Depth ${n}`,context:[],status:'stopped'},['guide','flow','history'][n%3],{originTurnId:parent,id:runId(100+n)});parent=turnId;}
@@ -363,7 +363,8 @@ test('nested conversations retain parent turns, source, sections and last views 
   h.store.updateWorkspace('project','snapshot',()=>state);await h.store.flushWorkspaceConversation('project','snapshot');
   const saved=clone(h.store.getWorkspace('project','snapshot'));assert.equal(saved.explorations.length,7);assert.equal(saved.currentId,siblingId);assert.equal(saved.explorations[0].turns[0].reading.guide.sectionId,'section:two');
   assert.equal(saved.explorations[0].turns[0].failureCode,'stopped');assert.equal(saved.explorations.find(e=>e.id===siblingId).draft.question,'Explain this later');
-  const writesBeforeRestart=b.writes.length;const reloaded=native(b);await reloaded.store.prepareWorkspaceConversation('project','snapshot');assert.deepEqual(clone(reloaded.store.getWorkspace('project','snapshot')),saved);assert.equal(b.writes.length,writesBeforeRestart);
+  const expectedAfterRestart=clone(saved);delete expectedAfterRestart.explorations.find(e=>e.id===siblingId).draft;
+  const writesBeforeRestart=b.writes.length;const reloaded=native(b);await reloaded.store.prepareWorkspaceConversation('project','snapshot');assert.deepEqual(clone(reloaded.store.getWorkspace('project','snapshot')),expectedAfterRestart);assert.equal(b.writes.length,writesBeforeRestart);
 });
 
 test('native startup ignores browser workspace and last-file preferences',async()=>{
