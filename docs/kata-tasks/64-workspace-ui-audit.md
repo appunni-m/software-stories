@@ -1663,3 +1663,14 @@ connection, appearance, notifications, and help in one in-flow row. No tests
 were run. The active Guide still has one scene, so its arrow and marker buttons
 remain uninspected. Multi-scene, narrow-window, and high-zoom visual acceptance
 remains open under `x21h` and `13yp`.
+
+### Static follow-up: desktop breakpoint and scene-marker wrapping — 31 October 2026
+
+Source review found the stylesheet no longer matched that recorded layout:
+the header entered its compact two-row layout at 1440 CSS pixels, and scene
+markers used a single horizontally scrolling row despite the bounded-wrap
+requirement. The header breakpoint is now 1280 CSS pixels, and scene markers
+wrap inside their available pager lane. Source-only change; no build, tests,
+or installed-app inspection ran. Keep `x21h` and `13yp` open for a populated
+multi-scene Guide, responsive and high-zoom review, and keyboard/accessibility
+acceptance.
