@@ -112,7 +112,7 @@ pub(super) fn request_for(
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
     }
     if guide_intent.is_some_and(|intent| intent.unit_key == "opening") {
-        contract["openingSlidePolicy"] = json!("independent-outline-first-opening-v1");
+        contract["openingSlidePolicy"] = json!(guide_intent::OPENING_SLIDE_POLICY);
     }
     if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
         contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
@@ -222,7 +222,7 @@ mod tests {
         let mut contract = generation_contract_for(&input, &prompt, &schema, true).unwrap();
         contract["systemInstructions"] = json!(instructions);
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
-        contract["openingSlidePolicy"] = json!("independent-outline-first-opening-v1");
+        contract["openingSlidePolicy"] = json!(guide_intent::OPENING_SLIDE_POLICY);
         contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
         assert_eq!(
             fingerprint,
