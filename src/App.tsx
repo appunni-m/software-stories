@@ -70,6 +70,7 @@ import {
 } from 'lucide-react';
 import {
   compareLocalGitRevisions,
+  isLocalGitComparisonBusy,
   cancelLocalGitComparison,
   getApplicationStatus,
   getCaptureLimits,
@@ -501,6 +502,50 @@ function App() {
     }),
     [],
   );
+  const selectedRouteGitComparison = navigation.current.projectId
+    ? gitComparisonsByProject[navigation.current.projectId]
+    : undefined;
+
+  // A saved explicit range is an existing user choice. Reopen its local,
+  // read-only comparison automatically when Changes is entered after app
+  // restart; do not make the user resubmit the same pair. New comparisons
+  // started by the Changes screen or commit rail are already in flight and
+  // must not be duplicated here.
+  useEffect(() => {
+    const route = navigation.current;
+    if (readiness !== 'ready' || !isNativeRuntime() || route.workspace !== 'changes' || !route.projectId) return;
+    const projectId = route.projectId;
+    const baseRef = route.baseRef?.trim();
+    const headRef = route.headRef?.trim();
+    if (!baseRef || !headRef) return;
+    const saved = readGitComparisonPreference(projectId);
+    if (!saved || saved.baseRef !== baseRef || saved.headRef !== headRef) return;
+    if (isLocalGitComparisonBusy(projectId)) return;
+    if (selectedRouteGitComparison?.baseRef === baseRef && selectedRouteGitComparison.headRef === headRef) return;
+
+    const controller = new AbortController();
+    let active = true;
+    void compareLocalGitRevisions(projectId, baseRef, headRef, controller.signal)
+      .then((result) => {
+        if (active) setGitComparisonsByProject((current) => ({
+          ...current,
+          [projectId]: { baseRef, headRef, result },
+        }));
+      })
+      .catch((error: unknown) => {
+        if (!active || (error instanceof Error && error.name === 'AbortError')) return;
+        setNotice({
+          projectId,
+          title: 'Saved comparison unavailable',
+          message: 'The saved local versions could not be compared. Check the version names in Changes and try again.',
+        });
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [navigation.current.workspace, navigation.current.projectId, navigation.current.baseRef,
+    navigation.current.headRef, selectedRouteGitComparison, readiness, setNotice]);
 
   const loadRuntime = () => {
     setRuntimeError(null);
