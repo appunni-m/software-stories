@@ -66,6 +66,11 @@ interface Props {
   onCompare:(base:string,head:string,remember?:boolean)=>void; onRememberFile:(path:string)=>void;
   onAnswerRestoration:(state:WorkspaceAnswerRestoration)=>void;
   conversationAvailability?:'ready'|'unavailable';
+  pendingCodeLensQuestion?:PendingCodeLensQuestion|null;
+  onPendingCodeLensQuestionConsumed?:(id:string)=>void;
+}
+export interface PendingCodeLensQuestion {
+  id:string; projectId:string; snapshotId:string; path:string; sourceSha256:string; startLine:number; endLine:number;
 }
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 const MAX_CONTEXT_REFERENCES = 12;
@@ -689,6 +694,25 @@ export function DeveloperWorkspace(props:Props) {
       setDraftNotice(`The selected code could not be prepared.${safeDetail} Reopen the captured file and select its code again.`);
     }
   }
+  const handledCodeLensQuestion=useRef<string|null>(null);
+  useEffect(()=>{
+    const pending=props.pendingCodeLensQuestion;
+    if(!pending||workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId)return;
+    if(handledCodeLensQuestion.current===pending.id)return;
+    if(!source||source.path!==pending.path||source.sha256!==pending.sourceSha256){
+      if(props.routePath===pending.path&&sourceError&&!sourceBusy){
+        handledCodeLensQuestion.current=pending.id;
+        setDraftNotice('The selected code could not be opened from this snapshot. Reopen it and select the range again; nothing was sent.');
+        props.onPendingCodeLensQuestionConsumed?.(pending.id);
+      }
+      return;
+    }
+    handledCodeLensQuestion.current=pending.id;
+    if(generationPaused)setDraftNotice('Resolve the saved conversation conflict, then select the code and ask again. Nothing was sent.');
+    else explainSafely({path:pending.path,sha256:pending.sourceSha256,from:pending.startLine,to:pending.endLine});
+    props.onPendingCodeLensQuestionConsumed?.(pending.id);
+  },[props.pendingCodeLensQuestion,props.onPendingCodeLensQuestionConsumed,props.routePath,workspace,
+    projectId,snapshotId,source?.path,source?.sha256,sourceError,sourceBusy,generationPaused]);
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
     if(generationPaused||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId

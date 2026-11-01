@@ -17,7 +17,7 @@ import { isEditableKeyboardTarget } from './lib/keyboardShortcuts';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useLoadedWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
-import { WorkspaceFrame } from './workspace/Workspace';
+import { WorkspaceFrame, type PendingCodeLensQuestion } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
@@ -366,6 +366,7 @@ function App() {
   const [planHistoryDraftId, setPlanHistoryDraftId] = useState<string | undefined>(undefined);
   const [planBatch, setPlanBatch] = useState<{ projectId: string; target: PlannedChapterBatchTarget } | null>(null);
   const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
+  const [pendingCodeLensQuestion, setPendingCodeLensQuestion] = useState<PendingCodeLensQuestion | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
     setPlanningDialog(null);
@@ -405,6 +406,15 @@ function App() {
       setPendingLargeFileRequest(null);
     }
   }, [pendingLargeFileRequest, navigation.current.workspace, navigation.current.projectId,
+    navigation.current.snapshotId, navigation.current.relativePath]);
+  useEffect(() => {
+    if (!pendingCodeLensQuestion) return;
+    const route = navigation.current;
+    if (route.workspace !== 'guide-plan' || route.projectId !== pendingCodeLensQuestion.projectId
+      || route.snapshotId !== pendingCodeLensQuestion.snapshotId || route.relativePath !== pendingCodeLensQuestion.path) {
+      setPendingCodeLensQuestion(null);
+    }
+  }, [pendingCodeLensQuestion, navigation.current.workspace, navigation.current.projectId,
     navigation.current.snapshotId, navigation.current.relativePath]);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
   const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -1442,20 +1452,27 @@ function App() {
       setNotice({ title: 'This source range could not be verified', message: 'Reopen the captured file and select its code again before requesting an explanation.' });
       return;
     }
-    providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setProviderDialog({
-      kind: 'code-lens-range',
-      projectId: currentProject.projectId,
-      snapshotId: selectedSnapshot.snapshotId,
-      target: {
-        path: targetPath,
-        sourceSha256: resolvedRange.range.sourceSha256!,
-        startLine: resolvedRange.range.startLine,
-        endLine: resolvedRange.range.endLine,
-        startByte: resolvedRange.range.startByte ?? null,
-        endByteExclusive: resolvedRange.range.endByteExclusive ?? null,
-      },
+    const projectId = currentProject.projectId;
+    const snapshotId = selectedSnapshot.snapshotId;
+    const verified = resolvedRange.range;
+    setPendingCodeLensQuestion({
+      id: crypto.randomUUID(), projectId, snapshotId, path: targetPath,
+      sourceSha256: verified.sourceSha256!, startLine: verified.startLine, endLine: verified.endLine,
     });
+    setNavigation((state) => navigateToRoute(state, {
+      ...state.current,
+      workspace: 'guide-plan', projectId, snapshotId, relativePath: targetPath,
+      sourceRange: {
+        startLine: verified.startLine,
+        endLine: verified.endLine,
+        sourceSha256: verified.sourceSha256!,
+        ...(verified.startByte == null || verified.endByteExclusive == null ? {} : {
+          startByte: verified.startByte, endByteExclusive: verified.endByteExclusive,
+        }),
+      },
+      sourceRangeIssue: undefined,
+      focusTarget: 'workspace-composer',
+    }));
   };
 
   const closeProviderDialog = () => {
@@ -2040,6 +2057,8 @@ function App() {
               sharingOpen={repositorySharingOpen} onSharingOpenChange={setRepositorySharingOpen}
               pendingLargeFileExplanation={pendingLargeFileRequest}
               onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileRequest((current) => current?.id === id ? null : current)}
+              pendingCodeLensQuestion={pendingCodeLensQuestion}
+              onPendingCodeLensQuestionConsumed={(id) => setPendingCodeLensQuestion((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef,resolvedHeadOid:comparisonResolvedHeadOid}}
