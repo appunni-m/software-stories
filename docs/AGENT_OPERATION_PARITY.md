@@ -1,6 +1,6 @@
 # Required agent generation coverage
 
-> **Current sequencing — October 22:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints.
+> **Status — November 1, 2026:** Codex is the only coding-agent backend with automatic dispatch in source; runtime and operation coverage remain unqualified. Claude is deferred. Google prohibits third-party use of a consumer Antigravity account, and the separate SDK/API or Enterprise route is not implemented here. Earlier build, test and provider approvals applied only to their dated runs; they are not current authorization. See [Google's Antigravity FAQ](https://antigravity.google/docs/faq), [Terms](https://antigravity.google/terms), and [SDK overview](https://antigravity.google/docs/sdk/overview).
 
 This is the implementation contract for multi-agent generation, reviewed October 22, 2026. It describes required behavior and current source gaps. Codex file-chapter generation has completed one synthetic native baseline, including draft/acceptance, citation navigation and manual section advance. Other operations and full backend qualification remain pending. See [executed validation](acceptance/2026-10-16-codex-validation.md).
 

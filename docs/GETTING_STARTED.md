@@ -79,7 +79,7 @@ The interactive player retains **Offline export** for selected accepted revision
 
 The shared header connection manages Codex runtime, sign-in, model and reasoning. Disconnect stops automatic account reuse. Opening connection settings is not permission to send code. Workspace questions use the native scoped snapshot grant described above; advanced editor, PR and legacy generation operations retain their exact request reviews.
 
-Automatic Claude and Antigravity generation are deferred. Manual handoffs and direct APIs remain available in advanced backend settings, with their existing constraints. They do not substitute for the current Codex workspace. See [agent generation](AGENT_GENERATION.md) for transport and operation details, and [workspace exploration](design/WORKSPACE_EXPLORATION.md) for persistence and recovery limits.
+Automatic Claude generation is deferred. Google prohibits third-party apps from using a consumer Antigravity account; Code Atlas does not integrate that account or CLI route. Google's separate Antigravity SDK/API and Enterprise route is not implemented. Manual handoffs and direct APIs remain available in advanced backend settings, with their existing constraints. See [agent generation](AGENT_GENERATION.md) for transport and operation details, and [workspace exploration](design/WORKSPACE_EXPLORATION.md) for persistence and recovery limits.
 
 ## Optional direct API generation
 
