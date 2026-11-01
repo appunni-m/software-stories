@@ -4,13 +4,13 @@ This document summarizes the versioned disclosures represented in Code Atlas sou
 
 ## Direct text API providers
 
-The versioned Gemini, OpenAI, and Anthropic records are defined in `src-tauri/src/provider.rs`. The selected provider and model are explicit; this direct API route does not discover models or switch providers after failure. Prices, model IDs, and provider terms are static release metadata checked on 13 October 2026 and must be verified against the linked first-party sources before release. The app cannot inspect the account, key tier, billing, quota, retention configuration, eligibility, or regional availability behind a user-supplied key.
+The versioned Gemini, OpenAI, and Anthropic records are defined in `src-tauri/src/provider.rs`. The selected provider and model are explicit; this direct API route does not discover models or switch providers after failure. Gemini and OpenAI records were checked on 13 October 2026; Anthropic Haiku 5.5 pricing and model parameters were rechecked on 1 November 2026. These are static release disclosures and must be verified against the linked first-party sources before release. The app cannot inspect the account, key tier, billing, quota, retention configuration, eligibility, or regional availability behind a user-supplied key.
 
 ### Data use and eligibility notices
 
 - **Gemini API:** the app warns that Google may use content sent through unpaid Gemini API services to improve products and may have people review it. Google's terms have a paid-service data-use exception for users in the EEA, Switzerland, and the United Kingdom, including users of unpaid quota. Age, professional/business-use, supported-region, and account terms still apply.
 - **OpenAI API:** the app discloses that API data is not used for training by default, while abuse-monitoring logs can contain prompts and responses and are normally retained for up to 30 days, subject to current account, legal, and safety controls. The reviewed Responses request sets `store: false`; this avoids Responses application-state storage and does not establish zero retention for all processing.
-- **Anthropic API:** the app's structured-output Messages request uses the provider's schema feature. Its notice describes the documented Zero Data Retention qualification for that feature, including schema caching for up to 24 hours and applicable account, trust-and-safety, and legal exceptions. Verify current retention terms and account eligibility before sending source.
+- **Anthropic API:** the app's structured-output Messages request uses the provider's schema feature. Its notice describes the documented Zero Data Retention qualification for that feature, including schema caching for up to 24 hours and applicable account, trust-and-safety, and legal exceptions. For Haiku 5.5, the app omits `temperature`; Anthropic's current model guidance says to omit sampling parameters. Its per-million-token input/output rates are $0.10/$0.50 for prompts up to 100,000 tokens and $0.50/$2.50 above that threshold. Verify current retention terms and account eligibility before sending source.
 
 Each provider has a separate price, terms, supported-region, and API-key reference in the app. A listed price or a model's feature flag is not a live availability, account-eligibility, free-use, or per-operation capability check.
 
@@ -91,7 +91,7 @@ Speech review/cache and both backend disclosures are defined in `src-tauri/src/n
 - [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data) and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI terms](https://openai.com/policies/services-agreement/) and [supported countries](https://developers.openai.com/api/docs/supported-countries)
 - [OpenAI API keys](https://platform.openai.com/api-keys)
-- [Anthropic models](https://platform.claude.com/docs/en/models/overview) and [pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Anthropic models](https://platform.claude.com/docs/en/models/overview), [Haiku 5.5 migration guidance](https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide), and [pricing](https://platform.claude.com/docs/en/about-claude/pricing)
 - [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) and [API data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention)
 - [Anthropic commercial terms](https://www.anthropic.com/legal/commercial-terms) and [supported regions](https://platform.claude.com/docs/en/api/supported-regions)
 - [Anthropic API keys](https://console.anthropic.com/settings/keys)

@@ -24,6 +24,7 @@ use zeroize::Zeroizing;
 const GEMINI_PROVIDER: &str = "gemini";
 const OPENAI_PROVIDER: &str = "openai";
 const ANTHROPIC_PROVIDER: &str = "anthropic";
+const ANTHROPIC_HAIKU_5_5_MODEL: &str = "claude-haiku-5-5";
 const PREVIEW_CREDENTIAL: &str = "code-atlas-review-placeholder";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +73,7 @@ pub fn encode_request_preview(
 ) -> Result<EncodedRequestPreview, &'static str> {
     let request = completion_request(
         provider_id,
+        model_id,
         system_instruction,
         user_prompt,
         generation_config,
@@ -121,6 +123,7 @@ pub fn encode_request_preview(
 
 fn completion_request(
     provider_id: &str,
+    model_id: &str,
     system_instruction: &str,
     user_prompt: &str,
     generation_config: &Value,
@@ -154,6 +157,14 @@ fn completion_request(
     lowercase_schema_types(&mut schema_json);
     let schema: rig_core::schemars::Schema =
         serde_json::from_value(schema_json).map_err(|_| "response schema is invalid")?;
+    // Haiku 5.5 rejects sampling parameters; omit temperature on the provider
+    // wire while keeping the canonical generation config available to review.
+    let temperature = if provider_id == ANTHROPIC_PROVIDER && model_id == ANTHROPIC_HAIKU_5_5_MODEL
+    {
+        None
+    } else {
+        Some(temperature)
+    };
     let request = CompletionRequest::new(user_prompt.to_owned())
         .preamble(system_instruction.to_owned())
         .temperature(temperature)
@@ -198,6 +209,7 @@ pub async fn complete_reviewed_request(
     }
     let request = completion_request(
         provider_id,
+        model_id,
         system_instruction,
         user_prompt,
         generation_config,
@@ -728,8 +740,8 @@ fn hex_digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        PREVIEW_CREDENTIAL, RigRequestFailure, SafeRigHttpClient, classify_rig_failure,
-        encode_request_preview,
+        ANTHROPIC_HAIKU_5_5_MODEL, PREVIEW_CREDENTIAL, RigRequestFailure, SafeRigHttpClient,
+        classify_rig_failure, encode_request_preview,
     };
     use rig_core::http_client::{HttpClientExt, Request};
     use serde_json::{Value, json};
@@ -888,6 +900,21 @@ mod tests {
                     .contains("code-atlas-review-placeholder")
             );
         }
+    }
+
+    #[test]
+    fn anthropic_haiku_55_request_omits_unsupported_temperature() {
+        let preview = encode_request_preview(
+            "anthropic",
+            ANTHROPIC_HAIKU_5_5_MODEL,
+            "Explain only the supplied evidence.",
+            "Describe one selected source file.",
+            &generation_config(),
+        )
+        .expect("Haiku 5.5 request encodes");
+
+        assert_eq!(preview.body["model"], ANTHROPIC_HAIKU_5_5_MODEL);
+        assert!(preview.body.get("temperature").is_none());
     }
 
     #[test]

@@ -30,7 +30,7 @@ const DIRECT_PROVIDER_ID: &str = GEMINI_PROVIDER_ID;
 const KEYCHAIN_ACCOUNT: &str = "user-api-key";
 const GEMINI_DISCLOSURE_VERSION: &str = "gemini-disclosure-2026-10-13-v2";
 const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
-const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
+const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-11-01-v2";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
 const PROMPT_VERSION: &str = "structured-file-chapter-v12";
@@ -278,7 +278,7 @@ fn anthropic_disclosure() -> ProviderDisclosure {
         provider_id: "anthropic".to_owned(),
         display_name: "Anthropic Claude API".to_owned(),
         version: ANTHROPIC_DISCLOSURE_VERSION.to_owned(),
-        checked_date: "2026-10-13".to_owned(),
+        checked_date: "2026-11-01".to_owned(),
         endpoint_url: ANTHROPIC_API_ROOT.to_owned(),
         request_path_template: "/v1/messages".to_owned(),
         pricing_url: "https://platform.claude.com/docs/en/about-claude/pricing".to_owned(),
@@ -290,7 +290,7 @@ fn anthropic_disclosure() -> ProviderDisclosure {
             model_id: "claude-haiku-5-5".to_owned(),
             display_name: "Claude Haiku 5.5".to_owned(),
             intended_use: "Anthropic describes Haiku 5.5 as its fastest model for high-volume, cost-sensitive tasks.".to_owned(),
-            free_tier_status: "Anthropic API usage is billed by token; no free API tier is listed. Input pricing increases for prompts over 100,000 tokens.".to_owned(),
+            free_tier_status: "Anthropic API usage is billed by token; no free API tier is listed. For prompts over 100,000 tokens, input is $0.50 and output is $2.50 per million tokens, versus $0.10 input and $0.50 output up to 100,000 tokens.".to_owned(),
             paid_input_usd_per_million_tokens: "From $0.10".to_owned(),
             paid_output_usd_per_million_tokens: "From $0.50".to_owned(),
             paid_price_change_date: None,
@@ -300,7 +300,7 @@ fn anthropic_disclosure() -> ProviderDisclosure {
         data_use_terms: "Anthropic's structured-output Messages API is documented as qualified for Zero Data Retention: prompts and outputs are not stored for that feature, while the JSON schema may be cached for up to 24 hours. Account arrangements and trust-and-safety/legal retention exceptions still apply; review Anthropic's current retention terms.".to_owned(),
         region_requirements: "Availability and retention controls depend on Anthropic's supported regions and account arrangements. Check the current region and data-retention documentation for your account.".to_owned(),
         eligibility_requirements: "Use is subject to Anthropic's current commercial terms, usage policies, account eligibility, and supported-region requirements. Code Atlas cannot verify those conditions.".to_owned(),
-        billing_uncertainty: "This model has no listed free API tier. Published input pricing starts at $0.10 per million tokens and is higher for prompts over 100,000 tokens; the estimate is approximate and actual charges depend on usage and account pricing.".to_owned(),
+        billing_uncertainty: "This model has no listed free API tier. Published input and output prices are $0.10 and $0.50 per million tokens for prompts up to 100,000 tokens, then $0.50 and $2.50 for longer prompts. The estimate is approximate and actual charges depend on usage and account pricing.".to_owned(),
     }
 }
 
