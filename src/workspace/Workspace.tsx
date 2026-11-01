@@ -904,7 +904,9 @@ export function DeveloperWorkspace(props:Props) {
     branches={branchOverride??branchesByTurn.get(turn.id)??[]} hideQuestion={hideQuestion}
     onGo={go} onOpen={(anchor)=>openFile(fromAnchor(anchor))} onDestination={openDestination}
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
-    onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)} onRetryGuideUnit={retryGuideUnit}
+    onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)}
+    onRestoreSaved={isNativeRuntime()?()=>restoreWorkspaceAnswers(projectId,snapshotId):undefined}
+    onRetryGuideUnit={retryGuideUnit}
     onReview={onReview} onFocus={(revisionId,sectionId)=>focusAnswer(turn.id,revisionId,sectionId)}
     onSection={(revisionId,sectionId)=>saveSection(turn.id,'guide',revisionId,sectionId)}
     onStoryProgress={(progress)=>savePresentation(turn.id,'stories',progress)}
@@ -1173,7 +1175,7 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:()=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
@@ -1184,6 +1186,8 @@ function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
   const compact=Boolean(props.compact);
   const [guideOutlineState,setGuideOutlineState]=useState<{compact:boolean;open:boolean}|null>(null);
+  const [restoringSavedGuide,setRestoringSavedGuide]=useState(false);
+  const [savedGuideRestoreFailed,setSavedGuideRestoreFailed]=useState(false);
   // Keep the reader on the explanation. The plan remains one click away in
   // its summary, while its topic list should not displace the Guide content.
   const guideOutlineOpen=guideOutlineState?.compact===compact?guideOutlineState.open:false;
@@ -1246,6 +1250,15 @@ function Answer(props:AnswerProps){
     ?omissionSummary??'Some planned topics were not completed.'
     :null;
   const guideRecovery=unavailableGuideRecovery(canContinueRepositoryGuide(turn.guide));
+  const restoreUnavailableGuide=async()=>{
+    if(!props.onRestoreSaved||restoringSavedGuide)return;
+    setRestoringSavedGuide(true);
+    setSavedGuideRestoreFailed(false);
+    try{await props.onRestoreSaved();}
+    catch{/* Keep the saved record untouched and show the same local recovery choices. */}
+    finally{setRestoringSavedGuide(false);setSavedGuideRestoreFailed(true);}
+  };
+  const guideHasUnavailableSlides=Boolean(turn.guideId&&unavailableSequenceCount>0);
   const waitingMessage=props.loading
     ?turn.guideId?'Opening your guide…':'Opening your explanation…'
     :unavailableSequenceCount>0
@@ -1258,7 +1271,8 @@ function Answer(props:AnswerProps){
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!props.hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
-    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={props.onStop}><Square size={12}/>Stop</AppButton></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?guideRecovery.action:'Explain again'}</AppButton>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?failureMessage??'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</AppButton></>}</div>
+    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={props.onStop}><Square size={12}/>Stop</AppButton></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&guideHasUnavailableSlides&&props.onRestoreSaved&&<AppButton size="1" intent="quiet" disabled={restoringSavedGuide} onClick={()=>void restoreUnavailableGuide()}>{restoringSavedGuide?'Reopening saved slides…':'Reopen saved slides'}</AppButton>}{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&!guideHasUnavailableSlides&&<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?guideRecovery.action:'Explain again'}</AppButton>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?failureMessage??'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span>{guideHasUnavailableSlides&&props.onRestoreSaved?<AppButton size="1" intent="quiet" disabled={restoringSavedGuide} onClick={()=>void restoreUnavailableGuide()}>{restoringSavedGuide?'Reopening saved slides…':'Reopen saved slides'}</AppButton>:<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</AppButton>}</>}</div>
+    {savedGuideRestoreFailed&&guideHasUnavailableSlides&&<p className="dw-answer-note" role="alert">Some saved slides are still unavailable. Nothing was regenerated; you can retry local recovery or start a fresh guide.</p>}
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
@@ -1296,7 +1310,7 @@ function Answer(props:AnswerProps){
       <p>These parts could not be reopened. Re-explain this question to build them again.</p>
       <AppButton size="1" intent="secondary" onClick={props.onRetry}>Explain this question again</AppButton>
     </details>)}
-    {turn.guideId&&sectionItems.some((item)=>item.kind==='unavailable')&&(turn.status!=='waiting'||availableSequenceCount>0)&&<details className="dw-unavailable-group"><summary>Some parts of this guide are not available</summary><p>{guideRecovery.message}</p><AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton></details>}
+    {turn.guideId&&sectionItems.some((item)=>item.kind==='unavailable')&&(turn.status!=='waiting'||availableSequenceCount>0)&&<details className="dw-unavailable-group"><summary>Some parts of this guide are not available</summary><p>{guideRecovery.message}</p>{props.onRestoreSaved&&<AppButton size="1" intent="quiet" disabled={restoringSavedGuide} onClick={()=>void restoreUnavailableGuide()}>{restoringSavedGuide?'Reopening saved slides…':'Reopen saved slides'}</AppButton>}<AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton></details>}
     {lastAvailableItemIndex<0&&(branches.length>0||sectionItems.some((item)=>item.kind==='unavailable'))&&<footer className="dw-branches">
       <AppButton size="1" intent="quiet" onClick={()=>props.onBranch(`Explore ${turn.question} in more detail.`,turn.context)}><Network size={13}/>Explore further</AppButton>
       {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}
