@@ -124,7 +124,7 @@ Installed executable SHA-256:
 DMG SHA-256:
 `c28ea0867735d3ac9324cea9c4d85b98c08d2f0f0ad264cf6020e39c7d512226`.
 
-## Repository and relationship search inputs — 1 November 2026
+## Shared Radix search fields — 1 November 2026
 
 Added `src/design/AppSearchField.tsx`, a shared Radix Themes search field with
 an accessible name, leading search icon, and support for the workspace's
@@ -136,3 +136,13 @@ semantics and a visible focus outline; screen-specific dimensions and colors
 remain in `App.css`. This is a source increment only: no tests, build, or
 packaged visual review ran. Other native fields and full keyboard, zoom, theme,
 and component consistency review remain open.
+
+## Production action inventory — 1 November 2026
+
+A source search found no raw HTML `<button>` elements outside the illustrative
+`WorkspacePreview`; production actions use the shared `AppButton` or Radix
+`IconButton` primitives. Seven repeated repository/captured-file filters now
+use `AppSearchField`. Remaining native inputs are purpose-built editors,
+credentials and executable paths, checkboxes/radios, and the narration seek
+slider. This is a source inventory only; it does not establish packaged visual,
+keyboard, VoiceOver, zoom/reflow, theme, or interaction acceptance.
