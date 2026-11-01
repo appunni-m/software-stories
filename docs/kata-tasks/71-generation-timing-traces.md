@@ -177,3 +177,19 @@ warm search outcomes and rejects cache outcomes attached to unrelated stages.
 This only makes local index reuse measurable. Provider cache usage, planning,
 queue/connection gaps, full packaged Fontdone timing, and the two-minute
 first-useful-answer acceptance remain open; keep `ps02` open.
+
+## Plan-only Guide diagnostics — 1 November 2026
+
+The previously missing diagnostics route for a Guide that fails before its
+first answer section is implemented in commit 5d2aa4b. The Guide summary
+exposes its planning run identity; Chat history offers **Planning diagnostics**
+for that run even when there are no answer sections. The native export reads
+the persisted Guide by its ID, verifies the exact project and snapshot, and
+derives the run outcome from the Guide state and current operation state before
+building the existing bounded, source-free timing report. It does not need an
+answer receipt and does not restart generation.
+
+This source path closes the plan-only diagnostics visibility gap. It does not
+complete stage attribution, bounded-retention/restart qualification, the frozen
+Fontdone comparisons, or the two-minute first-useful-answer gate. The current
+checkout was reviewed without running tests or a build; keep ps02 open.
