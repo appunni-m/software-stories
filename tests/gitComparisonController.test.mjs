@@ -119,8 +119,8 @@ describe('owned local Git comparison client', () => {
     assert.match(app, /comparison=\{currentProject \? gitComparisonsByProject\[currentProject\.projectId\] \?\? null : null\}/);
     assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
     assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
-    assert.match(workspace, /if\(workspace!=='changes'\|\|!gitLoaded\|\|gitBusy\|\|gitStopped\|\|gitError\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
-    assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,workspace,gitLoaded,gitBusy,gitStopped,gitError,commits/);
+    assert.match(workspace, /if\(!showChanges\|\|!gitLoaded\|\|gitBusy\|\|gitStopped\|\|gitError\|\|gitRequest\.current\|\|props\.comparisonRefs\?\.baseRef\?\.trim\(\)\|\|props\.comparisonRefs\?\.headRef\?\.trim\(\)\)return;/);
+    assert.match(workspace, /const comparisonKey=`\$\{projectId\}:\$\{head\?\.oid\?\?''\}`;[\s\S]*defaultComparedHead\.current===comparisonKey[\s\S]*defaultComparedHead\.current=comparisonKey[\s\S]*\},\[projectId,showChanges,gitLoaded,gitBusy,gitStopped,gitError,commits/);
     assert.match(workspace, /<GitHistoryEmptyContext\.Provider value=\{commitHistoryEmpty\}>\{children\}<\/GitHistoryEmptyContext\.Provider>/);
     assert.match(screen, /useContext\(GitHistoryEmptyContext\)/);
     assert.match(screen, /commitHistoryEmpty \?\? \(baseRef\.trim\(\) && headRef\.trim\(\)[\s\S]*'Compare the selected versions to inspect their changes\.'[\s\S]*'Select a commit on the left to inspect its changes\.'/);

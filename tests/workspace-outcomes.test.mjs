@@ -149,7 +149,7 @@ test('unavailable guide recovery explains whether the saved guide resumes or sta
     action: 'Start a fresh guide',
   });
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(workspace, /<p>\{guideRecovery\.message\}<\/p><AppButton[^>]*>\{guideRecovery\.action\}<\/AppButton>/);
+  assert.match(workspace, /turn\.guideId\?guideRecovery\.action:'Explain again'/);
 });
 
 test('answer parts remain in loading state until the saved chapter list is ready', () => {

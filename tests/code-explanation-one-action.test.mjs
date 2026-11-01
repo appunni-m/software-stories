@@ -16,7 +16,7 @@ test('Explain selected code submits directly at the current exploration level',(
   const explain=functionBody('function explain(context:Context){','  function explainSafely(context:Context){');
   assert.match(explain,/verifiedCodeContext\(context,snapshotId\)/);
   assert.match(explain,/ask\(question,view,\[selected\]\)/);
-  assert.match(explain,/setPendingCodeExplanation\(pending\)/);
+  assert.doesNotMatch(explain,/setPendingCodeExplanation\(pending\)/);
   assert.doesNotMatch(workspace,/Review this code question|Nothing is sent until you choose Ask about this code\./);
   assert.ok(!workspace.includes('codeQuestionReview'));
 });

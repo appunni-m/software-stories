@@ -1,4 +1,4 @@
-import { rankSourcePaths } from './model';
+import { rankSourcePaths } from './model.ts';
 
 /** A tree built once from the immutable captured paths, independent of the DOM. */
 export interface ExplorerEntry {

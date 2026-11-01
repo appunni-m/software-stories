@@ -28,7 +28,7 @@ it('explains current claim validation failures without source identifiers', () =
     "The AI explanation does not connect source identifier 'subtotal' to its cited code. No draft was saved.",
   ]) {
     const result = explanationErrorMessage(message);
-    assert.match(result, /cited code/);
+    assert.match(result, /source check/);
     assert.doesNotMatch(result, /section:|record_pipeline_operation_path|prices/);
   }
   assert.equal(explanationErrorMessage('Codex account access expired.'), 'Codex account access expired.');
@@ -50,8 +50,8 @@ it('surfaces the actionable local-storage recovery when Codex context staging fa
     'The private Codex file could not be saved. Local storage is full. Free disk space, then try again.',
   ]) {
     const message = explanationErrorMessage(error);
-    assert.match(message, /prepare the selected code/);
-    assert.match(message, /Free some space, then try again/);
+    assert.match(message, /Free up disk space, then try again/);
+    assert.match(message, /Existing saved explanations are preserved/);
     assert.doesNotMatch(message, /private Codex file|Codex file could not be/);
   }
   assert.equal(

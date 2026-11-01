@@ -234,7 +234,7 @@ describe('notification totals', () => {
     assert.match(component, /Other repositories/);
     assert.match(component, /Show \{earlier.length\} earlier \{group.countLabel\}/);
     assert.match(component, /latest\.groupActions/);
-    assert.match(app, /Dismiss all \$\{groupedOutcomes\.length\} attempts/);
+    assert.match(app, /Dismiss all \$\{groupedOutcomes\.length\} updates/);
     assert.match(app, /markQuestionOutcomes\(s,groupedOutcomes\.map/);
     assert.match(app, /Dismiss all \$\{groupedNotices\.length\} notices/);
     assert.match(app, /noticeHistory\.dismissMany\(groupedNotices\.map\(notice=>notice\.id\)\)/);

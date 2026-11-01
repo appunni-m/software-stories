@@ -59,7 +59,7 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /className="dw-unlinked-flow" aria-label=\{`Source points in \$\{plainInlineCodeText\(visual\.title\)\}`\}/);
   assert.match(source, /className="dw-unlinked-flow-point" aria-label=\{`Show code detail for \$\{plainInlineCodeText\(node\.label\)\} at \$\{sourceLabel\}`\}/);
   assert.match(source, /aria-label=\{`Read-only code relationship diagram: \$\{nodes\.length\} nodes`\}/);
-  assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}:\$\{FLOW_DIAGRAM_LAYOUT_VERSION\}`\}/);
+  assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}:\$\{FLOW_DIAGRAM_LAYOUT_VERSION\}:\$\{selectedNode\?\.nodeId\?\?selectedEdge\?\.edgeId\?\?'overview'\}`\}/);
   assert.match(source, /function EvidenceFlowCanvas\(/);
   assert.match(source, /viewportClipsNodeBounds\(bounds,flow\.getViewport\(\),size\.width,size\.height,28\)/);
   assert.match(styles, /\.dw-linear-flow-step:focus-visible/);

@@ -112,11 +112,11 @@ export function shouldOfferExploreWithAI(
   mode:CodeSearchMode,
   busy:boolean,
   error:string|null,
-  _resultCount:number,
+  resultCount:number,
 ):boolean {
   const length=[...query.trim()].length;
   if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
-  return length>=(mode==='regex'?1:2)&&length<=240&&!busy;
+  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&(error!==null||resultCount===0);
 }
 
 /** Tell readers how much of a capped result set is currently visible. */

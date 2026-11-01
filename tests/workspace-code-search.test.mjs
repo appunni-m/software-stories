@@ -101,15 +101,15 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/useEffect\(\(\)=>searchCapturedSource\(\{projectId,snapshotId,query:term,mode:searchMode,native:isNativeRuntime\(\),offset:searchOffset\}/);
   assert.match(source,/nextOffset:\(nextOffset\)=>setSourceSearchState\(/);
   assert.match(source,/Load more matches/);
-  assert.match(source,/searchNextOffset!==null&&results\.length<80/);
+  assert.match(source,/currentSourceSearch\.limited&&currentSourceSearch\.nextOffset!==null&&results\.length<80/);
   assert.match(source,/className="dw-search-count" role="status"/);
-  assert.match(source,/results\.length>=80\|\|\(searchLimited&&searchNextOffset===null\)\?searchLimitMessage\(results\.length\)/);
-  assert.match(source,/searchLimitMessage\(results\.length\)/);
+  assert.match(source,/results\.length>=80\|\|\(currentSourceSearch\.limited&&currentSourceSearch\.nextOffset===null\)/);
+  assert.match(source,/\{searchResultsSummary\}/);
   assert.match(source,/aria-label="Use regular expression" aria-pressed=\{repositoryRegex\}/);
   assert.match(source,/event\.altKey&&event\.code==='KeyR'/);
-  assert.match(source,/repositorySearch&&!searchBusy&&!searchError&&results\.length===0/);
-  assert.match(source,/shouldOfferExploreWithAI\(repositorySearch,searchMode,searchBusy,searchError,results\.length\)/);
-  assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,searchBusy,searchError,results\.length\)/);
+  assert.match(source,/repositorySearch&&!currentSourceSearch\.busy&&!currentSourceSearch\.error&&results\.length===0/);
+  assert.match(source,/shouldOfferExploreWithAI\(repositorySearch,searchMode,currentSourceSearch\.busy,currentSourceSearch\.error,results\.length\)/);
+  assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,currentSourceSearch\.busy,currentSourceSearch\.error,results\.length\)/);
 });
 
 test('Explore with AI appears after empty code search or when local code search is unavailable',()=>{
@@ -117,6 +117,7 @@ test('Explore with AI appears after empty code search or when local code search 
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',0),true);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,1),false);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,0),true);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',1),true);
   assert.equal(shouldOfferExploreWithAI('a','code',false,null,0),false);
   assert.equal(shouldOfferExploreWithAI('.','regex',false,null,0),true);
   assert.equal(shouldOfferExploreWithAI('.','regex',false,'Invalid regular expression',0),false);

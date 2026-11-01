@@ -76,7 +76,7 @@ test('sent and decision callbacks are fenced to their original comparison and co
 test('an empty PR Guide shows why every changed file was excluded', () => {
   assert.ok(source.includes('open={accountOnly ? eligibleChanges.length === 0 : true}'));
   assert.ok(source.includes('open={eligibleChanges.length === 0}>'));
-  assert.ok(source.includes('Review the exclusion reasons below, then open Diff to inspect each change.'));
+  assert.ok(source.includes('Check the exclusion reasons below, or open Diff to inspect these changes.'));
 });
 
 test('leaving during a sent PR request cannot delete its review before native admission', () => {

@@ -116,28 +116,28 @@ test('an unavailable answer stays a compact status beside its recovery action', 
   assert.match(workspace, /className=\{`dw-answer-card\$\{unavailable\?' dw-answer-card-unavailable':''\}`\}/);
   assert.match(workspace, /<p className="dw-unavailable-status" role="status">The answer for this question could not be reopened\. Your question is saved; explain it again to create a new answer\.<\/p>/);
   assert.match(workspace, /\{!hideQuestion&&<QuestionDisclosure question=\{turn\.question\}\/>\}/);
-  assert.match(workspace, /<Button size="1" variant="soft" onClick=\{onRetry\}>Explain again<\/Button>/);
+  assert.match(workspace, /<AppButton size="1" intent="secondary" onClick=\{onRetry\}>Explain again<\/AppButton>/);
   assert.match(styles, /\.dw-answer-card-unavailable\s*\{display:flex;align-items:center/);
-  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:100%/);
+  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:var\(--space-2\);width:100%/);
 });
 
 test('long answer questions stay collapsed until the reader asks to see them', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
-  assert.ok(workspace.includes('aria-label={`Question: ${questionSummaryText(turn.question)}`}'));
-  assert.ok(workspace.includes("aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${questionSummaryText(turn.question)}`}"));
+  assert.ok(workspace.includes('aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}'));
+  assert.ok(workspace.includes("aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}"));
   assert.doesNotMatch(workspace, /aria-label=\{`Question: \$\{turn\.question\}`\}/);
   assert.equal((workspace.match(/<QuestionDisclosure question=\{turn\.question\}\/>/g) ?? []).length, 2);
   assert.match(workspace, /function QuestionDisclosure\(\{question\}:\{question:string\}\)[\s\S]*?<details className="dw-user-question"><summary><MessageSquare size=\{14\}\/><span><InlineCodeText text=\{questionSummaryText\(question\)\}\/><\/span><ChevronRight size=\{13\}\/><\/summary><p><InlineCodeText text=\{question\}\/><\/p><\/details>/);
-  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:100%/);
+  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:var\(--space-2\);width:100%/);
   assert.match(styles, /\.dw-user-question summary > span \{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;/);
-  assert.match(styles, /\.dw-user-question > p \{max-width:900px;margin:7px 0 0/);
+  assert.match(styles, /\.dw-user-question > p \{max-width:900px;margin:var\(--space-2\) 0 0/);
 });
 
 test('a compact answer card opens its visual story inline from its title', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
-  assert.match(workspace, /<button type="button" className="dw-answer-expand" aria-label=\{`Open \$\{section\.title\} in Guide`\} onClick=\{\(\)=>onFocus\(revision\.revisionId,section\.sectionId\)\}>/);
+  assert.match(workspace, /<AppButton intent="custom" className="dw-answer-expand" aria-label=\{`Open \$\{plainInlineCodeText\(section\.title\)\} in Guide`\} onClick=\{\(\)=>onFocus\(revision\.revisionId,section\.sectionId\)\}>/);
   assert.match(workspace, /onFocus=\{\(revisionId,sectionId\)=>focusAnswer\(turn\.id,revisionId,sectionId\)\}/);
   assert.match(styles, /\.dw-answer-expand \{display:flex;align-items:center;justify-content:space-between/);
   assert.match(styles, /\.dw-answer-expand:focus-visible \{outline:2px solid/);
@@ -145,9 +145,11 @@ test('a compact answer card opens its visual story inline from its title', () =>
 
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  const effect = source.split('\n').find((line) => line.includes('ensureWorkspaceIndex(projectId,snapshotId)'));
-  assert.ok(effect);
-  assert.match(effect, /\[projectId,snapshotId\]\);$/);
-  assert.doesNotMatch(effect, /chapters\.length/);
+  assert.equal((source.match(/ensureWorkspaceIndex\(projectId,snapshotId\)/g) ?? []).length, 1);
+  const refreshStart = source.indexOf('const refreshChapters =');
+  const refreshEnd = source.indexOf('\n  useEffect(', refreshStart);
+  assert.ok(refreshStart >= 0 && refreshEnd > refreshStart);
+  assert.doesNotMatch(source.slice(refreshStart, refreshEnd), /ensureWorkspaceIndex/);
+  assert.doesNotMatch(source.slice(refreshStart, refreshEnd), /chapters\.length/);
   assert.match(source, /const refreshChapters = \(\) => chapterRefresh\.current\?\.refresh\(\)/);
 });
