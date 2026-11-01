@@ -11,6 +11,7 @@ import { claudeReviewScopeKey, isClaudeChapterScope, type ClaudeOperationReviewM
 import type { ClaudeResultCallbacks } from './ClaudeGenerationPanel';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 import { AppButton } from './design/AppButton';
+import { AppTextField } from './design/AppTextField';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
@@ -205,9 +206,9 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
           locked={busy} backend="claude-agent" requestId={chapterRecovery.recoveryOperationId} plannedTarget={chapterRecovery.kind === 'review' ? chapterRecovery.plannedChapter?.target : undefined} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
         <section className="provider-review-card">
           <form onSubmit={(event) => { event.preventDefault(); void inspect('connection'); }}>
-            <label className="provider-model-select">Claude CLI executable · absolute path
-              <input value={path} onChange={(event) => { if (!active.current) { setPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
-            </label>
+            <div className="provider-model-select"><label htmlFor="claude-executable">Claude CLI executable · absolute path</label>
+              <AppTextField id="claude-executable" className="provider-path-field" value={path} onValueChange={(value) => { if (!active.current) { setPath(value); clearObservation(); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
+            </div>
             <div className="provider-key-actions"><AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('claudeExecutable'); }}>{choosingFile === 'claudeExecutable' ? 'Choosing…' : 'Choose Claude executable…'}</AppButton>
               <AppButton intent="primary" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</AppButton>
               <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer">Official installation guide ↗</a></div>
@@ -218,13 +219,13 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
           <details><summary>Inspect the model catalog · advanced setup</summary>
             <p>This candidate adapter requires an existing Node installation and the inspected Claude Agent SDK 0.3.300. They are not installed by Code Atlas. The native check verifies SDK bytes and observes executable identities; it does not qualify the installation for generation.</p>
             <form onSubmit={(event) => { event.preventDefault(); void inspect('catalog'); }}>
-              <label className="provider-model-select">Node executable · absolute path
-                <input value={nodePath} onChange={(event) => { if (!active.current) { setNodePath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/opt/homebrew/bin/node" spellCheck={false} autoComplete="off" disabled={busy} />
-              </label>
+              <div className="provider-model-select"><label htmlFor="claude-node-executable">Node executable · absolute path</label>
+                <AppTextField id="claude-node-executable" className="provider-path-field" value={nodePath} onValueChange={(value) => { if (!active.current) { setNodePath(value); clearObservation(); } }} maxLength={4096} placeholder="/opt/homebrew/bin/node" spellCheck={false} autoComplete="off" disabled={busy} />
+              </div>
               <AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('nodeExecutable'); }}>{choosingFile === 'nodeExecutable' ? 'Choosing…' : 'Choose Node executable…'}</AppButton>
-              <label className="provider-model-select">Installed SDK module · absolute path to sdk.mjs
-                <input value={sdkPath} onChange={(event) => { if (!active.current) { setSdkPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/absolute/installation/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs" spellCheck={false} autoComplete="off" disabled={busy} />
-              </label>
+              <div className="provider-model-select"><label htmlFor="claude-sdk-module">Installed SDK module · absolute path to sdk.mjs</label>
+                <AppTextField id="claude-sdk-module" className="provider-path-field" value={sdkPath} onValueChange={(value) => { if (!active.current) { setSdkPath(value); clearObservation(); } }} maxLength={4096} placeholder="/absolute/installation/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs" spellCheck={false} autoComplete="off" disabled={busy} />
+              </div>
               <AppButton intent="secondary" disabled={!native || busy} onClick={() => { void chooseFile('claudeSdkModule'); }}>{choosingFile === 'claudeSdkModule' ? 'Choosing…' : 'Choose SDK module…'}</AppButton>
               <p className="provider-small-note">Check catalog starts the selected executables and SDK in private temporary storage. It may contact the vendor using the existing account. The app supplies no repository source or user prompt. Only use installation paths you trust. No API fallback or login is offered.</p>
               <AppButton intent="secondary" type="submit" disabled={!native || busy || !path.trim() || !nodePath.trim() || !sdkPath.trim()}>{busyKind === 'catalog' ? 'Checking catalog…' : 'Check catalog'}</AppButton>

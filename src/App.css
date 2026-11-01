@@ -889,9 +889,10 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .provider-key-content > p { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .provider-key-form { display: grid; grid-template-columns: 1fr; gap: 7px; margin-top: 12px; }
 .provider-key-form label, .provider-model-select { color: var(--muted); font-size: 12px; font-weight: 600; }
-.provider-key-form input { min-height: 36px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: var(--text); padding: 0 10px; font: 12px var(--mono); }
+.provider-key-form .provider-path-field, .provider-model-select .provider-path-field { box-sizing: border-box; width: 100%; min-width: 0; height: 36px; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); box-shadow: none; color: var(--text); }
+.provider-key-form .provider-path-field input, .provider-model-select .provider-path-field input { box-sizing: border-box; width: 100%; height: 100%; min-height: 0; border: 0; outline: 0; background: transparent; color: inherit; padding: 0 10px; font: 12px var(--mono); }
 .provider-model-select .app-select-trigger { min-height: 36px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: var(--text); padding: 0 10px; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-.provider-key-form input:focus, .provider-model-select .app-select-trigger:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 1px; }
+.provider-key-form .provider-path-field:focus-within, .provider-model-select .provider-path-field:focus-within, .provider-model-select .app-select-trigger:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 1px; }
 .provider-key-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .provider-key-actions a, .provider-source-links a { color: var(--accent); font-size: 12px; text-decoration-color: color-mix(in srgb, var(--accent) 33%, transparent); text-underline-offset: 3px; }
 .provider-key-actions a:hover, .provider-source-links a:hover { color: var(--accent); }

@@ -1,6 +1,7 @@
 import { TextField } from '@radix-ui/themes';
 
 interface AppTextFieldProps {
+  id?: string;
   value: string;
   onValueChange: (value: string) => void;
   ariaLabel?: string;
@@ -16,6 +17,7 @@ interface AppTextFieldProps {
 
 /** Shared controlled Radix text field for settings and editable values. */
 export function AppTextField({
+  id,
   value,
   onValueChange,
   ariaLabel,
@@ -34,6 +36,7 @@ export function AppTextField({
       autoComplete={autoComplete}
       className={['app-text-field', className].filter(Boolean).join(' ')}
       disabled={disabled}
+      id={id}
       maxLength={maxLength}
       onChange={(event) => onValueChange(event.target.value)}
       placeholder={placeholder}
