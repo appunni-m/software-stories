@@ -6,14 +6,17 @@ import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
   cancelCodexChapterRequest, discardGeneratedChapterDraft, discardProviderRequestReview,
   listChapterRevisions, listPendingGeneratedChapterPreviews, saveGeneratedChapterDraft,
-  sendCodexChapterRequest, type ChapterDraftPreview, type ChapterRevision,
+  sendCodexChapterRequest, type ChapterRevision,
   type PendingChapterPreviewSummary, type ProviderRequestReview,
 } from './lib/commands';
 import { ensureCodexConnection, readCodexSelection } from './lib/connectionStore';
 import { codexSelectionIsSupported } from './lib/codexConnection';
-import { isCurrentChapterGenerationOrigin, samePlannedTarget } from './lib/chapterOrigin';
 import { providerFailureMessage } from './lib/errorMessage';
 import { readGenerationBackend } from './lib/generationPreferences';
+import {
+  exactSavedPlannedChapter, matchingPlannedChapterPendingPreview, matchesPlannedChapterPreview,
+  sameReviewedPlannedChapterRequest,
+} from './lib/plannedChapterBatch';
 import {
   buildCodexPlannedChapterReview, matchesPlannedChapterReview,
   preparePlannedChapterBatch, type PlannedChapterBatchTarget, type PlannedChapterScope,
@@ -26,77 +29,6 @@ type BatchEntry = {
   saved?: ChapterRevision;
   status: 'ready' | 'saved' | 'accepted' | 'running' | 'failed';
 };
-
-function exactSavedChapter(revision: ChapterRevision, scope: PlannedChapterScope): boolean {
-  if (revision.lifecycle !== 'draft' && revision.lifecycle !== 'accepted') return false;
-  const origin = revision.generationOrigin;
-  return isCurrentChapterGenerationOrigin(origin)
-    && samePlannedTarget(origin.plannedChapter?.target, scope.target)
-    && origin.projectId === revision.projectId && origin.snapshotId === revision.snapshotId;
-}
-
-function sameReviewedRequest(
-  reviewed: ProviderRequestReview,
-  current: ProviderRequestReview,
-  scope: PlannedChapterScope,
-  selection: { modelId: string; effort: string },
-): boolean {
-  if (!matchesPlannedChapterReview(current, scope)
-    || current.providerId !== 'codex' || current.projectId !== reviewed.projectId
-    || current.snapshotId !== reviewed.snapshotId || current.purpose !== reviewed.purpose
-    || current.modelId !== selection.modelId || reviewed.modelId !== selection.modelId
-    || current.generationConfig.effort !== selection.effort
-    || reviewed.generationConfig.effort !== selection.effort
-    || current.generationConfig.approvalPolicy !== 'never'
-    || reviewed.generationConfig.approvalPolicy !== 'never'
-    || current.fingerprint !== reviewed.fingerprint
-    || current.requestBodySha256 !== reviewed.requestBodySha256
-    || current.requestBodyBytes !== reviewed.requestBodyBytes
-    || current.selectedFiles.length !== reviewed.selectedFiles.length) return false;
-  return current.selectedFiles.every((file, index) => {
-    const previous = reviewed.selectedFiles[index];
-    return file.path === previous.path && file.sha256 === previous.sha256
-      && file.sizeBytes === previous.sizeBytes && file.contents === previous.contents;
-  });
-}
-
-function matchingPendingPreview(
-  previews: PendingChapterPreviewSummary[], projectId: string, snapshotId: string,
-  scopes: PlannedChapterScope[],
-): PendingChapterPreviewSummary | null {
-  for (const preview of previews) {
-    if (preview.projectId !== projectId || preview.snapshotId !== snapshotId) continue;
-    const raw = preview.generationOrigin?.plannedChapter?.target;
-    if (!raw || !scopes.some((scope) => raw.revisionId === scope.target.revisionId
-      && raw.recordSha256 === scope.target.recordSha256 && raw.stepId === scope.target.stepId)) continue;
-    return preview;
-  }
-  return null;
-}
-
-function chapterPreviewMatches(
-  preview: ChapterDraftPreview, review: ProviderRequestReview, scope: PlannedChapterScope,
-): boolean {
-  const revision = preview.revision;
-  const origin = revision.generationOrigin;
-  if (preview.validation.status !== 'valid' || revision.projectId !== review.projectId
-    || revision.snapshotId !== scope.snapshotId || revision.lifecycle !== 'draft'
-    || !isCurrentChapterGenerationOrigin(origin) || !origin.plannedChapter
-    || !samePlannedTarget(origin.plannedChapter.target, scope.target)
-    || origin.projectId !== review.projectId || origin.snapshotId !== scope.snapshotId
-    || origin.targetPath !== scope.primaryPath || origin.purpose !== 'fileChapter'
-    || origin.requestId !== review.reviewId || origin.requestFingerprint !== review.fingerprint
-    || origin.requestBodySha256 !== review.requestBodySha256 || origin.contentSha256.length !== 64
-    || origin.settings.backend !== 'codex' || origin.settings.modelId !== review.modelId
-    || origin.contractVersion !== review.generationConfig.contractVersion
-    || origin.settings.effort !== review.generationConfig.effort || origin.settings.approvalPolicy !== 'never'
-    || origin.sourceFiles.length !== review.selectedFiles.length) return false;
-  return origin.sourceFiles.every((source, index) => {
-    const selected = review.selectedFiles[index];
-    return source.path === selected.path && source.sha256 === selected.sha256
-      && source.sizeBytes === selected.sizeBytes;
-  });
-}
 
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
@@ -190,11 +122,11 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
             || step.target.recordSha256 !== target.recordSha256 || step.snapshotId !== batch.snapshotId)) {
           throw new Error('The accepted route did not match its complete chapter batch. Refresh saved routes before continuing.');
         }
-        const unresolved = matchingPendingPreview(pending, projectId, batch.snapshotId, batch.steps);
+        const unresolved = matchingPlannedChapterPendingPreview(pending, projectId, batch.snapshotId, batch.steps);
         if (unresolved) {
           setPendingPreview(unresolved);
           setEntries(batch.steps.map((scope) => {
-            const saved = revisions.filter((revision) => exactSavedChapter(revision, scope))
+            const saved = revisions.filter((revision) => exactSavedPlannedChapter(revision, scope))
               .sort((a, b) => b.createdAtUnixMs - a.createdAtUnixMs)[0];
             return { scope, ...(saved ? { saved, status: saved.lifecycle === 'accepted' ? 'accepted' as const : 'saved' as const } : { status: 'ready' as const }) };
           }));
@@ -206,7 +138,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         const prepared: BatchEntry[] = [];
         for (const scope of batch.steps) {
           if (disposed || cancelled.current) return;
-          const saved = revisions.filter((revision) => exactSavedChapter(revision, scope))
+          const saved = revisions.filter((revision) => exactSavedPlannedChapter(revision, scope))
             .sort((a, b) => b.createdAtUnixMs - a.createdAtUnixMs)[0];
           if (saved) {
             prepared.push({ scope, saved, status: saved.lifecycle === 'accepted' ? 'accepted' : 'saved' });
@@ -306,14 +238,14 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           listChapterRevisions(projectId, entry.scope.snapshotId),
           listPendingGeneratedChapterPreviews(),
         ]);
-        if (latestRevisions.some((revision) => exactSavedChapter(revision, entry.scope))) {
-          const saved = latestRevisions.filter((revision) => exactSavedChapter(revision, entry.scope))
+        if (latestRevisions.some((revision) => exactSavedPlannedChapter(revision, entry.scope))) {
+          const saved = latestRevisions.filter((revision) => exactSavedPlannedChapter(revision, entry.scope))
             .sort((a, b) => b.createdAtUnixMs - a.createdAtUnixMs)[0];
           setEntries((current) => current.map((item, itemIndex) => itemIndex === index
             ? { ...item, saved, status: saved.lifecycle === 'accepted' ? 'accepted' : 'saved' } : item));
           continue;
         }
-        const unresolved = matchingPendingPreview(pending, projectId, entry.scope.snapshotId, [entry.scope]);
+        const unresolved = matchingPlannedChapterPendingPreview(pending, projectId, entry.scope.snapshotId, [entry.scope]);
         if (unresolved) {
           setPendingPreview(unresolved);
           throw new Error('A saved result for this step needs review before the batch can continue. Open that preview, then reopen the route.');
@@ -329,7 +261,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           await discardProviderRequestReview(review.reviewId).catch(() => {});
           break;
         }
-        if (!sameReviewedRequest(entry.review, review, entry.scope, selection)
+        if (!sameReviewedPlannedChapterRequest(entry.review, review, entry.scope, selection)
           || Date.now() >= review.expiresAtUnixMs) {
           await discardProviderRequestReview(review.reviewId).catch(() => {});
           throw new Error('This step changed after the batch review. No changed request was sent; reopen the route to review it again.');
@@ -343,7 +275,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           await discardGeneratedChapterDraft(preview.generationId).catch(() => {});
           break;
         }
-        if (!chapterPreviewMatches(preview, review, entry.scope)) {
+        if (!matchesPlannedChapterPreview(preview, review, entry.scope)) {
           await discardGeneratedChapterDraft(preview.generationId).catch(() => {});
           throw new Error('The generated chapter did not match its reviewed route step. It was not saved.');
         }
@@ -357,13 +289,13 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           const existing = await listChapterRevisions(projectId, entry.scope.snapshotId)
             .then((all) => all.find((revision) => revision.revisionId === preview.revision.revisionId))
             .catch(() => undefined);
-          if (!existing || !exactSavedChapter(existing, entry.scope)) {
+          if (!existing || !exactSavedPlannedChapter(existing, entry.scope)) {
             throw new Error('The save could not be confirmed. The result remains in recovery; do not run this step again until it is reviewed.');
           }
           saved = existing;
           await discardGeneratedChapterDraft(preview.generationId).catch(() => {});
         } finally { saving.current = false; }
-        if (saved.revisionId !== preview.revision.revisionId || !exactSavedChapter(saved, entry.scope)) {
+        if (saved.revisionId !== preview.revision.revisionId || !exactSavedPlannedChapter(saved, entry.scope)) {
           throw new Error('The saved chapter identity did not match its reviewed step. Stop and inspect the saved draft before continuing.');
         }
         setEntries((current) => current.map((item, itemIndex) => itemIndex === index

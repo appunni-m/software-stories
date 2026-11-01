@@ -31,6 +31,10 @@ The accepted-route screen now offers **Build all chapters** and opens one review
 
 The frontend production build and locked Rust `cargo check` passed on 2 November 2026. The frontend build reports the existing large main-chunk warning, and Rust reports existing unused-code warnings. No provider request, automated test, or packaged acceptance was run for this batch implementation. Cancellation timing, step-two failure, lost-save reply, restart recovery, rejected-chapter regeneration, same-file distinct steps, and end-to-end draft review remain unqualified; this task stays open.
 
+### Exact batch-lineage regression follow-up — source and focused verification, 2 November 2026
+
+The exact-saved-step, rebuilt-request, pending-preview and generated-preview admission checks now live in `src/lib/plannedChapterBatch.ts`. Four deterministic regressions prove that a same-file/different-step or rejected chapter is not skipped; changed captured source or request bytes cannot pass review matching; recovery only blocks for the exact project/snapshot/route step; and a generated preview must preserve all selected source identities. `node --experimental-strip-types --test tests/plannedChapterBatch.test.mjs` passes 4/4 and the frontend production build passes. The sequential worker's asynchronous stop/failure/lost-save cases and all packaged route acceptance remain open; this task stays open.
+
 Automated orchestration regressions cover sequencing, exact lineage skipping, changed requests, provider failure, cancellation, late results and lost save replies. They do not replace native runtime and semantic review. Claude support, durable background jobs and whole-repository multi-window orchestration are later work.
 
 ### Incremental Guide boundary-limit correction — 28 October 2026 (source-only)
