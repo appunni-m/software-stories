@@ -2,6 +2,8 @@
 
 Date: 17 October 2026. Source base: `84289c2`, plus the correction changes committed with this report. This is a narrow acceptance record; broad repository narrative, semantic review, speech, accessibility and release acceptance remain open.
 
+**Historical scope:** this report describes behavior in the October 17 build. The private rejected-candidate archive and saved-attempts inspection/removal commands were removed on October 18 by commit `50d9725`; the candidate-retention statements below do not describe the current app. The one-correction source-validation flow is tracked separately from that removed storage feature.
+
 ## Same-conversation correction
 
 The native workspace adapter uses the existing installed Codex account and **GPT-6 Luna/max**. Its request carries intent and starting-point metadata, with an empty initial source bundle. The synthetic probe deliberately asks for a lexical mismatch in the first answer after reading the captured fixture. The native adapter detects the mismatch, retains that candidate privately, and requests one correction in the same thread. The second turn cannot acquire additional repository context.
