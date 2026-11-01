@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deferred, flushLocalReads, workspaceStoreHarness } from './helpers/workspace-store-harness.mjs';
+import { createWorkspace } from '../src/workspace/model.ts';
 
 const scope = { projectId: 'project', snapshotId: 'snapshot', runId: '11111111-1111-4111-8111-111111111111' };
 const section = { runId: scope.runId, key: 'entry', order: 1, generationId: 'generation:22222222-2222-4222-8222-222222222222', revisionId: 'revision', supersedes: null, contextElapsedMs: 10, runElapsedMs: 20 };
@@ -290,6 +291,50 @@ test('guide events invalidate the saved guide instead of publishing their older 
   assert.equal(turns(h)[0].guide.title, 'Current saved guide');
   assert.equal(turns(h)[0].guide.revision, 2);
   assert.equal(turns(h)[0].publishedSections.length, 1); stop();
+});
+
+test('a Guide slide published during startup is adopted after its conversation restores', { timeout: 2000 }, async () => {
+  const turnId = '33333333-3333-4333-8333-333333333333';
+  const guideId = '44444444-4444-4444-8444-444444444444';
+  const runId = '55555555-5555-4555-8555-555555555555';
+  const generationId = 'generation:66666666-6666-4666-8666-666666666666';
+  const savedState = createWorkspace('project', 'snapshot');
+  savedState.explorations = savedState.explorations.map((exploration) => exploration.id === 'root'
+    ? { ...exploration, turns: [{ id: turnId, question: 'Follow the saved Guide', context: [], status: 'working', guideId, runIds: [runId] }] }
+    : exploration);
+  const savedRecord = { schemaVersion: 1, revision: 1, state: savedState };
+  const loading = deferred();
+  const started = deferred();
+  const revision = { projectId: 'project', snapshotId: 'snapshot', revisionId: 'guide-slide' };
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'load_workspace_conversation') { started.resolve(); return loading.promise; }
+    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'save_workspace_answer_section') return revision;
+    assert.fail(`Unexpected command ${name}`);
+  }, { native: true });
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
+  const opening = h.store.prepareWorkspaceConversation('project', 'snapshot');
+  await started.promise;
+
+  h.emit('repository-guide-section-published', {
+    guideId,
+    section: { ...section, projectId: 'project', snapshotId: 'snapshot', runId, generationId, revisionId: revision.revisionId },
+  });
+  await flushLocalReads();
+  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 0,
+    'the event waits instead of mutating an unreadable conversation');
+
+  loading.resolve(savedRecord);
+  await opening;
+  await flushLocalReads();
+  const restored = turns(h)[0];
+  assert.equal(restored.id, turnId);
+  assert.equal(restored.publishedSections.length, 1);
+  assert.equal(restored.publishedSections[0].revisionId, revision.revisionId);
+  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 1);
+  assert.equal(h.calls.some((call) => /generate|start_repository|resume_repository/.test(call.name)), false);
+  stop();
+  assert.equal(h.listenerCount(), 0);
 });
 
 test('different repository scopes restore independently and cannot share answers', { timeout: 2000 }, async () => {
