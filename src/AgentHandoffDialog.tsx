@@ -3,6 +3,7 @@ import { FileCode2, X } from 'lucide-react';
 import { providerFailureMessage } from './lib/errorMessage';
 import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { AppSelect } from './design/AppSelect';
 import { AppSearchField } from './design/AppSearchField';
 import {
@@ -193,7 +194,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
           <p>{targetPath ? <code>{targetPath}</code> : 'Selected-source repository overview'} · {paths.length}/12 files · {sourceBytes.toLocaleString()}/250,000 source bytes</p>
           <div className="provider-context-search"><span>Find a captured file</span><AppSearchField className="provider-context-search-field" ariaLabel="Find a captured file" placeholder="Search captured files" value={query} disabled={locked} type="search" onValueChange={setQuery} /></div>
           <div className="provider-context-files">{visibleFiles.map((file) => <label className={paths.includes(file.path) ? 'selected' : ''} key={file.path}>
-            <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || file.path === targetPath || !paths.includes(file.path) && (paths.length >= 12 || sourceBytes + file.sizeBytes > 250_000)}
+            <AppCheckbox checked={paths.includes(file.path)} disabled={locked || file.path === targetPath || !paths.includes(file.path) && (paths.length >= 12 || sourceBytes + file.sizeBytes > 250_000)}
               onChange={() => { releaseReview(); setPaths((values) => values.includes(file.path) ? values.filter((value) => value !== file.path) : [...values, file.path]); }} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small></label>)}{!visibleFiles.length && manifest && <p>No eligible files match this search.</p>}</div>
           <p className="provider-small-note">Showing up to 100 matching files. Search to narrow the list. Selected paths: {paths.join(', ') || 'none'}.</p>
           {paths.length > 0 && !sourceReady && manifest && <p className="provider-error-text">The target or a selected file is unavailable, or the selection exceeds 12 files or 250,000 bytes. Remove supporting files, or choose an eligible captured target.</p>}
@@ -202,7 +203,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
             {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>SHA-256 {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
             <details className="provider-prompt-preview"><summary>Exact instructions, evidence and response schema</summary><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></details>
             <div className="provider-fingerprint"><span>Task fingerprint</span><code>{review.fingerprint}</code></div>
-            {!preview && <><div className="provider-consent-list"><label><input type="checkbox" checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span>I reviewed this exact source and want to copy it for use in {agentName}. Clipboard contents can be read or retained by my system’s clipboard tools. Pasting shares the code under that agent’s account and terms.</span></label></div>
+            {!preview && <><div className="provider-consent-list"><label><AppCheckbox checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span>I reviewed this exact source and want to copy it for use in {agentName}. Clipboard contents can be read or retained by my system’s clipboard tools. Pasting shares the code under that agent’s account and terms.</span></label></div>
               <AppButton intent="primary" disabled={busy !== null || !consent} onClick={() => { void copy(); }}>Copy reviewed task</AppButton></>}
           </>}
         </section>

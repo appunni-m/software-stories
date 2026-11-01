@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { AlertTriangle, Download, FileCode2, X } from 'lucide-react';
 import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { invoke } from '@tauri-apps/api/core';
 import {
   buildNarrationRequestReview,
@@ -305,7 +306,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                   <div className="offline-export-option-list">
                     {exportChoices.map(({ revision, preview: choicePreview }) => (
                       <label className="offline-export-option" key={revision.revisionId}>
-                        <input type="checkbox" checked={selectedSet.has(revision.revisionId)} onChange={() => toggleRevision(revision.revisionId)} />
+                        <AppCheckbox checked={selectedSet.has(revision.revisionId)} onChange={() => toggleRevision(revision.revisionId)} />
                         <span><strong><InlineCodeText text={choicePreview?.title ?? 'Untitled chapter'}/></strong><small>{choicePreview?.targetLabel ?? 'Source target withheld'} · revision {revision.revisionNumber}</small></span>
                       </label>
                     ))}
@@ -317,7 +318,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
 
               <section className="offline-export-excerpts" aria-labelledby="offline-export-excerpts-title">
                 <div className="offline-export-section-heading"><div><span className="provider-kicker">SOURCE EVIDENCE</span><h3 id="offline-export-excerpts-title">Cited excerpts</h3></div><span>{preview.includedExcerptCount} included</span></div>
-                <label className="offline-export-include-option"><input type="checkbox" checked={includeExcerpts} onChange={(event) => { setIncludeExcerpts(event.target.checked); setPrivacyReviewed(false); }} /><span><strong>Bundle cited source excerpts</strong><small>Turn off to omit source quotes and source-backed visual values. Citation paths and line ranges remain.</small></span></label>
+                <label className="offline-export-include-option"><AppCheckbox checked={includeExcerpts} onChange={(event) => { setIncludeExcerpts(event.target.checked); setPrivacyReviewed(false); }} /><span><strong>Bundle cited source excerpts</strong><small>Turn off to omit source quotes and source-backed visual values. Citation paths and line ranges remain.</small></span></label>
                 {selected.length === 0 ? <p className="offline-export-empty">Select at least one accepted chapter to preview its names, paths, and cited excerpts.</p> : (
                   <div className="offline-export-preview-list">
                     {preview.chapters.map((chapter) => (
@@ -366,7 +367,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
               <section className="offline-export-audio" aria-labelledby="offline-export-audio-title">
                 <div className="offline-export-section-heading"><div><span className="provider-kicker">OPTIONAL LOCAL ASSET</span><h3 id="offline-export-audio-title">Cached narration</h3></div><span>{includeNarrationAudio ? `${cachedNarration.length} available` : 'not selected'}</span></div>
                 <label className="offline-export-include-option">
-                  <input type="checkbox" checked={includeNarrationAudio} disabled={!isNativeRuntime()} onChange={(event) => { setIncludeNarrationAudio(event.target.checked); setPrivacyReviewed(false); setError(null); }} />
+                  <AppCheckbox checked={includeNarrationAudio} disabled={!isNativeRuntime()} onChange={(event) => { setIncludeNarrationAudio(event.target.checked); setPrivacyReviewed(false); setError(null); }} />
                   <span><strong>Include audio already saved on this Mac</strong><small>This only reads local audio caches. It never generates speech or sends a provider request.</small></span>
                 </label>
                 {!isNativeRuntime() && <p className="offline-export-muted">Cached narration can be bundled from the desktop app after it has been generated there.</p>}
@@ -386,7 +387,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                 <AlertTriangle size={16} />
                 <p><strong>Privacy review:</strong> cited excerpts are real source code and may contain sensitive material. Common credentials, hidden paths, and local checkout paths are filtered from text, but automatic filtering cannot catch every secret. Text filters do not alter cached audio; listen for sensitive content before sharing. Review both the text and audio selections. The package does not include provider configuration or the repository checkout.</p>
               </div>
-              <label className="offline-export-confirm"><input type="checkbox" checked={privacyReviewed} onChange={(event) => setPrivacyReviewed(event.target.checked)} /><span>I reviewed the selected chapter content and understand what will be included.</span></label>
+              <label className="offline-export-confirm"><AppCheckbox checked={privacyReviewed} onChange={(event) => setPrivacyReviewed(event.target.checked)} /><span>I reviewed the selected chapter content and understand what will be included.</span></label>
               {error && <div className="provider-error" role="alert"><AlertTriangle size={15} /><div><strong>Export failed</strong><span>{error}</span></div></div>}
             </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { InlineCodeText } from './InlineCodeText';
 import { AppTextArea } from './design/AppTextArea';
 import { AppTextField } from './design/AppTextField';
+import { AppCheckbox } from './design/AppCheckbox';
 import { plainInlineCodeText } from './lib/inlineCode';
 import {
   AlertCircle,
@@ -781,7 +782,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
               <div className="walkthrough-pronunciation-row" key={`lexicon-${index}`}>
                 <div className="walkthrough-pronunciation-field"><label htmlFor={`${titleId}-lexicon-name-${index}`}>Exact name</label><AppTextField id={`${titleId}-lexicon-name-${index}`} className="walkthrough-pronunciation-text" value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onValueChange={(name) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name }) }))} placeholder="parseRoutes" /></div>
                 <div className="walkthrough-pronunciation-field"><label htmlFor={`${titleId}-lexicon-say-${index}`}>Say it as</label><AppTextField id={`${titleId}-lexicon-say-${index}`} className="walkthrough-pronunciation-text" value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onValueChange={(sayAs) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs }) }))} placeholder="parse routes" /></div>
-                <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
+                <label className="walkthrough-pronunciation-include"><AppCheckbox disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
                 <AppButton intent="custom" type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></AppButton>
               </div>
             ))}
@@ -854,7 +855,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             <AppButton intent="primary" type="button" disabled={requestBusy || Boolean(voiceConnectionIssue)} onClick={() => { void loadCache(review, true); }}><Play size={14} /> {requestBusy ? 'Loading cached audio…' : 'Play local cached audio'}</AppButton>
           ) : (
             <>
-              {!localNarration && <><label className="walkthrough-narration-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I checked this key's project tier and billing status in Google AI Studio, reviewed Google's data-use and eligibility terms, meet those requirements, and authorize sending this exact text to Gemini.</label>
+              {!localNarration && <><label className="walkthrough-narration-consent"><AppCheckbox checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I checked this key's project tier and billing status in Google AI Studio, reviewed Google's data-use and eligibility terms, meet those requirements, and authorize sending this exact text to Gemini.</label>
               <div className="walkthrough-narration-key-status" role="status">
                 <span>{informationError ?? (credential?.apiKeyConfigured ? 'Gemini key is stored in macOS Keychain.' : 'No Gemini API key is saved.')} Code Atlas cannot verify the key's project tier or quota.</span>
                 <AppButton intent="quiet" type="button" onClick={openVoiceConnections}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</AppButton>

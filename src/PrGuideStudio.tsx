@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { AppTextArea } from './design/AppTextArea';
 import { InlineCodeText } from './InlineCodeText';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
@@ -562,7 +563,7 @@ export function PrGuideStudio({
         {matchingRecovery.mode.kind === 'pr-guide' && <>
           <p>A response may already have saved a draft. Review this comparison’s PR Guide history below before requesting another generation.</p>
           {historyError && <AppButton intent="custom" className="secondary-button" onClick={() => { void refreshHistory(); }}>Reload saved guides</AppButton>}
-          <label className="provider-checkbox"><input type="checkbox" checked={recoveryHistoryChecked} disabled={historyLoading || Boolean(historyError)} onChange={(event) => setRecoveryHistoryChecked(event.target.checked)} />I checked the saved guides and want a new request review.</label>
+          <label className="provider-checkbox"><AppCheckbox checked={recoveryHistoryChecked} disabled={historyLoading || Boolean(historyError)} onChange={(event) => setRecoveryHistoryChecked(event.target.checked)} />I checked the saved guides and want a new request review.</label>
         </>}
         <AppButton intent="custom" className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || Boolean(claudeMode)
           || (matchingRecovery.mode.kind === 'pr-guide' && (!recoveryHistoryChecked || historyLoading || Boolean(historyError)))}
@@ -585,7 +586,7 @@ export function PrGuideStudio({
           return (
             <div className="pr-guide-change-option" key={key}>
               <label className={checked ? 'selected' : ''}>
-                <input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => toggleChange(change)} />
+                <AppCheckbox checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => toggleChange(change)} />
                 <span><strong>{change.kind}</strong><code>{pathLabel}</code></span>
                 <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</small>
               </label>
@@ -721,9 +722,9 @@ export function PrGuideStudio({
             <p><a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms</a> · <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Pricing</a> · <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions</a></p>
           </div>
           <div className="pr-guide-consent">
-            <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed the selected diff and understand this provider’s data-use terms.</label>
-            <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
-            <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
+            <label><AppCheckbox checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed the selected diff and understand this provider’s data-use terms.</label>
+            <label><AppCheckbox checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
+            <label><AppCheckbox checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
           </div>
           {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">
@@ -812,7 +813,7 @@ function GuideDraftReview({
           <h4><InlineCodeText text={section.title}/></h4>
           {section.claims.map((claim) => (
             <article className={`pr-guide-claim${includedClaimIds.includes(claim.claimId) ? '' : ' excluded'}`} key={claim.claimId}>
-              <label className="pr-guide-claim-select"><input type="checkbox" checked={includedClaimIds.includes(claim.claimId)} disabled={busy} onChange={(event) => onClaimChange(claim.claimId, event.target.checked)} /><span><strong>{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code change'}</strong> · {claim.aspect}</span></label>
+              <label className="pr-guide-claim-select"><AppCheckbox checked={includedClaimIds.includes(claim.claimId)} disabled={busy} onChange={(event) => onClaimChange(claim.claimId, event.target.checked)} /><span><strong>{claim.category === 'inference' ? 'Inference' : claim.category === 'repositoryContext' ? 'Repository context' : 'Code change'}</strong> · {claim.aspect}</span></label>
               <p><InlineCodeText text={claim.prose}/></p>
               {claim.category === 'inference' && claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> <InlineCodeText text={claim.inferenceBasis}/></p>}
               <ul className="pr-guide-citations">{claim.citations.map((citation, index) => (
@@ -995,9 +996,9 @@ function PrChangeExplanationPanel({
             <p><a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms</a> · <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Pricing</a> · <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions</a></p>
           </div>
           <div className="pr-guide-consent">
-            <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed this hunk and understand the provider’s data-use terms.</label>
-            <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
-            <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
+            <label><AppCheckbox checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed this hunk and understand the provider’s data-use terms.</label>
+            <label><AppCheckbox checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
+            <label><AppCheckbox checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
           </div>
           {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">

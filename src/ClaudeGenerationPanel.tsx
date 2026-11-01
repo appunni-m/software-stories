@@ -1,6 +1,7 @@
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -284,7 +285,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     <h4 id="claude-generate-title">Generate with Claude Agent</h4>
     {!available && <p role="status">{unavailableMessage}</p>}
     {!attempted && <>
-      <label className="provider-consent"><input type="checkbox" checked={consent} disabled={!native || !available}
+      <label className="provider-consent"><AppCheckbox checked={consent} disabled={!native || !available}
         onChange={(event) => setConsent(event.target.checked)} />
         I reviewed this exact source, prompt and settings. Send it through my existing Claude account; its usage limits and terms apply. This does not authorize tools or a different billing route.
       </label>

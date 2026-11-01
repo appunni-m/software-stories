@@ -38,6 +38,9 @@ body { margin: 0; min-width: 0; min-height: 100vh; background: var(--canvas); }
 button { color: inherit; font: inherit; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: 0.48; }
+.app-checkbox { width: 15px; height: 15px; flex: 0 0 auto; margin: 0; accent-color: var(--accent); vertical-align: middle; cursor: pointer; }
+.app-checkbox:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app-checkbox:disabled { cursor: not-allowed; }
 
 .app-window { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); container-type: inline-size; container-name: app-window; }
 .topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: max-content minmax(0,1fr) max-content; grid-template-areas: "brand project actions"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
@@ -263,7 +266,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .walkthrough-narration-editor > p, .walkthrough-pronunciation > p { margin: 6px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .walkthrough-narration-field { min-width: 0; display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
 .walkthrough-narration-field small { color: var(--muted); font-size: 12px; line-height: 1.45; }
-.walkthrough-narration-field textarea, .walkthrough-narration-field > input, .walkthrough-pronunciation-row input { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.walkthrough-narration-field textarea, .walkthrough-narration-field > input:not([type="checkbox"]), .walkthrough-pronunciation-row input:not([type="checkbox"]) { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--muted); font: 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .walkthrough-narration-field .app-text-field { width: 100%; height: 28px; min-height: 28px; padding: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); box-shadow: none; color: var(--muted); }
 .walkthrough-narration-field .app-text-field input { height: 100%; min-height: 0; padding: 5px 7px; border: 0; outline: 0; background: transparent; color: inherit; font: 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; text-indent: 0; }
 .walkthrough-narration-field textarea { min-height: 72px; resize: vertical; }
@@ -286,7 +289,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .walkthrough-pronunciation-field .app-text-field input { box-sizing: border-box; width: 100%; height: 100%; min-height: 0; padding: 4px 5px; border: 0; outline: 0; background: transparent; color: inherit; font: 12px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .walkthrough-pronunciation-field .app-text-field:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .walkthrough-pronunciation-row .walkthrough-pronunciation-include { display: flex; align-items: center; gap: 4px; padding-bottom: 6px; color: var(--accent); white-space: nowrap; }
-.walkthrough-pronunciation-include input { width: 12px; height: 12px; accent-color: var(--accent); }
+.walkthrough-pronunciation-include .app-checkbox { align-self: center; }
 .walkthrough-pronunciation-remove, .walkthrough-add-pronunciation { min-height: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-raised); color: var(--muted); cursor: pointer; }
 .walkthrough-add-pronunciation { margin-top: 8px; color: var(--accent); font-size: 12px; }
 .walkthrough-playback { display: grid; gap: 5px; margin-top: 10px; }
@@ -325,7 +328,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .walkthrough-narration-disclosure nav { display: flex; flex-wrap: wrap; gap: 11px; }
 .walkthrough-narration-disclosure a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .walkthrough-narration-consent { display: flex; align-items: flex-start; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.walkthrough-narration-consent input { flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--accent); }
+.walkthrough-narration-consent .app-checkbox { margin: 1px 0 0; }
 .walkthrough-narration-cancel { display: grid; justify-items: start; gap: 6px; }
 .walkthrough-narration-cancel > .secondary-button { min-height: 27px; padding: 0 8px; font-size: 12px; }
 .walkthrough-narration-cancel > p { margin: 0; color: var(--warning); font-size: 12px; line-height: 1.5; }
@@ -929,10 +932,10 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .provider-context-search-field { height: 36px; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text); padding: 0 9px; }
 .provider-context-search-field input { font: 12px var(--mono); }
 .provider-context-files { max-height: 190px; overflow: auto; border: 1px solid var(--blue-border); border-radius: 5px; }
-.provider-context-files > label { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 30px; padding: 5px 8px; border-bottom: 1px solid var(--blue-border); color: var(--muted); cursor: pointer; }
+.provider-context-files > label { display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 30px; padding: 5px 8px; border-bottom: 1px solid var(--blue-border); color: var(--muted); cursor: pointer; }
 .provider-context-files > label:last-child { border-bottom: 0; }
 .provider-context-files > label.selected { background: var(--surface-raised); }
-.provider-context-files input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); }
+.provider-context-files .app-checkbox { margin: 0; }
 .provider-context-files code { overflow-wrap: anywhere; color: var(--muted); font: 12px var(--mono); }
 .provider-context-files small { color: var(--muted); font: 12px var(--mono); }
 .provider-context-files > p { padding: 0 9px; }
@@ -970,7 +973,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .provider-fingerprint small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .provider-consent-list { display: grid; gap: 8px; margin-top: 12px; }
 .provider-consent-list label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 12px; line-height: 1.6; cursor: pointer; }
-.provider-consent-list input { width: 14px; height: 14px; margin: 2px 0 0; accent-color: var(--accent); }
+.provider-consent-list .app-checkbox { margin: 2px 0 0; }
 .provider-consent-list strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 13px; }
 .provider-response { margin-top: 12px; border: 1px solid var(--accent-border); border-radius: 7px; background: var(--surface); overflow: hidden; }
 .provider-response > div { padding: 11px 12px 0; }
@@ -1050,7 +1053,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .offline-export-section-heading .text-button { min-height: 24px; margin: 0; padding: 3px 5px; font-size: 12px; }
 .offline-export-option-list { display: grid; gap: 5px; max-height: 170px; overflow: auto; }
 .offline-export-option, .offline-export-include-option { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 9px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 12px; cursor: pointer; }
-.offline-export-option input, .offline-export-include-option input, .offline-export-confirm input { width: 14px; height: 14px; margin: 2px 0 0; accent-color: var(--accent); }
+.offline-export-option .app-checkbox, .offline-export-include-option .app-checkbox, .offline-export-confirm .app-checkbox { margin: 2px 0 0; }
 .offline-export-option > span, .offline-export-include-option > span { min-width: 0; display: grid; gap: 4px; }
 .offline-export-option strong, .offline-export-include-option strong { color: var(--text); font-size: 12px; }
 .offline-export-option small, .offline-export-include-option small { color: var(--muted); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }
@@ -1200,7 +1203,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .pr-guide-hunk-actions { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 8px 5px 30px; }
 .pr-guide-hunk-actions .secondary-button { margin: 0; padding: 7px 10px; font-size: 12px; }
 .pr-guide-hunk-actions .secondary-button svg { flex: 0 0 auto; }
-.pr-guide-file-picker input, .pr-guide-consent input, .pr-guide-claim-select input { accent-color: var(--accent); }
+.pr-guide-file-picker .app-checkbox, .pr-guide-consent .app-checkbox, .pr-guide-claim-select .app-checkbox { margin: 0; }
 .pr-guide-unavailable-list { display: grid; gap: 7px; padding: 8px 0 0; }
 .pr-guide-unavailable-item { display: grid; gap: 3px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .pr-guide-unavailable-item code { overflow-wrap: anywhere; color: var(--text); font: 12px var(--mono); }

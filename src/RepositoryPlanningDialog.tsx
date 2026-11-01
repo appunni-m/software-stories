@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { readGenerationBackend, repositoryPlanningBackend } from './lib/generationPreferences';
 import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
 import { sourceDiscoveryLimitNotes, type LargeFileDiscoveryHandoff, type SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -111,7 +112,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
       {unsupportedSavedConnection && <p className="provider-small-note" role="status">{savedConnectionName} is not available for this action. Change the AI connection once from the Connections control in the header.</p>}
       {scope.recoveryOperationId && !planned && <section className="provider-review-card"><h3>Check earlier plans first</h3>
         <p>The original question and files were restored locally. A result may already be saved even if the earlier reply was lost. Close this dialog to inspect Learning plans before another request. Your recovery notice stays available.</p>
-        <label className="provider-consent"><input type="checkbox" checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>
+        <label className="provider-consent"><AppCheckbox checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>
       </section>}
       {unsupportedSavedConnection && <AppButton intent="primary" disabled={!native || !checkedEarlier} onClick={openConnections}>Open Connections</AppButton>}
       {!native && <p role="status">Coding agents run in the macOS app. This browser preview cannot start an agent or read saved native plans.</p>}

@@ -10,6 +10,7 @@ import {
 } from './lib/claudeReview';
 import { ClaudeGenerationPanel, type ClaudeResultCallbacks } from './ClaudeGenerationPanel';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { AppSelect } from './design/AppSelect';
 import { AppSearchField } from './design/AppSearchField';
 
@@ -307,7 +308,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
             {!sectionUpdate && !plannedChapter && path !== targetPath && <AppButton intent="quiet" disabled={locked} onClick={() => changePath(path, false)}>Remove</AppButton>}</li>)}</ul>
           <div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} disabled={locked} placeholder="Search snapshot paths" size="1" /></div>
           <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
-            <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || !!plannedChapter || file.path === targetPath
+            <AppCheckbox checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || !!plannedChapter || file.path === targetPath
               || !paths.includes(file.path) && (paths.length >= 12 || selectedBytes + file.sizeBytes > 250_000)} onChange={(event) => changePath(file.path, event.target.checked)} />
             <code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small>
           </label>)}</div>

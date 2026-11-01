@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { recordedRecoveryLabel } from './lib/chapterOrigin';
@@ -82,7 +83,7 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
         {saved.length > 20 && <p>Showing the first 20. All revisions remain in Edit.</p>}
         <p>Close this request to inspect saved chapters in Edit before deciding whether another generation is needed.</p>
       </details> : <p>No saved chapter revisions for this snapshot and target were found.</p>}
-      <label className="provider-checkbox"><input type="checkbox" checked={checked} disabled={locked}
+      <label className="provider-checkbox"><AppCheckbox checked={checked} disabled={locked}
         onChange={(event) => { setChecked(event.target.checked); callback.current(event.target.checked); }} />
         I checked earlier results and want a fresh request review.</label>
     </>}

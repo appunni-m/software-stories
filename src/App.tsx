@@ -5,6 +5,7 @@ import { ChapterValidationIssues } from './ChapterValidationIssues';
 import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { AppSelect } from './design/AppSelect';
 import { AppButton } from './design/AppButton';
+import { AppCheckbox } from './design/AppCheckbox';
 import { AppSearchField } from './design/AppSearchField';
 import { AppTextField } from './design/AppTextField';
 import { AppTextArea } from './design/AppTextArea';
@@ -2956,7 +2957,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                           const isTarget = mode.kind === 'review' && file.path === mode.targetPath;
                           return (
                             <label key={file.path} className={checked ? 'selected' : ''}>
-                              <input type="checkbox" checked={checked} disabled={sending || saveBusy || Boolean(sendResult) || isTarget || (!checked && selectedPaths.length >= 12)} onChange={(event) => handleContextFileChange(file.path, event.target.checked)} />
+                              <AppCheckbox checked={checked} disabled={sending || saveBusy || Boolean(sendResult) || isTarget || (!checked && selectedPaths.length >= 12)} onChange={(event) => handleContextFileChange(file.path, event.target.checked)} />
                               <code>{file.path}</code><small>{formatBytes(file.sizeBytes)}{isTarget ? ' · target' : ''}</small>
                             </label>
                           );
@@ -3049,9 +3050,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 )}
                 {disclosure && (
                   <div className="provider-consent-list">
-                    <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
-                    <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
-                    <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
+                    <label><AppCheckbox checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
+                    <label><AppCheckbox checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
+                    <label><AppCheckbox checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
                   </div>
                 )}
               </section>
