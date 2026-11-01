@@ -60,7 +60,6 @@ import {
   Network,
   Pencil,
   RefreshCw,
-  Search,
   Save,
   ShieldCheck,
   Sparkles,
@@ -2947,7 +2946,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                   {snapshotManifestError && <p className="provider-small-note" role="status">{snapshotManifestError}</p>}
                   {snapshotManifest && (
                     <>
-                      <label className="provider-context-search">Filter captured files<input value={contextQuery} onChange={(event) => setContextQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
+                      <div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={contextQuery} onValueChange={setContextQuery} placeholder="Search snapshot paths" size="1" /></div>
                       <div className="provider-context-files">
                         {availableContextFiles.map((file) => {
                           const checked = selectedPaths.includes(file.path);
@@ -4904,7 +4903,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
         <div className="chapter-studio-layout">
           <aside className="chapter-studio-sidebar" aria-label="Repository chapter targets">
-            <label className="chapter-studio-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a file or chapter" aria-label="Find a file or chapter" /></label>
+            <AppSearchField className="chapter-studio-search" ariaLabel="Find a file or chapter" value={query} onValueChange={setQuery} placeholder="Find a file or chapter" />
             <div className="chapter-studio-target-list">
               {visibleTargets.map((target) => {
                 const latest = target.latestCurrent ?? target.latestAny;

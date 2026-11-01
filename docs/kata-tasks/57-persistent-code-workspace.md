@@ -128,10 +128,11 @@ DMG SHA-256:
 
 Added `src/design/AppSearchField.tsx`, a shared Radix Themes search field with
 an accessible name, leading search icon, and support for the workspace's
-stable focus key. The Explorer path filter and relationship filter now share
-it while retaining their existing query state and filtering behavior. The
-Radix field supplies consistent input semantics and a visible focus outline;
-existing workspace sizing and colors remain in `App.css`. This is a source
+stable focus key. The Explorer path filter, relationship filter, Chapter
+Studio target search, and provider review's captured-file filter now share it
+while retaining their existing query state and filtering behavior. The Radix
+field supplies consistent input semantics and a visible focus outline; the
+screen-specific dimensions and colors remain in `App.css`. This is a source
 increment only: no tests, build, or packaged visual review ran. Other native
 fields and full keyboard, zoom, theme, and component consistency review remain
 open.
