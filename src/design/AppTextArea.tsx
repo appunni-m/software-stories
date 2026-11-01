@@ -1,9 +1,10 @@
 import { TextArea } from '@radix-ui/themes';
+import type { FocusEventHandler } from 'react';
 
 interface AppTextAreaProps {
   id?: string;
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange?: (value: string) => void;
   ariaLabel?: string;
   ariaDescribedBy?: string;
   autoFocus?: boolean;
@@ -11,7 +12,9 @@ interface AppTextAreaProps {
   className?: string;
   disabled?: boolean;
   maxLength?: number;
+  onFocus?: FocusEventHandler<HTMLTextAreaElement>;
   placeholder?: string;
+  readOnly?: boolean;
   required?: boolean;
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
   rows?: number;
@@ -19,7 +22,7 @@ interface AppTextAreaProps {
   spellCheck?: boolean;
 }
 
-/** Shared controlled Radix text area for narration and chapter editing. */
+/** Shared controlled Radix text area for longer user-facing text fields. */
 export function AppTextArea({
   id,
   value,
@@ -31,7 +34,9 @@ export function AppTextArea({
   className,
   disabled = false,
   maxLength,
+  onFocus,
   placeholder,
+  readOnly = false,
   required = false,
   resize = 'vertical',
   rows = 3,
@@ -48,8 +53,10 @@ export function AppTextArea({
       disabled={disabled}
       id={id}
       maxLength={maxLength}
-      onChange={(event) => onValueChange(event.target.value)}
+      onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
+      onFocus={onFocus}
       placeholder={placeholder}
+      readOnly={readOnly}
       required={required}
       resize={resize}
       rows={rows}

@@ -6,6 +6,7 @@ import { AppButton } from './design/AppButton';
 import { AppCheckbox } from './design/AppCheckbox';
 import { AppSelect } from './design/AppSelect';
 import { AppSearchField } from './design/AppSearchField';
+import { AppTextArea } from './design/AppTextArea';
 import {
   buildAgentHandoffReview, discardGeneratedChapterDraft, discardProviderRequestReview,
   exportAgentHandoff, importAgentHandoffResult, listChapterRevisions, loadSnapshotManifest,
@@ -208,8 +209,8 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
           </>}
         </section>
         {taskText && <section className="provider-review-card"><h3>3. Run in {agentName} and import</h3><p>Paste the complete task into your agent. Ask it to return only the JSON response. Stop or cancel generation in that agent if needed. Closing this dialog does not stop its work.</p>
-          <details><summary>Task text for manual copying</summary><textarea className="agent-handoff-text" aria-label="Reviewed task text" readOnly value={taskText} onFocus={(event) => event.currentTarget.select()} /></details>
-          <label>Complete JSON response<textarea className="agent-handoff-text" value={response} maxLength={1_000_000} disabled={busy !== null} placeholder="Paste the response including handoffId, fingerprint and chapter" onChange={(event) => setResponse(event.target.value)} /></label>
+          <details><summary>Task text for manual copying</summary><AppTextArea className="agent-handoff-text" ariaLabel="Reviewed task text" readOnly value={taskText} onFocus={(event) => event.currentTarget.select()} /></details>
+          <label>Complete JSON response<AppTextArea className="agent-handoff-text" value={response} maxLength={1_000_000} disabled={busy !== null} placeholder="Paste the response including handoffId, fingerprint and chapter" onValueChange={setResponse} /></label>
           <AppButton intent="primary" disabled={busy !== null || !response.trim()} onClick={() => { void importResult(); }}>Validate imported explanation</AppButton>
         </section>}
         {preview && <section className="provider-response"><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : 'SOURCE VALIDATED · UNSAVED PREVIEW'}</span><h3><InlineCodeText text={preview.revision.title}/></h3>
