@@ -142,8 +142,10 @@ pub(crate) struct SearchMetadata<'a> {
     limited: bool,
     #[serde(rename = "nextOffset")]
     next_offset: Option<usize>,
-    coverage: &'a context::Coverage,
-    index_limit_omissions: &'a context::IndexLimitOmissions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage: Option<&'a context::Coverage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    index_limit_omissions: Option<&'a context::IndexLimitOmissions>,
 }
 
 #[derive(Serialize)]
@@ -159,6 +161,15 @@ struct SearchCandidate<'a> {
 
 impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
     fn from(result: &'a context::SearchResult) -> Self {
+        Self::from_result(result, true)
+    }
+}
+
+impl<'a> SearchMetadata<'a> {
+    pub(crate) fn from_result(
+        result: &'a context::SearchResult,
+        include_repository_coverage: bool,
+    ) -> Self {
         Self {
             matches: result
                 .matches
@@ -173,8 +184,9 @@ impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
                 .collect(),
             limited: result.limited,
             next_offset: result.next_offset,
-            coverage: &result.coverage,
-            index_limit_omissions: &result.index_limit_omissions,
+            coverage: include_repository_coverage.then_some(&result.coverage),
+            index_limit_omissions: include_repository_coverage
+                .then_some(&result.index_limit_omissions),
         }
     }
 }

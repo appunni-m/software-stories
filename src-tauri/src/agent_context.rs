@@ -210,6 +210,7 @@ pub(crate) struct Session {
     #[cfg(unix)]
     pending: Option<Pending>,
     successful_searches: HashSet<String>,
+    search_coverage_delivered: bool,
     events: HashMap<String, (Tool, String)>,
     consumed: HashSet<String>,
     completed: HashMap<String, (Tool, String, String)>,
@@ -505,6 +506,7 @@ impl Session {
                 listener,
                 pending: None,
                 successful_searches: HashSet::new(),
+                search_coverage_delivered: false,
                 events: HashMap::new(),
                 consumed: HashSet::new(),
                 completed: HashMap::new(),
@@ -979,9 +981,13 @@ impl Session {
                 let stages = execution.stages;
                 match execution.result {
                     Ok(result) => {
+                        let include_repository_coverage = !self.search_coverage_delivered;
                         let delivered = self.ledger.deliver_with_local_stages(
                             token,
-                            Context::Search((&result).into()),
+                            Context::Search(crate::evidence_ledger::SearchMetadata::from_result(
+                                &result,
+                                include_repository_coverage,
+                            )),
                             &[],
                             &fresh,
                             &self.runtime,
@@ -991,6 +997,7 @@ impl Session {
                         );
                         if delivered.is_ok() {
                             self.successful_searches.insert(successful_search);
+                            self.search_coverage_delivered = true;
                         }
                         delivered
                     }
