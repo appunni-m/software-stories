@@ -28,8 +28,8 @@
 .story-html-stage { height: auto; min-height: clamp(320px, 48vh, 720px); max-height: min(80vh, 900px); overflow: auto; }
 .visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
 .visual-story .react-flow__node { box-sizing: border-box; padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: break-word; word-break: normal; box-shadow: none; }
-.visual-story .story-node-active { border: 2px solid var(--accent); background: var(--surface-raised); }
-.visual-story .story-node-focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.visual-story .story-node-active { border: 1px solid var(--border-strong); background: var(--surface-raised); }
+.visual-story .story-node-focus { border: 2px solid var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
 .visual-story .story-node-context { border-style: dashed; color: var(--muted); }
 .visual-story .story-node-button { box-sizing: border-box; display: block; width: 100%; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
 .visual-story .story-node-title { display: block; }
