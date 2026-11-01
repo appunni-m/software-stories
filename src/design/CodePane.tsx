@@ -191,7 +191,7 @@ function sourceEditorTheme(theme: 'dark' | 'light'): Extension {
     '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' },
     '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' },
-    '&.cm-focused': { outline: 'none' },
+    '&.cm-focused': { outline: '2px solid var(--accent)', outlineOffset: '-2px' },
   }, { dark: theme === 'dark' });
 }
 
@@ -220,7 +220,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
         EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), drawSelection(), highlightActiveLine(),
         language.of([]), appearance.of(sourceEditorTheme(currentTheme.current)),
         wrapping.of(wrapsLongLines ? EditorView.lineWrapping : []), syntaxHighlighting(colors),
-        EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}`, 'aria-readonly': 'true' }),
+        EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}`, 'aria-readonly': 'true', tabindex: '0' }),
         keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (!canExplainNow.current || r.empty) return false; callback.current(codeSelectionContext(path, sha256, v.state.doc.lineAt(r.from).number, v.state.doc.lineAt(Math.max(r.from,r.to-1)).number)); return true; } }, ...defaultKeymap]),
         EditorView.updateListener.of((update) => {
           if (!update.selectionSet) return;
