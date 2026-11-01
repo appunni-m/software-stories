@@ -59,6 +59,35 @@ pub(crate) fn repetition_positions(
         if scene.mode != SceneMode::Composition || !has_layout_tree(scene) {
             continue;
         }
+        let content = |root| signature(scene, root, labels).filter(|s| !s.is_empty());
+
+        // A transform group communicates a change through its three ordered
+        // slots even when the authored tree has no explicit arrow element.
+        // Compare the visible input and result so an unchanged pair cannot
+        // pass merely because the renderer supplies the transition cue.
+        for (transform_index, element) in scene.elements.iter().enumerate() {
+            if element.kind != ElementKind::Transform {
+                continue;
+            }
+            let slots: Vec<_> = scene
+                .elements
+                .iter()
+                .enumerate()
+                .filter(|(_, child)| child.parent_index == Some(transform_index))
+                .map(|(index, _)| index)
+                .collect();
+            if slots.len() != 3
+                || content(slots[0]).is_none()
+                || content(slots[0]) != content(slots[2])
+            {
+                continue;
+            }
+            positions.push((scene_index, slots[2]));
+            if positions.len() == 64 {
+                return positions;
+            }
+        }
+
         for (index, element) in scene.elements.iter().enumerate() {
             if element.kind != ElementKind::Arrow {
                 continue;
@@ -76,7 +105,6 @@ pub(crate) fn repetition_positions(
             let Some(at) = siblings.iter().position(|i| *i == index) else {
                 continue;
             };
-            let content = |root| signature(scene, root, labels).filter(|s| !s.is_empty());
             let before = siblings[..at].iter().rev().find_map(|i| content(*i));
             let after = siblings[at + 1..].iter().find_map(|i| content(*i));
             if before.is_some() && before == after {
