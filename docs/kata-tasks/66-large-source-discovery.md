@@ -215,3 +215,23 @@ list cap, not symbols omitted by an unsupported or partial parser.
 Source review only: no tests, build, retrieval profile, provider request, or
 packaged acceptance ran. Broad recall, relevant-range selection, answer quality
 and the dependent Codex investigation remain open.
+
+## Bound the full discovery question for local body ranking — 1 November 2026
+
+Discovery accepts questions up to 300 characters, while the local search
+engine accepts at most 240 characters and 32 terms. Previously it searched only
+the first 240 raw characters; a relevant implementation name near the end was
+lost, and a long prefix with more than 32 terms made local ranking unavailable.
+Discovery now normalizes searchable terms across the full question, keeps terms
+from both ends within the search limits, and reports `omittedQueryTerms`. When a
+local ranking exists and terms were left out, its status becomes `partial`. The
+prompt treats that ranking as a lead, not proof. The discovery contract version
+advances to v6 so a reviewed shortlist cannot be reused across this change.
+
+A deterministic fixture with a 262-character question and 41 distinct terms
+places its only matching source term after the old 240-character cutoff. The
+focused `discovery_content_search_keeps_question_terms_after_the_first_240_characters`
+regression passes: the matching captured file ranks first, and metadata
+discloses partial term coverage. No agent/provider request ran. The fix does
+not qualify Fontdone broad-range recall, staged retrieval, semantic answer
+quality, cancellation, or packaged behavior; keep `0wdn` open.
