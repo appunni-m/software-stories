@@ -26,6 +26,14 @@ clips to stay within those limits; a later Play may synthesize an evicted clip
 again. This limit applies to the active Pocket cache directory, not to all
 application data or repository snapshots.
 
+Saved explanations have a separate shared limit of 1,000 answer records,
+including Guide reservations, standalone answers, and historical receipts.
+Each record is limited to 4 MiB. When capacity is full, Code Atlas refuses to
+start another investigation and preserves existing answers. **Manage saved
+answers** can remove a selected detailed receipt while keeping its saved
+explanations and source links. This is a record-count limit, not a quota for all
+local disk use; snapshots, indexes, and other app data have their own bounds.
+
 Recent-project metadata is limited to 16 MiB and 10,000 entries. A snapshot
 catalog is limited to 16 MiB and 20,000 entries per repository; each snapshot
 manifest is limited to 128 MiB. Captured source objects are limited to 2 MiB
