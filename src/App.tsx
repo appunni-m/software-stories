@@ -5,6 +5,7 @@ import { ChapterValidationIssues } from './ChapterValidationIssues';
 import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { AppSelect } from './design/AppSelect';
 import { AppButton } from './design/AppButton';
+import { AppSearchField } from './design/AppSearchField';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
@@ -3960,14 +3961,13 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
         <header><div><strong id="atlas-tree-title">Explorer</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
-        <label className="atlas-filter-search"><Search size={13} /><input data-focus-key="atlas-tree-search" aria-label="Search repository files and paths" placeholder="Find a file or folder" value={view.treeQuery} onChange={(event) => {
-          const query = event.target.value;
+        <AppSearchField className="atlas-filter-search" focusKey="atlas-tree-search" ariaLabel="Search repository files and paths" placeholder="Find a file or folder" value={view.treeQuery} onValueChange={(query) => {
           treeTopRef.current = 0;
           if (treeRef.current) treeRef.current.scrollTop = 0;
           setTreeViewport((current) => ({ ...current, scrollTop: 0 }));
           setFocusedTreeIndex(null);
           setView((s) => ({ ...s, treeQuery: query, treeTop: 0 }));
-        }} /></label>
+        }} />
         {treeFilterPending && <span className="sr-only" role="status" aria-live="polite">Updating filtered paths.</span>}
         {view.selectedFolder && <AppButton intent="custom" className="atlas-scope-chip" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((s) => ({ ...s, selectedFolder: null, treeTop: 0 })); onAtlasSelection(undefined, view.selectedPath ?? '', view.viewport); }}>Folder scope: {view.selectedFolder} <span>×</span></AppButton>}
         <span className="sr-only" id="atlas-tree-keyboard-help">Use Up and Down Arrow to move between paths. Use Right Arrow to expand a folder or move to its first child, and Left Arrow to collapse or move to its parent. Press Enter to open a file or select a folder. Press Space to select a path.</span>
@@ -4048,7 +4048,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         <div className="atlas-map-columns">
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
         <header><div><strong id="atlas-map-title">Connections</strong><small>{shownEdges.length} code link{shownEdges.length === 1 ? '' : 's'}</small></div></header>
-        <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><AppSelect ariaLabel="Filter relationships by type" size="1" value={view.kind} options={[{value:'all',label:'All types'},{value:'calls',label:'Calls'},{value:'imports',label:'Imports'},{value:'testReference',label:'Test references'},{value:'defines',label:'Defines'},{value:'exports',label:'Exports'}]} onValueChange={(kind)=>setView((s)=>({...s,kind:kind as AtlasWorkbenchViewState['kind']}))}/></label><label><span>Language</span><AppSelect ariaLabel="Filter relationships by language" size="1" value={view.language} options={[{value:'all',label:'All languages'},...languages.map((language)=>({value:language,label:language}))]} onValueChange={(language)=>setView((s)=>({...s,language}))}/></label></div>
+        <div className="atlas-map-filters"><AppSearchField className="atlas-filter-search" ariaLabel="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onValueChange={(mapQuery)=>setView((s)=>({...s,mapQuery}))}/><label><span>Type</span><AppSelect ariaLabel="Filter relationships by type" size="1" value={view.kind} options={[{value:'all',label:'All types'},{value:'calls',label:'Calls'},{value:'imports',label:'Imports'},{value:'testReference',label:'Test references'},{value:'defines',label:'Defines'},{value:'exports',label:'Exports'}]} onValueChange={(kind)=>setView((s)=>({...s,kind:kind as AtlasWorkbenchViewState['kind']}))}/></label><label><span>Language</span><AppSelect ariaLabel="Filter relationships by language" size="1" value={view.language} options={[{value:'all',label:'All languages'},...languages.map((language)=>({value:language,label:language}))]} onValueChange={(language)=>setView((s)=>({...s,language}))}/></label></div>
         {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
           {view.selectedFolder && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></AppButton>}
           {view.kind !== 'all' && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, kind: 'all' }))}>Type: {view.kind} <span aria-hidden="true">×</span></AppButton>}

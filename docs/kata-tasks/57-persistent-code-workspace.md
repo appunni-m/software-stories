@@ -123,3 +123,15 @@ Installed executable SHA-256:
 `31bd63e308eae89b0990b269368a97e1766f5372e9fb02346b84acbf506ecaa7`.
 DMG SHA-256:
 `c28ea0867735d3ac9324cea9c4d85b98c08d2f0f0ad264cf6020e39c7d512226`.
+
+## Repository and relationship search inputs — 1 November 2026
+
+Added `src/design/AppSearchField.tsx`, a shared Radix Themes search field with
+an accessible name, leading search icon, and support for the workspace's
+stable focus key. The Explorer path filter and relationship filter now share
+it while retaining their existing query state and filtering behavior. The
+Radix field supplies consistent input semantics and a visible focus outline;
+existing workspace sizing and colors remain in `App.css`. This is a source
+increment only: no tests, build, or packaged visual review ran. Other native
+fields and full keyboard, zoom, theme, and component consistency review remain
+open.
