@@ -41,6 +41,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .app-checkbox { width: 15px; height: 15px; flex: 0 0 auto; margin: 0; accent-color: var(--accent); vertical-align: middle; cursor: pointer; }
 .app-checkbox:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app-checkbox:disabled { cursor: not-allowed; }
+.app-radio { width: 15px; height: 15px; flex: 0 0 auto; margin: 0; accent-color: var(--accent); vertical-align: middle; cursor: pointer; }
+.app-radio:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app-radio:disabled { cursor: not-allowed; }
 
 .app-window { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); container-type: inline-size; container-name: app-window; }
 .topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: max-content minmax(0,1fr) max-content; grid-template-areas: "brand project actions"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
@@ -696,7 +699,7 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .chapter-rebase-option { min-width: 0; display: grid; align-content: start; gap: 5px; }
 .chapter-rebase-options label { min-width: 0; display: flex; align-items: flex-start; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised); cursor: pointer; }
 .chapter-rebase-options label.is-selected { border-color: var(--accent-border); background: color-mix(in srgb,var(--accent) 8%,var(--surface)); }
-.chapter-rebase-options input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--accent); }
+.chapter-rebase-options .app-radio { margin: 2px 0 0; }
 .chapter-rebase-options label > span { min-width: 0; display: grid; gap: 3px; }
 .chapter-rebase-options strong { color: var(--text); font-size: 12px; }
 .chapter-rebase-options small { overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.4; }

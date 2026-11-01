@@ -1,6 +1,7 @@
 import {useMemo,useState} from 'react';
 import {InlineCodeText} from './InlineCodeText';
 import {AppButton} from './design/AppButton';
+import {AppRadio} from './design/AppRadio';
 import type {ChapterRevision} from './lib/commands';
 import {chapterRebaseChoicesFor,rebaseChapterDraft,type ChapterRebaseChoiceState,type ChapterRebaseChoices} from './lib/chapterRebase';
 
@@ -52,7 +53,7 @@ export function ChapterRebaseReview({base,latest,draft,onCancel,onApply}:{
               const fullContent=isDraft?conflict.draftDetail:conflict.latestDetail;
               return <div key={choice} className="chapter-rebase-option">
                 <label className={choices[conflict.id]===choice?'is-selected':''}>
-                  <input type="radio" name={`rebase-${conflict.id}`} value={choice}
+                  <AppRadio name={`rebase-${conflict.id}`} value={choice}
                     checked={choices[conflict.id]===choice}
                     onChange={()=>choose(conflict.id,choice)}/>
                   <span><strong>{title}</strong><small title={description}>{description}</small></span>
