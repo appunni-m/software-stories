@@ -22,12 +22,12 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
   const hotspots = section.hotspots.filter(h => h.destination.kind !== 'codeLens' || anchors.has(h.destination.anchorId));
   const hotspotIds = new Set(hotspots.map(h => h.hotspotId));
   let visual = section.visual;
-  const rebaseNodes = visual?.nodes ?? [];
+  const rebaseNodes: unknown[] = Array.isArray(visual?.nodes) ? visual.nodes : [];
   const currentPresentation = visual?.presentation;
   const editable = visual && Array.isArray(visual.nodes) && Array.isArray(visual.edges)
     && visual.schemaVersion === 3
-    && visual.nodes.every(n => n && typeof n === 'object' && 'evidenceAnchorIds' in n && Array.isArray(n.evidenceAnchorIds))
-    && visual.edges.every(e => e && typeof e === 'object' && 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds))
+    && visual.nodes.every(n => n && typeof n === 'object' && !Array.isArray(n) && 'evidenceAnchorIds' in n && Array.isArray(n.evidenceAnchorIds))
+    && visual.edges.every(e => e && typeof e === 'object' && !Array.isArray(e) && 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds))
     && currentPresentation?.schemaVersion === 3 && Array.isArray(currentPresentation.scenes)
     && currentPresentation.scenes.every(s => s && Array.isArray(s.elements) && s.elements.every(e => e && typeof e === 'object'));
   // Only reindex a complete visual when every retained cue will still resolve
@@ -45,7 +45,10 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
         const nodeIndex: unknown = (element as { nodeIndex?: unknown }).nodeIndex;
         if (nodeIndex === null) return true;
         if (typeof nodeIndex !== 'number' || !Number.isSafeInteger(nodeIndex) || nodeIndex < 0 || nodeIndex >= rebaseNodes.length) return false;
-        return rebaseNodes[nodeIndex].evidenceAnchorIds.some(anchorId => anchors.has(anchorId));
+        const node = rebaseNodes[nodeIndex];
+        if (!node || typeof node !== 'object' || Array.isArray(node)
+          || !('evidenceAnchorIds' in node) || !Array.isArray(node.evidenceAnchorIds)) return false;
+        return node.evidenceAnchorIds.some(anchorId => anchors.has(anchorId));
       });
     }));
   if (editable && presentationCanBeRebased && visual && currentPresentation) {
