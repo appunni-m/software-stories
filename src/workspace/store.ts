@@ -609,7 +609,16 @@ async function restoreChangedRepositoryGuide(project: string, snapshot: string, 
 export async function restoreRepositoryGuide(project: string, snapshot: string, guideId: string): Promise<void> {
   const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
   const guide = result.guides.find((candidate) => candidate.id === guideId);
-  if (!guide) throw new Error('The saved guide could not be found. Its original record remains on this Mac.');
+  if (!guide) {
+    const unavailable = result.unavailableGuides.find((candidate) => candidate.id === guideId);
+    if (unavailable?.reason === 'unsupportedFormat') {
+      throw new Error('This saved guide uses an unsupported format. The original is preserved.');
+    }
+    if (unavailable?.reason === 'unreadable') {
+      throw new Error('This saved guide could not be read. The original is preserved.');
+    }
+    throw new Error('The saved guide could not be found. Its original record remains on this Mac.');
+  }
   await reconcileGuide(project,snapshot,guide);
   announceUnavailableRepositoryGuides(project,snapshot,result.unavailableCount);
 }

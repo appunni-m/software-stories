@@ -1016,6 +1016,17 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     assert_eq!(guides[0].id, selected.id);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
+    let (selected_guides, unavailable_count, unavailable_guides) = list_saved_guides_with_count(
+        &f.storage,
+        &selected.project_id,
+        &selected.snapshot_id,
+        &manager,
+    )
+    .expect("unavailable guide identities are scoped to the selected snapshot");
+    assert_eq!(selected_guides.len(), 1);
+    assert_eq!(unavailable_count, 0);
+    assert!(unavailable_guides.is_empty());
+
     let reservations = answer_reservations(&f.storage)
         .expect("unsupported saved guides keep their capacity reserved");
     assert_eq!(reservations.len(), 2);
@@ -1032,7 +1043,7 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     assert_eq!(opaque.reserved_records, 0);
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 
-    let (unsupported, unavailable_count) = list_saved_guides_with_count(
+    let (unsupported, unavailable_count, unavailable_guides) = list_saved_guides_with_count(
         &f.storage,
         &unrelated.project_id,
         &unrelated.snapshot_id,
@@ -1041,6 +1052,12 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
     .expect("an unsupported saved guide is reported as unavailable");
     assert!(unsupported.is_empty());
     assert_eq!(unavailable_count, 1);
+    assert_eq!(unavailable_guides.len(), 1);
+    assert_eq!(unavailable_guides[0].id, unrelated.id);
+    assert!(matches!(
+        unavailable_guides[0].reason,
+        UnavailableGuideReason::UnsupportedFormat
+    ));
     assert_eq!(std::fs::read(&location).unwrap(), bytes);
 }
 
@@ -1059,7 +1076,7 @@ fn a_damaged_saved_guide_does_not_block_other_guides_and_is_preserved() {
     std::fs::write(&location, &damaged).unwrap();
 
     let manager = codex_agent::CodexAgentManager::default();
-    let (guides, unavailable_count) = list_saved_guides_with_count(
+    let (guides, unavailable_count, unavailable_guides) = list_saved_guides_with_count(
         &f.storage,
         &selected.project_id,
         &selected.snapshot_id,
@@ -1069,6 +1086,7 @@ fn a_damaged_saved_guide_does_not_block_other_guides_and_is_preserved() {
     assert_eq!(guides.len(), 1);
     assert_eq!(guides[0].id, selected.id);
     assert_eq!(unavailable_count, 1);
+    assert!(unavailable_guides.is_empty());
     assert_eq!(std::fs::read(location).unwrap(), damaged);
 }
 

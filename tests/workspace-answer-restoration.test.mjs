@@ -14,7 +14,7 @@ const savedGuide = {
 };
 function nativeReads(handler) {
   return (name, args) => {
-    if (name === 'list_repository_guides') return Promise.resolve({ guides: [], unavailableCount: 0 });
+    if (name === 'list_repository_guides') return Promise.resolve({ guides: [], unavailableCount: 0, unavailableGuides: [] });
     if (name === 'save_workspace_answer_section') return Promise.resolve({ projectId: args.projectId, snapshotId: args.snapshotId, revisionId: args.generationId === section.generationId ? 'revision' : 'revision-two' });
     return handler(name, args);
   };
@@ -25,7 +25,7 @@ test('reopening one saved Guide does not depend on unrelated answer receipts', a
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'list_repository_guides') {
       assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot');
-      return { guides: [savedGuide], unavailableCount: 0 };
+      return { guides: [savedGuide], unavailableCount: 0, unavailableGuides: [] };
     }
     assert.fail(`Unrelated or inference command must not run: ${name}`);
   });
@@ -35,6 +35,21 @@ test('reopening one saved Guide does not depend on unrelated answer receipts', a
   assert.equal(turns(h).length, 1);
   assert.equal(turns(h)[0].guideId, savedGuide.id);
   assert.deepEqual(h.calls.map((call) => call.name), ['list_repository_guides']);
+});
+
+test('an unsupported saved Guide reports a fresh-guide recovery and remains untouched', async () => {
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'list_repository_guides') {
+      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot');
+      return { guides: [], unavailableCount: 1, unavailableGuides: [{ id: savedGuide.id, reason: 'unsupportedFormat' }] };
+    }
+    assert.fail(`Unexpected command ${name}`);
+  });
+
+  await assert.rejects(h.store.restoreRepositoryGuide('project', 'snapshot', savedGuide.id), /unsupported format/);
+
+  assert.equal(h.calls.length, 1);
+  assert.equal(turns(h).length, 0);
 });
 
 test('answer restoration reads only this repository snapshot job ledger', async () => {
@@ -204,7 +219,7 @@ test('finished events during restoration preserve both sections and the reader s
   const partial = { ...answer, outcome: 'working' };
   const complete = { ...answer, sections: [section, second] };
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') return { guides: [], unavailableCount: 0 };
+    if (name === 'list_repository_guides') return { guides: [], unavailableCount: 0, unavailableGuides: [] };
     if (name === 'list_workspace_answers') { if (++lists === 1) { started.resolve(); return listed.promise; } return [latest ? complete : partial]; }
     assert.fail(`Unexpected command ${name}`);
   });
@@ -301,14 +316,14 @@ test('guide events invalidate the saved guide instead of publishing their older 
     openingRunIds: [scope.runId], canContinue: false, canExtend: false, continuationOperations: 0,
     answers: [answer], omissions: [], capturedFiles: 1, startingFiles: 1 };
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return { guides: [guide], unavailableCount: 0 }; }
+    if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return { guides: [guide], unavailableCount: 0, unavailableGuides: [] }; }
     if (name === 'list_workspace_answers') return [];
     assert.fail(`Unexpected command ${name}`);
   });
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
   h.emit('repository-guide-changed', { ...guide, revision: 1, title: 'Old event payload', answers: [] });
-  await flushLocalReads(); listed.resolve({ guides: [], unavailableCount: 0 }); await initial; await flushLocalReads();
+  await flushLocalReads(); listed.resolve({ guides: [], unavailableCount: 0, unavailableGuides: [] }); await initial; await flushLocalReads();
   assert.equal(lists, 2);
   assert.equal(turns(h)[0].guide.title, 'Current saved guide');
   assert.equal(turns(h)[0].guide.revision, 2);

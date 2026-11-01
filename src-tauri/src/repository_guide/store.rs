@@ -16,6 +16,12 @@ struct StoreEntries {
     bytes: u64,
 }
 
+pub(super) struct StoreListing {
+    pub(super) records: Vec<Record>,
+    pub(super) unavailable_count: usize,
+    pub(super) unavailable_guides: Vec<UnavailableGuideSummary>,
+}
+
 fn directory(storage: &Path) -> Result<std::path::PathBuf, String> {
     let directory = storage.join("repository-guides");
     codex_agent::ensure_private_directory(&directory)?;
@@ -173,13 +179,10 @@ fn scan(directory: &Path) -> Result<StoreEntries, String> {
     }
     Ok(entries)
 }
-pub(super) fn list(
-    storage: &Path,
-    project: &str,
-    snapshot: &str,
-) -> Result<(Vec<Record>, usize), String> {
+pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<StoreListing, String> {
     let mut records = Vec::new();
     let mut unavailable_count = 0;
+    let mut unavailable_guides = Vec::new();
     let guide_directory = directory(storage)?;
     for (name, _) in scan(&guide_directory)?.records {
         let Some(id) = name.strip_suffix(".json").filter(|id| uuid(id)) else {
@@ -214,13 +217,32 @@ pub(super) fn list(
             }
         };
         if scope.project_id == project && scope.snapshot_id == snapshot {
-            match decode_record(id, value) {
+            match decode_record(id, value.clone()) {
                 Ok(record) => records.push(record),
-                Err(_) => unavailable_count += 1,
+                Err(_) => {
+                    unavailable_count += 1;
+                    let reason = serde_json::from_value::<RecordContract>(value.clone())
+                        .ok()
+                        .filter(|contract| {
+                            contract.schema_version != RECORD_SCHEMA_VERSION
+                                || contract.contract != CONTRACT
+                        })
+                        .map_or(UnavailableGuideReason::Unreadable, |_| {
+                            UnavailableGuideReason::UnsupportedFormat
+                        });
+                    unavailable_guides.push(UnavailableGuideSummary {
+                        id: id.to_owned(),
+                        reason,
+                    });
+                }
             }
         }
     }
-    Ok((records, unavailable_count))
+    Ok(StoreListing {
+        records,
+        unavailable_count,
+        unavailable_guides,
+    })
 }
 
 pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservation>, String> {

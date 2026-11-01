@@ -187,6 +187,19 @@ pub(crate) struct GuideSummary {
 pub(crate) struct GuideList {
     guides: Vec<GuideSummary>,
     unavailable_count: usize,
+    unavailable_guides: Vec<UnavailableGuideSummary>,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UnavailableGuideSummary {
+    pub(crate) id: String,
+    pub(crate) reason: UnavailableGuideReason,
+}
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UnavailableGuideReason {
+    UnsupportedFormat,
+    Unreadable,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2163,10 +2176,13 @@ pub(crate) async fn list_repository_guides(
     })
     .await
     .map_err(|_| "Saved guides could not be read. Nothing was regenerated.".to_owned())?
-    .map(|(guides, unavailable_count)| GuideList {
-        guides,
-        unavailable_count,
-    })
+    .map(
+        |(guides, unavailable_count, unavailable_guides)| GuideList {
+            guides,
+            unavailable_count,
+            unavailable_guides,
+        },
+    )
 }
 
 fn planning_timing_outcome(record: &Record, active: bool) -> Result<Outcome, String> {
@@ -2231,7 +2247,7 @@ fn list_saved_guides(
     manager: &codex_agent::CodexAgentManager,
 ) -> Result<Vec<GuideSummary>, String> {
     list_saved_guides_with_count(storage, project_id, snapshot_id, manager)
-        .map(|(guides, _)| guides)
+        .map(|(guides, _, _)| guides)
 }
 
 fn list_saved_guides_with_count(
@@ -2239,10 +2255,13 @@ fn list_saved_guides_with_count(
     project_id: &str,
     snapshot_id: &str,
     manager: &codex_agent::CodexAgentManager,
-) -> Result<(Vec<GuideSummary>, usize), String> {
-    let (records, mut unavailable_count) = store::list(storage, project_id, snapshot_id)?;
-    let mut guides = Vec::with_capacity(records.len());
-    for record in records {
+) -> Result<(Vec<GuideSummary>, usize, Vec<UnavailableGuideSummary>), String> {
+    let listing = store::list(storage, project_id, snapshot_id)?;
+    let mut unavailable_count = listing.unavailable_count;
+    let mut unavailable_guides = listing.unavailable_guides;
+    let mut guides = Vec::with_capacity(listing.records.len());
+    for record in listing.records {
+        let record_id = record.id.clone();
         let guide = (|| {
             let lease = store::lease(storage, &record.id)?;
             let has_unsettled_attempt = record
@@ -2274,10 +2293,14 @@ fn list_saved_guides_with_count(
                 // independently recoverable guides in this repository.
                 eprintln!("A saved repository guide could not be reopened: {error}");
                 unavailable_count += 1;
+                unavailable_guides.push(UnavailableGuideSummary {
+                    id: record_id,
+                    reason: UnavailableGuideReason::Unreadable,
+                });
             }
         }
     }
-    Ok((guides, unavailable_count))
+    Ok((guides, unavailable_count, unavailable_guides))
 }
 
 #[cfg(test)]
