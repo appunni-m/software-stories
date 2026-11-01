@@ -6,6 +6,12 @@ import { createWorkspace } from '../src/workspace/model.ts';
 const scope = { projectId: 'project', snapshotId: 'snapshot', runId: '11111111-1111-4111-8111-111111111111' };
 const section = { runId: scope.runId, key: 'entry', order: 1, generationId: 'generation:22222222-2222-4222-8222-222222222222', revisionId: 'revision', supersedes: null, contextElapsedMs: 10, runElapsedMs: 20 };
 const answer = { ...scope, question: 'What happens to the input?', outcome: 'complete', sections: [section], incompleteTopics: [] };
+const savedGuide = {
+  revision: 1, id: '99999999-9999-4999-8999-999999999999', projectId: 'project', snapshotId: 'snapshot',
+  question: 'How does the repository work?', title: 'Follow the request', status: 'partial',
+  openingRunId: null, openingRunIds: [], canContinue: false, canExtend: false, continuationOperations: 0,
+  units: [], answers: [], omissions: [], capturedFiles: 1, startingFiles: 1,
+};
 function nativeReads(handler) {
   return (name, args) => {
     if (name === 'list_repository_guides') return Promise.resolve({ guides: [], unavailableCount: 0 });
@@ -14,6 +20,22 @@ function nativeReads(handler) {
   };
 }
 const turns = (h, project = 'project', snapshot = 'snapshot') => h.store.getWorkspace(project, snapshot).explorations.flatMap((e) => e.turns);
+
+test('reopening one saved Guide does not depend on unrelated answer receipts', async () => {
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'list_repository_guides') {
+      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot');
+      return { guides: [savedGuide], unavailableCount: 0 };
+    }
+    assert.fail(`Unrelated or inference command must not run: ${name}`);
+  });
+
+  await h.store.restoreRepositoryGuide('project', 'snapshot', savedGuide.id);
+
+  assert.equal(turns(h).length, 1);
+  assert.equal(turns(h)[0].guideId, savedGuide.id);
+  assert.deepEqual(h.calls.map((call) => call.name), ['list_repository_guides']);
+});
 
 test('answer restoration reads only this repository snapshot job ledger', async () => {
   let jobLists = 0;

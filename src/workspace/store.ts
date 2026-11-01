@@ -605,6 +605,22 @@ async function restoreChangedRepositoryGuide(project: string, snapshot: string, 
   const guide = result.guides.find((candidate) => candidate.id === guideId);
   if (guide) await reconcileGuide(project,snapshot,guide,true);
 }
+/** Reopen one guide without making its recovery depend on unrelated answer receipts. */
+export async function restoreRepositoryGuide(project: string, snapshot: string, guideId: string): Promise<void> {
+  const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
+  const guide = result.guides.find((candidate) => candidate.id === guideId);
+  if (!guide) throw new Error('The saved guide could not be found. Its original record remains on this Mac.');
+  await reconcileGuide(project,snapshot,guide);
+  announceUnavailableRepositoryGuides(project,snapshot,result.unavailableCount);
+}
+function announceUnavailableRepositoryGuides(project: string, snapshot: string, unavailableCount: number) {
+  if (unavailableCount <= 0) return;
+  window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
+    title:'Some saved guides need attention',
+    message:`${unavailableCount} saved guide record${unavailableCount===1?'':'s'} on this Mac could not be fully reopened. Other saved guides remain available, and the original records were preserved.`,
+    projectId:project,snapshotId:snapshot,
+  }}));
+}
 async function restoreRepositoryGuides(project: string, snapshot: string) {
   const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
   let unavailableCount = result.unavailableCount;
@@ -614,11 +630,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
     try { await reconcileGuide(project,snapshot,guide); }
     catch { unavailableCount += 1; }
   }
-  if (unavailableCount > 0) window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
-    title:'Some saved guides need attention',
-    message:`${unavailableCount} saved guide record${unavailableCount===1?'':'s'} on this Mac could not be fully reopened. Other saved guides remain available, and the original records were preserved.`,
-    projectId:project,snapshotId:snapshot,
-  }}));
+  announceUnavailableRepositoryGuides(project,snapshot,unavailableCount);
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */
