@@ -115,10 +115,11 @@ test('saved Guide recovery reports failure only when the local restore rejects',
   const end = workspace.indexOf('\n  };', start);
   assert.ok(start >= 0 && end > start);
   const recovery = workspace.slice(start, end);
-  assert.match(recovery, /try\{await props\.onRestoreSaved\(\);setSavedGuideRestoreFailed\(false\);\}/);
-  assert.match(recovery, /catch\{setSavedGuideRestoreFailed\(true\);\}/);
+  assert.match(recovery, /setSavedGuideRestoreError\(null\)/);
+  assert.match(recovery, /try\{await props\.onRestoreSaved\(turn\.guideId\);\}/);
+  assert.match(recovery, /catch\(failure\)\{setSavedGuideRestoreError\(errorMessageOr\(failure,/);
   assert.match(recovery, /finally\{setRestoringSavedGuide\(false\);\}/);
-  assert.doesNotMatch(recovery, /finally\{[^}]*setSavedGuideRestoreFailed/);
+  assert.doesNotMatch(recovery, /finally\{[^}]*setSavedGuideRestoreError/);
 });
 
 test('an unavailable answer stays a compact status beside its recovery action', () => {
