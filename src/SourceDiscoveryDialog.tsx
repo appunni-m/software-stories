@@ -87,7 +87,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         progressPublished = true;
         window.dispatchEvent(new CustomEvent('code-atlas:workspace-progress', { detail: {
           title: 'Preparing your answer',
-          message: 'Finding relevant code in this snapshot. You can keep exploring; file contents are reviewed separately before sharing.',
+          message: 'Your answer is being prepared in the background. You can keep exploring.',
           projectId: scope.projectId, snapshotId: scope.snapshotId, occurrenceId: progressOccurrenceId,
         } }));
       }
