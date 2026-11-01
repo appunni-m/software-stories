@@ -93,9 +93,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-scrim { position: fixed; inset: 0; z-index: 4; border: 0; background: transparent; }
 
-/* Keep repository controls on the header row at desktop widths. Stack them
-   below the app actions only when the actual window gets compact. */
-@container app-window (max-width: 1280px) {
+/* Keep repository controls on one row while they fit; move them below the app
+   actions before the project and snapshot controls compete for header space. */
+@container app-window (max-width: 1440px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";
