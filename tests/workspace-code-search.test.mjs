@@ -112,10 +112,10 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,currentSourceSearch\.busy,currentSourceSearch\.error,results\.length\)/);
 });
 
-test('Explore with AI appears after empty code search or when local code search is unavailable',()=>{
+test('Explore with AI stays available beside settled search results and on fallback',()=>{
   assert.equal(shouldOfferExploreWithAI('memory_face','code',true,null,0),false);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',0),true);
-  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,1),false);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,1),true);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,0),true);
   assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',1),true);
   assert.equal(shouldOfferExploreWithAI('a','code',false,null,0),false);

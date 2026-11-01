@@ -116,7 +116,8 @@ export function shouldOfferExploreWithAI(
 ):boolean {
   const length=[...query.trim()].length;
   if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
-  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&(error!==null||resultCount===0);
+  const settled=!busy&&Number.isSafeInteger(resultCount)&&resultCount>=0;
+  return length>=(mode==='regex'?1:2)&&length<=240&&settled;
 }
 
 /** Tell readers how much of a capped result set is currently visible. */
