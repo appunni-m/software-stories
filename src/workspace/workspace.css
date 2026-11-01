@@ -239,14 +239,13 @@
 .dw-commit-line::after {position:absolute;content:'';height:100%;width:1px;left:7px;background:var(--border-strong);z-index:0;}
 .dw-commit-line svg {position:relative;z-index:1;background:var(--surface);}
 .dw-commit-line.merge {color:var(--purple);}
-.dw-commit > span:last-child {display:block;grid-column:2;padding:var(--space-3) 0;min-width:0;max-width:100%;}
+.dw-commit-copy {display:block;grid-column:2;padding:6px 0;min-width:0;max-width:100%;}
 .dw-commit strong {display:block;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:500;text-overflow:ellipsis;white-space:nowrap;}
-.dw-commit small {display:block;width:100%;max-width:100%;box-sizing:border-box;color:var(--dim);font-size:12px;line-height:1.4;margin-top:var(--space-1);white-space:normal;overflow-wrap:anywhere;}
+.dw-commit small {display:block;width:100%;max-width:100%;box-sizing:border-box;color:var(--dim);font-size:11px;line-height:1.25;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-commit:hover {background:var(--surface-hover);}
 .dw-commits .dw-commit.rt-Button {display:grid;width:100%;min-width:0;max-width:100%;height:auto;min-height:28px;grid-template-columns:16px minmax(0,1fr);justify-content:stretch;border:0;border-radius:0;background:transparent;color:var(--text);box-shadow:none;white-space:normal;}
 .dw-commits .dw-commit.rt-Button:hover {background:var(--surface-hover);}
 .dw-commits .dw-commit.rt-Button[aria-pressed="true"] {background:var(--surface-hover);box-shadow:inset 2px 0 0 var(--accent);}
-.dw-commit-current {color:var(--accent-strong);font-weight:600;}
 .dw-tool-content {flex:1;overflow:auto;min-height:0;padding:var(--space-4) var(--space-4) var(--space-6);}
 .dw-tool-reading > #explanations {display:flex;flex-direction:column;min-height:0;}
 .dw-tool-content .empty-workspace {min-height:0;margin:0;padding:var(--space-3) 0;border:0;max-width:none;}
