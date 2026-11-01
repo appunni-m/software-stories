@@ -1533,6 +1533,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
         })}
       </ol>
     </> : unlinkedNodes ? <>
+      <p className="dw-flow-source-points-note">No verified path connects these points yet. Select one to inspect the code behind it.</p>
       {selectionGuidance('Choose a card to see the code behind that idea.')}
       <ul className="dw-unlinked-flow" aria-label={`Source points in ${plainInlineCodeText(visual.title)}`}>
         {unlinkedNodes.map((node) => {
