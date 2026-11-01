@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { InlineCodeText } from './InlineCodeText';
 import { AppTextArea } from './design/AppTextArea';
+import { AppTextField } from './design/AppTextField';
 import { plainInlineCodeText } from './lib/inlineCode';
 import {
   AlertCircle,
@@ -778,8 +779,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             <p>Add a code name and how it should sound. Include it only when you want matching text in the script replaced for speech.</p>
             {draft.lexicon.map((entry, index) => (
               <div className="walkthrough-pronunciation-row" key={`lexicon-${index}`}>
-                <label>Exact name<input value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
-                <label>Say it as<input value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
+                <div className="walkthrough-pronunciation-field"><label htmlFor={`${titleId}-lexicon-name-${index}`}>Exact name</label><AppTextField id={`${titleId}-lexicon-name-${index}`} className="walkthrough-pronunciation-text" value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onValueChange={(name) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name }) }))} placeholder="parseRoutes" /></div>
+                <div className="walkthrough-pronunciation-field"><label htmlFor={`${titleId}-lexicon-say-${index}`}>Say it as</label><AppTextField id={`${titleId}-lexicon-say-${index}`} className="walkthrough-pronunciation-text" value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onValueChange={(sayAs) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs }) }))} placeholder="parse routes" /></div>
                 <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
                 <AppButton intent="custom" type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></AppButton>
               </div>
