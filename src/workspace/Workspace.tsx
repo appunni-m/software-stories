@@ -1128,7 +1128,7 @@ export function DeveloperWorkspace(props:Props) {
                     <strong>Saved explanations</strong>
                     {matchingSavedExplanations.map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}
                   </div>}
-                  {orderedHistorySections.map(({exploration,turns,groups})=>{
+                  {orderedHistorySections.map(({exploration,groups})=>{
                     const isCurrentLevel=exploration.id===current.id;
                     const level=ancestors(state,exploration.id).length;
                     const levelTitle=exploration.id==='root'?projectName:questionSummaryText(exploration.title);
@@ -1147,7 +1147,7 @@ export function DeveloperWorkspace(props:Props) {
                       </details>}
                     </section>;
                     return <details key={exploration.id} className="dw-history-ancestor">
-                      <summary><ChevronRight size={13} className="dw-history-ancestor-chevron"/><span><InlineCodeText text={levelTitle}/></span><small>Level {level} · {groups.length} {groups.length===1?'question':'questions'} · {turns.length} {turns.length===1?'attempt':'attempts'}</small></summary>
+                      <summary><ChevronRight size={13} className="dw-history-ancestor-chevron"/><span><InlineCodeText text={levelTitle}/></span><small>Level {level} · {groups.length} {groups.length===1?'question':'questions'}</small></summary>
                       <div className="dw-history-ancestor-content">
                         <AppButton intent="custom" className="dw-history-level" onClick={()=>go(exploration.id)}><MessageSquare size={13}/>Open this level<small>Level {level}</small></AppButton>
                         {entries}
