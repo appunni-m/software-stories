@@ -516,6 +516,26 @@ export function isRepositoryGuideIntent(question: string): boolean {
   return false;
 }
 
+/** Natural-language entry to the saved, reviewable repository learning-route flow.
+ * Keep this narrower than a general repository Guide request so ordinary questions
+ * continue to use the progressive Guide path. */
+export function isRepositoryPlanIntent(question: string): boolean {
+  const query = question.trim().toLocaleLowerCase();
+  if (!query) return false;
+  return /\b(?:create|make|build|generate|start|design|want|need)\b.{0,48}\b(?:learning|reading)\s+(?:route|plan|path)\b/u.test(query)
+    || /\b(?:learning|reading)\s+(?:route|plan|path)\b.{0,48}\b(?:for|through)\s+(?:this\s+|the\s+)?(?:repo(?:sitory)?|code\s*base|codebase|project)\b/u.test(query)
+    || /\b(?:plan|map\s+out)\b.{0,48}\b(?:how\s+to\s+)?(?:learn|understand|read)\b.{0,48}\b(?:repo(?:sitory)?|code\s*base|codebase|project)\b/u.test(query)
+    || /\b(?:learn|understand)\b.{0,48}\b(?:repo(?:sitory)?|code\s*base|codebase|project)\b.{0,48}\b(?:step\s+by\s+step|in\s+order|route|plan|path)\b/u.test(query);
+}
+
+/** Opening saved routes is a chat action, not a permanent toolbar destination. */
+export function isRepositoryPlanHistoryIntent(question: string): boolean {
+  const query = question.trim().toLocaleLowerCase();
+  if (!query) return false;
+  return /\b(?:show|open|review|list|find)\b.{0,40}\b(?:my\s+)?(?:learning|reading)\s+(?:routes?|plans?|paths?)\b/u.test(query)
+    || /\b(?:my\s+)?(?:learning|reading)\s+(?:routes?|plans?|paths?)\b.{0,32}\b(?:history|saved|drafts?)\b/u.test(query);
+}
+
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

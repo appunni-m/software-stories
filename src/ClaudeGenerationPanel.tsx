@@ -20,6 +20,7 @@ export interface ClaudeResultCallbacks {
   onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
   onPrGuideReady?: (preview: PrGuidePreview) => void;
+  onOpenPlanHistory?: (draftId?: string) => void;
   /** Only a validated result adopted by the current view resolves a notice. */
   onRecoveryResultReady?: (operationId: string) => void;
 }
@@ -79,7 +80,7 @@ function failure(error: ProviderFailure): string {
 /** Automatic UI uses only reviewed identities. Native admission remains
  * authoritative; the current empty release registry cannot start inference. */
 export function ClaudeGenerationPanel({ native, mode, review, available, unavailableMessage,
-  onHoldChange, onReset, onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady,
+  onHoldChange, onReset, onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onOpenPlanHistory, onRecoveryResultReady,
 }: ClaudeResultCallbacks & {
   native: boolean; mode: ClaudeOperationReviewMode; review: ProviderRequestReview;
   available: boolean; unavailableMessage: string;
@@ -331,8 +332,9 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
             {claim.inferenceBasis && <p>Inference basis: <InlineCodeText text={claim.inferenceBasis}/></p>}</div>)}</article>)}
       </>}
       {result?.kind === 'plan' && <><h4><InlineCodeText text={result.value.plan.title}/></h4>
-        <p>Saved locally as an unaccepted learning plan with {result.value.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p>
+        <p>Saved locally as an unaccepted learning plan with {result.value.plan.steps.length} steps. Review the cited rationale, then accept or discard it.</p>
         <p>Files without a planned step: {result.value.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p>
+        {onOpenPlanHistory&&<AppButton intent="secondary" onClick={()=>onOpenPlanHistory(result.value.plan.draftId)}>Review this route</AppButton>}
       </>}
       {error && <p className="provider-error-text" role="alert">{error}</p>}
       {note && <p role="status">{note}</p>}

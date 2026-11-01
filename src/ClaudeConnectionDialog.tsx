@@ -42,7 +42,7 @@ function inspectionError(error: unknown): string {
 }
 
 export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBackend,
-  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady, onOpenPendingPreview,
+  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onOpenPlanHistory, onRecoveryResultReady, onOpenPendingPreview,
 }: ClaudeResultCallbacks & {
   native: boolean; reviewMode: ClaudeOperationReviewMode | 'settings' | null;
   onClose: () => void; onChooseBackend: () => void;
@@ -248,7 +248,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
           recoveryReady={recoveryReady}
           onHoldChange={(held) => { generationHold.current = held; setGenerationHeld(held); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}
-          onPrGuideReady={onPrGuideReady} onRecoveryResultReady={onRecoveryResultReady} />}
+          onPrGuideReady={onPrGuideReady} onOpenPlanHistory={onOpenPlanHistory} onRecoveryResultReady={onRecoveryResultReady} />}
         {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">
           <h3 id="claude-models-title">Candidate model catalog</h3>
           <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Generation readiness is checked separately by native code.</p>

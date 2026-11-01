@@ -21,6 +21,10 @@ Choose Build all chapters on an accepted route. The saved connection generates i
 ## Acceptance still required
 Record a packaged multi-step route run, saved draft origins, per-step review/acceptance and manual reading. Exercise close during preparation, active inference and save; quota/provider failure at step two; changed account/runtime/source; save success with a lost reply; restart before and after a save; rejected chapter regeneration; and two same-file steps with different questions. Verify no repeated connection picker or reference checklist. Confirm no automatic queue resume after restart.
 
+### Chat entry and saved-route review — source progress, 2 November 2026
+
+The normal workspace now routes explicit learning-route requests from the existing chat composer into the native planning flow. Asking to show saved learning plans opens an in-app route list without adding another toolbar tab. The list reloads draft and accepted records through the native replay commands before presenting the route, cited file ranges open in the captured source, and draft acceptance/discard are explicit actions. Accepted steps use `prepare_planned_chapter_scope` and the existing single-chapter agent review, preserving plan lineage. A saved plan result offers a direct review action. No provider request, test, build, or packaged acceptance was run for this UI slice. It does not implement **Build all chapters** yet; sequential batch, cancellation/recovery, and the acceptance above remain open.
+
 Automated orchestration regressions cover sequencing, exact lineage skipping, changed requests, provider failure, cancellation, late results and lost save replies. They do not replace native runtime and semantic review. Claude support, durable background jobs and whole-repository multi-window orchestration are later work.
 
 ### Incremental Guide boundary-limit correction — 28 October 2026 (source-only)

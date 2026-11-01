@@ -24,10 +24,11 @@ export type RepositoryPlanningScope = PrepareRepositoryPlanInput & ({
 
 /** Agent-only planning/chapter entry. Each child owns its existing account, settings,
  * review, consent and cancellation lifecycle. No API or manual fallback. */
-export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnections, onLargeFileDiscovered, onRecoveryResultReady, onOpenPendingPreview }: {
+export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnections, onLargeFileDiscovered, onOpenPlanHistory, onRecoveryResultReady, onOpenPendingPreview }: {
   scope: RepositoryPlanningScope; native: boolean; onClose: () => void;
   onOpenConnections: () => void;
   onLargeFileDiscovered: (handoff: LargeFileDiscoveryHandoff) => void;
+  onOpenPlanHistory?: (projectId: string, draftId?: string) => void;
   onRecoveryResultReady?: (operationId: string) => void;
   onOpenPendingPreview?: (generationId: string) => void;
 }) {
@@ -102,8 +103,8 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,
     recoveryOperationId: scope.recoveryOperationId } : { kind: 'repository-plan' as const, projectId: effectiveScope.projectId,
     snapshotId: effectiveScope.snapshotId, question: effectiveScope.question, selectedPaths: effectiveScope.selectedPaths };
-  if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onChooseBackend={openConnections} onFindCodeAgain={() => { setDiscovery(null); setIgnoreSavedDiscovery(true); }} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
-  if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
+  if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onChooseBackend={openConnections} onFindCodeAgain={() => { setDiscovery(null); setIgnoreSavedDiscovery(true); }} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} onOpenRepositoryPlans={onOpenPlanHistory ? (draftId)=>onOpenPlanHistory(scope.projectId,draftId) : undefined} />;
+  if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} onOpenPlanHistory={onOpenPlanHistory ? (draftId)=>onOpenPlanHistory(scope.projectId,draftId) : undefined} />;
   return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-agent-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="plan-agent-title">Use the connection in your header</h2><p>{scope.question}</p></div>
       <AppButton intent="icon" onClick={onClose} aria-label={planned ? 'Close chapter explanation' : 'Close planning'}><X size={17} /></AppButton></header>

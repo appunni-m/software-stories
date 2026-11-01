@@ -80,6 +80,7 @@ export interface CodexChapterDialogProps {
   onPrGuideReady?: (preview: PrGuidePreview) => void;
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
   onOpenPendingPreview?: (generationId: string) => void;
+  onOpenRepositoryPlans?: (draftId?: string) => void;
   onFindCodeAgain?: () => void;
   discoveryResult?: SourceDiscoveryResult;
   embeddedSettings?: boolean;
@@ -98,7 +99,7 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, onFindCodeAgain, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, onOpenRepositoryPlans, onFindCodeAgain, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
   const scopeIdentity = requestScopeKey(mode);
   const projectId = mode === 'settings' ? null : mode.projectId;
   const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
@@ -697,6 +698,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
             targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath ?? null}
             locked={busy !== null || hasResult} backend="codex" requestId={chapterRecovery.recoveryOperationId} plannedTarget={plannedChapter?.target} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
+          {planning?.recoveryOperationId && onOpenRepositoryPlans&&<AppButton intent="quiet" onClick={onOpenRepositoryPlans}>Check saved learning routes</AppButton>}
           {!native ? <div className="provider-preview-only" role="status"><HardDrive size={18} /><div><strong>Codex runs in the macOS app.</strong><p>This browser preview cannot launch Codex, sign in, read snapshot files, or generate chapters.</p></div></div> : <>
             {checkingConnection ? <p className="provider-status-note" role="status">Using your header connection…</p> : mode !== 'settings' && status?.authenticated ? <p className="generation-connection-label">{selectedModel?.displayName ?? selection.modelId} · {selection.effort} · uses the connection in your header</p> : <details className="provider-key-card" open={embeddedSettings || !status?.authenticated}>
               <summary>{status?.authenticated ? `Codex · ${selectedModel?.displayName ?? selection.modelId} · ${selection.effort} · Connection settings` : 'Connect Codex once'}</summary>
@@ -812,7 +814,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </li>)}</ol>
                 <small>{codeLensResult.modelVersion ?? codeLensResult.modelId}</small>
               </section>}
-              {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4><InlineCodeText text={planResult.plan.title}/></h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
+              {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4><InlineCodeText text={planResult.plan.title}/></h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Review the cited rationale, then accept or discard it.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p>{onOpenRepositoryPlans&&<AppButton intent="secondary" onClick={()=>onOpenRepositoryPlans(planResult.plan.draftId)}>Review this route</AppButton>}</section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
                 <GenerationRecord origin={preview.revision.generationOrigin} />

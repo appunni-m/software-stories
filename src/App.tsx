@@ -38,6 +38,8 @@ import { CodexContextDialog } from './CodexContextDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
+import { RepositoryPlanHistoryDialog } from './RepositoryPlanHistoryDialog';
+import type { PlannedChapterScope } from './lib/plannedChapters';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
@@ -359,6 +361,8 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
+  const [planHistoryProjectId, setPlanHistoryProjectId] = useState<string | null>(null);
+  const [planHistoryDraftId, setPlanHistoryDraftId] = useState<string | undefined>(undefined);
   const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
@@ -370,6 +374,14 @@ function App() {
     planningReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPlanningDialog(scope);
   }, []);
+  const openPlanHistory = useCallback((projectId: string, draftId?: string) => {
+    setPlanHistoryDraftId(draftId);
+    setPlanHistoryProjectId(projectId);
+  }, []);
+  const closePlanHistory = useCallback(() => {
+    setPlanHistoryProjectId(null);
+    setPlanHistoryDraftId(undefined);
+  }, []);
   useEffect(() => {
     if (planningDialog && (navigation.current.workspace !== 'guide-plan'
       || navigation.current.projectId !== planningDialog.projectId || navigation.current.snapshotId !== planningDialog.snapshotId)) {
@@ -378,6 +390,9 @@ function App() {
       setPlanningDialog(null);
     }
   }, [planningDialog, navigation.current.workspace, navigation.current.projectId, navigation.current.snapshotId]);
+  useEffect(() => {
+    if (planHistoryProjectId && navigation.current.projectId !== planHistoryProjectId) closePlanHistory();
+  }, [planHistoryProjectId, navigation.current.projectId, closePlanHistory]);
   useEffect(() => {
     if (!pendingLargeFileRequest) return;
     const route = navigation.current;
@@ -2034,6 +2049,17 @@ function App() {
                 sidebarActivity: sidebarActivity === 'changes' ? 'files' : sidebarActivity,
               }))}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision}
+              onPlanRoute={(question,selectedPaths)=>{
+                if(!currentProject||!selectedSnapshot)return;
+                const projectId=currentProject.projectId;const snapshotId=selectedSnapshot.snapshotId;
+                setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId,snapshotId,focusTarget:'heading:guide-plan'}));
+                openPlanningDialog({projectId,snapshotId,question,selectedPaths});
+              }}
+              onOpenPlanHistory={()=>{
+                if(!currentProject||!selectedSnapshot)return;
+                setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId,focusTarget:'heading:guide-plan'}));
+                openPlanHistory(currentProject.projectId);
+              }}
               onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
               onCompare={(baseRef,headRef,remember=true) => {
@@ -2182,12 +2208,29 @@ function App() {
         key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.discoveryResult ?? null, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
         scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
         onOpenConnections={openProviderSettings}
+        onOpenPlanHistory={(projectId,draftId)=>{closePlanningDialog();openPlanHistory(projectId,draftId);}}
         onLargeFileDiscovered={(handoff) => {
           closePlanningDialog();
           openDiscoveredLargeFile(handoff);
         }}
         onRecoveryResultReady={completeRecoveredProviderReview}
         onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
+      {planHistoryProjectId && <RepositoryPlanHistoryDialog
+        key={`${planHistoryProjectId}:${planHistoryDraftId??''}`}
+        projectId={planHistoryProjectId}
+        native={runtime?.native ?? isNativeRuntime()}
+        initialDraftId={planHistoryDraftId}
+        onClose={closePlanHistory}
+        onOpenSource={(snapshotId,path,startLine,endLine)=>{
+          closePlanHistory();
+          openCapturedFile(path,snapshotId,{startLine,endLine});
+        }}
+        onOpenChapter={(scope:PlannedChapterScope)=>{
+          closePlanHistory();
+          setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,focusTarget:'heading:guide-plan'}));
+          openPlanningDialog({kind:'planned-chapter',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,
+            question:scope.question,selectedPaths:scope.selectedPaths,plannedChapter:scope});
+        }} />}
       {providerDialog && (
         <ProviderDialog
           key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}

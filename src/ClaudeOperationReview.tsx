@@ -79,7 +79,7 @@ function reviewError(error: ProviderFailure): string {
 /** Local review followed by native-gated generation. The empty qualification
  * registry keeps current builds unavailable; a preview is never consent. */
 export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, recoveryReady, setupBusy,
-  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady,
+  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onOpenPlanHistory, onRecoveryResultReady,
 }: ClaudeResultCallbacks & {
   native: boolean;
   mode: ClaudeOperationReviewMode | 'settings' | null;
@@ -360,7 +360,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
             : connection?.generation.message ?? 'Automatic Claude generation is unavailable for this connection.'}
           onHoldChange={holdGeneration} onReset={() => { holdGeneration(false); releaseReview(); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}
-          onPrGuideReady={onPrGuideReady} onRecoveryResultReady={onRecoveryResultReady} />
+          onPrGuideReady={onPrGuideReady} onOpenPlanHistory={onOpenPlanHistory} onRecoveryResultReady={onRecoveryResultReady} />
       </>}
     </>}
     {mode === null && <p role="status">Open Claude from a captured file, overview, section, code range or Git selection to preview that exact operation. Automatic generation remains unavailable.</p>}
