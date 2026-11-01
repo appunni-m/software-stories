@@ -43,6 +43,19 @@ test('the last claim, unknown claims and independently shared source evidence ar
   assert.deepEqual(next.dependencies,s.dependencies);
 });
 
+test('claim removal preserves a visual with an unresolvable surviving cue for validation',()=>{
+  const s=section();
+  // Make the remaining claim point at a node whose only source belongs to the
+  // claim being removed. This payload was already invalid; editing must not
+  // turn the dangling reference into the synthetic node index -1.
+  s.visual.presentation.scenes[1].elements[1].nodeIndex=0;
+  const before=structuredClone(s.visual);
+  const next=removeClaimAndReferences(s,'claim:entry');
+  assert.deepEqual(next.visual,before);
+  assert.equal(next.visual.presentation.scenes[1].elements[1].nodeIndex,0);
+  assert.ok(next.visual.presentation.scenes.every(scene=>scene.elements.every(element=>element.nodeIndex===null||element.nodeIndex>=0)));
+});
+
 test('citation replacement preserves stable links and narration, repairs direct dependencies, and keeps relationships explicit',()=>{
   const s=section(),old=s.claims[0].anchors[0];
   s.claims[0].dependencies.push({kind:'symbol',path:old.path,sourceSha256:old.sourceSha256,symbolId:old.symbolId});

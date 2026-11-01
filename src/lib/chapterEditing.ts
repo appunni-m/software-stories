@@ -22,6 +22,7 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
   const hotspots = section.hotspots.filter(h => h.destination.kind !== 'codeLens' || anchors.has(h.destination.anchorId));
   const hotspotIds = new Set(hotspots.map(h => h.hotspotId));
   let visual = section.visual;
+  const rebaseNodes = visual?.nodes ?? [];
   const currentPresentation = visual?.presentation;
   const editable = visual && Array.isArray(visual.nodes) && Array.isArray(visual.edges)
     && visual.schemaVersion === 3
@@ -29,7 +30,25 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
     && visual.edges.every(e => e && typeof e === 'object' && 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds))
     && currentPresentation?.schemaVersion === 3 && Array.isArray(currentPresentation.scenes)
     && currentPresentation.scenes.every(s => s && Array.isArray(s.elements) && s.elements.every(e => e && typeof e === 'object'));
-  if (editable && visual && currentPresentation) {
+  // Only reindex a complete visual when every retained cue will still resolve
+  // to a retained node. Otherwise keep the original payload for Chapter Studio
+  // validation instead of manufacturing a negative node index.
+  const presentationCanBeRebased = Boolean(visual && currentPresentation?.schemaVersion === 3
+    && Array.isArray(currentPresentation.scenes)
+    && currentPresentation.scenes.every(scene => {
+      if (!scene || typeof scene !== 'object' || Array.isArray(scene)
+        || !Number.isSafeInteger(scene.claimIndex) || scene.claimIndex < 0 || scene.claimIndex >= section.claims.length
+        || !Array.isArray(scene.elements)) return false;
+      if (scene.claimIndex === removed) return true;
+      return scene.elements.every(element => {
+        if (!element || typeof element !== 'object' || Array.isArray(element)) return false;
+        const nodeIndex: unknown = (element as { nodeIndex?: unknown }).nodeIndex;
+        if (nodeIndex === null) return true;
+        if (typeof nodeIndex !== 'number' || !Number.isSafeInteger(nodeIndex) || nodeIndex < 0 || nodeIndex >= rebaseNodes.length) return false;
+        return rebaseNodes[nodeIndex].evidenceAnchorIds.some(anchorId => anchors.has(anchorId));
+      });
+    }));
+  if (editable && presentationCanBeRebased && visual && currentPresentation) {
     const nodeIndices = new Map<number,number>();
     const nodes = visual.nodes.flatMap((node,index) => {
       const evidenceAnchorIds = node.evidenceAnchorIds.filter(id => anchors.has(id));
