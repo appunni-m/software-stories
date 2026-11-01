@@ -18,6 +18,18 @@ export function workspaceStoreHarness(invoke,options={}) {
     window: new EventTarget(),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
   });
+  const narrationPrewarmer = options.localNarrationPrewarmer ?? { enqueue: (inputs) => {
+    // Tests can observe each fire-and-forget prewarm request without loading
+    // the real native worker queue or making audio synthesis calls.
+    for (const input of inputs) {
+      try {
+        const result = options.prewarmLocalNarration?.(input);
+        if (result && typeof result.then === 'function') void result.catch(() => {});
+      } catch {
+        // Optional local narration must not fail workspace adoption.
+      }
+    }
+  } };
   const stubs = {
     react: { useRef: unexpected, useSyncExternalStore: unexpected },
     '@tauri-apps/api/core': { invoke: (name, args) => { calls.push({ name, args }); return invoke(name, args); } },
@@ -55,18 +67,7 @@ export function workspaceStoreHarness(invoke,options={}) {
     './narrationPrewarm': {
       localNarrationPrewarmInputs: options.localNarrationPrewarmInputs ?? (() => []),
     },
-    './localNarrationQueue': { localNarrationPrewarmer: { enqueue: (inputs) => {
-      // Tests can observe each fire-and-forget prewarm request without loading
-      // the real native worker queue or making audio synthesis calls.
-      for (const input of inputs) {
-        try {
-          const result = options.prewarmLocalNarration?.(input);
-          if (result && typeof result.then === 'function') void result.catch(() => {});
-        } catch {
-          // Optional local narration must not fail workspace adoption.
-        }
-      }
-    } } },
+    './localNarrationQueue': { localNarrationPrewarmer: narrationPrewarmer },
   };
   const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/narrationQueue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/inventory.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();
