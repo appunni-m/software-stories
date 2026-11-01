@@ -15,7 +15,7 @@ import { AnswerVisualPreview } from './AnswerVisualPreview';
 import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
-import { capturedSourceLineIndex } from '../lib/codeLens';
+import { capturedSourceLineIndex, splitCapturedSourceLines } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -70,6 +70,27 @@ const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}$
 const MAX_CONTEXT_REFERENCES = 12;
 const contextsFromAnchors = (anchors:readonly ChapterSourceAnchor[]):Context[]=>anchors.slice(0,MAX_CONTEXT_REFERENCES).map((anchor)=>({path:anchor.path,sha256:anchor.sourceSha256,from:anchor.startLine,to:anchor.endLine}));
 interface PendingCodeExplanation { projectId:string; snapshotId:string; explorationId:string; context:Context; question:string; view:View }
+interface CodeReviewPreview { text:string; selectedLines:number; shownLines:number; truncated:boolean }
+function codeReviewPreview(contents:string,context:Context):CodeReviewPreview {
+  const lines=splitCapturedSourceLines(contents);
+  const from=context.from??1;
+  const to=context.to??from;
+  const selected=lines.slice(from-1,to);
+  const maxLines=180;
+  const maxCharacters=24_000;
+  const output:string[]=[];
+  let characters=0;
+  let truncated=selected.length>maxLines;
+  for(const [index,line] of selected.slice(0,maxLines).entries()){
+    const numbered=`${String(from+index).padStart(4,' ')}  ${line}`;
+    const remaining=maxCharacters-characters-1;
+    if(remaining<=0){truncated=true;break;}
+    if(numbered.length>remaining){output.push(`${numbered.slice(0,Math.max(0,remaining-1))}…`);truncated=true;break;}
+    output.push(numbered);
+    characters+=numbered.length+1;
+  }
+  return {text:output.join('\n'),selectedLines:selected.length,shownLines:output.length,truncated};
+}
 interface CapturedSourceSearchState {
   key:string;
   hits:{path:string;line:number;text:string}[];
@@ -368,6 +389,8 @@ export function DeveloperWorkspace(props:Props) {
   const [consentBusy,setConsentBusy] = useState(false);
   const [consentError,setConsentError] = useState<string|null>(null);
   const [pendingCodeExplanation,setPendingCodeExplanation] = useState<PendingCodeExplanation|null>(null);
+  const codeReview=useMemo(()=>pendingCodeExplanation&&source?.snapshotId===pendingCodeExplanation.snapshotId&&source.path===pendingCodeExplanation.context.path
+    ?codeReviewPreview(source.contents,pendingCodeExplanation.context):null,[pendingCodeExplanation,source]);
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
   const [draftNotice,setDraftNotice] = useState<string|null>(null);
   const [searchFocused,setSearchFocused] = useState(false);
@@ -653,9 +676,9 @@ export function DeveloperWorkspace(props:Props) {
       ||!source.sha256||!rows.some((row)=>row.path===selected.path))return null;
     const lineCount=sourceLineIndex?.lineCount??0;
     const hasRange=selected.from!==undefined||selected.to!==undefined;
-    const rangeValid=!hasRange||(typeof selected.from==='number'&&typeof selected.to==='number'
+    const rangeValid=hasRange&&typeof selected.from==='number'&&typeof selected.to==='number'
       &&Number.isInteger(selected.from)&&Number.isInteger(selected.to)&&selected.from>=1
-      &&selected.to>=selected.from&&selected.to<=lineCount);
+      &&selected.to>=selected.from&&selected.to<=lineCount;
     return rangeValid&&selected.sha256===source.sha256?selected:null;
   }
   function explain(context:Context){
@@ -668,13 +691,37 @@ export function DeveloperWorkspace(props:Props) {
       return;
     }
     const question=`Explain what ${label(selected)} does and how it works.`;
-    setPendingCodeExplanation(null);
     setConnectionNotice(null);
     setDraftNotice(null);
+    setConsentError(null);
     const view:View=current.view==='flow'?'flow':'guide';
     const pending:PendingCodeExplanation={projectId,snapshotId,explorationId:current.id,context:selected,question,view};
-    if(!ask(question,view,[selected]))setPendingCodeExplanation(pending);
-    else setPendingCodeExplanation(null);
+    setPendingCodeExplanation(pending);
+  }
+  function askAboutSelectedCode(){
+    const pending=pendingCodeExplanation;
+    if(!pending)return;
+    if(pending.projectId!==projectId||pending.snapshotId!==snapshotId||pending.explorationId!==current.id){
+      setPendingCodeExplanation(null);
+      setConnectionNotice(null);
+      setDraftNotice('This code selection belongs to a different exploration or snapshot. Reopen it to explain. Nothing was sent.');
+      return;
+    }
+    const selected=verifiedCodeContext(pending.context,pending.snapshotId);
+    if(!selected){
+      setPendingCodeExplanation(null);
+      setConnectionNotice(null);
+      setDraftNotice('This source selection is no longer available in the captured snapshot. Reopen the file and select its code again. Nothing was sent.');
+      return;
+    }
+    if(generationPaused)return;
+    setConsentError(null);
+    try{
+      if(ask(pending.question,pending.view,[selected],undefined,true)){
+        setPendingCodeExplanation(null);
+        setConnectionNotice(null);
+      }
+    }catch(failure){setConsentError(errorMessageOr(failure,'The selected code question could not be started. Nothing was sent.'));}
   }
   function explainSafely(context:Context){
     try{explain(context);}catch(failure){
@@ -702,13 +749,7 @@ export function DeveloperWorkspace(props:Props) {
       setDraftNotice('The selected source changed before the explanation could start. Reopen the captured file and select it again. Nothing was sent.');
       return;
     }
-    if(generationPaused||generationBackend!=='codex'||connection.checking||!connection.status?.authenticated
-      ||!connection.status.runtimeRunning||!codexSelectionIsSupported(connection.models,connection.selection))return;
-    setDraftNotice(null);
-    if(ask(pending.question,pending.view,[selected],undefined,true))setPendingCodeExplanation(null);
-  },[ask,connection.checking,connection.models,connection.selection,connection.status?.authenticated,
-    connection.status?.runtimeRunning,current.id,generationBackend,generationPaused,pendingCodeExplanation,
-    projectId,rows,snapshotId,source,sourceLineIndex,verifiedCodeContext]);
+  },[current.id,pendingCodeExplanation,projectId,rows,snapshotId,source,sourceLineIndex,verifiedCodeContext]);
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
     if(generationPaused||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
@@ -1068,7 +1109,7 @@ export function DeveloperWorkspace(props:Props) {
             <TextArea className="dw-composer-text-area" ref={composer} data-focus-key="workspace-composer" rows={1} value={query} maxLength={1000} disabled={conversationUnavailable} aria-label="Ask about this codebase" placeholder={conversationUnavailable?'Saved explanations are read-only for now':conversationConflict?'Resolve the saved conversation conflict to send':'Ask about this codebase'} onChange={(e)=>{e.target.setCustomValidity('');if(pendingCodeExplanation){setPendingCodeExplanation(null);setConnectionNotice(null);}setQuery(e.target.value);}} onFocus={()=>{setSearchFocused(true);setSearchOffset(0);}} onKeyDown={(e)=>{if(e.key==='Escape')setSearchFocused(false);if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();ask(query);}}}/>
             <Tooltip content="Attach open file"><IconButton size="1" variant="ghost" color="gray" disabled={!source||conversationUnavailable} aria-label="Attach open file" onClick={()=>source&&attach({path:source.path,sha256:source.sha256})}><Paperclip size={15}/></IconButton></Tooltip><IconButton size="1" aria-label="Send question" disabled={!query.trim()||generationPaused} onClick={()=>ask(query)}><ArrowUp size={15}/></IconButton>
           </div>
-          {connectionNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}{pendingCodeExplanation&&<><br/>Waiting to explain <code>{label(pendingCodeExplanation.context)}</code> in this exploration.</>}</p><AppButton size="1" intent="secondary" onClick={onSettings}>Connections</AppButton>{pendingCodeExplanation&&<IconButton size="1" variant="ghost" color="gray" aria-label="Cancel selected-code explanation" title="Cancel selected-code explanation" onClick={()=>{setPendingCodeExplanation(null);setConnectionNotice(null);}}><X size={13}/></IconButton>}</div>}
+          {connectionNotice&&!pendingCodeExplanation&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><AppButton size="1" intent="secondary" onClick={onSettings}>Connections</AppButton></div>}
           {draftNotice&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p>{draftNotice}</p><AppButton size="1" intent="quiet" onClick={()=>setDraftNotice(null)}>Dismiss</AppButton></div>}
           {!conversationUnavailable&&searchFocused&&query.trim().length>1&&<div className="dw-suggestions"><small>{currentSourceSearch.busy?(results.length?'Checking for more code matches…':'Searching code…'):currentSourceSearch.error?'Search unavailable':results.length?'In your code':currentSearchHasCoverageGaps?'No local match · coverage is incomplete':'No matching code in this search'}</small><SearchCoverageNote unavailableFiles={currentSourceSearch.unavailableFiles} omissions={currentSourceSearch.indexLimitOmissions}/>{results.slice(0,4).map((r,i)=><AppButton intent="custom" size="1" key={i} onMouseDown={(e)=>e.preventDefault()} onClick={()=>openFile(r)}><FileCode2 size={13}/><span>{r.path}{r.from?`:${r.from}`:''}<small>{r.text}</small></span><ArrowRight size={13}/></AppButton>)}{!generationPaused&&shouldOfferExploreWithAI(query,searchMode,currentSourceSearch.busy,currentSourceSearch.error,results.length)&&<AppButton intent="custom" size="1" onMouseDown={(e)=>e.preventDefault()} onClick={()=>exploreSearch(query,results)}><MessageSquare size={13}/>Explore with AI<ArrowRight size={13}/></AppButton>}</div>}
         </div>
@@ -1169,6 +1210,7 @@ export function DeveloperWorkspace(props:Props) {
         </Group>}
       </section></Panel>
     </Group>
+    <Dialog.Root open={!!pendingCodeExplanation} onOpenChange={(open)=>{if(!open){setPendingCodeExplanation(null);setConnectionNotice(null);setConsentError(null);}}}><Dialog.Content className="dw-code-review-dialog" maxWidth="720px"><Dialog.Title>Review your code question</Dialog.Title><Dialog.Description size="2">Check the captured source and question. Nothing is sent until you choose <strong>Ask about this code</strong>.</Dialog.Description>{pendingCodeExplanation&&<><div className="dw-code-review-heading"><code>{pendingCodeExplanation.context.path}</code><span>{pendingCodeExplanation.context.from===pendingCodeExplanation.context.to?`Line ${pendingCodeExplanation.context.from}`:`Lines ${pendingCodeExplanation.context.from}–${pendingCodeExplanation.context.to}`}</span></div><pre className="dw-code-review-source" aria-label={`Selected source from ${pendingCodeExplanation.context.path}`}>{codeReview?.text??'The selected source is no longer available.'}</pre>{codeReview?.truncated&&<p className="dw-code-review-truncated">Showing {codeReview.shownLines} of {codeReview.selectedLines} selected lines. The selection anchors the request; related captured context may also be shared under the limits below.</p>}<p className="dw-code-review-question"><strong>Question</strong><span>{pendingCodeExplanation.question}</span></p></>}{connectionNotice&&<div className="dw-conversation-warning dw-code-review-notice" role="status"><MessageSquare size={16}/><p>{connectionNotice}</p><AppButton size="1" intent="secondary" onClick={onSettings}>Connections</AppButton></div>}{generationPaused&&<p role="status" className="dw-error">Resolve the saved conversation conflict before asking.</p>}{consentError&&<p role="alert" className="dw-error">{consentError}</p>}<WorkspaceSharingDetails kind="question"/><Flex justify="end" gap="3" mt="4"><AppButton intent="secondary" color="gray" onClick={()=>{setPendingCodeExplanation(null);setConnectionNotice(null);setConsentError(null);}}>Cancel</AppButton><AppButton intent="primary" disabled={!pendingCodeExplanation||!codeReview||generationPaused} onClick={askAboutSelectedCode}>Ask about this code</AppButton></Flex></Dialog.Content></Dialog.Root>
     <Dialog.Root open={!!consentTurn} onOpenChange={(open)=>{if(!open&&!consentBusy){if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>Explain {projectName} with Codex</Dialog.Title><Dialog.Description size="2">Codex can read relevant code from this captured repository snapshot to answer your questions. Your live working files stay private, and you can revoke access at any time.</Dialog.Description><WorkspaceSharingDetails kind="question"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'The question could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before starting this question.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!consentTurn||generationPaused)return;const id=consentTurn;setConsentBusy(true);setConsentError(null);void authorizeWorkspace(projectId,snapshotId).then((grant)=>{setConsentTurn(null);void runQuestion(projectId,snapshotId,id,grant);}).catch((failure)=>setConsentError(errorMessageOr(failure,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':'Allow and explain'}</AppButton></Flex>{consentError&&<AppButton intent="quiet" onClick={()=>{if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);requestAnimationFrame(onSettings);}}>Open connection settings</AppButton>}</Dialog.Content></Dialog.Root>
     <Dialog.Root open={!!guideConsent} onOpenChange={(open)=>{if(!open&&!consentBusy){if(guideConsent&&!guideConsent.resume)update((state)=>discardUnstartedGuide(state,guideConsent.id));setGuideConsent(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>{guideConsent?.unitKey?'Retry one guide slide':guideConsent?.resume?'Continue your guide':'Build a guide to '+projectName}</Dialog.Title><Dialog.Description size="2">A clear, illustrated guide will appear here, with each slide linked to its code. Earlier slides stay available if a later part needs attention.</Dialog.Description><p className="dw-permission-note">See the planned topics first. Follow each slide through its code links while the next ones take shape.</p><WorkspaceSharingDetails kind="guide"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'This guide could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before continuing this guide.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!guideConsent||generationPaused)return;const pending=guideConsent;setConsentBusy(true);setConsentError(null);void (state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId)).then((grant)=>{setGuideConsent(null);void runRepositoryGuide(projectId,snapshotId,pending.id,grant,pending.resume,pending.unitKey);}).catch((error)=>setConsentError(errorMessageOr(error,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':guideConsent?.unitKey?'Retry slide':guideConsent?.resume?'Continue guide':'Build guide'}</AppButton></Flex></Dialog.Content></Dialog.Root>
     <Dialog.Root open={props.sharingOpen} onOpenChange={props.onSharingOpenChange}><Dialog.Content maxWidth="460px"><Dialog.Title>Repository sharing</Dialog.Title><Dialog.Description size="2">{state.grantId?'Codex can explore captured code in this snapshot when you ask a question. Your live working copy is not included.':'Codex has no workspace sharing permission for this snapshot.'}</Dialog.Description>{state.grantId&&<AppButton mt="4" intent="danger" color="red" onClick={()=>{void revokeWorkspace(projectId,snapshotId).then(()=>props.onSharingOpenChange(false)).catch((failure)=>setConsentError(errorMessageOr(failure,'Permission could not be revoked.')));}}>Revoke permission and stop questions</AppButton>}{consentError&&<p role="alert">{consentError}</p>}<Flex justify="end" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray">Done</AppButton></Dialog.Close></Flex></Dialog.Content></Dialog.Root>

@@ -185,6 +185,16 @@
 .dw-working .rt-Button {margin-left:auto;}
 .dw-error {font-size:13px;line-height:1.7;color:var(--danger);overflow-wrap:anywhere;}
 .dw-permission-note {font-size:13px;line-height:1.8;color:var(--muted);margin-top:var(--space-4);}
+.dw-code-review-dialog {max-height:min(88vh,900px);overflow:auto;}
+.dw-code-review-heading {display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-4);color:var(--muted);font-size:12px;}
+.dw-code-review-heading code {min-width:0;overflow-wrap:anywhere;color:var(--text);font:12px/1.5 var(--mono);}
+.dw-code-review-heading span {flex:0 0 auto;}
+.dw-code-review-source {box-sizing:border-box;width:100%;max-height:min(48vh,480px);overflow:auto;margin:var(--space-2) 0;padding:var(--space-3);border:1px solid var(--border);border-radius:6px;background:var(--editor-bg,var(--surface));color:var(--text);font:12px/1.6 var(--mono);tab-size:2;white-space:pre;}
+.dw-code-review-truncated {margin:var(--space-1) 0;color:var(--muted);font-size:12px;line-height:1.5;}
+.dw-code-review-question {display:flex;gap:var(--space-3);align-items:baseline;margin:var(--space-3) 0 0;color:var(--text);font-size:13px;line-height:1.6;}
+.dw-code-review-question strong {flex:0 0 auto;color:var(--muted);font-size:12px;}
+.dw-code-review-question span {min-width:0;overflow-wrap:anywhere;}
+.dw-code-review-notice {margin-top:var(--space-3);padding:var(--space-2) 0;border-bottom:0;}
 .dw-library {border-top:1px solid var(--border);margin-top:var(--space-5);padding-top:var(--space-4);}
 .dw-library summary {cursor:pointer;color:var(--muted);font-size:12px;}
 .dw-library summary span {float:right;}

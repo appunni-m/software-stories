@@ -11,9 +11,19 @@ test('opening and closing code always reveals its corresponding narrow pane',()=
   matches(workspace,/aria-label=\{narrowPane==='source'\?'Show explanation':'Show source'\} onClick=\{\(\)=>\{if\(narrowPane==='source'\)setNarrowPane\('explanation'\);else\{setCodeOpen\(true\);setNarrowPane\('source'\);\}\}\}/);
 });
 
-test('explaining selected code starts from its exact snapshot selection at this exploration',()=>{
+test('explaining selected code stages an exact review and dispatches only after confirmation',()=>{
   matches(workspace,/function openFile\(context:Context\) \{[\s\S]*?update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);[\s\S]*?setReveal\(\{\.\.\.context\}\);[\s\S]*?setCodeOpen\(true\);setNarrowPane\('source'\);/);
-  matches(workspace,/function explain\(context:Context\)\{[\s\S]*?const selected=verifiedCodeContext\(context,snapshotId\);[\s\S]*?const question=`Explain what \$\{label\(selected\)\} does and how it works\.`;[\s\S]*?ask\(question,view,\[selected\]\)/);
+  const explainStart=workspace.indexOf('function explain(context:Context){');
+  const explainEnd=workspace.indexOf('function askAboutSelectedCode',explainStart);
+  const explainBlock=workspace.slice(explainStart,explainEnd);
+  matches(explainBlock,/const selected=verifiedCodeContext\(context,snapshotId\);[\s\S]*?const question=`Explain what \$\{label\(selected\)\} does and how it works\.`;[\s\S]*?setPendingCodeExplanation\(pending\);/);
+  assert.doesNotMatch(explainBlock,/\bask\(/);
+  matches(workspace,/function askAboutSelectedCode\(\)\{[\s\S]*?const selected=verifiedCodeContext\(pending\.context,pending\.snapshotId\);[\s\S]*?ask\(pending\.question,pending\.view,\[selected\],undefined,true\)/);
+  matches(workspace,/Review your code question[\s\S]*?codeReview\?\.text/);
+  matches(workspace,/Nothing is sent until you choose <strong>Ask about this code<\/strong>/);
+  const reviewEffectStart=workspace.indexOf('useEffect(()=>{\n    const pending=pendingCodeExplanation;');
+  const reviewEffectEnd=workspace.indexOf('useEffect(()=>{',reviewEffectStart+1);
+  assert.doesNotMatch(workspace.slice(reviewEffectStart,reviewEffectEnd),/\bask\(/);
   matches(workspace,/function explainSafely\(context:Context\)\s*\{\s*try\s*\{explain\(context\);\}\s*catch\(failure\)\s*\{[\s\S]*?setDraftNotice\(`The selected code could not be prepared\./);
   matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
 });
