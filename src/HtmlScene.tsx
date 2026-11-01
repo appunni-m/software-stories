@@ -47,12 +47,13 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     const childNodeLabels = childNodeIndices.map((nodeIndex) =>
       nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label);
     const firstChildLabel = childNodeLabels[0];
-    const repeatedBranchLabels = collapseNodeLabelIndex === null && e.kind === 'branch'
+    const repeatedSiblingLabels = collapseNodeLabelIndex === null
+      && (e.kind === 'branch' || e.kind === 'timeline')
       && childNodeLabels.length > 1 && firstChildLabel !== undefined
       && childNodeLabels.every((childLabel) => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
     const children = childIndices.map((childIndex, childPosition) => {
       const childCollapseIndex = collapseNodeLabelIndex
-        ?? (repeatedBranchLabels && childPosition > 0 ? childNodeIndices[childPosition] : null);
+        ?? (repeatedSiblingLabels && childPosition > 0 ? childNodeIndices[childPosition] : null);
       return draw(childIndex, childCollapseIndex);
     });
     const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');

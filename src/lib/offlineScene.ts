@@ -36,12 +36,13 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
       const childNodeIndices = childIndices.map(firstNodeIndex);
       const childNodeLabels = childNodeIndices.map(nodeIndex => nodeIndex === null ? undefined : visual.nodes[nodeIndex]?.label);
       const firstChildLabel = childNodeLabels[0];
-      const repeatedBranchLabels = collapseNodeLabelIndex === null && element.kind === 'branch'
+      const repeatedSiblingLabels = collapseNodeLabelIndex === null
+        && (element.kind === 'branch' || element.kind === 'timeline')
         && childNodeLabels.length > 1 && firstChildLabel !== undefined
         && childNodeLabels.every(childLabel => childLabel !== undefined && sameVisibleSceneText(childLabel, firstChildLabel));
       const children = childIndices.map((childIndex, childPosition) => draw(
         childIndex,
-        collapseNodeLabelIndex ?? (repeatedBranchLabels && childPosition > 0 ? childNodeIndices[childPosition] : null),
+        collapseNodeLabelIndex ?? (repeatedSiblingLabels && childPosition > 0 ? childNodeIndices[childPosition] : null),
       ));
       const labels: Record<string, string> = {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
