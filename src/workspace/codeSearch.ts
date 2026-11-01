@@ -105,19 +105,18 @@ function topMatches<T>(items:readonly T[],scoreOf:(item:T)=>number,compare:(left
   return best.map(({item})=>item);
 }
 
-/** Offer AI when a settled search has no hits or did not complete. The visible
- * search error remains, while the user can still ask AI to interpret the query. */
+/** Keep AI available beside settled local matches, or after an incomplete search.
+ * A source hit is useful context, not a replacement for answering the question. */
 export function shouldOfferExploreWithAI(
   query:string,
   mode:CodeSearchMode,
   busy:boolean,
   error:string|null,
-  resultCount:number,
+  _resultCount:number,
 ):boolean {
   const length=[...query.trim()].length;
   if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
-  const hasFallback=Boolean(error)||resultCount===0;
-  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&hasFallback;
+  return length>=(mode==='regex'?1:2)&&length<=240&&!busy;
 }
 
 /** Tell readers how much of a capped result set is currently visible. */
