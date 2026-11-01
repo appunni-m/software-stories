@@ -1487,7 +1487,8 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
   const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
-    const label=<><strong><InlineCodeText text={n.label}/></strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
+    const nodeLabel=visual.nodes.length>=10?<FlowNodeLabel text={n.label}/>:<InlineCodeText text={n.label}/>;
+    const label=<><strong>{nodeLabel}</strong>{n.detail&&<small><InlineCodeText text={n.detail}/></small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
       data:{label:<AppButton intent="custom" size="1" className="dw-flow-select nodrag nopan" title={`${plainInlineCodeText(n.label)}${n.detail?` — ${plainInlineCodeText(n.detail)}`:''}`} aria-label={`Show code detail for ${plainInlineCodeText(n.label)}`} aria-pressed={selectedNode?.nodeId===n.nodeId} onClick={(event)=>{event.stopPropagation();selectNode(n.nodeId);}}>{label}</AppButton>},style:{width:nodeSize.width}};
   });
@@ -1545,6 +1546,13 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
     </>}
     {selectedDetailTitle&&<CodeDetail title={selectedDetailTitle} claims={selectedClaims} anchors={selectedAnchors} onOpen={onOpen} onExplore={onBranch?(title,anchors)=>onBranch(`Explain how ${title} behaves in the cited implementation.`,contextsFromAnchors(anchors)):undefined}/>}
   </section>;
+}
+
+function FlowNodeLabel({text}:{text:string}){
+  const plain=plainInlineCodeText(text);
+  const parts=plain.split('_');
+  if(!plain.includes('_')||!/^[A-Za-z0-9_$]+$/u.test(plain)||parts.some((part)=>part.length>14))return <InlineCodeText text={text}/>;
+  return <code className="dw-flow-identifier">{parts.map((part,index)=><span key={index}>{index>0?'_':''}{part}{index<parts.length-1&&<wbr/>}</span>)}</code>;
 }
 
 function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,viewport,theme,onViewportChange}:{
