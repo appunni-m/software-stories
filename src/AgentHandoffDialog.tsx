@@ -4,6 +4,7 @@ import { providerFailureMessage } from './lib/errorMessage';
 import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
+import { AppSearchField } from './design/AppSearchField';
 import {
   buildAgentHandoffReview, discardGeneratedChapterDraft, discardProviderRequestReview,
   exportAgentHandoff, importAgentHandoffResult, listChapterRevisions, loadSnapshotManifest,
@@ -190,7 +191,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onAgentChange, 
       {!native ? <p role="status">Open the native app to prepare immutable source evidence and validate imported chapters.</p> : mode === 'settings' ? <p role="status">Open a captured file and choose Explain, or create a repository tour from Guide, then select a manual agent handoff. Configure model and permissions in your agent.</p> : <>
         <section className="provider-review-card"><h3>2. Review the captured source</h3>
           <p>{targetPath ? <code>{targetPath}</code> : 'Selected-source repository overview'} · {paths.length}/12 files · {sourceBytes.toLocaleString()}/250,000 source bytes</p>
-          <label className="provider-context-search">Find a captured file<input type="search" value={query} disabled={locked} onChange={(event) => setQuery(event.target.value)} /></label>
+          <div className="provider-context-search"><span>Find a captured file</span><AppSearchField className="provider-context-search-field" ariaLabel="Find a captured file" value={query} disabled={locked} type="search" onValueChange={setQuery} /></div>
           <div className="provider-context-files">{visibleFiles.map((file) => <label className={paths.includes(file.path) ? 'selected' : ''} key={file.path}>
             <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || file.path === targetPath || !paths.includes(file.path) && (paths.length >= 12 || sourceBytes + file.sizeBytes > 250_000)}
               onChange={() => { releaseReview(); setPaths((values) => values.includes(file.path) ? values.filter((value) => value !== file.path) : [...values, file.path]); }} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small></label>)}{!visibleFiles.length && manifest && <p>No eligible files match this search.</p>}</div>

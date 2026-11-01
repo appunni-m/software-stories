@@ -11,6 +11,7 @@ import {
 import { ClaudeGenerationPanel, type ClaudeResultCallbacks } from './ClaudeGenerationPanel';
 import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
+import { AppSearchField } from './design/AppSearchField';
 
 type Selection = Pick<ClaudeGenerationSettings, 'modelId' | 'effort' | 'maxTurns'>;
 const preferenceKey = 'code-atlas:claude-chapter-preferences';
@@ -304,7 +305,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
           {sectionUpdate && <p>Only the selected section will be requested. Its declared file scope is fixed for preservation checks. Previous source and section text are context only; current source is citable, and the native byte limit counts both snapshots.</p>}
           <ul className="provider-section-path-list">{paths.map((path) => <li key={path}><code>{path}</code>{path === targetPath ? ' · target' : ''}
             {!sectionUpdate && !plannedChapter && path !== targetPath && <AppButton intent="quiet" disabled={locked} onClick={() => changePath(path, false)}>Remove</AppButton>}</li>)}</ul>
-          <label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} disabled={locked} /></label>
+          <div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} disabled={locked} placeholder="Search snapshot paths" size="1" /></div>
           <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
             <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || !!plannedChapter || file.path === targetPath
               || !paths.includes(file.path) && (paths.length >= 12 || selectedBytes + file.sizeBytes > 250_000)} onChange={(event) => changePath(file.path, event.target.checked)} />

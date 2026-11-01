@@ -7,6 +7,7 @@ import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
 import { AppSelect } from './design/AppSelect';
+import { AppSearchField } from './design/AppSearchField';
 import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
 import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
@@ -752,7 +753,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-                {manifest && <>{!planning && !targetPath && !initialSelectedPaths?.length && <details className="codex-supporting-files" open={!discoveryResult}><summary>{discoveryResult ? 'Review selected files' : 'Choose files'} ({paths.length})</summary><label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
+                {manifest && <>{!planning && !targetPath && !initialSelectedPaths?.length && <details className="codex-supporting-files" open={!discoveryResult}><summary>{discoveryResult ? 'Review selected files' : 'Choose files'} ({paths.length})</summary><div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} placeholder="Search snapshot paths" size="1" /></div>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
                     return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(planning) || Boolean(plannedChapter) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;

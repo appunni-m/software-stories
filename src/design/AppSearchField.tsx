@@ -7,19 +7,23 @@ interface AppSearchFieldProps {
   value: string;
   onValueChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
   focusKey?: string;
   size?: '1' | '2' | '3';
+  type?: 'search' | 'text';
 }
 
-/** Shared Radix search input for repository and relationship filtering. */
+/** Shared accessible Radix input for repository, chapter and source filtering. */
 export function AppSearchField({
   ariaLabel,
   placeholder,
   value,
   onValueChange,
   className,
+  disabled = false,
   focusKey,
   size = '2',
+  type = 'text',
 }: AppSearchFieldProps) {
   return (
     <TextField.Root
@@ -27,8 +31,10 @@ export function AppSearchField({
       placeholder={placeholder}
       value={value}
       onChange={(event) => onValueChange(event.target.value)}
+      disabled={disabled}
       data-focus-key={focusKey}
       size={size}
+      type={type}
       variant="surface"
       color="gray"
       className={className}
