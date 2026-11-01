@@ -351,3 +351,45 @@ No provider request, source edit, narration playback, or saved-answer change
 This confirms one keyboard route through scene navigation, a visual cue and its
 source citation. It does not satisfy the native acceptance run sheet; keep
 `bcn2` open.
+
+### Packaged contrast, motion, and zoom follow-up — 2026-11-01
+
+```text
+Date and tester: 2026-11-01, approximately 15:04 IST; Codex via native computer use
+macOS / app: macOS 15.7.7; Code Atlas 0.1.0, executable SHA-256
+  a69eb4809384e41858486506fdb437d5fe64bce4cc79589463bd8a392d150fe2
+  The installed app does not expose its source commit; workspace HEAD was
+  bdb7ea7 during this check.
+Repository / snapshot ID: fontdone / main@5249b72371 (partial snapshot)
+VoiceOver: inconclusive. The preference began off; enabling reported on once,
+  but a later read reported off. This channel did not expose audible speech,
+  so no repository, section, source, or status announcements are accepted.
+Keyboard-only journey: partial pass. From the populated Guide at scene 2/3,
+  Tab reached Play, then the Scene details & source disclosure. Return expanded
+  it; Tab and Return followed the src/api.rs:710–728 citation. The citation
+  remained focused and the source pane exposed that range. This did not test
+  Escape/focus return, Shift+Tab, validation, dialogs, or other workspaces.
+200% zoom / effective width: fail for this state. View > Zoom confirmed 100%
+  initially and 200% after five 20% increments. At 200%, the visible workspace
+  showed the chat composer and source pane, while the Explorer file tree and
+  Guide/Flow/Chat history views were absent from both the screenshot and the
+  visible accessibility tree. Actual Size restored them. The app remained
+  maximized, so a separate window-resize check was not completed.
+Increase Contrast: partial pass. Baseline was off. With it enabled, the
+  packaged app showed stronger component boundaries and a clear focus outline
+  on Play. Validation, status, and error surfaces were not reviewed.
+Reduce Motion: partial. Baseline was off. With it enabled, the keyboard source
+  citation still opened the same source range. Animation and smooth-scroll
+  behavior were not visually verified.
+Restoration: VoiceOver, Increase Contrast, Reduce Motion, and the dependent
+  Reduce Transparency setting were off; View > Actual Size returned to 100%.
+  The Guide returned to scene 2/3, narration remained stopped at 00:00, and
+  src/api.rs:710–728 remained selected. No provider request or saved-content
+  change occurred.
+```
+
+This records focused native evidence, including a 200% reflow failure. It does
+not complete the run sheet: spoken VoiceOver announcements, a resized-window
+pass, full keyboard journeys, rendered reduced-motion transitions, other
+workspaces, large-repository responsiveness, and repository-safety acceptance
+remain open. Keep `bcn2` open.
