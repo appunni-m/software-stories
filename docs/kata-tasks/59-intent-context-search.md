@@ -62,3 +62,19 @@ the selected source remained the search result until I followed that scene's
 `src/api.rs:710–728` citation. This is expected source-pane selection today;
 there is no one-step restore of the prior source selection. The cited source
 and Chat history tab are now restored. No AI action was sent.
+
+## One-action selected-code explanation — 1 November 2026
+
+The CodePane Explain action now validates the selected range against the
+displayed immutable snapshot and submits its question directly at the current
+exploration level and Guide/Flow view. The review modal and second submit click
+are removed. A missing or stale range is still rejected before transmission.
+An existing workspace sharing grant is reused; a first-time request still uses
+the existing one-time snapshot consent. If Codex is disconnected or the saved
+connection is unsupported, the selected-code question stays pending and can
+resume after the connection is fixed. File-level Explain uses the same route.
+
+This source change was checked by code-path review and git diff --check.
+No build, test, provider request, or packaged UI check was run. Keep nsfd
+open for its search races, keyboard, drag/drop, snapshot-change and packaged
+acceptance cases.

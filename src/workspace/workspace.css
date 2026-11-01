@@ -185,14 +185,6 @@
 .dw-working .rt-Button {margin-left:auto;}
 .dw-error {font-size:13px;line-height:1.7;color:var(--danger);overflow-wrap:anywhere;}
 .dw-permission-note {font-size:13px;line-height:1.8;color:var(--muted);margin-top:var(--space-4);}
-.dw-code-question-review {display:grid;gap:var(--space-3);margin-top:var(--space-3);}
-.dw-code-question-review > div > strong {display:block;margin-bottom:var(--space-1);color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
-.dw-code-question-review > div > p {margin:0;color:var(--text);font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
-.dw-code-question-review > div > code {display:block;color:var(--text);font:12px/1.6 var(--mono);overflow-wrap:anywhere;}
-.dw-code-question-review .dw-code-question-source pre {box-sizing:border-box;max-height:260px;overflow:auto;margin:0;padding:var(--space-3);border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);font:12px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;}
-.dw-code-question-review .dw-code-question-source small {display:block;margin-top:var(--space-1);color:var(--dim);font-size:11px;line-height:1.5;}
-.dw-code-question-review .dw-code-question-share,.dw-code-question-file-note {margin:0;color:var(--muted);font-size:12px;line-height:1.6;}
-.dw-code-question-review .dw-error-details {margin:0;}
 .dw-library {border-top:1px solid var(--border);margin-top:var(--space-5);padding-top:var(--space-4);}
 .dw-library summary {cursor:pointer;color:var(--muted);font-size:12px;}
 .dw-library summary span {float:right;}
