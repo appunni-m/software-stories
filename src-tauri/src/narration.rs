@@ -403,9 +403,7 @@ impl NarrationPrewarmQueue {
     /// Stop synthesis for an explicitly cancelled playback request. Ordinary
     /// navigation cancellation leaves useful background prewarming alone.
     fn cancel_preparation(&self, cache_key: &str) -> bool {
-        let mut cancellation = None;
-        let mut work = None;
-        let cancelled = {
+        let (cancellation, work) = {
             let Ok(mut queue) = self.0.lock() else {
                 return false;
             };
@@ -426,15 +424,13 @@ impl NarrationPrewarmQueue {
             entry
                 .updates
                 .send_replace(NarrationPrewarmState::Unavailable);
-            cancellation = entry.cancellation.take();
-            work = entry.work.take();
-            true
+            (entry.cancellation.take(), entry.work.take())
         };
         drop(work);
         if let Some(cancellation) = cancellation {
             let _ = cancellation.send(());
         }
-        cancelled
+        true
     }
 
     fn finish(&self, cache_key: &str, state: NarrationPrewarmState) {
@@ -2156,6 +2152,45 @@ mod tests {
             Some(NarrationPrewarmState::Unavailable)
         );
         assert_eq!(queue.status("healthy"), Some(NarrationPrewarmState::Ready));
+    }
+
+    #[tokio::test]
+    async fn cancelling_active_prewarm_keeps_the_worker_available_for_later_audio() {
+        let queue = NarrationPrewarmQueue::default();
+        let (started_tx, started_rx) = oneshot::channel();
+        let (cancelled_tx, cancelled_rx) = oneshot::channel();
+        queue
+            .schedule("cancelled".into(), move |cancellation| async move {
+                let _ = started_tx.send(());
+                let _ = cancellation.await;
+                let _ = cancelled_tx.send(());
+                false
+            })
+            .expect("the active prewarm should be admitted");
+        started_rx
+            .await
+            .expect("the active prewarm should start before cancellation");
+
+        assert!(queue.cancel_preparation("cancelled"));
+        assert_eq!(
+            queue.status("cancelled"),
+            Some(NarrationPrewarmState::Unavailable)
+        );
+        let following = queue
+            .schedule("following".into(), |_| async { true })
+            .expect("later audio should remain admissible after cancellation");
+        assert!(following.accepted);
+
+        tokio::time::timeout(Duration::from_secs(2), async {
+            cancelled_rx
+                .await
+                .expect("the cancelled worker should observe its signal");
+            while queue.status("following") != Some(NarrationPrewarmState::Ready) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("cancellation should release the worker for queued audio");
     }
 
     #[test]
