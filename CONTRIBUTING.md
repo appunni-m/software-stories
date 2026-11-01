@@ -1,6 +1,6 @@
 # Contributing
 
-Code Atlas is an in-progress desktop app. Product behavior and open delivery gates are recorded in the [blueprint](docs/PRODUCT_BLUEPRINT.md) and [Kata backlog](docs/KATA_BACKLOG.md). The Kata task files are scoped contracts; check the implementation before assuming a behavior exists.
+Code Atlas is an in-progress desktop app. Start with the [documentation map](docs/README.md) for current user guidance, implementation contracts, and historical evidence. The [workspace design](docs/design/WORKSPACE_EXPLORATION.md) states the current interaction target; the [product blueprint](docs/PRODUCT_BLUEPRINT.md) contains broader product intent. Live delivery status is tracked in Kata; task files are scoped contracts, so check the implementation before assuming a behavior exists.
 
 For a source-backed first run, see [Getting started](docs/GETTING_STARTED.md). For local setup and workflow failures, see [Troubleshooting](docs/TROUBLESHOOTING.md).
 
