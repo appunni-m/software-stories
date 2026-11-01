@@ -4997,7 +4997,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         </>}
                       </div>
 
-                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftNotice
+                      {editing && !rebasing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftNotice
                         baseRevisionNumber={selectedRevision.revisionNumber}
                         latestRevisionNumber={selectedTarget.latestCurrent.revisionNumber}
                         onRebase={() => setRebasing(true)}
@@ -5011,13 +5011,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         onApply={revision => applyRebase(selectedTarget.latestCurrent!,revision)}
                       />}
 
-                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && <details className="chapter-revision-comparison">
-                        <summary>A newer saved revision is available. Compare versions</summary>
-                        <p>Your unsaved edit is preserved. Compare the saved versions before deciding how to apply your changes.</p>
-                        <ChapterRevisionComparison before={selectedRevision} after={selectedTarget.latestCurrent} />
-                      </details>}
-
-                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftComparison
+                      {editing && !rebasing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftComparison
                         draft={candidate}
                         latest={selectedTarget.latestCurrent}
                       />}
