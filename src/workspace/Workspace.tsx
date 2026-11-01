@@ -670,10 +670,13 @@ export function DeveloperWorkspace(props:Props) {
     else setPendingCodeExplanation(null);
   }
   function explainSafely(context:Context){
-    try{explain(context);}catch{
+    try{explain(context);}catch(failure){
       setPendingCodeExplanation(null);
       setConnectionNotice(null);
-      setDraftNotice('The selected code could not be prepared. Nothing was sent. Reopen the captured file and select its code again.');
+      const detail=errorMessageOr(failure,'').replace(/\s+/gu,' ').trim();
+      const safeDetail=detail.length>0&&detail.length<=220&&!/(?:api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]/iu.test(detail)
+        ? ` Details: ${detail}` : '';
+      setDraftNotice(`The selected code could not be prepared.${safeDetail} Reopen the captured file and select its code again.`);
     }
   }
   useEffect(()=>{
