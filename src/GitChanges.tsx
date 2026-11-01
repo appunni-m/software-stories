@@ -5,6 +5,7 @@ import type { AgentGitRecovery } from './lib/agentRecovery';
 import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
 import { GitHistoryEmptyContext } from './workspace/gitHistoryContext';
 import { AppButton } from './design/AppButton';
+import { AppTextField } from './design/AppTextField';
 import {
   compareLocalGitRevisions,
   cancelLocalGitComparison,
@@ -179,43 +180,21 @@ export function GitChangesScreen({
         </div>
         <p className="git-ref-explainer">Enter a starting and ending version already on this Mac. A branch, tag, or commit ID works. Code Atlas checks both before showing the changes.</p>
         <form className="git-ref-form" aria-busy={busy} onSubmit={(event) => { void handleCompare(event); }}>
-          <label>
-            Starting version
-            <input
-              value={baseRef}
-              disabled={busy}
-              onChange={(event) => {
-                const value = event.target.value;
-                setBaseRef(value);
-                onRefsChange(value, headRef);
-              }}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder="For example, main"
-              aria-label="Starting Git version"
-            />
-          </label>
+          <div className="git-ref-field-group">
+            <label htmlFor="git-starting-version">Starting version</label>
+            <AppTextField id="git-starting-version" className="git-ref-field" value={baseRef} disabled={busy}
+              onValueChange={(value) => { setBaseRef(value); onRefsChange(value, headRef); }} autoComplete="off" autoCapitalize="none"
+              spellCheck={false} placeholder="For example, main" ariaLabel="Starting Git version" />
+          </div>
           <AppButton intent="custom" type="button" className="git-swap-button" disabled={busy} onClick={swapRefs} aria-label="Swap starting and ending versions" title="Swap versions">
             <ArrowDownUp size={16} />
           </AppButton>
-          <label>
-            Ending version
-            <input
-              value={headRef}
-              disabled={busy}
-              onChange={(event) => {
-                const value = event.target.value;
-                setHeadRef(value);
-                onRefsChange(baseRef, value);
-              }}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder="For example, feature branch"
-              aria-label="Ending Git version"
-            />
-          </label>
+          <div className="git-ref-field-group">
+            <label htmlFor="git-ending-version">Ending version</label>
+            <AppTextField id="git-ending-version" className="git-ref-field" value={headRef} disabled={busy}
+              onValueChange={(value) => { setHeadRef(value); onRefsChange(baseRef, value); }} autoComplete="off" autoCapitalize="none"
+              spellCheck={false} placeholder="For example, feature branch" ariaLabel="Ending Git version" />
+          </div>
           {busy ? <AppButton intent="custom" key="stop" type="button" className="secondary-button git-compare-button" onClick={stopComparison}>
             <RefreshCw size={15} className="git-spin" /> Stop comparison
           </AppButton> : <AppButton intent="custom" key="compare" className="primary-button git-compare-button" type="submit" disabled={!canCompare}>

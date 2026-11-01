@@ -6,6 +6,7 @@ interface AppTextFieldProps {
   onValueChange: (value: string) => void;
   ariaLabel?: string;
   autoComplete?: string;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   className?: string;
   disabled?: boolean;
   maxLength?: number;
@@ -22,6 +23,7 @@ export function AppTextField({
   onValueChange,
   ariaLabel,
   autoComplete,
+  autoCapitalize,
   className,
   disabled = false,
   maxLength,
@@ -34,6 +36,7 @@ export function AppTextField({
     <TextField.Root
       aria-label={ariaLabel}
       autoComplete={autoComplete}
+      autoCapitalize={autoCapitalize}
       className={['app-text-field', className].filter(Boolean).join(' ')}
       disabled={disabled}
       id={id}
