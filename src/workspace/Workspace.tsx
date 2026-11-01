@@ -954,7 +954,7 @@ export function DeveloperWorkspace(props:Props) {
         rendered.set(e.id,<li key={e.id} role="none">
           <div className="dw-exploration-row" style={{paddingLeft:10+depth*12}}>
             <AppButton intent="custom" size="1" role="treeitem" data-exploration-row={e.id} data-parent-exploration={e.parentId??''}
-              title={accessibilityLabel}
+              title={plainInlineCodeText(questionSummaryText(title,240))}
               aria-label={accessibilityLabel}
               aria-current={e.id===current.id?'page':undefined} aria-selected={e.id===current.id}
               aria-expanded={counts.children>0?expanded:undefined} aria-level={depth+1}
