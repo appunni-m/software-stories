@@ -128,3 +128,19 @@ The [subsequent offline-scenes checkpoint](2026-10-17-offline-visual-scenes.md)
 implements HTML composition export and scene-scoped cached audio, with synthetic
 package qualification. Actual accepted-chapter/cache and browser playback
 acceptance remain pending; the original generation evidence is unchanged.
+
+## Packaged visual cue source click — 1 November 2026
+
+On the installed Code Atlas 0.1.0 app (executable SHA-256
+`bf4911531f1154e23fddba5d4aab572b752f472c8a6d1d4476e0fb5e9e012558`), Fontdone
+partial `main@5249b72371`, the saved “Glyph loading: normalize flags, then
+apply early gates” Guide was on scene 2 of 3. Opening the **Return invalid
+pixel size** cue revealed its code details; choosing the citation opened the
+captured `src/api.rs:710–728` range while keeping the same Guide scene and
+exploration visible. The app remained open; no request, narration, or saved
+content change occurred.
+
+This confirms one existing composition's cue-to-source path in the current
+packaged renderer. It is not a fresh generation, new HTML-quality review,
+comprehension study, accessibility/reflow review, or proof of all visual
+forms. No screenshot was retained; keep `j53m` open.
