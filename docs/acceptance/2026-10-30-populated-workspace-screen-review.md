@@ -49,3 +49,11 @@ First run and repository selection; empty repository; no-result Search and AI fa
 - CUA screenshots were inspected in-session but not retained as repository image artifacts. Window dimensions were not recorded. This is a focused interaction follow-up, not the durable screenshot set or full screen-by-screen acceptance required by `x21h` and `13yp`.
 
 The observed Search, Flow, Changes, visible exploration hierarchy, and one ready-notification route agree with the current activity-bar workspace contract in these states. Empty repository/error states, failed/interrupted notification routes, PR Guide, nested child counts at deeper levels, and durable screenshots remain unqualified. No provider call or transmission occurred.
+
+## Packaged notification focus correction — 1 November 2026
+
+- Source change: `1125292` defers initial focus to the safe **Close notifications** control until the Radix popover has mounted. The earlier direct focus call still left **Mark all read** focused in the installed app.
+- Build: `npm run bundle:macos` completed the TypeScript/Vite production build, unsigned app and DMG packaging, bundle metadata verification, and DMG checksum. The packaged executable SHA-256 is `bf4911531f1154e23fddba5d4aab572b752f472c8a6d1d4476e0fb5e9e012558`.
+- Installed the bundle at `/Users/lazytrot/Applications/Code Atlas.app`, preserving the previous bundle under `/private/tmp/code-atlas-notification-focus-20261101-before/`.
+- On Fontdone partial `main@5249b72371`, the header showed 47 unread. Opening Notifications focused **Close notifications**. Escape closed the panel and returned focus to the bell; the Guide, source selection, and unread count stayed unchanged. Reopening the same read **Explanation ready** item and choosing **Open question** closed the panel and returned to its Guide question, scene 2 of 3, with `src/api.rs:710–728` selected; unread remained 47. No notification was marked read/dismissed, no narration or generation started, and saved content was not edited.
+- This verifies one packaged notification focus/return path. No screenshot was retained; action navigation after the focus fix, live completion, failed/interrupted notices, restart, 200% zoom, contrast, motion, and VoiceOver remain unqualified. Keep `hstr`, `x21h`, and `13yp` open.
