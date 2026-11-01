@@ -1,6 +1,6 @@
 # Kata backlog — Code Atlas rebuild
 
-> **Live snapshot — 28 October 2026:** Kata project `code-atlas-rebuild` has **81 records: 51 open, 30 closed**. The [current status table](KATA_STATUS.md) is reconciled with live Kata, including the Code Lens reproduction issue (`mhqx`). Dated implementation notes below are historical checkpoints and do not replace current issue status or acceptance evidence.
+> **Live snapshot — 1 November 2026:** Kata project `code-atlas-rebuild` has **82 records: 51 open, 31 closed; 30 open issues are ready**. The [current status table](KATA_STATUS.md) is reconciled with live Kata. The closed `qtsm` Chat history presentation issue is linked to the broader exploration contract in task 58. Dated implementation notes below are historical checkpoints and do not replace current issue status or acceptance evidence.
 
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 

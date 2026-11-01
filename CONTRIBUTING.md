@@ -13,16 +13,13 @@ For a source-backed first run, see [Getting started](docs/GETTING_STARTED.md). F
 
 ## Set up and work locally
 
+Install dependencies once:
+
 ```sh
 npm ci
-npm run dev
 ```
 
-The Vite preview is available at `http://127.0.0.1:4173` with strict port binding; if it is occupied, startup fails instead of opening another port. Reuse the existing preview process rather than starting a second one. It is a browser preview; native repository picking, Keychain access, and provider calls need the Tauri shell:
-
-```sh
-npm run tauri dev
-```
+Choose one development mode at a time. Run `npm run dev` for the browser preview at `http://127.0.0.1:4173`, or run `npm run tauri dev` for the native app. Tauri launches Vite itself, and both modes use the same strict port, so they cannot run side by side. To switch, stop the current development process before starting the other command. If port 4173 is occupied, reuse the running process for its current mode or stop it; do not start another server on a different port. The browser preview cannot use native repository picking, Keychain, or provider calls.
 
 Before handing off a change, run:
 

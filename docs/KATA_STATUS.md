@@ -1,8 +1,8 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **29 October 2026**, refreshed from live project `code-atlas-rebuild`. **81 records: 51 open, 30 closed; 30 open issues are currently ready under Kata dependencies.** All 81 IDs, statuses and priorities match the live project, and all 81 linked task definitions exist in this checkout. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **1 November 2026**, refreshed from live project `code-atlas-rebuild`. **82 records: 51 open, 31 closed; 30 open issues are currently ready under Kata dependencies.** All 82 IDs, statuses and priorities match the live project, and every row links to a task definition in this checkout. The recently closed `qtsm` history-presentation issue shares the broader exploration contract in `58-exploration-history.md`; its exact acceptance criteria remain in Kata. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
-Latest GitHub Actions check inspected on 29 October: package run [#1352](https://github.com/appunni-m/software-stories/actions/runs/40868247946) for source commit `488155e` is **in progress** at unsigned macOS bundle construction; it is not yet a pass or failure. Run [#1351](https://github.com/appunni-m/software-stories/actions/runs/40864420437) passed unsigned bundle inspection for `25dbbf2`. Setup, dependency installation and cache restore have passed for #1352. The older #1192 failure was a misspelled `Swatinem/rust-cache` commit pin during runner setup, before checkout or compilation; corrected pin `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` passed in #1193. These are unsigned package checks, not a public release. The repository currently has no tags or published releases; signing, notarization, clean-account installation, and release acceptance remain open.
+Latest GitHub Actions check inspected on 1 November: package run [#1549](https://github.com/appunni-m/software-stories/actions/runs/41272428124) for source commit `a80476d` is **in progress** in the unsigned macOS bundle build; it is not yet a pass or failure. Previous run [#1548](https://github.com/appunni-m/software-stories/actions/runs/41270045448) passed for `3b761b4`. These are unsigned package checks, not a public release. The repository has no remote tags or published GitHub releases; signing, notarization, clean-account installation, and release acceptance remain open.
 
 ## 28 October package and workspace checkpoint
 
@@ -97,7 +97,7 @@ The latest checkout connects [progressive generation to the reader](acceptance/2
 
 ## All task records
 
-The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 29 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
+The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 1 November 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
 
 | Ref | Status | Priority | Definition |
 |---|---|---:|---|
@@ -163,6 +163,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `tmck` | closed | 1 | [Correct identifier and explanation mismatches before publishing a workspace answer](kata-tasks/65-claim-alignment-correction.md) |
 | `xs7j` | closed | 1 | [Recover the saved Codex connection before the next queued question](kata-tasks/67-queued-connection-recovery.md) |
 | `5vw6` | closed | 1 | [Hide stale unavailable answer cards from Guide](kata-tasks/74-stale-guide-cards.md) |
+| `qtsm` | closed | 1 | [Keep Chat history focused on the current exploration](kata-tasks/58-exploration-history.md) |
 | `tp6r` | open | 1 | [Prewarm local narration while an explanation is generated](kata-tasks/75-narration-prewarm.md) |
 | `y0tq` | closed | 1 | [Choose and publish the project's distribution license](kata-tasks/77-distribution-license.md) |
 | `70x5` | open | 2 | [Add local Pocket TTS narration and distinct cached audio](kata-tasks/18-optional-narration.md) |

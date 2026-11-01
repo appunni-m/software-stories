@@ -20,13 +20,13 @@ npm ci
 npm run tauri dev
 ~~~
 
-The first command installs the versions recorded in the npm lockfile. The second starts one Vite development server on `127.0.0.1:4173` and the Tauri desktop shell. The port is strict: if another process already owns it, startup reports the conflict instead of choosing a second port.
+The first command installs the versions recorded in the npm lockfile. The second starts one Vite development server on `127.0.0.1:4173` and the Tauri desktop shell. The port is strict: if another process already owns it, startup reports the conflict instead of choosing a second port. Tauri starts Vite itself; do not also run `npm run dev` beside it.
 
 ~~~sh
 npm run dev
 ~~~
 
-This command starts the same browser-only UI preview at http://127.0.0.1:4173. Do not run it alongside an already running preview; reuse or restart that one process. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, local repository commands, or direct API requests. Use the Tauri command for the native workflow.
+This command starts the browser-only UI preview at http://127.0.0.1:4173. The browser preview and `npm run tauri dev` share the same strict port and cannot run at once. To switch modes, stop the current development process, then start the other command; keep one Vite server on port 4173. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, local repository commands, or direct API requests. Use the Tauri command for the native workflow.
 
 Code Atlas stores captures and guide history in its local application data
 folder. Read [Local data and permissions](LOCAL_DATA.md) before removing that

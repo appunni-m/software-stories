@@ -69,15 +69,17 @@ checks pass, without claiming native playback or speech-quality acceptance.
 
 The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The Rust crate uses edition 2024 ([edition release](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)); locked Tantivy 0.26.2 declares Rust 1.86 as its minimum. The project does not set Cargo's `rust-version` or pin a toolchain, and the complete dependency graph has not been qualified at that floor. Use current stable Rust with Cargo for native commands (this checkpoint used rustc 1.98.1).
 
+Install dependencies once:
+
 ```sh
 npm ci
-npm run dev
 ```
 
-`npm run dev` starts the Vite browser preview at `http://127.0.0.1:4173`. The port is fixed; startup fails if it is already in use, so the preview does not silently move to another port. It is not equivalent to the native app: native repository picking, Keychain access, and provider operations require the Tauri shell.
+Choose one development mode at a time. For the browser preview, run `npm run dev`; it serves `http://127.0.0.1:4173`. For the native Mac app, run `npm run tauri dev`; Tauri starts Vite itself on that same fixed port. Both modes use strict port binding, so they cannot run side by side. To switch modes, stop the current development process and start the other command. If startup reports that port 4173 is occupied, reuse that process for its current mode or stop it before switching; do not start another server on a different port.
+
+The browser preview is not equivalent to the native app: repository picking, Keychain access, and provider operations require the Tauri shell. Before handing off a change, run `npm run check`:
 
 ```sh
-npm run tauri dev
 npm run check
 ```
 
