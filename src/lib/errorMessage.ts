@@ -57,7 +57,7 @@ export function explanationErrorMessage(error: string): string {
     /^The AI explanation does not (?:name its declared source identifier|connect source identifier) '[^']+'(?: to its cited code)?\. No draft was saved\.$/u.test(error)
     || /^Claim(?: '[^']+')? in section '[^']+' does not name its declared identifier '[^']+' in the explanation\.$/u.test(error)
   ) {
-    return 'The AI draft did not connect its explanation to the cited code, so it was not saved. Try this question again.';
+    return 'This explanation did not pass its source check, so nothing was saved. Try a narrower question or select the relevant lines.';
   }
   return error;
 }
