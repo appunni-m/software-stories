@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   exactSavedPlannedChapter, matchingPlannedChapterPendingPreview,
-  matchesPlannedChapterPreview, sameReviewedPlannedChapterRequest,
+  matchesPlannedChapterPreview, plannedChapterBatchBoundary, sameReviewedPlannedChapterRequest,
 } from '../src/lib/plannedChapterBatch.ts';
 
 const digest = (character) => character.repeat(64);
@@ -33,6 +33,31 @@ const scope = {
     indexStatus: 'complete',
   },
 };
+
+test('stop after current save preserves the in-flight result and blocks the next step', () => {
+  assert.deepEqual(plannedChapterBatchBoundary({ alive: true, cancelled: false, stopAfterCurrentSave: false }), {
+    keepCurrent: true, continueBatch: true, stopped: false,
+  });
+  assert.deepEqual(plannedChapterBatchBoundary({ alive: true, cancelled: false, stopAfterCurrentSave: true }), {
+    keepCurrent: true, continueBatch: false, stopped: true,
+  });
+  assert.deepEqual(plannedChapterBatchBoundary({ alive: true, cancelled: true, stopAfterCurrentSave: false }), {
+    keepCurrent: false, continueBatch: false, stopped: true,
+  });
+  assert.deepEqual(plannedChapterBatchBoundary({ alive: false, cancelled: false, stopAfterCurrentSave: true }), {
+    keepCurrent: false, continueBatch: false, stopped: true,
+  });
+});
+
+test('the batch stop-after-save control leaves the active Codex request running', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../src/RepositoryPlanBatchDialog.tsx', import.meta.url), 'utf8');
+  const control = source.match(/\{phase === 'running' && <AppButton intent="quiet" onClick=\{\(\) => \{ stopAfterCurrentSave\.current = true;[^}]+\}\}/)?.[0];
+  assert.ok(control, 'running batch exposes the stop-after-save action');
+  assert.doesNotMatch(control, /cancelCodexChapterRequest/);
+  assert.match(source, /plannedChapterBatchBoundary\([\s\S]+?\)\.keepCurrent/);
+  assert.match(source, /plannedChapterBatchBoundary\([\s\S]+?\)\.continueBatch/);
+});
 
 function review() {
   return {

@@ -15,6 +15,7 @@ import { providerFailureMessage } from './lib/errorMessage';
 import { readGenerationBackend } from './lib/generationPreferences';
 import {
   exactSavedPlannedChapter, matchingPlannedChapterPendingPreview, matchesPlannedChapterPreview,
+  plannedChapterBatchBoundary,
   sameReviewedPlannedChapterRequest,
 } from './lib/plannedChapterBatch';
 import {
@@ -45,8 +46,8 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
   const dialog = useRef<HTMLElement>(null);
   const alive = useRef(true);
   const cancelled = useRef(false);
+  const stopAfterCurrentSave = useRef(false);
   const activeReviewId = useRef<string | null>(null);
-  const saving = useRef(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [phase, setPhase] = useState<Phase>('preparing');
   const [entries, setEntries] = useState<BatchEntry[]>([]);
@@ -213,10 +214,11 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
     setPhase('running');
     setError(null);
     cancelled.current = false;
+    stopAfterCurrentSave.current = false;
     let currentIndex = -1;
     try {
       for (let index = 0; index < entries.length; index += 1) {
-        if (cancelled.current || !alive.current) break;
+        if (!plannedChapterBatchBoundary({ alive: alive.current, cancelled: cancelled.current, stopAfterCurrentSave: stopAfterCurrentSave.current }).continueBatch) break;
         const entry = entries[index];
         if (entry.status === 'saved' || entry.status === 'accepted') continue;
         if (!entry.review) throw new Error('A step is missing its reviewed request. Reopen the route before building.');
@@ -271,7 +273,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         activeReviewId.current = null;
         if (result.status === 'error') throw new Error(providerFailureMessage(result.error));
         const preview = result.data;
-        if (cancelled.current || !alive.current) {
+        if (!plannedChapterBatchBoundary({ alive: alive.current, cancelled: cancelled.current, stopAfterCurrentSave: stopAfterCurrentSave.current }).keepCurrent) {
           await discardGeneratedChapterDraft(preview.generationId).catch(() => {});
           break;
         }
@@ -280,7 +282,6 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           throw new Error('The generated chapter did not match its reviewed route step. It was not saved.');
         }
 
-        saving.current = true;
         setStatus(`Saving chapter ${index + 1} as an unaccepted draft…`);
         let saved: ChapterRevision;
         try {
@@ -294,7 +295,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
           }
           saved = existing;
           await discardGeneratedChapterDraft(preview.generationId).catch(() => {});
-        } finally { saving.current = false; }
+        }
         if (saved.revisionId !== preview.revision.revisionId || !exactSavedPlannedChapter(saved, entry.scope)) {
           throw new Error('The saved chapter identity did not match its reviewed step. Stop and inspect the saved draft before continuing.');
         }
@@ -306,7 +307,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         if (cancelled.current || !alive.current) break;
       }
       if (!alive.current) return;
-      if (cancelled.current) {
+      if (plannedChapterBatchBoundary({ alive: alive.current, cancelled: cancelled.current, stopAfterCurrentSave: stopAfterCurrentSave.current }).stopped) {
         setPhase('stopped');
         setStatus('Stopped. Saved drafts remain available; no later step was sent.');
       } else {
@@ -367,7 +368,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
       </div>
       <footer className="provider-dialog-footer repository-plan-batch-footer">
         <AppButton intent="secondary" onClick={close}>{phase === 'running' ? 'Stop and close' : 'Close'}</AppButton>
-        {phase === 'running' && <AppButton intent="quiet" onClick={() => { cancelled.current = true; const active = activeReviewId.current; if (active) void cancelCodexChapterRequest(active).catch(() => {}); }} disabled={saving.current}><Square size={13}/>Stop after current save</AppButton>}
+        {phase === 'running' && <AppButton intent="quiet" onClick={() => { stopAfterCurrentSave.current = true; setStatus('Stop requested. The current chapter will be saved before the batch stops.'); }}><Square size={13}/>Stop after current save</AppButton>}
         {phase === 'review' && readyCount > 0 && <AppButton intent="primary" onClick={() => void build()}><Play size={14}/>Build {readyCount} chapters</AppButton>}
         {finished && <AppButton intent="primary" onClick={close}>{phase === 'complete' ? 'Done' : 'Close'}</AppButton>}
       </footer>

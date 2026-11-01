@@ -4,6 +4,19 @@ import type {
 import { isCurrentChapterGenerationOrigin, samePlannedTarget } from './chapterOrigin.ts';
 import { matchesPlannedChapterReview, type PlannedChapterScope } from './plannedChapters.ts';
 
+export function plannedChapterBatchBoundary(state: {
+  alive: boolean;
+  cancelled: boolean;
+  stopAfterCurrentSave: boolean;
+}): { keepCurrent: boolean; continueBatch: boolean; stopped: boolean } {
+  const keepCurrent = state.alive && !state.cancelled;
+  return {
+    keepCurrent,
+    continueBatch: keepCurrent && !state.stopAfterCurrentSave,
+    stopped: state.cancelled || state.stopAfterCurrentSave,
+  };
+}
+
 export function exactSavedPlannedChapter(revision: ChapterRevision, scope: PlannedChapterScope): boolean {
   if (revision.lifecycle !== 'draft' && revision.lifecycle !== 'accepted') return false;
   const origin = revision.generationOrigin;
