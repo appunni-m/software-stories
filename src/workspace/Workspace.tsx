@@ -1245,16 +1245,16 @@ function Answer(props:AnswerProps){
   const guideCoverageSummary=guideCoverageLabel==='Partial coverage'
     ?omissionSummary??'Some planned topics were not completed.'
     :null;
+  const guideRecovery=unavailableGuideRecovery(canContinueRepositoryGuide(turn.guide));
   const waitingMessage=props.loading
-    ?`Restoring saved ${turn.guideId?'slides':'answer sections'}…`
+    ?turn.guideId?'Opening your guide…':'Opening your explanation…'
     :unavailableSequenceCount>0
       ?availableSequenceCount>0
-        ?`${availableSequenceCount} ${turn.guideId?'slide':'section'}${availableSequenceCount===1?'':'s'} available; ${unavailableSequenceCount} saved ${turn.guideId?'slide':'answer part'}${unavailableSequenceCount===1?'':'s'} unavailable.`
-        :`Saved ${turn.guideId?'guide slides':'answer sections'} are unavailable.`
+        ?turn.guideId?'Some parts of this guide are not available.':`${availableSequenceCount} ${availableSequenceCount===1?'section':'sections'} ready; some saved answer parts are unavailable.`
+        :turn.guideId?"This guide isn't available to read right now.":'Saved answer sections are unavailable.'
       :availableSequenceCount>0
-        ?`${availableSequenceCount} ${turn.guideId?'slide':'section'}${availableSequenceCount===1?'':'s'} ready. The next ${turn.guideId?'slide':'section'} builds as you read or listen.`
-        :`Waiting for the first ${turn.guideId?'slide':'section'} to become available.`;
-  const guideRecovery=unavailableGuideRecovery(canContinueRepositoryGuide(turn.guide));
+        ?turn.guideId?'This guide is ready to follow. More is on the way.':`${availableSequenceCount} ${availableSequenceCount===1?'section':'sections'} ready. The next section builds as you read or listen.`
+        :turn.guideId?'Your guide is being prepared.':'Waiting for the first section to become available.';
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>
     {!props.hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
@@ -1279,7 +1279,7 @@ function Answer(props:AnswerProps){
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
-    {sectionSequence&&props.loading&&sections.length>0&&turn.status!=='waiting'&&<p className="dw-guide-loading" role="status">{turn.guideId?'Restoring saved slides…':'Restoring saved answer sections…'}</p>}
+    {sectionSequence&&props.loading&&sections.length>0&&turn.status!=='waiting'&&<p className="dw-guide-loading" role="status">{turn.guideId?'Opening your guide…':'Opening your explanation…'}</p>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}
@@ -1296,7 +1296,7 @@ function Answer(props:AnswerProps){
       <p>These parts could not be reopened. Re-explain this question to build them again.</p>
       <AppButton size="1" intent="secondary" onClick={props.onRetry}>Explain this question again</AppButton>
     </details>)}
-    {turn.guideId&&sectionItems.some((item)=>item.kind==='unavailable')&&<details className="dw-unavailable-group"><summary>{sectionItems.filter((item)=>item.kind==='unavailable').reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0)} saved guide slide(s) unavailable</summary><p>{guideRecovery.message}</p><AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton></details>}
+    {turn.guideId&&sectionItems.some((item)=>item.kind==='unavailable')&&(turn.status!=='waiting'||availableSequenceCount>0)&&<details className="dw-unavailable-group"><summary>Some parts of this guide are not available</summary><p>{guideRecovery.message}</p><AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton></details>}
     {lastAvailableItemIndex<0&&(branches.length>0||sectionItems.some((item)=>item.kind==='unavailable'))&&<footer className="dw-branches">
       <AppButton size="1" intent="quiet" onClick={()=>props.onBranch(`Explore ${turn.question} in more detail.`,turn.context)}><Network size={13}/>Explore further</AppButton>
       {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}
