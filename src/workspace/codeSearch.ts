@@ -51,6 +51,15 @@ function localQueryTerms(query:string):string[]{
   return useful.length?useful:parts.length?[query.toLowerCase()]:[];
 }
 
+/** Return only regular English plural forms; code search stays token-boundary
+ * based and avoids broad prefix matching such as nonexistent -> None. */
+function pluralVariants(term:string):string[]{
+  if(/[bcdfghjklmnpqrstvwxyz]y$/u.test(term))return[`${term.slice(0,-1)}ies`];
+  const variants=[`${term}s`];
+  if(/(?:s|x|z|ch|sh)$/u.test(term))variants.push(`${term}es`);
+  return variants;
+}
+
 /** Rank a local path, symbol or line by the useful words it contains. Requiring
  * every word makes natural questions such as “how does a font become pixels?”
  * miss the `Font` entry point entirely. Prefix matches cover common inflections
@@ -65,6 +74,7 @@ function localMatcher(query:string,terms:readonly string[]):(value:string)=>numb
       if(part===term)return true;
       if(Math.min(part.length,term.length)<3)return false;
       if(part.startsWith(term))return true;
+      if(pluralVariants(term).includes(part)||pluralVariants(part).includes(term))return true;
       // Permit common plural endings when the user typed the longer form,
       // but never let an unrelated long term match a short source token
       // (for example, "nonexistent" matching the identifier "None").
