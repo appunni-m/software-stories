@@ -322,3 +322,32 @@ VoiceOver, 200% zoom, contrast, and Reduce Motion: not checked in this pass.
 
 This narrows the focus-order gap for one workspace state but does not satisfy
 the native acceptance run sheet. Keep `bcn2` open.
+
+### Packaged Guide keyboard-citation follow-up — 2026-11-01
+
+```text
+Date and tester: 2026-11-01; Codex via native computer use
+macOS / app: macOS 15.7.7; Code Atlas 0.1.0, executable SHA-256
+  a69eb4809384e41858486506fdb437d5fe64bce4cc79589463bd8a392d150fe2
+  The installed app does not expose its source commit; workspace HEAD was
+  7747570 during this check.
+Repository / snapshot ID: fontdone / main@5249b72371
+VoiceOver: not checked; baseline was not changed.
+Keyboard-only journey: partial pass. Starting in the populated Guide with
+  scene 2/3 selected, Tab reached the scene selector. Return selected scene
+  1/3; Tab and Return restored scene 2/3. Tab then reached the source-backed
+  Active-strike gate cue; Return opened its details. Tab traversal through
+  narration controls reached src/api.rs:710-728, and Return opened that exact
+  source range. A screenshot showed a visible focus outline on the citation.
+  The tested sequence used keyboard input only; Shift+Tab, Escape/focus return,
+  file-tree selection, dialogs, Search, Changes and recovery were not tested.
+200% zoom / effective width: not checked.
+Increase Contrast: not checked.
+Reduce Motion: not checked.
+No provider request, source edit, narration playback, or saved-answer change
+  occurred. The selected scene was restored to 2/3.
+```
+
+This confirms one keyboard route through scene navigation, a visual cue and its
+source citation. It does not satisfy the native acceptance run sheet; keep
+`bcn2` open.
