@@ -1603,6 +1603,77 @@ mod tests {
         assert_eq!(value["codeFiles"][0]["path"], "src/late_topic.ts");
     }
 
+    #[test]
+    fn discovery_prefers_production_for_behavior_and_tests_for_test_questions() {
+        use crate::chapter_generation::tests::Fixture;
+
+        let mut fixture = Fixture::new();
+        let matching_source = "pub fn route_request_to_renderer(request: &[u8]) -> Result<(), Error> {\n    let route = select_handler(request)?;\n    renderer::dispatch(route)\n}\n";
+        fixture.recapture_with_source("src/route.rs", matching_source);
+        fixture.recapture_with_source("tests/route_test.rs", matching_source);
+
+        let cancelled = AtomicBool::new(false);
+        drop(
+            crate::repository_context::prepare(
+                &fixture.storage,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &crate::repository_context::Budget::new(&cancelled),
+            )
+            .unwrap(),
+        );
+
+        let paths_for = |question: &str| {
+            let input = DiscoveryInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                question: question.to_owned(),
+                target_path: None,
+                model_id: "gpt-6-luna".to_owned(),
+                effort: "max".to_owned(),
+                workspace_grant: None,
+            };
+            let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
+            let value: Value = serde_json::from_str(&encoded).unwrap();
+            value["codeFiles"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|file| file["path"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>()
+        };
+
+        let behavior_paths = paths_for("How does a route request reach the renderer?");
+        let production_rank = behavior_paths
+            .iter()
+            .position(|path| path == "src/route.rs")
+            .unwrap();
+        let test_rank = behavior_paths
+            .iter()
+            .position(|path| path == "tests/route_test.rs")
+            .unwrap();
+        assert!(
+            production_rank < test_rank,
+            "behavior questions must lead with production code: {behavior_paths:?}"
+        );
+
+        let test_paths = paths_for(
+            "What does the regression test assert about a route request reaching the renderer?",
+        );
+        let test_rank = test_paths
+            .iter()
+            .position(|path| path == "tests/route_test.rs")
+            .unwrap();
+        let production_rank = test_paths
+            .iter()
+            .position(|path| path == "src/route.rs")
+            .unwrap();
+        assert!(
+            test_rank < production_rank,
+            "test questions must lead with test code: {test_paths:?}"
+        );
+    }
+
     fn large_target_behind_decoys(decoy_count: usize) -> crate::chapter_generation::tests::Fixture {
         use crate::chapter_generation::tests::Fixture;
 
