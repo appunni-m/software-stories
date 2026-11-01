@@ -105,7 +105,11 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
         aria-labelledby={titleId} onOpenAutoFocus={(event) => {
           actionOpened.current = false;
           event.preventDefault();
-          closeButton.current?.focus();
+          // Radix's focus scope can still finish its mount focus after this
+          // callback. Focus the safe close control in the next paint, once
+          // the popover is fully mounted, instead of leaving the destructive
+          // bulk action focused.
+          requestAnimationFrame(() => closeButton.current?.focus({ preventScroll: true }));
         }}
         onCloseAutoFocus={(event) => { if (actionOpened.current) event.preventDefault(); }}>
         <header className="notification-panel-header"><strong id={titleId}>Notifications</strong><div className="notification-panel-header-actions">
