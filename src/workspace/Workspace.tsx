@@ -664,8 +664,8 @@ export function DeveloperWorkspace(props:Props) {
     setPendingCodeExplanation(null);
     setConnectionNotice(null);
     setDraftNotice(null);
-    const view=current.view==='flow'?'flow':'guide';
-    const pending={projectId,snapshotId,explorationId:current.id,context:selected,question,view};
+    const view:View=current.view==='flow'?'flow':'guide';
+    const pending:PendingCodeExplanation={projectId,snapshotId,explorationId:current.id,context:selected,question,view};
     if(!ask(question,view,[selected]))setPendingCodeExplanation(pending);
     else setPendingCodeExplanation(null);
   }
