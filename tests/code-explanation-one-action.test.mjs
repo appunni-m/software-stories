@@ -27,7 +27,7 @@ test('selected code stays bound to the current snapshot and sharing consent',()=
   assert.match(ask,/if\(state\.grantId\).*runQuestion/s);
   assert.match(ask,/setConsentTurn\(id\)/);
 
-  const validate=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string){','  function explain(context:Context)');
+  const validate=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function explain(context:Context)');
   assert.match(validate,/expectedSnapshotId!==snapshotId/);
   assert.match(validate,/source\.snapshotId!==snapshotId/);
   assert.match(validate,/source\.path!==selected\.path/);
