@@ -704,7 +704,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {status?.authenticated && <p>{status.accountEmail ?? 'ChatGPT account'} · {status.planType ?? 'Account plan'} · {status.runtimeRunning ? 'Codex running' : 'Codex stopped'}</p>}
                 <details><summary>Advanced · Codex installation</summary><form className="provider-key-form" onSubmit={(event) => { event.preventDefault(); void configure(); }}>
                   <label htmlFor="codex-executable">Codex executable · absolute path</label>
-                  <AppTextField id="codex-executable" className="provider-path-field" value={executablePath} onValueChange={setExecutablePath} maxLength={4096} placeholder="/opt/homebrew/bin/codex" spellCheck={false} autoComplete="off" disabled={locked || otherRun || Boolean(login)} />
+                  <AppTextField id="codex-executable" className="provider-settings-field" value={executablePath} onValueChange={setExecutablePath} maxLength={4096} placeholder="/opt/homebrew/bin/codex" spellCheck={false} autoComplete="off" disabled={locked || otherRun || Boolean(login)} />
                   <div className="provider-key-actions"><AppButton intent="secondary" disabled={locked || otherRun || Boolean(login)} onClick={() => { void chooseExecutable(); }}>{busy === 'choose-file' ? 'Choosing…' : 'Choose executable…'}</AppButton>
                     <AppButton intent="secondary" type="submit" disabled={locked || otherRun || Boolean(login) || !executablePath.trim()}>{busy === 'configure' ? 'Saving…' : 'Save executable'}</AppButton>
                     <a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex installation guide ↗</a></div>

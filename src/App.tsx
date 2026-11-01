@@ -6,6 +6,7 @@ import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { AppSelect } from './design/AppSelect';
 import { AppButton } from './design/AppButton';
 import { AppSearchField } from './design/AppSearchField';
+import { AppTextField } from './design/AppTextField';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
@@ -2852,11 +2853,12 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open Connections.'}</p>
                 <form className="provider-key-form" onSubmit={(event) => { void handleSaveKey(event); }}>
                   <label htmlFor="provider-api-key">Your {disclosure.displayName} API key</label>
-                  <input
+                  <AppTextField
                     id="provider-api-key"
                     type="password"
                     value={keyDraft}
-                    onChange={(event) => setKeyDraft(event.target.value)}
+                    onValueChange={setKeyDraft}
+                    className="provider-settings-field"
                     autoComplete="new-password"
                     spellCheck={false}
                     placeholder="Paste a provider API key"
