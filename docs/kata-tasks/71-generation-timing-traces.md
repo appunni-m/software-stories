@@ -158,10 +158,22 @@ recorded older records as readable. Diagnostics retain only the fixed
 contents.
 
 The 29 October greenfield compatibility audit removed those old-format readers.
-The current timing trace accepts schema 5 only, and the current job store
-accepts schema 4 only. Older records are left byte-for-byte intact but are
+At that point the timing trace accepted schema 5 only, and the job store
+accepted schema 4 only. Older records are left byte-for-byte intact but are
 reported as unsupported; they are not upgraded or deleted. The timing reader
 also requires the complete current envelope, including `promptContractVersion`.
 This source-only review did not run builds or tests. Packaged Fontdone timing,
 complete stage coverage and the two-minute useful-answer acceptance remain
 open; keep `ps02` open.
+
+## Explicit local search cache outcome — 1 November 2026
+
+The per-search `searchCacheCheck` stage now records `cacheHit` when the prepared
+index is reused and `cacheMiss` when it must be rebuilt. Both outcomes are
+bounded fixed enum values; traces still contain no query, path, or source text.
+The timing trace schema is now v6 and the evidence ledger schema is v5 because
+the persisted local-stage enum changed. Deterministic coverage checks cold and
+warm search outcomes and rejects cache outcomes attached to unrelated stages.
+This only makes local index reuse measurable. Provider cache usage, planning,
+queue/connection gaps, full packaged Fontdone timing, and the two-minute
+first-useful-answer acceptance remain open; keep `ps02` open.

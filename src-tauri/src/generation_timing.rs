@@ -23,7 +23,7 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const SCHEMA_VERSION: u32 = 5;
+const SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -266,6 +266,8 @@ pub(crate) enum ContextStageKind {
 pub(crate) enum ContextStageOutcome {
     Complete,
     Fallback,
+    CacheHit,
+    CacheMiss,
     Failed,
     Stopped,
 }
@@ -634,6 +636,10 @@ pub(crate) fn validate_context_stages(
                 .is_some_and(|origin| origin.saturating_add(stage.finished_ms) > MAX_ELAPSED)
             || (stage.outcome == ContextStageOutcome::Fallback
                 && stage.kind != ContextStageKind::SyntaxIndexLoad)
+            || (matches!(
+                stage.outcome,
+                ContextStageOutcome::CacheHit | ContextStageOutcome::CacheMiss
+            ) && stage.kind != ContextStageKind::SearchCacheCheck)
         {
             return Err(invalid());
         }

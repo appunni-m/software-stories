@@ -349,7 +349,7 @@ fn search_stage_timings_persist_and_export_without_query_or_source_strings() {
         kind: ContextStageKind::SearchCacheCheck,
         started_ms,
         finished_ms: started_ms,
-        outcome: ContextStageOutcome::Complete,
+        outcome: ContextStageOutcome::CacheMiss,
     }];
     ledger
         .record_local_search_stages(&token, stages.clone())

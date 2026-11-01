@@ -312,6 +312,15 @@ fn search_snapshot_kind(
                 .checked
                 .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
             && work.prepared.is_some();
+        if let Some(cache_check) = stages.last_mut().filter(|stage| {
+            stage.kind == crate::generation_timing::ContextStageKind::SearchCacheCheck
+        }) {
+            cache_check.outcome = if reuse {
+                crate::generation_timing::ContextStageOutcome::CacheHit
+            } else {
+                crate::generation_timing::ContextStageOutcome::CacheMiss
+            };
+        }
         if !reuse {
             // An absent or damaged syntax index must not make captured text unavailable.
             let started_ms = stage_offset(origin);
@@ -630,6 +639,7 @@ mod tests {
     #[test]
     fn timed_search_separates_cold_index_preparation_from_warm_query_work() {
         use crate::generation_timing::ContextStageKind as Stage;
+        use crate::generation_timing::ContextStageOutcome as Outcome;
 
         let fixture = crate::chapter_generation::tests::Fixture::new();
         let jobs = RepositoryContextJobs::default();
@@ -653,6 +663,7 @@ mod tests {
             origin,
         );
         assert!(!cold.result.unwrap().matches.is_empty());
+        assert_eq!(cold.stages[3].outcome, Outcome::CacheMiss);
         assert_eq!(
             cold.stages
                 .iter()
@@ -682,6 +693,7 @@ mod tests {
             origin,
         );
         assert!(warm.result.unwrap().reused_generation);
+        assert_eq!(warm.stages[3].outcome, Outcome::CacheHit);
         assert_eq!(
             warm.stages
                 .iter()

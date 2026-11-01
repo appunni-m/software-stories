@@ -487,6 +487,27 @@ fn local_context_stages_are_bounded_ordered_and_source_free() {
             .is_err()
     );
 
+    let cache_hit = [ContextStage {
+        kind: ContextStageKind::SearchCacheCheck,
+        started_ms: 10,
+        finished_ms: 11,
+        outcome: ContextStageOutcome::CacheHit,
+    }];
+    assert!(validate_context_stages(Tool::Search, Some(10), None, None, &cache_hit, None).is_ok());
+    let mut misplaced_cache_outcome = cache_hit.clone();
+    misplaced_cache_outcome[0].kind = ContextStageKind::SearchQuery;
+    assert!(
+        validate_context_stages(
+            Tool::Search,
+            Some(10),
+            None,
+            None,
+            &misplaced_cache_outcome,
+            None,
+        )
+        .is_err()
+    );
+
     let too_many = (0..=MAX_CONTEXT_STAGES_PER_CALL)
         .map(|index| ContextStage {
             kind: ContextStageKind::SearchQuery,
