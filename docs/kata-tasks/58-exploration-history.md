@@ -22,3 +22,12 @@ Exercise at least five levels and sibling branches, repeated navigation, restart
 ## 16 October workspace migration
 
 Flat versioned current-level turns, originating-turn branches, per-exploration last view/source and parent/root navigation are implemented. Native durable conversation storage and the full viewport/player restore contract remain qualification work.
+
+## Answer-record capacity — 1 November 2026
+
+The current native evidence ledger reserves up to **1,000 answer records total**.
+Standalone answers and historical receipts consume one slot each; a guide
+reserves its bounded lifetime allowance before it starts. At capacity, a new
+investigation is rejected while existing answers and guides are preserved.
+The source-level count is not a general disk-space quota. Full restart,
+cross-window, and packaged history acceptance remains open.
