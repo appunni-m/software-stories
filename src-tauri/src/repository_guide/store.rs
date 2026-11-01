@@ -349,6 +349,13 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
+    if record.planning_failure_code.is_some()
+        && (record.plan.is_some()
+            || record.active_run_id.is_some()
+            || record.status != Status::Partial)
+    {
+        return Err("The saved guide's outline failure state is invalid.".into());
+    }
     if record.opening_continuations.len() > MAX_OPENING_CONTINUATIONS
         || record
             .opening_continuations
@@ -610,6 +617,7 @@ pub(in crate::repository_guide) fn prepare_plan_retry(
         current.planning_retry_count += 1;
         current.planning_run_id = uuid::Uuid::new_v4().to_string();
         current.active_run_id = Some(current.planning_run_id.clone());
+        current.planning_failure_code = None;
         current.status = Status::Planning;
         Ok(())
     })

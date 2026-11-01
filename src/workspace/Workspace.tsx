@@ -24,7 +24,7 @@ import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type Chapter
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
-import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, historySearchResultSummary, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, shouldRestoreFocusedAnswerAnchor, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
+import { ancestors, canContinueRepositoryGuide, contextualGuideAction, discardUnstartedGuide, focusAnswerSection, historyEntry, historySearchResultSummary, isRepositoryGuideIntent, questionProgressText, repositoryGuideCoverageLabel, repositoryGuideFailureMessage, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, chooseFlowRevision, rankSourcePaths, presentationOwner, explorationSummaryCounts, rememberCodePane, rememberFileFlow, rememberSourceContext, rememberPresentation, rememberScroll, rememberSection, sectionPosition, shouldRestoreFocusedAnswerAnchor, workspaceAnswerLifecycleBadge, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authorizeWorkspace, prepareWorkspaceConversation, resolveWorkspaceConversationConflict, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, updateWorkspaceDraft, useConversationAvailability, useWorkspace, useWorkspaceConversationConflict, watchWorkspaceAnswers } from './store';
 import { ensureWorkspaceIndex } from './indexManager';
 import { useConnectionState } from '../lib/connectionStore';
@@ -1197,7 +1197,8 @@ function Answer(props:AnswerProps){
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const mappedErrorMessage=turn.error?explanationErrorMessage(turn.error):undefined;
   const failureMessage=(mappedErrorMessage!==turn.error?mappedErrorMessage:undefined)
-    ??explanationFailureMessage(turn.failureCode);
+    ??explanationFailureMessage(turn.failureCode)
+    ??repositoryGuideFailureMessage(turn.guide);
   const progressText=questionProgressText(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide,sections.length>0);
   const completedSequenceLabel=()=>{

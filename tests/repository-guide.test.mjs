@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideCoverageLabel, repositoryGuideFailureMessage, repositoryGuideOmissionSummary, repositoryGuideUncoveredTopics, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -19,6 +19,20 @@ test('independent guide runs form one durable card without moving the reader',()
   const turn=state.explorations[0].turns[0];assert.equal(turn.id,'question');assert.equal(turn.status,'working');
   assert.deepEqual(turn.reading.guide,position);assert.deepEqual(turn.publishedSections,[section]);assert.deepEqual(turn.notes,[]);
   const completed=guide();completed.status='ready';state=mergeRepositoryGuide(state,completed);assert.equal(state.explorations[0].turns[0].status,'ready');
+});
+test('an outline failure survives native guide restoration with one clear retry message',()=>{
+  const failed={...guide(),status:'partial',planningFailureCode:'outlineNotPublished',units:[],answers:[],canContinue:true};
+  const saved=mergeRepositoryGuide(createWorkspace('p','s'),failed);
+  const reopened=parseWorkspace(JSON.stringify(saved),'p','s');
+  assert.equal(reopened.explorations[0].turns[0].guide,undefined,
+    'conversation storage drops native-only Guide metadata for authoritative restoration');
+  const state=mergeRepositoryGuide(reopened,failed);
+  const turn=state.explorations[0].turns[0];
+  assert.equal(turn.status,'partial');
+  assert.equal(canContinueRepositoryGuide(turn.guide),true);
+  assert.equal(repositoryGuideFailureMessage(turn.guide),
+    'The guide outline could not be completed. Continue to try again; your saved work is kept.');
+  assert.equal(repositoryGuideFailureMessage(guide()),undefined);
 });
 test('native guide recovery reconstructs a lost UI card without dispatching or changing a nested tab',()=>{
   let state=createWorkspace('p','s');state=addTurn(state,{id:'other',question:'Another question',context:[],status:'ready'},'history');
@@ -46,7 +60,7 @@ test('playback-paced guides retain their waiting state and explain when another 
   let state=mergeRepositoryGuide(createWorkspace('p','s'),metadata);
   let turn=state.explorations[0].turns[0];
   assert.equal(turn.status,'waiting');
-  assert.match(historyEntry(turn,new Set()).text,/More slides will be ready as you listen/u);
+  assert.match(historyEntry(turn,new Set()).text,/More slides will be ready as you read or listen/u);
   state=parseWorkspace(JSON.stringify(state),'p','s');
   turn=state.explorations[0].turns[0];
   assert.equal(turn.status,'waiting');
@@ -150,9 +164,8 @@ test('a completed partial guide extends its saved outline in place',async()=>{
   assert.match(source,/branchLabel=\{canExtendOmissions\?'Explore uncovered topics'/);
   assert.match(source,/coverageSummary=\{guideCoverageSummary\?\?undefined\}/);
   assert.match(source,/details className="dw-guide-coverage" aria-label="Uncovered guide topics"><summary><strong>Partial guide<\/strong><span>See what remains<\/span><\/summary><p>Still uncovered:/);
-  assert.match(source,/repositoryGuideCoverageLabel\(turn\.guide\)/);
-  assert.match(source,/className="dw-guide-status" role="status">\{guideCoverageLabel\}/);
-  assert.match(source,/dw-guide-outline-count/);
+  assert.match(source,/repositoryGuideCoverageLabel\(turn\.guide(?:,sections\.length>0)?\)/);
+  assert.match(source,/guideCoverageLabel==='Planned topics complete'\?'Complete':guideCoverageLabel==='Partial coverage'\?'Partial':'Incomplete'/);
   assert.match(source,/appendRepositoryGuide\(projectId,snapshotId,question,parentTurn\)/);
   assert.doesNotMatch(source,/repositoryGuideContinuationQuestion/);
   assert.doesNotMatch(source,/repositoryGuideOmissionQuestion/);

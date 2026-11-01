@@ -283,6 +283,7 @@ pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String>
         }
         if current.status != Status::Stopped {
             current.status = Status::Partial;
+            current.planning_failure_code = Some(PlanningFailureCode::OutlineNotPublished);
         }
         current.active_run_id = None;
         Ok(())

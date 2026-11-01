@@ -2,16 +2,15 @@
 //! outline drives independently owned investigations. Restart never dispatches.
 
 use crate::{
-    app_data_directory, codex_agent,
+    ProjectSessions, app_data_directory, codex_agent,
     evidence_ledger::sections::{
-        reading::{self, Summary},
         Outcome, SectionNotice,
+        reading::{self, Summary},
     },
     recovery, repository_context as context,
     repository_context_commands::RepositoryContextJobs,
     snapshot, workspace,
     workspace_generation::{self, Input, Reference},
-    ProjectSessions,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -108,6 +107,11 @@ enum Status {
     Interrupted,
     Failed,
 }
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum PlanningFailureCode {
+    OutlineNotPublished,
+}
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Attempt {
@@ -139,6 +143,8 @@ struct Record {
     planning_run_id: String,
     planning_retry_count: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    planning_failure_code: Option<PlanningFailureCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     opening: Option<Attempt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     opening_context_sha256: Option<String>,
@@ -162,6 +168,8 @@ pub(crate) struct GuideSummary {
     title: String,
     status: Status,
     planning_run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    planning_failure_code: Option<PlanningFailureCode>,
     units: Vec<UnitSummary>,
     answers: Vec<Summary>,
     opening_run_id: Option<String>,
@@ -916,6 +924,7 @@ fn guide_summary(
         title: plan.map_or_else(|| "Repository guide".into(), |p| p.title.clone()),
         status: record.status.clone(),
         planning_run_id: record.planning_run_id.clone(),
+        planning_failure_code: record.planning_failure_code,
         units,
         answers,
         opening_run_id: opening_continuation::latest(record).map(|a| a.run_id.clone()),
@@ -1044,6 +1053,7 @@ fn save_outline(
             })
             .collect();
         current.plan = Some(plan);
+        current.planning_failure_code = None;
         if let Some(answer) = answer {
             current
                 .opening
@@ -1695,6 +1705,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         question: input.question,
         planning_run_id,
         planning_retry_count: 0,
+        planning_failure_code: None,
         plan: None,
         units: vec![],
         status: Status::Planning,

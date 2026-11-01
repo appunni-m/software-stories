@@ -22,6 +22,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
         planning_run_id: Uuid::new_v4().to_string(),
         planning_retry_count: 0,
+        planning_failure_code: None,
         opening: None,
         opening_context_sha256: None,
         opening_continuations: vec![],
@@ -142,17 +143,60 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
 fn planning_timing_outcome_uses_the_persisted_guide_terminal_state() {
     let f = Fixture::new();
     let mut guide = record(&f);
-    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Complete);
+    assert_eq!(
+        planning_timing_outcome(&guide, false).unwrap(),
+        Outcome::Complete
+    );
 
     guide.plan = None;
     guide.status = Status::Planning;
-    assert_eq!(planning_timing_outcome(&guide, true).unwrap(), Outcome::Working);
-    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Interrupted);
+    assert_eq!(
+        planning_timing_outcome(&guide, true).unwrap(),
+        Outcome::Working
+    );
+    assert_eq!(
+        planning_timing_outcome(&guide, false).unwrap(),
+        Outcome::Interrupted
+    );
 
     guide.status = Status::Stopped;
-    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Stopped);
+    assert_eq!(
+        planning_timing_outcome(&guide, false).unwrap(),
+        Outcome::Stopped
+    );
     guide.status = Status::Failed;
-    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Failed);
+    assert_eq!(
+        planning_timing_outcome(&guide, false).unwrap(),
+        Outcome::Failed
+    );
+}
+
+#[test]
+fn an_unpublished_outline_failure_survives_restore_and_clears_on_retry() {
+    let f = Fixture::new();
+    let mut failed = record(&f);
+    failed.plan = None;
+    failed.units.clear();
+    failed.opening.as_mut().unwrap().summary = None;
+    failed.status = Status::Partial;
+    failed.planning_failure_code = Some(PlanningFailureCode::OutlineNotPublished);
+    store::create(&f.storage, &failed).unwrap();
+
+    let restored = store::read(&f.storage, &failed.id).unwrap();
+    assert_eq!(
+        restored.planning_failure_code,
+        Some(PlanningFailureCode::OutlineNotPublished)
+    );
+    assert_eq!(
+        summary(&f.storage, &restored)
+            .unwrap()
+            .planning_failure_code,
+        Some(PlanningFailureCode::OutlineNotPublished)
+    );
+
+    let retry = store::prepare_plan_retry(&f.storage, &failed.id, restored.revision).unwrap();
+    assert_eq!(retry.planning_failure_code, None);
+    assert_eq!(retry.status, Status::Planning);
 }
 
 #[test]

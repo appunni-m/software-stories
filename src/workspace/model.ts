@@ -49,6 +49,7 @@ export interface RepositoryGuide {
   id: string; projectId: string; snapshotId: string; question: string; title: string;
   status: 'planning' | 'building' | 'waitingForPlayback' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
   planningRunId?: string;
+  planningFailureCode?: 'outlineNotPublished';
   openingRunId: string | null;
   openingRunIds: string[];
   canContinue: boolean;
@@ -208,7 +209,7 @@ export function cleanComposerDraft(value: unknown): ComposerDraft | undefined {
 }
 const WORKSPACE_STATE_KEYS = ['version','projectId','snapshotId','currentId','file','explorations','grantId'] as const;
 const EXPLORATION_KEYS = ['id','parentId','originTurnId','title','view','turns','focusedTurnId','revealTurnId','file','reveal','codeOpen','fileFlow','scrollPositions','draft'] as const;
-const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','sourceDiscoveryNotes','guideId','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
+const TURN_KEYS = ['id','question','context','status','revisionId','generationId','error','failureCode','runIds','publishedSections','notes','sourceDiscoveryNotes','guideId','guide','reading','presentation','answerVersions','outcomeAt','outcomeSequence','outcomeNotice'] as const;
 function hasOnlyKeys(value: unknown, allowed: readonly string[]): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
     && Object.keys(value).every((key) => allowed.includes(key));
@@ -280,6 +281,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (e.focusedTurnId !== undefined && !e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (!hasOnlyKeys(t, TURN_KEYS)) return fallback();
+        delete t.guide; // Native guide records own this metadata and restore it after conversation load.
         if (!validRunId(t.id) || turnOwners.has(t.id) || !validRecordText(t.question, 65536) || !Array.isArray(t.context) || t.context.length > 32
           || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || !t.context.every(isWorkspaceContext)) return fallback();
@@ -391,6 +393,12 @@ export function guideContinuationOperations(guide: Omit<RepositoryGuide, 'answer
 
 export function canContinueRepositoryGuide(guide: Omit<RepositoryGuide, 'answers'> | undefined): boolean {
   return guide?.canContinue === true;
+}
+
+export function repositoryGuideFailureMessage(guide: Pick<RepositoryGuide, 'planningFailureCode'> | undefined): string | undefined {
+  return guide?.planningFailureCode === 'outlineNotPublished'
+    ? 'The guide outline could not be completed. Continue to try again; your saved work is kept.'
+    : undefined;
 }
 
 /** Make terminal guide coverage visible without labeling an active outline early. */
