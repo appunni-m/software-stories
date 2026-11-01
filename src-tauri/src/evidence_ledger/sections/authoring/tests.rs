@@ -60,10 +60,10 @@ fn current_schema_rejects_provider_metadata_and_advertises_both_current_modes() 
 
 #[test]
 fn narration_only_scenes_enforce_the_shared_short_speech_contract() {
-    let mut three_sentences = narrated_proposal("code:1", "entry", 0)["section"].clone();
-    three_sentences["claims"][0]["scene"]["narration"] =
-        json!("First result. Second result. Third result.");
-    assert!(compile(&three_sentences).is_err());
+    let mut five_sentences = narrated_proposal("code:1", "entry", 0)["section"].clone();
+    five_sentences["claims"][0]["scene"]["narration"] =
+        json!("First result. Second result. Third result. Fourth result. Fifth result.");
+    assert!(compile(&five_sentences).is_err());
 
     let mut too_long = narrated_proposal("code:1", "entry", 0)["section"].clone();
     too_long["claims"][0]["scene"]["narration"] =

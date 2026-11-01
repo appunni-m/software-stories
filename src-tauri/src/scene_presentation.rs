@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
-pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 520;
+pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 760;
 
 /// One audio scene must stay listenable even when a generator ignores its
 /// prompt. The limit leaves room to explain a real decision and its outcome;
@@ -15,7 +15,7 @@ pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 520;
 pub(crate) fn scene_narration_is_concise(text: &str) -> bool {
     !text.trim().is_empty()
         && text.len() <= MAX_SCENE_NARRATION_BYTES
-        && sentence_ending_count(text) <= 3
+        && sentence_ending_count(text) <= 4
 }
 
 fn sentence_ending_count(text: &str) -> usize {
@@ -216,7 +216,7 @@ pub(crate) fn narration(
             || claim.anchors.is_empty()
             || !scene_narration_is_concise(text)
         {
-            return Err("Each scene needs at most three short natural sentences, no longer than 520 UTF-8 bytes, and its own consecutive anchored claim.".into());
+            return Err("Each scene needs at most four short natural sentences, no longer than 760 UTF-8 bytes, and its own consecutive anchored claim.".into());
         }
         if has_compact_spoken_code_token(text) {
             return Err(
@@ -542,7 +542,7 @@ pub(crate) fn proposal_schema() -> Value {
             "type":"object","additionalProperties":false,"required":["claimIndex","title","narration","mode","elements"],"properties":{
                 "claimIndex":{"type":"integer","minimum":0,"maximum":19},
                 "title":{"type":"string","minLength":1,"maxLength":120},
-                "narration":{"type":"string","minLength":1,"maxLength":520},
+                "narration":{"type":"string","minLength":1,"maxLength":MAX_SCENE_NARRATION_BYTES},
                 "mode":{"type":"string","enum":["composition","graph"]},
                 "elements":{"type":"array","maxItems":48,"items":{
                     "type":"object","additionalProperties":false,
@@ -948,7 +948,7 @@ mod tests {
         ));
         assert!(scene_narration_is_concise("点进入变换。轮廓标记保持不变！"));
         assert!(!scene_narration_is_concise(
-            "First outcome. Second outcome. Third outcome. Final result."
+            "First outcome. Second outcome. Third outcome. Fourth outcome. Final result."
         ));
         assert!(!scene_narration_is_concise(
             &"a".repeat(MAX_SCENE_NARRATION_BYTES + 1)

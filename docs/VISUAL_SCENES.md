@@ -64,13 +64,15 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v67`, teaching policy `meaning-first-v32`, and reader
+`ai-html-compositions-v70`, teaching policy `meaning-first-v32`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
 titles name that behavior or learning question in plain language rather than
-using a bare format tag or terse classification. Scene narration
-allows up to three short sentences and 520 UTF-8 bytes; native admission rejects
+using a bare format tag or terse classification. Scene narration keeps simple
+behavior to one or two short sentences and allows up to four short sentences
+and 760 UTF-8 bytes when the real path needs room to connect its input, decision
+or change, visible cue, and caller-visible consequence. Native admission rejects
 longer speech and offers a bounded correction. If a behavior needs more room,
 split it into ordered claims/scenes without omitting outcomes. The complete
 section script must fit 20–4,000 UTF-8 bytes and is assembled from grounded

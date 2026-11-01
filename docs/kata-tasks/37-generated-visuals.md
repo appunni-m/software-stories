@@ -1335,3 +1335,20 @@ header and scene pager in their allocated rows. This verifies the repaired
 first fit and this window size only; broad chapter visual quality, narrow
 windows, accessibility, comprehension, audio and export acceptance remain
 open. Keep `j53m` open.
+
+### Give source-grounded narration room for a complete causal beat — source correction, 1 November 2026
+
+Scene narration previously allowed three sentences and 520 UTF-8 bytes. That
+ceiling can pressure the writer to compress the input, actual code decision,
+visible cue and caller consequence into an explanation that sounds like a
+shallow summary. The shared story policy now allows up to four short sentences
+and 760 UTF-8 bytes, while instructing the generator to keep simple scenes to
+one or two sentences and spend the additional room only when it helps the
+listener follow the source-backed path at a measured speaking rhythm. Native
+visual and text-only scene validation, correction guidance, progressive tool
+instructions and the scene schema use the same bound. The 4,000-byte complete
+section limit remains unchanged.
+
+Source review only. No tests, build, model request, audio synthesis/listening,
+or packaged-app review ran. This widens the contract but does not prove better
+stories, pacing or comprehension; keep `j53m` open.
