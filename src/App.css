@@ -578,13 +578,14 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-refresh-button > spa
 .chapter-studio-card input, .chapter-studio-card textarea { min-width: 0; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text); font: 12px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .chapter-studio-card input { padding: 7px 8px; }
 .chapter-studio-card textarea { width: 100%; resize: vertical; padding: 8px; }
+.chapter-edit-title-row .chapter-edit-field { width: 100%; }
 .chapter-studio-card input:focus, .chapter-studio-card textarea:focus { border-color: var(--accent-border); outline: 1px solid var(--accent-border); }
 .chapter-studio-section { scroll-margin: 12px; margin: 10px 0; padding: 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
 .chapter-studio-section.is-route-focused { border-color: var(--accent-border); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 13%, transparent); }
 .chapter-studio-section:focus { outline: 2px solid var(--accent-border); outline-offset: 2px; }
 .chapter-section-title-row { display: flex; align-items: center; gap: 8px; }
 .chapter-section-title-row h4 { margin: 0; color: var(--text); font-size: 12px; }
-.chapter-section-title-row > input { flex: 1; }
+.chapter-section-title-row > .chapter-edit-field { flex: 1; }
 .chapter-section-number { color: var(--accent); font: 12px var(--mono); }
 .chapter-section-reorder { display: flex; gap: 2px; margin-left: auto; }
 .chapter-section-reorder .icon-button { width: 25px; height: 25px; }

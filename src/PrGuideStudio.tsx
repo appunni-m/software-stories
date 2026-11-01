@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AppButton } from './design/AppButton';
+import { AppTextArea } from './design/AppTextArea';
 import { InlineCodeText } from './InlineCodeText';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import type { ClaudeOperationReviewMode } from './lib/claudeReview';
@@ -831,7 +832,7 @@ function GuideDraftReview({
         <span>{includedClaimIds.length} of {claimCount} claims included</span>
         <AppButton intent="custom" type="button" className="primary-button" disabled={busy || includedClaimIds.length === 0} onClick={onAccept}><Check size={15} /> {busy ? 'Saving decision…' : 'Accept selected claims'}</AppButton>
       </div>
-      <label className="pr-guide-rejection-reason">Reason for rejecting this draft<textarea value={rejectionReason} disabled={busy} maxLength={4_000} onChange={(event) => onRejectionReasonChange(event.target.value)} /></label>
+      <label className="pr-guide-rejection-reason">Reason for rejecting this draft<AppTextArea value={rejectionReason} disabled={busy} maxLength={4_000} onValueChange={onRejectionReasonChange} /></label>
       {error && <p className="git-error-note" role="alert">{error}</p>}
       <AppButton intent="custom" type="button" className="secondary-button" disabled={busy || !rejectionReason.trim()} onClick={onReject}>Reject this PR Guide draft</AppButton>
     </section>

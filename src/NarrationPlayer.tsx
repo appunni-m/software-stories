@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { InlineCodeText } from './InlineCodeText';
+import { AppTextArea } from './design/AppTextArea';
 import { plainInlineCodeText } from './lib/inlineCode';
 import {
   AlertCircle,
@@ -769,7 +770,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
         <div className="walkthrough-narration-editor-content">
           <label className="walkthrough-narration-field">Spoken text
-            <textarea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
+            <AppTextArea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onValueChange={(spokenText) => updateDraft((value) => ({ ...value, spokenText }))} placeholder="Write what you want the reader to say in natural language." />
             {spokenTextUtf8Bytes > 16000 && <small role="alert">Shorten this script before listening.</small>}
           </label>
           <details className="walkthrough-pronunciation">
