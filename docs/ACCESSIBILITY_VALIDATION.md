@@ -369,12 +369,14 @@ Keyboard-only journey: partial pass. From the populated Guide at scene 2/3,
   it; Tab and Return followed the src/api.rs:710–728 citation. The citation
   remained focused and the source pane exposed that range. This did not test
   Escape/focus return, Shift+Tab, validation, dialogs, or other workspaces.
-200% zoom / effective width: fail for this state. View > Zoom confirmed 100%
-  initially and 200% after five 20% increments. At 200%, the visible workspace
-  showed the chat composer and source pane, while the Explorer file tree and
-  Guide/Flow/Chat history views were absent from both the screenshot and the
-  visible accessibility tree. Actual Size restored them. The app remained
-  maximized, so a separate window-resize check was not completed.
+200% zoom / effective width: partial pass. View > Zoom confirmed 100%
+  initially and 200% after five 20% increments. The compact layout shows one
+  reading pane at a time. In the source pane, the accessible Show explanation
+  control returned to the Guide with scene 2/3 retained. The Explorer activity
+  opened the file tree; Back to explanation restored the same Guide. The Guide
+  story and scene controls remained reachable by scrolling. Source and Guide
+  are not simultaneous at this zoom. The app remained maximized, so a separate
+  window-resize check was not completed.
 Increase Contrast: partial pass. Baseline was off. With it enabled, the
   packaged app showed stronger component boundaries and a clear focus outline
   on Play. Validation, status, and error surfaces were not reviewed.
@@ -388,8 +390,8 @@ Restoration: VoiceOver, Increase Contrast, Reduce Motion, and the dependent
   change occurred.
 ```
 
-This records focused native evidence, including a 200% reflow failure. It does
-not complete the run sheet: spoken VoiceOver announcements, a resized-window
-pass, full keyboard journeys, rendered reduced-motion transitions, other
-workspaces, large-repository responsiveness, and repository-safety acceptance
-remain open. Keep `bcn2` open.
+This records focused native evidence, including compact one-pane navigation at
+200%. It does not complete the run sheet: spoken VoiceOver announcements, a
+resized-window pass, full keyboard journeys, rendered reduced-motion
+transitions, other workspaces, large-repository responsiveness, and
+repository-safety acceptance remain open. Keep `bcn2` open.
