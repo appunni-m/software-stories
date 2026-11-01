@@ -56,6 +56,23 @@ export function plainInlineCodeText(value: string): string {
   return inlineCodeParts(value).map((part) => part.text).join('');
 }
 
+/** Keep code-shaped labels readable in visual cues without changing stored
+ * chapter text, source names, or the clickable evidence behind the label. */
+export function readerFacingVisualLabel(value: string): string {
+  if (inlineCodeParts(value).some((part) => part.kind === 'code')) return value;
+  const plain = plainInlineCodeText(value).trim();
+  if (!plain || /\s/u.test(plain) || !/[a-z]/u.test(plain)) return value;
+  const hasSnakeCase = plain.includes('_');
+  const hasCamelCase = /[a-z0-9][A-Z]/u.test(plain);
+  if (!hasSnakeCase && !hasCamelCase) return value;
+  const words = plain.replace(/([a-z0-9])([A-Z])/gu, '$1 $2').replace(/_/gu, ' ').split(/\s+/u);
+  return words.map((word, index) => {
+    if (/^[A-Z0-9]{2,}$/u.test(word)) return word;
+    const lower = word.toLowerCase();
+    return index === 0 ? `${lower[0]?.toUpperCase()}${lower.slice(1)}` : lower;
+  }).join(' ');
+}
+
 /** Safe HTML form for the static offline reader. Model text stays escaped. */
 export function inlineCodeHtml(value: string): string {
   const escape = (text: string) => text.replace(/[&<>"']/gu, (character) => ({

@@ -10,7 +10,7 @@ import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
 import { inspectInteractiveVisual } from './visuals.ts';
 import { storyScenes } from './visualStory.ts';
 import { OFFLINE_SCENE_CSS, renderOfflineScene } from './offlineScene.ts';
-import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
+import { inlineCodeHtml, plainInlineCodeText, readerFacingVisualLabel } from './inlineCode.ts';
 
 export const OFFLINE_PACKAGE_SCHEMA_VERSION = 4;
 export const MAX_OFFLINE_HTML_BYTES = 25 * 1024 * 1024;
@@ -963,9 +963,9 @@ function renderVisualOutline(
     const hotspotMarkup = hotspot ? renderOfflineHotspot(hotspot, revision, sectionIds, evidenceIds) : '';
     const outgoing = typedVisual.edges.filter((edge) => edge.fromNodeId === node.nodeId).map((edge) => {
       const target = typedVisual.nodes.find((candidate) => candidate.nodeId === edge.toNodeId);
-      return `<div class="diagram-edge"><strong>${inlineCodeHtml(edge.label)}</strong> → ${inlineCodeHtml(target?.label ?? 'Unavailable target')} ${anchorsFor(edge.evidenceAnchorIds) ? `<ul class="diagram-links"><li>${anchorsFor(edge.evidenceAnchorIds)}</li></ul>` : ''}</div>`;
+      return `<div class="diagram-edge"><strong>${inlineCodeHtml(edge.label)}</strong> → ${inlineCodeHtml(target ? readerFacingVisualLabel(target.label) : 'Unavailable target')} ${anchorsFor(edge.evidenceAnchorIds) ? `<ul class="diagram-links"><li>${anchorsFor(edge.evidenceAnchorIds)}</li></ul>` : ''}</div>`;
     }).join('');
-    return `<li class="diagram-node"><p class="eyebrow">STEP ${nodeIndex + 1}</p><strong>${inlineCodeHtml(node.label)}</strong>${node.detail ? `<small>${inlineCodeHtml(node.detail)}</small>` : ''}${references ? `<p class="reference-meta">Evidence: ${references}</p>` : '<p class="reference-meta">Evidence omitted.</p>'}${hotspotMarkup}${outgoing}</li>`;
+    return `<li class="diagram-node"><p class="eyebrow">STEP ${nodeIndex + 1}</p><strong>${inlineCodeHtml(readerFacingVisualLabel(node.label))}</strong>${node.detail ? `<small>${inlineCodeHtml(node.detail)}</small>` : ''}${references ? `<p class="reference-meta">Evidence: ${references}</p>` : '<p class="reference-meta">Evidence omitted.</p>'}${hotspotMarkup}${outgoing}</li>`;
   }).join('');
   const type = typedVisual.kind === 'dataFlow' ? 'Data flow' : typedVisual.kind === 'sequence' ? 'Sequence' : 'Hierarchy';
   const visualData = section.visualAssetText ? `<details class="visual-source"><summary>Typed diagram data · JSON</summary><pre>${escapeHtml(section.visualAssetText)}</pre></details>` : '';
@@ -1001,7 +1001,7 @@ function renderVisualWithDom(
   for (const [nodeIndex, node] of visual.nodes.entries()) {
     const item = element('li', 'diagram-node');
     item.append(element('p', 'eyebrow', `STEP ${nodeIndex + 1}`));
-    item.append(element('strong', undefined, node.label));
+    item.append(element('strong', undefined, readerFacingVisualLabel(node.label)));
     if (node.detail) item.append(element('small', undefined, node.detail));
     const evidenceLinks = nodeEvidenceIds(node).flatMap((anchorId) => {
       const id = evidenceIds.get(`${revision.revisionId}:${anchorId}`);

@@ -1,5 +1,5 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
-import { plainInlineCodeText } from './inlineCode.ts';
+import { plainInlineCodeText, readerFacingVisualLabel } from './inlineCode.ts';
 
 export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'pointFlow' | 'tree' | 'queue'
   | 'selector' | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
@@ -69,7 +69,7 @@ export function sceneNodeAccessibleLabel(
   const sentence = (text: string) => text.trim().replace(/[.!?]+$/u, '');
   const origin = valueOrigin === 'source' ? 'Source value' : valueOrigin === 'illustration' ? 'Illustrative example' : '';
   return [
-    sentence(node.label),
+    sentence(readerFacingVisualLabel(node.label)),
     value ? sentence(`Shown value: ${value}`) : '',
     node.detail ? sentence(`Meaning: ${node.detail}`) : '',
     origin,

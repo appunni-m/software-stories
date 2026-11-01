@@ -1,6 +1,6 @@
 import type { EvidenceLinkedVisualSpec } from './commands';
 import { containerKinds, sameVisibleSceneText, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './scenePresentation.ts';
-import { inlineCodeHtml, plainInlineCodeText } from './inlineCode.ts';
+import { inlineCodeHtml, plainInlineCodeText, readerFacingVisualLabel } from './inlineCode.ts';
 
 export const escapeSceneText = (value: string) => value.replace(/[&<>"']/gu, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -75,8 +75,9 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     if (element.kind === 'arrow') return `<span class="${cls}" aria-hidden="true">↓</span>`;
     if (element.kind === 'divider') return `<hr class="${cls}">`;
     const node = visual.nodes[element.nodeIndex!];
+    const displayLabel = readerFacingVisualLabel(node.label);
     const repeatsPlainLabel = ['card', 'token', 'text'].includes(element.kind)
-      && sameVisibleSceneText(element.value, node.label);
+      && (sameVisibleSceneText(element.value, displayLabel) || sameVisibleSceneText(element.value, node.label));
     const displayValue = repeatsPlainLabel ? '' : element.value;
     const displayOrigin = displayValue ? element.valueOrigin : 'none';
     const value = element.valueOrigin === 'source' || element.kind === 'code'
@@ -101,7 +102,7 @@ export function renderOfflineScene(scene: PresentationScene, visual: EvidenceLin
     }
     const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : '';
     const origin = originLabel ? `<small class="scene-origin">${originLabel}</small>` : '';
-    const content = `${collapseNodeLabelIndex === element.nodeIndex ? '' : `<span class="scene-label">${inlineCodeHtml(node.label)}</span>`}${body}${origin}`;
+    const content = `${collapseNodeLabelIndex === element.nodeIndex ? '' : `<span class="scene-label">${inlineCodeHtml(displayLabel)}</span>`}${body}${origin}`;
     const href = evidenceHref(element.nodeIndex!, element.valueOrigin === 'source' ? element.value : undefined);
     const accessibleLabel = escapeSceneText(plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin, 'Open supporting code')));
     // Even a programming error in the destination callback cannot introduce an

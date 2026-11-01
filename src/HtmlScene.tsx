@@ -3,7 +3,7 @@ import { ArrowDown, ArrowRight, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
 import { containerKinds, sameVisibleSceneText, sceneChildIndices, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
 import { InlineCodeText } from './InlineCodeText';
-import { plainInlineCodeText } from './lib/inlineCode';
+import { plainInlineCodeText, readerFacingVisualLabel } from './lib/inlineCode';
 import './html-scene.css';
 
 /** The AI composes HTML from bounded layout/data primitives. React owns every
@@ -124,6 +124,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
     if (e.kind === 'divider') return <hr key={index} className={className}/>;
     const node = visual.nodes[e.nodeIndex!];
+    const displayLabel = readerFacingVisualLabel(node.label);
     const uniqueRepresentation = nodeOccurrenceCounts.get(e.nodeIndex!) === 1;
     const focused = uniqueRepresentation && focusedNode === node.nodeId;
     const value = e.value;
@@ -131,7 +132,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     // explanatory value. The label already carries the same visible cue, so
     // rendering the identical value below it adds visual noise without detail.
     const repeatsPlainLabel = ['card', 'token', 'text'].includes(e.kind)
-      && sameVisibleSceneText(value, node.label);
+      && (sameVisibleSceneText(value, displayLabel) || sameVisibleSceneText(value, node.label));
     const displayValue = repeatsPlainLabel ? '' : value;
     const displayOrigin = displayValue ? e.valueOrigin : 'none';
     const originLabel = displayOrigin === 'source' ? 'Source value' : displayOrigin === 'illustration' ? 'Illustrative example' : null;
@@ -155,7 +156,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
-      {collapseNodeLabelIndex !== e.nodeIndex && <span className="html-scene-label"><InlineCodeText text={node.label}/><Code2 size={12}/></span>}
+      {collapseNodeLabelIndex !== e.nodeIndex && <span className="html-scene-label"><InlineCodeText text={displayLabel}/><Code2 size={12}/></span>}
       {body}
       {originLabel && <small className="html-origin-label">{originLabel}</small>}
     </div>;

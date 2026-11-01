@@ -15,7 +15,7 @@ import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgressRecord, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceEvidenceAnchorForVisualNodeInScene, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, supportsStoryFullMap, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
-import { plainInlineCodeText } from './lib/inlineCode';
+import { plainInlineCodeText, readerFacingVisualLabel } from './lib/inlineCode';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
 
@@ -263,13 +263,14 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const graphLayout = visual ? storyLayoutWithDirection(visual, visibleIds) : undefined;
   const nodes = visual ? graphLayout!.nodes.map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
-    const label = plainInlineCodeText(data.label);
+    const displayLabel = readerFacingVisualLabel(data.label);
+    const label = plainInlineCodeText(displayLabel);
     const detail = data.detail ? plainInlineCodeText(data.detail) : '';
     const showTitle = !collapseRepeatedActiveLabels || node.id === firstActiveSceneNodeId;
     return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
       targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
       data: { label: <AppButton intent="custom" size="1" className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${sourceAnchorIdForNode(node.id, undefined, scene.anchorIds) ?? data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focusedNode === node.id} aria-label={`${label}${detail ? `: ${detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}. Show code detail`} title={`${label}${detail ? ` — ${detail}` : ''}`} onClick={() => chooseNode(node.id)}>
-        {showTitle && <span className="story-node-title"><InlineCodeText text={data.label}/></span>}
+        {showTitle && <span className="story-node-title"><InlineCodeText text={displayLabel}/></span>}
         {data.detail && <small className="story-node-detail"><InlineCodeText text={data.detail}/></small>}
       </AppButton> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
