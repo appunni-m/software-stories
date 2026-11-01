@@ -184,7 +184,7 @@ describe('Atlas integrated source journey', () => {
     ]);
 
     // Back restores the exact Atlas selection, snapshot, root tree context, and return-focus target.
-    const returned = navigateBack(codeLens);
+    const returned = navigateBack(sourceRoute);
     assert.deepEqual(returned.current, selectedAtlas.current);
     assert.equal(returned.current.snapshotId, manifest.summary.snapshotId);
     assert.deepEqual(returned.current.atlasSelection, {
