@@ -11,16 +11,15 @@ test('opening and closing code always reveals its corresponding narrow pane',()=
   matches(workspace,/aria-label=\{narrowPane==='source'\?'Show explanation':'Show source'\} onClick=\{\(\)=>\{if\(narrowPane==='source'\)setNarrowPane\('explanation'\);else\{setCodeOpen\(true\);setNarrowPane\('source'\);\}\}\}/);
 });
 
-test('explaining selected code saves its exact source reveal for this exploration',()=>{
-  matches(workspace,/function openFile\(context:Context\) \{ update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);setReveal\(context\);/);
-  matches(workspace,/function explain\(context:Context\)\{[\s\S]*?const selected=bindSelectionToDisplayedSource\(context,source\);[\s\S]*?setCodeRequestReview\(\{context:selected,question,snapshotId,sourceSha256:source\.sha256,[\s\S]*?sourceExcerpt,excerptTruncated\}\);/);
-  matches(workspace,/function acceptCodeRequestReview\(\)\{[\s\S]*?if\(!isCurrentCodeRequestReview\(review\)\)/);
-  matches(workspace,/openFile\(review\.context\);\s*ask\(review\.question,current\.view==='flow'\?'flow':'guide',\[review\.context\]\);/);
+test('explaining selected code starts from its exact snapshot selection at this exploration',()=>{
+  matches(workspace,/function openFile\(context:Context\) \{[\s\S]*?update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);[\s\S]*?setReveal\(\{\.\.\.context\}\);[\s\S]*?setCodeOpen\(true\);setNarrowPane\('source'\);/);
+  matches(workspace,/function explain\(context:Context\)\{[\s\S]*?const selected=verifiedCodeContext\(context,snapshotId\);[\s\S]*?const question=`Explain what \$\{label\(selected\)\} does and how it works\.`;[\s\S]*?ask\(question,view,\[selected\]\)/);
+  matches(workspace,/function explainSafely\(context:Context\)\s*\{\s*try\s*\{explain\(context\);\}\s*catch\(failure\)\s*\{[\s\S]*?setDraftNotice\(`The selected code could not be prepared\./);
   matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
 });
 
 test('view and composer shortcuts reveal their targets before focusing',()=>{
-  matches(workspace,/const setView = \(view:View\) => \{setNarrowPane\('explanation'\);update\(/);
+  matches(workspace,/const setView = \(view:View\) => \{[\s\S]*?setNarrowPane\('explanation'\);update\(/);
   matches(workspace,/function focusComposer\(\)\{setNarrowPane\('explanation'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>composer.current\?\.focus\(\)\);\}/);
   matches(workspace,/if\(mod&&k==='l'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);focusComposer\(\);\}/);
   matches(workspace,/function attach\(context:Context\) \{[\s\S]*?setAttachments\(\(all\)=>\[\.\.\.all,context\]\);focusComposer\(\);/);
@@ -29,7 +28,7 @@ test('view and composer shortcuts reveal their targets before focusing',()=>{
 test('search commands reveal their distinct tools and narrow navigation has a direct return',()=>{
   matches(workspace,/const findInRepository=\(\)=>\{setActivity\('search'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
   matches(workspace,/const quickOpen=\(\)=>\{setActivity\('files'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
-  matches(workspace,/if\(mod&&event.shiftKey&&k==='f'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);findInRepository\(\);\}[\s\S]*?else if\(mod&&k==='p'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);quickOpen\(\);\}[\s\S]*?else if\(mod&&k==='k'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);onWorkspace\('atlas'\);\}/);
+  matches(workspace,/if\(mod&&event.shiftKey&&k==='f'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);findInRepository\(\);\}[\s\S]*?else if\(mod&&k==='p'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);quickOpen\(\);\}[\s\S]*?else if\(mod&&k==='k'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);setActivity\('files'\);[\s\S]*?showView\('flow'\);/);
   matches(workspace,/const returnToGuide = \(pane:'explorer'\|'explanation'\) => \{[\s\S]*?setNarrowPane\(pane\);\s*onWorkspace\('guide-plan'\);\s*\};/);
   matches(workspace,/className="dw-sidebar-back"[^\n]*aria-label="Back to explanation"[^\n]*onClick=\{\(\)=>returnToGuide\('explanation'\)\}/);
   matches(css,/\.developer-workspace \.dw-sidebar-back\s*\{display:none;\}/);
@@ -58,30 +57,27 @@ test('connection header shows the selected provider model and reasoning in one c
 test('native header keeps desktop controls together and reflows compact controls in normal rows',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
-  matches(shell,/\.topbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0,1fr\) minmax\(0,max-content\);[^}]*grid-template-areas:\s*"brand project actions";[^}]*position:\s*relative;/);
-  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*wrap;[^}]*margin-left:\s*auto;/);
+  matches(shell,/\.topbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*max-content minmax\(0,1fr\) minmax\(0,1fr\);[^}]*grid-template-areas:\s*"brand project actions";[^}]*position:\s*relative;/);
+  matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*wrap;[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*margin-left:\s*0;/);
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);
-  matches(shell,/@container app-window \(max-width: 1600px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"project" "actions";/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar\s*\{[^}]*display:grid;[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"project" "actions";/);
+  matches(shell,/@container app-window \(max-width: 1440px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:auto minmax\(0,1fr\);[^}]*grid-template-areas:"brand actions" "project project";/);
+  matches(shell,/@container app-window \(max-width: 680px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"brand" "actions" "project";/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
-  matches(shell,/@container app-window \(max-width: 1600px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:12px;/u);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.topbar-actions\s*\{grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;max-width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:12px;/u);
-  matches(shell,/\.topbar \.theme-control\s*\{[^}]*min-width:0/u);
+  matches(shell,/@container app-window \(max-width: 1440px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;/u);
+  matches(shell,/@container app-window \(max-width: 600px\)\s*\{[\s\S]*?\.topbar \.brand-name,[\s\S]*?\.topbar \.connection-header \{width:100%;max-width:min\(42cqi,220px\);min-width:0;padding-inline:6px;\}/u);
+  matches(shell,/@container app-window \(max-width: 420px\)\s*\{[\s\S]*?\.topbar \.connection-header \{flex:1 1 100%;width:100%;max-width:min\(100%,230px\);\}/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*flex:\s*0 0 auto;/u);
   matches(shell,/\.topbar \.theme-control-trigger\s*\{[^}]*flex:\s*0 0 auto;/u);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.connection-header-value \{flex:1;\}/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button \{width:34px;min-width:34px;padding-inline:0;\}/);
-  matches(shell,/html\[data-app-zoom-compact="true"\] \.topbar \.snapshot-refresh-button > span \{display:none;\}/);
 });
 
-test('scene navigation stays in normal flow and scrolls long scene indexes within their track',()=>{
+test('scene navigation stays in normal flow and wraps long scene indexes within their track',()=>{
   const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
   matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;[^}]*inset:\s*auto;/);
   matches(story,/\.story-toolbar\s*\{[^}]*position:\s*static;/);
   matches(story,/\.story-scene-progress\s*\{[^}]*position:\s*static;/);
-  matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/);
+  matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/);
 });
 
 test('native high zoom shows one workspace pane at a time with a return path',()=>{

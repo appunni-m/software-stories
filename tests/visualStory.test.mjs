@@ -404,9 +404,9 @@ describe('visual story scenes', () => {
       'title, map, and scene controls must occupy explicit normal-flow rows');
     assert.doesNotMatch(styles, /@container\s+guide-pane\s*\(min-width:\s*560px\)/u,
       'wide Guide panes must not pull scene navigation into the title row');
-    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*width:min\(100%,604px\)/u,
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*width:min\(100%,360px\)/u,
       'scene navigation must occupy one centered, bounded row below the title');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*grid-template-areas:"previous position next";[^}]*width:min\(100%,604px\);[^}]*max-width:100%/u,
+    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*grid-template-areas:"previous position next";[^}]*width:min\(100%,360px\);[^}]*max-width:100%/u,
       'multi-scene navigation keeps arrows in fixed columns and lets the centered position shrink');
     assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*grid-area:position;[^}]*flex-wrap:wrap;[^}]*min-width:0;[^}]*max-width:100%/u,
       'scene position wraps inside the grid track between the fixed arrow buttons');
