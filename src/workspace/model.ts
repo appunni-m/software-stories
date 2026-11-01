@@ -48,6 +48,7 @@ export interface RepositoryGuide {
   revision: number;
   id: string; projectId: string; snapshotId: string; question: string; title: string;
   status: 'planning' | 'building' | 'waitingForPlayback' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
+  planningRunId?: string;
   openingRunId: string | null;
   openingRunIds: string[];
   canContinue: boolean;

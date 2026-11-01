@@ -4,8 +4,9 @@
 use super::*;
 use crate::codex_agent::RunDeadline;
 use crate::evidence_ledger::sections::{
-    self, Outcome, SectionNotice,
+    self,
     reading::{self, Summary},
+    Outcome, SectionNotice,
 };
 use tauri::Manager;
 
@@ -874,6 +875,30 @@ pub(crate) fn timing_report(
     snapshot: &str,
     active: bool,
 ) -> Result<TimingReport, String> {
+    timing_report_with_guide_outcome(storage, run, project, snapshot, active, None)
+}
+
+/// Include a plan-only run after the caller has verified that the run ID belongs
+/// to a persisted guide in this exact project and snapshot.
+pub(crate) fn guide_planning_timing_report(
+    storage: &Path,
+    run: &str,
+    project: &str,
+    snapshot: &str,
+    active: bool,
+    outcome: Outcome,
+) -> Result<TimingReport, String> {
+    timing_report_with_guide_outcome(storage, run, project, snapshot, active, Some(outcome))
+}
+
+fn timing_report_with_guide_outcome(
+    storage: &Path,
+    run: &str,
+    project: &str,
+    snapshot: &str,
+    active: bool,
+    guide_planning_outcome: Option<Outcome>,
+) -> Result<TimingReport, String> {
     let answer = if reading::exists(storage, run)? {
         Some(reading::scoped(storage, run, project, snapshot)?)
     } else {
@@ -887,11 +912,15 @@ pub(crate) fn timing_report(
     };
     let preparation_checkpoint = job.filter(|job| !job.preparation_stages.is_empty());
     if answer.is_none()
+        && guide_planning_outcome.is_none()
         && preparation_checkpoint
             .as_ref()
             .is_none_or(|job| job.project_id != project || job.snapshot_id != snapshot)
     {
         return Err("The saved answer timing report is unavailable.".into());
+    }
+    if guide_planning_outcome.is_some() && trace.is_none() {
+        return Err("The saved guide planning timing report is unavailable.".into());
     }
     let publications = answer
         .as_ref()
@@ -927,6 +956,12 @@ pub(crate) fn timing_report(
                 Outcome::Interrupted
             } else {
                 answer.outcome
+            }
+        } else if let Some(outcome) = guide_planning_outcome {
+            if !active && outcome == Outcome::Working {
+                Outcome::Interrupted
+            } else {
+                outcome
             }
         } else {
             match preparation_checkpoint.as_ref().map(|job| &job.state) {

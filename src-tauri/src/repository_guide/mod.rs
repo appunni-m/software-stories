@@ -2,15 +2,16 @@
 //! outline drives independently owned investigations. Restart never dispatches.
 
 use crate::{
-    ProjectSessions, app_data_directory, codex_agent,
+    app_data_directory, codex_agent,
     evidence_ledger::sections::{
-        Outcome, SectionNotice,
         reading::{self, Summary},
+        Outcome, SectionNotice,
     },
     recovery, repository_context as context,
     repository_context_commands::RepositoryContextJobs,
     snapshot, workspace,
     workspace_generation::{self, Input, Reference},
+    ProjectSessions,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -160,6 +161,7 @@ pub(crate) struct GuideSummary {
     question: String,
     title: String,
     status: Status,
+    planning_run_id: String,
     units: Vec<UnitSummary>,
     answers: Vec<Summary>,
     opening_run_id: Option<String>,
@@ -913,6 +915,7 @@ fn guide_summary(
         question: record.question.clone(),
         title: plan.map_or_else(|| "Repository guide".into(), |p| p.title.clone()),
         status: record.status.clone(),
+        planning_run_id: record.planning_run_id.clone(),
         units,
         answers,
         opening_run_id: opening_continuation::latest(record).map(|a| a.run_id.clone()),
@@ -2153,6 +2156,61 @@ pub(crate) async fn list_repository_guides(
         guides,
         unavailable_count,
     })
+}
+
+fn planning_timing_outcome(record: &Record, active: bool) -> Result<Outcome, String> {
+    if record.plan.is_some() {
+        return Ok(Outcome::Complete);
+    }
+    match &record.status {
+        Status::Planning if active => Ok(Outcome::Working),
+        Status::Planning | Status::Interrupted => Ok(Outcome::Interrupted),
+        Status::Stopped => Ok(Outcome::Stopped),
+        Status::Failed => Ok(Outcome::Failed),
+        _ => Err("The saved guide planning timing report is unavailable.".into()),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn save_repository_guide_planning_timing(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    guide_id: String,
+    project_id: String,
+    snapshot_id: String,
+) -> Result<bool, String> {
+    let storage = app_data_directory(&app)?;
+    let manager = manager.inner().clone();
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        let record = store::read(&storage, &guide_id)?;
+        if record.project_id != project_id || record.snapshot_id != snapshot_id {
+            return Err("The saved guide planning timing report is unavailable.".into());
+        }
+        let run_id = record.planning_run_id.clone();
+        manager.with_operation_state(&run_id, |active| {
+            let outcome = planning_timing_outcome(&record, active)?;
+            workspace_generation::progressive::guide_planning_timing_report(
+                &storage,
+                &run_id,
+                &project_id,
+                &snapshot_id,
+                active,
+                outcome,
+            )
+        })
+    })
+    .await
+    .map_err(|_| "Guide planning timing diagnostics could not be loaded.")??;
+    let bytes = serde_json::to_vec_pretty(&report)
+        .map_err(|_| "Guide planning timing diagnostics could not be encoded.")?;
+    crate::local_export::save(
+        app,
+        "code-atlas-guide-planning-timing.json".into(),
+        "json",
+        bytes,
+        256 * 1024,
+    )
+    .await
 }
 
 fn list_saved_guides(

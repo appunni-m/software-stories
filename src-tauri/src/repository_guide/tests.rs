@@ -139,6 +139,23 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
 }
 
 #[test]
+fn planning_timing_outcome_uses_the_persisted_guide_terminal_state() {
+    let f = Fixture::new();
+    let mut guide = record(&f);
+    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Complete);
+
+    guide.plan = None;
+    guide.status = Status::Planning;
+    assert_eq!(planning_timing_outcome(&guide, true).unwrap(), Outcome::Working);
+    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Interrupted);
+
+    guide.status = Status::Stopped;
+    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Stopped);
+    guide.status = Status::Failed;
+    assert_eq!(planning_timing_outcome(&guide, false).unwrap(), Outcome::Failed);
+}
+
+#[test]
 fn playback_receipt_is_durable_while_a_guide_worker_owns_the_runway() {
     let f = Fixture::new();
     let mut record = record(&f);
