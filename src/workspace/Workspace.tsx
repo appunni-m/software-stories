@@ -697,6 +697,14 @@ export function DeveloperWorkspace(props:Props) {
       sourceExcerpt,excerptTruncated});
     setCodeRequestReviewError(null);
   }
+  function explainSafely(context:Context){
+    try{explain(context);}catch{
+      const safeContext:Context=typeof context?.path==='string'?context:{path:'selected code'};
+      setCodeRequestReview({context:safeContext,question:`Explain what ${label(safeContext)} does and how it works.`,
+        snapshotId,sourceSha256:'',sourceExcerpt:'',excerptTruncated:false});
+      setCodeRequestReviewError('The selected code could not be prepared for review. No code was sent. Close this review, reopen the captured file, and select its code again.');
+    }
+  }
   function acceptCodeRequestReview(){
     const review=codeRequestReview;
     if(!review||generationPaused)return;
@@ -1009,7 +1017,7 @@ export function DeveloperWorkspace(props:Props) {
     return roots.map((exploration)=>rendered.get(exploration.id));
   };
   const sourcePane=source
-    ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!generationPaused} onExplain={explain} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
+    ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!generationPaused} onExplain={explainSafely} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
     : <div className="dw-source-empty" data-focus-key="workspace-source" tabIndex={-1}>{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
   const resolveConversationConflict=async(choice:'current'|'saved')=>{
     if(conflictResolutionBusy)return;
@@ -1107,7 +1115,7 @@ export function DeveloperWorkspace(props:Props) {
                     <h1>What would you like to understand?</h1>
                     <p>{conversationUnavailable ? 'Browse or search the captured code to inspect it.' : 'Ask above, or start with the selected file.'}</p>
                     {!generationPaused && source && (
-                      <AppButton intent="custom" className="dw-text-action" onClick={() => explain({ path: source.path, sha256: source.sha256 })}>
+                      <AppButton intent="custom" className="dw-text-action" onClick={() => explainSafely({ path: source.path, sha256: source.sha256 })}>
                         Explain {source.path.split('/').at(-1)}
                       </AppButton>
                     )}
