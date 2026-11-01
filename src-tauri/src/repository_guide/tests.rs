@@ -1045,6 +1045,34 @@ fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing()
 }
 
 #[test]
+fn a_damaged_saved_guide_does_not_block_other_guides_and_is_preserved() {
+    let f = Fixture::new();
+    let selected = record(&f);
+    store::create(&f.storage, &selected).unwrap();
+
+    let damaged_id = Uuid::new_v4().to_string();
+    let damaged = b"{damaged guide record".to_vec();
+    let location = f
+        .storage
+        .join("repository-guides")
+        .join(format!("{damaged_id}.json"));
+    std::fs::write(&location, &damaged).unwrap();
+
+    let manager = codex_agent::CodexAgentManager::default();
+    let (guides, unavailable_count) = list_saved_guides_with_count(
+        &f.storage,
+        &selected.project_id,
+        &selected.snapshot_id,
+        &manager,
+    )
+    .expect("one damaged guide must not block other saved guides");
+    assert_eq!(guides.len(), 1);
+    assert_eq!(guides[0].id, selected.id);
+    assert_eq!(unavailable_count, 1);
+    assert_eq!(std::fs::read(location).unwrap(), damaged);
+}
+
+#[test]
 fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress() {
     let f = Fixture::new();
     let mut record = record(&f);

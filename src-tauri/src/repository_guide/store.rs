@@ -180,16 +180,39 @@ pub(super) fn list(
 ) -> Result<(Vec<Record>, usize), String> {
     let mut records = Vec::new();
     let mut unavailable_count = 0;
-    for (name, _) in scan(&directory(storage)?)?.records {
-        let Some(id) = name.strip_suffix(".json") else {
+    let guide_directory = directory(storage)?;
+    for (name, _) in scan(&guide_directory)?.records {
+        let Some(id) = name.strip_suffix(".json").filter(|id| uuid(id)) else {
+            // A malformed filename cannot be attributed to a repository, but
+            // it must not make other independently saved guides unreadable.
+            unavailable_count += 1;
             continue;
         };
-        let bytes =
-            crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
-        let value = crate::strict_json::from_slice(&bytes)
-            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-        let scope: RecordScope = serde_json::from_value(value.clone())
-            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+
+        // Listing is a read-only recovery path. A damaged record has no
+        // trustworthy scope, so count it as unavailable and continue rather
+        // than preventing unrelated records from being restored. The original
+        // file remains untouched; write/admission paths still fail closed when
+        // storage capacity cannot be verified.
+        let decoded = (|| {
+            let bytes = crate::repository_plan_store::read_bounded_file(
+                &guide_directory.join(&name),
+                MAX_RECORD,
+            )?;
+            let value = crate::strict_json::from_slice(&bytes)
+                .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+            let scope: RecordScope = serde_json::from_value(value.clone())
+                .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+            Ok::<_, String>((scope, value))
+        })();
+        let (scope, value) = match decoded {
+            Ok(decoded) => decoded,
+            Err(_) => {
+                unavailable_count += 1;
+                eprintln!("An unreadable saved repository guide was preserved during listing.");
+                continue;
+            }
+        };
         if scope.project_id == project && scope.snapshot_id == snapshot {
             match decode_record(id, value) {
                 Ok(record) => records.push(record),

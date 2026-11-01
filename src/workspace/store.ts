@@ -616,7 +616,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
   }
   if (unavailableCount > 0) window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
     title:'Some saved guides need attention',
-    message:`${unavailableCount} saved guide item${unavailableCount===1?'':'s'} could not be fully reopened. Their saved work remains on this Mac.`,
+    message:`${unavailableCount} saved guide record${unavailableCount===1?'':'s'} on this Mac could not be fully reopened. Other saved guides remain available, and the original records were preserved.`,
     projectId:project,snapshotId:snapshot,
   }}));
 }
