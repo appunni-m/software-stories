@@ -114,8 +114,8 @@ retain their pinned historical identities.
 
 Ordinary and progressive requests share the current scene, teaching and reader
 language instructions. Progressive contracts fingerprint the current source
-policies `storyPolicy: "ai-html-compositions-v67"`,
-`teachingPolicy: "meaning-first-v32"`, `readerLanguagePolicy:
+policies `storyPolicy: "ai-html-compositions-v71"`,
+`teachingPolicy: "meaning-first-v33"`, `readerLanguagePolicy:
 "reader-language-v1"`, and the exact composed instructions.
 Each claim scene selects graph or composition mode independently, so one visual
 section can mix them; narration-only mode applies only when no claim benefits

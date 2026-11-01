@@ -64,7 +64,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v70`, teaching policy `meaning-first-v32`, and reader
+`ai-html-compositions-v71`, teaching policy `meaning-first-v33`, and reader
 language policy `reader-language-v1`. It starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
@@ -74,7 +74,10 @@ behavior to one or two short sentences and allows up to four short sentences
 and 760 UTF-8 bytes when the real path needs room to connect its input, decision
 or change, visible cue, and caller-visible consequence. Native admission rejects
 longer speech and offers a bounded correction. If a behavior needs more room,
-split it into ordered claims/scenes without omitting outcomes. The complete
+split it into ordered claims/scenes without omitting outcomes. At first spoken
+use, briefly unpack specialist terms using only the cited implementation. For a
+failure or fallback, say what stops or continues and what the caller receives;
+do not suggest a fix unless the cited code supports it. The complete
 section script must fit 20–4,000 UTF-8 bytes and is assembled from grounded
 claims; this keeps the transport bounded but does not establish narration
 quality or listener comprehension. Each claim scene
