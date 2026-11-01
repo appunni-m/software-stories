@@ -199,3 +199,19 @@ These synthetic cases prove shortlist coverage beyond page one and preserve
 the cap boundary; the Fontdone 5/12 broad-range recall, agent's actual range
 choices, answer quality, cancellation, and packaged generation remain
 unqualified. Keep `0wdn` open.
+
+## Make bounded discovery lists explicit — 1 November 2026
+
+Source discovery ranks up to 18 symbols and 10 high-confidence static links
+for each candidate path. The metadata previously omitted any indication that
+these bounded lists were truncated, which could make a missing declaration
+look absent. Candidate records now include `omittedSymbols` and
+`omittedStaticLinks`; the selection prompt tells the agent to check parser
+status/coverage and to use captured-text search and bounded reads when metadata
+is incomplete. The discovery prompt contract version is advanced so a reviewed
+request is fingerprinted against this change. These counts describe only the
+list cap, not symbols omitted by an unsupported or partial parser.
+
+Source review only: no tests, build, retrieval profile, provider request, or
+packaged acceptance ran. Broad recall, relevant-range selection, answer quality
+and the dependent Codex investigation remain open.
