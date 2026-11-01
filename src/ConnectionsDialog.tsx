@@ -4,6 +4,7 @@ import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { AppSelect } from './design/AppSelect';
 import { AppButton } from './design/AppButton';
+import { AppTextField } from './design/AppTextField';
 import { providerFailureMessage } from './lib/errorMessage';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removePocketTtsRuntime, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -142,8 +143,8 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
     </> : <>
       <p>Only narration text is sent to Google after you review and approve it. Free-tier limits, data use and possible charges depend on your Google project.</p>
       <label className="walkthrough-narration-field">Voice<AppSelect ariaLabel="Google narration voice" size="1" value={settings.googleVoice} disabled={!native || busy} options={(disclosure?.voices ?? ['Kore', 'Charon', 'Puck', 'Aoede']).map((voice)=>({value:voice,label:voice}))} onValueChange={(googleVoice)=>save({googleVoice})}/></label>
-      <details><summary>Delivery style</summary><label className="walkthrough-narration-field">Style<input value={settings.googleStyle} disabled={busy} maxLength={160} onChange={(event) => save({ googleStyle: event.target.value })} placeholder="Optional, e.g. calm and conversational"/></label></details>
-      <form onSubmit={(event) => { event.preventDefault(); void changeKey(); }}><label className="walkthrough-narration-field">{credential?.apiKeyConfigured ? 'Replace Google API key' : 'Google API key'}<input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="off" spellCheck={false} disabled={!native || busy}/></label><div className="provider-key-actions"><AppButton intent="secondary" type="submit" disabled={!native || busy || !key.trim()}>Save key</AppButton>{credential?.apiKeyConfigured && <AppButton intent="quiet" type="button" disabled={busy} onClick={() => { void changeKey(true); }}>Remove key</AppButton>}</div></form>
+      <details><summary>Delivery style</summary><label className="walkthrough-narration-field">Style<AppTextField value={settings.googleStyle} disabled={busy} maxLength={160} onValueChange={(googleStyle) => save({ googleStyle })} placeholder="Optional, e.g. calm and conversational"/></label></details>
+      <form onSubmit={(event) => { event.preventDefault(); void changeKey(); }}><label className="walkthrough-narration-field">{credential?.apiKeyConfigured ? 'Replace Google API key' : 'Google API key'}<AppTextField type="password" value={key} onValueChange={setKey} autoComplete="off" spellCheck={false} disabled={!native || busy}/></label><div className="provider-key-actions"><AppButton intent="secondary" type="submit" disabled={!native || busy || !key.trim()}>Save key</AppButton>{credential?.apiKeyConfigured && <AppButton intent="quiet" type="button" disabled={busy} onClick={() => { void changeKey(true); }}>Remove key</AppButton>}</div></form>
       <p>{credential?.apiKeyConfigured ? 'Key saved in macOS Keychain.' : 'No Google key saved.'} {disclosure && <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get a Google key</a>}</p>
     </>}
     {message && <p role="status">{message}</p>}{error && <p className="provider-error-text" role="alert">{error}</p>}

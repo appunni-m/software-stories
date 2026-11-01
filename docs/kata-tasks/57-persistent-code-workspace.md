@@ -146,3 +146,13 @@ use `AppSearchField`. Remaining native inputs are purpose-built editors,
 credentials and executable paths, checkboxes/radios, and the narration seek
 slider. This is a source inventory only; it does not establish packaged visual,
 keyboard, VoiceOver, zoom/reflow, theme, or interaction acceptance.
+
+## Shared Connections text fields — 1 November 2026
+
+Added `src/design/AppTextField.tsx` and moved the Voice connection's delivery
+style and API-key fields to the shared Radix text-field primitive. Labels,
+input type, length limit, disabled state, saved values and submit behavior are
+preserved. Existing light/dark field sizing is expressed in shared CSS. This
+source-only increment has not been built or visually accepted; other settings,
+path and chapter-editor fields remain to be inventoried and migrated where
+appropriate.
