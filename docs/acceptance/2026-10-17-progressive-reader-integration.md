@@ -14,6 +14,8 @@ Restart recovery lists and independently inspects saved answers, adopts any miss
 
 Investigation records remain bounded to eight answers, each reserving at most 4 MiB. At the capacity error, **Manage saved answers** offers an explicit action to save every published section and remove an older terminal investigation receipt. Native removal rejects active work or unsaved/changed revisions. It preserves questions and chapter drafts, but deliberately removes the detailed generation receipt. Records are never evicted automatically. Legacy pending-preview recovery is unchanged.
 
+**Later capacity change — 18 October 2026:** the eight-answer limit above describes this dated checkpoint and was superseded by commit `01cf3a4`. The current native store reserves up to 1,000 answer-record slots shared across Guide lifetime allowances, standalone answers, and historical receipts; each record is limited to 4 MiB. It does not evict records automatically, and there is no aggregate disk-byte quota. The current cap is declared by [`MAX_ANSWER_RECORDS`](../../src-tauri/src/evidence_ledger/sections.rs#L24). Packaged boundary and retention acceptance remains open in [Kata 70](../kata-tasks/70-codex-retrieval-tools.md); current storage behavior is described in the [repository retrieval architecture](../architecture/repository-retrieval.md).
+
 ## Verification
 
 - Complete native suite: **334 passed, 12 explicit live probes ignored**, 32.09 s. Log: `/private/tmp/code-atlas-progressive-integration-native-final.log`. Environment: `RUSTC_WRAPPER=`, `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_BUILD_JOBS=2`.
