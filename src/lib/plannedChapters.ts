@@ -9,6 +9,11 @@ export interface PlannedChapterTarget {
   stepId: string;
 }
 
+export interface PlannedChapterBatchTarget {
+  revisionId: string;
+  recordSha256: string;
+}
+
 export interface PlannedChapterScope {
   schemaVersion: 1;
   target: PlannedChapterTarget;
@@ -21,8 +26,23 @@ export interface PlannedChapterScope {
   planContext: RepositoryPlanReviewScope;
 }
 
+/** One native replay of the exact accepted route, with all steps in saved order. */
+export interface PlannedChapterBatchScope {
+  schemaVersion: 1;
+  projectId: string;
+  revisionId: string;
+  recordSha256: string;
+  snapshotId: string;
+  steps: PlannedChapterScope[];
+}
+
 export function preparePlannedChapterScope(projectId: string, target: PlannedChapterTarget): Promise<PlannedChapterScope> {
   return invoke('prepare_planned_chapter_scope', { projectId, target });
+}
+
+/** Local source-bound preparation only; it does not build reviews or start an agent. */
+export function preparePlannedChapterBatch(projectId: string, target: PlannedChapterBatchTarget): Promise<PlannedChapterBatchScope> {
+  return invoke('prepare_planned_chapter_batch', { projectId, target });
 }
 
 export function buildCodexPlannedChapterReview(input: {

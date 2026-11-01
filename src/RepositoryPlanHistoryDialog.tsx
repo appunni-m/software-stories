@@ -8,7 +8,7 @@ import {
   type RepositoryPlanDraftDetail, type RepositoryPlanDraftSummary,
   type RepositoryPlanRevisionDetail, type RepositoryPlanRevisionSummary,
 } from './lib/repositoryPlans';
-import { preparePlannedChapterScope, type PlannedChapterScope } from './lib/plannedChapters';
+import { preparePlannedChapterScope, type PlannedChapterBatchTarget, type PlannedChapterScope } from './lib/plannedChapters';
 import { InlineCodeText } from './InlineCodeText';
 
 type PlanSelection = { kind: 'draft'; id: string } | { kind: 'revision'; id: string };
@@ -27,12 +27,13 @@ function planTime(timestamp: number | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp);
 }
 
-export function RepositoryPlanHistoryDialog({ projectId, native, initialDraftId, onClose, onOpenChapter, onOpenSource }: {
+export function RepositoryPlanHistoryDialog({ projectId, native, initialDraftId, onClose, onOpenChapter, onBuildAllChapters, onOpenSource }: {
   projectId: string;
   native: boolean;
   initialDraftId?: string;
   onClose: () => void;
   onOpenChapter: (scope: PlannedChapterScope) => void;
+  onBuildAllChapters: (target: PlannedChapterBatchTarget) => void;
   onOpenSource: (snapshotId: string, path: string, startLine: number, endLine: number) => void;
 }) {
   const dialog = useRef<HTMLElement>(null);
@@ -178,7 +179,7 @@ export function RepositoryPlanHistoryDialog({ projectId, native, initialDraftId,
       aria-labelledby="repository-plan-history-title" tabIndex={-1}>
       <header className="provider-dialog-header">
         <div><span className="eyebrow"><Route size={13}/> LEARNING ROUTES</span><h2 id="repository-plan-history-title">Plans for this repository</h2>
-          <p>Review a saved route, accept it, then open one chapter at a time.</p></div>
+          <p>Review a route, then build its chapters in order or open one step.</p></div>
         <AppButton intent="icon" onClick={onClose} aria-label="Close learning plans"><X size={17}/></AppButton>
       </header>
       {!native ? <div className="provider-dialog-content"><p>Saved routes are available in the macOS app.</p></div> : <div className="repository-plan-browser">
@@ -209,6 +210,13 @@ export function RepositoryPlanHistoryDialog({ projectId, native, initialDraftId,
             <div className="repository-plan-detail-heading"><div><span>{isDraft?'UNACCEPTED DRAFT':'ACCEPTED ROUTE'}</span><h3><InlineCodeText text={plan.title}/></h3><p><InlineCodeText text={plan.question}/></p></div>
               {!isDraft&&selectedRevision&&<small>Revision {selectedRevision.revision.revisionNumber}{selectedRevision.isHead?' · current':''}</small>}
             </div>
+            {!isDraft&&selectedRevision&&<div className="repository-plan-batch-entry">
+              <div><strong>Build the route</strong><span>{plan.steps.length} chapters, saved as separate drafts for review.</span></div>
+              <AppButton intent="primary" onClick={()=>onBuildAllChapters({
+                revisionId:selectedRevision.revision.revisionId,
+                recordSha256:selectedRevision.revision.recordSha256,
+              })} disabled={busy!==null||plan.steps.length===0}>Build all chapters<ChevronRight size={14}/></AppButton>
+            </div>}
             <div className="repository-plan-step-list">
               {plan.steps.map((step,index)=><article className="repository-plan-step" key={step.stepId}>
                 <div className="repository-plan-step-heading"><span>STEP {index+1}</span><code>{step.primaryPath}</code></div>

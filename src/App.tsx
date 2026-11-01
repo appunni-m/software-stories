@@ -39,7 +39,8 @@ import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlanHistoryDialog } from './RepositoryPlanHistoryDialog';
-import type { PlannedChapterScope } from './lib/plannedChapters';
+import { RepositoryPlanBatchDialog } from './RepositoryPlanBatchDialog';
+import type { PlannedChapterBatchTarget, PlannedChapterScope } from './lib/plannedChapters';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
@@ -363,6 +364,7 @@ function App() {
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
   const [planHistoryProjectId, setPlanHistoryProjectId] = useState<string | null>(null);
   const [planHistoryDraftId, setPlanHistoryDraftId] = useState<string | undefined>(undefined);
+  const [planBatch, setPlanBatch] = useState<{ projectId: string; target: PlannedChapterBatchTarget } | null>(null);
   const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
@@ -379,6 +381,7 @@ function App() {
     setPlanHistoryProjectId(projectId);
   }, []);
   const closePlanHistory = useCallback(() => {
+    setPlanBatch(null);
     setPlanHistoryProjectId(null);
     setPlanHistoryDraftId(undefined);
   }, []);
@@ -2230,6 +2233,24 @@ function App() {
           setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,focusTarget:'heading:guide-plan'}));
           openPlanningDialog({kind:'planned-chapter',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,
             question:scope.question,selectedPaths:scope.selectedPaths,plannedChapter:scope});
+        }}
+        onBuildAllChapters={(target)=>{
+          if (planHistoryProjectId) setPlanBatch({projectId:planHistoryProjectId,target});
+        }} />}
+      {planBatch && <RepositoryPlanBatchDialog
+        key={`${planBatch.projectId}:${planBatch.target.revisionId}:${planBatch.target.recordSha256}`}
+        projectId={planBatch.projectId}
+        target={planBatch.target}
+        native={runtime?.native ?? isNativeRuntime()}
+        onClose={()=>setPlanBatch(null)}
+        onReviewDraft={(revision)=>{
+          setPlanBatch(null);
+          closePlanHistory();
+          reviewGuideRevision(revision);
+        }}
+        onOpenPendingPreview={(generationId)=>{
+          setPlanBatch(null);
+          setRecoveredPreviewId(generationId);
         }} />}
       {providerDialog && (
         <ProviderDialog
