@@ -109,6 +109,18 @@ test('progressive cards stop loading when a completed history read cannot find t
   assert.doesNotMatch(workspace, /loading=\{props\.loading\|\|!chapters\?\.some/);
 });
 
+test('saved Guide recovery reports failure only when the local restore rejects', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const start = workspace.indexOf('const restoreUnavailableGuide=async()=>{');
+  const end = workspace.indexOf('\n  };', start);
+  assert.ok(start >= 0 && end > start);
+  const recovery = workspace.slice(start, end);
+  assert.match(recovery, /try\{await props\.onRestoreSaved\(\);setSavedGuideRestoreFailed\(false\);\}/);
+  assert.match(recovery, /catch\{setSavedGuideRestoreFailed\(true\);\}/);
+  assert.match(recovery, /finally\{setRestoringSavedGuide\(false\);\}/);
+  assert.doesNotMatch(recovery, /finally\{[^}]*setSavedGuideRestoreFailed/);
+});
+
 test('an unavailable answer stays a compact status beside its recovery action', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');

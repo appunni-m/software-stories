@@ -1231,9 +1231,9 @@ function Answer(props:AnswerProps){
     if(!props.onRestoreSaved||restoringSavedGuide)return;
     setRestoringSavedGuide(true);
     setSavedGuideRestoreFailed(false);
-    try{await props.onRestoreSaved();}
-    catch{/* Keep the saved record untouched and show the same local recovery choices. */}
-    finally{setRestoringSavedGuide(false);setSavedGuideRestoreFailed(true);}
+    try{await props.onRestoreSaved();setSavedGuideRestoreFailed(false);}
+    catch{setSavedGuideRestoreFailed(true);}
+    finally{setRestoringSavedGuide(false);}
   };
   const guideHasUnavailableSlides=Boolean(turn.guideId&&unavailableSequenceCount>0);
   const waitingMessage=props.loading
