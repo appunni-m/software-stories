@@ -58,7 +58,12 @@ export function GitChangesScreen({
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
   const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
-  const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(() => compact && Boolean(initialBaseRef.trim() || initialHeadRef.trim()));
+  const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(() => {
+    const base = initialBaseRef.trim();
+    const head = initialHeadRef.trim();
+    const hasMatchingResult = Boolean(comparison && comparison.baseRef === base && comparison.headRef === head);
+    return compact && Boolean(base || head) && !hasMatchingResult;
+  });
   const previousComparisonResult = useRef(comparison?.result);
   const collapseAfterSuccessfulComparison = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
