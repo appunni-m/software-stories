@@ -17,6 +17,11 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
   /** Hide the in-canvas heading when a persistent reader toolbar already names the scene. */
   showTitle?: boolean;
 }) {
+  const nodeOccurrenceCounts = new Map<number, number>();
+  for (const element of scene.elements) {
+    if (element.nodeIndex === null || containerKinds.has(element.kind) || element.kind === 'arrow' || element.kind === 'divider') continue;
+    nodeOccurrenceCounts.set(element.nodeIndex, (nodeOccurrenceCounts.get(element.nodeIndex) ?? 0) + 1);
+  }
   const firstNodeIndices = new Map<number, number | null>();
   function firstNodeIndex(index: number): number | null {
     if (firstNodeIndices.has(index)) return firstNodeIndices.get(index) ?? null;
@@ -119,6 +124,8 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
     if (e.kind === 'divider') return <hr key={index} className={className}/>;
     const node = visual.nodes[e.nodeIndex!];
+    const uniqueRepresentation = nodeOccurrenceCounts.get(e.nodeIndex!) === 1;
+    const focused = uniqueRepresentation && focusedNode === node.nodeId;
     const value = e.value;
     // Some saved scenes repeat the same phrase as both the node label and its
     // explanatory value. The label already carries the same visible cue, so
@@ -142,9 +149,9 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode, sourceAnchor
     }
     if (e.kind === 'table') body = <table><tbody>{displayValue.trimEnd().split(/\r?\n/u).map((row, i) => <tr key={i}>{row.split('|').map((cell, j) => i === 0 ? <th key={j} scope="col">{cell}</th> : <td key={j}>{cell}</td>)}</tr>)}</tbody></table>;
     if (e.kind === 'code') body = displayValue ? <pre><code>{displayValue}</code></pre> : null;
-    return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
+    return <div key={index} className={`${className}${focused ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ? plainInlineCodeText(node.detail) : undefined}
-      aria-pressed={focusedNode === node.nodeId}
+      aria-pressed={uniqueRepresentation ? focused : undefined}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${focusAnchorId}`}
       aria-label={plainInlineCodeText(sceneNodeAccessibleLabel(node, displayValue, displayOrigin))}
       onClick={() => onOpenNode(node.nodeId, sourceValue, focusAnchorId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue, focusAnchorId); } }}>
