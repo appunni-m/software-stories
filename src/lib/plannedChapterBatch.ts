@@ -17,6 +17,13 @@ export function plannedChapterBatchBoundary(state: {
   };
 }
 
+/** Claims the single batch worker slot before any asynchronous boundary. */
+export function acquirePlannedChapterBatchRun(run: { current: boolean }, canStart: boolean): boolean {
+  if (!canStart || run.current) return false;
+  run.current = true;
+  return true;
+}
+
 export function exactSavedPlannedChapter(revision: ChapterRevision, scope: PlannedChapterScope): boolean {
   if (revision.lifecycle !== 'draft' && revision.lifecycle !== 'accepted') return false;
   const origin = revision.generationOrigin;

@@ -14,6 +14,7 @@ import { codexSelectionIsSupported } from './lib/codexConnection';
 import { providerFailureMessage } from './lib/errorMessage';
 import { readGenerationBackend } from './lib/generationPreferences';
 import {
+  acquirePlannedChapterBatchRun,
   exactSavedPlannedChapter, matchingPlannedChapterPendingPreview, matchesPlannedChapterPreview,
   plannedChapterBatchBoundary,
   sameReviewedPlannedChapterRequest,
@@ -47,6 +48,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
   const alive = useRef(true);
   const cancelled = useRef(false);
   const stopAfterCurrentSave = useRef(false);
+  const buildRunStarted = useRef(false);
   const activeReviewId = useRef<string | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [phase, setPhase] = useState<Phase>('preparing');
@@ -211,6 +213,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
 
   const build = async () => {
     if (phase !== 'review' || !selection || cancelled.current) return;
+    if (!acquirePlannedChapterBatchRun(buildRunStarted, true)) return;
     setPhase('running');
     setError(null);
     cancelled.current = false;

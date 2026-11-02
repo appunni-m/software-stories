@@ -52,6 +52,7 @@ import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
 import {appCloseCoordinator} from './lib/closeCoordinator';
+import { playbackPositionToPersist } from './lib/narrationPlayback';
 
 interface NarrationPlayerProps {
   projectId: string;
@@ -236,6 +237,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       player.load();
     }
     return () => {
+      // This effect cleanup runs before the mounted ref cleanup on unmount,
+      // and on track changes it still has the old route's callback captured.
+      const position = playbackPositionToPersist(player, restoreTimeRef.current !== null);
+      if (position !== undefined) persistPlaybackPosition(position);
       player.pause();
       player.removeAttribute('src');
       player.load();
@@ -247,11 +252,14 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   useEffect(() => {
     mountedRef.current = true;
     return () => {
+      const player = audioRef.current;
+      const position = playbackPositionToPersist(player, restoreTimeRef.current !== null);
+      if (position !== undefined) persistPlaybackPosition(position);
       mountedRef.current = false;
       completionArmed.current = false;
       reviewGenerationRef.current += 1;
       autoPlayRef.current = false;
-      audioRef.current?.pause();
+      player?.pause();
       // A section change also ends its in-flight request. Discarding its review
       // covers a command which has not consumed it yet; cancellation covers one
       // which has already started generating the reviewed narration.
@@ -673,9 +681,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   useEffect(()=>appCloseCoordinator.register({
     capture:()=>{
       const player=audioRef.current;
-      // An unloaded audio element reports zero; it must not erase a saved time.
-      if(mountedRef.current&&player&&player.readyState>=1&&restoreTimeRef.current===null){
-        persistPlaybackPosition(player.currentTime);
+      // An unloaded element or a pending restore must not erase a saved time.
+      const position=playbackPositionToPersist(player,restoreTimeRef.current!==null);
+      if(mountedRef.current&&player&&position!==undefined){
+        persistPlaybackPosition(position);
         completionArmed.current=false;player.pause();
       }
     },

@@ -37,6 +37,16 @@ describe('notification totals', () => {
     assert.match(source, /questionNotificationText\(outcome\.question, 140\)/);
   });
 
+  it('moves focus from the notification action to the opened question', async () => {
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    const actionStart = source.indexOf("actions: [{ label: 'Open question', movesFocus: true");
+    assert.notEqual(actionStart, -1);
+    const actionEnd = source.indexOf("} }, ...(groupedOutcomes", actionStart);
+    assert.notEqual(actionEnd, -1);
+    const action = source.slice(actionStart, actionEnd);
+    assert.match(action, /focusTarget:`workspace-answer:\$\{outcome\.turnId\}`/);
+  });
+
   it('keeps current-snapshot and global notifications visible and collapses older scopes without losing actions', () => {
     const currentAction = () => 'current';
     const olderAction = () => 'older';

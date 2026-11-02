@@ -1781,7 +1781,7 @@ function App() {
         actions: [{ label: 'Open question', movesFocus: true, run: () => {
           if (!projectId || !snapshotId) return;
           updateWorkspace(projectId,snapshotId,(s)=>openWorkspaceQuestion(s,outcome.explorationId,outcome.turnId));
-          setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId,snapshotId}));
+          setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId,snapshotId,focusTarget:`workspace-answer:${outcome.turnId}`}));
         } }, ...(groupedOutcomes.length===1&&!outcome.read?[{label:'Mark read',run:()=>{
           if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'read'));
         }}]:[]), { label: 'Dismiss', run: () => {

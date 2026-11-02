@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  exactSavedPlannedChapter, matchingPlannedChapterPendingPreview,
+  acquirePlannedChapterBatchRun, exactSavedPlannedChapter, matchingPlannedChapterPendingPreview,
   matchesPlannedChapterPreview, plannedChapterBatchBoundary, sameReviewedPlannedChapterRequest,
 } from '../src/lib/plannedChapterBatch.ts';
 
@@ -47,6 +47,21 @@ test('stop after current save preserves the in-flight result and blocks the next
   assert.deepEqual(plannedChapterBatchBoundary({ alive: false, cancelled: false, stopAfterCurrentSave: true }), {
     keepCurrent: false, continueBatch: false, stopped: true,
   });
+});
+
+test('duplicate Build clicks admit only one batch worker before rerender', async () => {
+  const run = { current: false };
+  assert.equal(acquirePlannedChapterBatchRun(run, false), false);
+  assert.equal(run.current, false);
+
+  assert.equal(acquirePlannedChapterBatchRun(run, true), true);
+  assert.equal(acquirePlannedChapterBatchRun(run, true), false);
+  assert.equal(run.current, true);
+
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../src/RepositoryPlanBatchDialog.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const buildRunStarted = useRef\(false\)/);
+  assert.match(source, /acquirePlannedChapterBatchRun\(\s*buildRunStarted/);
 });
 
 test('the batch stop-after-save control leaves the active Codex request running', async () => {

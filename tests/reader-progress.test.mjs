@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,FOCUSED_STORY_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
 import {readSectionStoryProgress,readStoryProgressRecord} from '../src/lib/visualStory.ts';
+import {playbackPositionToPersist} from '../src/lib/narrationPlayback.ts';
 import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,focusAnswerSection,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition,shouldRestoreFocusedAnswerAnchor} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
@@ -242,6 +243,24 @@ test('real reading components bind scoped progress without persisting an autopla
   assert.match(workspace,/onSectionChange:\(sectionId\)=>\{/);
   const narration=readFileSync(new URL('../src/NarrationPlayer.tsx',import.meta.url),'utf8');
   assert.match(narration,/if\(mountedRef\.current\)persistPlaybackPosition\(event\.currentTarget\.currentTime\)/);
+  const disposal=narration.match(/mountedRef\.current = true;\s*return \(\) => \{([\s\S]*?)\n    \};/u)?.[1]??'';
+  assert.match(disposal,/playbackPositionToPersist\(player, restoreTimeRef\.current !== null\)/);
+  assert.ok(disposal.indexOf('persistPlaybackPosition(position)')<disposal.indexOf('mountedRef.current = false'),
+    'dispose must save the live time before pause events are ignored');
+  assert.doesNotMatch(disposal,/\.play\(/,'disposing narration never starts playback');
+  const sourceCleanup=narration.match(/useEffect\(\(\) => \{\s*const player = audioRef\.current;\s*if \(!player\) return;[\s\S]*?return \(\) => \{([\s\S]*?)\n    \};\n  \}, \[track\?\.audioUrl\]\);/u)?.[1]??'';
+  assert.match(sourceCleanup,/playbackPositionToPersist\(player, restoreTimeRef\.current !== null\)/);
+  assert.ok(sourceCleanup.indexOf('persistPlaybackPosition(position)')<sourceCleanup.indexOf('player.pause()'),
+    'the old route callback must save the old track before the audio source is unloaded');
+  assert.ok(sourceCleanup.indexOf('persistPlaybackPosition(position)')<sourceCleanup.indexOf("player.removeAttribute('src')"),
+    'source changes cannot discard the final playback time');
+  assert.doesNotMatch(sourceCleanup,/\.play\(/,'source cleanup never resumes narration');
+  assert.equal(playbackPositionToPersist({readyState:4,currentTime:18.25},false),18.25);
+  assert.equal(playbackPositionToPersist({readyState:4,currentTime:0},false),0,'an explicit zero is a saved position');
+  assert.equal(playbackPositionToPersist({readyState:0,currentTime:0},false),undefined,'an unloaded audio element cannot overwrite progress');
+  assert.equal(playbackPositionToPersist({readyState:4,currentTime:0},true),undefined,'a pending restoration keeps its saved position');
+  assert.equal(playbackPositionToPersist({readyState:4,currentTime:Infinity},false),undefined);
+  assert.equal(playbackPositionToPersist({readyState:4,currentTime:7200},false),3600,'persisted playback remains within the reader bound');
   assert.match(visual,/\[autoPlay, setAutoPlay\] = useState\(false\)/);
   assert.match(visual,/onMoveEnd=/);
   assert.match(visual,/const savePosition = \(sceneId: string, position\?: number/,'late playback callbacks save against the scene captured by their handler');
