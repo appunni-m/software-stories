@@ -670,6 +670,22 @@ impl CodexAgentManager {
         if let Some(executable) = configured_executable(storage_dir)? {
             save_connection_preference(storage_dir, &executable, false)?;
         }
+        let pending_login_id = self
+            .0
+            .status
+            .lock()
+            .map_err(|_| "Codex status is unavailable.")?
+            .pending_login_id
+            .clone();
+        if let (Some(process), Some(login_id)) = (slot.as_mut(), pending_login_id.as_deref()) {
+            // Disconnect is authoritative even if the server cannot acknowledge
+            // cancellation; dropping the process below still stops local reuse.
+            let _ = process.request(
+                "account/login/cancel",
+                json!({"loginId": login_id}),
+                RPC_TIMEOUT,
+            );
+        }
         slot.take();
         self.update_status(|status| {
             status.runtime_version = None;
