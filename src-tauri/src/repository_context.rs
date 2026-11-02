@@ -1289,10 +1289,30 @@ pub(crate) fn read_range(
     start_byte: usize,
     end_byte: usize,
 ) -> Result<RangeRead, String> {
+    read_range_with_check(
+        storage,
+        manifest,
+        path,
+        expected_sha256,
+        start_byte,
+        end_byte,
+        &mut || Ok(()),
+    )
+}
+
+pub(crate) fn read_range_with_check(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    path: &str,
+    expected_sha256: &str,
+    start_byte: usize,
+    end_byte: usize,
+    check: &mut impl FnMut() -> Result<(), String>,
+) -> Result<RangeRead, String> {
     if start_byte >= end_byte || end_byte.saturating_sub(start_byte) > MAX_RANGE_BYTES {
         return Err("Read a nonempty code range of at most 32,768 bytes.".to_owned());
     }
-    let source = source(storage, manifest, path)?;
+    let source = source_with_check(storage, manifest, path, check)?;
     if source.sha256 != expected_sha256 {
         return Err("This code range belongs to a different source version.".to_owned());
     }

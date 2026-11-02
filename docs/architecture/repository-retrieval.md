@@ -8,7 +8,7 @@ Implementation checkpoint: 17 October 2026. This service powers workspace text s
 | --- | --- |
 | `search_repository_code` | Input object: request UUID, active project, captured snapshot, query, optional exact file/directory scope, result limit. Returns ranked range metadata, bounded snippets, coverage, truncation and local timing. |
 | `inspect_repository_structure` | Input object: request UUID, active project, captured snapshot, optional file/folder scope, page limit and offset, and one operation: `definitions` (query), `relationships` (captured endpoint ID and incoming/outgoing/both direction), or `map`. Returns verified declaration metadata, static links or immediate child modules, with syntax status and unavailable counts. |
-| `read_repository_range` | Input object: active project, captured snapshot, original path, expected full-file SHA-256, start/end byte offsets. Reads only eligible captured text; returns verified coordinates, range digest and text. |
+| `read_repository_range` | Input object: request UUID, active project, captured snapshot, original path, expected full-file SHA-256, start/end byte offsets. Reads only eligible captured text; checks cancellation during blob read/hash; returns verified coordinates, range digest and text. |
 | `cancel_repository_context` | Cancels a request UUID, including a bounded tombstone when cancellation precedes dispatch. |
 | `search_workspace_source` | Adapts the same search service to the existing workspace search UI. Every debounced query has an ID; replacing it or leaving the view cancels that request. |
 

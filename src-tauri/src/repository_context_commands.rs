@@ -434,6 +434,7 @@ pub(crate) fn cancel_repository_context(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ReadInput {
+    request_id: String,
     project_id: String,
     snapshot_id: String,
     path: String,
@@ -446,20 +447,27 @@ pub(crate) struct ReadInput {
 pub(crate) async fn read_repository_range(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
+    jobs: State<'_, RepositoryContextJobs>,
     input: ReadInput,
 ) -> Result<context::RangeRead, String> {
     sessions.get(&input.project_id)?;
     let storage = app_data_directory(&app)?;
+    let request = jobs.begin(&input.request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
+        let budget = request.budget();
+        budget.check()?;
         let manifest =
             snapshot::load_snapshot_manifest(&storage, &input.project_id, &input.snapshot_id)?;
-        context::read_range(
+        budget.check()?;
+        let mut check = || budget.check();
+        context::read_range_with_check(
             &storage,
             &manifest,
             &input.path,
             &input.source_sha256,
             input.start_byte,
             input.end_byte,
+            &mut check,
         )
     })
     .await
