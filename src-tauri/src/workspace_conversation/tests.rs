@@ -437,6 +437,42 @@ fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() 
 }
 
 #[test]
+fn opening_reader_positions_with_unknown_fields_preserves_valid_positions_and_answer() {
+    let f = Fixture::new();
+    save(
+        &f.0,
+        "project",
+        "snapshot",
+        None,
+        presentation_state(),
+    )
+    .unwrap();
+
+    let mut stored: Value = serde_json::from_slice(&fs::read(f.path()).unwrap()).unwrap();
+    let presentation = &mut stored["state"]["explorations"][0]["turns"][0]["presentation"];
+    presentation["stories"][0]["futureReaderField"] = json!("ignored safely");
+    presentation["diagrams"][0]["futureReaderField"] = json!({"ignored":true});
+    fs::write(f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
+    let original_bytes = fs::read(f.path()).unwrap();
+
+    let restored = load(&f.0, "project", "snapshot")
+        .unwrap()
+        .expect("unknown reader-position fields must not hide a saved answer");
+    let turn = &restored.state["explorations"][0]["turns"][0];
+    let story = &turn["presentation"]["stories"][0];
+    let diagram = &turn["presentation"]["diagrams"][0];
+
+    assert_eq!(story["sceneId"], "claim:second");
+    assert_eq!(story["positions"]["claim:second"], json!(3.2));
+    assert!(story.get("futureReaderField").is_none());
+    assert_eq!(diagram["focusedEdgeId"], "edge:subtotal");
+    assert_eq!(diagram["viewport"], json!({"x":250,"y":-91,"zoom":1.7}));
+    assert!(diagram.get("futureReaderField").is_none());
+    assert_eq!(turn["question"], "What happens to the font bytes?\nShow the failure path.");
+    assert_eq!(fs::read(f.path()).unwrap(), original_bytes);
+}
+
+#[test]
 fn opening_visual_position_with_unowned_revision_still_rejects_the_record() {
     let f = Fixture::new();
     save(&f.0, "project", "snapshot", None, presentation_state()).unwrap();

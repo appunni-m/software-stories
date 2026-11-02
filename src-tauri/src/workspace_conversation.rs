@@ -13,6 +13,27 @@ use tauri::AppHandle;
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
 const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 8;
 const FOCUSED_STORY_LAYOUT_VERSION: u64 = 7;
+const STORY_POSITION_FIELDS: &[&str] = &[
+    "revisionId",
+    "sectionId",
+    "sectionRevisionId",
+    "sceneId",
+    "positions",
+    "fullMap",
+    "viewport",
+    "focusLayoutVersion",
+    "focusedNodeId",
+    "focusedEdgeId",
+];
+const DIAGRAM_POSITION_FIELDS: &[&str] = &[
+    "revisionId",
+    "sectionId",
+    "sectionRevisionId",
+    "viewport",
+    "focusedNodeId",
+    "focusedEdgeId",
+    "layoutVersion",
+];
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
@@ -341,28 +362,9 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             let p = object(
                 p,
                 if key == "stories" {
-                    &[
-                        "revisionId",
-                        "sectionId",
-                        "sectionRevisionId",
-                        "sceneId",
-                        "positions",
-                        "fullMap",
-                        "viewport",
-                        "focusLayoutVersion",
-                        "focusedNodeId",
-                        "focusedEdgeId",
-                    ]
+                    STORY_POSITION_FIELDS
                 } else {
-                    &[
-                        "revisionId",
-                        "sectionId",
-                        "sectionRevisionId",
-                        "viewport",
-                        "focusedNodeId",
-                        "focusedEdgeId",
-                        "layoutVersion",
-                    ]
+                    DIAGRAM_POSITION_FIELDS
                 },
             )?;
             let revision = string(p, "revisionId")?;
@@ -808,6 +810,7 @@ fn discard_stale_reader_positions(state: &mut Value) {
 /// so the reader can fit the current visual without hiding the saved answer.
 fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
     let story = story.as_object_mut()?;
+    story.retain(|key, _| STORY_POSITION_FIELDS.contains(&key.as_str()));
     let layout_version = story.get("focusLayoutVersion").and_then(Value::as_u64)?;
     if !matches!(layout_version, 4 | 5 | 6 | FOCUSED_STORY_LAYOUT_VERSION) {
         return None;
@@ -875,6 +878,7 @@ fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)
 /// that the selected revision belongs to this answer.
 fn sanitize_diagram_position(diagram: &mut Value) -> Option<(String, String, String)> {
     let diagram = diagram.as_object_mut()?;
+    diagram.retain(|key, _| DIAGRAM_POSITION_FIELDS.contains(&key.as_str()));
     if diagram.get("layoutVersion").and_then(Value::as_u64) != Some(FLOW_DIAGRAM_LAYOUT_VERSION) {
         return None;
     }
