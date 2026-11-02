@@ -178,7 +178,7 @@
 .dw-branches {display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-3);margin-top:var(--space-4);}
 .dw-branches > span {margin-left:auto;font-size:12px;color:var(--dim);}
 .dw-branch-link {box-sizing:border-box;display:flex;gap:var(--space-2);align-items:center;flex-basis:100%;width:100%;min-width:0;max-width:100%;border:0;padding:var(--space-2);border-radius:5px;background:var(--surface-raised);color:var(--text);text-align:left;cursor:pointer;font-size:12px;}
-.dw-branch-link > span:nth-child(2) {flex:1;min-width:0;overflow-wrap:anywhere;}
+.dw-branch-link > span:nth-child(2) {flex:1;min-width:0;white-space:normal;overflow-wrap:anywhere;}
 .dw-branch-link small {font-size:12px;color:var(--dim);white-space:nowrap;}
 .dw-branch-connector {color:var(--accent);}
 .dw-branch-archive {flex-basis:100%;}
