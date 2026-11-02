@@ -538,7 +538,13 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
     }
   }
   try { restoreWorkspaceJobStates(project,snapshot,await listWorkspaceGenerationJobsForScope(project,snapshot,rendererSessionId)); }
-  catch { /* Saved answers remain readable; an unavailable job ledger is conservative. */ }
+  catch (error) {
+    // Do not present stale queued/working turns as live when their durable job
+    // records could not be checked. Saved answers remain readable, and the
+    // scoped restoration warning exposes the existing Notifications retry.
+    if (!failed) firstFailure = error;
+    failed = true;
+  }
   if (failed) throw firstFailure;
 }
 
