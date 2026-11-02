@@ -114,7 +114,7 @@
   .story-scene-progress { flex:0 1 auto; max-width:100%; }
 }
 @container guide-pane (max-width: 420px) {
-  .story-scene-progress.has-multiple-scenes { display:flex;flex-wrap:wrap;justify-self:stretch;justify-content:space-between;align-items:center;width:100%;margin:0;column-gap:4px;row-gap:2px; }
+  .story-scene-progress.has-multiple-scenes { display:flex;flex-wrap:wrap;justify-self:center;justify-content:space-between;align-items:center;width:100%;max-width:calc(100cqi - 64px);margin:0 auto;column-gap:4px;row-gap:2px; }
   .story-scene-progress.has-multiple-scenes > .story-scene-position { display:contents; }
   .story-scene-progress.has-multiple-scenes .story-scene-count { flex:1 1 auto;order:0;min-width:0;text-align:center; }
   .story-scene-progress.has-multiple-scenes .story-scene-dots { flex:1 1 100%;order:2;justify-content:center; }
