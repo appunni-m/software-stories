@@ -76,6 +76,13 @@ fn completed() -> Value {
         "items":[{"id":"final","type":"agentMessage","text":"{\"ok\":true}"}]}}),
     )
 }
+fn completed_text(text: &str) -> Value {
+    event(
+        "turn/completed",
+        json!({"turn":{"id":"owned-turn","status":"completed",
+        "items":[{"id":"final","type":"agentMessage","text":text}]}}),
+    )
+}
 fn usage(total: u64) -> Value {
     let count = |n| {
         json!({"inputTokens":n,"cachedInputTokens":0,"outputTokens":0,
@@ -234,6 +241,56 @@ fn retryable_error_keeps_the_same_turn_and_records_only_safe_activity_and_report
     assert_eq!(saved["tokenUsage"]["snapshot"]["total"]["inputTokens"], 80);
     assert_eq!(saved["runtimeTurns"][0]["observations"][3]["count"], 2);
     assert!(!saved.to_string().contains("NEVER-EXPORT"));
+}
+
+#[test]
+fn malformed_completed_text_reaches_only_the_reviewed_repair_path() {
+    let malformed = "{\"sections\":[";
+
+    let f = Fixture::new();
+    let mut input = f.input();
+    input.correction_policy = crate::claim_alignment::CorrectionPolicy::ChapterScenesV7;
+    let started = Instant::now();
+    let trace = f.trace(&input, started);
+    let (mut server, requests) = process(vec![completed_text(malformed)], vec![]);
+    let response = server
+        .generate_turn(
+            &input,
+            &f.0,
+            "owned-thread",
+            "Synthetic prompt",
+            &Arc::new(AtomicBool::new(false)),
+            started,
+            &|_| {},
+            &trace,
+            1,
+        )
+        .unwrap();
+    assert_eq!(response.response_text, malformed);
+    assert_eq!(requests.lock().unwrap().len(), 1);
+    drop(server);
+
+    let f = Fixture::new();
+    let input = f.input();
+    let started = Instant::now();
+    let trace = f.trace(&input, started);
+    let (mut server, requests) = process(vec![completed_text(malformed)], vec![]);
+    let failure = server
+        .generate_turn(
+            &input,
+            &f.0,
+            "owned-thread",
+            "Synthetic prompt",
+            &Arc::new(AtomicBool::new(false)),
+            started,
+            &|_| {},
+            &trace,
+            1,
+        )
+        .unwrap_err();
+    assert!(failure.contains("complete JSON response"));
+    assert_eq!(requests.lock().unwrap().len(), 1);
+    drop(server);
 }
 
 #[test]
