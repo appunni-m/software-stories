@@ -542,11 +542,20 @@ impl CodexAgentManager {
             .pending_login_id
             .clone()
         {
-            let _ = process.request(
+            // Do not create a second server-side OAuth attempt if the prior
+            // login could not be cancelled. Keep the old ID in status so the
+            // UI can retry cancellation instead of losing ownership of it.
+            process.request(
                 "account/login/cancel",
-                json!({"loginId": login_id}),
+                json!({"loginId": login_id.clone()}),
                 RPC_TIMEOUT,
-            );
+            )?;
+            self.update_status(|status| {
+                if status.pending_login_id.as_deref() == Some(login_id.as_str()) {
+                    status.pending_login_id = None;
+                    status.message = "Previous Codex sign-in was cancelled.".to_owned();
+                }
+            });
         }
         let result = process.request(
             "account/login/start",
@@ -598,7 +607,22 @@ impl CodexAgentManager {
     }
 
     pub(crate) fn cancel_login(&self, _storage_dir: &Path, login_id: &str) -> Result<(), String> {
+        if login_id.is_empty() || login_id.len() > MAX_LOGIN_ID_BYTES {
+            return Err("Codex returned an invalid login identifier.".to_owned());
+        }
         let mut slot = self.lock_process()?;
+        let active_login = self
+            .0
+            .status
+            .lock()
+            .map_err(|_| "Codex status is unavailable.")?
+            .pending_login_id
+            .clone();
+        // A late Cancel from an old dialog is a harmless no-op. In
+        // particular, it must never cancel a newer login owned by this app.
+        if active_login.as_deref() != Some(login_id) {
+            return Ok(());
+        }
         if let Some(process) = slot.as_mut() {
             process.request(
                 "account/login/cancel",
@@ -607,8 +631,10 @@ impl CodexAgentManager {
             )?;
         }
         self.update_status(|status| {
-            status.pending_login_id = None;
-            status.message = "Codex sign-in was cancelled.".to_owned();
+            if status.pending_login_id.as_deref() == Some(login_id) {
+                status.pending_login_id = None;
+                status.message = "Codex sign-in was cancelled.".to_owned();
+            }
         });
         Ok(())
     }
