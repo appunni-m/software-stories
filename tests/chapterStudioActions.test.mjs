@@ -127,6 +127,42 @@ test('saving an outdated base reports the conflict and preserves the edit instea
   assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.equal(state.feedback?.tone,'info');assert.match(state.feedback.message,/newer|latest/i);
 });
 
+test('a native stale-base save rejection preserves the exact candidate and saved history without retry or rebase',async()=>{
+  const {state,bindings,before,saved}=setup();
+  const candidate=state.candidate,candidateBytes=JSON.stringify(candidate);
+  const nativeLatest={...structuredClone(saved),revisionId:'revision:latest',revisionNumber:3};
+  const nativeRevisions=[structuredClone(before),nativeLatest];
+  const nativeBefore=structuredClone(nativeRevisions),saveCalls=[];
+  bindings.chapterHistory.current.refresh=async()=>{state.refreshes++;};
+  bindings.saveChapterEdits=async(projectId,baseRevisionId,proposal)=>{
+    saveCalls.push({projectId,baseRevisionId,proposal});
+    if(baseRevisionId!==nativeLatest.revisionId){
+      throw new Error('This chapter changed since it was opened. Reload the latest revision before saving.');
+    }
+    nativeRevisions.push(proposal);
+    return {revision:proposal,validation:{status:'valid',issues:[]}};
+  };
+
+  await callback('saveEdits',bindings)();
+
+  assert.equal(saveCalls.length,1,'the stale response must not trigger an automatic retry');
+  assert.equal(saveCalls[0].projectId,'p');
+  assert.equal(saveCalls[0].baseRevisionId,before.revisionId,'the failed attempt retains its original base');
+  assert.equal(saveCalls[0].proposal,candidate,'the exact candidate object reaches the native boundary');
+  assert.equal(state.candidate,candidate);
+  assert.equal(JSON.stringify(state.candidate),candidateBytes,'the candidate content is unchanged');
+  assert.equal(state.selected,before.revisionId);
+  assert.equal(state.editing,true);
+  assert.equal(state.rebasing,false,'stale failure does not begin a rebase');
+  assert.deepEqual(nativeRevisions,nativeBefore,'the stale native store rejects without changing saved revisions');
+  assert.deepEqual(state.recorded,[]);
+  assert.deepEqual(state.navigation,[]);
+  assert.equal(state.refreshes,1,'the latest history is refreshed for an explicit recovery choice');
+  assert.equal(state.feedback?.tone,'info');
+  assert.match(state.feedback.message,/draft is preserved while the latest version loads/i);
+  assert.equal(state.busy,false);
+});
+
 test('native save failure retains the unsaved candidate and never records a successful revision',async()=>{
   const {state,bindings}=setup(),candidate=state.candidate;bindings.saveChapterEdits=async()=>{throw new Error('native save rejected');};
   await callback('saveEdits',bindings)();assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.recorded,[]);assert.deepEqual(state.navigation,[]);assert.equal(state.feedback.tone,'error');

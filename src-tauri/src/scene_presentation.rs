@@ -119,6 +119,15 @@ pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &st
         "precedence chain",
         "candidate order",
         "candidate dispatch",
+        "candidate parsers in order",
+        "candidate decoders in order",
+        "candidate handlers in order",
+        "parser candidates in order",
+        "decoder candidates in order",
+        "handler candidates in order",
+        "candidates are tried in order",
+        "tries candidates in order",
+        "try candidates in order",
         "tries the next candidate",
         "miss tries the next candidate",
         "next candidate",
@@ -756,6 +765,15 @@ mod tests {
                 .unwrap_err()
                 .contains("selector composition at the root")
         );
+        claims[0].prose = "The dispatcher checks candidate parsers in order and returns the first parser that accepts the bytes.".into();
+        assert!(requires_ordered_selector(
+            &claims[0].prose,
+            "Choose a parser",
+            ""
+        ));
+        assert!(validate_semantic_layouts(&presentation, &claims, &nodes)
+            .unwrap_err()
+            .contains("selector composition at the root"));
         presentation.scenes[0].mode = SceneMode::Composition;
         presentation.scenes[0].elements = vec![SceneElement {
             kind: ElementKind::Selector,

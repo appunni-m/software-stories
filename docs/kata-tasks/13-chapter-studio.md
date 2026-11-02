@@ -60,3 +60,24 @@ previous choice from silently applying to content the reader has not reviewed.
 Source-only inspection; no tests, build, provider call, or packaged edit flow
 was run. Reopen the Chapter Studio conflict review with a second concurrent
 revision to qualify the behavior in the installed app; keep `h9sy` open.
+
+## Native stale-save recovery regression — 2026-11-02
+
+Rechecked the stale-base path. A native “chapter changed since it was opened”
+error refreshes history while retaining the original candidate and selected
+base; it does not retry the write or begin a rebase. Saving remains disabled
+once the newer revision is visible. The stale notice offers **Rebase onto rN**
+as an explicit choice. The rebase screen previews the combined candidate;
+overlapping changes need explicit choices, and **Continue with combined
+draft** is the only action that applies it. Back returns to the candidate.
+
+Added a deterministic regression to
+`tests/chapterStudioActions.test.mjs` that exercises the production save
+callback with a native stale-base rejection. It checks that the exact
+candidate and mock native revision history remain unchanged, only one save is
+attempted, history is refreshed, and neither a record nor navigation occurs.
+The focused Chapter Studio action, comparison, and rebase suites pass **35/35**
+with `node --experimental-strip-types --test tests/chapterStudioActions.test.mjs tests/revisionComparison.test.mjs tests/chapterRebase.test.mjs`.
+No build, provider request, or packaged UI check ran. Native publication races,
+session restart, and the installed recovery journey remain unqualified; keep
+`h9sy` open.

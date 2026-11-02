@@ -34,6 +34,8 @@ export interface WorkspaceRoute {
   transcriptPosition?: number;
   /** Snapshot selected before following a chapter pinned to its own source snapshot. */
   readerSnapshotBaselineId?: string;
+  /** First source line visible in Code Lens when the route was last active. */
+  sourceLine?: number;
   atlasSelection?: AtlasHotspotSelection;
   searchQuery?: string;
   searchMode?: 'code' | 'regex';
@@ -102,11 +104,18 @@ export function sourceRangeMatchesHash(range: SourceLineRange | undefined, sourc
 
 function normalizeRoute(route: WorkspaceRoute): WorkspaceRoute {
   const sourceRange = normalizeSourceLineRange(route.sourceRange);
+  const sourceLine = Number.isSafeInteger(route.sourceLine) && (route.sourceLine as number) >= 1
+    ? route.sourceLine as number
+    : undefined;
   if (sourceRange) {
     const { sourceRangeIssue: _ignoredIssue, ...withoutIssue } = route;
-    return { ...withoutIssue, sourceRange };
+    if (sourceLine === route.sourceLine) return { ...withoutIssue, sourceRange };
+    return { ...withoutIssue, sourceRange, sourceLine };
   }
-  if (route.sourceRange === undefined) return route;
+  if (route.sourceRange === undefined) {
+    if (sourceLine === route.sourceLine) return route;
+    return { ...route, sourceLine };
+  }
   const withoutRange = { ...route };
   delete withoutRange.sourceRange;
   const range = route.sourceRange as {
@@ -123,8 +132,8 @@ function normalizeRoute(route: WorkspaceRoute): WorkspaceRoute {
         ? 'invalid-line-range'
         : range.startByte !== undefined || range.endByteExclusive !== undefined
           ? 'invalid-byte-range'
-          : 'invalid-source-hash';
-  return { ...withoutRange, sourceRangeIssue: issue };
+    : 'invalid-source-hash';
+  return { ...withoutRange, sourceLine, sourceRangeIssue: issue };
 }
 
 export function navigateToRoute(state: NavigationState, route: WorkspaceRoute): NavigationState {

@@ -165,6 +165,25 @@ describe('workspace navigation', () => {
     assert.deepEqual(navigateForward(back).current, sourceVisit.current);
   });
 
+  it('restores the visible line in a large source after following another code range', () => {
+    const largeSource = navigateToRoute(initialNavigationState, {
+      workspace: 'atlas', projectId: 'project-large', snapshotId: 'snapshot-large',
+      relativePath: 'src/font.rs', sourceRange: { startLine: 4053, endLine: 4115 },
+      sourceLine: 4872, focusTarget: 'workspace-source',
+    });
+    const relatedSource = navigateToRoute(largeSource, {
+      workspace: 'atlas', projectId: 'project-large', snapshotId: 'snapshot-large',
+      relativePath: 'src/outline.rs', sourceRange: { startLine: 49, endLine: 51 },
+      focusTarget: 'code-link:src/outline.rs:49',
+    });
+
+    const returned = navigateBack(relatedSource);
+    assert.equal(returned.current.relativePath, 'src/font.rs');
+    assert.equal(returned.current.sourceLine, 4872);
+    assert.deepEqual(returned.current.sourceRange, { startLine: 4053, endLine: 4115 });
+    assert.deepEqual(navigateForward(returned).current, relatedSource.current);
+  });
+
   it('clears forward history when the user chooses a new destination', () => {
     const atlas = navigateToRoute(initialNavigationState, { workspace: 'atlas', projectId: null, snapshotId: null });
     const guide = navigateToWorkspace(atlas, 'guide-plan');

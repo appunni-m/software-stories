@@ -31,7 +31,7 @@ import { plainInlineCodeText } from './lib/inlineCode';
 import { FileFlow } from './FileFlow';
 import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, rememberDirectApiSelection, rememberGenerationBackend, rememberHandoffAgent, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject, type UIEvent as ReactUIEvent } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { type CodexChapterDialogMode } from './CodexChapterDialog';
 import { CodexContextDialog } from './CodexContextDialog';
@@ -1546,6 +1546,7 @@ function App() {
         snapshotId: targetSnapshotId,
         relativePath,
         sourceRange,
+        sourceLine: undefined,
         sourceRangeIssue: undefined,
         symbolId: undefined,
         atlasSelection: undefined,
@@ -2091,7 +2092,7 @@ function App() {
               }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>
-              <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onOpenFile={openCapturedFile} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
+              <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} sourceLine={navigation.current.sourceLine} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onOpenFile={openCapturedFile} onSourceLineChange={(sourceLine) => setNavigation((state) => replaceCurrentRoute(state, { ...state.current, sourceLine }))} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
                   ...state.current,
                   workspace: 'chapter-studio',
                   projectId: revision.projectId,
@@ -2106,6 +2107,7 @@ function App() {
                     atlasSelection: undefined,
                     relativePath: selection && (selection.kind === 'file' || selection.kind === 'symbol') ? selection.path : undefined,
                     sourceRange: undefined,
+                    sourceLine: undefined,
                     sourceRangeIssue: undefined,
                     symbolId: selection?.kind === 'symbol' ? selection.symbolId : undefined,
                     treeSelection,
@@ -3409,10 +3411,11 @@ function SnapshotCaptureResult({ progress, onRetry }: { progress: SnapshotProgre
   );
 }
 
-function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPath, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onAtlasSelection, onAtlasViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
+function SnapshotReadyState({ manifest, atlasSelection, mapViewport, sourceLine, selectedPath, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onSourceLineChange, onAtlasSelection, onAtlasViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
   manifest: SnapshotManifest;
   atlasSelection?: WorkspaceRoute['atlasSelection'];
   mapViewport?: AtlasViewport;
+  sourceLine?: number;
   selectedPath: string | null;
   source: SnapshotSource | null;
   sourceRange: SourceLineRange | null;
@@ -3420,6 +3423,7 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
   sourceLoading: boolean;
   sourceError: string | null;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
+  onSourceLineChange: (line: number) => void;
   onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void;
   onAtlasViewportChange: (mapViewport: AtlasViewport) => void;
   onRequestExplanation: (path: string) => void;
@@ -3466,12 +3470,14 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
           routeSelection={atlasSelection}
           selectedPath={selectedPath}
           routeViewport={mapViewport}
+          sourceLine={sourceLine}
           source={source}
           sourceRange={sourceRange}
           sourceRangeIssue={sourceRangeIssue}
           sourceLoading={sourceLoading}
           sourceError={sourceError}
           onOpenFile={onOpenFile}
+          onSourceLineChange={onSourceLineChange}
           onAtlasSelection={onAtlasSelection}
           onViewportChange={onAtlasViewportChange}
           onRequestExplanation={onRequestExplanation}
@@ -3646,18 +3652,20 @@ function saveAtlasWorkbenchState(key: string, state: AtlasWorkbenchViewState): b
   return true;
 }
 
-function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeViewport, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onAtlasSelection, onViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
+function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeViewport, sourceLine, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onSourceLineChange, onAtlasSelection, onViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   routeSelection?: WorkspaceRoute['atlasSelection'];
   selectedPath: string | null;
   routeViewport?: AtlasViewport;
+  sourceLine?: number;
   source: SnapshotSource | null;
   sourceRange: SourceLineRange | null;
   sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
   sourceLoading: boolean;
   sourceError: string | null;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
+  onSourceLineChange: (line: number) => void;
   onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void;
   onViewportChange: (viewport: AtlasViewport) => void;
   onRequestExplanation: (path: string) => void;
@@ -4109,12 +4117,14 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         snapshotId={snapshotId}
         manifest={manifest}
         selectedPath={selectedPath}
+        sourceLine={sourceLine}
         source={source}
         sourceRange={sourceRange}
         sourceRangeIssue={sourceRangeIssue}
         loading={sourceLoading}
         error={sourceError}
         onOpenFile={onOpenFile}
+        onSourceLineChange={onSourceLineChange}
         onRequestRangeExplanation={onRequestRangeExplanation}
       />
       <FileExplanationPanel
@@ -5298,26 +5308,30 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
 const SOURCE_WINDOW_LINES = 200;
 const SOURCE_LINE_CHARACTERS = 16_000;
 
-function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath }: {
+function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSourceLineChange, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, sourceLine, loading, error, selectedPath }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
+  onSourceLineChange: (line: number) => void;
   onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
   source: SnapshotSource | null;
   sourceRange: SourceLineRange | null;
   sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
+  sourceLine?: number;
   loading: boolean;
   error: string | null;
   selectedPath: string | null;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
-  const [sourceWindowStart, setSourceWindowStart] = useState<number | null>(null);
+  const [sourceWindowStart, setSourceWindowStart] = useState<number | null>(() => sourceLine ?? null);
   const [showAllRelationships, setShowAllRelationships] = useState(false);
   const [snapshotIndex, setSnapshotIndex] = useState<SnapshotIndex | null>(null);
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const citedLineRef = useRef<HTMLSpanElement>(null);
+  const sourceCodeRef = useRef<HTMLPreElement>(null);
+  const lastReportedSourceLineRef = useRef<number | null>(null);
   const sourceLineIndex = useMemo(() => source ? capturedSourceLineIndex(source.contents) : null, [source?.contents]);
   const sourceLineCount = sourceLineIndex?.lineCount ?? 0;
   const citation = useMemo(() => resolveCodeLensCitation(
@@ -5408,9 +5422,31 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
 
   useEffect(() => {
     setShowCompleteSource(false);
-    setSourceWindowStart(null);
+    setSourceWindowStart(sourceLine ?? null);
     setShowAllRelationships(false);
+    lastReportedSourceLineRef.current = null;
+    const frame = requestAnimationFrame(() => {
+      if (sourceCodeRef.current) sourceCodeRef.current.scrollTop = 0;
+    });
+    return () => cancelAnimationFrame(frame);
   }, [selectedPath, source?.snapshotId, source?.path, sourceRange?.startLine, sourceRange?.endLine, sourceRange?.sourceSha256]);
+
+  const rememberVisibleSourceLine = (event: ReactUIEvent<HTMLPreElement>) => {
+    const paneTop = event.currentTarget.getBoundingClientRect().top + 8;
+    const firstVisible = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-source-line]'))
+      .find((element) => element.getBoundingClientRect().bottom > paneTop);
+    const line = Number(firstVisible?.dataset.sourceLine);
+    if (!Number.isSafeInteger(line) || line < 1 || lastReportedSourceLineRef.current === line) return;
+    lastReportedSourceLineRef.current = line;
+    onSourceLineChange(line);
+  };
+  const changeSourceWindow = (firstLine: number | null) => {
+    setSourceWindowStart(firstLine);
+    const line = firstLine ?? defaultWindowStart;
+    lastReportedSourceLineRef.current = line;
+    onSourceLineChange(line);
+    if (sourceCodeRef.current) sourceCodeRef.current.scrollTop = 0;
+  };
 
   const renderRelationshipRows = (relationships: typeof relatedRelationships) => relationships.map((relationship) => {
     const sourceSymbol = snapshotIndex?.symbols.find((symbol) => symbol.symbolId === relationship.sourceId);
@@ -5521,11 +5557,14 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
               : 'Showing the cited lines with nearby context from the exact snapshot.'}</small>
           </span>
           <AppButton intent="quiet" onClick={() => {
-            if (showCompleteSource) { setShowCompleteSource(false); setSourceWindowStart(null); }
-            else { setShowCompleteSource(true); setSourceWindowStart(1); }
+            if (showCompleteSource) {
+              setShowCompleteSource(false);
+              changeSourceWindow(rangeStart === null ? 1 : Math.max(1, rangeStart - contextBefore));
+            }
+            else { setShowCompleteSource(true); changeSourceWindow(1); }
           }}>{showCompleteSource ? 'Show cited context' : 'Browse full file'}</AppButton>
         </div>}
-        <pre className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
+        <pre ref={sourceCodeRef} onScroll={rememberVisibleSourceLine} className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
           ? `Read-only source from snapshot ${source.snapshotId}, citation lines ${visibleSourceRange.startLine} to ${visibleSourceRange.endLine}`
           : `Read-only source from snapshot ${source.snapshotId}`}>
           <code>
@@ -5557,6 +5596,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
               });
               return <span
                 key={lineNumber}
+                data-source-line={lineNumber}
                 ref={lineNumber === visibleSourceRange?.startLine ? citedLineRef : undefined}
                 className={`snapshot-source-line${isCited ? ' is-cited' : ''}`}
                 id={`snapshot-source-line-${lineNumber}`}
@@ -5570,9 +5610,9 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onRe
           </code>
         </pre>
         {sourceLineCount > 0 && (firstDisplayedLine > 1 || lastDisplayedLine < sourceLineCount) && <nav className="source-window-controls" aria-label="Captured source pages">
-          <AppButton intent="quiet" disabled={firstDisplayedLine <= 1} onClick={() => setSourceWindowStart(Math.max(1, firstDisplayedLine - SOURCE_WINDOW_LINES))}>Previous lines</AppButton>
+          <AppButton intent="quiet" disabled={firstDisplayedLine <= 1} onClick={() => changeSourceWindow(Math.max(1, firstDisplayedLine - SOURCE_WINDOW_LINES))}>Previous lines</AppButton>
           <span>Lines {firstDisplayedLine}–{lastDisplayedLine} of {sourceLineCount}</span>
-          <AppButton intent="quiet" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => setSourceWindowStart(lastDisplayedLine + 1)}>Next lines</AppButton>
+          <AppButton intent="quiet" disabled={lastDisplayedLine >= sourceLineCount} onClick={() => changeSourceWindow(lastDisplayedLine + 1)}>Next lines</AppButton>
         </nav>}
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
           <details>
