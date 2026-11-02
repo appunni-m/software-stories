@@ -19,15 +19,34 @@ async function source(path) {
   return readFile(join(tauriDir, 'src', path), 'utf8');
 }
 
+function gitOutput(args, label) {
+  const result = spawnSync('git', ['-C', root, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    const details = [result.error?.message, result.stderr?.trim()].filter(Boolean).join('\n');
+    throw new Error(`Could not read ${label} from the source checkout${details ? `: ${details}` : '.'}`);
+  }
+  return result.stdout.trim();
+}
+
 async function metadata() {
   const [chapters, index, recovery, notices, conversations, guides] = await Promise.all([
     source('chapters.rs'), source('index.rs'), source('recovery.rs'), source('app_notices.rs'), source('workspace_conversation.rs'), source('repository_guide/mod.rs'),
   ]);
+  const sourceRevision = gitOutput(['rev-parse', '--verify', 'HEAD'], 'source revision');
+  if (!/^[a-f0-9]{40,64}$/i.test(sourceRevision)) throw new Error('The source checkout returned an invalid Git revision.');
+  const workingTreeState = gitOutput(['status', '--porcelain=v1', '--untracked-files=all'], 'source worktree state');
   return {
     productName: config.productName,
     version: config.version,
     identifier: config.identifier,
     minimumSystemVersion: config.bundle?.macOS?.minimumSystemVersion ?? null,
+    build: {
+      sourceRevision,
+      workingTreeDirty: workingTreeState.length > 0,
+    },
     dataFormats: {
       chapterSchema: rustConstant(chapters, 'CHAPTER_SCHEMA_VERSION'),
       visualSchema: rustConstant(chapters, 'VISUAL_SCHEMA_VERSION'),
@@ -117,6 +136,7 @@ if (process.argv[2] === 'write') {
     identifier: plistValue('CFBundleIdentifier'),
     version: plistValue('CFBundleShortVersionString'),
     minimumSystemVersion: expectedMinimumVersion,
+    build: JSON.parse(bundledContents).build,
     dataFormats: JSON.parse(bundledContents).dataFormats,
   }, null, 2));
 } else {
