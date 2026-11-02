@@ -458,6 +458,26 @@ fn sha256(bytes: &[u8]) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+fn sha256_checked(
+    bytes: &[u8],
+    check: &mut impl FnMut() -> Result<(), String>,
+) -> Result<String, String> {
+    let mut hasher = Sha256::new();
+    for chunk in bytes.chunks(READ_CHUNK_BYTES) {
+        check()?;
+        hasher.update(chunk);
+    }
+    check()?;
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = hasher.finalize();
+    let mut encoded = String::with_capacity(64);
+    for byte in digest {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    Ok(encoded)
+}
+
 fn project_storage_key(project_id: &str) -> String {
     sha256(project_id.as_bytes())
 }
@@ -708,7 +728,7 @@ pub(crate) fn read_snapshot_source_from_manifest_checked(
     // Bound the read itself and check between chunks so a cancelled search
     // does not have to wait for a complete captured blob before it can stop.
     let bytes = read_checked_source_bytes(input, file.size_bytes, check)?;
-    if sha256(&bytes) != file.sha256 {
+    if sha256_checked(&bytes, check)? != file.sha256 {
         return Err("Captured source failed its size or SHA-256 integrity check.".to_owned());
     }
     if file.content_kind == CapturedContentKind::Binary {

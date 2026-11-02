@@ -937,10 +937,30 @@ impl Ledger {
                     .checked_add(file.size_bytes)
                     .filter(|b| *b <= 100 * 1024 * 1024)
                     .ok_or("Source verification exceeded its local byte limit.")?;
-                sources.insert(
-                    request.path.clone(),
-                    context::source(&self.storage, manifest, &request.path)?,
-                );
+                let source = {
+                    let mut check_read = || {
+                        if cancelled.load(Ordering::Acquire)
+                            || self.record.status != Status::Active
+                        {
+                            Err("This evidence operation has stopped.".to_owned())
+                        } else if self
+                            .deadline
+                            .is_some_and(|deadline| Instant::now() >= deadline)
+                        {
+                            Err("This evidence operation reached its time limit.".to_owned())
+                        } else {
+                            Ok(())
+                        }
+                    };
+                    context::source_with_check(
+                        &self.storage,
+                        manifest,
+                        &request.path,
+                        &mut check_read,
+                    )?
+                };
+                self.check(manifest, runtime, cancelled)?;
+                sources.insert(request.path.clone(), source);
             }
             let source = sources
                 .get(&request.path)

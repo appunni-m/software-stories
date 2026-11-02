@@ -437,7 +437,7 @@ fn source_with_budget(
     source_with_check(storage, manifest, path, &mut || budget.check())
 }
 
-fn source_with_check(
+pub(crate) fn source_with_check(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,
     path: &str,
