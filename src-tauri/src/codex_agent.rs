@@ -3130,6 +3130,26 @@ mod tests {
     }
 
     #[test]
+    fn runtime_version_requires_the_app_server_handshake_field() {
+        assert_eq!(
+            codex_runtime_version(&json!({
+                "serverInfo": {"version": " 0.165.0 "},
+                "userAgent": "codex-cli/0.149.1"
+            }))
+            .unwrap(),
+            "0.165.0"
+        );
+        for initialize in [
+            json!({"userAgent": "codex-cli/0.149.1"}),
+            json!({"serverInfo": {"version": " "}, "userAgent": "codex-cli/0.149.1"}),
+        ] {
+            assert!(codex_runtime_version(&initialize)
+                .unwrap_err()
+                .contains("did not report its app-server version"));
+        }
+    }
+
+    #[test]
     fn final_owned_tool_items_reject_foreign_app_context_metadata() {
         assert!(validate_owned_tool_completion_metadata(&json!({})).is_ok());
         assert!(
