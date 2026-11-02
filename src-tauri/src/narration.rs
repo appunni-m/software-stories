@@ -893,6 +893,23 @@ pub async fn load_prewarmed_audio_if_ready(
     if pending.review.model_id != crate::pocket_tts::MODEL_ID {
         return None;
     }
+    if let Err(error) = check_audio_request_cancellation(cancellation) {
+        return Some(ProviderCommandResult::failed(error));
+    }
+    if let Some(bytes) = read_cached_audio(
+        storage_dir,
+        &pending.review.cache_key,
+        &pending.review.model_id,
+    ) {
+        if let Err(error) = check_audio_request_cancellation(cancellation) {
+            return Some(ProviderCommandResult::failed(error));
+        }
+        return Some(ProviderCommandResult::ok(audio_result(
+            &pending.review,
+            bytes,
+            true,
+        )));
+    }
     queue.prioritize(&pending.review.cache_key);
     let state = match queue
         .wait_for(&pending.review.cache_key, cancellation)
@@ -920,9 +937,11 @@ pub async fn load_prewarmed_audio_if_ready(
     )))
 }
 
-/// Return a completed local prewarm and release its per-playback review slot.
-/// When no prepared result is available, the caller may continue through the
-/// ordinary synthesis path, which consumes the review itself.
+/// Return the prepared local clip and release its per-playback review slot.
+/// If Play reaches this path before a renderer-queued prewarm enters the native
+/// queue, admit the selected clip there and move it ahead of background work.
+/// If bounded admission is unavailable, the caller can retain ordinary on-
+/// demand synthesis as its recovery path.
 pub async fn load_prewarmed_audio_for_playback(
     storage_dir: &Path,
     reviews: &PendingNarrationReviews,
@@ -940,6 +959,64 @@ pub async fn load_prewarmed_audio_for_playback(
         cancellation,
     )
     .await;
+
+    let result = if result.is_some() {
+        result
+    } else {
+        let review = reviews.get(review_id, fingerprint).ok()?.review;
+        if review.model_id != crate::pocket_tts::MODEL_ID {
+            return None;
+        }
+
+        let cache_key = review.cache_key.clone();
+        let task_cache_key = cache_key.clone();
+        let task_model_id = review.model_id.clone();
+        let task_segments = review.request_segments.clone();
+        let task_storage = storage_dir.to_path_buf();
+        if queue
+            .schedule(
+                cache_key.clone(),
+                move |mut queue_cancellation| async move {
+                    let Ok(bytes) = crate::pocket_tts::synthesize_segments(
+                        &task_storage,
+                        &task_segments,
+                        &mut queue_cancellation,
+                    )
+                    .await
+                    else {
+                        return false;
+                    };
+                    if check_audio_request_cancellation(&mut queue_cancellation).is_err()
+                        || write_cached_audio(
+                            &task_storage,
+                            &task_cache_key,
+                            &task_model_id,
+                            &bytes,
+                        )
+                        .is_err()
+                    {
+                        return false;
+                    }
+                    read_cached_audio(&task_storage, &task_cache_key, &task_model_id).is_some()
+                },
+            )
+            .is_err()
+        {
+            None
+        } else {
+            queue.prioritize(&cache_key);
+            load_prewarmed_audio_if_ready(
+                storage_dir,
+                reviews,
+                queue,
+                review_id,
+                fingerprint,
+                cancellation,
+            )
+            .await
+        }
+    };
+
     if result.is_some() {
         discard_request_review(reviews, review_id);
     }
@@ -2316,6 +2393,65 @@ mod tests {
         };
         assert_eq!(data.state, NarrationPrewarmState::Ready);
         assert!(data.cached_audio_available);
+        assert_eq!(queue.status(&review.cache_key), None);
+        let queue_state = queue
+            .0
+            .lock()
+            .expect("prewarm queue should remain available");
+        assert!(queue_state.pending.is_empty());
+        assert!(!queue_state.worker_running);
+    }
+
+    #[tokio::test]
+    async fn playback_reuses_cached_pocket_audio_without_a_native_queue_entry() {
+        let storage = TestStorage::new();
+        let queue = NarrationPrewarmQueue::default();
+        let reviews = PendingNarrationReviews::default();
+        let review = match build_local_request_review(
+            storage.path(),
+            &reviews,
+            BuildNarrationReviewInput {
+                spoken_text: "A clip can survive an app restart.".into(),
+                voice: crate::pocket_tts::VOICE.into(),
+                style: String::new(),
+                lexicon: Vec::new(),
+            },
+        ) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("local review should build: {error:?}")
+            }
+        };
+        let expected_audio = valid_test_wav(43);
+        write_cached_audio(
+            storage.path(),
+            &review.cache_key,
+            &review.model_id,
+            &expected_audio,
+        )
+        .expect("the existing clip should be cached");
+
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+        let result = load_prewarmed_audio_for_playback(
+            storage.path(),
+            &reviews,
+            &queue,
+            &review.review_id,
+            &review.fingerprint,
+            &mut cancellation,
+        )
+        .await;
+
+        let Some(ProviderCommandResult::Ok { data }) = result else {
+            panic!("cached local audio should play without queueing synthesis");
+        };
+        assert!(data.cache_hit);
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(data.audio_base64)
+                .expect("returned audio should be valid base64"),
+            expected_audio,
+        );
         assert_eq!(queue.status(&review.cache_key), None);
         let queue_state = queue
             .0
