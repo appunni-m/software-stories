@@ -191,6 +191,23 @@ test('focusing a different answer schedules one reveal while section changes pre
   assert.deepEqual(state.explorations[0].turns[0].reading.guide,{revisionId:identity.revisionId,sectionId:'section:next'});
 });
 
+test('opening a different section of the focused answer reveals it without jumping when reopened unchanged',()=>{
+  let state=addTurn(createWorkspace('project','snapshot'),ready('one',identity.revisionId),'guide');
+  state=rememberSection(state,'root','one','guide',identity);
+  state=rememberScroll(state,'root','guide',845.25);
+  state={...state,explorations:state.explorations.map((item)=>({...item,focusedTurnId:'one'}))};
+
+  state=focusAnswerSection(state,'root','one',{revisionId:identity.revisionId,sectionId:'section:next'});
+  assert.equal(state.explorations[0].revealTurnId,'one','a newly selected section must bring its answer into view');
+  assert.equal(state.explorations[0].scrollPositions.guide,845.25,'reveal is explicit and does not erase the saved viewport');
+  assert.deepEqual(state.explorations[0].turns[0].reading.guide,{revisionId:identity.revisionId,sectionId:'section:next'});
+
+  state={...state,explorations:state.explorations.map((item)=>({...item,revealTurnId:undefined}))};
+  state=focusAnswerSection(state,'root','one',{revisionId:identity.revisionId,sectionId:'section:next'});
+  assert.equal(state.explorations[0].revealTurnId,undefined,'reopening the already selected section must preserve exact scroll');
+  assert.equal(state.explorations[0].scrollPositions.guide,845.25);
+});
+
 test('a late presentation callback belongs to its original turn and cannot select or move another branch',()=>{
   let state=addTurn(createWorkspace('project','snapshot'),ready('one'),'guide');
   state=addTurn(state,ready('two'),'flow',{id:'child',originTurnId:'one'});

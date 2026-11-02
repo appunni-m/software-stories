@@ -660,13 +660,17 @@ export function focusAnswerSection(state: WorkspaceState, explorationId: string,
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
   if (!clean || !owner || !turn || !ownsAnswerRevision(turn, clean.revisionId)) return state;
+  const savedSection = turn.reading?.guide?.revisionId === clean.revisionId
+    ? turn.reading.guide.sectionId
+    : cleanAnswerVersions(turn.answerVersions, turn).find((version) => version.revisionId === clean.revisionId)?.reading?.guide;
+  const sectionChanged = savedSection !== clean.sectionId;
   const positioned = rememberSection(state, explorationId, turnId, 'guide', clean);
   if (owner.focusedTurnId === turnId && positioned === state) return state;
   const focusChanged = owner.focusedTurnId !== turnId;
   return { ...positioned, explorations: positioned.explorations.map((e) => e.id !== explorationId ? e : {
     ...e,
     focusedTurnId: turnId,
-    ...(focusChanged ? { revealTurnId: turnId } : {}),
+    ...(focusChanged || sectionChanged ? { revealTurnId: turnId } : {}),
   }) };
 }
 export function rememberScroll(state: WorkspaceState, explorationId: string, view: View, top: number): WorkspaceState {
