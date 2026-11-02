@@ -47,7 +47,9 @@
 .dw-path-root {display:flex;flex:0 1 auto;align-items:center;min-width:96px;width:max-content;max-width:min(220px,34vw);overflow:hidden;white-space:nowrap;direction:ltr;}
 .dw-path-segments {box-sizing:border-box;display:flex;flex:1 1 0;width:auto;max-width:100%;align-items:center;gap:var(--space-2);min-width:0;height:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:none;}
 .dw-path-segments::-webkit-scrollbar {display:none;}
-.dw-path-segments > span {box-sizing:border-box;display:flex;flex:0 0 auto;align-items:center;gap:var(--space-1);min-width:0;width:max-content;max-width:min(220px,45vw);overflow:hidden;white-space:nowrap;}
+.dw-path-segments > span {box-sizing:border-box;display:flex;flex:0 1 auto;align-items:center;gap:var(--space-1);min-width:0;width:max-content;max-width:min(180px,24cqi);overflow:hidden;white-space:nowrap;}
+.dw-path-segments > span.is-current {flex:1 1 auto;width:auto;max-width:100%;}
+.dw-path-segments > span.is-current > button:not(.rt-IconButton) {flex:1 1 auto;width:100%;}
 .dw-path-segments > span > svg {flex:0 0 auto;}
 .dw-path-root button:not(.rt-IconButton),.dw-path-segments button:not(.rt-IconButton) {box-sizing:border-box;display:inline-flex;flex:0 1 auto;align-items:center;justify-content:flex-start;min-width:0;width:max-content;max-width:100%;margin:0;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;}
 .dw-path-label {display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:left;}
