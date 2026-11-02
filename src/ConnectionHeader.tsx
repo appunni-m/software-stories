@@ -45,13 +45,13 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? `${handoffAgentName} handoff`
         : connection.checking ? 'Connecting to Codex…'
-          : ready ? `Codex · ${codexModel} · ${connection.selection.effort}`
+          : ready ? `Codex${connection.status?.runtimeVersion ? ` v${connection.status.runtimeVersion}` : ''} · ${codexModel} · ${connection.selection.effort}`
             : codexRuntimeReady ? 'Choose Codex model' : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
     : backend === null || backend === 'api' && Boolean(apiSelectionIssue) || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
   const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
     : backend === 'codex'
-    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Model ${codexModel}, reasoning ${connection.selection.effort}.`
+    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Codex ${connection.status?.runtimeVersion ?? 'version unavailable'} · ${codexModel} · ${connection.selection.effort} reasoning.`
       : connection.checking ? 'Checking your saved Codex connection…'
         : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
     : backend === 'api' ? apiSelectionIssue ? `The saved direct API selection could not be read (${apiSelectionIssue}). Choose a provider in Connections to replace it.`

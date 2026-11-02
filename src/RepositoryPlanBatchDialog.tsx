@@ -55,6 +55,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
   const [entries, setEntries] = useState<BatchEntry[]>([]);
   const [selection, setSelection] = useState<{ modelId: string; effort: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
   const [pendingPreview, setPendingPreview] = useState<PendingChapterPreviewSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Reviewing the accepted route locally…');
@@ -110,6 +111,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         if (disposed || cancelled.current) return;
         setSelection(currentSelection);
         setAccountEmail(connection.status.accountEmail);
+        setRuntimeVersion(connection.status.runtimeVersion);
 
         setStatus('Checking saved chapters and rebuilding the accepted route…');
         const batch = await preparePlannedChapterBatch(projectId, target);
@@ -343,7 +345,7 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         <AppButton intent="icon" onClick={close} aria-label="Close chapter batch"><X size={17}/></AppButton>
       </header>
       <div className="provider-dialog-content repository-plan-batch-content">
-        {selection && <div className="repository-plan-batch-connection"><ShieldCheck size={15}/><span>Codex · {selection.modelId} · {selection.effort} reasoning{accountEmail ? ` · ${accountEmail}` : ''}</span></div>}
+        {selection && <div className="repository-plan-batch-connection"><ShieldCheck size={15}/><span>Codex {runtimeVersion ? `v${runtimeVersion}` : 'version unavailable'} · {selection.modelId} · {selection.effort} reasoning{accountEmail ? ` · ${accountEmail}` : ''}</span></div>}
         <p className="provider-small-note">One request per remaining step. Each request uses only that step’s captured files and the saved Codex settings. Your account quota applies; nothing is sent before you choose Build chapters. Every result stays a draft until you review it.</p>
         {error && <p className="provider-error-text" role="alert">{error}</p>}
         {!error && <p className="provider-status-note" role="status">{phase === 'preparing' ? <LoaderCircle size={14}/> : phase === 'running' ? <LoaderCircle size={14}/> : phase === 'review' ? <Check size={14}/> : null}{status}</p>}

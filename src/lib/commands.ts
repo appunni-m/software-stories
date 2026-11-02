@@ -1456,6 +1456,7 @@ export async function pickAgentInstallationFile(kind: AgentInstallationFile): Pr
 
 export interface CodexAgentStatus {
   executablePath: string | null;
+  runtimeVersion: string | null;
   runtimeRunning: boolean;
   authenticated: boolean;
   accountEmail: string | null;

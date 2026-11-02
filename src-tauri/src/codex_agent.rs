@@ -47,6 +47,7 @@ const UPGRADE: &str = "Code Atlas could not verify the required explanation prot
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CodexAgentStatus {
     pub executable_path: Option<String>,
+    pub runtime_version: Option<String>,
     pub runtime_running: bool,
     pub authenticated: bool,
     pub account_email: Option<String>,
@@ -61,6 +62,7 @@ impl Default for CodexAgentStatus {
     fn default() -> Self {
         Self {
             executable_path: None,
+            runtime_version: None,
             runtime_running: false,
             authenticated: false,
             account_email: None,
@@ -391,18 +393,21 @@ impl CodexAgentManager {
                 if process.has_exited()? {
                     slot.take();
                     self.update_status(|status| {
+                        status.runtime_version = None;
                         status.runtime_running = false;
                         status.authenticated = false;
                         status.pending_login_id = None;
                         status.message = "Codex stopped. Reconnect to start it again.".to_owned();
                     });
                 } else {
+                    let runtime_version = process.runtime_version.clone();
                     let account = process.request(
                         "account/read",
                         json!({"refreshToken": false}),
                         RPC_TIMEOUT,
                     )?;
                     self.remember_account(&account);
+                    self.update_status(|status| status.runtime_version = Some(runtime_version));
                 }
             } else if let Some(path) = configured_executable(storage_dir)? {
                 self.update_status(|status| {
@@ -647,6 +652,7 @@ impl CodexAgentManager {
         }
         slot.take();
         self.update_status(|status| {
+            status.runtime_version = None;
             status.runtime_running = false;
             status.authenticated = false;
             status.account_email = None;
@@ -950,6 +956,7 @@ impl CodexAgentManager {
         if finalized.is_err() {
             slot.take();
             self.update_status(|status| {
+                status.runtime_version = None;
                 status.runtime_running = false;
                 status.authenticated = false;
                 status.account_email = None;
@@ -1042,9 +1049,11 @@ impl CodexAgentManager {
                 self.0.shutdown.clone(),
                 cancelled.clone(),
             )?;
+            let runtime_version = process.runtime_version.clone();
             *slot = Some(process);
             self.update_status(|status| {
                 status.executable_path = Some(executable.to_string_lossy().into_owned());
+                status.runtime_version = Some(runtime_version);
                 status.runtime_running = true;
                 status.capability_checked = true;
                 status.message =
@@ -1126,6 +1135,7 @@ struct ServerProcess {
     cancelled: Option<Arc<AtomicBool>>,
     executable: PathBuf,
     executable_sha256: String,
+    runtime_version: String,
     connection_id: String,
     account_revision: u64,
     scope_epoch: Arc<AtomicU64>,
@@ -1287,6 +1297,7 @@ impl ServerProcess {
             cancelled,
             executable: executable.to_owned(),
             executable_sha256,
+            runtime_version: String::new(),
             connection_id: Uuid::new_v4().to_string(),
             account_revision: 0,
             scope_epoch,
@@ -1295,7 +1306,12 @@ impl ServerProcess {
         };
         registration.disarm();
         process.check_cancelled()?;
-        process.request("initialize", json!({"clientInfo": {"name": "code_atlas", "title": "Code Atlas", "version": env!("CARGO_PKG_VERSION")}, "capabilities": {"experimentalApi": true}}), RPC_TIMEOUT)?;
+        let initialized = process.request(
+            "initialize",
+            json!({"clientInfo": {"name": "code_atlas", "title": "Code Atlas", "version": env!("CARGO_PKG_VERSION")}, "capabilities": {"experimentalApi": true}}),
+            RPC_TIMEOUT,
+        )?;
+        process.runtime_version = codex_runtime_version(&initialized)?;
         process.write(&json!({"method": "initialized"}))?;
         let configuration =
             process.request("config/read", json!({"includeLayers": false}), RPC_TIMEOUT)?;
@@ -2930,6 +2946,31 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
         .filter(|value| !value.is_empty() && value.len() <= limit)
         .map(str::to_owned)
         .ok_or_else(|| format!("Codex returned an invalid {key} field."))
+}
+
+fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
+    let server_version = initialize
+        .pointer("/serverInfo/version")
+        .and_then(Value::as_str);
+    let user_agent_version = initialize
+        .get("userAgent")
+        .and_then(Value::as_str)
+        .and_then(|user_agent| user_agent.trim().split_once('/').map(|(_, version)| version))
+        .and_then(|version| version.split_whitespace().next());
+    [server_version, user_agent_version]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|version| {
+            !version.is_empty()
+                && version.len() <= 128
+                && !version.chars().any(char::is_control)
+        })
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            "Codex did not identify its app-server version. Update or reconnect Codex before generating."
+                .to_owned()
+        })
 }
 
 /// Best-effort cleanup for a login created by the current start response.
