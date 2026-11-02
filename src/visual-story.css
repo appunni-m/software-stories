@@ -121,6 +121,8 @@
   .story-scene-dots button { flex-basis:20px; width:20px; min-width:20px; }
 }
 html[data-app-zoom-compact="true"] .story-toolbar { gap:4px 8px; padding:6px 8px; }
+html[data-app-zoom-compact="true"] .story-toolbar { grid-template-columns:minmax(0,1fr); grid-template-areas:"title" "map" "progress"; align-items:stretch; }
+html[data-app-zoom-compact="true"] .story-map-toggle-slot { justify-self:start; align-self:flex-start; }
 html[data-app-zoom-compact="true"] .story-scene-title { white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
 html[data-app-zoom-compact="true"] .story-playbar { grid-template-columns:minmax(0,1fr); align-items:start; gap:2px; padding:4px 8px; }
 html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"status status" "playback playback" "read edit"; row-gap:4px; }
