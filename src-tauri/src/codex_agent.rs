@@ -3276,6 +3276,101 @@ mod tests {
         assert_eq!(configured_executable(&root).unwrap(), Some(executable));
     }
 
+    #[cfg(unix)]
+    fn shell_single_quoted(value: &str) -> String {
+        format!("'{}'", value.replace('\'', "'\\''"))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn disconnect_cancels_a_pending_login_before_stopping_the_server() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root =
+            std::env::temp_dir().join(format!("atlas-codex-login-cancel-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let _cleanup = TemporaryDirectory(root.clone());
+        let executable = root.join("fake-codex");
+        let log = root.join("requests.jsonl");
+        let config = json!({
+            "features": {
+                "shell_tool": false, "apps": false, "hooks": false,
+                "multi_agent": false, "plugins": false, "goals": false,
+                "memories": false, "view_image": false, "browser_use": false,
+                "computer_use": false, "image_generation": false,
+                "skill_search": false, "workspace_dependencies": false,
+                "remote_plugin": false, "shell_snapshot": false,
+                "skill_mcp_dependency_install": false,
+                "skip_host_skill_discovery": true
+            },
+            "permissions": {
+                "code_atlas_explainer_v1": {
+                    "filesystem": {":minimal": "read", ":workspace_roots": "read"},
+                    "network": {"enabled": false}
+                }
+            },
+            "web_search": "disabled",
+            "approval_policy": "never"
+        });
+        let script = r##"#!/bin/sh
+log=__LOG__
+while IFS= read -r line; do
+  printf '%s\n' "$line" >> "$log"
+  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  [ -n "$id" ] || continue
+  method=$(printf '%s\n' "$line" | sed -n 's/.*"method":"\([^"]*\)".*/\1/p')
+  case "$method" in
+    initialize) printf '{"id":%s,"result":{"serverInfo":{"version":"fixture-1"}}}\n' "$id" ;;
+    config/read) printf '{"id":%s,"result":{"config":%s}}\n' "$id" __CONFIG__ ;;
+    *) printf '{"id":%s,"result":{}}\n' "$id" ;;
+  esac
+done
+"##
+        .replace("__LOG__", &shell_single_quoted(&log.to_string_lossy()))
+        .replace(
+            "__CONFIG__",
+            &shell_single_quoted(&serde_json::to_string(&config).unwrap()),
+        );
+        fs::write(&executable, script).unwrap();
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&executable, permissions).unwrap();
+
+        let manager = CodexAgentManager::default();
+        manager
+            .configure(&root, executable.to_str().unwrap())
+            .unwrap();
+        let runtime = runtime_root(&root).unwrap();
+        let process = ServerProcess::start(
+            &executable,
+            &runtime,
+            manager.0.process_id.clone(),
+            manager.0.shutdown.clone(),
+            None,
+        )
+        .unwrap();
+        *manager.0.process.lock().unwrap() = Some(process);
+        manager.update_status(|status| {
+            status.pending_login_id = Some("pending-login-fixture".to_owned());
+        });
+
+        manager.logout(&root).unwrap();
+
+        let requests: Vec<Value> = fs::read_to_string(&log)
+            .unwrap()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        assert!(requests.iter().any(|request| {
+            request.get("method").and_then(Value::as_str) == Some("account/login/cancel")
+                && request.pointer("/params/loginId").and_then(Value::as_str)
+                    == Some("pending-login-fixture")
+        }));
+        assert!(!load_runtime_settings(&root).unwrap().unwrap().auto_connect);
+        assert!(manager.0.process.lock().unwrap().is_none());
+        assert!(manager.0.status.lock().unwrap().pending_login_id.is_none());
+    }
+
     /// Explicit opt-in metadata check: starts the selected installed runtime,
     /// reuses its account, reads its catalog, and never requests model output.
     #[test]
