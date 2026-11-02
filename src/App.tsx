@@ -260,6 +260,9 @@ function captureOutcomeNotice(progress: SnapshotProgress, loadLatestChanges = fa
     projectId: progress.projectId,
     snapshotId: progress.parentSnapshotId,
     occurrenceId: `capture:${progress.snapshotId}:${progress.status}`,
+    ...(['inconsistent', 'failed'].includes(progress.status)
+      ? { target: { kind: 'retrySnapshot' as const, loadLatestChanges } }
+      : {}),
   };
 }
 
@@ -944,20 +947,23 @@ function App() {
 
   const openLocalRepository = () => pickLocalRepository();
 
-  const openRecent = async (projectId: string) => {
+  const openRecent = async (projectId: string): Promise<boolean> => {
     automaticRestoreAllowed.current = false;
     pickerReturnFocusRef.current = 'project-button';
     setProjectMenuOpen(false);
     try {
-      handleProjectOpenResult(await openRecentProject(projectId));
+      const result = await openRecentProject(projectId);
+      handleProjectOpenResult(result);
+      return result.status === 'opened' || result.status === 'storageError';
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === 'AbortError') return false;
       setNotice({projectId,
         title: 'Could not open this recent project',
         message: 'Local project metadata could not be read.',
         target: {kind:'openRepository'},
         tone: 'error',
       });
+      return false;
     }
   };
 
@@ -982,8 +988,9 @@ function App() {
     }
   };
 
-  const createSnapshot = async (loadLatestChanges = false) => {
-    if (!currentProject) return;
+  const createSnapshot = async (loadLatestChanges = false, targetProjectId?: string, resolvedNoticeId?: string) => {
+    const projectId = targetProjectId ?? currentProject?.projectId;
+    if (!projectId || snapshotBusy || captureByProject[projectId]?.status === 'running') return;
     if (!isNativeRuntime()) {
       setNotice({
         title: 'Capture from the Code Atlas Mac app',
@@ -991,25 +998,40 @@ function App() {
       });
       return;
     }
-    const projectId = currentProject.projectId;
-    if (loadLatestChanges && currentCapture?.status === 'running') return;
-    if (loadLatestChanges) latestCaptureTargetRef.current = { projectId, snapshotId: null };
     setSnapshotBusy(true);
     try {
+      if (currentProject?.projectId !== projectId) {
+        const opened = await openRecentProject(projectId);
+        if (!opened.project || (opened.status !== 'opened' && opened.status !== 'storageError')) {
+          handleProjectOpenResult(opened);
+          return;
+        }
+        handleProjectOpenResult(opened);
+      }
+      setNavigation((state) => navigateToRoute(state, {
+        ...state.current,
+        workspace: 'atlas',
+        projectId,
+        snapshotId: state.current.projectId === projectId ? state.current.snapshotId : null,
+        focusTarget: 'heading:atlas',
+      }));
+      if (loadLatestChanges) latestCaptureTargetRef.current = { projectId, snapshotId: null };
       const start = await startSnapshot(projectId);
       if (loadLatestChanges && latestCaptureTargetRef.current?.projectId === projectId
         && latestCaptureTargetRef.current.snapshotId === null) {
         latestCaptureTargetRef.current = { projectId, snapshotId: start.snapshotId };
       }
-      const progress = await getSnapshotProgress(start.snapshotId);
+      const progress = await getSnapshotProgress(start.snapshotId).catch(() => null);
       if (progress) {
         setCaptureByProject((current) => ({ ...current, [projectId]: progress }));
       }
+      if (resolvedNoticeId) noticeHistory.dismiss(resolvedNoticeId);
     } catch (error) {
       if (latestCaptureTargetRef.current?.projectId === projectId) latestCaptureTargetRef.current = null;
       setNotice({projectId,
         title: 'Snapshot could not start',
         message: 'The local capture service did not respond.',
+        target: {kind:'retrySnapshot',loadLatestChanges},
         tone: 'error',
       });
     } finally {
@@ -1028,11 +1050,6 @@ function App() {
       });
     }
   };
-  const stopSnapshot = async () => {
-    if (!currentCapture || currentCapture.status !== 'running') return;
-    await cancelCapture(currentCapture);
-  };
-
   useEffect(() => {
     if (!isNativeRuntime() && navigation.current.projectId && navigation.current.snapshotId && currentWorkspace === 'atlas') {
       const projectId = navigation.current.projectId;
@@ -1672,6 +1689,7 @@ function App() {
     const {target,projectId,snapshotId}=item.input;
     if(target?.kind==='openRepository'){void pickLocalRepository('notifications');return;}
     if(target?.kind==='retryRecents'){void retryRecentProjectsLoad();return;}
+    if(target?.kind==='retrySnapshot'&&projectId){await createSnapshot(target.loadLatestChanges,projectId,item.id);return;}
     if(target?.kind==='retryConversation'&&projectId&&snapshotId){try{await retryWorkspaceConversation(projectId,snapshotId);}catch{/* The same scoped notice remains available for retry. */}return;}
     if(target?.kind==='discardBrowserPreview'&&projectId&&snapshotId){try{discardUnavailableBrowserPreview(projectId,snapshotId);}catch(failure){setNotice({title:'Saved preview is still unavailable',message:errorMessageOr(failure,'The saved browser preview could not be discarded.'),projectId,snapshotId});}return;}
     if(target?.kind==='openExploration'&&projectId&&snapshotId){
@@ -1822,8 +1840,8 @@ function App() {
         ]:undefined,
         bucket:item.read?'updates':'attention',countLabel:'notices',
         message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
-        actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':item.input.target.kind==='discardBrowserPreview'?'Discard saved preview':'Open explanation',
-          movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
+        actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':item.input.target.kind==='retrySnapshot'?item.input.target.loadLatestChanges?'Load latest changes again':'Try capture again':item.input.target.kind==='discardBrowserPreview'?'Discard saved preview':'Open explanation',
+          movesFocus:item.input.target.kind==='openExploration'||item.input.target.kind==='retrySnapshot',opensDialog:item.input.target.kind==='openRepository',
           run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
           ...(groupedNotices.length===1&&!item.read?[{label:'Mark read',disabled:noticeHistoryState.availability==='unavailable',run:()=>noticeHistory.read(item.id)}]:[]),
           {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
@@ -2119,28 +2137,20 @@ function App() {
               </>
             ) : currentWorkspace === 'atlas' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading"><HardDrive size={18} /><span>Opening the selected immutable snapshot…</span></div>
-            ) : currentWorkspace === 'atlas' && currentCapture?.status === 'running' ? (
-              <SnapshotCaptureState progress={currentCapture} onCancel={() => { void stopSnapshot(); }} />
-            ) : currentWorkspace === 'atlas' && (currentCapture?.status === 'failed' || currentCapture?.status === 'inconsistent' || currentCapture?.status === 'cancelled') ? (
-              <SnapshotCaptureResult progress={currentCapture} onRetry={() => { void createSnapshot(); }} />
             ) : currentWorkspace === 'atlas' ? (
               <AtlasEmptyState
                 project={currentProject}
                 onOpen={() => { void openLocalRepository(); }}
                 onCreateSnapshot={() => { void createSnapshot(); }}
-                busy={snapshotBusy}
+                busy={snapshotBusy || currentCapture?.status === 'running'}
                 limits={currentCapture?.limits ?? captureLimits}
               />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Guide Plan…</span></div>
-            ) : currentWorkspace === 'guide-plan' && currentCapture?.status === 'running' ? (
-              <SnapshotCaptureState progress={currentCapture} onCancel={() => { void stopSnapshot(); }} />
-            ) : currentWorkspace === 'guide-plan' && (currentCapture?.status === 'failed' || currentCapture?.status === 'inconsistent' || currentCapture?.status === 'cancelled') ? (
-              <SnapshotCaptureResult progress={currentCapture} onRetry={() => { void createSnapshot(); }} />
             ) : currentWorkspace === 'guide-plan' ? (
               <WorkflowEmptyState kind="plan" onGoAtlas={() => chooseWorkspace('atlas')}
                 onCreateSnapshot={currentProject ? () => { void createSnapshot(); } : undefined}
-                onOpenRepository={() => { void openLocalRepository(); }} captureBusy={snapshotBusy} />
+                onOpenRepository={() => { void openLocalRepository(); }} captureBusy={snapshotBusy || currentCapture?.status === 'running'} />
             ) : currentWorkspace === 'chapter-studio' && currentProject && selectedSnapshot && snapshotManifest ? (
               <ChapterStudioScreen
                 key={`${currentProject.projectId}:${selectedSnapshot.snapshotId}`}
@@ -3349,65 +3359,6 @@ function CapturePolicy({ limits }: { limits: CaptureLimits | null }) {
         <p>{limits.otherExclusions.join(' · ')}. Git-tracked files remain eligible even if an ignore rule matches.</p>
       </div>
     </details>
-  );
-}
-
-function SnapshotCaptureState({ progress, onCancel }: { progress: SnapshotProgress; onCancel: () => void }) {
-  const phase = progress.phase === 'scanning'
-    ? 'Scanning eligible paths'
-    : progress.phase === 'checkingIgnoreRules'
-      ? 'Checking Git ignore rules'
-      : progress.phase === 'readingFiles'
-        ? 'Capturing file bytes'
-        : 'Saving immutable snapshot';
-  const hasReadProgress = progress.phase === 'readingFiles' && progress.candidateFiles > 0;
-  const percent = hasReadProgress ? Math.min(100, Math.round(progress.filesProcessed * 100 / progress.candidateFiles)) : undefined;
-  return (
-    <div className="empty-workspace snapshot-state">
-      <div className="snapshot-state-card" aria-live="polite">
-        <div className="snapshot-state-icon spinning"><HardDrive size={22} /></div>
-        <div className="snapshot-state-copy">
-          <div className="step-pill"><span>LOCAL</span> IMMUTABLE CAPTURE</div>
-          <h2>{phase}</h2>
-          <p>{progress.currentPath ? <><span className="mono">{progress.currentPath}</span><br /></> : null}{progress.message ?? 'Repository data stays on this Mac. The original working tree is opened read-only.'}</p>
-        </div>
-        {hasReadProgress ? (
-          <div className="capture-progress-detail">
-            <div className="capture-progress-line"><strong>{progress.filesCaptured.toLocaleString()} captured · {progress.filesProcessed.toLocaleString()} / {progress.candidateFiles.toLocaleString()} checked</strong><span>{percent}%</span></div>
-            <progress value={progress.filesProcessed} max={progress.candidateFiles} aria-label="Candidate files checked" />
-          </div>
-        ) : <progress className="capture-indeterminate" aria-label={phase} />}
-        <div className="capture-live-stats">
-          <span>{progress.pathsVisited.toLocaleString()} paths checked</span>
-          <span>{formatBytes(progress.bytesRead)} read</span>
-          <span>{progress.pathsSkipped.toLocaleString()} skipped</span>
-        </div>
-        <div className="capture-state-actions"><AppButton intent="secondary" onClick={onCancel}>Cancel capture</AppButton></div>
-        <CapturePolicy limits={progress.limits} />
-      </div>
-    </div>
-  );
-}
-
-function SnapshotCaptureResult({ progress, onRetry }: { progress: SnapshotProgress; onRetry: () => void }) {
-  const heading = progress.status === 'cancelled'
-    ? 'Capture cancelled'
-    : progress.status === 'inconsistent'
-      ? 'Repository changed during capture'
-      : 'Snapshot could not be saved';
-  return (
-    <div className="empty-workspace snapshot-state">
-      <div className={`snapshot-state-card terminal-${progress.status}`} role={progress.status === 'failed' || progress.status === 'inconsistent' ? 'alert' : 'status'}>
-        <div className="snapshot-state-icon"><TriangleAlert size={22} /></div>
-        <div className="snapshot-state-copy">
-          <div className="step-pill"><span>{progress.status.toUpperCase()}</span> SNAPSHOT RESULT</div>
-          <h2>{heading}</h2>
-          <p>{progress.message ?? 'No new snapshot was added to history. Previous snapshots remain unchanged.'}</p>
-        </div>
-        <div className="capture-state-actions"><AppButton intent="primary" onClick={onRetry}>Try capture again</AppButton></div>
-        <CapturePolicy limits={progress.limits} />
-      </div>
-    </div>
   );
 }
 
