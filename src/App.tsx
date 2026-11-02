@@ -1008,13 +1008,20 @@ function App() {
         }
         handleProjectOpenResult(opened);
       }
-      setNavigation((state) => navigateToRoute(state, {
-        ...state.current,
-        workspace: 'atlas',
-        projectId,
-        snapshotId: state.current.projectId === projectId ? state.current.snapshotId : null,
-        focusTarget: 'heading:atlas',
-      }));
+      setNavigation((state) => {
+        // Atlas remains a legacy entry surface for opening a repository. Once
+        // capture starts, take the user into the current code workspace. A
+        // refresh from an active workspace should keep that workspace and its
+        // route context while the new immutable snapshot is captured.
+        const workspace = state.current.workspace === 'atlas' ? 'guide-plan' : state.current.workspace;
+        return navigateToRoute(state, {
+          ...state.current,
+          workspace,
+          projectId,
+          snapshotId: state.current.projectId === projectId ? state.current.snapshotId : null,
+          focusTarget: `heading:${workspace}`,
+        });
+      });
       if (loadLatestChanges) latestCaptureTargetRef.current = { projectId, snapshotId: null };
       const start = await startSnapshot(projectId);
       if (loadLatestChanges && latestCaptureTargetRef.current?.projectId === projectId
