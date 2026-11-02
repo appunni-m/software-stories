@@ -613,7 +613,7 @@ fn diagnostics_reject_corruption_duplicates_unexpected_content_and_identity_chan
     let original = fs::read(&file).unwrap();
     let original_value: Value = serde_json::from_slice(&original).unwrap();
     for (key, bad) in [
-        ("schemaVersion", json!(6)),
+        ("schemaVersion", json!(SCHEMA_VERSION + 1)),
         ("modelId", json!("private source")),
         ("events", json!([])),
         ("clock", json!("wall clock")),

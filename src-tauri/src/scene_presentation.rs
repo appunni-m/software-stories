@@ -1028,7 +1028,7 @@ mod tests {
         assert!(narration(&wrong, &claims).is_err());
         let mut long_legacy_speech = presentation.clone();
         long_legacy_speech.scenes[0].narration =
-            "First outcome. Second outcome. Third outcome. Fourth outcome.".into();
+            "First outcome. Second outcome. Third outcome. Fourth outcome. Fifth outcome.".into();
         assert!(validate(&long_legacy_speech, &nodes, &claims).is_err());
         assert!(narration(&long_legacy_speech, &claims).is_err());
         presentation.scenes[0].narration = "é".repeat(600);

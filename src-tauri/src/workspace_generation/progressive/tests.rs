@@ -882,7 +882,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert!(system_instructions().contains("Choose among these visual grammars by meaning."));
     assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-"));
-    assert!(system_instructions().contains("Visual composition review v62"));
+    assert!(system_instructions().contains("Visual composition review v"));
+    assert!(system_instructions().contains(
+        "one source-backed change, decision or result and one focal object or relationship"
+    ));
     assert!(
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")

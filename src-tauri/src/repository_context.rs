@@ -593,6 +593,8 @@ fn scored_coverage_terms(
             }
         }
     }
+    selected.sort_unstable();
+    unscored.sort_unstable();
     (selected, unscored)
 }
 

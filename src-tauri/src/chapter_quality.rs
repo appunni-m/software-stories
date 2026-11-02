@@ -457,8 +457,14 @@ mod tests {
     fn profile() -> Value {
         json!({"backendId":"codex","modelId":"gpt-6-luna","reasoningEffort":"max","approvalPolicy":"never"})
     }
+    fn direct_api_profile() -> Value {
+        let model_id = provider::disclosure_for("gemini").unwrap().models[0]
+            .model_id
+            .clone();
+        json!({"backendId":"gemini","modelId":model_id,"reasoningEffort":null,"approvalPolicy":null})
+    }
     fn request(proposal: Value) -> Value {
-        json!({"action":"validate","protocolVersion":1,"profile":profile(),"targetPath":SIMPLE_PATH,
+        json!({"action":"validate","protocolVersion":1,"profile":direct_api_profile(),"targetPath":SIMPLE_PATH,
             "sources":[{"path":SIMPLE_PATH,"text":SIMPLE_SOURCE,"sha256":sha256(SIMPLE_SOURCE.as_bytes())}],"proposal":proposal.to_string()})
     }
     fn run(request: &Value) -> Result<Value, String> {
@@ -572,15 +578,21 @@ mod tests {
                 .unwrap()
                 .contains(crate::provider::visual_scenes::STORY_POLICY_VERSION)
         );
-        assert!(
-            first["userPrompt"]
-                .as_str()
-                .unwrap()
-                .contains("Hello, ${name}")
+        let user_prompt = first["userPrompt"].as_str().unwrap();
+        assert!(user_prompt.contains("src/quality-contract.ts"));
+        assert!(user_prompt.contains("private search_code and read_code tools"));
+        assert!(!user_prompt.contains("Hello, ${name}"));
+        assert_eq!(
+            first["generationConfig"]["codexSnapshotRetrieval"]["version"],
+            1
         );
         assert_eq!(
-            first["generationConfig"]["candidateCorrection"]["maxAttempts"],
-            1
+            first["generationConfig"]["codexSnapshotRetrieval"]["maxFiles"],
+            json!(crate::evidence_ledger::MAX_FILES)
+        );
+        assert_eq!(
+            first["generationConfig"]["codexSnapshotRetrieval"]["maxSourceBytes"],
+            json!(crate::evidence_ledger::MAX_SOURCE_BYTES)
         );
         assert_eq!(first["responseSchemaVersion"], 3);
         assert_eq!(first["responseSchema"]["additionalProperties"], false);

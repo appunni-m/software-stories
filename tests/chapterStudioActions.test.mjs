@@ -31,13 +31,14 @@ function setup(){
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
     pendingDraft:null,preservedDraftReason:null,historyAvailability:'ready',
+    validationScopeRef:{current:{projectId:'p',snapshotId:'s',targetKey:'target:one',revisionId:before.revisionId,editing:false,candidate:null}},
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
     setLoading:change('loading'),setLoadError:change('loadError'),
     setEditing:change('editing'),setCandidate:change('candidate'),setRebasing:change('rebasing'),setValidation:change('validation'),setFeedback:change('feedback'),
     setRejecting:change('rejecting'),setRejectReason:change('reason'),setBusy:change('busy'),
-    onSelectRevision:r=>state.navigation.push(r),
+    onSelectRevision:r=>state.navigation.push(r),selectMutationRevision:r=>state.navigation.push(r),
     saveChapterEdits:async()=>result,restoreChapterRevision:async()=>result,acceptChapterDraft:async()=>result,rejectChapterDraft:async()=>saved,
     reload:async()=>{throw new Error('history read failed after persistence');},
     errorMessageOr:(error,fallback)=>error?.message??fallback,
@@ -173,11 +174,12 @@ test('the real Validate callback reports one issue with singular feedback and re
   const report={status:'invalid',issues:[{code:'invalidClaim',message:'A claim needs text.'}]};
   bindings.validateSavedChapterRevision=async()=>report;
   await callback('validateCurrent',bindings)();
-  assert.equal(state.validation,report);assert.equal(state.feedback.message,'1 issue needs review before acceptance.');assert.equal(state.feedback.tone,'error');
+  assert.deepEqual(state.validation,{revisionId:bindings.activeDocument.revisionId,report});assert.equal(state.feedback.message,'1 issue needs review before acceptance.');assert.equal(state.feedback.tone,'error');
 });
 
 for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'the native saved record without a renderer round-trip'}`,async()=>{
   const {state,bindings,before}=setup();const requests=[];bindings.editing=editing;bindings.activeDocument=bindings.candidate;
+  bindings.validationScopeRef.current={projectId:'p',snapshotId:'s',targetKey:'target:one',revisionId:bindings.activeDocument.revisionId,editing,candidate:editing?bindings.candidate:null};
   bindings.validateChapterRevision=async(...args)=>{assert.ok(editing);requests.push(args);return {status:'valid',issues:[]};};
   bindings.validateSavedChapterRevision=async(...args)=>{assert.ok(!editing);requests.push(args);return {status:'valid',issues:[]};};
   await callback('validateCurrent',bindings)();

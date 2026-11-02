@@ -99,7 +99,8 @@ test('production registers the native handshake before mounting and covers Quit,
   assert.match(bridge,/freeze:beginWorkspaceClose,flush:flushAllWorkspaceConversations/);assert.match(bridge,/root\.inert = true/);assert.match(bridge,/root\.inert = previousInert/);
   assert.match(bridge,/status\.setAttribute\('role','status'\)/);assert.match(bridge,/Saving your place…/);
   assert.match(notices,/freeze:\(\)=>history\.beginClose\(\),flush:\(\)=>history\.flush\(\)/);
-  assert.match(audio,/player\.readyState>=1&&restoreTimeRef\.current===null/);assert.match(audio,/persistPlaybackPosition\(player\.currentTime\)/);
+  assert.match(audio,/onLoadedMetadata=\{\(event\) => \{[\s\S]*?restoreTimeRef\.current !== null[\s\S]*?event\.currentTarget\.currentTime = position[\s\S]*?restoreTimeRef\.current = null/);
+  assert.match(audio,/persistPlaybackPosition\(event\.currentTarget\.currentTime\)/);
   assert.match(native,/RunEvent::ExitRequested/);assert.match(native,/WindowEvent::CloseRequested/);assert.match(native,/api\.prevent_exit\(\)/);assert.match(native,/api\.prevent_close\(\)/);assert.match(native,/Duration::from_secs\(20\)/);
   assert.match(lib,/app_close::handle_event\(app, &event\)/);
 });

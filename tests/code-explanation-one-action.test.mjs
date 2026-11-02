@@ -28,12 +28,15 @@ test('selected code stays bound to the current snapshot and sharing consent',()=
   assert.match(ask,/if\(state\.grantId\).*runQuestion/s);
   assert.match(ask,/setConsentTurn\(id\)/);
 
-  const validate=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function explain(context:Context)');
-  assert.match(validate,/expectedSnapshotId!==snapshotId/);
-  assert.match(validate,/source\.snapshotId!==snapshotId/);
-  assert.match(validate,/source\.path!==selected\.path/);
-  assert.match(validate,/source\.sha256/);
-  assert.match(validate,/selected\.sha256===source\.sha256/);
+  const displayed=functionBody('function verifiedDisplayedContext(context:Context,expectedSnapshotId:string)','function verifiedFileContext(');
+  assert.match(displayed,/expectedSnapshotId!==snapshotId/);
+  assert.match(displayed,/source\.snapshotId!==snapshotId/);
+  assert.match(displayed,/source\.path!==selected\.path/);
+  assert.match(displayed,/source\.sha256/);
+  assert.match(displayed,/selected\.sha256===source\.sha256/);
+  const range=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function explain(context:Context)');
+  assert.match(range,/verifiedDisplayedContext\(context,expectedSnapshotId\)/);
+  assert.match(range,/rangeValid/);
 });
 
 test('the captured-source action resumes in the same conversation and asks only after exact-source replay',()=>{

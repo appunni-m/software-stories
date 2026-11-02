@@ -3119,7 +3119,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
                     <div><span>{savedRevision ? 'DRAFT SAVED' : 'PREVIEW'}</span><h4 id="provider-response-title"><InlineCodeText text={sendResult.revision.title}/></h4></div>
-                    <p>{savedRevision ? 'Draft saved. Your accepted explanation stays unchanged until you accept this draft.' : sectionUpdateMode ? 'Preview for the selected section only. Your accepted explanation stays unchanged until you save and accept it. Any other affected sections are listed below.' : 'Preview only. Review the explanation and its sources, then save it as a draft when you’re ready.'}</p>
+                    <p>{savedRevision ? 'Draft saved. Your accepted explanation stays unchanged until you accept this draft.' : sectionUpdateMode ? 'Preview for the selected section only. Your accepted explanation stays unchanged until you save and accept it. Any other affected sections are listed below.' : 'Preview only. Review the explanation and its sources, then save it as a draft when you’re ready. Closing keeps this preview in local recovery until you save or discard it.'}</p>
                     {sectionUpdateMode && <div className="section-update-preview-summary">
                       <strong>{savedRevision ? 'Draft changes' : 'Preview changes'}</strong>
                       {sendResult.revision.sections.map((section) => {
