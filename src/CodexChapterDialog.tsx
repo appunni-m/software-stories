@@ -361,7 +361,14 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         if (lifetime.current === epoch) { acceptModels(catalog); acceptStatus(await getCodexAgentStatus()); setNote('Connected to your existing Codex account.'); }
         return;
       }
-      if (!value.loginId || !value.authUrl) { setError('Sign-in could not start. Try Connect again.'); return; }
+      if (!value.loginId || !value.authUrl) {
+        // A malformed/partial adapter response can still expose a server-side
+        // login attempt. Release only the ID returned by this request before
+        // surfacing the failure; native cancellation is idempotent for stale IDs.
+        if (value.loginId) await cancelCodexLogin(value.loginId).catch(() => {});
+        setError('Sign-in could not start. Try Connect again.');
+        return;
+      }
       if (!loginHref(value.authUrl)) { await cancelCodexLogin(value.loginId).catch(() => {}); setError('Codex returned an unsupported sign-in destination.'); return; }
       resources.current.login = value.loginId;
       setLogin({ loginId: value.loginId, authUrl: value.authUrl });
