@@ -82,8 +82,8 @@ export function readHandoffAgent(): HandoffAgent {
   try {
     const saved = localStorage.getItem(handoffAgentKey);
     return saved === 'claude-code' || saved === 'codex' || saved === 'antigravity' || saved === 'other'
-      ? saved : 'claude-code';
-  } catch { return 'claude-code'; }
+      ? saved : 'codex';
+  } catch { return 'codex'; }
 }
 
 export function rememberHandoffAgent(agent: HandoffAgent): void {
