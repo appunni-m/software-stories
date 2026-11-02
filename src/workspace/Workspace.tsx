@@ -656,16 +656,25 @@ export function DeveloperWorkspace(props:Props) {
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
     return true;
   }
-  function verifiedCodeContext(context:Context,expectedSnapshotId:string):Context|null {
+  function verifiedDisplayedContext(context:Context,expectedSnapshotId:string):Context|null {
     const selected=bindSelectionToDisplayedSource(context,source);
     if(expectedSnapshotId!==snapshotId||!source||source.path!==selected.path||source.snapshotId!==snapshotId
       ||!source.sha256||!rows.some((row)=>row.path===selected.path))return null;
+    return selected.sha256===source.sha256?selected:null;
+  }
+  function verifiedFileContext(context:Context,expectedSnapshotId:string):Context|null {
+    const selected=verifiedDisplayedContext(context,expectedSnapshotId);
+    return selected&&selected.from===undefined&&selected.to===undefined?selected:null;
+  }
+  function verifiedCodeContext(context:Context,expectedSnapshotId:string):Context|null {
+    const selected=verifiedDisplayedContext(context,expectedSnapshotId);
+    if(!selected)return null;
     const lineCount=sourceLineIndex?.lineCount??0;
     const hasRange=selected.from!==undefined||selected.to!==undefined;
     const rangeValid=hasRange&&typeof selected.from==='number'&&typeof selected.to==='number'
       &&Number.isInteger(selected.from)&&Number.isInteger(selected.to)&&selected.from>=1
       &&selected.to>=selected.from&&selected.to<=lineCount;
-    return rangeValid&&selected.sha256===source.sha256?selected:null;
+    return rangeValid?selected:null;
   }
   function explain(context:Context){
     if(generationPaused)return;
@@ -692,6 +701,27 @@ export function DeveloperWorkspace(props:Props) {
       const safeDetail=detail.length>0&&detail.length<=220&&!/(?:api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]/iu.test(detail)
         ? ` Details: ${detail}` : '';
       setDraftNotice(`The selected code could not be prepared.${safeDetail} Reopen the captured file and select its code again.`);
+    }
+  }
+  function explainFileSafely(){
+    try{
+      if(generationPaused)return;
+      const selected=source&&verifiedFileContext({path:source.path,sha256:source.sha256},snapshotId);
+      if(!selected){
+        setConnectionNotice(null);
+        setDraftNotice('This file is no longer available in the captured snapshot. Reopen it from Explorer and try again. Nothing was sent.');
+        return;
+      }
+      const fileName=selected.path.split('/').at(-1)??selected.path;
+      setConnectionNotice(null);setDraftNotice(null);setConsentError(null);
+      const view:View=current.view==='flow'?'flow':'guide';
+      ask(`Explain what ${fileName} does and how its implementation works.`,view,[selected]);
+    }catch(failure){
+      setConnectionNotice(null);
+      const detail=errorMessageOr(failure,'').replace(/\s+/gu,' ').trim();
+      const safeDetail=detail.length>0&&detail.length<=220&&!/(?:api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]/iu.test(detail)
+        ? ` Details: ${detail}` : '';
+      setDraftNotice(`This file explanation could not be prepared.${safeDetail} Reopen the captured file and try again.`);
     }
   }
   const handledCodeLensQuestion=useRef<string|null>(null);
@@ -1111,7 +1141,7 @@ export function DeveloperWorkspace(props:Props) {
                     <h1>What would you like to understand?</h1>
                     <p>{conversationUnavailable ? 'Browse or search the captured code to inspect it.' : 'Ask above, or start with the selected file.'}</p>
                     {!generationPaused && source && (
-                      <AppButton intent="custom" className="dw-text-action" onClick={() => explainSafely({ path: source.path, sha256: source.sha256 })}>
+                      <AppButton intent="custom" className="dw-text-action" onClick={explainFileSafely}>
                         Explain {source.path.split('/').at(-1)}
                       </AppButton>
                     )}
