@@ -75,6 +75,23 @@ test('an exact symbol declaration leads partial symbol and fixture-file matches'
   ]);
 });
 
+test('composite identifier queries do not return hits for isolated components',()=>{
+  const hits=workspaceSearchResults({query:'missing_widget_render',mode:'code',files:[
+    {path:'src/missing.rs'},
+    {path:'src/widget.rs'},
+    {path:'src/missing_widget_render.rs'},
+  ],symbols:[
+    {path:'src/missing.rs',name:'missing',anchor:{startLine:4,endLine:8}},
+    {path:'src/widget.rs',name:'widget_render',anchor:{startLine:14,endLine:20}},
+    {path:'src/renderer.rs',name:'missing_widget_render',anchor:{startLine:40,endLine:45}},
+  ],source:{path:'src/open.rs',contents:'missing\nwidget render\nmissing_widget_render(data);'},captured:[]});
+  assert.deepEqual(hits.map(hit=>`${hit.path}:${hit.from??'path'}`).sort(),[
+    'src/missing_widget_render.rs:path',
+    'src/open.rs:3',
+    'src/renderer.rs:40',
+  ]);
+});
+
 test('a source line matching a symbol declaration is one result with the richer snippet',()=>{
   const hits=workspaceSearchResults({query:'memory_face',mode:'code',files:[{path:'src/font.rs'}],symbols:[
     {path:'src/font.rs',name:'memory_face',anchor:{startLine:4053,endLine:4115}},

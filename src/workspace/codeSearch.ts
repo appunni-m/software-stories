@@ -67,9 +67,16 @@ function pluralVariants(term:string):string[]{
  */
 function localMatcher(query:string,terms:readonly string[]):(value:string)=>number{
   const phrase=searchableParts(query).join(' ');
+  const trimmed=query.trim();
+  // Composite identifiers are exact discovery queries. Treating their
+  // underscore/camel-case components like independent natural-language words
+  // produces convincing but unrelated results when only one component exists.
+  const identifierPhrase=/^[\p{L}\p{N}_]+$/u.test(trimmed)&&(/_/u.test(trimmed)||/[a-z][A-Z]/u.test(trimmed))?phrase:null;
   return (value:string)=>{
     const parts=searchableParts(value);
     if(!parts.length)return 0;
+    const normalized=parts.join(' ');
+    if(identifierPhrase&&!normalized.includes(identifierPhrase))return 0;
     const matched=terms.filter(term=>parts.some(part=>{
       if(part===term)return true;
       if(Math.min(part.length,term.length)<3)return false;
@@ -83,7 +90,6 @@ function localMatcher(query:string,terms:readonly string[]):(value:string)=>numb
       return suffix==='s'||suffix==='es';
     }));
     if(!matched.length)return 0;
-    const normalized=parts.join(' ');
     const exactPhrase=phrase&&normalized.includes(phrase)?1_000:0;
     return exactPhrase+matched.length*100+matched.reduce((score,term)=>score+Math.min(term.length,12),0);
   };
