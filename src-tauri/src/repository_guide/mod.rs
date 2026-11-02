@@ -1967,7 +1967,16 @@ pub(crate) async fn advance_repository_guide(
                 // A planning/building owner reads this durable receipt at its
                 // next boundary. A terminal owner gets a short local handoff
                 // window; no provider wait is introduced here.
-                return summary(&storage, &store::read(&storage, &id)?);
+                let latest = store::read(&storage, &id)?;
+                if latest.status != Status::Stopped
+                    && latest.active_run_id.is_none()
+                    && !matches!(&latest.status, Status::Planning | Status::Building)
+                    && guide_buffer_gap(&latest) > 0
+                    && opening_continuation::remaining_operations(&latest) > 0
+                {
+                    return Err("The playback receipt was saved, but the guide refill is still handing off. Continue again to start it; no new generation was started.".into());
+                }
+                return summary(&storage, &latest);
             };
             lease
         }

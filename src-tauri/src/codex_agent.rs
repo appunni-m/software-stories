@@ -552,9 +552,28 @@ impl CodexAgentManager {
             RPC_TIMEOUT,
         )?;
         let login_id = bounded_string(&result, "loginId", 256)?;
-        let auth_url = bounded_string(&result, "authUrl", 8192)?;
-        let url =
-            reqwest::Url::parse(&auth_url).map_err(|_| "Codex returned an invalid sign-in URL.")?;
+        let auth_url = match bounded_string(&result, "authUrl", 8192) {
+            Ok(auth_url) => auth_url,
+            Err(error) => {
+                let _ = process.request(
+                    "account/login/cancel",
+                    json!({"loginId": login_id}),
+                    RPC_TIMEOUT,
+                );
+                return Err(error);
+            }
+        };
+        let url = match reqwest::Url::parse(&auth_url) {
+            Ok(url) => url,
+            Err(_) => {
+                let _ = process.request(
+                    "account/login/cancel",
+                    json!({"loginId": login_id}),
+                    RPC_TIMEOUT,
+                );
+                return Err("Codex returned an invalid sign-in URL.".to_owned());
+            }
+        };
         if url.scheme() != "https"
             || !matches!(url.host_str(), Some("auth.openai.com" | "chatgpt.com"))
             || !url.username().is_empty()
