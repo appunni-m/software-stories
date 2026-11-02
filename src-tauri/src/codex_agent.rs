@@ -31,6 +31,8 @@ const MAX_OPERATION_BYTES: usize = 32 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 300 * 1024;
 const MAX_CONTEXT_BYTES: usize = 256 * 1024;
 const MAX_SOURCE_FILES: usize = 24;
+const MAX_LOGIN_ID_BYTES: usize = 256;
+const MAX_LOGIN_CLEANUP_ID_BYTES: usize = 8 * 1024;
 const RPC_TIMEOUT: Duration = Duration::from_secs(30);
 const ACCOUNT_PROBE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CANCEL_GRACE: Duration = Duration::from_secs(3);
@@ -551,26 +553,24 @@ impl CodexAgentManager {
             json!({"type": "chatgpt", "useHostedLoginSuccessPage": true}),
             RPC_TIMEOUT,
         )?;
-        let login_id = bounded_string(&result, "loginId", 256)?;
+        let login_id = match bounded_string(&result, "loginId", MAX_LOGIN_ID_BYTES) {
+            Ok(login_id) => login_id,
+            Err(error) => {
+                cancel_started_login(process, &result);
+                return Err(error);
+            }
+        };
         let auth_url = match bounded_string(&result, "authUrl", 8192) {
             Ok(auth_url) => auth_url,
             Err(error) => {
-                let _ = process.request(
-                    "account/login/cancel",
-                    json!({"loginId": login_id}),
-                    RPC_TIMEOUT,
-                );
+                cancel_started_login(process, &result);
                 return Err(error);
             }
         };
         let url = match reqwest::Url::parse(&auth_url) {
             Ok(url) => url,
             Err(_) => {
-                let _ = process.request(
-                    "account/login/cancel",
-                    json!({"loginId": login_id}),
-                    RPC_TIMEOUT,
-                );
+                cancel_started_login(process, &result);
                 return Err("Codex returned an invalid sign-in URL.".to_owned());
             }
         };
@@ -579,11 +579,7 @@ impl CodexAgentManager {
             || !url.username().is_empty()
             || url.password().is_some()
         {
-            let _ = process.request(
-                "account/login/cancel",
-                json!({"loginId": login_id}),
-                RPC_TIMEOUT,
-            );
+            cancel_started_login(process, &result);
             return Err(
                 "Codex returned an unexpected sign-in destination. No browser was opened."
                     .to_owned(),
@@ -2908,6 +2904,24 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
         .filter(|value| !value.is_empty() && value.len() <= limit)
         .map(str::to_owned)
         .ok_or_else(|| format!("Codex returned an invalid {key} field."))
+}
+
+/// Best-effort cleanup for a login created by the current start response.
+/// The accepted ID is deliberately stricter than the cleanup-only bound, so a
+/// malformed but still bounded ID cannot strand a server-side login attempt.
+fn cancel_started_login(process: &mut ServerProcess, result: &Value) {
+    let Some(login_id) = result
+        .get("loginId")
+        .and_then(Value::as_str)
+        .filter(|login_id| !login_id.is_empty() && login_id.len() <= MAX_LOGIN_CLEANUP_ID_BYTES)
+    else {
+        return;
+    };
+    let _ = process.request(
+        "account/login/cancel",
+        json!({"loginId": login_id}),
+        RPC_TIMEOUT,
+    );
 }
 
 fn rpc_failure(method: &str, response: &Value) -> String {
