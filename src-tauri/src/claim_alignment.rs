@@ -763,6 +763,29 @@ mod tests {
             .unwrap()
             .is_empty());
         }
+
+        let malformed = "{\"sections\": [".to_owned();
+        let attempts = Cell::new(0);
+        let failure = correct_once_checked(
+            true,
+            malformed.clone(),
+            |response| {
+                Ok(fixed_source_chapter_diagnostics(
+                    response,
+                    [(SIMPLE_PATH, SIMPLE_SOURCE)],
+                ))
+            },
+            |feedback| {
+                attempts.set(attempts.get() + 1);
+                assert!(feedback.contains("invalidJson"));
+                Ok(malformed.clone())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(attempts.get(), 1);
+        assert!(failure.contains("structured answer still does not match"));
+        assert!(failure.contains("No draft was published"));
+        assert!(!failure.contains("sections"));
     }
 
     #[test]
