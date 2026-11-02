@@ -34,6 +34,16 @@ it('explains current claim validation failures without source identifiers', () =
   assert.equal(explanationErrorMessage('Codex account access expired.'), 'Codex account access expired.');
 });
 
+it('turns the reported missing-identifier claim error into actionable private copy', () => {
+  const result = explanationErrorMessage(
+    "Claim in section 'section:4cf1f1eb-3dda-4b65-8af4-d3218b8c09c1' does not name its declared identifier 'record_pipeline_operation_path' in the explanation.",
+  );
+  assert.match(result, /required code name was missing/u);
+  assert.match(result, /nothing was saved/u);
+  assert.match(result, /select the lines/u);
+  assert.doesNotMatch(result, /section:|record_pipeline_operation_path/u);
+});
+
 it('turns a rejected empty answer into a useful, private retry hint', () => {
   const message = explanationFailureMessage('noPublishedSections');
   assert.match(message, /couldn’t verify an explanation/);
