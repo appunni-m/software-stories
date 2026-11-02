@@ -105,8 +105,9 @@ function topMatches<T>(items:readonly T[],scoreOf:(item:T)=>number,compare:(left
   return best.map(({item})=>item);
 }
 
-/** Keep AI available beside settled local matches, or after an incomplete search.
- * A source hit is useful context, not a replacement for answering the question. */
+/** Keep AI available beside local matches, including while more are loading, or
+ * after an incomplete search. A source hit is useful context, not a replacement
+ * for answering the question. */
 export function shouldOfferExploreWithAI(
   query:string,
   mode:CodeSearchMode,
@@ -116,8 +117,9 @@ export function shouldOfferExploreWithAI(
 ):boolean {
   const length=[...query.trim()].length;
   if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
-  const settled=!busy&&Number.isSafeInteger(resultCount)&&resultCount>=0;
-  return length>=(mode==='regex'?1:2)&&length<=240&&settled;
+  const matchesAvailable=Number.isSafeInteger(resultCount)&&resultCount>0;
+  const searchUsable=(!busy||matchesAvailable)&&Number.isSafeInteger(resultCount)&&resultCount>=0;
+  return length>=(mode==='regex'?1:2)&&length<=240&&searchUsable;
 }
 
 /** Tell readers how much of a capped result set is currently visible. */
