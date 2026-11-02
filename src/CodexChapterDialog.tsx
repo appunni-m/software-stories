@@ -38,6 +38,7 @@ export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & 
   snapshotId: string;
   targetPath?: string;
   selectedPaths?: string[];
+  question?: string;
   recoveryOperationId?: string;
 } | {
   kind: 'section-update';
@@ -106,6 +107,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const plannedChapter = mode !== 'settings' && mode.kind === 'review' ? mode.plannedChapter : null;
   const snapshotId = mode !== 'settings' && 'snapshotId' in mode ? mode.snapshotId : null;
   const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
+  const chapterQuestion = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview') ? mode.question : undefined;
   const gitGuide = mode !== 'settings' && mode.kind === 'pr-guide' ? mode : null;
   const gitChange = mode !== 'settings' && mode.kind === 'pr-change' ? mode.target : null;
   const gitOperation = Boolean(gitGuide || gitChange);
@@ -458,7 +460,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
         : codeLensTarget && snapshotId ? await buildCodexCodeLensReview({ projectId, snapshotId, target: codeLensTarget,
           modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' })
         : await buildCodexChapterReview({ projectId, snapshotId: snapshotId!, targetPath, selectedPaths: paths,
-          modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
+          question: chapterQuestion, modelId: selection.modelId, effort: selection.effort,
+          approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
       if (value.status === 'error') { if (lifetime.current === epoch) setError(providerFailureMessage(value.error)); return; }
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
       if (planning) {
@@ -685,11 +688,11 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   useEffect(() => {
     if (mode === 'settings' || (mode.kind !== 'repository-plan' && !((mode.kind === 'review' && targetPath) || (mode.kind === 'overview' && discoveryResult))) || chapterRecovery || plannedChapter
       || !native || busy || review || hasResult || error || !status?.authenticated || !sourceReady || !modelReady || !recoveryReady || otherRun || login) return;
-    const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, paths, selection.modelId, selection.effort]);
+    const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, chapterQuestion, paths, selection.modelId, selection.effort]);
     if (automaticReviewKey.current === key) return;
     automaticReviewKey.current = key;
     void buildReview();
-  }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+  }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, chapterQuestion, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
 
   return (
     <div className={embeddedSettings ? "connections-embedded" : "provider-overlay"}>

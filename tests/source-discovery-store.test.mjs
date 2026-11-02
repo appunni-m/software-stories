@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   readSourceDiscoveryResult, saveSourceDiscoveryResult,
 } from '../src/lib/sourceDiscoveryStore.ts';
+import { sourceDiscoveryQuestion } from '../src/lib/sourceDiscovery.ts';
 
 const scope = { projectId: '/repo/example', snapshotId: 'snapshot-1', question: 'How does parsing work?' };
 const result = {
@@ -24,6 +25,14 @@ function withStorage(storage, run) {
 }
 
 describe('saved source discovery scope', () => {
+  it('uses documentation paths as bounded hints and keeps implementation code as proof', () => {
+    const question = sourceDiscoveryQuestion('docs/architecture.md');
+    assert.match(question, /^Use documentation path docs\/architecture\.md only as an unverified hint\./);
+    assert.match(question, /Find current implementation code on its topic and use code as evidence\./);
+    assert.match(sourceDiscoveryQuestion('src/font.rs'), /How does src\/font\.rs work/);
+    assert.ok(sourceDiscoveryQuestion(`docs/${'very-long/'.repeat(80)}architecture.md`).length <= 300);
+  });
+
   it('restores bounded path reasons only for the exact question and snapshot', () => {
     const values = new Map();
     withStorage({ getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }, () => {
@@ -130,5 +139,16 @@ describe('saved source discovery scope', () => {
     assert.match(dialog, /discoveryResult && onFindCodeAgain && <AppButton[^>]*>Find code again<\/AppButton>/);
     assert.match(planning, /discoveryResult=\{discovery \?\? undefined\}/);
     assert.match(app, /planningDialog\.discoveryResult \?\? null/);
+  });
+
+  it('routes documentation targets through code discovery instead of a documentation chapter', async () => {
+    const [context, dialog] = await Promise.all([
+      readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8'),
+    ]);
+    assert.match(context, /documentationTargetPath[\s\S]*?targetPath: documentationTargetPath \? null : mode\.targetPath/);
+    assert.match(context, /documentationTargetPath[\s\S]*?kind: 'overview'[\s\S]*?question: sourceDiscoveryQuestion\(documentationTargetPath\)/);
+    assert.match(dialog, /const chapterQuestion = mode !== 'settings' && \(mode\.kind === 'review' \|\| mode\.kind === 'overview'\) \? mode\.question : undefined/);
+    assert.match(dialog, /question: chapterQuestion,/);
   });
 });

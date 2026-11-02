@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { isDocumentationPath } from './inventory.ts';
 export interface SourceDiscoveryScope { projectId: string; snapshotId: string; question: string; targetPath?: string | null }
 export interface DocumentationNotice { path: string; status: 'declaredDeprecated' | 'unverified'; reason: string }
 export type DiscoveryCoverageGapCategory = 'largeFiles' | 'unreadableSource' | 'unsupportedLanguage' | 'indexLimit' | 'partialParse' | 'unavailableSource' | 'incompleteIndex' | 'unindexedFiles';
@@ -24,6 +25,24 @@ export interface SourceDiscoveryResult {
   /** One large implementation to explore through bounded source-range tools. */
   rangeTargets?: { path: string; reason: string }[];
   limitation: string;
+}
+
+/** Keep a documentation target as a bounded hint while the agent selects code
+ * paths. The generated chapter must use implementation files as evidence. */
+export function sourceDiscoveryQuestion(targetPath?: string | null): string {
+  if (!targetPath) {
+    return 'Explain the main implementation flow from entry points through transformations, state and outputs, including error handling and relevant tests.';
+  }
+  if (isDocumentationPath(targetPath)) {
+    const prefix = 'Use documentation path ';
+    const suffix = ' only as an unverified hint. Find current implementation code on its topic and use code as evidence.';
+    const maxPathLength = 300 - prefix.length - suffix.length;
+    const hintPath = targetPath.length <= maxPathLength
+      ? targetPath
+      : `…/${targetPath.split('/').slice(-2).join('/')}`.slice(-maxPathLength);
+    return `${prefix}${hintPath}${suffix}`;
+  }
+  return `How does ${targetPath} work, including its callers, dependencies, transformations, errors and tests?`.slice(0, 300);
 }
 
 /** Preserve bounded discovery omissions with a large-file answer so readers
