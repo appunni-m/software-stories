@@ -4472,6 +4472,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [rejectReason, setRejectReason] = useState('');
   const rejectReasonBytes = new TextEncoder().encode(rejectReason).length;
   const [busy, setBusy] = useState(false);
+  const routeSelectionRef = useRef({ chapterId: routeChapterId, revisionId: routeRevisionId });
+  const validationScopeRef = useRef<{
+    projectId: string;
+    snapshotId: string;
+    targetKey: string;
+    revisionId: string | null;
+    editing: boolean;
+    candidate: ChapterRevision | null;
+  } | null>(null);
   const [freshnessState, setFreshnessState] = useState<ChapterFreshnessState | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; tone: 'success' | 'error' | 'info' } | null>(restoredDraft ? {
     message: 'Restored your unsaved draft after opening source. Save it as a new revision or cancel the edit.',
@@ -4626,6 +4635,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
+  validationScopeRef.current = activeDocument ? {
+    projectId,
+    snapshotId,
+    targetKey: selectedTargetKey,
+    revisionId: activeDocument.revisionId,
+    editing,
+    candidate: editing ? candidate : null,
+  } : null;
   const activeValidation = validation && activeDocument && validation.revisionId === activeDocument.revisionId
     ? validation.report
     : null;
@@ -4636,6 +4653,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     ? `${selectedRevision.revisionId}:${snapshotId}`
     : null;
   const selectedFreshness = freshnessKey && freshnessState?.key === freshnessKey ? freshnessState : null;
+
+  useEffect(() => {
+    const previous = routeSelectionRef.current;
+    const changed = previous.chapterId !== routeChapterId || previous.revisionId !== routeRevisionId;
+    routeSelectionRef.current = { chapterId: routeChapterId, revisionId: routeRevisionId };
+    if (changed && !editing) {
+      setValidation(null);
+      setFeedback(null);
+    }
+  }, [editing, routeChapterId, routeRevisionId]);
 
   useEffect(() => {
     if (!routeSectionId || !activeDocument?.sections.some((section) => section.sectionId === routeSectionId)) return;
@@ -4715,15 +4742,26 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     onSelectRevision(latest);
   };
   const validateCurrent = async () => {
-    if (!activeDocument || busy) return;
+    const validationScope = validationScopeRef.current;
+    if (!activeDocument || busy || !validationScope) return;
     const validatedRevisionId = activeDocument.revisionId;
+    const isCurrentValidation = () => {
+      const current = validationScopeRef.current;
+      return studioMounted.current && current !== null
+        && current.projectId === validationScope.projectId
+        && current.snapshotId === validationScope.snapshotId
+        && current.targetKey === validationScope.targetKey
+        && current.revisionId === validationScope.revisionId
+        && current.editing === validationScope.editing
+        && current.candidate === validationScope.candidate;
+    };
     setBusy(true);
     setFeedback(null);
     try {
       const report = editing
         ? await validateChapterRevision(projectId, activeDocument, selectedRevision?.revisionId)
         : await validateSavedChapterRevision(projectId, activeDocument.revisionId);
-      if (!studioMounted.current) return;
+      if (!isCurrentValidation()) return;
       setValidation({ revisionId: validatedRevisionId, report });
       setFeedback({
         message: report.status === 'valid'
@@ -4732,7 +4770,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         tone: report.status === 'valid' ? 'success' : 'error',
       });
     } catch (error) {
-      if (!studioMounted.current) return;
+      if (!isCurrentValidation()) return;
       setFeedback({ message: errorMessageOr(error, 'The chapter could not be validated.'), tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
