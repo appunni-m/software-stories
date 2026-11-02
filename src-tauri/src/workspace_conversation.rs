@@ -445,6 +445,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             "runIds",
             "publishedSections",
             "notes",
+            "sourceDiscoveryNotes",
             "guideId",
             "guide",
             "reading",
@@ -578,6 +579,20 @@ fn turn(v: &Value) -> Result<&str, String> {
                 !v.as_str().is_some_and(|s| {
                     !s.trim().is_empty()
                         && s.encode_utf16().count() <= 1000
+                        && !s.chars().any(char::is_control)
+                })
+            })
+        {
+            return Err(UNAVAILABLE.into());
+        }
+    }
+    if let Some(v) = o.get("sourceDiscoveryNotes") {
+        let a = v.as_array().ok_or(UNAVAILABLE)?;
+        if a.len() > 14
+            || a.iter().any(|v| {
+                !v.as_str().is_some_and(|s| {
+                    !s.trim().is_empty()
+                        && s.encode_utf16().count() <= 1_500
                         && !s.chars().any(char::is_control)
                 })
             })

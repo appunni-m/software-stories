@@ -830,6 +830,7 @@ pub(crate) struct TimingReport {
     answer_outcome: Outcome,
     worker_active: bool,
     trace: Option<crate::generation_timing::Record>,
+    post_lock_pre_dispatch_ms: Option<u64>,
     first_agent_message_delta_elapsed_ms: Option<u64>,
     first_useful_answer: Option<FirstUsefulAnswerTiming>,
     publications: Vec<PublicationTiming>,
@@ -946,10 +947,13 @@ fn timing_report_with_guide_outcome(
                 .map(|job| job.preparation_stages.clone())
         })
         .unwrap_or_default();
+    let post_lock_pre_dispatch_ms = trace
+        .as_ref()
+        .and_then(crate::generation_timing::Record::post_lock_pre_dispatch_ms);
     Ok(TimingReport {
-        schema_version: 4,
+        schema_version: 5,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. For a repository-guide operation, the candidate runs before its first published section are anchored to that command's monotonic start. On a fresh guide this makes firstUsefulAnswer include outline planning and earlier failed slide attempts; a resumed or refilled guide starts a new origin at that user action, excluding time waiting for playback. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. postLockPreDispatchMs measures native work after RuntimeLockAcquired until the first Starting event; if the operation terminates before a turn starts, it ends at the recorded terminal event. It excludes time before runtime-lock acquisition and provider/model processing. For a repository-guide operation, the candidate runs before its first published section are anchored to that command's monotonic start. On a fresh guide this makes firstUsefulAnswer include outline planning and earlier failed slide attempts; a resumed or refilled guide starts a new origin at that user action, excluding time waiting for playback. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if let Some(answer) = answer {
             if !active && answer.outcome == Outcome::Working {
@@ -976,6 +980,7 @@ fn timing_report_with_guide_outcome(
             }
         },
         worker_active: active,
+        post_lock_pre_dispatch_ms,
         first_agent_message_delta_elapsed_ms: trace
             .as_ref()
             .and_then(crate::generation_timing::Record::first_agent_message_delta_ms),

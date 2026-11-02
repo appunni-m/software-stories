@@ -770,7 +770,7 @@ export function PrGuideStudio({
           return (
             <li key={revision.revisionId}>
               <span className={`pr-guide-lifecycle lifecycle-${decision?.lifecycle ?? revision.lifecycle}`}>{statusLabel}</span>
-              <div><strong><InlineCodeText text={revision.title}/></strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small></div>
+              <div><strong><InlineCodeText text={revision.title}/></strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small><small>{revision.providerId ?? 'Provider unknown'} · {revision.modelId ?? 'model unknown'}</small></div>
               {revision.lifecycle === 'draft' && !decision && <AppButton intent="custom" type="button" className="secondary-button" disabled={decisionBusy || building || sending} onClick={() => openDraft(revision)}>Review draft</AppButton>}
             </li>
           );
@@ -807,6 +807,7 @@ function GuideDraftReview({
   return (
     <section className="pr-guide-draft-review" aria-labelledby="pr-guide-draft-title">
       <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · STILL A DRAFT</span><h3 id="pr-guide-draft-title"><InlineCodeText text={revision.title}/></h3></div><span className="pr-guide-lifecycle lifecycle-draft">draft</span></div>
+      <p className="pr-guide-muted">Generated with {revision.providerId ?? 'an unknown provider'} · {revision.modelId ?? 'an unknown model'}. Reviewed commits: {revision.comparison.base.requested} ({revision.comparison.base.objectId}) → {revision.comparison.head.requested} ({revision.comparison.head.objectId}).</p>
       <p className="pr-guide-muted">Keep only the claims you want in the accepted guide. Uncheck an inference you reject; the original generated draft remains in history and acceptance appends a separate revision.</p>
       {revision.sections.map((section) => (
         <section className="pr-guide-section" key={section.sectionId}>

@@ -326,6 +326,24 @@ impl Record {
         runtime::first_agent_message_delta_ms(self)
     }
 
+    /// Native work after the manager acquires its runtime lock and before the
+    /// first turn starts. If no turn starts, the interval ends at the recorded
+    /// terminal event. This does not include provider/model processing time.
+    pub(crate) fn post_lock_pre_dispatch_ms(&self) -> Option<u64> {
+        let started_ms = self
+            .events
+            .iter()
+            .find(|event| event.kind == EventKind::RuntimeLockAcquired)?
+            .elapsed_ms;
+        let finished_ms = self
+            .events
+            .iter()
+            .find(|event| event.kind == EventKind::Starting)
+            .map(|event| event.elapsed_ms)
+            .or_else(|| self.terminal.as_ref().map(|terminal| terminal.elapsed_ms))?;
+        finished_ms.checked_sub(started_ms)
+    }
+
     pub(crate) fn take_preparation_stages(&mut self) -> Vec<PreparationStage> {
         std::mem::take(&mut self.preparation_stages)
     }

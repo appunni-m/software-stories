@@ -63,6 +63,11 @@ fn save_draft_locked(
     if revision.lifecycle != PrGuideLifecycle::Draft || revision.based_on_revision_id.is_some() {
         return Err("Only a new, unaccepted PR Guide draft can be saved by generation.".to_owned());
     }
+    if revision.provider_id.as_deref().is_none_or(str::is_empty)
+        || revision.model_id.as_deref().is_none_or(str::is_empty)
+    {
+        return Err("A generated PR Guide must retain its provider and model identity.".to_owned());
+    }
     validate_revision(&revision)?;
     let directory = create_comparison_directory(
         storage_dir,
@@ -432,6 +437,14 @@ fn validate_revision(revision: &PrGuideRevision) -> Result<(), String> {
     if revision.schema_version != 1
         || revision.project_id.trim().is_empty()
         || revision.project_id.len() > 1_024
+        || revision
+            .provider_id
+            .as_ref()
+            .is_some_and(|value| value.trim().is_empty() || value.len() > 128)
+        || revision
+            .model_id
+            .as_ref()
+            .is_some_and(|value| value.trim().is_empty() || value.len() > 512)
         || !valid_comparison_id(&comparison.comparison_id)
         || comparison.comparison_id != expected_comparison_id
         || comparison.base_ref.trim().is_empty()
@@ -790,6 +803,8 @@ mod tests {
             based_on_revision_id: None,
             revision_number: 0,
             project_id: "project:test".to_owned(),
+            provider_id: Some("openai".to_owned()),
+            model_id: Some("gpt-4.1".to_owned()),
             comparison: ComparisonContext {
                 base_ref: "main".to_owned(),
                 head_ref: "feature".to_owned(),

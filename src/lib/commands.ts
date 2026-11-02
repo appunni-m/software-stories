@@ -294,6 +294,10 @@ export interface PrGuideRevision {
   basedOnRevisionId: string | null;
   revisionNumber: number;
   projectId: string;
+  /** Missing on revisions saved before provider identity was retained. */
+  providerId?: string | null;
+  /** Missing on revisions saved before model identity was retained. */
+  modelId?: string | null;
   comparison: PrGuideComparisonContext;
   lifecycle: PrGuideLifecycle;
   decisionNote: string | null;

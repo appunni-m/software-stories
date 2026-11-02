@@ -58,6 +58,10 @@ pub(crate) struct PrGuideRevision {
     pub(crate) based_on_revision_id: Option<String>,
     pub(crate) revision_number: u32,
     pub(crate) project_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) model_id: Option<String>,
     pub(crate) comparison: ComparisonContext,
     pub(crate) lifecycle: PrGuideLifecycle,
     pub(crate) decision_note: Option<String>,
@@ -447,6 +451,8 @@ pub(crate) fn canonicalize_response(
         based_on_revision_id: None,
         revision_number: 0,
         project_id: project_id.to_owned(),
+        provider_id: None,
+        model_id: None,
         comparison: context,
         lifecycle: PrGuideLifecycle::Draft,
         decision_note: None,

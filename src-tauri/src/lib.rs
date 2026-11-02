@@ -1837,7 +1837,7 @@ fn validate_pr_guide_preview(
                 .to_owned(),
         )
     })?;
-    let revision =
+    let mut revision =
         pr_guide::canonicalize_response(&review.project_id, context, &result.response_text)
             .map_err(|message| {
                 failure(
@@ -1845,6 +1845,8 @@ fn validate_pr_guide_preview(
                     message,
                 )
             })?;
+    revision.provider_id = Some(review.provider_id.clone());
+    revision.model_id = Some(result.model_id.clone());
     Ok(PreparedPrGuidePreview {
         preview: pr_guide::PrGuidePreview {
             revision,

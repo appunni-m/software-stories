@@ -58,13 +58,14 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
     ];
     let first = first_useful_answer(&publications).unwrap();
     let report = TimingReport {
-        schema_version: 4,
+        schema_version: 5,
         kind: "code-atlas-generation-timing",
         scope: "synthetic scope",
         run_id: "synthetic-run".into(),
         answer_outcome: Outcome::Partial,
         worker_active: false,
         trace: None,
+        post_lock_pre_dispatch_ms: None,
         first_agent_message_delta_elapsed_ms: Some(12),
         first_useful_answer: Some(first),
         publications,
@@ -80,7 +81,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         ],
     };
     let value = serde_json::to_value(report).unwrap();
-    assert_eq!(value["schemaVersion"], 4);
+    assert_eq!(value["schemaVersion"], 5);
     assert_eq!(value["firstAgentMessageDeltaElapsedMs"], 12);
     assert_eq!(
         value["firstUsefulAnswer"]["generationId"],
@@ -168,7 +169,7 @@ fn failed_local_preparation_is_exportable_without_answer_or_source_content() {
     );
 
     let report = timing_report(&f.storage, &run_id, &project_id, &snapshot_id, false).unwrap();
-    assert_eq!(report.schema_version, 4);
+    assert_eq!(report.schema_version, 5);
     assert_eq!(report.answer_outcome, Outcome::Failed);
     assert!(report.trace.is_none());
     assert!(report.publications.is_empty());
