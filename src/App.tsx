@@ -4473,6 +4473,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const rejectReasonBytes = new TextEncoder().encode(rejectReason).length;
   const [busy, setBusy] = useState(false);
   const routeSelectionRef = useRef({ chapterId: routeChapterId, revisionId: routeRevisionId });
+  const routeChangedDuringEditRef = useRef(false);
   const validationScopeRef = useRef<{
     projectId: string;
     snapshotId: string;
@@ -4658,7 +4659,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     const previous = routeSelectionRef.current;
     const changed = previous.chapterId !== routeChapterId || previous.revisionId !== routeRevisionId;
     routeSelectionRef.current = { chapterId: routeChapterId, revisionId: routeRevisionId };
-    if (changed && !editing) {
+    if (changed && editing) {
+      routeChangedDuringEditRef.current = true;
+      return;
+    }
+    if (!editing && (changed || routeChangedDuringEditRef.current)) {
+      routeChangedDuringEditRef.current = false;
       setValidation(null);
       setFeedback(null);
     }
