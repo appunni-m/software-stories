@@ -4425,6 +4425,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [busy, setBusy] = useState(false);
   const routeSelectionRef = useRef({ chapterId: routeChapterId, revisionId: routeRevisionId });
   const routeChangedDuringEditRef = useRef(false);
+  const mutationRouteSelectionRef = useRef<{ chapterId: string; revisionId: string } | null>(null);
   const validationScopeRef = useRef<{
     projectId: string;
     snapshotId: string;
@@ -4610,6 +4611,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     const previous = routeSelectionRef.current;
     const changed = previous.chapterId !== routeChapterId || previous.revisionId !== routeRevisionId;
     routeSelectionRef.current = { chapterId: routeChapterId, revisionId: routeRevisionId };
+    const mutationSelection = mutationRouteSelectionRef.current;
+    if (mutationSelection) {
+      if (mutationSelection.chapterId === routeChapterId && mutationSelection.revisionId === routeRevisionId) {
+        mutationRouteSelectionRef.current = null;
+        routeChangedDuringEditRef.current = false;
+        return;
+      }
+      if (changed) mutationRouteSelectionRef.current = null;
+    }
     if (changed && editing) {
       routeChangedDuringEditRef.current = true;
       return;
@@ -4620,6 +4630,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFeedback(null);
     }
   }, [editing, routeChapterId, routeRevisionId]);
+
+  const selectMutationRevision = (revision: ChapterRevision) => {
+    const selection = { chapterId: revision.chapterId, revisionId: revision.revisionId };
+    mutationRouteSelectionRef.current = selection.chapterId !== routeChapterId || selection.revisionId !== routeRevisionId
+      ? selection
+      : null;
+    routeChangedDuringEditRef.current = false;
+    onSelectRevision(revision);
+  };
 
   useEffect(() => {
     if (!routeSectionId || !activeDocument?.sections.some((section) => section.sectionId === routeSectionId)) return;
@@ -4819,7 +4838,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
           : 'Draft saved as a new revision with evidence issues to repair.',
         tone: saved.validation.status === 'valid' ? 'success' : 'info',
       });
-      onSelectRevision(saved.revision);
+      selectMutationRevision(saved.revision);
     } catch (error) {
       if (!studioMounted.current) return;
       const message = errorMessageOr(error, 'The draft could not be saved.');
@@ -4863,7 +4882,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setRebasing(false);
       setRejecting(false);
       recordSavedRevision(restored.revision);
-      onSelectRevision(restored.revision);
+      selectMutationRevision(restored.revision);
       setFeedback({
         message: restored.validation.status === 'valid'
           ? `Revision r${selectedRevision.revisionNumber} was restored as a new draft and revalidated against snapshot ${restored.revision.snapshotId.slice(-12)}.`
@@ -4892,7 +4911,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       if (!studioMounted.current) return;
       setValidation({ revisionId: accepted.revision.revisionId, report: accepted.validation });
       recordSavedRevision(accepted.revision);
-      onSelectRevision(accepted.revision);
+      selectMutationRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
     } catch (error) {
       if (!studioMounted.current) return;
@@ -4920,7 +4939,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       const rejected = await rejectChapterDraft(projectId, selectedRevision.revisionId, rejectReason);
       if (!studioMounted.current) return;
       recordSavedRevision(rejected);
-      onSelectRevision(rejected);
+      selectMutationRevision(rejected);
       setRejecting(false);
       setRejectReason('');
       setFeedback({ message: 'Rejected with reason recorded. The draft payload is still available in history.', tone: 'success' });
