@@ -1528,8 +1528,25 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,onBranch,the
     :selectedEdge?selectedEdge.evidenceAnchorIds.map((anchorId)=>anchorsById.get(anchorId)).filter((anchor):anchor is ChapterSourceAnchor=>!!anchor):[];
   const selectedAnchorIds=new Set(selectedEvidenceIds);
   const selectedClaims=section.claims.filter((claim)=>claim.anchors.some((anchor)=>selectedAnchorIds.has(anchor.anchorId))).map((claim)=>claim.prose);
-  const selectNode=(nodeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedNodeId:nodeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
-  const selectEdge=(edgeId:string)=>onProgress({...identity,...(viewport?{viewport}:{}),focusedEdgeId:edgeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
+  const anchorForNode=(nodeId:string)=>{
+    const node=visual.nodes.find((candidate)=>candidate.nodeId===nodeId);
+    if(!node)return undefined;
+    const sourceAnchorId=node.sourceAnchorId&&node.evidenceAnchorIds.includes(node.sourceAnchorId)?node.sourceAnchorId:node.evidenceAnchorIds[0];
+    const evidenceAnchor=sourceAnchorId?anchorsById.get(sourceAnchorId):undefined;
+    return evidenceAnchor?sourceAnchorForVisualNode(evidenceAnchor,node,node.sourceValue??sourceValues.get(node.nodeId)):undefined;
+  };
+  const selectNode=(nodeId:string)=>{
+    onProgress({...identity,...(viewport?{viewport}:{}),focusedNodeId:nodeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
+    const anchor=anchorForNode(nodeId);
+    if(anchor)onOpen(anchor);
+  };
+  const selectEdge=(edgeId:string)=>{
+    onProgress({...identity,...(viewport?{viewport}:{}),focusedEdgeId:edgeId,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION});
+    const edge=visual.edges.find((candidate)=>candidate.edgeId===edgeId);
+    const anchorId=edge?.evidenceAnchorIds[0];
+    const anchor=anchorId?anchorsById.get(anchorId):undefined;
+    if(anchor)onOpen(anchor);
+  };
   const linearSteps=linearFlowSteps(visual);
   const unlinkedNodes=unlinkedFlowNodes(visual);
   const nodeSize=flowNodeSize(visual.nodes.length);
