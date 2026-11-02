@@ -23,9 +23,9 @@ const turns = (h, project = 'project', snapshot = 'snapshot') => h.store.getWork
 
 test('reopening one saved Guide does not depend on unrelated answer receipts', async () => {
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') {
-      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot');
-      return { guides: [savedGuide], unavailableCount: 0, unavailableGuides: [] };
+    if (name === 'load_repository_guide') {
+      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot'); assert.equal(args.guideId, savedGuide.id);
+      return savedGuide;
     }
     assert.fail(`Unrelated or inference command must not run: ${name}`);
   });
@@ -34,14 +34,14 @@ test('reopening one saved Guide does not depend on unrelated answer receipts', a
 
   assert.equal(turns(h).length, 1);
   assert.equal(turns(h)[0].guideId, savedGuide.id);
-  assert.deepEqual(h.calls.map((call) => call.name), ['list_repository_guides']);
+  assert.deepEqual(h.calls.map((call) => call.name), ['load_repository_guide']);
 });
 
 test('an unsupported saved Guide reports a fresh-guide recovery and remains untouched', async () => {
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') {
-      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot');
-      return { guides: [], unavailableCount: 1, unavailableGuides: [{ id: savedGuide.id, reason: 'unsupportedFormat' }] };
+    if (name === 'load_repository_guide') {
+      assert.equal(args.projectId, 'project'); assert.equal(args.snapshotId, 'snapshot'); assert.equal(args.guideId, savedGuide.id);
+      throw new Error('The saved guide uses an unsupported format.');
     }
     assert.fail(`Unexpected command ${name}`);
   });
@@ -310,13 +310,15 @@ test('wrong-scope events and events after disposal cannot restore another worksp
 });
 
 test('guide events invalidate the saved guide instead of publishing their older payload', { timeout: 2000 }, async () => {
-  const listed = deferred(); const started = deferred(); let lists = 0;
+  const listed = deferred(); const started = deferred(); let lists = 0; let loads = 0;
   const guide = { projectId: 'project', snapshotId: 'snapshot', id: '44444444-4444-4444-8444-444444444444', revision: 2,
     question: answer.question, title: 'Current saved guide', status: 'ready', units: [], openingRunId: scope.runId,
     openingRunIds: [scope.runId], canContinue: false, canExtend: false, continuationOperations: 0,
     answers: [answer], omissions: [], capturedFiles: 1, startingFiles: 1 };
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return { guides: [guide], unavailableCount: 0, unavailableGuides: [] }; }
+    if (name === 'load_repository_guide') { loads++; assert.equal(args.guideId, guide.id); return guide; }
+    if (name === 'save_workspace_answer_section') return { projectId: args.projectId, snapshotId: args.snapshotId, revisionId: section.revisionId };
     if (name === 'list_workspace_answers') return [];
     assert.fail(`Unexpected command ${name}`);
   });
@@ -324,10 +326,35 @@ test('guide events invalidate the saved guide instead of publishing their older 
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
   h.emit('repository-guide-changed', { ...guide, revision: 1, title: 'Old event payload', answers: [] });
   await flushLocalReads(); listed.resolve({ guides: [], unavailableCount: 0, unavailableGuides: [] }); await initial; await flushLocalReads();
-  assert.equal(lists, 2);
+  assert.equal(lists, 1);
+  assert.equal(loads, 1);
   assert.equal(turns(h)[0].guide.title, 'Current saved guide');
   assert.equal(turns(h)[0].guide.revision, 2);
   assert.equal(turns(h)[0].publishedSections.length, 1); stop();
+});
+
+test('a missed Guide slide event can recover from its durable answer summary', async () => {
+  const turnId = '33333333-3333-4333-8333-333333333333';
+  const guideId = '44444444-4444-4444-8444-444444444444';
+  const state = createWorkspace('project', 'snapshot');
+  state.explorations = state.explorations.map((exploration) => exploration.id === 'root'
+    ? { ...exploration, turns: [{ id: turnId, question: 'Follow the saved Guide', context: [], status: 'partial', guideId, runIds: [scope.runId], publishedSections: [] }] }
+    : exploration);
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') return [answer];
+    if (name === 'list_workspace_generation_jobs_for_scope') return [];
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  h.store.updateWorkspace('project', 'snapshot', () => state);
+
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+
+  const restored = turns(h)[0];
+  assert.equal(restored.guideId, guideId);
+  assert.equal(restored.publishedSections.length, 1);
+  assert.equal(restored.publishedSections[0].revisionId, section.revisionId);
+  assert.equal(restored.status, 'partial', 'a per-run receipt must not replace the whole Guide status');
+  assert.equal(h.calls.some((call) => /generate|start_repository|resume_repository/.test(call.name)), false);
 });
 
 test('a Guide slide published during startup is adopted after its conversation restores', { timeout: 2000 }, async () => {

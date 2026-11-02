@@ -384,7 +384,10 @@ function reconcileListedAnswer(project: string, snapshot: string, turnId: string
     turns:exploration.turns.map((candidate) => candidate.id === turnId ? mergePublishedSections(candidate,summary.sections) : candidate),
   }))}));
   const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
-  if (owner?.runIds?.at(-1) === summary.runId) patchTurn(project,snapshot,turnId,{status:summary.outcome === 'complete' ? 'ready' : summary.outcome,
+  // A durable per-run summary may be the only surviving copy of a Guide slide
+  // if its one-shot publication event arrived before this renderer subscribed.
+  // Merge the slide above, but its per-run outcome does not finish the whole Guide.
+  if (!owner?.guideId && owner?.runIds?.at(-1) === summary.runId) patchTurn(project,snapshot,turnId,{status:summary.outcome === 'complete' ? 'ready' : summary.outcome,
     notes:cleanAnswerNotes(summary.incompleteTopics),failureCode:cleanExplanationFailureCode(summary.failureCode),error:undefined});
 }
 interface Restoration { queue: RefreshQueue; check: () => void }
@@ -520,7 +523,6 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
   let firstFailure: unknown;
   for (const entry of saved) {
     let turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(entry.runId));
-    if (turn?.guideId) continue;
     if (turn && jobs.has(turn.id)) continue;
     if (!turn) {
       const id = crypto.randomUUID();
