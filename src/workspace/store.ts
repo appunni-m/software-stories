@@ -609,24 +609,47 @@ export async function restoreRepositoryGuide(project: string, snapshot: string, 
   const guide = await invoke<RepositoryGuide>('load_repository_guide',{projectId:project,snapshotId:snapshot,guideId});
   await reconcileGuide(project,snapshot,guide);
 }
-function announceUnavailableRepositoryGuides(project: string, snapshot: string, unavailableCount: number) {
+function announceUnavailableRepositoryGuides(
+  project: string,
+  snapshot: string,
+  unavailableCount: number,
+  unavailableGuides: RepositoryGuideList['unavailableGuides'],
+) {
   if (unavailableCount <= 0) return;
+  const unsupportedCount = unavailableGuides.filter((guide) => guide.reason === 'unsupportedFormat').length;
+  const unreadableCount = unavailableGuides.filter((guide) => guide.reason === 'unreadable').length;
+  const unclassifiedCount = Math.max(0, unavailableCount - unavailableGuides.length);
+  const explanations = [
+    unsupportedCount > 0
+      ? `${unsupportedCount} saved guide${unsupportedCount === 1 ? '' : 's'} use an older format this version no longer supports`
+      : '',
+    unreadableCount > 0
+      ? `${unreadableCount} saved guide record${unreadableCount === 1 ? '' : 's'} could not be read or restored`
+      : '',
+    unclassifiedCount > 0
+      ? `${unclassifiedCount} additional saved record${unclassifiedCount === 1 ? '' : 's'} on this Mac could not be matched to this repository`
+      : '',
+  ].filter(Boolean);
   window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
-    title:'Some saved guides need attention',
-    message:`${unavailableCount} saved guide record${unavailableCount===1?'':'s'} on this Mac could not be fully reopened. Other saved guides remain available, and the original records were preserved.`,
+    title:'Some saved guides could not be reopened',
+    message:`${explanations.join('. ')}. The original records remain untouched; nothing was migrated or regenerated. Start a fresh guide to explain the current repository.`,
     projectId:project,snapshotId:snapshot,
   }}));
 }
 async function restoreRepositoryGuides(project: string, snapshot: string) {
   const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
   let unavailableCount = result.unavailableCount;
+  const unavailableGuides = [...result.unavailableGuides];
   for (const guide of result.guides) {
     // One revision with an old or damaged visual contract can fail during
     // chapter adoption. Keep restoring the remaining independent guides.
     try { await reconcileGuide(project,snapshot,guide); }
-    catch { unavailableCount += 1; }
+    catch {
+      unavailableCount += 1;
+      unavailableGuides.push({id:guide.id,reason:'unreadable'});
+    }
   }
-  announceUnavailableRepositoryGuides(project,snapshot,unavailableCount);
+  announceUnavailableRepositoryGuides(project,snapshot,unavailableCount,unavailableGuides);
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */
