@@ -404,20 +404,20 @@ describe('visual story scenes', () => {
       'title, map, and scene controls must occupy explicit normal-flow rows');
     assert.doesNotMatch(styles, /@container\s+guide-pane\s*\(min-width:\s*560px\)/u,
       'wide Guide panes must not pull scene navigation into the title row');
-    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:flex;[^}]*justify-content:center;[^}]*width:min\(100%,360px\)/u,
-      'scene navigation must occupy one centered, bounded row below the title');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes\s*\{[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*grid-template-areas:"previous position next";[^}]*width:min\(100%,360px\);[^}]*max-width:100%/u,
-      'multi-scene navigation keeps arrows in fixed columns and lets the centered position shrink');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*grid-area:position;[^}]*flex-wrap:wrap;[^}]*min-width:0;[^}]*max-width:100%/u,
-      'scene position wraps inside the grid track between the fixed arrow buttons');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\s*\{[^}]*min-width:0;[^}]*max-width:100%;[^}]*flex-wrap:wrap;[^}]*overflow:visible/u,
-      'scene indexes can wrap rather than overflow a narrow Guide pane');
-    assert.match(styles, /\.story-scene-progress\.has-multiple-scenes \.story-scene-dots\.is-long\s*\{[^}]*width:min\(100%,168px\);[^}]*flex-wrap:wrap/u,
-      'long scene indexes wrap into a bounded strip');
+    assert.match(styles, /\.story-scene-progress\s*\{[^}]*grid-area:progress;[^}]*display:grid;[^}]*grid-template-columns:28px minmax\(0,1fr\) 28px;[^}]*grid-template-areas:"previous position next";[^}]*width:min\(100%,360px\)/u,
+      'scene navigation occupies a centered, bounded row below the title');
+    assert.match(styles, /\.story-scene-position\s*\{[^}]*grid-area:position;[^}]*display:grid;[^}]*grid-template-areas:"count" "dots";[^}]*min-width:0;[^}]*max-width:100%;[^}]*width:100%/u,
+      'the count and marker row stay inside the center track between both arrows');
+    assert.match(styles, /\.story-scene-dots\s*\{[^}]*grid-area:dots;[^}]*flex-wrap:wrap;[^}]*min-width:0;[^}]*max-width:100%;[^}]*overflow:visible/u,
+      'scene markers wrap below the count instead of pushing navigation offscreen');
+    assert.match(styles, /@container guide-pane \(max-width: 420px\) \{\s*\.story-scene-progress \{ grid-template-columns:24px minmax\(0,1fr\) 24px;/u,
+      'compact Guide panes retain both arrows in fixed, narrower tracks');
+    assert.doesNotMatch(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*display:contents/u,
+      'compact layout must not flatten the center track into the parent pager');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible/u,
       'many scene controls should wrap within their bounded row');
-    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:none;[^}]*width:\s*28px;[^}]*min-width:\s*28px;[^}]*max-width:28px/u,
+    assert.match(styles, /\.story-scene-arrow\s*\{[^}]*flex:none;[^}]*width:28px;[^}]*min-width:28px;[^}]*max-width:28px/u,
       'previous and next controls should keep their hit areas when the scene index is narrow');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);

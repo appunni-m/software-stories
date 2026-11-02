@@ -3024,20 +3024,39 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
 }
 
 fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
-    initialize
-        .pointer("/serverInfo/version")
+    let version = initialize
+        .get("userAgent")
         .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|version| {
-            !version.is_empty()
-                && version.len() <= 128
-                && !version.chars().any(char::is_control)
+        .filter(|user_agent| {
+            !user_agent.is_empty()
+                && user_agent.len() <= 512
+                && !user_agent.chars().any(char::is_control)
         })
-        .map(str::to_owned)
+        .and_then(|user_agent| user_agent.split_once('/').map(|(_, value)| value))
+        .and_then(|value| value.split_whitespace().next())
+        .filter(|version| valid_codex_version(version))
         .ok_or_else(|| {
-            "Codex did not report its app-server version. Update or reconnect Codex before generating."
+            "Codex did not report a valid app-server version in its initialize user agent."
                 .to_owned()
-        })
+        })?;
+    Ok(version.to_owned())
+}
+
+fn valid_codex_version(version: &str) -> bool {
+    if version.is_empty() || version.len() > 128 {
+        return false;
+    }
+    let core = version.split(['-', '+']).next().unwrap_or_default();
+    let mut components = core.split('.');
+    let valid_core = (0..3).all(|_| {
+        components
+            .next()
+            .is_some_and(|component| !component.is_empty() && component.bytes().all(|b| b.is_ascii_digit()))
+    }) && components.next().is_none();
+    valid_core
+        && version
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+'))
 }
 
 /// Best-effort cleanup for a login created by the current start response.
@@ -3130,22 +3149,23 @@ mod tests {
     }
 
     #[test]
-    fn runtime_version_requires_the_app_server_handshake_field() {
+    fn runtime_version_comes_from_the_codex_app_server_initialize_user_agent() {
         assert_eq!(
             codex_runtime_version(&json!({
-                "serverInfo": {"version": " 0.165.0 "},
-                "userAgent": "codex-cli/0.149.1"
+                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
             }))
             .unwrap(),
-            "0.165.0"
+            "0.166.0-alpha.5.1"
         );
         for initialize in [
-            json!({"userAgent": "codex-cli/0.149.1"}),
-            json!({"serverInfo": {"version": " "}, "userAgent": "codex-cli/0.149.1"}),
+            json!({"serverInfo": {"version": "0.165.0"}}),
+            json!({"userAgent": "code_atlas"}),
+            json!({"userAgent": "code_atlas/not-a-version"}),
+            json!({"userAgent": "code_atlas/0.166.0\ninvalid"}),
         ] {
             assert!(codex_runtime_version(&initialize)
                 .unwrap_err()
-                .contains("did not report its app-server version"));
+                .contains("valid app-server version"));
         }
     }
 
@@ -3332,7 +3352,7 @@ while IFS= read -r line; do
   [ -n "$id" ] || continue
   method=$(printf '%s\n' "$line" | sed -n 's/.*"method":"\([^"]*\)".*/\1/p')
   case "$method" in
-    initialize) printf '{"id":%s,"result":{"serverInfo":{"version":"fixture-1"}}}\n' "$id" ;;
+    initialize) printf '{"id":%s,"result":{"userAgent":"code_atlas/0.1.0"}}\n' "$id" ;;
     config/read) printf '{"id":%s,"result":{"config":%s}}\n' "$id" __CONFIG__ ;;
     *) printf '{"id":%s,"result":{}}\n' "$id" ;;
   esac
