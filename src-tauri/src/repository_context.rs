@@ -39,6 +39,7 @@ const MAX_CACHE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_CANDIDATES: usize = 256;
 const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
 const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
+const MAX_NATURAL_COVERAGE_TERMS: usize = 12;
 pub(crate) const MAX_FILE_DISCOVERY_RESULTS: usize = MAX_CANDIDATES;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
 const MAX_INDEX_OMISSION_PATHS: usize = 8;
@@ -543,16 +544,27 @@ fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<Str
     if !should_discover_files(query, scope) {
         return words.to_vec();
     }
-    words
-        .iter()
-        .filter(|word| {
-            word.len() > 2
-                && !crate::source_discovery::QUERY_STOPWORDS
+    let mut selected = Vec::with_capacity(MAX_NATURAL_COVERAGE_TERMS);
+    let mut seen = BTreeSet::new();
+    for token in query
+        .split(|character: char| !character.is_alphanumeric() && character != '_')
+    {
+        for word in terms(token) {
+            if word.len() <= 2
+                || crate::source_discovery::QUERY_STOPWORDS
                     .iter()
                     .any(|stopword| word.eq_ignore_ascii_case(stopword))
-        })
-        .cloned()
-        .collect()
+                || !seen.insert(word.clone())
+            {
+                continue;
+            }
+            selected.push(word);
+            if selected.len() == MAX_NATURAL_COVERAGE_TERMS {
+                return selected;
+            }
+        }
+    }
+    selected
 }
 
 fn line_starts(text: &str) -> Vec<usize> {
@@ -2619,7 +2631,7 @@ fn search_ranked(
         && !query.contains('/')
         && !query.contains('\\')
         && query.split_whitespace().count() > 1
-        && (3..=12).contains(&coverage_words.len())
+        && (3..=MAX_NATURAL_COVERAGE_TERMS).contains(&coverage_words.len())
         && !coverage_words.is_empty();
     let include_path_terms = query.split_whitespace().count() <= 2
         || query.contains('/')
