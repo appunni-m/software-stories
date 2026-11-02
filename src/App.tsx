@@ -2528,6 +2528,18 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
   const overviewMode = mode.kind === 'overview';
   const sectionUpdateMode = mode.kind === 'section-update';
   const codeLensRangeMode = mode.kind === 'code-lens-range';
+  const sectionUpdateTitle = mode.kind === 'section-update'
+    ? mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? 'Selected section'
+    : null;
+  const requestIntent = mode.kind === 'code-lens-range'
+    ? `Explain ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine}`
+    : mode.kind === 'section-update'
+      ? `Update “${sectionUpdateTitle}”`
+      : mode.kind === 'overview'
+        ? 'Map the repository from selected code'
+        : mode.kind === 'review'
+          ? `Explain ${mode.targetPath}`
+          : null;
   const recoveryOperationId = !mode.recoveryBackend && 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
   const availableContextFiles = useMemo(() => (snapshotManifest?.files ?? [])
     .filter((file) => file.kind === 'file' && (file.contentKind === 'text' || file.contentKind === 'unknown')
@@ -3034,7 +3046,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
             {reviewMode && (
               <section className="provider-review-card" aria-labelledby="provider-review-title">
                   <div className="provider-section-heading">
-                  <div><span>LOCAL PREVIEW · {codeLensRangeMode ? 'CITED CODE RANGE' : sectionUpdateMode ? 'ONE SECTION UPDATE' : overviewMode ? 'REPOSITORY OVERVIEW' : 'FILE CHAPTER DRAFT'}</span><h3 id="provider-review-title">Exact request context</h3></div>
+                  <div><span>BEFORE YOU SEND</span><h3 id="provider-review-title">Review this request</h3></div>
                   {requestReview && <span className="provider-expiry">Expires {new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(requestReview.expiresAtUnixMs))}</span>}
                 </div>
                 {requestBuilding && <div className="provider-loading" role="status"><HardDrive size={16} /> Building a local preview from the selected snapshot. No model request is sent.</div>}
@@ -3087,42 +3099,17 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {requestReview && (
                   <>
                     <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
-                      {sectionUpdateMode && <div><span>Update target</span><strong>One section · {mode.sectionUpdate.sectionId}</strong></div>}
-                      {sectionUpdateMode && <div><span>Accepted source revision</span><code>{mode.baseRevision.revisionId} · snapshot {mode.baseRevision.snapshotId}</code></div>}
-                      {sectionUpdateMode ? <div><span>Original chapter scope</span><code>{mode.baseRevision.target.scope.kind === 'file'
-                        ? mode.baseRevision.target.scope.path
-                        : mode.baseRevision.target.scope.kind === 'group'
-                          ? `Group · ${mode.baseRevision.target.scope.paths.length} paths`
-                          : 'Repository overview'}</code></div>
-                        : <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>}
-                      <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
-                      <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
-                      <div><span>Source snapshot</span><code>{requestReview.snapshotId}</code></div>
-                      <div><span>{codeLensRangeMode ? 'Range sent' : 'Source selected'}</span><strong>{codeLensRangeMode ? `${formatBytes(requestReview.sourceBytes)} from one fixed range` : `${requestReview.selectedFiles.length} ${requestReview.selectedFiles.length === 1 ? 'file' : 'files'} · ${formatBytes(requestReview.sourceBytes)}`}</strong></div>
-                      <div><span>Input estimate</span><strong>About {requestReview.estimatedInputTokens.toLocaleString()} tokens · not a bill</strong></div>
-                      <div><span>Request body</span><strong>{formatBytes(requestReview.requestBodyBytes)}</strong></div>
-                      {!codeLensRangeMode && <div><span>Local index evidence</span><strong>{requestReview.selectedSymbols.length} declarations · {requestReview.selectedRelationships.length} relationships{requestReview.indexEvidenceTruncated ? ' · incomplete context' : ''}</strong></div>}
+                      <div><span>Request</span><strong>{requestIntent ?? 'Explain the selected code'}</strong></div>
+                      <div><span>AI connection</span><strong>{disclosure.displayName} · {disclosure.models.find((model) => model.modelId === requestReview.modelId)?.displayName ?? requestReview.modelId}</strong></div>
+                      <div><span>Code to share</span><strong>{requestReview.selectedFiles.length} {requestReview.selectedFiles.length === 1 ? 'file' : 'files'}{codeLensRangeMode ? ' · selected range' : ''}</strong></div>
                     </div>
-                    <p className="provider-warning-note"><TriangleAlert size={14} /> Review code for credentials and confidential or personal data before sending. The local secret-like scan catches common names and patterns, not every secret.</p>
+                    <p className="provider-warning-note"><TriangleAlert size={14} /> Review the selected code for credentials or private data before sending. The local check may miss secrets. Expand a file below to inspect exactly what will be shared.</p>
                     {requestReview.selectedFiles.map((file) => (
-                      <details className="provider-source-file" open key={`${file.path}:${file.sha256}`}>
-                        <summary><code>{file.path}</code><span>{codeLensRangeMode ? `Sent excerpt ${formatBytes(file.contents.length)} · file SHA-256 ${file.sha256.slice(0, 16)}…` : `${formatBytes(file.sizeBytes)} · SHA-256 ${file.sha256.slice(0, 16)}…`}</span></summary>
+                      <details className="provider-source-file" key={`${file.path}:${file.sha256}`}>
+                        <summary><code>{file.path}</code><span>{codeLensRangeMode && mode.kind === 'code-lens-range' ? `Lines ${mode.target.startLine}–${mode.target.endLine}` : 'Review code being shared'}</span></summary>
                         <pre><code>{file.contents}</code></pre>
                       </details>
                     ))}
-                    {!codeLensRangeMode && <details className="provider-index-preview">
-                      <summary>Inspect selected declarations and relationships</summary>
-                      <p>These entries come from the saved local index. Every entry refers to selected source; unresolved relationships remain uncertain.</p>
-                      {requestReview.indexEvidenceTruncated && <p>The index context is incomplete or reached its bound. Omitted entries are not sent or available as chapter evidence.</p>}
-                      <ul>{requestReview.selectedSymbols.map((symbol) => <li key={symbol.symbolId}><code>{symbol.path}:{symbol.startLine}–{symbol.endLine}</code><strong>{symbol.kind} · {symbol.qualifiedName ?? symbol.name}</strong><small>{symbol.isExported ? 'exported' : 'local declaration'}{symbol.isTest ? ' · test' : ''}</small></li>)}</ul>
-                      <ul>{requestReview.selectedRelationships.map((relationship) => <li key={relationship.relationshipId}><strong>{relationship.kind} · {relationship.confidence} confidence</strong><code>{relationship.sourcePath} → {relationship.targetPath ?? 'unresolved'}</code><small>{relationship.unresolvedReason ?? `${relationship.sourceName ?? 'file'} → ${relationship.targetName ?? 'file'}`}</small><pre>{relationship.evidenceExcerpt}</pre></li>)}</ul>
-                      {requestReview.selectedSymbols.length === 0 && requestReview.selectedRelationships.length === 0 && <p>No saved structural evidence is available for this selection. The draft must use exact source text and identify its limits.</p>}
-                    </details>}
-                    <details className="provider-prompt-preview">
-                      <summary>Inspect exact prompt and encoded provider request</summary>
-                      <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre><strong>Exact JSON request body · SHA-256 {requestReview.requestBodySha256}</strong><pre>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</pre></div>
-                    </details>
-                    <div className="provider-fingerprint"><span>Consent applies to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>Provider, model, endpoint, exact encoded body hash, prompt purpose, source paths and hashes, prompt version, disclosure version, and generation settings are included.</small></div>
                   </>
                 )}
                 {requestError?.kind === 'repairProgress'
@@ -3131,21 +3118,19 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
-                    <div><span>{savedRevision ? 'SAVED · UNACCEPTED DRAFT' : 'VALIDATED · UNSAVED PREVIEW'}</span><h4 id="provider-response-title"><InlineCodeText text={sendResult.revision.title}/></h4></div>
-                    <p>{savedRevision ? `Draft revision ${savedRevision.revisionNumber} is saved locally. Guide Plan counts it as a draft. Acceptance requires a separate review.` : sectionUpdateMode ? 'Only the selected section received new claims. Other section revision IDs remain unchanged after their citations verify in the current snapshot. Assets with changed evidence are listed below for review.' : 'The schema and exact source citations passed local validation. Review what the claims mean, then save an unaccepted draft. Closing keeps this preview in local recovery until you save or discard it.'}</p>
+                    <div><span>{savedRevision ? 'DRAFT SAVED' : 'PREVIEW'}</span><h4 id="provider-response-title"><InlineCodeText text={sendResult.revision.title}/></h4></div>
+                    <p>{savedRevision ? 'Draft saved. Your accepted explanation stays unchanged until you accept this draft.' : sectionUpdateMode ? 'Preview for the selected section only. Your accepted explanation stays unchanged until you save and accept it. Any other affected sections are listed below.' : 'Preview only. Review the explanation and its sources, then save it as a draft when you’re ready.'}</p>
                     {sectionUpdateMode && <div className="section-update-preview-summary">
-                      <strong>Section-by-section revision check</strong>
+                      <strong>{savedRevision ? 'Draft changes' : 'Preview changes'}</strong>
                       {sendResult.revision.sections.map((section) => {
                         const previous = mode.baseRevision.sections.find((item) => item.sectionId === section.sectionId);
                         const changed = section.sectionId === mode.sectionUpdate.sectionId;
-                        return <div key={section.sectionId}><span>{changed ? 'Regenerated' : previous?.sectionRevisionId === section.sectionRevisionId ? 'Carried unchanged' : 'Changed'}</span><InlineCodeText text={section.title}/><small>{section.sectionRevisionId}</small></div>;
+                        return <div key={section.sectionId}><span>{changed ? 'Selected' : previous?.sectionRevisionId === section.sectionRevisionId ? 'Unchanged' : 'Affected'}</span><InlineCodeText text={section.title}/></div>;
                       })}
                       {(sendResult.updateNotes ?? []).map((note) => <p className="provider-small-note" key={note}>{note}</p>)}
                     </div>}
                     <GeneratedChapterPreview revision={sendResult.revision} />
                     {saveError && <p className="provider-error-text" role="alert">{saveError}</p>}
-                    <small>{sendResult.inputTokens ?? '—'} input tokens · {sendResult.outputTokens ?? '—'} output tokens · one request · no fallback</small>
-                    <small>{sendResult.modelVersion ?? sendResult.modelId}{savedRevision ? ` · ${savedRevision.revisionId}` : ''}</small>
                   </section>
                 )}
                 {codeLensResult && (
