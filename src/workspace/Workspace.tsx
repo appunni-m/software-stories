@@ -15,7 +15,7 @@ import { AnswerVisualPreview } from './AnswerVisualPreview';
 import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
-import { capturedSourceLineIndex } from '../lib/codeLens';
+import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -74,6 +74,8 @@ export interface PendingCodeLensQuestion {
 }
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 const MAX_CONTEXT_REFERENCES = 12;
+const CODE_QUESTION_PREVIEW_LINES = 16;
+const CODE_QUESTION_PREVIEW_LINE_CHARS = 480;
 const contextsFromAnchors = (anchors:readonly ChapterSourceAnchor[]):Context[]=>anchors.slice(0,MAX_CONTEXT_REFERENCES).map((anchor)=>({path:anchor.path,sha256:anchor.sourceSha256,from:anchor.startLine,to:anchor.endLine}));
 interface CapturedSourceSearchState {
   key:string;
@@ -372,7 +374,27 @@ export function DeveloperWorkspace(props:Props) {
   const [gitReload,setGitReload] = useState(0);
   const gitRequest = useRef<AbortController|null>(null);
   const [consentTurn,setConsentTurn] = useState<string|null>(null);
+  const [codeQuestionReview,setCodeQuestionReview] = useState<{projectId:string;snapshotId:string;explorationId:string;context:Context;question:string;view:View}|null>(null);
   const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean;unitKey?:string}|null>(null);
+  const codeQuestionPreview=useMemo(()=>{
+    const review=codeQuestionReview;
+    const from=review?.context.from;
+    const to=review?.context.to;
+    if(!review||!source||review.projectId!==projectId||review.snapshotId!==snapshotId
+      ||review.context.path!==source.path||review.context.sha256!==source.sha256
+      ||typeof from!=='number'||typeof to!=='number'||!Number.isInteger(from)||!Number.isInteger(to)||from<1||to<from)return null;
+    const last=Math.min(to,from+CODE_QUESTION_PREVIEW_LINES-1);
+    const window=capturedSourceLineWindow(source.contents,from,last,{
+      maxLineCharacters:CODE_QUESTION_PREVIEW_LINE_CHARS,
+      ...(sourceLineIndex?{lineIndex:sourceLineIndex}:{}),
+    });
+    return {
+      firstLine:from,
+      totalLines:to-from+1,
+      lines:window.lines.map((line,index)=>`${String(from+index).padStart(String(to).length,' ')} │ ${window.omittedBefore[index]?'…':''}${line}${window.omittedAfter[index]?'…':''}`),
+      clippedLines:window.omittedBefore.some(Boolean)||window.omittedAfter.some(Boolean),
+    };
+  },[codeQuestionReview,source,sourceLineIndex,projectId,snapshotId]);
   const [consentBusy,setConsentBusy] = useState(false);
   const [consentError,setConsentError] = useState<string|null>(null);
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
@@ -691,10 +713,25 @@ export function DeveloperWorkspace(props:Props) {
     setDraftNotice(null);
     setConsentError(null);
     const view:View=current.view==='flow'?'flow':'guide';
-    // Selecting a range and invoking Explain this code is the explicit
-    // question action. Reuse the snapshot's one-time sharing grant; ask()
-    // presents that grant once when it is missing.
-    ask(question,view,[selected]);
+    setCodeQuestionReview({projectId,snapshotId,explorationId:current.id,context:selected,question,view});
+  }
+  function acceptCodeQuestionReview(){
+    const review=codeQuestionReview;
+    if(!review)return;
+    const selected=review.projectId===projectId&&review.snapshotId===snapshotId&&review.explorationId===current.id
+      ?verifiedCodeContext(review.context,snapshotId):null;
+    if(!selected){
+      setCodeQuestionReview(null);
+      setDraftNotice('The selected code changed while you were reviewing it. Reopen the captured file and select the range again. Nothing was sent.');
+      return;
+    }
+    if(generationPaused){
+      setCodeQuestionReview(null);
+      setDraftNotice('Resolve the saved conversation conflict before asking about this code. Nothing was sent.');
+      return;
+    }
+    setCodeQuestionReview(null);
+    requestAnimationFrame(()=>ask(review.question,review.view,[selected]));
   }
   function explainSafely(context:Context){
     try{explain(context);}catch(failure){
@@ -1205,6 +1242,33 @@ export function DeveloperWorkspace(props:Props) {
         </Group>}
       </section></Panel>
     </Group>
+    <Dialog.Root open={!!codeQuestionReview} onOpenChange={(open)=>{if(!open)setCodeQuestionReview(null);}}>
+      <Dialog.Content className="dw-code-question-review" maxWidth="680px">
+        <Dialog.Title>Review your code question</Dialog.Title>
+        <Dialog.Description size="2">Check the question and captured source range. Nothing is sent until you choose <strong>Ask about this code</strong>. The connected agent may read related code from this snapshot under its existing access.</Dialog.Description>
+        {codeQuestionReview&&<>
+          <div className="dw-code-question-review-meta">
+            <div><span>Captured file</span><code>{codeQuestionReview.context.path}</code></div>
+            <div><span>Selected lines</span><code>{codeQuestionReview.context.from}–{codeQuestionReview.context.to}</code></div>
+          </div>
+          <div className="dw-code-question-review-question"><strong>Question</strong><p>{codeQuestionReview.question}</p></div>
+          <section className="dw-code-question-review-source" aria-label="Selected source preview">
+            <strong>Selected code</strong>
+            {codeQuestionPreview
+              ? <pre><code>{codeQuestionPreview.lines.join('\n')}</code></pre>
+              : <p role="alert">This source range is no longer available in the selected snapshot. Close this review and reopen the code.</p>}
+            {codeQuestionPreview&&codeQuestionPreview.totalLines>codeQuestionPreview.lines.length&&<small>Showing the first {codeQuestionPreview.lines.length} of {codeQuestionPreview.totalLines} selected lines.</small>}
+            {codeQuestionPreview?.clippedLines&&<small>Long lines are clipped in this preview; the full selected range is shown above.</small>}
+          </section>
+        </>}
+        {generationPaused&&<p role="status" className="dw-error">Resolve the saved conversation conflict before asking about this code. Nothing has been sent.</p>}
+        {conversationUnavailable&&<p role="status" className="dw-error">Saved conversation storage is unavailable, so this question cannot be started.</p>}
+        <Flex justify="end" gap="3" mt="4">
+          <Dialog.Close><AppButton intent="secondary" color="gray">Cancel</AppButton></Dialog.Close>
+          <AppButton intent="primary" disabled={!codeQuestionReview||!codeQuestionPreview||generationPaused||conversationUnavailable} onClick={acceptCodeQuestionReview}>Ask about this code</AppButton>
+        </Flex>
+      </Dialog.Content>
+    </Dialog.Root>
     <Dialog.Root open={!!consentTurn} onOpenChange={(open)=>{if(!open&&!consentBusy){if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>Explain {projectName} with Codex</Dialog.Title><Dialog.Description size="2">{codexRunDetails}. Codex can read relevant code from this captured repository snapshot to answer your questions. Your live working files stay private, and you can revoke access at any time.</Dialog.Description><WorkspaceSharingDetails kind="question"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'The question could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before starting this question.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!consentTurn||generationPaused)return;const id=consentTurn;setConsentBusy(true);setConsentError(null);void authorizeWorkspace(projectId,snapshotId).then((grant)=>{setConsentTurn(null);void runQuestion(projectId,snapshotId,id,grant);}).catch((failure)=>setConsentError(errorMessageOr(failure,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':'Allow and explain'}</AppButton></Flex>{consentError&&<AppButton intent="quiet" onClick={()=>{if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);requestAnimationFrame(onSettings);}}>Open connection settings</AppButton>}</Dialog.Content></Dialog.Root>
     <Dialog.Root open={!!guideConsent} onOpenChange={(open)=>{if(!open&&!consentBusy){if(guideConsent&&!guideConsent.resume)update((state)=>discardUnstartedGuide(state,guideConsent.id));setGuideConsent(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>{guideConsent?.unitKey?'Retry one guide slide':guideConsent?.resume?'Continue your guide':'Build a guide to '+projectName}</Dialog.Title><Dialog.Description size="2">{codexRunDetails}. A clear, illustrated guide will appear here, with each slide linked to its code. Earlier slides stay available if a later part needs attention.</Dialog.Description><p className="dw-permission-note">See the planned topics first. Follow each slide through its code links while the next ones take shape.</p><WorkspaceSharingDetails kind="guide"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'This guide could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before continuing this guide.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!guideConsent||generationPaused)return;const pending=guideConsent;setConsentBusy(true);setConsentError(null);void (state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId)).then((grant)=>{setGuideConsent(null);void runRepositoryGuide(projectId,snapshotId,pending.id,grant,pending.resume,pending.unitKey);}).catch((error)=>setConsentError(errorMessageOr(error,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':guideConsent?.unitKey?'Retry slide':guideConsent?.resume?'Continue guide':'Build guide'}</AppButton></Flex></Dialog.Content></Dialog.Root>
     <Dialog.Root open={props.sharingOpen} onOpenChange={props.onSharingOpenChange}><Dialog.Content maxWidth="460px"><Dialog.Title>Repository sharing</Dialog.Title><Dialog.Description size="2">{state.grantId?'Codex can explore captured code in this snapshot when you ask a question. Your live working copy is not included.':'Codex has no workspace sharing permission for this snapshot.'}</Dialog.Description>{state.grantId&&<AppButton mt="4" intent="danger" color="red" onClick={()=>{void revokeWorkspace(projectId,snapshotId).then(()=>props.onSharingOpenChange(false)).catch((failure)=>setConsentError(errorMessageOr(failure,'Permission could not be revoked.')));}}>Revoke permission and stop questions</AppButton>}{consentError&&<p role="alert">{consentError}</p>}<Flex justify="end" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray">Done</AppButton></Dialog.Close></Flex></Dialog.Content></Dialog.Root>

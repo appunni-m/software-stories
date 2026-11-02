@@ -188,6 +188,17 @@
 .dw-working {display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--muted);}
 .dw-working .rt-Button {margin-left:auto;}
 .dw-error {font-size:13px;line-height:1.7;color:var(--danger);overflow-wrap:anywhere;}
+.dw-code-question-review {box-sizing:border-box;max-height:min(84vh,760px);overflow:auto;}
+.dw-code-question-review-meta {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-3);margin-top:var(--space-4);padding:var(--space-3);border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);}
+.dw-code-question-review-meta > div {display:grid;gap:var(--space-1);min-width:0;}
+.dw-code-question-review-meta span,.dw-code-question-review-source > strong,.dw-code-question-review-question > strong {color:var(--muted);font-size:12px;font-weight:600;}
+.dw-code-question-review-meta code {color:var(--text);font:12px/1.5 var(--mono);overflow-wrap:anywhere;}
+.dw-code-question-review-question {display:grid;gap:var(--space-1);margin-top:var(--space-3);padding:var(--space-3);border:1px solid var(--border);border-radius:7px;background:var(--surface);}
+.dw-code-question-review-question p {margin:0;color:var(--text);font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
+.dw-code-question-review-source {display:grid;gap:var(--space-2);margin-top:var(--space-3);min-width:0;}
+.dw-code-question-review-source pre {box-sizing:border-box;max-width:100%;max-height:320px;overflow:auto;margin:0;padding:var(--space-3);border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text);}
+.dw-code-question-review-source pre code {font:12px/1.55 var(--mono);white-space:pre;}
+.dw-code-question-review-source small {color:var(--muted);font-size:11px;line-height:1.5;}
 .dw-permission-note {font-size:13px;line-height:1.8;color:var(--muted);margin-top:var(--space-4);}
 .dw-library {border-top:1px solid var(--border);margin-top:var(--space-5);padding-top:var(--space-4);}
 .dw-library summary {cursor:pointer;color:var(--muted);font-size:12px;}
