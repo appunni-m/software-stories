@@ -288,13 +288,14 @@ export async function revokeWorkspace(projectId: string, snapshotId: string) {
 export function stopQuestion(project: string, snapshot: string, id: string) {
   const job = jobs.get(id);
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
-  if (turn?.guideId) {
+  const guideId = turn?.guideId;
+  if (turn && guideId) {
     if (job) job.cancelled = true;
     if ((job && !job.runId) || (!turn.guide && !turn.runIds?.length && !job?.runId)) {
       patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
       return;
     }
-    void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:turn.guideId}).then(() => restoreRepositoryGuides(project,snapshot)).catch((failure) => {
+    void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId}).then(() => restoreRepositoryGuide(project,snapshot,guideId)).catch((failure) => {
       patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The guide could not be stopped. Try Stop again.')});
     });
     return;
@@ -663,7 +664,8 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
   if (jobs.has(id)) return;
   if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return;}
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
-  if (!turn?.guideId) return;
+  const guideId = turn?.guideId;
+  if (!turn || !guideId) return;
   const job = {cancelled:false,runId:null as string|null,pendingGuideAdvances:[]};jobs.set(id,job);
   const queueWaitStarted = rendererClock();
   const release = await enterQuestionQueue();
@@ -681,16 +683,16 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     if (job.cancelled) return;
     if(closingWorkspace)throw new Error(closingMessage);
     const selection = readCodexSelection();
-    job.runId = turn.guideId;
+    job.runId = guideId;
     const guide = retryUnitKey
-      ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:turn.guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,rendererQueueWaitMs})
+      ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,rendererQueueWaitMs})
       : await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
-        ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
-        : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
+        ? {id:guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
+        : {input:{id:guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
             modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
     await reconcileGuide(project,snapshot,guide,true);
   } catch (failure) {
-    try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
+    try { await restoreRepositoryGuide(project,snapshot,guideId); } catch { /* Preserve saved cards and the original error. */ }
     const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
     patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
   } finally {
@@ -703,13 +705,14 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
 export async function advanceRepositoryGuide(project:string,snapshot:string,turnId:string,consumedRevisionId:string) {
   if(closingWorkspace||!consumedRevisionId)return;
   const turn=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
-  if(!turn?.guideId||!canContinueGuide(turn))return;
+  const guideId=turn?.guideId;
+  if(!turn||!guideId||!canContinueGuide(turn))return;
   const active=jobs.get(turnId);
   if(active){
     queuePendingGuideAdvance(active,consumedRevisionId);
     try {
       const guide=await invoke<RepositoryGuide>('record_repository_guide_consumption',{
-        id:turn.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,
+        id:guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,
       });
       await reconcileGuide(project,snapshot,guide);
     } catch(failure) {
@@ -737,7 +740,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* Refill can recover from the saved receipt on the next reader action. */}
     await reconcileGuide(project,snapshot,guide,true);
   }catch(failure){
-    try{await restoreRepositoryGuides(project,snapshot);}catch{/* Keep the current reader content. */}
+    try{await restoreRepositoryGuide(project,snapshot,guideId);}catch{/* Keep the current reader content. */}
     const message=errorMessageOr(failure,'The next slide could not be prepared. Saved slides remain available.');
     patchTurn(project,snapshot,turnId,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
   }finally{
