@@ -998,6 +998,14 @@ function App() {
       });
       return;
     }
+    const routeBeforeCapture = navigationRef.current.current;
+    const priorSnapshotId = routeBeforeCapture.projectId === projectId ? routeBeforeCapture.snapshotId : null;
+    const savedFile = priorSnapshotId ? readFileLocation(projectId) : null;
+    const pathToKeep = routeBeforeCapture.projectId !== projectId
+      ? undefined
+      : savedFile?.status === 'available' && savedFile.location.snapshotId === priorSnapshotId
+        ? savedFile.location.path ?? routeBeforeCapture.relativePath
+        : routeBeforeCapture.relativePath;
     setSnapshotBusy(true);
     try {
       if (currentProject?.projectId !== projectId) {
@@ -1019,6 +1027,7 @@ function App() {
           workspace,
           projectId,
           snapshotId: state.current.projectId === projectId ? state.current.snapshotId : null,
+          relativePath: pathToKeep,
           focusTarget: `heading:${workspace}`,
         });
       });
@@ -2108,7 +2117,7 @@ function App() {
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId,focusTarget:'heading:guide-plan'}));
                 openPlanHistory(currentProject.projectId);
               }}
-              onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot
+              onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
               onCompare={(baseRef,headRef,remember=true) => {
                 if(remember&&currentProject)rememberGitComparisonPreference(currentProject.projectId,baseRef,headRef);
