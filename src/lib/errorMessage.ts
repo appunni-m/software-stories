@@ -72,7 +72,7 @@ export function explanationFailureMessage(code: ExplanationFailureCode | undefin
     case 'contextTimeout':
       return 'The selected code took too long to gather. Try narrowing the selection to the key lines.';
     case 'runTimeout':
-      return 'This explanation took too long to finish. Try a narrower question or select the key function.';
+      return 'The explanation stopped before it was complete. Any saved sections are preserved; try again or continue the guide if one is in progress.';
     case 'toolEvent':
     case 'invalidToolArguments':
       return 'The code reading step could not complete safely. Try the question again with a smaller code selection.';
