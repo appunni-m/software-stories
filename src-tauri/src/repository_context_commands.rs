@@ -460,7 +460,7 @@ pub(crate) async fn read_repository_range(
             snapshot::load_snapshot_manifest(&storage, &input.project_id, &input.snapshot_id)?;
         budget.check()?;
         let mut check = || budget.check();
-        context::read_range_with_check(
+        let range = context::read_range_with_check(
             &storage,
             &manifest,
             &input.path,
@@ -468,7 +468,8 @@ pub(crate) async fn read_repository_range(
             input.start_byte,
             input.end_byte,
             &mut check,
-        )
+        )?;
+        request.commit(|| range)
     })
     .await
     .map_err(|_| "The code range could not be read.".to_owned())?

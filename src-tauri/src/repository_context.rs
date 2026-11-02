@@ -1354,10 +1354,15 @@ pub(crate) fn read_range_with_check(
         return Err("Read a nonempty code range of at most 32,768 bytes.".to_owned());
     }
     let source = source_with_check(storage, manifest, path, check)?;
+    // Source loading checks between bounded reads; check again after hashing
+    // and filtering so a late cancellation never returns verified bytes.
+    check()?;
     if source.sha256 != expected_sha256 {
         return Err("This code range belongs to a different source version.".to_owned());
     }
-    range_from_source(&source, start_byte, end_byte)
+    let range = range_from_source(&source, start_byte, end_byte)?;
+    check()?;
+    Ok(range)
 }
 
 pub(crate) fn range_from_source(

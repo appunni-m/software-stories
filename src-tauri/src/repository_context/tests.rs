@@ -677,6 +677,43 @@ fn file_discovery_observes_cancellation_after_verifying_a_captured_blob() {
 }
 
 #[test]
+fn range_read_cancellation_stops_between_verified_source_chunks_without_returning_bytes() {
+    let mut fixture = Fixture::new();
+    let text = "x".repeat(MAX_RANGE_BYTES * 3);
+    let source_sha256 = digest(text.as_bytes());
+    add_source(&mut fixture, "src/large.rs", &text);
+
+    let mut checks = 0;
+    let mut check = || {
+        checks += 1;
+        if checks == 3 {
+            Err("Code search stopped.".to_owned())
+        } else {
+            Ok(())
+        }
+    };
+    let result = read_range_with_check(
+        &fixture.storage,
+        &fixture.manifest,
+        "src/large.rs",
+        &source_sha256,
+        0,
+        1,
+        &mut check,
+    );
+    drop(check);
+
+    match result {
+        Err(error) => assert_eq!(error, "Code search stopped."),
+        Ok(_) => panic!("a cancelled range read must not return partial bytes"),
+    }
+    assert_eq!(
+        checks, 3,
+        "cancellation is observed before the second source chunk"
+    );
+}
+
+#[test]
 fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
     let text = format!(
