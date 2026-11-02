@@ -113,7 +113,7 @@ html[data-app-zoom-header-compact="true"] .topbar .connection-header {flex:0 1 2
 html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160px;}
 
 /* Keep the one-row header only while the repository and app controls both fit. */
-@container app-window (max-width: 1600px) {
+@container app-window (max-width: 1440px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";
