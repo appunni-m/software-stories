@@ -110,6 +110,9 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/repositorySearch&&!currentSourceSearch\.busy&&!currentSourceSearch\.error&&results\.length===0/);
   assert.match(source,/shouldOfferExploreWithAI\(repositorySearch,searchMode,currentSourceSearch\.busy,currentSourceSearch\.error,results\.length\)/);
   assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,currentSourceSearch\.busy,currentSourceSearch\.error,results\.length\)/);
+  const sidebarExploreAction=source.indexOf('<AppButton size="1" intent="secondary" onClick={()=>exploreSearch(repositorySearch,results)}>');
+  const resultGroups=source.indexOf('{searchResultGroups.map(({path,hits})=>{');
+  assert.ok(sidebarExploreAction>=0&&sidebarExploreAction<resultGroups,'the main Search action appears before the long results list');
 });
 
 test('Explore with AI stays available beside visible matches while searching and on fallback',()=>{
