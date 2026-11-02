@@ -515,7 +515,7 @@ fn read_journal(storage_dir: &Path) -> Result<JournalFile, String> {
             );
         }
     };
-    let mut journal: JournalFile = serde_json::from_slice(&bytes)
+    let journal: JournalFile = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Interrupted work data is invalid: {error}"))?;
     if journal.schema_version != JOURNAL_SCHEMA_VERSION
         || journal.operations.len() > MAX_OPERATION_COUNT

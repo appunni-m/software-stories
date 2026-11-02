@@ -635,9 +635,9 @@ fn worker_failure(error: ClaudeWorkerFailure) -> provider::ProviderFailure {
         Worker::Cancelled => Kind::RequestCancelled,
         Worker::TimedOut => Kind::RequestTimedOut,
         Worker::RuntimeChanged | Worker::ReviewChanged => Kind::ReviewChanged,
-        Worker::Busy | Worker::PreparationFailed | Worker::UnsupportedPlatform => {
-            Kind::ReviewUnavailable
-        }
+        Worker::Busy | Worker::PreparationFailed => Kind::ReviewUnavailable,
+        #[cfg(not(unix))]
+        Worker::UnsupportedPlatform => Kind::ReviewUnavailable,
         Worker::OutputLimit => Kind::ProviderResponseTooLarge,
         Worker::ProtocolRejected => Kind::MalformedProviderResponse,
         Worker::ProcessFailed | Worker::CleanupFailed => Kind::ProviderRejectedRequest,

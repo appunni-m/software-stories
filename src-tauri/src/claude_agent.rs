@@ -320,7 +320,6 @@ pub(crate) enum ClaudeProgressPhase {
 pub(crate) struct ClaudeStructuredResult {
     pub model_id: String,
     pub response_text: String,
-    pub session_id: String,
 }
 
 /// Strict consumer for the documented newline-delimited stream. The future
@@ -541,7 +540,6 @@ impl ClaudeOutputStream {
         self.result = Some(ClaudeStructuredResult {
             model_id: self.expected_model.clone(),
             response_text,
-            session_id: bounded_id(event, "session_id")?,
         });
         Ok(Some(ClaudeProgressPhase::ResponseReceived))
     }

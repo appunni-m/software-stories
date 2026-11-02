@@ -43,11 +43,6 @@ pub(crate) fn chapter_diagnostics(response: &str) -> Option<Vec<Value>> {
     Some(issues)
 }
 
-/// Visible graph-node budget shared with the repository-guide scene compiler.
-pub(crate) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
-    scenes::graph_scene_node_count(section, claim_index)
-}
-
 /// Whether a claim-focused graph view exceeds its visible node budget. A
 /// no-focus scene intentionally renders the complete graph and uses the
 /// section-wide node cap instead.

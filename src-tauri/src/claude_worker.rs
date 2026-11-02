@@ -58,6 +58,7 @@ pub(crate) enum ClaudeWorkerFailureKind {
     ProtocolRejected,
     OutputLimit,
     CleanupFailed,
+    #[cfg(not(unix))]
     UnsupportedPlatform,
 }
 

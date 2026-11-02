@@ -1866,7 +1866,7 @@ pub(crate) async fn resume_repository_guide(
     }
     let storage = app_data_directory(&app)?;
     let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
-    let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
+    scoped(&storage, &id, &project_id, &snapshot_id)?;
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
     let manager = app.state::<codex_agent::CodexAgentManager>();
@@ -2081,7 +2081,7 @@ pub(crate) async fn retry_repository_guide_unit(
     }
     let storage = app_data_directory(&app)?;
     let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
-    let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
+    scoped(&storage, &id, &project_id, &snapshot_id)?;
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
     let manager = app.state::<codex_agent::CodexAgentManager>();
