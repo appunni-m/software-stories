@@ -27,6 +27,14 @@ const MAX_METADATA: usize = 96_000;
 const MAX_CONTENT_RANKED_PATHS: usize = crate::repository_context::MAX_FILE_DISCOVERY_RESULTS;
 const TTL: Duration = Duration::from_secs(300);
 const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v6-bounded-full-question-search";
+const SNAPSHOT_GRANT_REQUIRED: &str = "Allow Codex to explore this snapshot first.";
+
+fn required_workspace_grant(grant: Option<&str>) -> Result<&str, String> {
+    grant
+        .filter(|grant| !grant.trim().is_empty())
+        .ok_or_else(|| SNAPSHOT_GRANT_REQUIRED.to_owned())
+}
+
 pub(crate) const QUERY_STOPWORDS: &[&str] = &[
     "about",
     "after",
@@ -687,7 +695,9 @@ fn metadata(
             indexed_files.insert(indexed.path.as_str(), indexed);
         }
         for symbol in &local_index.symbols {
-            *symbol_count_by_path.entry(symbol.path.as_str()).or_default() += 1;
+            *symbol_count_by_path
+                .entry(symbol.path.as_str())
+                .or_default() += 1;
             let matched_terms =
                 query_term_matches(&symbol.qualified_name, &words, &query_stems, &mut stemmer);
             if matched_terms > 0 {
@@ -1148,10 +1158,7 @@ pub(crate) async fn prepare_source_discovery(
     let agent = manager.inner().clone();
     let built = tauri::async_runtime::spawn_blocking(move || -> Result<Pending, String> {
         let runtime = agent.review_runtime(&storage)?;
-        let grant = input
-            .workspace_grant
-            .as_deref()
-            .ok_or("Allow Codex to explore this snapshot first.")?;
+        let grant = required_workspace_grant(input.workspace_grant.as_deref())?;
         crate::workspace::check_grant(
             &storage,
             grant,
@@ -1237,11 +1244,7 @@ pub(crate) async fn send_source_discovery(
     };
     tauri::async_runtime::spawn_blocking(move || {
         let observed = runtime.review_runtime(&storage)?;
-        let grant = prepared
-            .input
-            .workspace_grant
-            .as_deref()
-            .ok_or("Allow Codex to explore this snapshot first.")?;
+        let grant = required_workspace_grant(prepared.input.workspace_grant.as_deref())?;
         crate::workspace::check_grant(
             &storage,
             grant,
@@ -1344,6 +1347,26 @@ fn validate_selection(
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn snapshot_discovery_requires_a_nonblank_workspace_grant() {
+        assert_eq!(
+            required_workspace_grant(None).unwrap_err(),
+            SNAPSHOT_GRANT_REQUIRED
+        );
+        assert_eq!(
+            required_workspace_grant(Some("")).unwrap_err(),
+            SNAPSHOT_GRANT_REQUIRED
+        );
+        assert_eq!(
+            required_workspace_grant(Some(" \t ")).unwrap_err(),
+            SNAPSHOT_GRANT_REQUIRED
+        );
+        assert_eq!(
+            required_workspace_grant(Some("grant-123")).unwrap(),
+            "grant-123"
+        );
+    }
 
     #[test]
     fn discovery_matches_common_english_inflections_in_source_names() {
