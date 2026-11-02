@@ -39,27 +39,27 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     : handoffAgent === 'codex' ? 'Codex' : handoffAgent === 'antigravity' ? 'Antigravity' : 'Another agent';
   const modelReady = codexSelectionIsSupported(connection.models, connection.selection);
   const ready = Boolean(codexRuntimeReady && modelReady);
-  const label = backend === null ? 'Choose connection'
+  const label = backend === null ? 'Connect AI'
     : backend === 'api'
-    ? apiSelectionIssue ? 'API · Saved selection unavailable' : `API · ${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
+    ? apiSelectionIssue ? 'Review AI connection' : `${providerName || 'Choose provider'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}`
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? `${handoffAgentName} handoff`
         : connection.checking ? 'Connecting to Codex…'
-          : ready ? `Codex${connection.status?.runtimeVersion ? ` v${connection.status.runtimeVersion}` : ''} · ${codexModel} · ${connection.selection.effort}`
-            : codexRuntimeReady ? 'Choose Codex model' : 'Connect Codex';
+          : ready ? `Codex · ${codexModel}`
+            : codexRuntimeReady ? 'Choose model' : 'Connect Codex';
   const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
     : backend === null || backend === 'api' && Boolean(apiSelectionIssue) || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
-  const details = backend === null ? 'The saved AI connection could not be read. Choose a connection to replace it.'
+  const details = backend === null ? 'Choose an AI connection in Connections.'
     : backend === 'codex'
-    ? ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Codex ${connection.status?.runtimeVersion ?? 'version unavailable'} · ${codexModel} · ${connection.selection.effort} reasoning.`
+    ? ready ? `Connected to Codex. Model: ${codexModel}. Open Connections to change AI or voice settings.`
       : connection.checking ? 'Checking your saved Codex connection…'
-        : codexRuntimeReady ? 'The saved Codex model or reasoning level is unavailable. Choose a listed model and supported reasoning level in Connections.' : 'Set up your Codex connection once'
-    : backend === 'api' ? apiSelectionIssue ? `The saved direct API selection could not be read (${apiSelectionIssue}). Choose a provider in Connections to replace it.`
-      : `${providerName ? `${providerName}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}` : 'Direct API selected without a provider'}. Open Connections to change provider or model.`
+        : codexRuntimeReady ? 'The saved Codex model is unavailable. Choose a model in Connections.' : 'Set up your Codex connection once'
+    : backend === 'api' ? apiSelectionIssue ? 'The saved AI connection needs attention. Choose a provider in Connections.'
+      : `${providerName || 'AI provider selected'}${apiSelection.modelId ? ` · ${apiSelection.modelId}` : ''}. Open Connections to change the model or voice.`
       : backend === 'claude-setup' ? 'Claude Agent selected. Open Connections to manage setup.'
         : `${handoffAgentName} handoff selected. Agent setup and model settings stay in that app.`;
   return <AppButton intent="custom" className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
-    aria-label={`${label}. ${details} Open Connections.`} title={`${details} Voice settings are also in Connections.`}>
+    aria-label={`${label}. ${details}`} title={details}>
     <Icon size={15} /><span className="connection-header-value">{label}</span>
   </AppButton>;
 }

@@ -194,7 +194,7 @@ export function DeveloperWorkspace(props:Props) {
   const [conflictResolutionError,setConflictResolutionError]=useState<string|null>(null);
   const connection=useConnectionState();
   const codexModel=connection.models.find((model)=>model.modelId===connection.selection.modelId)?.displayName??connection.selection.modelId;
-  const codexRunDetails=`Codex ${connection.status?.runtimeVersion?`v${connection.status.runtimeVersion}`:'version unavailable'} · ${codexModel||'model loading'} · ${connection.selection.effort||'reasoning loading'}`;
+  const codexRunDetails=`Codex · ${codexModel||'selected model'}`;
   const [generationBackend,setGenerationBackend]=useState(()=>readGenerationBackend());
   useEffect(()=>{
     const refresh=()=>{
