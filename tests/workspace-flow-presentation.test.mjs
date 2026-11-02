@@ -89,3 +89,13 @@ test('Flow stays focused on its selected diagram while saved questions live in C
   assert.doesNotMatch(flow, /dw-flow-conversation|<Answer\b/);
   assert.match(source, /<Tabs.Content value="history">/);
 });
+
+test('Flow selectors distinguish answer parts from sections inside the visual', () => {
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  assert.match(source, /<label htmlFor="answer-flow-section">Answer part<\/label>/);
+  assert.match(source, /ariaLabel="Answer part"[^>]+options=\{flowRevisions\.map\(\(revision,index\)=>\(\{value:revision\.revisionId,label:`Part \$\{index\+1\} · /);
+  assert.match(source, /className="dw-flow-section-select">Section<AppSelect ariaLabel="Visual section"/);
+  assert.match(source, /label:`\$\{index\+1\} · \$\{plainInlineCodeText\(revision\.sections\[index\]\.title\)\}`/);
+  assert.match(styles, /\.dw-flow-section-select \{display:flex;align-items:center;gap:var\(--space-2\);color:var\(--muted\);font-size:12px;\}/);
+});
