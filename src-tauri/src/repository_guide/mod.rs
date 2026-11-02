@@ -2194,6 +2194,31 @@ pub(crate) async fn list_repository_guides(
     )
 }
 
+/// Read and reconcile one explicitly selected guide without enumerating other
+/// guides saved for the same snapshot.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn load_repository_guide(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    project_id: String,
+    snapshot_id: String,
+    guide_id: String,
+) -> Result<GuideSummary, String> {
+    let storage = app_data_directory(&app)?;
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let record = store::read(&storage, &guide_id)?;
+        if record.project_id != project_id || record.snapshot_id != snapshot_id {
+            return Err("This saved guide belongs to another repository snapshot.".to_owned());
+        }
+        saved_guide_summary(&storage, record, &manager)
+    })
+    .await
+    .map_err(|_| {
+        "The saved guide could not be read. Its original record remains on this Mac.".to_owned()
+    })?
+}
+
 fn planning_timing_scope(
     storage: &Path,
     guide_id: &str,
@@ -2283,30 +2308,7 @@ fn list_saved_guides_with_count(
     let mut guides = Vec::with_capacity(listing.records.len());
     for record in listing.records {
         let record_id = record.id.clone();
-        let guide = (|| {
-            let lease = store::lease(storage, &record.id)?;
-            let has_unsettled_attempt = record
-                .opening
-                .iter()
-                .chain(&record.opening_continuations)
-                .chain(record.units.iter().flat_map(|unit| &unit.attempts))
-                .any(|attempt| {
-                    attempt
-                        .summary
-                        .as_ref()
-                        .is_none_or(|summary| summary.outcome == Outcome::Working)
-                });
-            let record = if lease.is_some()
-                && (matches!(record.status, Status::Planning | Status::Building)
-                    || record.active_run_id.is_some()
-                    || has_unsettled_attempt)
-            {
-                reconcile(storage, &record, manager)?
-            } else {
-                record
-            };
-            summary_for_listing(storage, &record)
-        })();
+        let guide = saved_guide_summary(storage, record, manager);
         match guide {
             Ok(guide) => guides.push(guide),
             Err(error) => {
@@ -2322,6 +2324,35 @@ fn list_saved_guides_with_count(
         }
     }
     Ok((guides, unavailable_count, unavailable_guides))
+}
+
+fn saved_guide_summary(
+    storage: &Path,
+    record: Record,
+    manager: &codex_agent::CodexAgentManager,
+) -> Result<GuideSummary, String> {
+    let lease = store::lease(storage, &record.id)?;
+    let has_unsettled_attempt = record
+        .opening
+        .iter()
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+        .any(|attempt| {
+            attempt
+                .summary
+                .as_ref()
+                .is_none_or(|summary| summary.outcome == Outcome::Working)
+        });
+    let record = if lease.is_some()
+        && (matches!(record.status, Status::Planning | Status::Building)
+            || record.active_run_id.is_some()
+            || has_unsettled_attempt)
+    {
+        reconcile(storage, &record, manager)?
+    } else {
+        record
+    };
+    summary_for_listing(storage, &record)
 }
 
 #[cfg(test)]

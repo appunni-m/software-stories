@@ -601,26 +601,13 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
 }
 async function restoreChangedRepositoryGuide(project: string, snapshot: string, guideId: string) {
-  const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
-  const guide = result.guides.find((candidate) => candidate.id === guideId);
-  if (guide) await reconcileGuide(project,snapshot,guide,true);
+  const guide = await invoke<RepositoryGuide>('load_repository_guide',{projectId:project,snapshotId:snapshot,guideId});
+  await reconcileGuide(project,snapshot,guide,true);
 }
 /** Reopen one guide without making its recovery depend on unrelated answer receipts. */
 export async function restoreRepositoryGuide(project: string, snapshot: string, guideId: string): Promise<void> {
-  const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
-  const guide = result.guides.find((candidate) => candidate.id === guideId);
-  if (!guide) {
-    const unavailable = result.unavailableGuides.find((candidate) => candidate.id === guideId);
-    if (unavailable?.reason === 'unsupportedFormat') {
-      throw new Error('This saved guide uses an unsupported format. The original is preserved.');
-    }
-    if (unavailable?.reason === 'unreadable') {
-      throw new Error('This saved guide could not be read. The original is preserved.');
-    }
-    throw new Error('The saved guide could not be found. Its original record remains on this Mac.');
-  }
+  const guide = await invoke<RepositoryGuide>('load_repository_guide',{projectId:project,snapshotId:snapshot,guideId});
   await reconcileGuide(project,snapshot,guide);
-  announceUnavailableRepositoryGuides(project,snapshot,result.unavailableCount);
 }
 function announceUnavailableRepositoryGuides(project: string, snapshot: string, unavailableCount: number) {
   if (unavailableCount <= 0) return;

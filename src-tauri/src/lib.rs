@@ -2377,6 +2377,7 @@ pub fn run() {
             repository_guide::advance_repository_guide,
             repository_guide::stop_repository_guide,
             repository_guide::list_repository_guides,
+            repository_guide::load_repository_guide,
             repository_guide::save_repository_guide_planning_timing,
             workspace_generation::progressive::generate_progressive_workspace_answer,
             workspace_generation::progressive::load_workspace_answer,
