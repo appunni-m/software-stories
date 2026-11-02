@@ -32,7 +32,6 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const active = useRef<string | null>(null);
   const prepared = useRef<string | null>(null);
   const mounted = useRef(false);
-  const preparing = useRef(false);
   useModalFocusTrap(dialog);
   useEffect(() => {
     const backgroundDiscovery = autoDiscover && !error;
@@ -56,7 +55,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       } }));
     };
     dialog.current?.focus();
-    setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true); preparing.current = true;
+    setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true);
     setPhase(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
@@ -108,14 +107,13 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       if (!current) { void discardSourceDiscovery(value.reviewId).catch(() => {}); return; }
       prepared.current = value.reviewId; setReview(value);
       if (autoDiscover) {
-        preparing.current = false;
         await discover(value, () => current, resolveProgress);
       }
     })().catch((failure) => {
       resolveProgress();
       if (current) setError(errorMessageOr(failure, 'The code index could not be prepared.'));
     })
-      .finally(() => { if (current) { setBusy(false); preparing.current = false; } });
+      .finally(() => { if (current) setBusy(false); });
     return () => {
       current = false; mounted.current = false;
       resolveProgress();
