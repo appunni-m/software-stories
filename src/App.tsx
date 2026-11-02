@@ -4626,7 +4626,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
-  const activeValidation = validation?.revisionId === activeDocument?.revisionId ? validation.report : null;
+  const activeValidation = validation && activeDocument && validation.revisionId === activeDocument.revisionId
+    ? validation.report
+    : null;
   const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
   const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
