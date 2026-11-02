@@ -3024,26 +3024,18 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
 }
 
 fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
-    let server_version = initialize
+    initialize
         .pointer("/serverInfo/version")
-        .and_then(Value::as_str);
-    let user_agent_version = initialize
-        .get("userAgent")
         .and_then(Value::as_str)
-        .and_then(|user_agent| user_agent.trim().split_once('/').map(|(_, version)| version))
-        .and_then(|version| version.split_whitespace().next());
-    [server_version, user_agent_version]
-        .into_iter()
-        .flatten()
         .map(str::trim)
-        .find(|version| {
+        .filter(|version| {
             !version.is_empty()
                 && version.len() <= 128
                 && !version.chars().any(char::is_control)
         })
         .map(str::to_owned)
         .ok_or_else(|| {
-            "Codex did not identify its app-server version. Update or reconnect Codex before generating."
+            "Codex did not report its app-server version. Update or reconnect Codex before generating."
                 .to_owned()
         })
 }
