@@ -1148,15 +1148,17 @@ pub(crate) async fn prepare_source_discovery(
     let agent = manager.inner().clone();
     let built = tauri::async_runtime::spawn_blocking(move || -> Result<Pending, String> {
         let runtime = agent.review_runtime(&storage)?;
-        if let Some(grant) = &input.workspace_grant {
-            crate::workspace::check_grant(
-                &storage,
-                grant,
-                &input.project_id,
-                &input.snapshot_id,
-                &runtime,
-            )?;
-        }
+        let grant = input
+            .workspace_grant
+            .as_deref()
+            .ok_or("Allow Codex to explore this snapshot first.")?;
+        crate::workspace::check_grant(
+            &storage,
+            grant,
+            &input.project_id,
+            &input.snapshot_id,
+            &runtime,
+        )?;
         let (metadata, sizes, total, index_status, documentation, coverage_gaps) =
             metadata(&storage, &input)?;
         let review = DiscoveryReview {
@@ -1197,7 +1199,6 @@ pub(crate) async fn prepare_source_discovery(
 pub(crate) struct SendDiscovery {
     review_id: String,
     fingerprint: String,
-    consent: bool,
 }
 
 struct RunOwner {
@@ -1218,12 +1219,6 @@ pub(crate) async fn send_source_discovery(
     pending: State<'_, DiscoveryReviews>,
     input: SendDiscovery,
 ) -> Result<DiscoveryResult, String> {
-    if !input.consent {
-        return Err(
-            "Confirm sharing the indexed names and question with Codex before discovery."
-                .to_owned(),
-        );
-    }
     let prepared = pending
         .0
         .lock()
@@ -1242,7 +1237,18 @@ pub(crate) async fn send_source_discovery(
     };
     tauri::async_runtime::spawn_blocking(move || {
         let observed = runtime.review_runtime(&storage)?;
-        if let Some(grant) = &prepared.input.workspace_grant { crate::workspace::check_grant(&storage, grant, &prepared.input.project_id, &prepared.input.snapshot_id, &observed)?; }
+        let grant = prepared
+            .input
+            .workspace_grant
+            .as_deref()
+            .ok_or("Allow Codex to explore this snapshot first.")?;
+        crate::workspace::check_grant(
+            &storage,
+            grant,
+            &prepared.input.project_id,
+            &prepared.input.snapshot_id,
+            &observed,
+        )?;
         let (fresh, _, _, _, _, _) = metadata(&storage, &prepared.input)?;
         if fingerprint(&prepared.input, &fresh, &observed)? != prepared.review.fingerprint {
             return Err("The code index or account changed. Prepare discovery again.".to_owned());

@@ -9,6 +9,7 @@ import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotManifest } from
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { ensureWorkspaceIndex } from './workspace/indexManager';
+import { authorizeWorkspace, getWorkspace, prepareWorkspaceConversation, updateWorkspace } from './workspace/store';
 
 export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false, ignoreSavedResult = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
@@ -23,6 +24,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const [savedSelectionNotice, setSavedSelectionNotice] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [needsConnection, setNeedsConnection] = useState(false);
+  const [needsWorkspacePermission, setNeedsWorkspacePermission] = useState(false);
   const connectionState = useConnectionState();
   // Parent JSX callbacks may be recreated during ordinary renders; changing
   // the receiver must not restart an in-flight index/discovery request.
@@ -34,14 +36,14 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
   const mounted = useRef(false);
   useModalFocusTrap(dialog);
   useEffect(() => {
-    const backgroundDiscovery = autoDiscover && !error;
+    const backgroundDiscovery = autoDiscover && !error && !needsWorkspacePermission;
     if (needsConnection || backgroundDiscovery) return;
     const previous = document.activeElement as HTMLElement | null;
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
     dialog.current?.focus();
     document.addEventListener('keydown', escape);
     return () => { document.removeEventListener('keydown', escape); if (previous?.isConnected) previous.focus(); };
-  }, [onClose, needsConnection, autoDiscover, error]);
+  }, [onClose, needsConnection, needsWorkspacePermission, autoDiscover, error]);
   useEffect(() => {
     mounted.current = true;
     let current = true;
@@ -55,7 +57,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       } }));
     };
     dialog.current?.focus();
-    setReview(null); setError(null); setSavedSelectionNotice(null); setBusy(true);
+    setReview(null); setError(null); setSavedSelectionNotice(null); setNeedsWorkspacePermission(false); setBusy(true);
     setPhase(autoDiscover ? 'Preparing your explanation…' : 'Preparing your repository…');
     void (async () => {
       if (!isNativeRuntime()) throw Error('Open the Mac app to discover code with your saved agent.');
@@ -82,6 +84,13 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       const connection = await ensureCodexConnection(retry > 0);
       if (!current) return;
       if (!connection.status.authenticated) { setNeedsConnection(true); return; }
+      await prepareWorkspaceConversation(scope.projectId, scope.snapshotId);
+      if (!current) return;
+      const workspaceGrant = getWorkspace(scope.projectId, scope.snapshotId).grantId;
+      if (!workspaceGrant) {
+        setNeedsWorkspacePermission(true);
+        return;
+      }
       if (progressOccurrenceId) {
         progressPublished = true;
         window.dispatchEvent(new CustomEvent('code-atlas:workspace-progress', { detail: {
@@ -103,7 +112,19 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       if (!current) return;
       if (!autoDiscover) setPhase(indexReady ? 'Almost ready…' : 'Preparing your question…');
       const selection = readCodexSelection();
-      const value = await prepareSourceDiscovery({ ...scope, ...selection });
+      let value: SourceDiscoveryReview;
+      try {
+        value = await prepareSourceDiscovery({ ...scope, ...selection, workspaceGrant });
+      } catch (failure) {
+        const message = errorMessageOr(failure, 'The code index could not be prepared.');
+        if (/allow codex to explore|exploration permission|snapshot or codex account changed/i.test(message)) {
+          resolveProgress();
+          updateWorkspace(scope.projectId, scope.snapshotId, (state) => ({ ...state, grantId: undefined }));
+          setNeedsWorkspacePermission(true);
+          return;
+        }
+        throw failure;
+      }
       if (!current) { void discardSourceDiscovery(value.reviewId).catch(() => {}); return; }
       prepared.current = value.reviewId; setReview(value);
       if (autoDiscover) {
@@ -145,18 +166,39 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       active.current = null;
       onReadyRef.current(result, selectedReview);
     } catch (failure) {
-      if (isCurrent()) { setError(errorMessageOr(failure, 'Code discovery could not finish.')); setReview(null); }
+      const message = errorMessageOr(failure, 'Code discovery could not finish.');
+      if (isCurrent()) {
+        if (/allow codex to explore|exploration permission|snapshot or codex account changed/i.test(message)) {
+          updateWorkspace(scope.projectId, scope.snapshotId, (state) => ({ ...state, grantId: undefined }));
+          setNeedsWorkspacePermission(true);
+          setError(null);
+        } else setError(message);
+        setReview(null);
+      }
     } finally {
       if (active.current === selectedReview.reviewId) active.current = null;
       if (isCurrent()) setBusy(false);
       onFinished?.();
     }
   }
+  async function allowWorkspaceAndDiscover() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await authorizeWorkspace(scope.projectId, scope.snapshotId);
+      setNeedsWorkspacePermission(false);
+      setRetry((value) => value + 1);
+    } catch (failure) {
+      setError(errorMessageOr(failure, 'Snapshot permission could not be saved.'));
+    } finally {
+      setBusy(false);
+    }
+  }
   if (needsConnection) return <CodexChapterDialog mode="settings" native={isNativeRuntime()} onClose={() => {
     if (!connectionState.status?.authenticated) { onClose(); return; }
     setNeedsConnection(false); setRetry((value) => value + 1);
   }} />;
-  if (autoDiscover && !error) return null;
+  if (autoDiscover && !error && !needsWorkspacePermission) return null;
   return <div className="provider-overlay"><section className="provider-dialog discovery-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="discovery-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="discovery-title">{autoDiscover ? 'Preparing your explanation' : 'Find code for this question'}</h2><p>{scope.question}</p></div><AppButton intent="icon" onClick={onClose} aria-label="Close code discovery"><X size={18} /></AppButton></header>
     <div className="provider-dialog-content">
@@ -186,11 +228,15 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
         <details><summary>Details shared with your connection</summary><pre className="discovery-metadata">{review.metadata}</pre></details>
         {review.documentation.length > 0 && <details><summary>Documentation is guidance, code is the evidence</summary><ul>{review.documentation.map((doc) => <li key={doc.path}><code>{doc.path}</code> · {doc.status === 'declaredDeprecated' ? 'Declared deprecated / archived' : 'Not verified against code'}<p>{doc.reason}</p></li>)}</ul></details>}
       </>}
+      {needsWorkspacePermission && <>
+        <p>Allow Code Atlas to use this captured snapshot to find relevant code for your question.</p>
+        <p className="provider-small-note">Your question and a compact repository map are shared with your connected Codex account. Relevant captured code may be sent when you ask for an explanation; your live working copy is not included. You can revoke access in Repository sharing. Your Codex account usage applies.</p>
+      </>}
       {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
       {error && autoDiscover && <p className="provider-small-note">No file contents are sent during this discovery step. Return to the code view to refine your question or search captured files yourself.</p>}
     </div><footer className="provider-dialog-footer"><AppButton intent="secondary" onClick={onClose}>{active.current ? 'Cancel discovery' : autoDiscover && error ? 'Back to code' : 'Cancel'}</AppButton>
-      {error ? <AppButton intent="primary" onClick={() => setRetry((value) => value + 1)}>Try again</AppButton> : !autoDiscover && <AppButton intent="primary" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</AppButton>}
+      {error ? <AppButton intent="primary" onClick={() => needsWorkspacePermission ? void allowWorkspaceAndDiscover() : setRetry((value) => value + 1)} disabled={busy}>{needsWorkspacePermission ? 'Allow and find code' : 'Try again'}</AppButton> : needsWorkspacePermission ? <AppButton intent="primary" onClick={() => { void allowWorkspaceAndDiscover(); }} disabled={busy}>Allow and find code</AppButton> : !autoDiscover && <AppButton intent="primary" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</AppButton>}
     </footer>
   </section></div>;
 }

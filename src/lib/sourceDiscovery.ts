@@ -60,8 +60,8 @@ export interface LargeFileDiscoveryHandoff {
   question: string;
   discoveryNotes: string[];
 }
-export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: string; effort: string; workspaceGrant?: string }) =>
-  invoke<SourceDiscoveryReview>('prepare_source_discovery', { input: { projectId: input.projectId, snapshotId: input.snapshotId, question: input.question, targetPath: input.targetPath ?? null, modelId: input.modelId, effort: input.effort, workspaceGrant: input.workspaceGrant ?? null } });
+export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: string; effort: string; workspaceGrant: string }) =>
+  invoke<SourceDiscoveryReview>('prepare_source_discovery', { input: { projectId: input.projectId, snapshotId: input.snapshotId, question: input.question, targetPath: input.targetPath ?? null, modelId: input.modelId, effort: input.effort, workspaceGrant: input.workspaceGrant } });
 export const sendSourceDiscovery = (review: SourceDiscoveryReview) =>
-  invoke<SourceDiscoveryResult>('send_source_discovery', { input: { reviewId: review.reviewId, fingerprint: review.fingerprint, consent: true } });
+  invoke<SourceDiscoveryResult>('send_source_discovery', { input: { reviewId: review.reviewId, fingerprint: review.fingerprint } });
 export const discardSourceDiscovery = (reviewId: string) => invoke<void>('discard_source_discovery', { reviewId });
