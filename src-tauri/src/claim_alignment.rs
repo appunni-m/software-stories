@@ -57,9 +57,18 @@ pub(crate) fn fixed_source_chapter_diagnostics<'a>(
     response: &str,
     sources: impl IntoIterator<Item = (&'a str, &'a str)>,
 ) -> Option<Vec<Value>> {
-    let mut issues = chapter_diagnostics(response)?;
+    if response.len() > crate::chapters::MAX_GENERATED_RESPONSE_BYTES {
+        return None;
+    }
+    match crate::strict_json::from_slice(response.as_bytes()) {
+        Ok(value) if value.is_object() => {}
+        _ => return Some(vec![json!({"proposalProblem":"invalidJson"})]),
+    }
+    let Some(mut issues) = chapter_diagnostics(response) else {
+        return Some(vec![json!({"proposalProblem":"invalidStructure"})]);
+    };
     let sources: std::collections::HashMap<_, _> = sources.into_iter().collect();
-    let quotes = quote_diagnostics(response, |path, quote| {
+    let Some(quotes) = quote_diagnostics(response, |path, quote| {
         let Some(source) = sources.get(path) else {
             return Some("pathNotAdmitted");
         };
@@ -69,7 +78,9 @@ pub(crate) fn fixed_source_chapter_diagnostics<'a>(
             Err(crate::chapter_generation::QuoteProblem::Missing) => Some("quoteNotExact"),
             Err(crate::chapter_generation::QuoteProblem::Ambiguous) => Some("quoteAmbiguous"),
         }
-    })?;
+    }) else {
+        return Some(vec![json!({"proposalProblem":"invalidStructure"})]);
+    };
     issues.extend(quotes);
     issues.truncate(MAX_ISSUES);
     Some(issues)
@@ -140,8 +151,14 @@ fn correction_failure(issues: &[Value]) -> String {
     let has_reference_problem = issues
         .iter()
         .any(|issue| issue.get("citationProblem").is_some());
+    let has_proposal_problem = issues
+        .iter()
+        .any(|issue| issue.get("proposalProblem").is_some());
 
-    let mut reasons = Vec::with_capacity(4);
+    let mut reasons = Vec::with_capacity(5);
+    if has_proposal_problem {
+        reasons.push("the structured answer still does not match the required format");
+    }
     if has_quote_problem {
         reasons.push("a code citation still does not match the reviewed source");
     }
@@ -245,6 +262,14 @@ fn prompt_for_issues(mut issues: Vec<Value>) -> Option<String> {
     let feedback = json!({"issues": issues, "limit": MAX_ISSUES}).to_string();
     if feedback.len() > MAX_FEEDBACK_BYTES {
         return None;
+    }
+    if issues
+        .iter()
+        .any(|issue| issue.get("proposalProblem").is_some())
+    {
+        return Some(format!(
+            "The previous answer did not match the required structured output. Repair it ONCE using the SAME output schema and ONLY source already read in this conversation. Return the ENTIRE JSON object. Preserve every supported section, claim, visual, and narration; repair only the malformed JSON or missing/invalid required structure. Do not invent behavior, remove supported claims, call tools, inspect more source, or restart research. The local diagnostic below contains only a controlled error category, not new source. Full independent source validation still runs afterward.\nLOCAL DIAGNOSTICS JSON:\n{feedback}"
+        ));
     }
     if issues.iter().any(|issue| {
         issue["citationVersion"].as_str() == Some(crate::native_citations::SHORT_VERSION)
@@ -696,6 +721,48 @@ mod tests {
         let issues =
             fixed_source_chapter_diagnostics(&output, [(SIMPLE_PATH, repeated.as_str())]).unwrap();
         assert_eq!(issues[0]["quoteProblem"], "quoteAmbiguous");
+    }
+
+    #[test]
+    fn fixed_chapter_repair_handles_malformed_json_and_missing_structure_once() {
+        use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
+
+        let valid = crate::chapter_generation::tests::simple_proposal_text();
+        for (invalid, expected_problem) in [
+            ("{\"sections\": [".to_owned(), "invalidJson"),
+            (
+                "{\"sections\":[{\"title\":\"Missing claims\",\"claims\":null}]}"
+                    .to_owned(),
+                "invalidStructure",
+            ),
+        ] {
+            let calls = Cell::new(0);
+            let corrected = correct_once_checked(
+                true,
+                invalid.clone(),
+                |response| {
+                    Ok(fixed_source_chapter_diagnostics(
+                        response,
+                        [(SIMPLE_PATH, SIMPLE_SOURCE)],
+                    ))
+                },
+                |feedback| {
+                    calls.set(calls.get() + 1);
+                    assert!(feedback.contains(expected_problem));
+                    assert!(!feedback.contains(invalid.as_str()));
+                    Ok(valid.clone())
+                },
+            )
+            .unwrap();
+            assert_eq!(corrected, valid);
+            assert_eq!(calls.get(), 1);
+            assert!(fixed_source_chapter_diagnostics(
+                &corrected,
+                [(SIMPLE_PATH, SIMPLE_SOURCE)]
+            )
+            .unwrap()
+            .is_empty());
+        }
     }
 
     #[test]

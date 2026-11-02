@@ -1887,12 +1887,15 @@ impl ServerProcess {
                     let response_text = final_order
                         .last()
                         .and_then(|id| messages.get(id))
-                        .filter(|text| {
-                            crate::strict_json::from_slice(text.as_bytes())
-                                .is_ok_and(|value| value.is_object())
-                        })
                         .cloned()
-                        .ok_or("Codex completed without a complete JSON response. No response was accepted.")?;
+                        .ok_or("Codex completed without a final response. No response was accepted.")?;
+                    if input.correction_policy
+                        == crate::claim_alignment::CorrectionPolicy::Disabled
+                        && !crate::strict_json::from_slice(response_text.as_bytes())
+                            .is_ok_and(|value| value.is_object())
+                    {
+                        return Err("Codex completed without a complete JSON response. No response was accepted.".to_owned());
+                    }
                     if cancelled.load(Ordering::Acquire) { return Err(cancelled_message()); }
                     progress(progress_event(&input.run_id, "validating", Some(&thread_id), Some(&completed_id), "Codex completed. Checking the explanation against its exact source evidence."));
                     return Ok(CodexRunResult { thread_id: thread_id.to_owned(), turn_id: completed_id, model: input.model.clone(), effort: input.effort.clone(), response_text });
