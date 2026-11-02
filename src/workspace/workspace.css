@@ -81,8 +81,9 @@
 .dw-reading {flex:1;min-height:0;min-width:0;}
 .dw-explanation {height:100%;display:flex;flex-direction:column;min-width:0;container-type:inline-size;container-name:guide-pane;}
 .dw-viewbar {display:flex;align-items:center;justify-content:space-between;min-width:0;border-bottom:1px solid var(--border);min-height:39px;padding-right:var(--space-2);}
-.dw-viewbar .rt-TabsList {box-shadow:none;}
+.dw-viewbar .rt-TabsList {box-shadow:none;min-width:0;}
 .dw-viewbar .rt-TabsTriggerInner {gap:var(--space-1);font-size:12px;}
+.dw-viewbar .dw-view-tab-label {flex:0 0 auto;white-space:nowrap;}
 .dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:var(--space-4) var(--space-4) var(--space-6);scrollbar-gutter:stable;}
 .dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-welcome {padding:var(--space-5) var(--space-1);max-width:530px;margin:0 auto;}
