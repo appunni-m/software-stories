@@ -1884,18 +1884,13 @@ impl ServerProcess {
                             final_order.push(id);
                         }
                     }
-                    let response_text = final_order
-                        .last()
-                        .and_then(|id| messages.get(id))
-                        .cloned()
-                        .ok_or("Codex completed without a final response. No response was accepted.")?;
-                    if input.correction_policy
-                        == crate::claim_alignment::CorrectionPolicy::Disabled
-                        && !crate::strict_json::from_slice(response_text.as_bytes())
-                            .is_ok_and(|value| value.is_object())
-                    {
-                        return Err("Codex completed without a complete JSON response. No response was accepted.".to_owned());
-                    }
+                    let response_text = completed_response_text(
+                        final_order
+                            .last()
+                            .and_then(|id| messages.get(id))
+                            .map(String::as_str),
+                        input.correction_policy,
+                    )?;
                     if cancelled.load(Ordering::Acquire) { return Err(cancelled_message()); }
                     progress(progress_event(&input.run_id, "validating", Some(&thread_id), Some(&completed_id), "Codex completed. Checking the explanation against its exact source evidence."));
                     return Ok(CodexRunResult { thread_id: thread_id.to_owned(), turn_id: completed_id, model: input.model.clone(), effort: input.effort.clone(), response_text });
@@ -3130,6 +3125,22 @@ fn cancelled_message() -> String {
     "The Codex run was cancelled locally. No response was accepted; the provider may already have processed some reviewed context.".to_owned()
 }
 
+fn completed_response_text(
+    response_text: Option<&str>,
+    correction_policy: crate::claim_alignment::CorrectionPolicy,
+) -> Result<String, String> {
+    let response_text = response_text
+        .ok_or("Codex completed without a final response. No response was accepted.")?;
+    if correction_policy == crate::claim_alignment::CorrectionPolicy::Disabled
+        && !crate::strict_json::from_slice(response_text.as_bytes())
+            .is_ok_and(|value| value.is_object())
+    {
+        return Err("Codex completed without a complete JSON response. No response was accepted."
+            .to_owned());
+    }
+    Ok(response_text.to_owned())
+}
+
 fn hex_digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
@@ -3149,6 +3160,19 @@ mod tests {
         assert!(
             validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err()
         );
+    }
+
+    #[test]
+    fn final_response_validation_allows_only_reviewed_repair_candidates() {
+        use crate::claim_alignment::CorrectionPolicy::*;
+
+        assert_eq!(
+            completed_response_text(Some("not-json"), ChapterScenesV7).unwrap(),
+            "not-json"
+        );
+        assert!(completed_response_text(Some("not-json"), Disabled).is_err());
+        assert!(completed_response_text(Some("{}"), Disabled).is_ok());
+        assert!(completed_response_text(None, ChapterScenesV7).is_err());
     }
 
     #[test]
