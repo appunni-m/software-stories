@@ -114,9 +114,12 @@
   .story-scene-progress { flex:0 1 auto; max-width:100%; }
 }
 @container guide-pane (max-width: 420px) {
-  .story-scene-progress.has-multiple-scenes { gap:4px; }
-  .story-scene-progress.has-multiple-scenes { grid-template-columns:24px minmax(0,1fr) 24px; }
-  .story-scene-progress.has-multiple-scenes > .story-scene-position { max-width:100%; }
+  .story-scene-progress.has-multiple-scenes { display:flex;flex-wrap:wrap;justify-self:stretch;justify-content:space-between;align-items:center;width:100%;margin:0;column-gap:4px;row-gap:2px; }
+  .story-scene-progress.has-multiple-scenes > .story-scene-position { display:contents; }
+  .story-scene-progress.has-multiple-scenes .story-scene-count { flex:1 1 auto;order:0;min-width:0;text-align:center; }
+  .story-scene-progress.has-multiple-scenes .story-scene-dots { flex:1 1 100%;order:2;justify-content:center; }
+  .story-scene-progress.has-multiple-scenes > .story-scene-arrow:first-child { order:-1; }
+  .story-scene-progress.has-multiple-scenes > .story-scene-arrow:last-child { order:1; }
   .story-scene-arrow { width:24px; min-width:24px; max-width:24px; }
   .story-scene-dots button { flex-basis:20px; width:20px; min-width:20px; }
 }
