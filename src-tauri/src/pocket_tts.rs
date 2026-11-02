@@ -8,18 +8,21 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::oneshot;
 
 mod queue;
 
 #[cfg(unix)]
-use std::os::unix::{fs::PermissionsExt, process::CommandExt};
+use std::os::unix::{
+    fs::{MetadataExt, PermissionsExt},
+    process::CommandExt,
+};
 
 pub(crate) const PACKAGE_VERSION: &str = "3.3.0";
 pub(crate) const PYTHON_VERSION: &str = "3.13.14";
@@ -57,6 +60,7 @@ static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static ACTIVE_PROCESS: Mutex<Option<u32>> = Mutex::new(None);
 static PHASE: Mutex<&'static str> = Mutex::new("idle");
 static WORKER_QUEUE: queue::WorkerQueue = queue::WorkerQueue::new();
+static RUNTIME_INTEGRITY_CACHE: OnceLock<Mutex<RuntimeIntegrityCache>> = OnceLock::new();
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,6 +93,60 @@ struct RuntimeManifest {
 struct AssetManifest {
     size: u64,
     sha256: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FileSignature {
+    len: u64,
+    modified: Option<SystemTime>,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+    #[cfg(unix)]
+    changed_seconds: i64,
+    #[cfg(unix)]
+    changed_nanoseconds: i64,
+}
+
+impl FileSignature {
+    fn from_metadata(metadata: &fs::Metadata) -> Option<Self> {
+        if !metadata.file_type().is_file() {
+            return None;
+        }
+        #[cfg(unix)]
+        let modified = metadata.modified().ok();
+        #[cfg(not(unix))]
+        let modified = Some(metadata.modified().ok()?);
+
+        Some(Self {
+            len: metadata.len(),
+            modified,
+            #[cfg(unix)]
+            device: metadata.dev(),
+            #[cfg(unix)]
+            inode: metadata.ino(),
+            #[cfg(unix)]
+            changed_seconds: metadata.ctime(),
+            #[cfg(unix)]
+            changed_nanoseconds: metadata.ctime_nsec(),
+        })
+    }
+}
+
+#[derive(Clone)]
+struct CachedFileIntegrity {
+    signature: FileSignature,
+    expected_size: Option<u64>,
+    expected_sha256: String,
+    matches: bool,
+}
+
+#[derive(Default)]
+struct RuntimeIntegrityCache {
+    files: HashMap<PathBuf, CachedFileIntegrity>,
+    #[cfg(test)]
+    hash_count: usize,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -159,6 +217,14 @@ fn verified_uv(runtime: &Path) -> Option<PathBuf> {
 }
 
 fn installed(root: &Path) -> bool {
+    let mut cache = RUNTIME_INTEGRITY_CACHE
+        .get_or_init(|| Mutex::new(RuntimeIntegrityCache::default()))
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    installed_with_cache(root, &mut cache)
+}
+
+fn installed_with_cache(root: &Path, cache: &mut RuntimeIntegrityCache) -> bool {
     let Some(bytes) = bounded_read(&root.join("ready.json"), 64 * 1024) else {
         return false;
     };
@@ -184,17 +250,98 @@ fn installed(root: &Path) -> bool {
                     .is_some_and(|installed| installed == version)
             })
         })
-        && manifest.config_sha256.len() == 64
         && python(root).is_file()
-        && root.join("model.yaml").is_file()
+        && verified_file_matches(
+            cache,
+            &root.join("model.yaml"),
+            None,
+            &manifest.config_sha256,
+        )
         && ASSET_NAMES.iter().all(|name| {
             manifest.assets.get(*name).is_some_and(|asset| {
                 asset.size > 0
-                    && asset.sha256.len() == 64
-                    && fs::metadata(root.join("assets").join(*name))
-                        .is_ok_and(|metadata| metadata.is_file() && metadata.len() == asset.size)
+                    && verified_file_matches(
+                        cache,
+                        &root.join("assets").join(*name),
+                        Some(asset.size),
+                        &asset.sha256,
+                    )
             })
         })
+}
+
+/// Verify large runtime files once per unchanged file identity. Size alone is
+/// not enough: a same-size replacement must invalidate readiness. On Unix,
+/// inode and ctime also catch atomic replacement and restored mtime values.
+fn verified_file_matches(
+    cache: &mut RuntimeIntegrityCache,
+    path: &Path,
+    expected_size: Option<u64>,
+    expected_sha256: &str,
+) -> bool {
+    let Some(metadata) = fs::symlink_metadata(path).ok() else {
+        cache.files.remove(path);
+        return false;
+    };
+    let Some(signature) = FileSignature::from_metadata(&metadata) else {
+        cache.files.remove(path);
+        return false;
+    };
+    if expected_size.is_some_and(|size| size != signature.len) {
+        cache.files.remove(path);
+        return false;
+    }
+    if let Some(cached) = cache.files.get(path)
+        && cached.signature == signature
+        && cached.expected_size == expected_size
+        && cached.expected_sha256 == expected_sha256
+    {
+        return cached.matches;
+    }
+
+    #[cfg(test)]
+    {
+        cache.hash_count += 1;
+    }
+    let Some(actual_sha256) = hash_file_if_unchanged(path, &signature) else {
+        cache.files.remove(path);
+        return false;
+    };
+    let matches = actual_sha256 == expected_sha256;
+    cache.files.insert(
+        path.to_path_buf(),
+        CachedFileIntegrity {
+            signature,
+            expected_size,
+            expected_sha256: expected_sha256.to_owned(),
+            matches,
+        },
+    );
+    matches
+}
+
+fn hash_file_if_unchanged(path: &Path, expected_signature: &FileSignature) -> Option<String> {
+    let mut file = fs::File::open(path).ok()?;
+    if FileSignature::from_metadata(&file.metadata().ok()?)? != *expected_signature {
+        return None;
+    }
+
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).ok()?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+
+    if FileSignature::from_metadata(&file.metadata().ok()?)? != *expected_signature
+        || FileSignature::from_metadata(&fs::symlink_metadata(path).ok()?)? != *expected_signature
+    {
+        return None;
+    }
+    Some(format!("{:x}", hasher.finalize()))
 }
 
 /// Read installation state only. This never starts Python or downloads assets.
@@ -1383,12 +1530,13 @@ mod tests {
     }
 
     #[test]
-    fn runtime_readiness_is_bound_to_the_embedded_hash_lock() {
+    fn runtime_readiness_verifies_integrity_and_reuses_unchanged_file_hashes() {
         let runtime = TestRuntime::new();
         fs::create_dir_all(runtime.0.join("venv/bin")).unwrap();
         fs::create_dir_all(runtime.0.join("assets")).unwrap();
         fs::write(python(&runtime.0), b"synthetic python").unwrap();
-        fs::write(runtime.0.join("model.yaml"), b"synthetic model config").unwrap();
+        let config = b"synthetic model config";
+        fs::write(runtime.0.join("model.yaml"), config).unwrap();
         fs::write(runtime.0.join(REQUIREMENTS_LOCK_FILE), REQUIREMENTS_LOCK).unwrap();
 
         let packages: HashMap<_, _> = REQUIREMENTS
@@ -1402,12 +1550,13 @@ mod tests {
             .iter()
             .map(|name| {
                 let path = runtime.0.join("assets").join(name);
-                fs::write(&path, b"synthetic asset").unwrap();
+                let asset_bytes = b"synthetic asset";
+                fs::write(&path, asset_bytes).unwrap();
                 (
                     (*name).to_owned(),
                     serde_json::json!({
-                        "size": fs::metadata(path).unwrap().len(),
-                        "sha256": "a".repeat(64),
+                        "size": asset_bytes.len(),
+                        "sha256": sha256_hex(asset_bytes),
                     }),
                 )
             })
@@ -1420,16 +1569,52 @@ mod tests {
                 "pythonVersion": PYTHON_VERSION,
                 "packages": packages,
                 "assets": assets,
-                "configSha256": "b".repeat(64),
+                "configSha256": sha256_hex(config),
                 "requirementsSha256": requirements_sha256(),
             }))
             .unwrap(),
         )
         .unwrap();
-        assert!(installed(&runtime.0));
+
+        let mut cache = RuntimeIntegrityCache::default();
+        assert!(installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(cache.hash_count, 4, "config plus the three pinned assets");
+        assert!(installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(
+            cache.hash_count, 4,
+            "unchanged files must reuse their hashes"
+        );
+
+        let asset_path = runtime.0.join("assets").join(ASSET_NAMES[0]);
+        let replacement = asset_path.with_extension("replacement");
+        fs::write(&replacement, b"corrupt content").unwrap();
+        assert_eq!(
+            fs::metadata(&replacement).unwrap().len(),
+            b"synthetic asset".len() as u64
+        );
+        fs::rename(&replacement, &asset_path).unwrap();
+        assert!(!installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(cache.hash_count, 5, "same-size replacement must be hashed");
+        assert!(!installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(
+            cache.hash_count, 5,
+            "unchanged corrupt data is not rehashed per poll"
+        );
+
+        fs::write(runtime.0.join("model.yaml"), b"synthetic model confix").unwrap();
+        assert!(!installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(
+            cache.hash_count, 6,
+            "same-size config change must be hashed"
+        );
+        assert!(!installed_with_cache(&runtime.0, &mut cache));
+        assert_eq!(
+            cache.hash_count, 6,
+            "unchanged config is not rehashed per poll"
+        );
 
         fs::write(runtime.0.join(REQUIREMENTS_LOCK_FILE), b"different lock").unwrap();
-        assert!(!installed(&runtime.0));
+        assert!(!installed_with_cache(&runtime.0, &mut cache));
     }
 
     #[test]

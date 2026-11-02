@@ -78,3 +78,18 @@ This source change was checked by code-path review and git diff --check.
 No build, test, provider request, or packaged UI check was run. Keep nsfd
 open for its search races, keyboard, drag/drop, snapshot-change and packaged
 acceptance cases.
+
+## One-action selected-code regression — 2 November 2026
+
+Rechecked the current `main` source: selected-code Explain validates the exact
+captured path, hash and line range, then submits through the active exploration
+and Guide/Flow view. An existing workspace grant starts the owned question;
+without a grant, the existing one-time snapshot consent remains required. The
+separate code-question review/second-send dialog is absent.
+
+`node --experimental-strip-types --test tests/code-explanation-one-action.test.mjs`
+passes **3/3** focused regressions
+for direct current-level submission, exact source identity and consent gating,
+and Code Lens source replay. No provider request, build, or packaged UI check
+ran. Search races, keyboard and drag/drop paths, snapshot changes, and packaged
+acceptance remain open; keep `nsfd` open.

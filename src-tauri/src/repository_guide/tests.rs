@@ -164,10 +164,65 @@ fn planning_timing_outcome_uses_the_persisted_guide_terminal_state() {
         planning_timing_outcome(&guide, false).unwrap(),
         Outcome::Stopped
     );
+    guide.status = Status::Partial;
+    assert_eq!(
+        planning_timing_outcome(&guide, false).unwrap(),
+        Outcome::Partial
+    );
     guide.status = Status::Failed;
     assert_eq!(
         planning_timing_outcome(&guide, false).unwrap(),
         Outcome::Failed
+    );
+}
+
+#[test]
+fn planning_timing_scope_uses_the_saved_guide_run_and_exact_project_snapshot() {
+    let f = Fixture::new();
+    let mut failed = record(&f);
+    failed.plan = None;
+    failed.units.clear();
+    failed.opening.as_mut().unwrap().summary = None;
+    failed.planning_run_id = Uuid::new_v4().to_string();
+    failed.status = Status::Partial;
+    failed.planning_failure_code = Some(PlanningFailureCode::OutlineNotPublished);
+    store::create(&f.storage, &failed).unwrap();
+
+    let scoped = planning_timing_scope(
+        &f.storage,
+        &failed.id,
+        &failed.project_id,
+        &failed.snapshot_id,
+    )
+    .unwrap();
+    assert_eq!(scoped.id, failed.id);
+    assert_eq!(scoped.planning_run_id, failed.planning_run_id);
+    assert!(
+        planning_timing_scope(
+            &f.storage,
+            &failed.id,
+            "another-project",
+            &failed.snapshot_id,
+        )
+        .is_err()
+    );
+    assert!(
+        planning_timing_scope(
+            &f.storage,
+            &failed.id,
+            &failed.project_id,
+            "another-snapshot",
+        )
+        .is_err()
+    );
+    assert!(
+        planning_timing_scope(
+            &f.storage,
+            &failed.planning_run_id,
+            &failed.project_id,
+            &failed.snapshot_id,
+        )
+        .is_err()
     );
 }
 

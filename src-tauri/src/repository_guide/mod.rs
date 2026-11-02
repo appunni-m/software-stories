@@ -2185,6 +2185,20 @@ pub(crate) async fn list_repository_guides(
     )
 }
 
+fn planning_timing_scope(
+    storage: &Path,
+    guide_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+) -> Result<Record, String> {
+    let record = store::read(storage, guide_id)?;
+    if record.id != guide_id || record.project_id != project_id || record.snapshot_id != snapshot_id
+    {
+        return Err("The saved guide planning timing report is unavailable.".into());
+    }
+    Ok(record)
+}
+
 fn planning_timing_outcome(record: &Record, active: bool) -> Result<Outcome, String> {
     if record.plan.is_some() {
         return Ok(Outcome::Complete);
@@ -2193,6 +2207,7 @@ fn planning_timing_outcome(record: &Record, active: bool) -> Result<Outcome, Str
         Status::Planning if active => Ok(Outcome::Working),
         Status::Planning | Status::Interrupted => Ok(Outcome::Interrupted),
         Status::Stopped => Ok(Outcome::Stopped),
+        Status::Partial => Ok(Outcome::Partial),
         Status::Failed => Ok(Outcome::Failed),
         _ => Err("The saved guide planning timing report is unavailable.".into()),
     }
@@ -2209,10 +2224,7 @@ pub(crate) async fn save_repository_guide_planning_timing(
     let storage = app_data_directory(&app)?;
     let manager = manager.inner().clone();
     let report = tauri::async_runtime::spawn_blocking(move || {
-        let record = store::read(&storage, &guide_id)?;
-        if record.project_id != project_id || record.snapshot_id != snapshot_id {
-            return Err("The saved guide planning timing report is unavailable.".into());
-        }
+        let record = planning_timing_scope(&storage, &guide_id, &project_id, &snapshot_id)?;
         let run_id = record.planning_run_id.clone();
         manager.with_operation_state(&run_id, |active| {
             let outcome = planning_timing_outcome(&record, active)?;

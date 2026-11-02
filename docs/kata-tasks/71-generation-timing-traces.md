@@ -191,5 +191,22 @@ answer receipt and does not restart generation.
 
 This source path closes the plan-only diagnostics visibility gap. It does not
 complete stage attribution, bounded-retention/restart qualification, the frozen
-Fontdone comparisons, or the two-minute first-useful-answer gate. The current
-checkout was reviewed without running tests or a build; keep ps02 open.
+Fontdone comparisons, or the two-minute first-useful-answer gate. At this
+1 November source checkpoint, no tests or build had run; the focused regression
+results are recorded below. Keep ps02 open.
+
+## Partial outline failure diagnostics — 2 November 2026
+
+An unpublished Guide outline is persisted with status `partial`. The planning
+timing outcome mapper now preserves that terminal state in its report. Native
+scope resolution reads the saved Guide by its ID, checks the exact project and
+snapshot, and takes the planning run ID from that record; a caller cannot
+substitute a run ID. The report regression verifies export without an answer
+receipt, the `partial` outcome, and that question, source, and executable
+details are absent.
+
+Focused regressions passed: planning outcome and saved-scope checks **2/2**;
+plan-only source-free report **1/1**. No provider or model request was made.
+This qualifies the local failure-report path only; packaged Guide diagnostics,
+complete stage attribution, timing benchmarks, and the two-minute useful-answer
+gate remain open. Keep `ps02` open.

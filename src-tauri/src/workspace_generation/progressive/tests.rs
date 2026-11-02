@@ -183,6 +183,59 @@ fn failed_local_preparation_is_exportable_without_answer_or_source_content() {
 }
 
 #[test]
+fn guide_planning_failure_timing_is_source_free_and_does_not_require_an_answer() {
+    let f = Fixture::new();
+    let run_id = Uuid::new_v4().to_string();
+    let project_id = f.manifest.summary.project_id.clone();
+    let snapshot_id = f.manifest.summary.snapshot_id.clone();
+    let runtime = crate::codex_identity::CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/private/NEVER_EXPORT_CODEX_PATH".into(),
+        executable_sha256: "a".repeat(64),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 1,
+    };
+    let trace = crate::generation_timing::Trace::new_with_preparation_and_prompt(
+        &f.storage,
+        &run_id,
+        &"c".repeat(64),
+        &runtime,
+        "gpt-6-luna",
+        "max",
+        Instant::now(),
+        Some("guide-planning-test-v1"),
+        None,
+        vec![],
+    );
+    trace.finish(Err("NEVER_EXPORT_PLANNER_FAILURE".into()));
+
+    let report = guide_planning_timing_report(
+        &f.storage,
+        &run_id,
+        &project_id,
+        &snapshot_id,
+        false,
+        Outcome::Partial,
+    )
+    .unwrap();
+    assert_eq!(report.answer_outcome, Outcome::Partial);
+    assert!(report.trace.is_some());
+    assert!(report.publications.is_empty());
+    assert!(report.first_useful_answer.is_none());
+    assert!(timing_report(&f.storage, &run_id, &project_id, &snapshot_id, false).is_err());
+
+    let encoded = serde_json::to_string(&report).unwrap();
+    for forbidden in [
+        "How does greeting",
+        "NEVER_EXPORT_CODEX_PATH",
+        "NEVER_EXPORT_PLANNER_FAILURE",
+        "SIMPLE_SOURCE",
+    ] {
+        assert!(!encoded.contains(forbidden));
+    }
+}
+
+#[test]
 fn application_timing_carries_terminal_outcome_and_first_section_without_crossing_clocks() {
     let section = |order, run_elapsed_ms| SectionNotice {
         run_id: "run".into(),

@@ -50,6 +50,20 @@ test('a selected accepted edit and each version position survive the actual wire
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'));
 });
 
+test('source-discovery selection notes survive the native conversation wire and restart',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const notes=['`src/font.rs` contains the captured memory-face implementation.','`src/api.rs` exposes the public entry point.'];
+  const turnId=h.store.appendQuestion('project','snapshot','How does a memory face open?',[],'guide',undefined,notes);
+  await h.store.flushAllWorkspaceConversations();
+  const saved=b.records.get(scope).state.explorations.flatMap(exploration=>exploration.turns).find(turn=>turn.id===turnId);
+  assert.deepEqual(saved.sourceDiscoveryNotes,notes);
+
+  const reopened=native(b);await reopened.store.prepareWorkspaceConversation('project','snapshot');
+  const restored=reopened.store.getWorkspace('project','snapshot').explorations.flatMap(exploration=>exploration.turns).find(turn=>turn.id===turnId);
+  assert.equal(JSON.stringify(restored.sourceDiscoveryNotes),JSON.stringify(notes));
+  assert.ok(reopened.calls.every(call=>call.name==='load_workspace_conversation'));
+});
+
 test('close waits for startup reads and saves, then resumes deferred edits only on cancellation',async()=>{
   const b=backend(),h=native(b),held=deferred();b.controls.beforeSave=()=>held.promise;
   const opening=h.store.prepareWorkspaceConversation('project','snapshot');let finished=false;

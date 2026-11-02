@@ -142,3 +142,19 @@ Implementing a new TTS model, voice cloning, automatic Google fallback and count
 
 ## Done evidence
 Packaged-app setup, offline synthesis, failure/cancel/process-cleanup evidence and licenses when testing is authorized.
+
+## Readiness integrity verification — 2 November 2026
+
+The native ready-state check now hashes `model.yaml` and each pinned model
+asset against the setup manifest. It caches each result against the file's
+metadata signature and expected digest, so unchanged status polls only inspect
+metadata; changed size, timestamp, or Unix file identity triggers a fresh
+streaming hash. This detects same-size replacement or content changes without
+reading the large model files on every poll. The worker's pre-synthesis checks
+remain in place.
+
+The focused native regression passes (**1 passed**) and covers valid hashes,
+same-size asset and config changes, and reuse of cached hashes for unchanged
+files. No packaged app was built or installed. This is source/unit evidence;
+clean-account setup, packaged recovery, offline synthesis, and lifecycle
+acceptance remain open.
