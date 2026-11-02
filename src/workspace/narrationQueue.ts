@@ -24,6 +24,7 @@ export function createNarrationPrewarmQueue(options: {
   const keys = new Set<string>();
   const queuedKeys = new Set<string>();
   const preparingKeys = new Set<string>();
+  const settledKeys = new Map<string, true>();
   const active = new Set<Promise<void>>();
   const activeInputs = new Map<string, NarrationSynthesisInput>();
   let identityEpoch = 0;
@@ -37,6 +38,15 @@ export function createNarrationPrewarmQueue(options: {
   // refill slide, with up to eight scenes each. Keep the renderer's queue to
   // that same bound so a long run cannot accumulate hundreds of stale scripts.
   const maxPending = options.maxPending ?? 48;
+  // Saved-guide reconciliation can run more than once in a process. Remember
+  // recent completed/failed attempts so restoration rechecks are coalesced;
+  // a new process starts empty and can recover work interrupted at shutdown.
+  const maxSettled = 256;
+  const rememberSettled = (key: string) => {
+    settledKeys.delete(key);
+    settledKeys.set(key, true);
+    if (settledKeys.size > maxSettled) settledKeys.delete(settledKeys.keys().next().value!);
+  };
 
   const keyOf = (input: NarrationSynthesisInput) => {
     const spokenText = input.spokenText.trim();
@@ -115,10 +125,12 @@ export function createNarrationPrewarmQueue(options: {
       queuedKeys.delete(key);
       preparingKeys.add(key);
       activeInputs.set(key, input);
+      const taskEpoch = identityEpoch;
       let task: Promise<void>;
       task = prepareOne(input, identityEpoch).catch(() => {
         // Narration is optional; a failed clip must not block later clips.
       }).finally(() => {
+        if (taskEpoch === identityEpoch) rememberSettled(key);
         active.delete(task);
         preparingKeys.delete(key);
         activeInputs.delete(key);
@@ -134,7 +146,7 @@ export function createNarrationPrewarmQueue(options: {
       let accepted = 0;
       for (const input of inputs) {
         const key = keyOf(input);
-        if (keys.has(key)) continue;
+        if (keys.has(key) || settledKeys.has(key)) continue;
         if (keys.size >= maxPending) break;
         keys.add(key);
         queuedKeys.add(key);
@@ -160,6 +172,7 @@ export function createNarrationPrewarmQueue(options: {
       // client-only dedup epoch when the managed runtime may have changed so
       // an active old request cannot suppress a request for the new runtime.
       identityEpoch += 1;
+      settledKeys.clear();
       // Do not spend the native queue on audio keyed to the replaced runtime.
       dropPending();
       for (const input of activeInputs.values()) cancelNative(input);

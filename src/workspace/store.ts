@@ -590,8 +590,6 @@ export function appendRepositoryGuide(project: string, snapshot: string, questio
 }
 async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide, prewarmAudio = false) {
   if (guide.projectId !== project || guide.snapshotId !== snapshot) throw new Error('This guide belongs to another snapshot.');
-  const previousTurn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
-  const previouslyKnownRevisions = new Set(previousTurn?.publishedSections?.map((section) => section.revisionId) ?? []);
   updateWorkspace(project,snapshot,(state) => mergeRepositoryGuide(state,guide));
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
   if (!turn) return;
@@ -599,13 +597,16 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   // all immutable drafts in the library; never regenerate it to restore cards.
   const saved = await listChapterRevisions(project,snapshot);
   for (const answer of guide.answers) for (const section of answer.sections) {
-    const isNew = !previouslyKnownRevisions.has(section.revisionId);
     const revision = saved.find((r) => r.revisionId === section.revisionId);
     if (revision) {
-      if (prewarmAudio && isNew) prewarmRevisionNarration(revision);
+      // A restored Guide may have been closed while its local clip was still
+      // queued. Recheck its saved narration after restart; the native audio
+      // cache answers ready without synthesizing, while the process-wide
+      // queue coalesces repeated reconciliations within this run.
+      if (prewarmAudio) prewarmRevisionNarration(revision);
       continue;
     }
-    await adoptSection(project,snapshot,turn.id,section,prewarmAudio && isNew);
+    await adoptSection(project,snapshot,turn.id,section,prewarmAudio);
   }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
 }
@@ -616,7 +617,7 @@ async function restoreChangedRepositoryGuide(project: string, snapshot: string, 
 /** Reopen one guide without making its recovery depend on unrelated answer receipts. */
 export async function restoreRepositoryGuide(project: string, snapshot: string, guideId: string): Promise<void> {
   const guide = await invoke<RepositoryGuide>('load_repository_guide',{projectId:project,snapshotId:snapshot,guideId});
-  await reconcileGuide(project,snapshot,guide);
+  await reconcileGuide(project,snapshot,guide,true);
 }
 function announceUnavailableRepositoryGuides(
   project: string,
@@ -652,7 +653,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
   for (const guide of result.guides) {
     // One revision with an old or damaged visual contract can fail during
     // chapter adoption. Keep restoring the remaining independent guides.
-    try { await reconcileGuide(project,snapshot,guide); }
+    try { await reconcileGuide(project,snapshot,guide,true); }
     catch {
       unavailableCount += 1;
       unavailableGuides.push({id:guide.id,reason:'unreadable'});

@@ -62,6 +62,30 @@ it('coalesces scripts when saved pronunciation entries are disabled', async () =
   assert.equal(prepared.length, plain.length);
 });
 
+it('bounds settled prewarm deduplication without blocking later scenes', async () => {
+  const queue = createNarrationPrewarmQueue({
+    maxPending: 48,
+    maxConcurrent: 4,
+    prepare: async () => ({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } }),
+    status: async () => assert.fail('ready audio should not be polled'),
+  });
+  const inputs = Array.from({ length: 257 }, (_, index) => ({
+    spokenText: `scene ${index}`,
+    voice: 'alba',
+    style: '',
+    lexicon: [],
+  }));
+
+  for (let offset = 0; offset < inputs.length; offset += 48) {
+    const batch = inputs.slice(offset, offset + 48);
+    assert.equal(queue.enqueue(batch), batch.length);
+    await queue.flush();
+  }
+
+  assert.equal(queue.enqueue([inputs[0]]), 1, 'the oldest settled identity is evicted from the bounded dedupe cache');
+  await queue.flush();
+});
+
 it('retries native cancellation when identity changes before prewarm admission settles', async () => {
   let settleFirstPrepare;
   const firstPrepare = new Promise(resolve => { settleFirstPrepare = resolve; });

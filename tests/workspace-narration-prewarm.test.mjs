@@ -136,6 +136,48 @@ test('a progressive repository-guide section is adopted and warmed before its in
   assert.equal(h.listenerCount(), 0);
 });
 
+test('restoring saved Guides rechecks unfinished Pocket clips without replaying AI', async () => {
+  const runId = '11111111-1111-4111-8111-111111111111';
+  const section = { runId, key: 'entry', order: 1, generationId: 'generation:22222222-2222-4222-8222-222222222222',
+    revisionId: 'revision', supersedes: null, contextElapsedMs: 10, runElapsedMs: 20 };
+  const guide = {
+    revision: 1, id: '99999999-9999-4999-8999-999999999999', projectId: 'project', snapshotId: 'snapshot',
+    question: 'How does the repository work?', title: 'Follow the request', status: 'partial',
+    openingRunId: null, openingRunIds: [], canContinue: false, canExtend: false, continuationOperations: 0,
+    units: [], answers: [{ projectId: 'project', snapshotId: 'snapshot', runId, question: 'What happens to the input?',
+      outcome: 'partial', sections: [section], incompleteTopics: [] }],
+    omissions: [], capturedFiles: 1, startingFiles: 1,
+  };
+  const revision = {
+    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'revision',
+    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
+    target: { targetId: 'target', scope: { kind: 'overview' } },
+    sections: [{ sectionId: 'section', title: 'Dispatch', spokenText: input.spokenText, claims: [] }],
+  };
+  const warmed = [];
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'load_workspace_conversation') return null;
+    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'list_workspace_answers') return [];
+    if (name === 'list_repository_guides') return { guides: [guide], unavailableCount: 0, unavailableGuides: [] };
+    assert.fail(`Restoring local narration must not dispatch AI: ${name}`);
+  }, {
+    native: true,
+    listChapterRevisions: async () => [revision],
+    localNarrationPrewarmInputs: candidate => {
+      assert.equal(candidate.revisionId, revision.revisionId);
+      return [input];
+    },
+    prewarmLocalNarration: candidate => { warmed.push(candidate); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
+  });
+
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+
+  assert.deepEqual(warmed, [input]);
+  assert.equal(h.calls.some(call => /generate|start_repository_guide|resume_repository_guide/.test(call.name)), false);
+  assert.equal(h.calls.some(call => call.name === 'list_repository_guides'), true);
+});
+
 test('a guide section stays readable during delayed Pocket work and reuses the cached clip', async () => {
   let releaseSynthesis;
   const synthesisGate = new Promise(resolve => { releaseSynthesis = resolve; });
@@ -199,8 +241,22 @@ test('a guide section stays readable during delayed Pocket work and reuses the c
   releaseSynthesis();
   await prewarmer.flush();
   assert.equal(audioCache.get(input.spokenText), 'ready');
-  prewarmer.enqueue([input]);
-  await prewarmer.flush();
+  assert.equal(prewarmer.enqueue([input]), 0, 'the active app coalesces a guide refresh for a settled clip');
+  const reopenedPrewarmer = createNarrationPrewarmQueue({
+    maxConcurrent: 1,
+    wait: async () => {},
+    prepare: async candidate => {
+      if (audioCache.get(candidate.spokenText) === 'ready') {
+        cacheHitCount += 1;
+        return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+      }
+      synthesisCount += 1;
+      return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
+    },
+    status: async () => ({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } }),
+  });
+  assert.equal(reopenedPrewarmer.enqueue([input]), 1, 'a fresh process rechecks the native cache');
+  await reopenedPrewarmer.flush();
   assert.equal(synthesisCount, 1, 'returning to the same narration reuses its completed cache entry');
   assert.equal(cacheHitCount, 1);
 
@@ -230,9 +286,21 @@ test('a guide update warms only new revisions already adopted by the native read
     sections: [{ sectionId: section.key, title: section.key, spokenText: section.revisionId, claims: [] }],
   }));
   const warmups = [];
+  const prewarmer = createNarrationPrewarmQueue({
+    prepare: async candidate => {
+      warmups.push(candidate);
+      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+    },
+    status: async () => ({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } }),
+    wait: async () => {},
+  });
+  prewarmer.enqueue([{ spokenText: 'first-revision', voice: 'alba', style: '', lexicon: [] }]);
+  await prewarmer.flush();
+  warmups.length = 0;
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'load_workspace_conversation') return null;
     if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'load_repository_guide') return { ...updatedGuide, id: guideId };
     if (name === 'list_repository_guides') return { guides: [{ ...updatedGuide, id: guideId }], unavailableCount: 0, unavailableGuides: [] };
     if (name === 'list_workspace_answers') return [];
     assert.fail(`Unexpected native command: ${name}`);
@@ -240,7 +308,7 @@ test('a guide update warms only new revisions already adopted by the native read
     native: true,
     listChapterRevisions: async () => revisions,
     localNarrationPrewarmInputs: candidate => [{ spokenText: candidate.revisionId, voice: 'alba', style: '', lexicon: [] }],
-    prewarmLocalNarration: input => { warmups.push(input); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
+    localNarrationPrewarmer: prewarmer,
   });
 
   await h.store.prepareWorkspaceConversation('project', 'snapshot');
