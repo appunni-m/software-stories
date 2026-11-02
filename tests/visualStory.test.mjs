@@ -410,8 +410,8 @@ describe('visual story scenes', () => {
       'the count and marker row stay inside the center track between both arrows');
     assert.match(styles, /\.story-scene-dots\s*\{[^}]*grid-area:dots;[^}]*flex-wrap:wrap;[^}]*min-width:0;[^}]*max-width:100%;[^}]*overflow:visible/u,
       'scene markers wrap below the count instead of pushing navigation offscreen');
-    assert.match(styles, /@container guide-pane \(max-width: 420px\) \{\s*\.story-scene-progress \{ grid-template-columns:24px minmax\(0,1fr\) 24px;/u,
-      'compact Guide panes retain both arrows in fixed, narrower tracks');
+    assert.match(styles, /@container guide-pane \(max-width: 420px\) \{\s*\.story-scene-progress \{ grid-template-columns:24px minmax\(0,1fr\) 24px;gap:2px;width:min\(100%,280px\);/u,
+      'compact Guide panes retain both arrows in a centered, bounded track');
     assert.doesNotMatch(styles, /\.story-scene-progress\.has-multiple-scenes > \.story-scene-position\s*\{[^}]*display:contents/u,
       'compact layout must not flatten the center track into the parent pager');
     assert.match(styles, /\.story-map-toggle-slot\s*\{[^}]*grid-area:map;[^}]*justify-self:end/u);

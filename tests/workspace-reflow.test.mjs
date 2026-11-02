@@ -20,7 +20,8 @@ test('explaining selected code submits one source-bound question at the current 
   assert.doesNotMatch(workspace,/pendingCodeExplanation|setPendingCodeExplanation|Review your code question|dw-code-review-dialog/);
   matches(workspace,/if\(!requireCodexConnection\(\)\)\{\s*updateWorkspaceDraft\(projectId,snapshotId,current\.id,\{question:clean,context\}\);\s*return false;\s*\}/);
   matches(workspace,/if\(state\.grantId\)\s*void runQuestion\(projectId,snapshotId,id,state\.grantId\);\s*else\{setConsentError\(null\);setConsentTurn\(id\);\}/);
-  matches(workspace,/function verifiedCodeContext\(context:Context,expectedSnapshotId:string\):Context\|null \{[\s\S]*?source\.path!==selected\.path[\s\S]*?source\.snapshotId!==snapshotId[\s\S]*?selected\.from>=1[\s\S]*?selected\.to<=lineCount[\s\S]*?selected\.sha256===source\.sha256/);
+  matches(workspace,/function verifiedDisplayedContext\(context:Context,expectedSnapshotId:string\):Context\|null \{[\s\S]*?bindSelectionToDisplayedSource\(context,source\)[\s\S]*?source\.path!==selected\.path[\s\S]*?source\.snapshotId!==snapshotId[\s\S]*?selected\.sha256===source\.sha256/);
+  matches(workspace,/function verifiedCodeContext\(context:Context,expectedSnapshotId:string\):Context\|null \{[\s\S]*?verifiedDisplayedContext\(context,expectedSnapshotId\)[\s\S]*?selected\.from>=1[\s\S]*?selected\.to<=lineCount[\s\S]*?return rangeValid\?selected:null/);
   matches(workspace,/function explainSafely\(context:Context\)\s*\{\s*try\s*\{explain\(context\);\}\s*catch\(failure\)\s*\{[\s\S]*?setDraftNotice\(`The selected code could not be prepared\./);
   matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
 });
@@ -52,11 +53,11 @@ test('search results stay inside the resizable repository sidebar',()=>{
   matches(css,/\.dw-search-file-match > span\s*\{[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/);
 });
 
-test('connection header shows the selected provider model and reasoning in one compact label',()=>{
+test('connection header shows the selected provider and model without settings detail',()=>{
   const header=readFileSync(new URL('../src/ConnectionHeader.tsx',import.meta.url),'utf8');
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(header,/<span className="connection-header-value">\{label\}<\/span>/);
-  matches(header,/ready \? `Codex · \$\{codexModel\} · \$\{connection\.selection\.effort\}`/);
+  matches(header,/ready \? `Codex · \$\{codexModel\}`/);
   matches(shell,/\.topbar \.connection-header \{width:100%;max-width:min\(42cqi,220px\);min-width:0;padding-inline:6px;\}/);
   matches(shell,/\.topbar \.connection-header-value \{flex:1;\}/);
 });

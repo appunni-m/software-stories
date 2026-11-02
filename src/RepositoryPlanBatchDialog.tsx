@@ -55,7 +55,6 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
   const [entries, setEntries] = useState<BatchEntry[]>([]);
   const [selection, setSelection] = useState<{ modelId: string; effort: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
-  const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
   const [pendingPreview, setPendingPreview] = useState<PendingChapterPreviewSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Reviewing the accepted route locally…');
@@ -111,8 +110,6 @@ export function RepositoryPlanBatchDialog({ projectId, target, native, onClose, 
         if (disposed || cancelled.current) return;
         setSelection(currentSelection);
         setAccountEmail(connection.status.accountEmail);
-        setRuntimeVersion(connection.status.runtimeVersion);
-
         setStatus('Checking saved chapters and rebuilding the accepted route…');
         const batch = await preparePlannedChapterBatch(projectId, target);
         const [revisions, pending] = await Promise.all([

@@ -3100,7 +3100,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                   <>
                     <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
                       <div><span>Request</span><strong>{requestIntent ?? 'Explain the selected code'}</strong></div>
-                      <div><span>AI connection</span><strong>{disclosure.displayName} · {disclosure.models.find((model) => model.modelId === requestReview.modelId)?.displayName ?? requestReview.modelId}</strong></div>
+                      <div><span>AI connection</span><strong>{disclosure?.displayName ?? requestReview.providerId} · {disclosure?.models.find((model) => model.modelId === requestReview.modelId)?.displayName ?? requestReview.modelId}</strong></div>
                       <div><span>Code to share</span><strong>{requestReview.selectedFiles.length} {requestReview.selectedFiles.length === 1 ? 'file' : 'files'}{codeLensRangeMode ? ' · selected range' : ''}</strong></div>
                     </div>
                     <p className="provider-warning-note"><TriangleAlert size={14} /> Review the selected code for credentials or private data before sending. The local check may miss secrets. Expand a file below to inspect exactly what will be shared.</p>
