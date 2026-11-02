@@ -362,7 +362,8 @@ struct BoundedContentSearchQuery {
 
 fn bounded_content_search_query(words: &[String]) -> Option<BoundedContentSearchQuery> {
     const MAX_TERMS: usize = 32;
-    const MAX_CHARS: usize = 240;
+    const MAX_QUERY_CHARS: usize = 240;
+    const MAX_TERM_BYTES: usize = 240;
     let mut selected = if words.len() <= MAX_TERMS {
         words.to_vec()
     } else {
@@ -385,11 +386,14 @@ fn bounded_content_search_query(words: &[String]) -> Option<BoundedContentSearch
     };
     let mut omitted_terms = words.len().saturating_sub(selected.len());
     let before_length_filter = selected.len();
-    selected.retain(|word| word.chars().count() <= MAX_CHARS);
+    // The search index drops terms above this UTF-8 byte limit; count them as
+    // omitted here so discovery cannot report a complete ranking after silently
+    // losing a multibyte question term.
+    selected.retain(|word| word.len() <= MAX_TERM_BYTES);
     omitted_terms += before_length_filter - selected.len();
     while !selected.is_empty() {
         let query = selected.join(" ");
-        if query.chars().count() <= MAX_CHARS {
+        if query.chars().count() <= MAX_QUERY_CHARS {
             return Some(BoundedContentSearchQuery {
                 text: query,
                 omitted_terms,

@@ -4467,7 +4467,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [candidate, setCandidate] = useState<ChapterRevision | null>(restoredDraft?.candidate ?? null);
   const [rebasing, setRebasing] = useState(false);
   const [repairingAnchorId, setRepairingAnchorId] = useState<string | null>(null);
-  const [validation, setValidation] = useState<ChapterValidationReport | null>(null);
+  const [validation, setValidation] = useState<{ revisionId: string; report: ChapterValidationReport } | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const rejectReasonBytes = new TextEncoder().encode(rejectReason).length;
@@ -4626,6 +4626,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
+  const activeValidation = validation?.revisionId === activeDocument?.revisionId ? validation.report : null;
   const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
   const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
@@ -4713,6 +4714,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   };
   const validateCurrent = async () => {
     if (!activeDocument || busy) return;
+    const validatedRevisionId = activeDocument.revisionId;
     setBusy(true);
     setFeedback(null);
     try {
@@ -4720,7 +4722,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         ? await validateChapterRevision(projectId, activeDocument, selectedRevision?.revisionId)
         : await validateSavedChapterRevision(projectId, activeDocument.revisionId);
       if (!studioMounted.current) return;
-      setValidation(report);
+      setValidation({ revisionId: validatedRevisionId, report });
       setFeedback({
         message: report.status === 'valid'
           ? 'Every cited range matches the captured source.'
@@ -4809,7 +4811,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     try {
       const saved = await saveChapterEdits(projectId, selectedRevision.revisionId, candidate);
       if (!studioMounted.current) return;
-      setValidation(saved.validation);
+      setValidation({ revisionId: saved.revision.revisionId, report: saved.validation });
       recordSavedRevision(saved.revision);
       setCandidate(null);
       setEditing(false);
@@ -4858,7 +4860,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         selectedRevision.revisionId,
       );
       if (!studioMounted.current) return;
-      setValidation(restored.validation);
+      setValidation({ revisionId: restored.revision.revisionId, report: restored.validation });
       setEditing(false);
       setCandidate(null);
       setRebasing(false);
@@ -4891,7 +4893,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     try {
       const accepted = await acceptChapterDraft(projectId, selectedRevision.revisionId);
       if (!studioMounted.current) return;
-      setValidation(accepted.validation);
+      setValidation({ revisionId: accepted.revision.revisionId, report: accepted.validation });
       recordSavedRevision(accepted.revision);
       onSelectRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
@@ -5202,7 +5204,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       </section>}
 
                       {feedback && <p className={`chapter-review-feedback tone-${feedback.tone}`} role="status">{feedback.message}</p>}
-                      {validation && <ChapterValidationIssues revision={activeDocument} issues={validation.issues} busy={busy} canRepair={isLatestCurrent && !pendingDraft && !preservedDraftReason} onReview={reviewIssueLocation} onRepair={repairIssueCitation} />}
+                      {activeValidation && <ChapterValidationIssues revision={activeDocument} issues={activeValidation.issues} busy={busy} canRepair={isLatestCurrent && !pendingDraft && !preservedDraftReason} onReview={reviewIssueLocation} onRepair={repairIssueCitation} />}
 
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <AppTextField className="chapter-edit-field" disabled={busy} value={candidate.title} maxLength={200} onValueChange={(title) => { setCandidate({ ...candidate, title }); setValidation(null); }} ariaLabel="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>

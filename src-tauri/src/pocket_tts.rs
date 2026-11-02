@@ -162,6 +162,37 @@ fn root(storage: &Path) -> PathBuf {
     storage.join("pocket-tts").join("runtime-3.3.0-v1")
 }
 
+fn ensure_plain_directory(path: &Path, create_parents: bool) -> Result<(), ProviderFailure> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_dir() => return Ok(()),
+        Ok(_) => return Err(storage_failure()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(storage_failure()),
+    }
+
+    let created = if create_parents {
+        fs::create_dir_all(path)
+    } else {
+        fs::create_dir(path)
+    };
+    created.map_err(|_| storage_failure())?;
+    fs::symlink_metadata(path)
+        .ok()
+        .filter(|metadata| metadata.file_type().is_dir())
+        .map(|_| ())
+        .ok_or_else(storage_failure)
+}
+
+/// Create the app-owned runtime directories without following a linked storage,
+/// `pocket-tts`, or runtime path.
+fn ensure_runtime_directories(runtime: &Path) -> Result<(), ProviderFailure> {
+    let parent = runtime.parent().ok_or_else(storage_failure)?;
+    let storage = parent.parent().ok_or_else(storage_failure)?;
+    ensure_plain_directory(storage, true)?;
+    ensure_plain_directory(parent, false)?;
+    ensure_plain_directory(runtime, false)
+}
+
 /// Cache identity includes the exact worker, all asset revision pins it embeds,
 /// the interpreter and core packages. Changes require fresh audio generation.
 pub(crate) fn runtime_fingerprint() -> String {
@@ -557,7 +588,7 @@ impl Drop for DirectoryCleanup {
 }
 
 fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), ProviderFailure> {
-    fs::create_dir_all(runtime).map_err(|_| storage_failure())?;
+    ensure_runtime_directories(runtime)?;
     #[cfg(unix)]
     fs::set_permissions(runtime, fs::Permissions::from_mode(0o700))
         .map_err(|_| storage_failure())?;
