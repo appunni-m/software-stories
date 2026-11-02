@@ -697,7 +697,7 @@ export function DeveloperWorkspace(props:Props) {
   const handledCodeLensQuestion=useRef<string|null>(null);
   useEffect(()=>{
     const pending=props.pendingCodeLensQuestion;
-    if(!pending||workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId)return;
+    if(!pending||workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId||props.routePath!==pending.path)return;
     if(handledCodeLensQuestion.current===pending.id)return;
     if(!source||source.path!==pending.path||source.sha256!==pending.sourceSha256){
       if(props.routePath===pending.path&&sourceError&&!sourceBusy){
@@ -715,7 +715,7 @@ export function DeveloperWorkspace(props:Props) {
     projectId,snapshotId,source?.path,source?.sha256,sourceError,sourceBusy,generationPaused]);
   useEffect(()=>{
     const pending=props.pendingLargeFileExplanation;
-    if(generationPaused||!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
+    if(generationPaused||!pending||props.workspace!=='guide-plan'||props.routePath!==pending.targetPath||pending.projectId!==projectId||pending.snapshotId!==snapshotId
       ||handledLargeFileExplanation.current===pending.id)return;
     if(generationBackend!=='codex'){
       setConnectionNotice(generationBackend===null
@@ -747,7 +747,7 @@ export function DeveloperWorkspace(props:Props) {
     else{setConsentError(null);setConsentTurn(turnId);}
     props.onPendingLargeFileExplanationConsumed?.(pending.id);
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
-  },[props.pendingLargeFileExplanation,props.workspace,props.manifest.files,props.onSettings,
+  },[props.pendingLargeFileExplanation,props.workspace,props.routePath,props.manifest.files,props.onSettings,
     props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,generationBackend,connection.status?.authenticated,state.grantId,generationPaused]);
   function retryTurn(turn:Turn) {
     if(generationPaused)return;

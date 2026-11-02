@@ -182,10 +182,6 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
     if(Object.hasOwn(exploration,'reveal'))exploration.reveal=projectContext(exploration.reveal);
     if(Object.hasOwn(exploration,'fileFlow'))exploration.fileFlow=project(exploration.fileFlow,['path','showAll']);
     if(Object.hasOwn(exploration,'scrollPositions'))exploration.scrollPositions=project(exploration.scrollPositions,['guide','flow','history']);
-    if(Object.hasOwn(exploration,'draft')){
-      exploration.draft=project(exploration.draft,['question','context']);
-      if(isObject(exploration.draft)&&Object.hasOwn(exploration.draft,'context'))exploration.draft.context=projectList(exploration.draft.context,projectContext);
-    }
     return exploration;
   });
   const current=decodeWorkspace(JSON.stringify(durableState),state.projectId,state.snapshotId);
