@@ -138,6 +138,13 @@ impl RunDeadline {
         }
     }
 
+    fn rpc_timeout(self) -> Option<Duration> {
+        match self {
+            Self::BoundedProbe => Some(RPC_TIMEOUT),
+            Self::UserControlled => None,
+        }
+    }
+
     pub(crate) fn exceeded(self, started_at: Instant) -> bool {
         self.duration()
             .is_some_and(|duration| started_at.elapsed() >= duration)
@@ -480,6 +487,15 @@ impl CodexAgentManager {
         storage_dir: &Path,
         process: &mut ServerProcess,
     ) -> Result<CodexReviewRuntime, String> {
+        self.observe_runtime_for_run(storage_dir, process, RunDeadline::BoundedProbe)
+    }
+
+    fn observe_runtime_for_run(
+        &self,
+        storage_dir: &Path,
+        process: &mut ServerProcess,
+        run_deadline: RunDeadline,
+    ) -> Result<CodexReviewRuntime, String> {
         let executable = configured_executable(storage_dir)?.ok_or_else(codex_identity::changed)?;
         if process.has_exited()?
             || process.executable != executable
@@ -488,8 +504,11 @@ impl CodexAgentManager {
         {
             return Err(codex_identity::changed());
         }
-        let account =
-            process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
+        let account = process.request_for_run(
+            "account/read",
+            json!({"refreshToken": false}),
+            run_deadline,
+        )?;
         self.remember_account(&account);
         CodexReviewRuntime::from_observation(
             &process.connection_id,
@@ -851,10 +870,12 @@ impl CodexAgentManager {
             // A reviewed connection may not be silently replaced/restarted.
             let process = slot.as_mut().ok_or_else(codex_identity::changed)?;
             process.cancelled = Some(cancelled.clone());
-            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+            if self.observe_runtime_for_run(storage_dir, process, input.run_deadline)?
+                != input.expected_runtime
+            {
                 return Err(codex_identity::changed());
             }
-            let models = process.models()?;
+            let models = process.models_for_run(input.run_deadline)?;
             let model = models.iter().find(|model| model.model_id == input.model)
                 .ok_or_else(|| "The selected model is not in this Codex account's model catalog. Refresh models and review the request again.".to_owned())?;
             if !model
@@ -865,7 +886,9 @@ impl CodexAgentManager {
                 return Err("The selected model does not advertise that reasoning effort. Choose a supported effort and review again.".to_owned());
             }
             // Model discovery can observe account-change events as well.
-            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+            if self.observe_runtime_for_run(storage_dir, process, input.run_deadline)?
+                != input.expected_runtime
+            {
                 return Err(codex_identity::changed());
             }
             let stage = StagedContext::create(storage_dir, &input.sources)?;
@@ -895,14 +918,18 @@ impl CodexAgentManager {
                 fingerprint,
                 trace,
                 |process| {
-                    if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+                    if self.observe_runtime_for_run(storage_dir, process, input.run_deadline)?
+                        != input.expected_runtime
+                    {
                         return Err(codex_identity::changed());
                     }
                     Ok(())
                 },
             )?;
             trace.output(response.response_text.len());
-            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+            if self.observe_runtime_for_run(storage_dir, process, input.run_deadline)?
+                != input.expected_runtime
+            {
                 return Err(codex_identity::changed());
             }
             Ok(response)
@@ -1396,14 +1423,25 @@ impl ServerProcess {
     }
 
     fn models(&mut self) -> Result<Vec<CodexModel>, String> {
+        self.models_with_timeout(Some(RPC_TIMEOUT))
+    }
+
+    fn models_for_run(&mut self, run_deadline: RunDeadline) -> Result<Vec<CodexModel>, String> {
+        self.models_with_timeout(run_deadline.rpc_timeout())
+    }
+
+    fn models_with_timeout(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<Vec<CodexModel>, String> {
         let mut models = Vec::new();
         let mut cursor = None::<String>;
         let mut seen = HashSet::new();
         for _ in 0..10 {
-            let result = self.request(
+            let result = self.request_with_timeout(
                 "model/list",
                 json!({"limit": 100, "includeHidden": false, "cursor": cursor}),
-                RPC_TIMEOUT,
+                timeout,
             )?;
             for item in result
                 .get("data")
@@ -1486,7 +1524,7 @@ impl ServerProcess {
                 session.configuration()?;
             parameters["baseInstructions"] = json!(session.base_instructions());
         }
-        let started = self.request("thread/start", parameters, RPC_TIMEOUT)?;
+        let started = self.request_for_run("thread/start", parameters, input.run_deadline)?;
         if started
             .pointer("/activePermissionProfile/id")
             .and_then(Value::as_str)
@@ -1531,10 +1569,10 @@ impl ServerProcess {
             return Err("Codex selected a different model than the reviewed request. No generation was started.".to_owned());
         }
         if let Some(retrieval) = &input.retrieval {
-            let catalog = self.request(
+            let catalog = self.request_for_run(
                 "mcpServerStatus/list",
                 json!({"threadId":thread_id,"detail":"toolsAndAuthOnly","limit":100}),
-                RPC_TIMEOUT,
+                input.run_deadline,
             )?;
             retrieval
                 .lock()
@@ -1585,10 +1623,10 @@ impl ServerProcess {
                 .map_err(|_| "Captured-code tools are unavailable.")?
                 .check_complete()?;
         }
-        self.request(
+        self.request_for_run(
             "thread/unsubscribe",
             json!({"threadId": thread_id}),
-            RPC_TIMEOUT,
+            input.run_deadline,
         )?;
         check_cancelled(&self.shutdown, Some(cancelled))?;
         Ok(response)
@@ -1849,6 +1887,24 @@ impl ServerProcess {
     }
 
     fn request(&mut self, method: &str, params: Value, timeout: Duration) -> Result<Value, String> {
+        self.request_with_timeout(method, params, Some(timeout))
+    }
+
+    fn request_for_run(
+        &mut self,
+        method: &str,
+        params: Value,
+        run_deadline: RunDeadline,
+    ) -> Result<Value, String> {
+        self.request_with_timeout(method, params, run_deadline.rpc_timeout())
+    }
+
+    fn request_with_timeout(
+        &mut self,
+        method: &str,
+        params: Value,
+        timeout: Option<Duration>,
+    ) -> Result<Value, String> {
         let result = self.request_inner(method, params, timeout);
         if result.is_err() {
             self.stop();
@@ -1860,13 +1916,18 @@ impl ServerProcess {
         &mut self,
         method: &str,
         params: Value,
-        timeout: Duration,
+        timeout: Option<Duration>,
     ) -> Result<Value, String> {
         self.check_cancelled()?;
         let id = self.send_request(method, params)?;
         let started = Instant::now();
         let mut received = 0;
-        while started.elapsed() < timeout {
+        loop {
+            if timeout.is_some_and(|timeout| started.elapsed() >= timeout) {
+                return Err(format!(
+                    "Codex timed out while handling {method}. Reconnect before retrying."
+                ));
+            }
             self.check_cancelled()?;
             let Some(message) = self.receive(Duration::from_millis(100), &mut received)? else {
                 continue;
@@ -1890,9 +1951,6 @@ impl ServerProcess {
                 .cloned()
                 .ok_or_else(|| "Codex returned an invalid protocol response.".to_owned());
         }
-        Err(format!(
-            "Codex timed out while handling {method}. Reconnect before retrying."
-        ))
     }
 
     fn send_request(&mut self, method: &str, params: Value) -> Result<u64, String> {
