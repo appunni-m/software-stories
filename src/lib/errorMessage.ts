@@ -54,7 +54,7 @@ export function explanationErrorMessage(error: string): string {
     return 'Local storage is full. Free up disk space, then try again. Existing saved explanations are preserved.';
   }
   if (/^Claim(?: '[^']+')? in section '[^']+' does not name its declared identifier '[^']+' in the explanation\.$/u.test(error)) {
-    return 'One source-linked claim names code without explaining what it does, so nothing was saved. Ask about one behavior at a time or select the lines that show how it works.';
+    return 'A required code name was missing from a cited claim, so that explanation could not be verified and nothing was saved. Try a narrower question or select the lines where that code is used.';
   }
   if (
     /^The AI explanation does not (?:name its declared source identifier|connect source identifier) '[^']+'(?: to its cited code)?\. No draft was saved\.$/u.test(error)
