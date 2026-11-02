@@ -2276,6 +2276,83 @@ fn regex_cross_chunk_matches_keep_exact_nonoverlapping_ranges_and_reject_huge_ma
 }
 
 #[test]
+fn regex_match_at_chunk_edge_uses_only_context_that_fits_the_range_limit() {
+    let mut fixture = Fixture::new();
+    let matched = "y".repeat(MAX_RANGE_BYTES);
+    let prefix = format!("{}\n", "x".repeat(CHUNK_BYTES));
+    add_source(
+        &mut fixture,
+        "lib/boundary.txt",
+        &format!("{prefix}{matched}"),
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        r"(?ms)^y+",
+        Some("lib/boundary.txt"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    let hit = &result.matches[0];
+    assert_eq!(hit.range.start_byte, CHUNK_BYTES + 1);
+    assert_eq!(hit.range.end_byte - hit.range.start_byte, MAX_RANGE_BYTES);
+    let read = read_range(
+        &fixture.storage,
+        &fixture.manifest,
+        &hit.range.path,
+        &hit.range.source_sha256,
+        hit.range.start_byte,
+        hit.range.end_byte,
+    )
+    .unwrap();
+    assert_eq!(read.contents, matched);
+
+    // Trimming context can land inside a multibyte prefix. The range must
+    // advance to the next UTF-8 boundary without cutting any matched bytes.
+    let unicode_match = "y".repeat(MAX_RANGE_BYTES - 1);
+    let unicode_prefix = format!("{}é", "x".repeat(CHUNK_BYTES + 1));
+    add_source(
+        &mut fixture,
+        "lib/unicode-boundary.txt",
+        &format!("{unicode_prefix}{unicode_match}"),
+    );
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "y+",
+        Some("lib/unicode-boundary.txt"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 1);
+    let hit = &result.matches[0];
+    assert_eq!(hit.range.start_byte, CHUNK_BYTES + 3);
+    assert_eq!(hit.range.end_byte - hit.range.start_byte, MAX_RANGE_BYTES - 1);
+    let read = read_range(
+        &fixture.storage,
+        &fixture.manifest,
+        &hit.range.path,
+        &hit.range.source_sha256,
+        hit.range.start_byte,
+        hit.range.end_byte,
+    )
+    .unwrap();
+    assert_eq!(read.contents, unicode_match);
+}
+
+#[test]
 fn mixed_search_prioritizes_exact_identifiers_and_reports_discarded_literal_results() {
     let mut fixture = Fixture::new();
     add_source(&mut fixture, "lib/z-exact.txt", "needle\n");

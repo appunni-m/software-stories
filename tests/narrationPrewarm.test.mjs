@@ -62,6 +62,40 @@ it('coalesces scripts when saved pronunciation entries are disabled', async () =
   assert.equal(prepared.length, plain.length);
 });
 
+it('retries native cancellation when identity changes before prewarm admission settles', async () => {
+  let settleFirstPrepare;
+  const firstPrepare = new Promise(resolve => { settleFirstPrepare = resolve; });
+  const prepared = [];
+  const cancelled = [];
+  const queue = createNarrationPrewarmQueue({
+    maxConcurrent: 1,
+    prepare: async candidate => {
+      prepared.push(candidate);
+      if (prepared.length === 1) return firstPrepare;
+      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
+    },
+    status: async () => assert.fail('ready audio should not be polled'),
+    cancelNativePending: async candidate => {
+      cancelled.push(candidate);
+      return true;
+    },
+  });
+
+  assert.equal(queue.enqueue([localNarrationPrewarmInputs(revision, local, () => null)[0]]), 1);
+  assert.equal(queue.state(prepared[0]), 'preparing');
+
+  queue.invalidateIdentity();
+  assert.equal(cancelled.length, 1, 'identity invalidation should cancel submitted native work');
+  assert.equal(queue.enqueue([prepared[0]]), 1, 'the new identity must admit the same script again');
+  assert.equal(queue.state(prepared[0]), 'queued');
+
+  settleFirstPrepare({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } });
+  await queue.flush();
+
+  assert.deepEqual(cancelled, [prepared[0], prepared[0]], 'retry cancellation after the old admission settles');
+  assert.equal(prepared.length, 2, 'the new-identity job should run after the old job exits');
+});
+
 it('never builds automatic narration work for a cloud Voice connection', () => {
   const inputs = localNarrationPrewarmInputs(revision, cloud, () => {
     throw new Error('cloud selection must skip local storage and synthesis');

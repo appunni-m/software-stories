@@ -1824,13 +1824,22 @@ fn search_pattern(
             {
                 return Err("A saved code range changed. Rebuild the local code index.".to_owned());
             }
-            let start = range.start_byte.max(cursor);
             let end = range.end_byte.max(found.end());
-            if end.saturating_sub(start) > MAX_RANGE_BYTES {
+            if found.end().saturating_sub(found.start()) > MAX_RANGE_BYTES {
                 return Err(
                     "A code match exceeds the 32 KiB range limit. Use a narrower pattern."
                         .to_owned(),
                 );
+            }
+            // Preserve the indexed chunk as context when it fits, but do not
+            // reject a valid bounded match just because preceding chunk bytes
+            // would push the returned range past the read limit.
+            let mut start = range
+                .start_byte
+                .max(cursor)
+                .max(end.saturating_sub(MAX_RANGE_BYTES));
+            while !captured.contents.is_char_boundary(start) {
+                start += 1;
             }
             let contents = captured
                 .contents
