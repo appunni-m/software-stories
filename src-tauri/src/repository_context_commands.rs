@@ -921,6 +921,7 @@ mod tests {
                                     "score": hit.score,
                                     "queryCoverage": hit.query_coverage.as_ref().map(|coverage| serde_json::json!({
                                         "matchedTerms": &coverage.matched_terms,
+                                        "unscoredTerms": &coverage.unscored_terms,
                                         "totalTerms": coverage.total_terms
                                     }))
                                 })
@@ -1043,6 +1044,7 @@ mod tests {
                         "declarationMatch": hit.declaration_match,
                         "queryCoverage": hit.query_coverage.as_ref().map(|coverage| serde_json::json!({
                             "matchedTerms": &coverage.matched_terms,
+                            "unscoredTerms": &coverage.unscored_terms,
                             "totalTerms": coverage.total_terms
                         }))
                     })

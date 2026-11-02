@@ -345,6 +345,10 @@ pub(crate) struct SearchHit {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct QueryCoverage {
     pub(crate) matched_terms: Vec<String>,
+    /// Terms omitted only from the bounded coverage ranking. The lexical
+    /// search still uses them all.
+    pub(crate) unscored_terms: Vec<String>,
+    /// Number of terms included in this result's coverage signal.
     pub(crate) total_terms: usize,
 }
 
@@ -540,31 +544,56 @@ fn terms(text: &str) -> Vec<String> {
 
 /// Keep broad natural-language relevance focused on repository terms instead
 /// of question scaffolding. Exact search still uses every original term.
-fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<String> {
+fn coverage_terms(
+    query: &str,
+    scope: Option<&str>,
+    words: &[String],
+) -> Vec<String> {
     if !should_discover_files(query, scope) {
         return words.to_vec();
     }
+    words
+        .iter()
+        .filter(|word| is_coverage_term(word))
+        .cloned()
+        .collect()
+}
+
+fn is_coverage_term(word: &str) -> bool {
+    word.len() > 2
+        && !crate::source_discovery::QUERY_STOPWORDS
+            .iter()
+            .any(|stopword| word.eq_ignore_ascii_case(stopword))
+}
+
+/// Bound the expensive per-term rank pass without changing the broader file
+/// discovery search, which still receives every non-scaffolding query term.
+fn scored_coverage_terms(
+    query: &str,
+    scope: Option<&str>,
+    words: &[String],
+) -> (Vec<String>, Vec<String>) {
+    if !should_discover_files(query, scope) {
+        return (words.to_vec(), Vec::new());
+    }
     let mut selected = Vec::with_capacity(MAX_NATURAL_COVERAGE_TERMS);
+    let mut unscored = Vec::new();
     let mut seen = BTreeSet::new();
     for token in query
         .split(|character: char| !character.is_alphanumeric() && character != '_')
     {
         for word in terms(token) {
-            if word.len() <= 2
-                || crate::source_discovery::QUERY_STOPWORDS
-                    .iter()
-                    .any(|stopword| word.eq_ignore_ascii_case(stopword))
-                || !seen.insert(word.clone())
-            {
+            if !is_coverage_term(&word) || !seen.insert(word.clone()) {
                 continue;
             }
-            selected.push(word);
-            if selected.len() == MAX_NATURAL_COVERAGE_TERMS {
-                return selected;
+            if selected.len() < MAX_NATURAL_COVERAGE_TERMS {
+                selected.push(word);
+            } else {
+                unscored.push(word);
             }
         }
     }
-    selected
+    (selected, unscored)
 }
 
 fn line_starts(text: &str) -> Vec<usize> {
@@ -2570,6 +2599,7 @@ fn search_files_with_candidate_window(
             score,
             query_coverage: Some(QueryCoverage {
                 matched_terms,
+                unscored_terms: Vec::new(),
                 total_terms: words.len(),
             }),
         });
@@ -2626,7 +2656,8 @@ fn search_ranked(
     // signal. Keep paths and identifier lookups on their established ranking,
     // and cap the content terms (after prompt scaffolding is removed) so
     // coverage work stays bounded for long questions too.
-    let coverage_words = coverage_terms(query, path, &words);
+    let (coverage_words, unscored_coverage_words) =
+        scored_coverage_terms(query, path, &words);
     let natural_query_coverage = identifier_key.is_none()
         && !query.contains('/')
         && !query.contains('\\')
@@ -3086,6 +3117,7 @@ fn search_ranked(
                                 (matched_terms & (1u32 << term_index) != 0).then(|| word.clone())
                             })
                             .collect(),
+                        unscored_terms: unscored_coverage_words.clone(),
                         total_terms: coverage_words.len(),
                     }
                 }),
