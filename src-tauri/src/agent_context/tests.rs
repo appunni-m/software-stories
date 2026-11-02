@@ -263,7 +263,7 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
 
     let broad_answer = session(&f);
     let instructions = broad_answer.base_instructions();
-    assert!(instructions.contains("inspect queryCoverage.matchedTerms and nextOffset"));
+    assert!(instructions.contains("inspect queryCoverage.matchedTerms, unscoredTerms when present, and nextOffset"));
     assert!(instructions.contains("use a distinct focused search for that missing stage/caller"));
     assert!(instructions.contains(
         "Never treat the first file page or one matching file as complete repository coverage"
