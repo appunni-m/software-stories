@@ -495,6 +495,7 @@ impl CodexAgentManager {
             &process.connection_id,
             &process.executable,
             &process.executable_sha256,
+            &process.runtime_version,
             process.account_revision,
             &account,
         )
@@ -2100,7 +2101,7 @@ fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
 }
 
 fn validate_run(input: &CodexRunInput) -> Result<(), String> {
-    if !input.expected_runtime.valid_shape() {
+    if !input.expected_runtime.current_review_shape() {
         return Err(codex_identity::changed());
     }
     if input.run_id.is_empty() || input.run_id.len() > 256 {
@@ -3342,6 +3343,7 @@ mod section_publication_tests {
             connection_id: Uuid::new_v4().to_string(),
             executable_path: "/usr/local/bin/codex".into(),
             executable_sha256: "a".repeat(64),
+            runtime_version: Some("fixture-runtime-1".to_owned()),
             account_identity_sha256: "b".repeat(64),
             account_revision: 1,
         }

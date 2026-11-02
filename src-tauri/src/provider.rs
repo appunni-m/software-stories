@@ -3355,7 +3355,7 @@ pub(crate) fn codex_runtime_from_review(
     let runtime: crate::codex_identity::CodexReviewRuntime =
         serde_json::from_value(review.generation_config["runtimeIdentity"].clone())
             .map_err(|_| invalid())?;
-    if !runtime.valid_shape()
+    if !runtime.current_review_shape()
         || review.generation_config["executablePath"].as_str()
             != Some(runtime.executable_path.as_str())
     {
@@ -3376,7 +3376,7 @@ fn codex_transport(
         || effort.trim().is_empty()
         || effort.len() > 32
         || approval_policy != "never"
-        || !runtime.valid_shape()
+        || !runtime.current_review_shape()
     {
         return Err(failure(
             ProviderFailureKind::InvalidReview,
@@ -3387,7 +3387,7 @@ fn codex_transport(
         provider_id: "codex",
         authentication: "chatgpt-account",
         endpoint_url: "codex-app-server://stdio",
-        disclosure_version: "codex-account-2026-10-27-v3",
+        disclosure_version: "codex-account-2026-11-02-v4",
         config: json!({
             "contractVersion": contract_version, "effort": effort,
             "approvalPolicy": "never", "executablePath": runtime.executable_path, "runtimeIdentity": runtime,

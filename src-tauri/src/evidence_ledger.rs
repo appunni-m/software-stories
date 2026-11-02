@@ -512,7 +512,7 @@ impl Ledger {
         call_limit: usize,
     ) -> Result<Self, String> {
         let path = path(storage, operation_id)?;
-        if !runtime.valid_shape() || !valid_model_effort(model, effort) {
+        if !runtime.current_review_shape() || !valid_model_effort(model, effort) {
             return Err("The selected model or reasoning effort is invalid.".to_owned());
         }
         if !(1..=MAX_CALLS).contains(&call_limit) {

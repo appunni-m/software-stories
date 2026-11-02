@@ -406,6 +406,7 @@ impl Fixture {
                 connection_id: "00000000-0000-4000-8000-000000000001".to_owned(),
                 executable_path: "/quality-contract/codex".to_owned(),
                 executable_sha256: "a".repeat(64),
+                runtime_version: Some("fixture-runtime-1".to_owned()),
                 account_identity_sha256: "b".repeat(64),
                 account_revision: 1,
             };

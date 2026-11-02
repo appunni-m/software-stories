@@ -122,6 +122,7 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
+        runtime_version: Some("fixture-runtime-1".to_owned()),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };
@@ -162,6 +163,7 @@ fn progressive_session_uses_the_syntax_index_loaded_by_timed_preparation() {
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
+        runtime_version: Some("fixture-runtime-1".to_owned()),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };
@@ -210,6 +212,7 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
+        runtime_version: Some("fixture-runtime-1".to_owned()),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };

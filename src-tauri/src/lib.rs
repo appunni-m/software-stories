@@ -2516,6 +2516,7 @@ mod chapter_pipeline_tests {
                     connection_id: uuid::Uuid::new_v4().to_string(),
                     executable_path: "/usr/local/bin/codex".into(),
                     executable_sha256: "a".repeat(64),
+                    runtime_version: Some("fixture-runtime-1".to_owned()),
                     account_identity_sha256: "b".repeat(64),
                     account_revision: 1,
                 };
@@ -3340,6 +3341,7 @@ mod chapter_pipeline_tests {
             connection_id: uuid::Uuid::new_v4().to_string(),
             executable_path: "/usr/local/bin/codex".into(),
             executable_sha256: "a".repeat(64),
+            runtime_version: Some("fixture-runtime-1".to_owned()),
             account_identity_sha256: "b".repeat(64),
             account_revision: 1,
         };

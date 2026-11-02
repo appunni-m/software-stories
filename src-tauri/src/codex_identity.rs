@@ -13,6 +13,10 @@ pub(crate) struct CodexReviewRuntime {
     pub connection_id: String,
     pub executable_path: String,
     pub executable_sha256: String,
+    /// `None` is accepted only when decoding older, read-only local records.
+    /// New Codex reviews must bind the version reported by app-server initialize.
+    #[serde(default)]
+    pub runtime_version: Option<String>,
     pub account_identity_sha256: String,
     pub account_revision: u64,
 }
@@ -22,6 +26,7 @@ impl CodexReviewRuntime {
         connection_id: &str,
         executable_path: &Path,
         executable_sha256: &str,
+        runtime_version: &str,
         account_revision: u64,
         account: &Value,
     ) -> Result<Self, String> {
@@ -51,13 +56,23 @@ impl CodexReviewRuntime {
             connection_id: connection_id.to_owned(),
             executable_path: executable_path.to_str().ok_or_else(changed)?.to_owned(),
             executable_sha256: executable_sha256.to_owned(),
+            runtime_version: Some(runtime_version.to_owned()),
             account_identity_sha256: format!("{:x}", Sha256::digest(identity)),
             account_revision,
         };
-        if !runtime.valid_shape() {
+        if !runtime.current_review_shape() {
             return Err(changed());
         }
         Ok(runtime)
+    }
+
+    /// New source-bearing reviews require the observed app-server version.
+    pub(crate) fn current_review_shape(&self) -> bool {
+        self.valid_shape()
+            && self
+                .runtime_version
+                .as_deref()
+                .is_some_and(|version| text(version, 128))
     }
 
     pub(crate) fn valid_shape(&self) -> bool {
@@ -70,6 +85,10 @@ impl CodexReviewRuntime {
                 .components()
                 .any(|part| matches!(part, Component::ParentDir))
             && digest(&self.executable_sha256)
+            && self
+                .runtime_version
+                .as_deref()
+                .is_none_or(|version| text(version, 128))
             && digest(&self.account_identity_sha256)
     }
 }
