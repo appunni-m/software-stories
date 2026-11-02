@@ -127,6 +127,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const activeScene = useRef(scenes[savedPosition.index].id);
   const positions = useRef(new Map(savedPosition.positions));
   const root = useRef<HTMLElement>(null);
+  const sceneDots = useRef<HTMLDivElement>(null);
   const storyStage = useRef<HTMLDivElement>(null);
   const flowFitGeneration = useRef(0);
   const flowFitInProgress = useRef(false);
@@ -148,6 +149,18 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
   const initialGraphFitState = useRef<{sectionRevisionId:string;pending:boolean;done:boolean}|null>(null);
   const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
+  useEffect(() => {
+    const viewport = sceneDots.current;
+    const activeDot = viewport?.querySelector<HTMLButtonElement>('[aria-current="step"]');
+    if (!viewport || !activeDot) return;
+    const viewportBounds = viewport.getBoundingClientRect();
+    const dotBounds = activeDot.getBoundingClientRect();
+    if (dotBounds.left < viewportBounds.left) {
+      viewport.scrollLeft -= viewportBounds.left - dotBounds.left;
+    } else if (dotBounds.right > viewportBounds.right) {
+      viewport.scrollLeft += dotBounds.right - viewportBounds.right;
+    }
+  }, [index, scenes.length]);
   const authoredScenes = visual?.presentation.scenes.filter((item) => scenes.length === 1
     || section.claims[item.claimIndex]?.claimId === scene.id) ?? [];
   const htmlScenes = !fullMap && authoredScenes.length > 0 && authoredScenes.every((item) => item.mode === 'composition') ? authoredScenes : [];
@@ -454,7 +467,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
           {scenes.length > 1 && <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></IconButton>}
           <div className="story-scene-position">
             <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
-            {scenes.length > 1 && <div className={`story-scene-dots${scenes.length > 6 ? ' is-long' : ''}`} role="group" aria-label="Story scenes">{scenes.map((item, i) => <IconButton className="story-scene-dot" key={item.id} size="1" variant="ghost" color="gray" aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span aria-hidden="true" /></IconButton>)}</div>}
+            {scenes.length > 1 && <div ref={sceneDots} className={`story-scene-dots${scenes.length > 6 ? ' is-long' : ''}`} role="group" aria-label="Story scenes">{scenes.map((item, i) => <IconButton className="story-scene-dot" key={item.id} size="1" variant="ghost" color="gray" aria-label={`Scene ${i + 1}: ${plainInlineCodeText(item.title)}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span aria-hidden="true" /></IconButton>)}</div>}
           </div>
           {scenes.length > 1 && <IconButton className="story-scene-arrow" size="1" variant="ghost" color="gray" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></IconButton>}
         </div>
