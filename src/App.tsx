@@ -435,6 +435,11 @@ function App() {
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
+  const footerContext = currentWorkspace === 'changes'
+    ? navigation.current.baseRef && navigation.current.headRef
+      ? `${navigation.current.baseRef} → ${navigation.current.headRef}`
+      : 'Choose comparison'
+    : selectedSnapshot?.branch ?? '';
   const captureNotifications = Object.entries(captureByProject).flatMap(([projectId, progress]) => {
     if (progress.status !== 'running'
       || (projectId === currentProject?.projectId && progress.snapshotId === selectedSnapshot?.snapshotId)) return [];
@@ -2249,7 +2254,7 @@ function App() {
             </WorkspaceFrame>}
             <footer className="workspace-footer">
               <span>{currentProject?.displayName ?? 'Code Atlas'}</span>
-              <span>{currentWorkspace === 'changes' ? 'Local changes' : selectedSnapshot?.branch ?? ''}</span>
+              <span title={footerContext}>{footerContext}</span>
             </footer>
           </section>
         </main>
