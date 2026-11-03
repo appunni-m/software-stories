@@ -240,7 +240,9 @@
   .dw-search-file-count {grid-column:2;grid-row:2;white-space:normal;}
   .dw-search-results .dw-search-file-path > strong {overflow-wrap:normal;word-break:normal;}
 }
+.dw-search-results .rt-Button,.dw-suggestions > .rt-Button {display:inline-flex;align-items:center;gap:var(--space-2);max-width:100%;white-space:nowrap;}
 .dw-search-results .rt-Button {margin-top:var(--space-3);}
+.dw-search-results .rt-Button > svg,.dw-suggestions > .rt-Button > svg {flex:0 0 auto;}
 .dw-commits {overflow:auto;padding:var(--space-2) var(--space-2) var(--space-5);}
 .dw-commits p {padding:var(--space-3);color:var(--muted);font-size:12px;}
 .dw-commit {box-sizing:border-box;display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:var(--space-2);width:100%;min-width:0;text-align:left;padding:0 var(--space-1);border:0;background:transparent;cursor:pointer;}
