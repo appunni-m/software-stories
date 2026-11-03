@@ -485,7 +485,14 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-answer-progress:empty { display: none; }
 .dw-answer-progress > span { flex: 1; }
 .dw-flow-choice { display: flex; align-items: center; gap: var(--space-2); margin-block: var(--space-2) var(--space-4); font-size: 13px; }
-.dw-flow-choice .app-select-trigger { min-width: 0; max-width: 100%; color: var(--gray-12); background: var(--gray-2); border: 1px solid var(--gray-6); border-radius: 6px; padding: var(--space-1) var(--space-2); }
+.dw-flow-choice > * { min-width: 0; }
+.dw-flow-choice > label { flex: 0 0 auto; white-space: nowrap; }
+.dw-flow-choice > :last-child { flex: 1 1 0; }
+.dw-flow-choice .app-select-trigger { width: 100%; min-width: 0; max-width: 100%; overflow: hidden; color: var(--gray-12); background: var(--gray-2); border: 1px solid var(--gray-6); border-radius: 6px; padding: var(--space-1) var(--space-2); text-overflow: ellipsis; white-space: nowrap; }
+@container guide-pane (max-width: 520px) {
+  .dw-flow-choice { align-items: stretch; flex-direction: column; }
+  .dw-flow-choice > :last-child { width: 100%; flex: 0 0 auto; }
+}
 .dw-saved-answers { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
 .dw-saved-answers section { display: grid; justify-items: start; gap: var(--space-2); border-bottom: 1px solid var(--gray-6); padding-bottom: var(--space-4); }
 .dw-saved-answers p { margin: 0; overflow-wrap: anywhere; }
