@@ -81,3 +81,14 @@ with `node --experimental-strip-types --test tests/chapterStudioActions.test.mjs
 No build, provider request, or packaged UI check ran. Native publication races,
 session restart, and the installed recovery journey remain unqualified; keep
 `h9sy` open.
+
+## Reject unsupported edit versions at the review boundary — 2026-11-03
+
+The native edit decoder already accepts only the current chapter schema. The
+shared edit preparation step now enforces that same version itself, so a
+future internal caller cannot turn an unsupported proposal into a current
+draft. The current version is inherited from the validated saved base/source;
+edit, restore, accept, and reject no longer rewrite a cloned revision's schema
+field. This is a source-only invariant check. No tests or build ran, and the
+packaged edit/restore/accept/reject journey remains unqualified; keep `h9sy`
+open.

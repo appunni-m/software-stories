@@ -132,6 +132,12 @@ fn prepare_edit(
     base: &ChapterRevision,
     proposal: ChapterRevision,
 ) -> Result<ChapterRevision, String> {
+    if proposal.schema_version != chapters::CHAPTER_SCHEMA_VERSION {
+        return Err(
+            "This chapter edit uses an unsupported format. Reload Chapter Studio before trying again."
+                .to_owned(),
+        );
+    }
     if base.project_id != proposal.project_id
         || base.snapshot_id != proposal.snapshot_id
         || base.chapter_id != proposal.chapter_id
@@ -143,7 +149,6 @@ fn prepare_edit(
     }
 
     let mut revision = base.clone();
-    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     revision.revision_id = new_id("revision");
     revision.revision_number = base
         .revision_number
@@ -200,7 +205,6 @@ pub fn restore_revision(
     let target_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
 
     let mut restored = source.clone();
-    restored.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     restored.revision_id = new_id("revision");
     restored.revision_number = base
         .revision_number
@@ -327,7 +331,6 @@ pub fn accept_draft(
     let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &draft.snapshot_id)?;
     let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &draft.snapshot_id)?;
     let mut accepted = draft.clone();
-    accepted.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     accepted.revision_id = new_id("revision");
     accepted.revision_number = draft
         .revision_number
@@ -380,7 +383,6 @@ pub fn reject_draft(
         return Err("Only the latest saved draft can be rejected.".to_owned());
     }
     let mut rejected = draft.clone();
-    rejected.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     rejected.revision_id = new_id("revision");
     rejected.revision_number = draft
         .revision_number
