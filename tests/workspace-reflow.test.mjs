@@ -65,7 +65,7 @@ test('connection header shows the selected provider and model without settings d
 test('native header keeps desktop controls together and reflows compact controls in normal rows',()=>{
   const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
   matches(shell,/\.app-window\s*\{[^}]*container-type:\s*inline-size;[^}]*container-name:\s*app-window;/);
-  matches(shell,/\.topbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*max-content minmax\(0,1fr\) minmax\(0,1fr\);[^}]*grid-template-areas:\s*"brand project actions";[^}]*position:\s*relative;/);
+  matches(shell,/\.topbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,max-content\) minmax\(0,1fr\) minmax\(0,max-content\);[^}]*grid-template-areas:\s*"brand project actions";[^}]*position:\s*relative;/);
   matches(shell,/\.topbar-actions\s*\{[^}]*display:\s*flex;[^}]*flex:\s*0 1 auto;[^}]*flex-wrap:\s*wrap;[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*margin-left:\s*0;/);
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);

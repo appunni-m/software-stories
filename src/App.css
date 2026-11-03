@@ -115,7 +115,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 
 /* Keep the full repository header on one row at ordinary desktop widths.
    Reflow only when the workspace is too narrow for the truncated project labels. */
-@container app-window (max-width: 1280px) {
+@container app-window (max-width: 1440px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";
