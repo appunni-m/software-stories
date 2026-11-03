@@ -35,6 +35,8 @@ export function ChapterRevisionComparison({before,after}:{before:ChapterRevision
   const metadata:DiffValue[]=[
     ...(before.snapshotId!==after.snapshotId?[{field:'Source snapshot',before:before.snapshotId,after:after.snapshotId}]:[]),
     ...(before.lifecycle!==after.lifecycle?[{field:'Status',before:before.lifecycle,after:after.lifecycle}]:[]),
+    ...(before.validationStatus!==after.validationStatus?[{field:'Evidence status',before:before.validationStatus,after:after.validationStatus}]:[]),
+    ...(before.decisionNote!==after.decisionNote?[{field:'Decision note',before:before.decisionNote??'—',after:after.decisionNote??'—'}]:[]),
     ...(before.basedOnRevisionId!==after.basedOnRevisionId?[{field:'Parent revision',before:before.basedOnRevisionId??'—',after:after.basedOnRevisionId??'—'}]:[]),
   ];
   if(!metadata.length&&diff.identical)return <p className="chapter-revision-no-diff">No chapter text, source references or visual definitions changed between these revisions.</p>;
