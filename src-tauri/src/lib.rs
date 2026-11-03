@@ -3286,24 +3286,25 @@ mod chapter_pipeline_tests {
                 section_revision_id: section.section_revision_id.clone(),
                 repair_session_id: Some(repair_session.session_id.clone()),
             };
-        let section_response = |title: &str, prose: &str, identifier: &str, quote: &str| {
-            serde_json::json!({
-                "title": title,
-                "prose": prose,
-                "spokenText": prose,
-                "claims": [{
-                    "category": "codeBehavior",
-                    "aspect": "execution",
+        let section_response =
+            |title: &str, prose: &str, spoken_text: &str, identifier: &str, quote: &str| {
+                serde_json::json!({
+                    "title": title,
                     "prose": prose,
-                    "inferenceBasis": "",
-                    "identifiers": [identifier],
-                    "evidence": [{"path": SIMPLE_PATH, "quote": quote}],
-                    "relationshipIds": []
-                }],
-                "visual": null
-            })
-            .to_string()
-        };
+                    "spokenText": spoken_text,
+                    "claims": [{
+                        "category": "codeBehavior",
+                        "aspect": "execution",
+                        "prose": prose,
+                        "inferenceBasis": "",
+                        "identifiers": [identifier],
+                        "evidence": [{"path": SIMPLE_PATH, "quote": quote}],
+                        "relationshipIds": []
+                    }],
+                    "visual": null
+                })
+                .to_string()
+            };
         let build_section_review = |section: &chapters::ChapterSection| {
             provider::build_request_review(
                 &fixture.storage,
@@ -3330,6 +3331,7 @@ mod chapter_pipeline_tests {
                 response_text: section_response(
                     "Trim the incoming name",
                     "greeting uses name.trim before inserting the name into the returned greeting.",
+                    "The function trims the incoming name before adding it to the greeting.",
                     "name",
                     "return `Hello, ${name.trim()}`;",
                 ),
@@ -3341,7 +3343,9 @@ mod chapter_pipeline_tests {
         .expect("the first repaired section should be saved as incremental progress");
         assert_eq!(
             first_result.kind,
-            provider::ProviderFailureKind::RepairProgress
+            provider::ProviderFailureKind::RepairProgress,
+            "first selected repair failed unexpectedly: {}",
+            first_result.message
         );
         let progress = section_repair_session::load(
             &fixture.storage,
@@ -3370,6 +3374,7 @@ mod chapter_pipeline_tests {
                 response_text: section_response(
                     "Retain the repeated literal",
                     "overlapping retains the repeated literal in a local constant without changing state.",
+                    "This module keeps the repeated literal in one local constant.",
                     "overlapping",
                     "const overlapping = \"bbbbbbbbb\";",
                 ),
@@ -3381,7 +3386,9 @@ mod chapter_pipeline_tests {
         .expect("the second repaired section should remain incremental while another is stale");
         assert_eq!(
             second_result.kind,
-            provider::ProviderFailureKind::RepairProgress
+            provider::ProviderFailureKind::RepairProgress,
+            "second selected repair failed unexpectedly: {}",
+            second_result.message
         );
         let progress = section_repair_session::load(
             &fixture.storage,
@@ -3407,6 +3414,7 @@ mod chapter_pipeline_tests {
                 response_text: section_response(
                     "The visible function has no caller evidence",
                     "The source shows greeting uses name.trim, but this file does not reveal which external callers provide the name.",
+                    "The source shows how the function trims its input, but not which callers provide that value.",
                     "greeting",
                     "export function greeting(name: string): string {",
                 ),
