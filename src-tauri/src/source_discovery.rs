@@ -24,6 +24,7 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 const MAX_METADATA: usize = 96_000;
+const MAX_PROVIDER_DISCOVERY_METADATA: usize = 48_000;
 const MAX_CONTENT_RANKED_PATHS: usize = crate::repository_context::MAX_FILE_DISCOVERY_RESULTS;
 const TTL: Duration = Duration::from_secs(300);
 const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v6-bounded-full-question-search";
@@ -183,10 +184,144 @@ pub(crate) struct DiscoveryResult {
     limitation: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ProviderSourceChoice {
+    pub path: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ProviderSourceSelectionResult {
+    pub selected_files: Vec<ProviderSourceChoice>,
+    pub limitation: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProviderSourceSelectionResponse {
+    selected_files: Vec<ProviderSourceChoice>,
+    limitation: String,
+}
+
 #[derive(Clone, Copy)]
 struct CandidateSize {
     bytes: u64,
     range_only: bool,
+}
+
+/// Build the metadata-only candidate set used by direct API repository
+/// overviews. The selected model sees this index first; source contents are
+/// added only after it proposes paths and the user reviews a separate request.
+pub(crate) fn provider_source_discovery_metadata(
+    storage: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+    question: &str,
+) -> Result<(String, BTreeMap<String, u64>), String> {
+    let input = DiscoveryInput {
+        project_id: project_id.to_owned(),
+        snapshot_id: snapshot_id.to_owned(),
+        question: question.to_owned(),
+        target_path: None,
+        model_id: String::new(),
+        effort: String::new(),
+        workspace_grant: None,
+    };
+    let (metadata, sizes, _, _, _, _) = metadata(storage, &input)?;
+    let mut metadata: Value = serde_json::from_str(&metadata)
+        .map_err(|_| "The captured code index could not be encoded.".to_owned())?;
+    // Direct API discovery should stay materially smaller than the full
+    // Codex index envelope. Keep the locally ranked, most relevant entries.
+    metadata["rangeOnlyFiles"] = Value::Array(Vec::new());
+    let mut code_files = metadata["codeFiles"]
+        .as_array()
+        .cloned()
+        .ok_or_else(|| "The captured code index is incomplete.".to_owned())?;
+    while serde_json::to_vec(&metadata)
+        .map_err(|_| "The captured code index could not be encoded.".to_owned())?
+        .len()
+        > MAX_PROVIDER_DISCOVERY_METADATA
+        && code_files.len() > 1
+    {
+        code_files.pop();
+        metadata["codeFiles"] = Value::Array(code_files.clone());
+        let previous = metadata["omittedCodeFiles"].as_u64().unwrap_or_default() as usize;
+        metadata["omittedCodeFiles"] = json!(previous.saturating_add(1));
+    }
+    if serde_json::to_vec(&metadata)
+        .map_err(|_| "The captured code index could not be encoded.".to_owned())?
+        .len()
+        > MAX_PROVIDER_DISCOVERY_METADATA
+    {
+        metadata["documentationHints"] = Value::Array(Vec::new());
+    }
+    let bytes = serde_json::to_vec(&metadata)
+        .map_err(|_| "The captured code index could not be encoded.".to_owned())?;
+    if bytes.len() > MAX_PROVIDER_DISCOVERY_METADATA || code_files.is_empty() {
+        return Err("The captured code index is too large for a bounded direct API request.".to_owned());
+    }
+    let selected_paths = code_files
+        .iter()
+        .filter_map(|file| file.get("path").and_then(Value::as_str))
+        .collect::<HashSet<_>>();
+    let whole_files = sizes
+        .into_iter()
+        .filter_map(|(path, size)| {
+            (!size.range_only && selected_paths.contains(path.as_str()))
+                .then_some((path, size.bytes))
+        })
+        .collect();
+    let metadata = String::from_utf8(bytes)
+        .map_err(|_| "The captured code index could not be encoded.".to_owned())?;
+    Ok((metadata, whole_files))
+}
+
+/// Validate a provider's metadata-only shortlist against the exact captured
+/// whole-file candidates included in its reviewed request.
+pub(crate) fn validate_provider_source_selection(
+    response: &str,
+    whole_files: &BTreeMap<String, u64>,
+) -> Result<ProviderSourceSelectionResult, String> {
+    if response.len() > 32_000 {
+        return Err("The source proposal exceeded its size limit.".to_owned());
+    }
+    let value: Value = strict_json::from_slice(response.as_bytes())
+        .map_err(|_| "The selected model returned an invalid source proposal.")?;
+    let result: ProviderSourceSelectionResponse = serde_json::from_value(value)
+        .map_err(|_| "The selected model returned an invalid source proposal.")?;
+    if result.selected_files.len() > 12
+        || result.limitation.len() > 1500
+        || result.limitation.chars().any(char::is_control)
+    {
+        return Err("The model proposed too much source. Ask a more specific question.".to_owned());
+    }
+    let mut seen = HashSet::<String>::new();
+    let mut total = 0_u64;
+    for file in &result.selected_files {
+        let bytes = whole_files
+            .get(&file.path)
+            .ok_or("The selected model proposed a file outside the reviewed snapshot index.")?;
+        if !seen.insert(file.path.clone())
+            || file.reason.trim().is_empty()
+            || file.reason.len() > 600
+            || file.reason.chars().any(char::is_control)
+        {
+            return Err("The model returned duplicate or invalid source choices.".to_owned());
+        }
+        total = total.saturating_add(*bytes);
+    }
+    if total > 250_000 {
+        return Err("The proposed code exceeds the 250 KB source limit.".to_owned());
+    }
+    if result.selected_files.is_empty() && result.limitation.trim().is_empty() {
+        return Err("The model returned no files and did not explain the limitation.".to_owned());
+    }
+    Ok(ProviderSourceSelectionResult {
+        selected_files: result.selected_files,
+        limitation: result.limitation,
+    })
 }
 
 pub(crate) fn is_code_path(path: &str) -> bool {

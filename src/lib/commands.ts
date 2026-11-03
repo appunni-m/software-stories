@@ -863,6 +863,11 @@ export interface ProviderRequestReview {
   expiresAtUnixMs: number;
 }
 
+export interface ProviderSourceSelectionResult {
+  selectedFiles: { path: string; reason: string }[];
+  limitation: string;
+}
+
 export interface SectionUpdateReviewTarget {
   chapterRevisionId: string;
   sectionId: string;
@@ -1324,6 +1329,14 @@ export async function buildProviderRequestReview(providerId: string, input: {
   return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_request_review', { providerId, input });
 }
 
+export async function buildProviderSourceDiscoveryRequestReview(providerId: string, input: {
+  projectId: string;
+  snapshotId: string;
+  modelId: string;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_source_discovery_request_review', { providerId, input });
+}
+
 export async function buildCodeLensProviderRequestReview(providerId: string, input: {
   projectId: string;
   snapshotId: string;
@@ -1353,6 +1366,14 @@ export async function sendProviderRequest(input: {
   consent: ProviderConsent;
 }): Promise<ProviderCommandResult<ChapterDraftPreview>> {
   return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_provider_request', input);
+}
+
+export async function sendProviderSourceDiscoveryRequest(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: ProviderConsent;
+}): Promise<ProviderCommandResult<ProviderSourceSelectionResult>> {
+  return invoke<ProviderCommandResult<ProviderSourceSelectionResult>>('send_provider_source_discovery_request', input);
 }
 
 export async function sendCodeLensProviderRequest(input: {

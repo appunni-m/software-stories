@@ -1176,6 +1176,43 @@ fn build_provider_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn build_provider_source_discovery_request_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    provider_id: String,
+    input: provider::BuildProviderSourceDiscoveryReviewInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    if sessions.get(&input.project_id).is_err() {
+        return provider::ProviderCommandResult::error(
+            provider::ProviderFailureKind::InvalidReview,
+            "Reopen the selected repository before building source discovery.",
+        );
+    }
+    let storage_dir = match app_data_directory(&app) {
+        Ok(path) => path,
+        Err(_) => {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::LocalStorageUnavailable,
+                "Code Atlas local snapshot storage is unavailable. No request was sent.",
+            );
+        }
+    };
+    let pending = match provider::build_provider_source_discovery_request_review_for_provider(
+        &storage_dir,
+        &input,
+        &provider_id,
+    ) {
+        Ok(pending) => pending,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    match reviews.insert(pending) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn build_code_lens_provider_request_review(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -1415,6 +1452,106 @@ async fn send_provider_request(
             );
         }
         command_result
+    }
+    .await;
+    Ok(result)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn send_provider_source_discovery_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    cancellations: State<'_, provider::ProviderRequestCancellations>,
+    review_id: String,
+    fingerprint: String,
+    consent: provider::ProviderConsent,
+) -> Result<provider::ProviderCommandResult<source_discovery::ProviderSourceSelectionResult>, String>
+{
+    let result = async move {
+        if !consent.is_complete() {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ConsentRequired,
+                "Confirm the privacy/data-use, billing uncertainty, and adult/supported-region statements before sending.",
+            );
+        }
+        let pending = match reviews.get(&review_id) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        if let Err(error) = provider::require_direct_api_operation(
+            &pending.review,
+            provider::DirectApiOperation::SourceDiscovery,
+        ) {
+            return provider::ProviderCommandResult::failed(error);
+        }
+        if pending.review.fingerprint != fingerprint {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ReviewChanged,
+                "The reviewed request fingerprint changed. Build and review the exact index context again.",
+            );
+        }
+        if sessions.get(&pending.review.project_id).is_err() {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::InvalidReview,
+                "Reopen the repository and review source discovery again before sending.",
+            );
+        }
+        let storage_dir = match app_data_directory(&app) {
+            Ok(path) => path,
+            Err(_) => {
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
+                    "Code Atlas local snapshot storage is unavailable. No request was sent.",
+                );
+            }
+        };
+        if let Err(error) = provider::revalidate_request_review(&storage_dir, &pending.review) {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::failed(error);
+        }
+        let api_key = match provider::load_api_key_for(&pending.review.provider_id) {
+            Ok(api_key) => api_key,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let pending = match reviews.consume(&review_id, &fingerprint) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let mut cancellation = match cancellations.begin(&review_id) {
+            Ok(cancellation) => cancellation,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let response = provider::await_cancellable_request(
+            &mut cancellation,
+            provider::dispatch_reviewed_request_via_rig(
+                &pending,
+                api_key,
+                &consent,
+            ),
+        )
+        .await;
+        cancellations.finish(&review_id);
+        match response {
+            Ok(response) => match pending.review.source_discovery_candidates.as_ref() {
+                Some(candidates) => match source_discovery::validate_provider_source_selection(
+                    &response.response_text,
+                    candidates,
+                ) {
+                    Ok(selection) => provider::ProviderCommandResult::ok(selection),
+                    Err(message) => provider::ProviderCommandResult::error(
+                        provider::ProviderFailureKind::InvalidReview,
+                        message,
+                    ),
+                },
+                None => provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::ReviewChanged,
+                    "The reviewed source candidate set is unavailable. Build and review discovery again.",
+                ),
+            },
+            Err(error) => provider::ProviderCommandResult::failed(error),
+        }
     }
     .await;
     Ok(result)
@@ -2476,12 +2613,14 @@ pub fn run() {
             store_provider_api_key,
             remove_provider_api_key,
             build_provider_request_review,
+            build_provider_source_discovery_request_review,
             build_code_lens_provider_request_review,
             build_provider_pr_guide_request_review,
             build_provider_pr_change_explanation_request_review,
             discard_provider_request_review,
             cancel_provider_request,
             send_provider_request,
+            send_provider_source_discovery_request,
             send_code_lens_provider_request,
             send_provider_pr_guide_request,
             send_provider_pr_change_explanation_request

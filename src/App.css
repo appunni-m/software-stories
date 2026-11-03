@@ -915,6 +915,9 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .provider-section-path-list li { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
 .provider-section-path-list code { overflow-wrap: anywhere; font: 12px var(--mono); }
 .provider-section-path-list small { color: var(--muted); font: 12px var(--mono); }
+.provider-source-selection-result { margin: 8px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.provider-source-selection-result .provider-section-path-list li { display: grid; justify-content: start; gap: 3px; }
+.provider-source-selection-result .provider-section-path-list small { overflow-wrap: anywhere; font: 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .provider-cancel-confirm { margin: 10px 0; padding: 11px; border: 1px solid var(--danger-border); border-radius: 7px; background: var(--danger-soft); }
 .provider-cancel-confirm > strong { color: var(--danger); font-size: 13px; }
 .provider-cancel-confirm > p { margin: 6px 0 10px; color: var(--danger); font-size: 12px; line-height: 1.55; }

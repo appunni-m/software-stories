@@ -129,6 +129,7 @@ const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScr
 import {
   buildCodeLensProviderRequestReview,
   buildProviderRequestReview,
+  buildProviderSourceDiscoveryRequestReview,
   cancelProviderRequest,
   discardProviderRequestReview,
   discardGeneratedChapterDraft,
@@ -136,6 +137,7 @@ import {
   getProviderCatalog,
   removeProviderApiKey,
   sendProviderRequest,
+  sendProviderSourceDiscoveryRequest,
   sendCodeLensProviderRequest,
   saveGeneratedChapterDraft,
   listChapterRevisions,
@@ -153,6 +155,7 @@ import {
   type ProviderDisclosure,
   type ProviderFailure,
   type ProviderRequestReview,
+  type ProviderSourceSelectionResult,
   type ChapterDraftPreview,
   type ChapterRevision,
 } from './lib/commands';
@@ -2486,6 +2489,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
   const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
   const [directApiSelectionIssue, setDirectApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
+  const [sourceDiscoveryResult, setSourceDiscoveryResult] = useState<ProviderSourceSelectionResult | null>(null);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
   const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
@@ -2526,6 +2530,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
           : credentialInfo?.apiKeyConfigured === false ? 'Add an API key in Connections to use this provider.' : null;
   const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
   const overviewMode = mode.kind === 'overview';
+  const sourceDiscoveryUnavailable = overviewMode && selectedPaths.length === 0
+    && (sourceDiscoveryResult !== null || requestBuildError !== null);
+  const needsSourceDiscovery = overviewMode && selectedPaths.length === 0 && !sourceDiscoveryUnavailable;
   const sectionUpdateMode = mode.kind === 'section-update';
   const codeLensRangeMode = mode.kind === 'code-lens-range';
   const sectionUpdateTitle = mode.kind === 'section-update'
@@ -2536,7 +2543,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     : mode.kind === 'section-update'
       ? `Update “${sectionUpdateTitle}”`
       : mode.kind === 'overview'
-        ? 'Map the repository from selected code'
+        ? (needsSourceDiscovery ? 'Find code for the repository overview' : 'Map the repository from selected code')
         : mode.kind === 'review'
           ? `Explain ${mode.targetPath}`
           : null;
@@ -2638,9 +2645,15 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
 
   useEffect(() => {
     if (!reviewMode || !native || !disclosure || !modelId) return;
-    if (mode.kind === 'overview' && selectedPaths.length === 0) {
+    if (mode.kind === 'overview' && selectedPaths.length === 0 && sourceDiscoveryResult !== null) {
       setRequestReview(null);
       setRequestBuildError(null);
+      setRequestBuilding(false);
+      setConsent(noProviderConsent);
+      return;
+    }
+    if (mode.kind === 'overview' && selectedPaths.length === 0 && requestBuildError !== null) {
+      setRequestReview(null);
       setRequestBuilding(false);
       setConsent(noProviderConsent);
       return;
@@ -2655,7 +2668,13 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     setCodeLensResult(null);
     setSavedRevision(null);
     setSaveError(null);
-    const requestBuild = mode.kind === 'code-lens-range'
+    const requestBuild = mode.kind === 'overview' && needsSourceDiscovery
+      ? buildProviderSourceDiscoveryRequestReview(providerId, {
+        projectId: mode.projectId,
+        snapshotId: mode.snapshotId,
+        modelId,
+      })
+      : mode.kind === 'code-lens-range'
       ? buildCodeLensProviderRequestReview(providerId, {
         projectId: mode.projectId,
         snapshotId: mode.snapshotId,
@@ -2691,7 +2710,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
       active = false;
       if (createdReviewId) void discardProviderRequestReview(createdReviewId);
     };
-  }, [disclosure, mode, modelId, native, onRecoveryReviewReady, providerId, reviewGeneration, reviewMode, selectedPaths]);
+  }, [disclosure, mode, modelId, native, onRecoveryReviewReady, providerId, requestBuildError, reviewGeneration, reviewMode, selectedPaths, sourceDiscoveryResult, needsSourceDiscovery]);
 
   const updateConsent = (key: keyof ProviderConsent, checked: boolean) => {
     setConsent((current) => ({ ...current, [key]: checked }));
@@ -2745,6 +2764,10 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     setCodeLensResult(null);
     setUnavailableModel(null);
     setRequestError(null);
+    if (overviewMode) {
+      setSourceDiscoveryResult(null);
+      setSelectedPaths([]);
+    }
     setModelId(nextModelId);
     rememberDirectApiSelection({ providerId, modelId: nextModelId });
   };
@@ -2758,6 +2781,10 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     setCodeLensResult(null);
     setUnavailableModel(null);
     setRequestError(null);
+    if (overviewMode) {
+      setSourceDiscoveryResult(null);
+      setSelectedPaths([]);
+    }
     setKeyDraft('');
     setKeyMessage(null);
     setCredential(null);
@@ -2789,6 +2816,40 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     setCancelStatus(null);
     setRequestError(null);
     try {
+      if (needsSourceDiscovery) {
+        const result = await sendProviderSourceDiscoveryRequest({
+          reviewId: requestReview.reviewId,
+          fingerprint: requestReview.fingerprint,
+          consent,
+        });
+        if (result.status === 'ok') {
+          if (!dialogMounted.current) return;
+          if (cancelRequested.current) {
+            setRequestError({
+              kind: 'requestCancelled',
+              message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The file selection was discarded. The provider has already received repository index metadata, not source contents.`,
+            });
+            setRequestReview(null);
+            setConsent(noProviderConsent);
+            setReviewGeneration((generation) => generation + 1);
+            return;
+          }
+          setSourceDiscoveryResult(result.data);
+          setSelectedPaths(result.data.selectedFiles.map((file) => file.path));
+          setRequestReview(null);
+          setConsent(noProviderConsent);
+          setRequestError(null);
+          return;
+        }
+        setRequestError(result.error);
+        if (result.error.kind === 'unavailableModel') setUnavailableModel(modelId);
+        if (!['missingApiKey', 'keychainUnavailable', 'keychainOperationFailed', 'consentRequired'].includes(result.error.kind)) {
+          setRequestReview(null);
+          setConsent(noProviderConsent);
+          setReviewGeneration((generation) => generation + 1);
+        }
+        return;
+      }
       if (mode.kind === 'code-lens-range') {
         const result = await sendCodeLensProviderRequest({
           reviewId: requestReview.reviewId,
@@ -2875,11 +2936,17 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
     setCancelStatus(null);
     try {
       const stopped = await cancelProviderRequest(requestReview.reviewId);
+      const cancelledData = requestReview.purpose === 'repositoryOverviewSourceDiscovery'
+        ? 'the repository index metadata'
+        : 'the selected source';
       setCancelStatus(stopped
-        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received the selected source; no response will be accepted.`
+        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received ${cancelledData}; no response will be accepted.`
         : 'The request had already finished locally. Its response will be discarded because you chose Cancel.');
     } catch {
-      setCancelStatus(`The app could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received the selected source; any returned response will be discarded.`);
+      const cancelledData = requestReview.purpose === 'repositoryOverviewSourceDiscovery'
+        ? 'the repository index metadata'
+        : 'the selected source';
+      setCancelStatus(`The app could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received ${cancelledData}; any returned response will be discarded.`);
     } finally {
       setCancelBusy(false);
     }
@@ -3054,7 +3121,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                 {cancelConfirmation && sending && (
                   <div className="provider-cancel-confirm" role="group" aria-labelledby="provider-cancel-title" aria-describedby="provider-cancel-description">
                     <strong id="provider-cancel-title">Cancel this request?</strong>
-                    <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. {disclosure?.displayName ?? 'The provider'} may already have received the selected source. Any returned response will be discarded.</p>
+                    <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. {disclosure?.displayName ?? 'The provider'} may already have received {needsSourceDiscovery ? 'repository index metadata' : 'the selected source'}. Any returned response will be discarded.</p>
                     <div><AppButton intent="secondary" onClick={() => setCancelConfirmation(false)}>Keep waiting</AppButton><AppButton intent="danger" onClick={() => { void handleConfirmCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</AppButton></div>
                   </div>
                 )}
@@ -3069,10 +3136,24 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                   <p>Only this hash-verified range from snapshot {mode.snapshotId} is sent. It cannot be expanded to neighboring lines or other files.</p>
                   <code>{mode.target.path}:{mode.target.startLine}–{mode.target.endLine}</code>
                   <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary source-range explanation. It is not added to chapter coverage or revision history.</p>
+                </div> : needsSourceDiscovery ? <div className="provider-context-picker">
+                  <div className="provider-context-heading"><strong>Let AI find the relevant code</strong><span>Index metadata only</span></div>
+                  <p>The selected provider first receives a bounded map of captured file paths, indexed symbols and links, and index coverage. It does not receive source contents in this step. Code Atlas checks every proposed path against this snapshot, then you can inspect and adjust the exact code before asking for the overview.</p>
+                  {requestReview && <details className="provider-source-file">
+                    <summary><span>Inspect the exact metadata request</span><span>{formatBytes(requestReview.requestBodyBytes)} · no code contents</span></summary>
+                    <pre><code>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</code></pre>
+                  </details>}
                 </div> : <div className="provider-context-picker">
+                  {overviewMode && sourceDiscoveryResult && <section className="provider-source-selection-result" aria-label="AI selected source files">
+                    <div className="provider-context-heading"><strong>AI found {sourceDiscoveryResult.selectedFiles.length} relevant {sourceDiscoveryResult.selectedFiles.length === 1 ? 'file' : 'files'}</strong><span>Review before explaining</span></div>
+                    {sourceDiscoveryResult.selectedFiles.length > 0 ? <ul className="provider-section-path-list">
+                      {sourceDiscoveryResult.selectedFiles.map((file) => <li key={file.path}><code>{file.path}</code><small>{file.reason}</small></li>)}
+                    </ul> : <p className="provider-small-note">{sourceDiscoveryResult.limitation || 'The index did not point to a useful shortlist. Choose one or more captured files below to continue.'}</p>}
+                    {sourceDiscoveryResult.selectedFiles.length > 0 && sourceDiscoveryResult.limitation && <p className="provider-small-note">{sourceDiscoveryResult.limitation}</p>}
+                  </section>}
                   <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
                   {selectedPaths.length > 12 && <p className="provider-error-text" role="status">This selection exceeds 12 files. Remove supporting files before preparing the request; the app keeps the full requested selection.</p>}
-                  <p>{overviewMode ? 'Choose the files that should ground this optional repository map. Changing the selection rebuilds the preview and clears consent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
+                  <p>{overviewMode ? sourceDiscoveryResult?.selectedFiles.length ? 'The AI shortlist is ready. Adjust it if needed; changing the selection rebuilds the exact source review and clears consent.' : 'Choose one or more captured files to continue. The exact code will be reviewed before it is sent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
                   {overviewMode && selectedPaths.length === 0 && <p className="provider-small-note" role="status">Select at least one captured text file to build the overview request preview.</p>}
                   {snapshotManifestLoading && <div className="provider-loading" role="status"><HardDrive size={15} /> Loading captured file names locally…</div>}
                   {snapshotManifestError && <p className="provider-small-note" role="status">{snapshotManifestError}</p>}
@@ -3101,9 +3182,9 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
                     <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
                       <div><span>Request</span><strong>{requestIntent ?? 'Explain the selected code'}</strong></div>
                       <div><span>AI connection</span><strong>{disclosure?.displayName ?? requestReview.providerId} · {disclosure?.models.find((model) => model.modelId === requestReview.modelId)?.displayName ?? requestReview.modelId}</strong></div>
-                      <div><span>Code to share</span><strong>{requestReview.selectedFiles.length} {requestReview.selectedFiles.length === 1 ? 'file' : 'files'}{codeLensRangeMode ? ' · selected range' : ''}</strong></div>
+                      <div><span>{needsSourceDiscovery ? 'First request' : 'Code to share'}</span><strong>{needsSourceDiscovery ? 'Index metadata only · no source text' : `${requestReview.selectedFiles.length} ${requestReview.selectedFiles.length === 1 ? 'file' : 'files'}${codeLensRangeMode ? ' · selected range' : ''}`}</strong></div>
                     </div>
-                    <p className="provider-warning-note"><TriangleAlert size={14} /> Review the selected code for credentials or private data before sending. The local check may miss secrets. Expand a file below to inspect exactly what will be shared.</p>
+                    <p className="provider-warning-note"><TriangleAlert size={14} /> {needsSourceDiscovery ? 'This request sends only the reviewed snapshot index metadata to the selected provider. No source code is included.' : 'Review the selected code for credentials or private data before sending. The local check may miss secrets. Expand a file below to inspect exactly what will be shared.'}</p>
                     {requestReview.selectedFiles.map((file) => (
                       <details className="provider-source-file" key={`${file.path}:${file.sha256}`}>
                         <summary><code>{file.path}</code><span>{codeLensRangeMode && mode.kind === 'code-lens-range' ? `Lines ${mode.target.startLine}–${mode.target.endLine}` : 'Review code being shared'}</span></summary>
@@ -3174,7 +3255,7 @@ function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryR
               savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</AppButton></div>
             ) : (
               <AppButton intent="primary" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult || codeLensResult)}>
-                <Sparkles size={15} /> Send this request
+                <Sparkles size={15} /> {needsSourceDiscovery ? 'Ask AI to find the code' : 'Send this request'}
               </AppButton>
             )
           )}
