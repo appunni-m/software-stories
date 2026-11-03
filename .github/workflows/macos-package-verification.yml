@@ -2,13 +2,22 @@ name: macOS package verification
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'tests/**'
+      - '.gitignore'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'SUPPORT.md'
   push:
     branches:
       - main
     # These files are not copied into the app bundle. Do not let user/contributor
-    # docs occupy the branch's single pending package-input verification run.
+    # docs or test fixtures occupy the branch's single pending package-input run.
     paths-ignore:
       - 'docs/**'
+      - 'tests/**'
       - '.gitignore'
       - 'README.md'
       - 'CONTRIBUTING.md'
@@ -73,13 +82,14 @@ jobs:
 
           if git diff --quiet "$base" "$head" -- . \
             ':(exclude)docs/**' \
+            ':(exclude)tests/**' \
             ':(exclude).gitignore' \
             ':(exclude)README.md' \
             ':(exclude)CONTRIBUTING.md' \
             ':(exclude)SECURITY.md' \
             ':(exclude)SUPPORT.md' \
             ':(exclude).github/workflows/macos-package-verification.yml'; then
-            echo "Only reader documentation, repository ignore rules, or package-workflow configuration changed; skipping the native package build."
+            echo "Only documentation, tests, repository ignore rules, or package-workflow configuration changed; skipping the native package build."
             echo "verify=false" >> "$GITHUB_OUTPUT"
           else
             echo "Package inputs changed or the diff check failed; package verification is required."
