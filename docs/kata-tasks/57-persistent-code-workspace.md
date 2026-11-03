@@ -156,3 +156,12 @@ preserved. Existing light/dark field sizing is expressed in shared CSS. This
 source-only increment has not been built or visually accepted; other settings,
 path and chapter-editor fields remain to be inventoried and migrated where
 appropriate.
+
+## Code selection action uses the shared button — 3 November 2026
+
+The production CodePane's **Explain this code** control now uses `AppButton`
+with the primary intent instead of importing Radix `Button` directly. Its
+selection callback, disabled state, tooltip, accessible name, icon and default
+non-submit behavior remain unchanged. This is source-only; no build, test, or
+packaged visual review ran. Keep the broader component and accessibility
+acceptance open.

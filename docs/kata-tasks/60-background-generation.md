@@ -66,3 +66,12 @@ playback-paced slide refill. No new provider request, build, or test was run
 for this documentation correction. Keep `nw1h`, `3bz5`, `ps02`, and the
 dependent repository-narrative task open until their acceptance evidence is
 recorded.
+
+## Queued-question reader status — source checkpoint, 3 November 2026
+
+`src/workspace/model.ts::questionProgressText` returns a separate waiting
+message for `queued` turns and an active-generation message for `working`
+turns. `Workspace.tsx` presents that status in each question's answer card and
+Flow request state. This addresses the source/UI wording gap noted in the
+Fontdone run; installed-app timing and queue-order acceptance are still
+unverified. No build, test, or provider request was run for this checkpoint.

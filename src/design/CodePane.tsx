@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, IconButton, Tooltip } from '@radix-ui/themes';
+import { IconButton, Tooltip } from '@radix-ui/themes';
 import { Code2, MessageSquarePlus, X } from 'lucide-react';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, drawSelection, highlightActiveLine, lineNumbers, keymap } from '@codemirror/view';
@@ -9,6 +9,7 @@ import { tags } from '@lezer/highlight';
 import type { Context as CodeContext } from '../workspace/model';
 import { codeSelectionContext } from '../lib/codeSelection';
 import { languageForPath } from '../lib/inventory';
+import { AppButton } from './AppButton';
 
 const sourceLanguage = (path: string) => {
   const language = languageForPath(path);
@@ -302,7 +303,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     <div className="preview-code-path">
       <span className="preview-code-path-label">{path.split('/').join('  /  ')}</span>
       {selection && <div className="preview-selection-tools" onMouseDown={(event) => event.preventDefault()}>
-        <Button size="1" disabled={!canExplain} title={canExplain ? undefined : 'The saved conversation is unavailable.'} aria-label="Explain this code" onClick={() => onExplain(selection)}><MessageSquarePlus size={13} /><span>Explain this code</span></Button>
+        <AppButton intent="primary" size="1" disabled={!canExplain} title={canExplain ? undefined : 'The saved conversation is unavailable.'} aria-label="Explain this code" onClick={() => onExplain(selection)}><MessageSquarePlus size={13} /><span>Explain this code</span></AppButton>
         <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" disabled={!canExplain} aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
       </div>}
     </div>
