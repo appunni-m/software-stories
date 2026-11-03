@@ -47,6 +47,7 @@ import {
 } from './lib/narration';
 import { localNarrationPrewarmState } from './workspace/localNarrationQueue';
 import { AppButton } from './design/AppButton';
+import { AppSlider } from './design/AppSlider';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
@@ -813,7 +814,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         </div>
         <label className="walkthrough-seek-label">
           <span>Audio position</span>
-          <input type="range" min={0} max={duration || 0} step={0.05} value={Math.min(currentTime, duration || 0)} disabled={!track || !duration} onChange={(event) => seek(Number(event.target.value))} />
+          <AppSlider aria-label="Audio position" min={0} max={duration || 1} step={0.05} value={[Math.min(currentTime, duration || 0)]} disabled={!track || !duration} onValueChange={([value]) => { if (value !== undefined) seek(value); }} size="1" />
         </label>
       </div>
       {localNarration && providerRequestBusy && <AppButton intent="quiet" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</AppButton>}
