@@ -333,6 +333,11 @@ async function stopQuestionAndWait(project: string, snapshot: string, id: string
     try {
       const saved = await stopWorkspaceGenerationJob(runId,project,snapshot);
       if (job) job.cancelled = true;
+      if (['queued','preparing','running','stopRequested'].includes(saved.state)) {
+        // Native Stop is durably requested, but the worker has not reached a
+        // terminal state yet. Keep the turn active until its owner reconciles.
+        return;
+      }
       const status = saved.state === 'completed' ? 'ready'
         : saved.state === 'partiallyCompleted' ? 'partial'
         : saved.state === 'failed' ? 'failed'
