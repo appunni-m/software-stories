@@ -64,8 +64,9 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v73`, teaching policy `meaning-first-v36`, and reader
-language policy `reader-language-v1`. These policy identifiers come from
+`ai-html-compositions-v74`, Visual design method `v64`, teaching policy
+`meaning-first-v36`, and reader language policy `reader-language-v1`. These
+policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
 reference stays synchronized with the implementation. The teaching contract starts
 from a real input or situation, follows only source-supported changes and
@@ -142,6 +143,15 @@ check is intentionally narrow: it does not prove that the remaining wording is
 natural or that TTS pronounces it well. Layout must enact the behavior rather
 than default to a uniform card grid; it changes at an evidenced handoff, not
 for decoration.
+
+Every narrated graph scene must include at least one node citing that scene's
+own claim. The focused scene shows those claim-linked nodes plus one edge of
+context and is limited to eight visible nodes. A scene without claim-linked
+focus is rejected; the separate Full map view does not substitute for a
+scene-grounded visual. One bounded correction tells the agent to add a node
+linked to the scene's evidence or choose a meaningful composition. These are
+source-validation and repair guarantees, not evidence that a generated graph
+is clear or useful.
 For static code without a concrete runtime sample, a visual should use the
 source variable or field as a symbolic input or result when that makes the
 change clearer. Generic stand-ins such as “Loaded input” or “Processed result”

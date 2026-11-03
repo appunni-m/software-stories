@@ -2941,6 +2941,12 @@ mod tests {
             anchors: vec![context_anchor.clone()],
             dependencies: Vec::new(),
         };
+        let inference_anchor = anchor_for(
+            &source,
+            Some(answer.symbol_id.clone()),
+            "compute()",
+            "anchor:compute-call-inference",
+        );
         let inference_claim = ChapterClaim {
             claim_id: "claim:intent-inference".to_owned(),
             category: ClaimCategory::Inference {
@@ -2951,12 +2957,7 @@ mod tests {
             },
             prose: "The helper appears to keep the public function's implementation small."
                 .to_owned(),
-            anchors: vec![anchor_for(
-                &source,
-                Some(answer.symbol_id.clone()),
-                "compute()",
-                "anchor:compute-call-inference",
-            )],
+            anchors: vec![inference_anchor.clone()],
             dependencies: Vec::new(),
         };
         ChapterRevision {
@@ -3026,7 +3027,10 @@ mod tests {
                                 label: "answer".to_owned(),
                                 detail: Some("public entry point".to_owned()),
                                 hotspot_id: Some("hotspot:source".to_owned()),
-                                evidence_anchor_ids: vec![call_anchor.anchor_id.clone()],
+                                evidence_anchor_ids: vec![
+                                    call_anchor.anchor_id.clone(),
+                                    context_anchor.anchor_id.clone(),
+                                ],
                                 source_anchor_id: None,
                                 source_value: None,
                             },
@@ -3035,7 +3039,10 @@ mod tests {
                                 label: "compute".to_owned(),
                                 detail: None,
                                 hotspot_id: Some("hotspot:symbol".to_owned()),
-                                evidence_anchor_ids: vec![result_anchor.anchor_id.clone()],
+                                evidence_anchor_ids: vec![
+                                    result_anchor.anchor_id.clone(),
+                                    inference_anchor.anchor_id.clone(),
+                                ],
                                 source_anchor_id: None,
                                 source_value: None,
                             },

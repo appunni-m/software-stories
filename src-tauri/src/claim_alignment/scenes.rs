@@ -73,7 +73,8 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationConciseness"}));
             }
             if scene.mode == SceneMode::Graph
-                && graph_scene_is_overcrowded(section, scene.claim_index).unwrap_or(false)
+                && graph_scene_needs_focus_or_density_repair(section, scene.claim_index)
+                    .unwrap_or(false)
             {
                 if issues.len() >= super::MAX_ISSUES {
                     return;
@@ -158,15 +159,18 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
 }
 
 /// Match the reader's focused graph: claim-linked nodes plus one edge of
-/// context. A scene without a linked node shows the entire graph. Return None
-/// for an unknown proposal shape and leave it to full admission.
+/// context. Return None for an unknown proposal shape and leave it to full
+/// admission.
 pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
     graph_scene_metrics(section, claim_index).map(|(count, _)| count)
 }
 
-pub(super) fn graph_scene_is_overcrowded(section: &Value, claim_index: usize) -> Option<bool> {
+pub(super) fn graph_scene_needs_focus_or_density_repair(
+    section: &Value,
+    claim_index: usize,
+) -> Option<bool> {
     graph_scene_metrics(section, claim_index).map(|(count, focused)| {
-        focused && count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
+        !focused || count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
     })
 }
 
@@ -188,10 +192,6 @@ fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bo
             focused.insert(index);
         }
     }
-    if focused.is_empty() {
-        return Some((nodes.len(), false));
-    }
-
     let mut valid_edges = Vec::with_capacity(edges.len());
     for edge in edges {
         let from = usize::try_from(edge.get("fromNodeIndex")?.as_u64()?).ok()?;
@@ -200,6 +200,9 @@ fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bo
             return None;
         }
         valid_edges.push((from, to));
+    }
+    if focused.is_empty() {
+        return Some((nodes.len(), false));
     }
     Some((
         crate::scene_presentation::visible_graph_node_count(nodes.len(), &focused, valid_edges),
@@ -243,15 +246,24 @@ mod tests {
     }
 
     #[test]
-    fn graph_without_focus_uses_the_full_map_count_and_skips_unknown_shapes() {
+    fn graph_without_focus_needs_repair_even_when_the_full_map_is_small() {
         let crowded = graph_section(0, 0, 9);
         let readable = graph_section(0, 0, 8);
         assert_eq!(graph_scene_node_count(&crowded, 0), Some(9));
         assert_eq!(graph_scene_node_count(&readable, 0), Some(8));
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&crowded, 0),
+            Some(true)
+        );
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&readable, 0),
+            Some(true)
+        );
 
         let mut unknown = graph_section(1, 1, 9);
         unknown["visual"]["edges"][0] = json!({"fromNodeIndex":"unknown"});
         assert_eq!(graph_scene_node_count(&unknown, 0), None);
+        assert_eq!(graph_scene_needs_focus_or_density_repair(&unknown, 0), None);
     }
 
     #[test]
@@ -280,10 +292,26 @@ mod tests {
         assert!(!serialized.contains("secret detail"));
         let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
         assert!(prompt.contains("eight visible nodes or fewer"));
+        assert!(prompt.contains("no node linked to its own claim's source evidence"));
+        assert!(prompt.contains("Full-map inspection is a separate reader view"));
         assert!(prompt.contains(
             "Preserve all guards, branches, failures, outcomes, evidence and real graph edges"
         ));
         assert!(!prompt.contains("private-node-label"));
+    }
+
+    #[test]
+    fn graph_without_claim_focus_gets_a_repair_diagnostic() {
+        let proposal = graph_section(0, 0, 3);
+        let findings = crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
+        let issue = findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "graphDensity")
+            .unwrap();
+        assert_eq!(issue["location"], "/visual/presentation/scenes/0/mode");
+        let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
+        assert!(prompt.contains("Link at least one node to this scene's claim"));
+        assert!(!prompt.contains("the reader displays the full graph"));
     }
 
     #[test]

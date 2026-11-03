@@ -501,6 +501,21 @@ pub fn validate(
             if !scene.elements.is_empty() {
                 return Err("A graph scene must have no HTML composition elements.".into());
             }
+            let claim_anchor_ids: HashSet<_> = claims[index]
+                .anchors
+                .iter()
+                .map(|anchor| anchor.anchor_id.as_str())
+                .collect();
+            if !nodes.iter().any(|node| {
+                node.evidence_anchor_ids
+                    .iter()
+                    .any(|anchor_id| claim_anchor_ids.contains(anchor_id.as_str()))
+            }) {
+                return Err(
+                    "A graph scene needs at least one node linked to its own claim's source evidence; full-map inspection is available separately."
+                        .into(),
+                );
+            }
             continue;
         }
         if let Some(finding) = tree::findings(&scene.elements).first() {
@@ -580,9 +595,8 @@ pub fn validate(
     Ok(())
 }
 
-/// A narrated graph scene must remain readable in the focused reader view.
-/// It shows nodes cited by the scene's claim plus one edge of context; when no
-/// node cites that claim, the reader falls back to the full graph.
+/// A narrated graph scene must have a claim-linked focus and remain readable
+/// in the reader's focused view, which adds one edge of context.
 pub(crate) fn validate_graph_density(
     presentation: &ScenePresentation,
     nodes: &[VisualNode],
@@ -623,7 +637,13 @@ pub(crate) fn validate_graph_density(
             ))
         });
         let count = visible_graph_node_count(nodes.len(), &focused, graph_edges);
-        if !focused.is_empty() && count > MAX_FOCUSED_GRAPH_NODES {
+        if focused.is_empty() {
+            return Err(
+                "A graph scene needs at least one node linked to its own claim's source evidence; full-map inspection is available separately."
+                    .into(),
+            );
+        }
+        if count > MAX_FOCUSED_GRAPH_NODES {
             return Err("A focused graph scene may show at most eight nodes, including one edge of context. Split the explanation into narrower claims and scenes or use a meaningful composition; preserve all outcomes and the full map.".into());
         }
     }
@@ -698,6 +718,25 @@ mod tests {
                 .unwrap_err()
                 .contains("at most eight nodes")
         );
+    }
+
+    #[test]
+    fn graph_scenes_need_a_node_linked_to_their_own_claim() {
+        let (mut nodes, mut claims, mut presentation) = fixture();
+        claims.truncate(2);
+        presentation.scenes.truncate(2);
+        let unrelated_anchor = claims[1].anchors[0].anchor_id.clone();
+        for node in &mut nodes {
+            node.evidence_anchor_ids = vec![unrelated_anchor.clone()];
+        }
+        presentation.scenes[0].mode = SceneMode::Graph;
+        presentation.scenes[0].elements.clear();
+
+        let error = validate(&presentation, &nodes, &claims).unwrap_err();
+        assert!(error.contains("at least one node linked to its own claim"));
+
+        nodes[0].evidence_anchor_ids = vec![claims[0].anchors[0].anchor_id.clone()];
+        validate(&presentation, &nodes, &claims).unwrap();
     }
 
     #[test]
