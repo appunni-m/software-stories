@@ -24,7 +24,34 @@ const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'by
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
+const MAX_SCENE_NARRATION_BYTES = 420;
+const MAX_SCENE_NARRATION_SENTENCES = 3;
+const sentenceClosers = new Set(["'", '"', '”', '’', ')', ']', '}', '»', '」', '』']);
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
+
+function sceneNarrationIsConcise(text: string): boolean {
+  if (!text.trim() || bytes(text) > MAX_SCENE_NARRATION_BYTES) return false;
+  const chars = Array.from(text);
+  let count = 0;
+  let position = 0;
+  const ending = (character: string) => '.!?。！？'.includes(character);
+  while (position < chars.length) {
+    if (!ending(chars[position])) { position++; continue; }
+    let hasCjkEnding = '。！？'.includes(chars[position]);
+    while (position + 1 < chars.length && ending(chars[position + 1])) {
+      position++;
+      hasCjkEnding ||= '。！？'.includes(chars[position]);
+    }
+    const previous = chars[position - 1];
+    let after = position + 1;
+    while (after < chars.length && sentenceClosers.has(chars[after])) after++;
+    const next = chars[after];
+    const decimalPoint = chars[position] === '.' && !!previous && /[0-9]/u.test(previous) && !!next && /[0-9]/u.test(next);
+    if (!decimalPoint && (hasCjkEnding || next === undefined || /\s/u.test(next))) count++;
+    position = after;
+  }
+  return count <= MAX_SCENE_NARRATION_SENTENCES;
+}
 
 /** Return visual children in their displayed and assistive-technology order.
  * Stack children are authored oldest/bottom first; the newest item is shown
@@ -151,6 +178,7 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
   const valid = raw.scenes.every((scene, claimIndex) => {
     if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', 'narration']) || scene.claimIndex !== claimIndex
       || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120 || typeof scene.narration !== 'string'
+      || (enforceCurrentQuality && !sceneNarrationIsConcise(scene.narration))
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
     const orderedSelector = enforceCurrentQuality && requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration);
     const selectorRoot = scene.mode === 'composition' && record(scene.elements[0]) && scene.elements[0].kind === 'selector';

@@ -310,7 +310,7 @@ mod tests {
             assert!(!serialized.contains(narration));
             let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
             assert!(prompt.contains("narrationConciseness finding"));
-            assert!(prompt.contains("four short sentences or 760 UTF-8 bytes"));
+            assert!(prompt.contains("three short sentences or 420 UTF-8 bytes"));
             assert!(!prompt.contains(narration));
         }
     }

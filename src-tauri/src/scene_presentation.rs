@@ -7,7 +7,8 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
-pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 760;
+pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 420;
+pub(crate) const MAX_SCENE_NARRATION_SENTENCES: usize = 3;
 
 /// One audio scene must stay listenable even when a generator ignores its
 /// prompt. The limit leaves room to explain a real decision and its outcome;
@@ -15,7 +16,7 @@ pub(crate) const MAX_SCENE_NARRATION_BYTES: usize = 760;
 pub(crate) fn scene_narration_is_concise(text: &str) -> bool {
     !text.trim().is_empty()
         && text.len() <= MAX_SCENE_NARRATION_BYTES
-        && sentence_ending_count(text) <= 4
+        && sentence_ending_count(text) <= MAX_SCENE_NARRATION_SENTENCES
 }
 
 fn sentence_ending_count(text: &str) -> usize {
@@ -226,7 +227,9 @@ pub(crate) fn narration(
             || claim.anchors.is_empty()
             || !scene_narration_is_concise(text)
         {
-            return Err("Each scene needs at most four short natural sentences, no longer than 760 UTF-8 bytes, and its own consecutive anchored claim.".into());
+            return Err(format!(
+                "Each scene needs at most {MAX_SCENE_NARRATION_SENTENCES} short natural sentences, no longer than {MAX_SCENE_NARRATION_BYTES} UTF-8 bytes, and its own consecutive anchored claim."
+            ));
         }
         if has_compact_spoken_code_token(text) {
             return Err(
@@ -968,12 +971,18 @@ mod tests {
         assert!(scene_narration_is_concise(
             "Scale 1.5 keeps the curve. Then points are placed."
         ));
+        assert!(scene_narration_is_concise(
+            "The parser checks the marker. It follows the matching branch. The caller receives the parsed face."
+        ));
         assert!(scene_narration_is_concise("点进入变换。轮廓标记保持不变！"));
         assert!(!scene_narration_is_concise(
-            "First outcome. Second outcome. Third outcome. Fourth outcome. Final result."
+            "First outcome. Second outcome. Third outcome. Final result."
         ));
         assert!(!scene_narration_is_concise(
             &"a".repeat(MAX_SCENE_NARRATION_BYTES + 1)
+        ));
+        assert!(scene_narration_is_concise(
+            &"a".repeat(MAX_SCENE_NARRATION_BYTES)
         ));
         assert!(!scene_narration_is_concise("  \n  "));
         assert_eq!(

@@ -107,6 +107,21 @@ describe('AI-authored HTML scene contract', () => {
     ]);
     assert.equal(validScenePresentation(composed, nodes, claims), true);
   });
+  it('keeps new narration short while preserving previously saved scene scripts', () => {
+    const concise = presentation();
+    concise.scenes[0].narration = 'The parser checks the marker. It follows the matching branch. The caller receives the parsed face.';
+    assert.equal(validScenePresentation(concise, nodes, claims), true);
+
+    const tooLong = presentation();
+    tooLong.scenes[0].narration = 'x'.repeat(421);
+    assert.equal(validScenePresentation(tooLong, nodes, claims), false);
+    assert.equal(validStoredScenePresentation(tooLong, nodes, claims), true);
+
+    const tooManySentences = presentation();
+    tooManySentences.scenes[0].narration = 'First. Second. Third. Fourth.';
+    assert.equal(validScenePresentation(tooManySentences, nodes, claims), false);
+    assert.equal(validStoredScenePresentation(tooManySentences, nodes, claims), true);
+  });
   it('compares nested content rather than wrappers, tones or node IDs', () => {
     const tree = presentation([
       { ...element('row'), nodeIndex: null },
