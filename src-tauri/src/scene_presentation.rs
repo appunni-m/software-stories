@@ -190,11 +190,91 @@ pub(crate) fn validate_semantic_layouts(
     Ok(())
 }
 
-/// Detect compact all-caps/code-format tokens in newly authored speech. Exact
+/// Detect high-confidence code-shaped tokens in newly authored speech. Exact
 /// identifiers remain available in the adjacent claim and source link. This is
 /// a narrow TTS-readability check, not a semantic or pronunciation guarantee.
 pub(crate) fn has_compact_spoken_code_token(text: &str) -> bool {
-    text.split(|character: char| !character.is_ascii_alphanumeric())
+    if text.contains('`')
+        || ["::", "->", "=>", "&&", "||", "==", "!=", "<=", ">="]
+            .iter()
+            .any(|syntax| text.contains(syntax))
+    {
+        return true;
+    }
+
+    text.split_whitespace()
+        .any(|token| has_code_shaped_spoken_token(token))
+}
+
+fn has_code_shaped_spoken_token(token: &str) -> bool {
+    let identifier = token
+        .trim_matches(|character: char| !character.is_ascii_alphanumeric() && character != '_');
+    if identifier.is_empty() {
+        return false;
+    }
+
+    // Rust/Python-style names are especially prone to letter-by-letter TTS.
+    if identifier.contains('_')
+        && identifier
+            .split('_')
+            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+    {
+        return true;
+    }
+    if [
+        "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "usize", "isize",
+    ]
+    .iter()
+    .any(|code_type| identifier.eq_ignore_ascii_case(code_type))
+    {
+        return true;
+    }
+
+    // A compact call or member chain is source syntax, even when it is not
+    // wrapped in Markdown backticks.
+    if let Some((name, _)) = token.split_once('(') {
+        let name = name
+            .trim_matches(|character: char| !character.is_ascii_alphanumeric() && character != '_');
+        if !name.is_empty()
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            && token.contains(')')
+        {
+            return true;
+        }
+    }
+    if token.contains('<') && token.contains('>') {
+        return true;
+    }
+
+    let dotted = token
+        .trim_matches(|character: char| !character.is_ascii_alphanumeric() && character != '.')
+        .trim_end_matches('.');
+    if dotted.contains('.') {
+        let pieces = dotted.split('.').collect::<Vec<_>>();
+        let is_decimal = pieces.len() == 2
+            && pieces
+                .iter()
+                .all(|piece| !piece.is_empty() && piece.bytes().all(|byte| byte.is_ascii_digit()));
+        let common_abbreviation =
+            dotted.eq_ignore_ascii_case("e.g") || dotted.eq_ignore_ascii_case("i.e");
+        if !is_decimal
+            && !common_abbreviation
+            && pieces.len() >= 2
+            && pieces.iter().all(|piece| {
+                !piece.is_empty()
+                    && piece
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'/')
+            })
+        {
+            return true;
+        }
+    }
+
+    token
+        .split(|character: char| !character.is_ascii_alphanumeric())
         .filter(|token| !token.is_empty())
         .any(|token| {
             let letters = token
@@ -233,7 +313,7 @@ pub(crate) fn narration(
         }
         if has_compact_spoken_code_token(text) {
             return Err(
-                "Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead.".into(),
+                "Narration contains code-shaped syntax or a compact format token. Keep exact names in the visible claim and source link; speak what the code does instead.".into(),
             );
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -778,9 +858,11 @@ mod tests {
             "Choose a parser",
             ""
         ));
-        assert!(validate_semantic_layouts(&presentation, &claims, &nodes)
-            .unwrap_err()
-            .contains("selector composition at the root"));
+        assert!(
+            validate_semantic_layouts(&presentation, &claims, &nodes)
+                .unwrap_err()
+                .contains("selector composition at the root")
+        );
         presentation.scenes[0].mode = SceneMode::Composition;
         presentation.scenes[0].elements = vec![SceneElement {
             kind: ElementKind::Selector,
@@ -1050,12 +1132,20 @@ mod tests {
     }
 
     #[test]
-    fn current_spoken_script_flags_compact_code_tokens_but_allows_role_language() {
+    fn current_spoken_script_flags_code_syntax_but_allows_role_language() {
         for script in [
             "The SFNT marker selects the parser.",
             "PFR0 goes to its dedicated loader.",
             "The C ABI returns an error when the handle is absent.",
             "UTF-8 text follows the byte path.",
+            "load_glyph() returns the parsed outline.",
+            "Font::memory_face selects the format.",
+            "The result uses `source_sha256`.",
+            "face.size stores the current scale.",
+            "Read the value => render the glyph.",
+            "The value is passed as u32.",
+            "Option<Font> retains the face.",
+            "The interface is defined in src/font.rs.",
         ] {
             assert!(
                 has_compact_spoken_code_token(script),
@@ -1068,6 +1158,9 @@ mod tests {
             "The exported interface returns an error when the handle is absent.",
             "The input text follows the byte path.",
             "Rust reads the file and returns a bitmap.",
+            "For example, a 1.5 scale keeps the curve intact.",
+            "The reader checks each field, e.g. its size, before loading.",
+            "E.g. the parser checks size before loading.",
         ] {
             assert!(
                 !has_compact_spoken_code_token(script),
@@ -1077,13 +1170,18 @@ mod tests {
     }
 
     #[test]
-    fn current_scene_admission_rejects_compact_spoken_tokens() {
+    fn current_scene_admission_rejects_code_shaped_spoken_tokens() {
         let (nodes, claims, mut presentation) = fixture();
-        presentation.scenes[0].narration =
-            "The SFNT marker selects the parser; its role stays visible in the source.".into();
-        let error = validate(&presentation, &nodes, &claims).unwrap_err();
-        assert!(error.contains("compact code abbreviation or format token"));
-        assert!(!error.contains("SFNT"));
+        for narration in [
+            "The SFNT marker selects the parser; its role stays visible in the source.",
+            "The request calls load_glyph() before the outline is drawn.",
+        ] {
+            presentation.scenes[0].narration = narration.into();
+            let error = validate(&presentation, &nodes, &claims).unwrap_err();
+            assert!(error.contains("code-shaped syntax or a compact format token"));
+            assert!(!error.contains("SFNT"));
+            assert!(!error.contains("load_glyph"));
+        }
     }
 
     #[test]

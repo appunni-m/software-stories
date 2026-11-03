@@ -4,7 +4,7 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v34";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v35";
 pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v72";
 pub(crate) const READER_LANGUAGE_POLICY_VERSION: &str = "reader-language-v1";
 
@@ -28,7 +28,7 @@ const VISUAL_COMPOSITION_REVIEW: &str = r#"Visual composition review v64: Apply 
 
 const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v32: Every source-backed behavior needs a visual scene with a visible input, guard, change, output or destination; use text-only only for context or a genuine evidence boundary. Every content leaf needs a visible input, guard, change, output or destination; no placeholders or meaning hidden in help/narration. Default every visual node source to null. Use an exact source value only when that literal itself matters to understanding and occurs exactly once in its cited excerpt; never use source for identifiers, labels or code snippets. Node evidence keeps code clickable. Use explanation for short visual copy grounded in the claim, such as a guard, role, or outcome label; it is not a measured runtime value. Use illustration only for an invented hypothetical input or output, and label it illustrative. Do not badge grounded explanation as an example. Keep labels short (2–8 words, under 45 visible characters per card); preserve longer exact tokens only when they matter. Put sentence-length nuance in narration; use a wide/vertical scene instead of several long cards in a row/grid. Treat all limits as ceilings, never targets: the whole section allows at most 12 nodes and 20 edges across its claim scenes; a focused graph scene shows at most eight visible nodes, while a graph without claim-linked nodes may show the full map; each scene allows at most 48 elements and 12 content leaves, with at most six nesting levels and 12 direct children per group. These bounds match the native admission schema. A transform’s input and result slots must show different visible content; repeated labels and values are not a transformation even though the renderer provides an arrow between slots. A pointFlow has exactly three direct content leaves in input, operation, result order; use it only for a source-proved point/vector mapping and never imply coordinates absent from source. If a specific behavior cannot be represented safely, use narration and links and state the source boundary plainly."#;
 
-const SPOKEN_ROLE_INSTRUCTIONS: &str = r#"Speech is for the listener, not a code reader. Do not speak function, method, type, field or error identifiers, backticks, syntax punctuation or compact format tags; say their roles. Never spell an all-capital abbreviation or file-format tag aloud letter by letter; replace it with its role. Speak exact tokens only when asked what they mean or how they are spelled. Keep exact names visible in clickable claims and source links."#;
+const SPOKEN_ROLE_INSTRUCTIONS: &str = r#"Speech is for the listener, not a code reader. Do not speak function, method, type, field or error identifiers, snake_case names, member chains, compact calls such as load_glyph(), namespace syntax such as Font::memory_face, primitive type spellings such as u32, generic syntax, file paths, backticks, operators, or compact format tags; say their roles in ordinary language. Never spell an all-capital abbreviation or file-format tag aloud letter by letter; replace it with its role. Speak exact tokens only when asked what they mean or how they are spelled. Keep exact names visible in clickable claims and source links."#;
 
 const OUTCOME_TEACHING: &str = r#"Show the changed value/state or outcome, not a copied expression. Keep source expressions in clickable links unless syntax is the lesson. Pair every alternative with its actual guard; distinguish clipped offsets from empty returns. State example assumptions and never generalize from one input."#;
 
@@ -129,7 +129,7 @@ pub(crate) fn prepare_generated_sections(
         if authored_narration.is_none()
             && crate::scene_presentation::has_compact_spoken_code_token(&narration)
         {
-            return Err("Narration contains a compact code abbreviation or format token. Keep exact names in the visible claim and source link; speak what the token does instead. No draft was saved.".into());
+            return Err("Narration contains code-shaped syntax or a compact format token. Keep exact names in the visible claim and source link; speak what the code does instead. No draft was saved.".into());
         }
         if section.claims.iter().any(|claim| match &claim.category {
             chapters::ClaimCategory::Inference { visible_label, .. } => {
@@ -208,7 +208,9 @@ pub(crate) mod tests {
         assert!(instructions.contains("Give every section and scene a reader-facing title"));
         assert!(instructions.contains("PFR0: direct handoff"));
         assert!(instructions.contains("Visual composition review v64"));
-        assert!(instructions.contains("short natural-language actions or outcomes rather than raw identifiers or snake_case"));
+        assert!(instructions.contains(
+            "short natural-language actions or outcomes rather than raw identifiers or snake_case"
+        ));
         assert!(instructions.contains("mutually exclusive enum, match, switch or pattern match over one input uses a branch composition"));
         assert!(instructions.contains("use a selector only when the source actually tries candidates in order and continues after a miss"));
         assert!(
@@ -550,7 +552,7 @@ pub(crate) mod tests {
             let original = draft.clone();
             let error = prepare_generated_sections(&mut draft, None).unwrap_err();
             if original.sections[0].spoken_text.contains("PFR0") {
-                assert!(error.contains("compact code abbreviation or format token"));
+                assert!(error.contains("code-shaped syntax or a compact format token"));
             }
             assert_eq!(draft, original);
         }
