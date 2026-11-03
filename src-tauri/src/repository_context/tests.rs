@@ -638,6 +638,56 @@ fn broad_range_search_prefers_distinct_query_coverage_over_one_rare_term() {
 }
 
 #[test]
+fn broad_range_search_prioritizes_a_distinctive_term_over_more_common_terms() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/common.rs",
+        "axial beta gamma are common implementation terms\n",
+    );
+    for index in 0..38 {
+        add_source(
+            &mut fixture,
+            &format!("src/common-{index:02}.txt"),
+            "axial beta gamma appear in this implementation range\n",
+        );
+    }
+    add_source(
+        &mut fixture,
+        "src/distinctive.txt",
+        "quasar is the distinctive implementation term\n",
+    );
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "axial beta gamma quasar",
+        None,
+        1,
+        &budget,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    assert_eq!(
+        result.matches[0].range.path, "src/distinctive.txt",
+        "a broad query should rank a rare, high-information behavior term ahead of a range containing more common query terms"
+    );
+    assert_eq!(
+        result.matches[0]
+            .query_coverage
+            .as_ref()
+            .expect("broad search reports the terms supporting its ranking")
+            .matched_terms,
+        ["quasar"]
+    );
+}
+
+#[test]
 fn broad_range_search_prefers_query_terms_in_indexed_declarations_over_body_noise() {
     let mut fixture = Fixture::new();
     add_source(
