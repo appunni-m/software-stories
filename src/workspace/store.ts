@@ -303,7 +303,13 @@ export async function revokeWorkspace(projectId: string, snapshotId: string) {
   if (revokeFailed) throw revokeFailure;
 }
 export function stopQuestion(project: string, snapshot: string, id: string) {
-  void stopQuestionAndWait(project,snapshot,id);
+  void stopQuestionAndWait(project,snapshot,id).catch((failure) => {
+    try {
+      patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The question could not be stopped. Try Stop again.')});
+    } catch {
+      // The conversation may already be gone when a delayed Stop callback fails.
+    }
+  });
 }
 async function stopQuestionAndWait(project: string, snapshot: string, id: string): Promise<void> {
   const job = jobs.get(id);
