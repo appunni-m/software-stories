@@ -5377,27 +5377,28 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
           <div className="preflight-heading">
             <div className="empty-state-icon"><FolderOpen size={23} /></div>
             <div>
-              <div className="step-pill"><span>READY</span> PROJECT PREFLIGHT</div>
-              <h2>{project.displayName} is ready for a snapshot.</h2>
-              <p>Code Atlas checked folder access and Git metadata. Repository source files have not been read.</p>
+              <h2>Ready to explore {project.displayName}?</h2>
+              <p>Code Atlas will read a local copy of the code so you can explore how its parts fit together. Your working files stay unchanged.</p>
             </div>
           </div>
-          <dl className="project-facts">
-            <div><dt>Selected folder</dt><dd title={project.selectedPath}>{project.selectedPath}</dd></div>
-            <div><dt>Git root</dt><dd title={project.repositoryRoot}>{project.repositoryRoot}</dd></div>
-            <div><dt>Branch</dt><dd>{project.branch ?? 'Detached or unborn HEAD'}</dd></div>
-            <div><dt>HEAD</dt><dd>{project.head ?? 'No commit yet'}</dd></div>
-            <div><dt>Folder access</dt><dd><span className="access-indicator" />Available</dd></div>
-          </dl>
           <div className="preflight-footer">
-            <div className="privacy-note"><HardDrive size={14} /><span>Only folder and Git metadata were checked. Create snapshot is the action that reads source bytes.</span></div>
+            <div className="privacy-note"><HardDrive size={14} /><span>Your code stays on this Mac until you approve sharing it for an AI explanation.</span></div>
             <AppButton intent="primary" data-focus-key="action:create-snapshot" onClick={onCreateSnapshot} disabled={busy}>
-              <HardDrive size={16} /> {busy ? 'Starting capture…' : 'Create snapshot'} <span>LOCAL</span>
+              <FolderOpen size={16} /> {busy ? 'Starting…' : 'Start exploring'}
             </AppButton>
           </div>
+          <details className="project-facts-details">
+            <summary>Repository details</summary>
+            <dl className="project-facts">
+              <div><dt>Selected folder</dt><dd title={project.selectedPath}>{project.selectedPath}</dd></div>
+              <div><dt>Git root</dt><dd title={project.repositoryRoot}>{project.repositoryRoot}</dd></div>
+              <div><dt>Branch</dt><dd>{project.branch ?? 'Detached or unborn HEAD'}</dd></div>
+              <div><dt>HEAD</dt><dd>{project.head ?? 'No commit yet'}</dd></div>
+              <div><dt>Folder access</dt><dd><span className="access-indicator" />Available</dd></div>
+            </dl>
+          </details>
+          <CapturePolicy limits={limits} />
         </div>
-        <CapturePolicy limits={limits} />
-        <div className="preflight-next-step"><span className="step-number active">1</span><span><strong>Repository selected</strong><small>Source has not been captured</small></span><span className="step-connector" /><span className="step-number">2</span><span><strong>Create snapshot</strong><small>Start a bounded local read</small></span></div>
       </div>
     );
   }
@@ -5419,19 +5420,11 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
           <span className="preview-label label-b">SOURCE EVIDENCE</span>
         </div>
         <div className="empty-card-copy">
-          <div className="step-pill"><span>01</span> START WITH THE CODEBASE</div>
-          <h2>Bring a repository into view.</h2>
-          <p>Code Atlas starts with a read-only local snapshot. Then you can browse the real file tree, inspect exact source, and build explanations file by file.</p>
+          <h2>Understand how your codebase works.</h2>
+          <p>Open a repository to explore its code, see how the parts connect, and trace explanations back to source.</p>
           <AppButton intent="primary" data-focus-key="atlas:open-repository" onClick={onOpen}><FolderOpen size={16} /> Open a local repository <span>⌘O</span></AppButton>
-          <div className="privacy-note"><HardDrive size={14} /><span>Local browsing works without an account, API key, or network connection.</span></div>
+          <div className="privacy-note"><HardDrive size={14} /><span>Your code stays on this Mac until you approve sharing it for an AI explanation.</span></div>
         </div>
-      </div>
-      <div className="empty-steps">
-        <div className="empty-step active"><span className="step-number">1</span><div><strong>Choose a repository</strong><small>Pick a local Git working copy</small></div></div>
-        <div className="step-connector" />
-        <div className="empty-step"><span className="step-number">2</span><div><strong>Capture a snapshot</strong><small>Choose when source is read</small></div></div>
-        <div className="step-connector" />
-        <div className="empty-step"><span className="step-number">3</span><div><strong>Explore the evidence</strong><small>Map, inspect, and understand</small></div></div>
       </div>
     </div>
   );

@@ -212,14 +212,6 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .primary-button span { margin-left: 6px; padding-left: 9px; border-left: 1px solid var(--accent-border); color: var(--accent); font: 12px var(--mono); }
 .privacy-note { display: flex; align-items: center; gap: 7px; margin-top: 15px; color: var(--muted); font-size: 12px; }
 .privacy-note svg { color: var(--accent); }
-.empty-steps { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: center; padding: 13px 15px; border: 1px solid var(--blue-border); border-radius: 10px; background: var(--surface); }
-.empty-step { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 5px; }
-.step-number { width: 25px; height: 25px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--muted); font: 12px var(--mono); }
-.empty-step.active .step-number { color: var(--accent); border-color: var(--accent-border); background: var(--surface-hover); }
-.empty-step strong, .empty-step small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.empty-step strong { color: var(--muted); font-size: 12px; font-weight: 600; }
-.empty-step small { margin-top: 4px; color: var(--muted); font-size: 12px; }
-.step-connector { height: 1px; background: linear-gradient(90deg, var(--surface-hover), var(--text), var(--surface-hover)); }
 .simple-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; text-align: center; }
 .simple-empty .step-pill { margin-top: 14px; }
 .simple-empty h2 { max-width: 560px; margin-top: 12px; }
@@ -362,8 +354,6 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
   .empty-main-card { grid-template-columns: 1fr; }
   .atlas-preview { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--blue-border); }
   .empty-card-copy { padding: 22px 25px 25px; }
-  .empty-steps { grid-template-columns: 1fr; gap: 9px; }
-  .step-connector { width: 1px; height: 10px; margin-left: 17px; }
 }
 
 /* Bounded immutable repository capture */
@@ -828,7 +818,10 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .preflight-heading { display: flex; align-items: flex-start; gap: 18px; }
 .preflight-heading h2 { margin: 10px 0 8px; color: var(--text); font: 600 clamp(20px, 2.1vw, 26px)/1.23 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -.035em; }
 .preflight-heading p { max-width: 620px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
-.project-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 25px; margin: 27px 0 0; border-top: 1px solid var(--blue-border); }
+.project-facts-details { margin-top: 17px; }
+.project-facts-details > summary { width: fit-content; color: var(--muted); font-size: 12px; cursor: pointer; }
+.project-facts-details[open] > summary { margin-bottom: 10px; }
+.project-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 25px; margin: 0; border-top: 1px solid var(--blue-border); }
 .project-facts > div { min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--blue-border); }
 .project-facts dt { margin-bottom: 6px; color: var(--muted); font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .project-facts dd { overflow: hidden; margin: 0; color: var(--muted); font: 12px/1.45 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
@@ -836,13 +829,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .preflight-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 18px; }
 .preflight-footer .privacy-note { max-width: 430px; margin-top: 0; line-height: 1.5; }
 .preflight-footer .primary-button { flex: 0 0 auto; margin-top: 0; }
-.preflight-next-step { width: min(860px, 100%); display: flex; align-items: center; gap: 11px; padding: 14px 15px; border: 1px solid var(--blue-border); border-radius: 10px; background: var(--surface); }
-.preflight-next-step > span:not(.step-number):not(.step-connector) { min-width: 0; }
-.preflight-next-step strong, .preflight-next-step small { display: block; white-space: nowrap; }
-.preflight-next-step strong { color: var(--muted); font-size: 12px; font-weight: 600; }
-.preflight-next-step small { margin-top: 4px; color: var(--muted); font-size: 12px; }
-.preflight-next-step .step-connector { flex: 1; min-width: 24px; }
-.step-number.active { color: var(--accent); border-color: var(--accent-border); background: var(--surface-hover); }
+.project-preflight-card > .capture-policy { margin-top: 10px; }
 
 /* Exact-context Gemini review and local credential setup */
 .source-view-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -1095,7 +1082,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 @media (max-width: 900px) {
   .project-menu { left: 0; }
   .preflight-footer { align-items: flex-start; flex-direction: column; }
-  .preflight-next-step { flex-wrap: wrap; }
+  .project-facts { grid-template-columns: minmax(0,1fr); }
 }
 
 /* Self-contained accepted guide export */

@@ -93,6 +93,18 @@ test('first-run header avoids a duplicate repository action and hides an empty s
   matches(shell,/@container app-window \(max-width: 680px\)\s*\{[\s\S]*?\.topbar\.topbar--no-project-controls\s*\{grid-template-columns:minmax\(0,1fr\);grid-template-areas:"brand" "actions";/);
 });
 
+test('repository onboarding focuses on exploring code and progressively discloses technical details',()=>{
+  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
+  matches(app,/<h2>Understand how your codebase works\.<\/h2>/);
+  matches(app,/<p>Open a repository to explore its code, see how the parts connect, and trace explanations back to source\.<\/p>/);
+  matches(app,/<h2>Ready to explore \{project\.displayName\}\?<\/h2>/);
+  matches(app,/busy \? 'Starting…' : 'Start exploring'/);
+  matches(app,/<details className="project-facts-details">\s*<summary>Repository details<\/summary>/);
+  assert.doesNotMatch(app,/className="empty-steps"|className="preflight-next-step"/);
+  assert.doesNotMatch(shell,/\.empty-steps\s*\{|\.empty-step\s*\{|\.preflight-next-step\s*\{/);
+});
+
 test('scene navigation stays in normal flow and wraps long scene indexes within their track',()=>{
   const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
   matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;[^}]*inset:\s*auto;/);
