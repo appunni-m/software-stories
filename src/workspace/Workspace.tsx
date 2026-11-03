@@ -1219,12 +1219,14 @@ function WorkspaceSharingDetails({kind}:{kind:'question'|'guide'}) {
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
   const compact=Boolean(props.compact);
-  const [guideOutlineState,setGuideOutlineState]=useState<{compact:boolean;open:boolean}|null>(null);
+  const [guideOutlineState,setGuideOutlineState]=useState<{turnId:string;open:boolean}|null>(null);
   const [restoringSavedGuide,setRestoringSavedGuide]=useState(false);
   const [savedGuideRestoreError,setSavedGuideRestoreError]=useState<string|null>(null);
-  // Keep the reader on the explanation. The plan remains one click away in
-  // its summary, while its topic list should not displace the Guide content.
-  const guideOutlineOpen=guideOutlineState?.compact===compact?guideOutlineState.open:false;
+  // Show the outline as soon as planning finishes. Remember an explicit
+  // collapse for this question, while opening the outline for a new guide.
+  const guideOutlineOpen=guideOutlineState?.turnId===turn.id
+    ?guideOutlineState.open
+    :Boolean(turn.guide&&turn.guide.units.length>0);
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
@@ -1308,7 +1310,7 @@ function Answer(props:AnswerProps){
     {!!turn.sourceDiscoveryNotes?.length&&<details className="dw-source-discovery-notes"><summary>How the source was selected</summary><ul>{turn.sourceDiscoveryNotes.map((note)=><li key={note}>{note}</li>)}</ul></details>}
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={props.onStop}><Square size={12}/>Stop</AppButton></>:turn.status==='ready'?null:turn.status==='waiting'?<><span>{waitingMessage}</span>{!props.loading&&guideHasUnavailableSlides&&!savedGuideRestoreError&&props.onRestoreSaved&&<AppButton size="1" intent="quiet" disabled={restoringSavedGuide} onClick={()=>void restoreUnavailableGuide()}>{restoringSavedGuide?'Reopening saved slides…':'Reopen saved slides'}</AppButton>}{!props.loading&&unavailableSequenceCount>0&&availableSequenceCount===0&&!guideHasUnavailableSlides&&<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?guideRecovery.action:'Explain again'}</AppButton>}</>:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?failureMessage??'Some details could not be completed.':failureMessage??'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span>{guideHasUnavailableSlides&&props.onRestoreSaved&&!savedGuideRestoreError?<AppButton size="1" intent="quiet" disabled={restoringSavedGuide} onClick={()=>void restoreUnavailableGuide()}>{restoringSavedGuide?'Reopening saved slides…':'Reopen saved slides'}</AppButton>:<AppButton size="1" intent="quiet" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):isRepositoryGuideIntent(turn.question)?'Start a fresh guide':'Try again'}</AppButton>}</>}</div>
     {savedGuideRestoreError&&guideHasUnavailableSlides&&<><p className="dw-answer-note" role="alert">{savedGuideRestoreError} Nothing was regenerated.</p>{(turn.status==='waiting'||turn.status==='ready')&&<AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton>}</>}
-    {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({compact,open:event.currentTarget.open})}>
+    {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({turnId:turn.id,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
         const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
