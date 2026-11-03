@@ -4,7 +4,7 @@
 //! Immutable generations are published only after both metadata and Tantivy commit succeed.
 
 use crate::{bounded_file, index, snapshot};
-use grep_matcher::Matcher;
+use grep_matcher::{Match, Matcher};
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{Searcher, sinks::UTF8};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,7 @@ const MAX_CANDIDATES: usize = 256;
 const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
 const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
 const MAX_NATURAL_COVERAGE_TERMS: usize = 12;
+const PATTERN_SCAN_WINDOW_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_FILE_DISCOVERY_RESULTS: usize = MAX_CANDIDATES;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
 const MAX_INDEX_OMISSION_PATHS: usize = 8;
@@ -1504,6 +1505,79 @@ fn pattern_matcher(query: &str, mode: SearchMode) -> Result<RegexMatcher, String
     Ok(matcher)
 }
 
+/// Search fixed-string queries in bounded windows so large no-hit scans can
+/// observe cancellation and the local deadline. The overlap covers the
+/// longest possible UTF-8 encoding of a case-folded query: case folding maps
+/// one Unicode scalar to one scalar, and a scalar uses at most four bytes.
+/// Regular expressions keep their whole-slice semantics because an arbitrary
+/// expression can match an unbounded number of bytes across window edges.
+fn find_pattern_at(
+    matcher: &RegexMatcher,
+    haystack: &str,
+    cursor: usize,
+    query: &str,
+    mode: SearchMode,
+    budget: &Budget<'_>,
+) -> Result<Option<Match>, String> {
+    find_pattern_at_with_check(
+        matcher,
+        haystack,
+        cursor,
+        query,
+        mode,
+        PATTERN_SCAN_WINDOW_BYTES,
+        || budget.check(),
+    )
+}
+
+fn find_pattern_at_with_check(
+    matcher: &RegexMatcher,
+    haystack: &str,
+    cursor: usize,
+    query: &str,
+    mode: SearchMode,
+    window_bytes: usize,
+    mut check: impl FnMut() -> Result<(), String>,
+) -> Result<Option<Match>, String> {
+    if mode == SearchMode::Regex {
+        check()?;
+        return matcher
+            .find_at(haystack.as_bytes(), cursor)
+            .map_err(|_| "A captured code snippet could not be searched.".to_owned());
+    }
+    if window_bytes == 0 {
+        return Err("The local code search window is invalid.".to_owned());
+    }
+    let mut start = cursor;
+    if start > haystack.len() || !haystack.is_char_boundary(start) {
+        return Err("The code search offset is outside a UTF-8 boundary.".to_owned());
+    }
+    let overlap = query.chars().count().saturating_mul(4).saturating_sub(1);
+    while start < haystack.len() {
+        check()?;
+        let mut core_end = start.saturating_add(window_bytes).min(haystack.len());
+        while core_end < haystack.len() && !haystack.is_char_boundary(core_end) {
+            core_end += 1;
+        }
+        let mut window_end = core_end.saturating_add(overlap).min(haystack.len());
+        while window_end < haystack.len() && !haystack.is_char_boundary(window_end) {
+            window_end += 1;
+        }
+        let found = matcher
+            .find_at(haystack[start..window_end].as_bytes(), 0)
+            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
+        if let Some(found) = found {
+            let absolute_start = start + found.start();
+            let absolute_end = start + found.end();
+            if absolute_start < core_end || core_end == haystack.len() {
+                return Ok(Some(Match::new(absolute_start, absolute_end)));
+            }
+        }
+        start = core_end;
+    }
+    Ok(None)
+}
+
 pub(crate) fn validate_search_mode(
     query: &str,
     path: Option<&str>,
@@ -1738,6 +1812,7 @@ fn collect_identifier_declarations_from_source(
     source: &snapshot::SnapshotSource,
     ranges: &[&CodeRange],
     snapshot_id: &str,
+    query: &str,
     matcher: &RegexMatcher,
     declarations: &mut Vec<SearchHit>,
     limit: usize,
@@ -1746,10 +1821,14 @@ fn collect_identifier_declarations_from_source(
     let starts = line_starts(&source.contents);
     let mut cursor = 0;
     loop {
-        budget.check()?;
-        let Some(found) = matcher
-            .find_at(source.contents.as_bytes(), cursor)
-            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
+        let Some(found) = find_pattern_at(
+            matcher,
+            &source.contents,
+            cursor,
+            query,
+            SearchMode::Code,
+            budget,
+        )?
         else {
             return Ok(false);
         };
@@ -1878,10 +1957,8 @@ fn search_pattern(
         let mut starts = None;
         let mut cursor = 0;
         while !pattern_limited {
-            budget.check()?;
-            let Some(found) = matcher
-                .find_at(captured.contents.as_bytes(), cursor)
-                .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
+            let Some(found) =
+                find_pattern_at(&matcher, &captured.contents, cursor, query, mode, budget)?
             else {
                 break;
             };
@@ -1995,6 +2072,7 @@ fn search_pattern(
                 &captured,
                 ranges,
                 &manifest.summary.snapshot_id,
+                query,
                 &matcher,
                 &mut declarations,
                 limit,

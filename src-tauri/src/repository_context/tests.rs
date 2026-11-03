@@ -20,6 +20,38 @@ pub(super) fn add_source(fixture: &mut Fixture, path: &str, text: &str) {
 }
 
 #[test]
+fn literal_pattern_scans_are_bounded_cancellable_and_keep_window_crossing_hits() {
+    let query = "target";
+    let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let source = "1234567TARGET and more";
+    let mut checks = 0;
+    let found = find_pattern_at_with_check(&matcher, source, 0, query, SearchMode::Code, 8, || {
+        checks += 1;
+        Ok(())
+    })
+    .unwrap()
+    .unwrap();
+    assert_eq!((found.start(), found.end()), (7, 13));
+    assert_eq!(checks, 1);
+
+    let query = "missing";
+    let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let source = "x".repeat(40);
+    let mut checks = 0;
+    let result =
+        find_pattern_at_with_check(&matcher, &source, 0, query, SearchMode::Code, 8, || {
+            checks += 1;
+            if checks == 3 {
+                Err("Code search stopped.".to_owned())
+            } else {
+                Ok(())
+            }
+        });
+    assert_eq!(result.unwrap_err(), "Code search stopped.");
+    assert_eq!(checks, 3, "no-hit scans check cancellation between windows");
+}
+
+#[test]
 fn covers_unicode_crlf_huge_lines_and_entire_large_declarations() {
     let fixture = Fixture::new();
     let mut symbol = fixture
