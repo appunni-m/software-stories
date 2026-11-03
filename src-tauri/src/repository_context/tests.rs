@@ -34,6 +34,22 @@ fn literal_pattern_scans_are_bounded_cancellable_and_keep_window_crossing_hits()
     assert_eq!((found.start(), found.end()), (7, 13));
     assert_eq!(checks, 1);
 
+    let query = "ka";
+    let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let source = "xKa and more";
+    let found = find_pattern_at_with_check(
+        &matcher,
+        source,
+        0,
+        query,
+        SearchMode::Code,
+        2,
+        || Ok(()),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!((found.start(), found.end()), (1, 5));
+
     let query = "missing";
     let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
     let source = "x".repeat(40);
