@@ -411,7 +411,7 @@ export function openWorkspaceRevision(
           .find((exploration) => exploration.id === existing.exploration.id)?.turns
           .find((turn) => turn.id === existing.turn.id);
         const saved = selectedTurn
-          ? answerReadingPosition(selectedTurn, 'guide', revisionId)
+          ? answerReadingPosition(selectedTurn, 'guide', revisionId, selectedChapter.sections)
           : undefined;
         const sectionId = selectedChapter.sections.some((section) => section.sectionId === saved?.sectionId)
           ? saved!.sectionId

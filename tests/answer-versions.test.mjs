@@ -45,6 +45,19 @@ test('selections preserve immutable receipts, original reading, and revised read
   assert.equal(answerReadingPosition(turn(restored),'guide',accepted.revisionId).sectionId,'section:edited-last');
 });
 
+test('invalid current section falls back to a valid saved position for the same revision',()=>{
+  const restored={...structuredClone(ready),reading:{guide:{revisionId:accepted.revisionId,sectionId:'section:removed'}},answerVersions:[{
+    originalRevisionId:original.revisionId,
+    revisionId:accepted.revisionId,
+    selected:true,
+    reading:{guide:'section:accepted-last'},
+  }]};
+  const sections=[{sectionId:'section:first'},{sectionId:'section:accepted-last'}];
+  assert.equal(answerReadingPosition(restored,'guide',accepted.revisionId,sections)?.sectionId,'section:accepted-last');
+  assert.equal(answerReadingPosition(restored,'guide',accepted.revisionId,[{sectionId:'section:first'}]),undefined,
+    'a removed section safely falls back to the reader start instead of restoring an invalid id');
+});
+
 test('a newly accepted edit never moves the current reader and stale or forged choices fall back safely',()=>{
   let s=workspace();assert.equal(resolveAnswerRevision(original,turn(s),history),original);
   s=select(s,accepted.revisionId);

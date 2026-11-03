@@ -66,11 +66,17 @@ export function resolveAnswerRevision(original: ChapterRevision, turn: Turn, cha
   return answerRevisionOptions(original, chapters).find(r => r.revisionId === selected?.revisionId) ?? original;
 }
 
-export function answerReadingPosition(turn: Turn, view: 'guide' | 'flow', revisionId: string): ReadingPosition | undefined {
+export function answerReadingPosition(
+  turn: Turn,
+  view: 'guide' | 'flow',
+  revisionId: string,
+  sections?: readonly { sectionId: string }[],
+): ReadingPosition | undefined {
+  const sectionExists = (sectionId: string) => !sections || sections.some((section) => section.sectionId === sectionId);
   const saved = turn.reading?.[view];
-  if (saved?.revisionId === revisionId) return saved;
+  if (saved?.revisionId === revisionId && sectionExists(saved.sectionId)) return saved;
   const sectionId = cleanAnswerVersions(turn.answerVersions, turn).find(v => v.revisionId === revisionId)?.reading?.[view];
-  return sectionId ? {revisionId, sectionId} : undefined;
+  return sectionId && sectionExists(sectionId) ? {revisionId, sectionId} : undefined;
 }
 
 export function rememberAnswerVersion(state: WorkspaceState, explorationId: string, turnId: string, originalRevisionId: string, revisionId: string, chapters: readonly ChapterRevision[]): WorkspaceState {
