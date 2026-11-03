@@ -66,16 +66,25 @@ function mergeValue<T>(
 }
 
 const sectionFields=['order','title','prose','spokenText','claims','dependencies','visual','hotspots'] as const;
-type MergeableSectionField=typeof sectionFields[number];
+const independentSectionFields=['order','title','prose','spokenText'] as const;
+type MergeableSectionField=typeof independentSectionFields[number];
+type LinkedSectionEvidence=Pick<ChapterSection,'claims'|'dependencies'|'visual'|'hotspots'>;
 const sameSectionContent=(left:ChapterSection,right:ChapterSection)=>
   left.sectionId===right.sectionId&&sectionFields.every(field=>same(left[field],right[field]));
+
+const linkedEvidence=(section:ChapterSection):LinkedSectionEvidence=>({
+  claims:section.claims,
+  dependencies:section.dependencies,
+  visual:section.visual,
+  hotspots:section.hotspots,
+});
 
 function mergeSection(
   base:ChapterSection,draft:ChapterSection,latest:ChapterSection,
   choices:ChapterRebaseChoices,conflicts:ChapterRebaseConflict[],
 ):ChapterSection {
   const merged={...latest};
-  for(const field of sectionFields){
+  for(const field of independentSectionFields){
     const value=mergeValue<ChapterSection[MergeableSectionField]>(
       `${base.sectionId}:${field}`,
       `${base.title} · ${field==='spokenText'?'narration':field}`,
@@ -84,11 +93,19 @@ function mergeSection(
     // Section fields are independent edit units; identity and revision IDs stay with the newer base.
     (merged as unknown as Record<string,unknown>)[field]=value;
   }
-  return merged;
+  // Claims, their source dependencies/hotspots, and scene visuals share anchor
+  // identities and claim/evidence indexes. Merge this evidence bundle as one
+  // conflict unit so changes from different revisions cannot be cross-wired.
+  const evidence=mergeValue<LinkedSectionEvidence>(
+    `${base.sectionId}:claims`,
+    `${base.title} · claims, citations, and visuals`,
+    linkedEvidence(base),linkedEvidence(draft),linkedEvidence(latest),choices,conflicts,
+  );
+  return {...merged,...evidence};
 }
 
-/** Three-way rebase of editable chapter text. Arrays with linked evidence are
- * atomic fields, so overlapping changes require an explicit draft/latest choice. */
+/** Three-way rebase of editable chapter text. The evidence bundle is atomic,
+ * so overlapping claim, citation, or visual changes require an explicit choice. */
 export function rebaseChapterDraft(
   base:ChapterRevision,latest:ChapterRevision,draft:ChapterRevision,
   choices:ChapterRebaseChoices={},
