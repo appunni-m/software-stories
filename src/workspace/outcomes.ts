@@ -343,7 +343,7 @@ export function openWorkspaceQuestion(
     && (owner.focusedTurnId === turnId || currentlyDisplayedTurnId === turnId);
   const key = questionOutcomeKey(turn);
   const read = key ? markQuestionOutcome(state, explorationId, turnId, key, 'read') : state;
-  return { ...read, currentId: owner.id, file: owner.file ?? state.file,
+  return { ...read, currentId: owner.id, file: owner.file ?? null,
     explorations: read.explorations.map((e) => e.id !== owner.id ? e : {
       ...e, view: 'guide', focusedTurnId: turnId,
       // Reopening the already selected question from History must keep the
