@@ -44,6 +44,16 @@ it('turns the reported missing-identifier claim error into actionable private co
   assert.doesNotMatch(result, /section:|record_pipeline_operation_path/u);
 });
 
+it('shows the Codex runtime recovery directly when a Code Lens request is rejected before source delivery', () => {
+  const message = explanationErrorMessage(
+    'The Codex account or runtime changed or is unavailable. Reconnect, load models and prepare a fresh review before sending source.',
+  );
+  assert.match(message, /Codex session changed/u);
+  assert.match(message, /Reconnect in the header/u);
+  assert.match(message, /No source was sent/u);
+  assert.doesNotMatch(message, /runtime changed or is unavailable|prepare a fresh review/u);
+});
+
 it('turns a rejected empty answer into a useful, private retry hint', () => {
   const message = explanationFailureMessage('noPublishedSections');
   assert.match(message, /couldn’t verify an explanation/);

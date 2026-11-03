@@ -45,6 +45,9 @@ export function providerFailureMessage(failure: ProviderFailure): string {
 /** Keep current source-validation identifiers out of the reading workspace. */
 export function explanationErrorMessage(error: string): string {
   if (error === 'The answer did not publish any sections.') return explanationFailureMessage('noPublishedSections')!;
+  if (error === 'The Codex account or runtime changed or is unavailable. Reconnect, load models and prepare a fresh review before sending source.') {
+    return 'Code Atlas could not send this request because the Codex session changed. Reconnect in the header, refresh models, and try again. No source was sent.';
+  }
   if (/^This conversation changed in another window\./u.test(error)) {
     return 'Your question is still here, but it was not sent because this conversation changed in another window. Choose “Keep this window” or “Keep saved value” above, then try again.';
   }
