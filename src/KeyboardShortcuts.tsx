@@ -1,4 +1,5 @@
-import {Button,Dialog,Flex,Table} from '@radix-ui/themes';
+import {Dialog,Flex,Table} from '@radix-ui/themes';
+import {AppButton} from './design/AppButton';
 
 const shortcuts=[
   ['Quick open a file','⌘P'],['Show the flow','⌘K'],['Focus the Explorer','⌘⇧E'],
@@ -20,7 +21,7 @@ export function KeyboardShortcuts({open,onOpenChange}:{open:boolean;onOpenChange
         <Table.Header><Table.Row><Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell><Table.ColumnHeaderCell>Shortcut</Table.ColumnHeaderCell></Table.Row></Table.Header>
         <Table.Body>{shortcuts.map(([action,keys])=><Table.Row key={action}><Table.RowHeaderCell>{action}</Table.RowHeaderCell><Table.Cell><kbd>{keys}</kbd></Table.Cell></Table.Row>)}</Table.Body>
       </Table.Root>
-      <Flex justify="end" mt="4"><Dialog.Close><Button>Done</Button></Dialog.Close></Flex>
+      <Flex justify="end" mt="4"><Dialog.Close><AppButton intent="primary">Done</AppButton></Dialog.Close></Flex>
     </Dialog.Content>
   </Dialog.Root>;
 }

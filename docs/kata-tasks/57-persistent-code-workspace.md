@@ -165,3 +165,12 @@ selection callback, disabled state, tooltip, accessible name, icon and default
 non-submit behavior remain unchanged. This is source-only; no build, test, or
 packaged visual review ran. Keep the broader component and accessibility
 acceptance open.
+
+## Dialog action migration — 3 November 2026
+
+The production citation editor and keyboard-shortcuts dialog now use the shared
+`AppButton` for trigger, cancel, submit, and close actions. Form submit remains
+an explicit submit; dialog close/cancel remain non-submit controls. The
+citation trigger and cancel use quiet/secondary intents, and **Use these
+lines** and **Done** use the primary intent. No build, test, or packaged dialog
+review ran; wider shared-component and accessibility acceptance remains open.

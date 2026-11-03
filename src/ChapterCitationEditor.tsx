@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { Button, Dialog, Flex, Text, TextField } from '@radix-ui/themes';
+import { Dialog, Flex, Text, TextField } from '@radix-ui/themes';
 import { repairChapterCitation, type ChapterSourceAnchor } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
+import { AppButton } from './design/AppButton';
 
 export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,anchor,paths,disabled,open,onOpenChange,onApply}:{
   projectId:string;baseRevisionId:string;snapshotId:string;anchor:ChapterSourceAnchor;paths:string[];disabled:boolean;
@@ -30,7 +31,7 @@ export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,ancho
     finally{if(ticket===request.current)setBusy(false);}
   };
   return <Dialog.Root open={open} onOpenChange={changeOpen}>
-    <Dialog.Trigger><Button size="1" variant="ghost" disabled={disabled}>Change citation</Button></Dialog.Trigger>
+    <Dialog.Trigger><AppButton size="1" intent="quiet" disabled={disabled}>Change citation</AppButton></Dialog.Trigger>
     <Dialog.Content maxWidth="560px">
       <Dialog.Title>Choose supporting code</Dialog.Title>
       <Dialog.Description size="2">Choose the code that supports this claim. Review its narration and visuals after changing the citation.</Dialog.Description>
@@ -42,7 +43,7 @@ export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,ancho
             <label><Text as="div" size="2" mb="1">To line</Text><TextField.Root aria-label="Citation to line" type="number" min="1" max="4294967295" step="1" required value={to} disabled={busy} onChange={event=>{setTo(event.target.value);setError(null);}}/></label>
           </Flex>
           {error&&<Text as="p" size="2" color="red" role="alert">{error}</Text>}
-          <Flex justify="end" gap="3" mt="2"><Dialog.Close><Button type="button" variant="soft" color="gray">Cancel</Button></Dialog.Close><Button type="submit" disabled={busy||disabled}>{busy?'Reading source…':'Use these lines'}</Button></Flex>
+          <Flex justify="end" gap="3" mt="2"><Dialog.Close><AppButton type="button" intent="secondary" color="gray">Cancel</AppButton></Dialog.Close><AppButton type="submit" intent="primary" disabled={busy||disabled}>{busy?'Reading source…':'Use these lines'}</AppButton></Flex>
         </Flex>
       </form>
     </Dialog.Content>
