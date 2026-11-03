@@ -1597,6 +1597,11 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
   .git-comparison-results-compact .git-results-header {grid-template-columns:minmax(0,1fr);}
   .git-comparison-results-compact .git-compact-surfaces {justify-self:start;}
 }
+@container git-result (max-width: 720px) {
+  .git-compact-browser {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,150px) minmax(0,1fr);}
+  .git-compact-files {display:grid;grid-template-columns:repeat(auto-fill,minmax(min(175px,100%),1fr));align-content:start;border-right:0;border-bottom:1px solid var(--border);}
+  .git-compact-files > header {grid-column:1/-1;}
+}
 @media(max-width:850px) {
   .git-compact-browser {height:clamp(430px,64vh,760px);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,150px) minmax(0,1fr);}
   .git-compact-files {display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));align-content:start;border-right:0;border-bottom:1px solid var(--border);}

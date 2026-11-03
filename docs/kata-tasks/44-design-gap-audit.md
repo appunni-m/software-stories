@@ -567,3 +567,18 @@ removal, whitespace normalization and sentence-ending punctuation cleanup.
 This keeps useful distinct values while avoiding a second copy of the same
 visual cue. Source-only correction; no build, test or packaged recheck ran.
 Keep the full visual-quality and packaged UI acceptance open.
+
+### Changes diff panel at narrow pane widths — source correction, 3 November 2026
+
+The live Fontdone Changes screen showed the changed-file list taking most of a
+narrow explanation pane while the selected diff was squeezed into a clipped
+sliver. The responsive split had only a viewport-width media query, so it did
+not activate when the overall app window was wide but the resizable explanation
+pane was narrow. A container query now stacks the file list above a full-width
+diff whenever the compact comparison is 720 CSS pixels wide or less. File
+selection remains visible as a compact multi-column strip.
+
+This corrects the identified source layout rule. No test, build, or packaged
+reinstall ran; the currently open app still shows the pre-change layout. Keep
+`x21h` and `13yp` open until the packaged narrow-pane layout and related
+accessibility states are reviewed.
