@@ -1352,3 +1352,25 @@ section limit remains unchanged.
 Source review only. No tests, build, model request, audio synthesis/listening,
 or packaged-app review ran. This widens the contract but does not prove better
 stories, pacing or comprehension; keep `j53m` open.
+
+## Current source contract audit — 3 November 2026
+
+The current source declares `ai-html-compositions-v71`, `meaning-first-v33`,
+and `reader-language-v1` in
+[`visual_scenes.rs`](../../src-tauri/src/provider/visual_scenes.rs). The
+versioned prompt chooses a typed composition or graph for each claim scene from
+the source-backed mechanism; it rejects decorative card piles and keeps the
+HTML, styling, and interactions app-owned. Scene narration follows the real
+input, decision or change, and caller-visible consequence, preserving all
+claim outcomes in order. These are source-contract facts, not a quality result.
+
+The latest relevant prompt changes are dated 1 November: select visual forms
+from source behavior (`7d96ae2`), improve scene-label guidance (`4cdebf3`),
+reject unchanged transform scenes (`676fec9`), allow a complete causal narration
+beat (`b2c1991`), and clarify spoken code terms (`4666f54`). The older October
+entries above remain historical observations of the earlier prompt versions.
+
+No fresh chapter, source-click walkthrough, human comprehension review,
+200%-zoom/keyboard/reduced-motion inspection, Pocket listening, or offline
+export was performed for this audit. Do not infer visual variety or teaching
+quality from the prompt/schema alone; keep `j53m` open.
