@@ -230,7 +230,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       </>}
       {needsWorkspacePermission && <>
         <p>Allow Code Atlas to use this captured snapshot to find relevant code for your question.</p>
-        <p className="provider-small-note">Your question and a compact repository map are shared with your connected Codex account. Relevant captured code may be sent when you ask for an explanation; your live working copy is not included. You can revoke access in Repository sharing. Your Codex account usage applies.</p>
+        <p className="provider-small-note">Your question and a compact map of this captured snapshot (file paths, code names, and relationships) are shared with your connected Codex account to find relevant code. Relevant captured code may be sent when you ask for an explanation; your live working copy is not included. You can revoke access in Repository sharing. Your Codex account usage applies.</p>
       </>}
       {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
