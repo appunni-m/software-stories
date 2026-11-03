@@ -167,7 +167,7 @@ export function GitChangesScreen({
             if (compact && !busy) setComparisonOptionsOpen(event.currentTarget.open);
           }}
         ><summary onClick={(event) => { if (busy) event.preventDefault(); }}>
-          <span>Compare branches or tags</span>
+          <span>Compare versions</span>
           {compact && matchingComparison && <span
             className="git-compare-summary-pair"
             title={`From ${matchingComparison.baseRef} to ${matchingComparison.headRef}`}
