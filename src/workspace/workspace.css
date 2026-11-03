@@ -193,10 +193,6 @@
 .dw-consent-request-scope ul {display:grid;gap:var(--space-1);margin:0;padding:0;list-style:none;}
 .dw-consent-request-scope li {min-width:0;overflow-wrap:anywhere;color:var(--muted);font-size:12px;}
 .dw-consent-request-scope code {overflow-wrap:anywhere;color:var(--text);font:12px/1.5 var(--mono);}
-.dw-code-review-preview {min-width:0;margin-top:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:8px;background:var(--surface);}
-.dw-code-review-preview summary {cursor:pointer;color:var(--text);font-size:12px;font-weight:600;overflow-wrap:anywhere;}
-.dw-code-review-preview pre {max-height:min(32vh,280px);margin:var(--space-2) 0;padding:var(--space-2);overflow:auto;border-radius:6px;background:var(--canvas);color:var(--text);font:11px/1.55 var(--mono);white-space:pre;}
-.dw-code-review-preview small {display:block;color:var(--muted);font-size:11px;line-height:1.5;}
 .dw-permission-note {font-size:13px;line-height:1.8;color:var(--muted);margin-top:var(--space-4);}
 .dw-library {border-top:1px solid var(--border);margin-top:var(--space-5);padding-top:var(--space-4);}
 .dw-library summary {cursor:pointer;color:var(--muted);font-size:12px;}
