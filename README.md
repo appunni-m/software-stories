@@ -2,7 +2,7 @@
 
 Code Atlas is an in-progress macOS app for understanding a repository from its captured source. Ask about the code, follow a visual Guide or Flow, and open cited lines beside the explanation. You choose when to move on or explore a detail.
 
-**There is no signed, notarized installer or public app download yet.** To try the native app, run it from a source checkout using the [getting-started guide](docs/GETTING_STARTED.md). The browser [design preview](workspace-preview.html) uses sample data; it does not read a repository, call an AI provider, or synthesize narration.
+**There is no signed, notarized installer or public app download yet.** To try the native app, run it from a source checkout using the [getting-started guide](docs/GETTING_STARTED.md). The local [browser design preview](#run-from-source) uses sample data; it does not read a repository, call an AI provider, or synthesize narration.
 
 ## What works in the current app
 
