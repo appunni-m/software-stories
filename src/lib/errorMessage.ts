@@ -59,7 +59,7 @@ export function explanationErrorMessage(error: string): string {
   if (/^Claim(?: '[^']+')? in section '[^']+' does not name its declared identifier '[^']+' in the explanation\.$/u.test(error)) {
     return 'A required code name was missing from a cited claim, so that explanation could not be verified and nothing was saved. Try a narrower question or select the lines where that code is used.';
   }
-  if (/^Claim in section '[^']+' does not connect identifier '[^']+' to the cited code\.$/u.test(error)) {
+  if (/^Claim(?: '[^']+')? in section '[^']+' does not connect identifier '[^']+' to the cited code\.$/u.test(error)) {
     return 'The explanation’s code names did not match its cited source, so nothing was saved. Try a narrower question or select the lines where that code is used.';
   }
   if (
