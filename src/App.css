@@ -64,7 +64,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-refresh-button > svg { flex: 0 0 auto; }
 .topbar .brand-mark { height:27px; width:27px; border:0; border-radius:6px; }
 .topbar .brand-name { font-size:14px; font-weight:650; letter-spacing:-.04em; }
-.topbar .project-controls { flex:0 1 auto; flex-wrap:wrap; gap:8px; width:auto; max-width:100%; }
+/* Keep the desktop toolbar on one predictable row. Compact container queries below opt into two-row reflow. */
+.topbar .project-controls { flex:0 1 auto; flex-wrap:nowrap; gap:8px; width:auto; max-width:100%; }
 .topbar .project-button, .topbar .snapshot-button { box-sizing:border-box; min-width:0; max-width:min(28cqi,360px); }
 .topbar .snapshot-button { max-width:min(24cqi,280px); }
 .topbar .project-button > span, .topbar .snapshot-button > span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -72,7 +73,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .topbar .snapshot-refresh-button { align-self:center; margin:0!important; }
 .topbar .connection-header { flex:0 1 300px; min-width:0; justify-self:end; width:auto; max-width:min(25cqi,320px); }
 .topbar .connection-header-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.topbar .topbar-actions { gap:8px; }
+.topbar .topbar-actions { gap:8px; flex-wrap:nowrap; }
 .snapshot-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; width: min(355px, calc(100vw - 24px)); max-height: min(470px, calc(100dvh - 24px)); overflow: auto; padding: 7px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--surface-raised); box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 60%, transparent); }
 .snapshot-menu > button { width: 100%; min-height: 66px; display: flex; align-items: center; gap: 10px; padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
 .snapshot-menu > button:hover, .snapshot-menu > button[aria-current="true"] { background: var(--blue-soft); color: var(--text); }
