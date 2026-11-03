@@ -280,37 +280,52 @@ export async function authorizeWorkspace(projectId: string, snapshotId: string) 
 }
 export async function revokeWorkspace(projectId: string, snapshotId: string) {
   const grantId = getWorkspace(projectId,snapshotId).grantId;
-  // Stop first, including a queued operation. Revalidation rejects revoked grants at dispatch.
-  for (const e of getWorkspace(projectId,snapshotId).explorations) for (const t of e.turns) if (jobs.has(t.id) || ['queued','working','interrupted'].includes(t.status)) stopQuestion(projectId,snapshotId,t.id);
-  if (grantId) await invoke('revoke_workspace_exploration', { grantId });
-  updateWorkspace(projectId,snapshotId,(s) => ({ ...s, grantId: undefined }));
+  let revokeFailed = false;
+  let revokeFailure: unknown;
+  // Remove permission first so no new retrieval call can start with this grant.
+  // Even if revocation fails, still request Stop for every known active worker.
+  if (grantId) {
+    try {
+      await invoke('revoke_workspace_exploration', { grantId });
+      updateWorkspace(projectId,snapshotId,(s) => s.grantId === grantId ? { ...s, grantId: undefined } : s);
+    } catch (failure) {
+      revokeFailed = true;
+      revokeFailure = failure;
+    }
+  }
+  // Wait until each native Stop request has been recorded before reporting
+  // completion. Promise.allSettled allows successful revocation to stand even
+  // when a worker cannot be stopped cleanly.
+  const stops = getWorkspace(projectId,snapshotId).explorations.flatMap((e) => e.turns)
+    .filter((t) => jobs.has(t.id) || ['queued','working','interrupted'].includes(t.status))
+    .map((t) => stopQuestionAndWait(projectId,snapshotId,t.id));
+  await Promise.allSettled(stops);
+  if (revokeFailed) throw revokeFailure;
 }
 export function stopQuestion(project: string, snapshot: string, id: string) {
+  void stopQuestionAndWait(project,snapshot,id);
+}
+async function stopQuestionAndWait(project: string, snapshot: string, id: string): Promise<void> {
   const job = jobs.get(id);
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
   const guideId = turn?.guideId;
   if (turn && guideId) {
     if (job) job.cancelled = true;
-    if ((job && !job.runId) || (!turn.guide && !turn.runIds?.length && !job?.runId)) {
-      // Another webview can own this guide while our conversation has only
-      // restored the turn ID, not its guide summary. Stop by the stable native
-      // guide ID even before a local run ID or saved summary is available.
-      void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId}).then(async()=>{
-        if(turn.guide)await restoreRepositoryGuide(project,snapshot,guideId);
-        else patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
-      }).catch((failure)=>{
-        patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The guide could not be stopped. Try Stop again.')});
-      });
-      return;
-    }
-    void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId}).then(() => restoreRepositoryGuide(project,snapshot,guideId)).catch((failure) => {
+    try {
+      // Stop by the stable native guide ID even when this renderer has no
+      // summary or run ID. Another webview may still own the active worker.
+      await invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId});
+      if(turn.guide)await restoreRepositoryGuide(project,snapshot,guideId);
+      else patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
+    } catch (failure) {
       patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The guide could not be stopped. Try Stop again.')});
-    });
+    }
     return;
   }
   const runId = job?.runId ?? turn?.runIds?.at(-1);
   if (runId) {
-    void stopWorkspaceGenerationJob(runId,project,snapshot).then((saved) => {
+    try {
+      const saved = await stopWorkspaceGenerationJob(runId,project,snapshot);
       if (job) job.cancelled = true;
       const status = saved.state === 'completed' ? 'ready'
         : saved.state === 'partiallyCompleted' ? 'partial'
@@ -318,11 +333,11 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
         : saved.state === 'interrupted' ? 'interrupted'
         : 'stopped';
       if (patchTurnForLatestRun(project,snapshot,id,runId,{status,error:undefined}) && (status === 'ready' || status === 'partial')) {
-        void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
+        await restoreWorkspaceAnswers(project,snapshot).catch(() => {});
       }
-    }).catch((failure) => {
+    } catch (failure) {
       patchTurnForLatestRun(project,snapshot,id,runId,{error:errorMessageOr(failure,'The question could not be stopped. Try Stop again.')});
-    });
+    }
     return;
   }
   if (job) job.cancelled = true;
