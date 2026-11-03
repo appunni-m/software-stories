@@ -6,6 +6,7 @@ import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSn
 import { GitHistoryEmptyContext } from './workspace/gitHistoryContext';
 import { AppButton } from './design/AppButton';
 import { AppTextField } from './design/AppTextField';
+import { shortGitRef } from './lib/gitRefs';
 import {
   compareLocalGitRevisions,
   cancelLocalGitComparison,
@@ -233,10 +234,6 @@ export function GitChangesScreen({
       />}
     </div>
   );
-}
-
-function shortGitRef(ref: string): string {
-  return /^[a-f\d]{40,64}$/i.test(ref) ? ref.slice(0, 8) : ref;
 }
 
 function ComparisonResults({

@@ -22,6 +22,7 @@ import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad
 import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
+import { shortGitRef } from './lib/gitRefs';
 import { createLargeFileExplanation, pendingLargeFileExplanation, requiresBoundedFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
 import type { LargeFileDiscoveryHandoff } from './lib/sourceDiscovery';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
@@ -451,7 +452,7 @@ function App() {
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
   const footerContext = currentWorkspace === 'changes'
     ? navigation.current.baseRef && navigation.current.headRef
-      ? `${navigation.current.baseRef} → ${navigation.current.headRef}`
+      ? `${shortGitRef(navigation.current.baseRef)} → ${shortGitRef(navigation.current.headRef)}`
       : 'Choose comparison'
     : selectedSnapshot?.branch ?? '';
   const captureNotifications = Object.entries(captureByProject).flatMap(([projectId, progress]) => {
