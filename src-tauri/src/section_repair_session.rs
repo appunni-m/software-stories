@@ -892,6 +892,36 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_json_keys_are_rejected_when_loading_or_listing_sessions() {
+        let temp = TempDir::new();
+        let base = base();
+        let session = get_or_create(&temp.0, &base, &report(&base)).unwrap();
+        let path = session_path(&temp.0, &base.project_id, &session.session_id).unwrap();
+        let serialized = fs::read_to_string(&path).unwrap();
+        let ambiguous = serialized.replacen(
+            "\"schemaVersion\":1",
+            "\"schemaVersion\":1,\"schemaVersion\":1",
+            1,
+        );
+        assert_ne!(
+            ambiguous, serialized,
+            "the fixture must contain a duplicate key"
+        );
+        fs::write(&path, ambiguous).unwrap();
+
+        assert!(
+            load(&temp.0, &base.project_id, &session.session_id)
+                .unwrap_err()
+                .contains("corrupt or unsupported")
+        );
+        assert!(
+            list_for_project(&temp.0, &base.project_id)
+                .unwrap_err()
+                .contains("corrupt or unsupported")
+        );
+    }
+
+    #[test]
     fn freshness_report_must_cover_exactly_the_accepted_sections() {
         let base = base();
         let mut report = report(&base);
