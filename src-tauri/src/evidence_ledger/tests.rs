@@ -8,6 +8,9 @@ fn runtime() -> CodexReviewRuntime {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
+        runtime_version_source: Some(
+            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
+        ),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     }

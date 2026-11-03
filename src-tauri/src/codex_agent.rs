@@ -8,7 +8,7 @@
 //! Reviewed file, section, plan and Git requests use supplied evidence. Command/web access remains
 //! disabled and unexpected tool events are rejected in either path.
 
-use crate::codex_identity::{self, CodexReviewRuntime};
+use crate::codex_identity::{self, CodexReviewRuntime, CodexRuntimeVersionSource};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -48,6 +48,7 @@ const UPGRADE: &str = "Code Atlas could not verify the required explanation prot
 pub(crate) struct CodexAgentStatus {
     pub executable_path: Option<String>,
     pub runtime_version: Option<String>,
+    pub runtime_version_source: Option<CodexRuntimeVersionSource>,
     pub runtime_running: bool,
     pub authenticated: bool,
     pub account_email: Option<String>,
@@ -63,6 +64,7 @@ impl Default for CodexAgentStatus {
         Self {
             executable_path: None,
             runtime_version: None,
+            runtime_version_source: None,
             runtime_running: false,
             authenticated: false,
             account_email: None,
@@ -401,6 +403,7 @@ impl CodexAgentManager {
                     slot.take();
                     self.update_status(|status| {
                         status.runtime_version = None;
+                        status.runtime_version_source = None;
                         status.runtime_running = false;
                         status.authenticated = false;
                         status.pending_login_id = None;
@@ -408,13 +411,17 @@ impl CodexAgentManager {
                     });
                 } else {
                     let runtime_version = process.runtime_version.clone();
+                    let runtime_version_source = process.runtime_version_source;
                     let account = process.request(
                         "account/read",
                         json!({"refreshToken": false}),
                         RPC_TIMEOUT,
                     )?;
                     self.remember_account(&account);
-                    self.update_status(|status| status.runtime_version = Some(runtime_version));
+                    self.update_status(|status| {
+                        status.runtime_version = Some(runtime_version);
+                        status.runtime_version_source = runtime_version_source;
+                    });
                 }
             } else if let Some(path) = configured_executable(storage_dir)? {
                 self.update_status(|status| {
@@ -515,6 +522,9 @@ impl CodexAgentManager {
             &process.executable,
             &process.executable_sha256,
             &process.runtime_version,
+            process
+                .runtime_version_source
+                .ok_or_else(codex_identity::changed)?,
             process.account_revision,
             &account,
         )
@@ -689,6 +699,7 @@ impl CodexAgentManager {
         slot.take();
         self.update_status(|status| {
             status.runtime_version = None;
+            status.runtime_version_source = None;
             status.runtime_running = false;
             status.authenticated = false;
             status.account_email = None;
@@ -1001,6 +1012,7 @@ impl CodexAgentManager {
             slot.take();
             self.update_status(|status| {
                 status.runtime_version = None;
+                status.runtime_version_source = None;
                 status.runtime_running = false;
                 status.authenticated = false;
                 status.account_email = None;
@@ -1094,10 +1106,12 @@ impl CodexAgentManager {
                 cancelled.clone(),
             )?;
             let runtime_version = process.runtime_version.clone();
+            let runtime_version_source = process.runtime_version_source;
             *slot = Some(process);
             self.update_status(|status| {
                 status.executable_path = Some(executable.to_string_lossy().into_owned());
                 status.runtime_version = Some(runtime_version);
+                status.runtime_version_source = runtime_version_source;
                 status.runtime_running = true;
                 status.capability_checked = true;
                 status.message =
@@ -1180,6 +1194,7 @@ struct ServerProcess {
     executable: PathBuf,
     executable_sha256: String,
     runtime_version: String,
+    runtime_version_source: Option<CodexRuntimeVersionSource>,
     connection_id: String,
     account_revision: u64,
     scope_epoch: Arc<AtomicU64>,
@@ -1342,6 +1357,7 @@ impl ServerProcess {
             executable: executable.to_owned(),
             executable_sha256,
             runtime_version: String::new(),
+            runtime_version_source: None,
             connection_id: Uuid::new_v4().to_string(),
             account_revision: 0,
             scope_epoch,
@@ -1355,7 +1371,9 @@ impl ServerProcess {
             json!({"clientInfo": {"name": "code_atlas", "title": "Code Atlas", "version": env!("CARGO_PKG_VERSION")}, "capabilities": {"experimentalApi": true}}),
             RPC_TIMEOUT,
         )?;
-        process.runtime_version = codex_runtime_version(&initialized)?;
+        let runtime_version = codex_runtime_version(&initialized)?;
+        process.runtime_version = runtime_version.version;
+        process.runtime_version_source = Some(runtime_version.source);
         process.write(&json!({"method": "initialized"}))?;
         let configuration =
             process.request("config/read", json!({"includeLayers": false}), RPC_TIMEOUT)?;
@@ -3021,7 +3039,13 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
         .ok_or_else(|| format!("Codex returned an invalid {key} field."))
 }
 
-fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
+#[derive(Debug)]
+struct ObservedCodexRuntimeVersion {
+    version: String,
+    source: CodexRuntimeVersionSource,
+}
+
+fn codex_runtime_version(initialize: &Value) -> Result<ObservedCodexRuntimeVersion, String> {
     let server_info_version = initialize
         .get("serverInfo")
         .and_then(|server_info| server_info.get("version"))
@@ -3038,11 +3062,20 @@ fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
         .and_then(|user_agent| user_agent.split_once('/').map(|(_, value)| value))
         .and_then(|value| value.split_whitespace().next())
         .filter(|version| valid_codex_version(version));
-    let version = server_info_version.or(user_agent_version).ok_or_else(|| {
-        "Codex did not report a valid app-server version in initialize serverInfo.version or userAgent."
-            .to_owned()
-    })?;
-    Ok(version.to_owned())
+    let (version, source) = if let Some(version) = server_info_version {
+        (version, CodexRuntimeVersionSource::ServerInfoVersion)
+    } else if let Some(version) = user_agent_version {
+        (version, CodexRuntimeVersionSource::UserAgent)
+    } else {
+        return Err(
+            "Codex did not report a valid app-server version in initialize serverInfo.version or userAgent."
+                .to_owned(),
+        );
+    };
+    Ok(ObservedCodexRuntimeVersion {
+        version: version.to_owned(),
+        source,
+    })
 }
 
 fn valid_codex_version(version: &str) -> bool {
@@ -3182,29 +3215,28 @@ mod tests {
 
     #[test]
     fn runtime_version_prefers_initialize_server_info_then_falls_back_to_user_agent() {
-        assert_eq!(
-            codex_runtime_version(&json!({
-                "serverInfo": {"version": "0.166.1"},
-                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
-            }))
-            .unwrap(),
-            "0.166.1"
-        );
-        assert_eq!(
-            codex_runtime_version(&json!({
-                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
-            }))
-            .unwrap(),
-            "0.166.0-alpha.5.1"
-        );
-        assert_eq!(
-            codex_runtime_version(&json!({
-                "serverInfo": {"version": "invalid"},
-                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
-            }))
-            .unwrap(),
-            "0.166.0-alpha.5.1"
-        );
+        let observed = codex_runtime_version(&json!({
+            "serverInfo": {"version": "0.166.1"},
+            "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
+        }))
+        .unwrap();
+        assert_eq!(observed.version, "0.166.1");
+        assert_eq!(observed.source, CodexRuntimeVersionSource::ServerInfoVersion);
+
+        let observed = codex_runtime_version(&json!({
+            "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
+        }))
+        .unwrap();
+        assert_eq!(observed.version, "0.166.0-alpha.5.1");
+        assert_eq!(observed.source, CodexRuntimeVersionSource::UserAgent);
+
+        let observed = codex_runtime_version(&json!({
+            "serverInfo": {"version": "invalid"},
+            "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
+        }))
+        .unwrap();
+        assert_eq!(observed.version, "0.166.0-alpha.5.1");
+        assert_eq!(observed.source, CodexRuntimeVersionSource::UserAgent);
         for initialize in [
             json!({"serverInfo": {"version": "invalid"}}),
             json!({"userAgent": "code_atlas"}),
@@ -3593,6 +3625,9 @@ mod section_publication_tests {
             executable_path: "/usr/local/bin/codex".into(),
             executable_sha256: "a".repeat(64),
             runtime_version: Some("fixture-runtime-1".to_owned()),
+            runtime_version_source: Some(
+                crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
+            ),
             account_identity_sha256: "b".repeat(64),
             account_revision: 1,
         }
