@@ -64,7 +64,7 @@ fn read_tools() -> Vec<Tool> {
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Auto is the default: broad natural-language queries discover likely files by distinct query-term coverage, while identifiers, code syntax, short phrases, and scoped searches return ranges. File discovery returns at most {FILE_DISCOVERY_LIMIT} paths per page; range search returns at most {SEARCH_PAGE_LIMIT} ranges per page. Prefer an exact identifier or a short distinctive phrase for code search. For broad multiword queries, queryCoverage.matchedTerms lists scored terms matched by each result and totalTerms counts terms in that bounded coverage signal; unscoredTerms lists natural-query terms omitted only from per-term coverage ranking. All query terms still participate in lexical search, and all eligible non-scaffolding terms participate in broad file discovery; stemming may match inflected forms. Repository coverage and index omissions are included with the first successful search only; later searches keep their response smaller. Range search also adds bounded per-term candidates, helping relevant ranges survive the combined-query candidate cap. Coverage is a lexical retrieval signal, not proof that a result answers the question. Treat files as selection hints, not evidence of behavior. Inspect nextOffset only when another page may close a concrete gap, then search ranges within promising paths; read_code proves details. For broad behavior questions, search important operations separately and use definitions and relationships to follow actual code. If broad discovery returns no candidates because no content terms remain, do not repeat generic wording or select an arbitrary path. For repository orientation, use one bounded root listing and inspect concrete code entry points; for a specific but underspecified behavior, ask one concise clarification. An exact search repeated after success returns duplicateSearch; reuse the existing result or change the query, scope, or page offset to investigate a missing part. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. The bounded candidate window contains at most 256 results. Results include capture/index omissions. `indexLimitOmissions` reports full counts for `localRangeLimit` and `localSourceByteLimit`, plus up to eight corresponding safe paths in `files`; `filesTruncated` signals that more path details were withheld. Excluded and secret-filtered paths are not listed. If coverage.sourceByteLimitedFiles is nonzero, the local source budget left captured files out of the index; do not claim full-repository coverage. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code before making claims.",
+            "Search captured source lexically, not semantically; multiword queries can be noisy. Auto is the default: broad natural-language queries discover likely files, while identifiers, code-like phrases and scoped queries return ranges. For broad behavior questions, discover likely paths first, search important operations separately within those paths, then call read_code before claiming behavior. A global range page is not repository coverage. File discovery returns at most {FILE_DISCOVERY_LIMIT} paths per page and range search returns at most {SEARCH_PAGE_LIMIT} ranges per page; the ranked candidate window is at most 256. Follow nextOffset only to close a concrete gap. Exact identifiers and distinctive phrases work best for focused searches. queryCoverage.matchedTerms and totalTerms report scored term coverage; unscoredTerms reports terms omitted from that ranking signal. All query terms still participate in lexical search; eligible non-scaffolding terms participate in broad file discovery, with stemming for inflections. The first successful search includes repository coverage and index omissions; later searches omit those repeated details. `indexLimitOmissions` reports local range/source-byte limits with safe path samples; `filesTruncated` means more paths were omitted. Secret and excluded paths are never listed. If `coverage.sourceByteLimitedFiles` is nonzero, some captured text is not indexed. File names, term coverage, definitions and static relationships are discovery hints, not proof of behavior or runtime execution. For repository orientation without searchable terms, use one bounded root listing; for a specific underspecified question, ask one concise clarification. If no content terms remain, do not repeat generic wording or choose an arbitrary path. Repeating a successful identical search returns `duplicateSearch`; change the query, scope or offset to investigate a gap. Use 2 to 240 non-control characters after trimming, at most 32 terms; punctuation is literal. Start at offset 0 and pass `nextOffset` as the next offset only when useful. If `invalidQuery` says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope and read captured source before making claims.",
             json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset,"resultKind":result_kind}),
         ),
         (
@@ -425,20 +425,14 @@ mod tests {
         assert!(search_description.contains("2 to 240"));
         assert!(search_description.contains("punctuation is literal"));
         assert!(search_description.contains("lexical, not semantic"));
-        assert!(search_description.contains("terms independently"));
-        assert!(search_description.contains("important operations separately"));
-        assert!(
-            search_description
-                .contains("do not repeat generic wording or select an arbitrary path")
-        );
+        assert!(search_description.contains("discover likely paths first"));
+        assert!(search_description.contains("search important operations separately within those paths"));
+        assert!(search_description.contains("global range page is not repository coverage"));
         assert!(search_description.contains("one bounded root listing"));
-        assert!(search_description.contains("distinct query-term coverage"));
-        assert!(search_description.contains("queryCoverage.matchedTerms lists scored terms matched by each result"));
-        assert!(search_description.contains("unscoredTerms lists natural-query terms omitted only from per-term coverage ranking"));
+        assert!(search_description.contains("queryCoverage.matchedTerms and totalTerms"));
+        assert!(search_description.contains("unscoredTerms reports terms omitted"));
         assert!(search_description.contains("All query terms still participate in lexical search"));
-        assert!(
-            search_description.contains("Treat files as selection hints, not evidence of behavior")
-        );
+        assert!(search_description.contains("discovery hints, not proof of behavior"));
         assert!(search_description.contains("Auto is the default"));
         assert!(search_description.contains(&format!(
             "File discovery returns at most {} paths per page",
@@ -462,7 +456,7 @@ mod tests {
                 ))
         );
         assert!(search_description.contains("retry once with a shorter identifier"));
-        assert!(search_description.contains("pass it as offset"));
+        assert!(search_description.contains("pass `nextOffset` as the next offset"));
         assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);
         assert!(
             search.input_schema["properties"]["resultKind"]["description"]
