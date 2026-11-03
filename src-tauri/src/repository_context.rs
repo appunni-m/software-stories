@@ -364,6 +364,41 @@ pub(crate) struct SearchResult {
     pub(crate) build: BuildStats,
     pub(crate) elapsed_ms: u64,
     pub(crate) result_bytes: usize,
+    /// Populated only by the opt-in repository retrieval profile. It is never
+    /// serialized into the application command response.
+    #[serde(skip)]
+    pub(crate) rank_trace: Vec<SearchRankTrace>,
+}
+
+pub(crate) struct SearchRankTarget {
+    pub(crate) id: String,
+    pub(crate) path: String,
+    pub(crate) start_byte: usize,
+    pub(crate) end_byte: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SearchRankTrace {
+    pub(crate) id: String,
+    pub(crate) candidate_member: bool,
+    pub(crate) rank_before_diversification: Option<usize>,
+    pub(crate) rank_after_diversification: Option<usize>,
+    pub(crate) selected_window_rank: Option<usize>,
+}
+
+fn rank_for_target<T>(
+    ranked: &[(usize, T)],
+    ranges: &[CodeRange],
+    target: &SearchRankTarget,
+) -> Option<usize> {
+    ranked.iter().position(|(range_id, _)| {
+        ranges.get(*range_id).is_some_and(|range| {
+            range.path == target.path
+                && range.start_byte <= target.start_byte
+                && range.end_byte >= target.end_byte
+        })
+    }).map(|rank| rank + 1)
 }
 
 #[derive(Serialize)]
@@ -1988,6 +2023,7 @@ fn search_pattern(
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
         result_bytes,
+        rank_trace: Vec::new(),
     })
 }
 
@@ -2088,6 +2124,7 @@ pub(crate) fn search_with_mode_page(
             path,
             fetch_limit,
             budget,
+            None,
         )?;
         let literal = search_pattern(
             storage,
@@ -2239,6 +2276,7 @@ fn search_files_with_candidate_window(
             reused_generation: prepared.reused_generation,
             build: prepared.metadata.build.clone(),
             elapsed_ms: started.elapsed().as_millis() as u64,
+            rank_trace: Vec::new(),
         });
     }
     let words = relevant_words;
@@ -2625,6 +2663,7 @@ fn search_files_with_candidate_window(
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
+        rank_trace: Vec::new(),
     })
 }
 
@@ -2648,6 +2687,7 @@ fn search_ranked(
     path: Option<&str>,
     limit: usize,
     budget: &Budget<'_>,
+    trace_targets: Option<&[SearchRankTarget]>,
 ) -> Result<SearchResult, String> {
     let started = Instant::now();
     budget.check()?;
@@ -2981,6 +3021,12 @@ fn search_ranked(
             )
         })
         .collect::<Vec<_>>();
+    let candidate_membership = trace_targets.map(|targets| {
+        targets
+            .iter()
+            .map(|target| rank_for_target(&ranked, &prepared.metadata.ranges, target).is_some())
+            .collect::<Vec<_>>()
+    });
     ranked.sort_by(
         |(a, (ae, ad, asw, asc, aw, ac, ascore)), (b, (be, bd, bsw, bsc, bw, bc, bscore))| {
             bd.cmp(ad)
@@ -3003,6 +3049,12 @@ fn search_ranked(
                 .then_with(|| a.cmp(b))
         },
     );
+    let ranks_before_diversification = trace_targets.map(|targets| {
+        targets
+            .iter()
+            .map(|target| rank_for_target(&ranked, &prepared.metadata.ranges, target))
+            .collect::<Vec<_>>()
+    });
     if path.is_none() {
         let mut leading_paths = BTreeSet::new();
         for (id, _) in ranked.iter().take(MAX_CANDIDATES) {
@@ -3031,6 +3083,12 @@ fn search_ranked(
             .chain(diversify_by_path_limited(other, &path_for, path_limit))
             .collect();
     }
+    let ranks_after_diversification = trace_targets.map(|targets| {
+        targets
+            .iter()
+            .map(|target| rank_for_target(&ranked, &prepared.metadata.ranges, target))
+            .collect::<Vec<_>>()
+    });
     let limited = exact_limited || coverage_limited || total > limit || ranked.len() > limit;
     let exact_terms = vec![query.rsplit("::").next().unwrap_or(query).to_owned()];
     let matcher = RegexMatcherBuilder::new()
@@ -3047,6 +3105,42 @@ fn search_ranked(
     // time. Retaining a source blob for every result path can multiply peak
     // memory by the page size when a broad query spans large files.
     let selected = ranked.into_iter().take(limit).collect::<Vec<_>>();
+    let rank_trace = trace_targets
+        .map(|targets| {
+            targets
+                .iter()
+                .enumerate()
+                .map(|(index, target)| SearchRankTrace {
+                    id: target.id.clone(),
+                    candidate_member: candidate_membership
+                        .as_ref()
+                        .and_then(|values| values.get(index))
+                        .copied()
+                        .unwrap_or(false),
+                    rank_before_diversification: ranks_before_diversification
+                        .as_ref()
+                        .and_then(|values| values.get(index))
+                        .copied()
+                        .flatten(),
+                    rank_after_diversification: ranks_after_diversification
+                        .as_ref()
+                        .and_then(|values| values.get(index))
+                        .copied()
+                        .flatten(),
+                    selected_window_rank: selected
+                        .iter()
+                        .position(|(range_id, _)| {
+                            prepared.metadata.ranges.get(*range_id).is_some_and(|range| {
+                                range.path == target.path
+                                    && range.start_byte <= target.start_byte
+                                    && range.end_byte >= target.end_byte
+                            })
+                        })
+                        .map(|rank| rank + 1),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     let mut positions_by_path = HashMap::<String, Vec<usize>>::new();
     for (position, (id, _)) in selected.iter().enumerate() {
         let path = &prepared.metadata.ranges[*id].path;
@@ -3147,6 +3241,7 @@ fn search_ranked(
         build: prepared.metadata.build.clone(),
         elapsed_ms: started.elapsed().as_millis() as u64,
         result_bytes,
+        rank_trace,
     })
 }
 

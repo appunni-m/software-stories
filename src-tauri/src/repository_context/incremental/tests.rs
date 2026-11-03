@@ -641,7 +641,16 @@ fn fontdone_one_file_incremental_profile() {
     ))
     .unwrap();
     let expected = corpus["expected"].as_array().unwrap();
-    let found = |result: &SearchResult, expected: &serde_json::Value| {
+    let rank_targets = expected
+        .iter()
+        .map(|item| SearchRankTarget {
+            id: item["id"].as_str().unwrap().to_owned(),
+            path: item["path"].as_str().unwrap().to_owned(),
+            start_byte: item["startByte"].as_u64().unwrap() as usize,
+            end_byte: item["endByte"].as_u64().unwrap() as usize,
+        })
+        .collect::<Vec<_>>();
+    let found_rank = |result: &SearchResult, expected: &serde_json::Value| {
         let path = expected["path"].as_str().unwrap();
         let sha = updated
             .files
@@ -650,12 +659,15 @@ fn fontdone_one_file_incremental_profile() {
             .unwrap()
             .sha256
             .as_str();
-        result.matches.iter().any(|h| {
+        result.matches.iter().position(|h| {
             h.range.path == path
                 && h.range.source_sha256 == sha
                 && h.range.start_byte <= expected["startByte"].as_u64().unwrap() as usize
                 && h.range.end_byte >= expected["endByte"].as_u64().unwrap() as usize
         })
+    };
+    let found = |result: &SearchResult, expected: &serde_json::Value| {
+        found_rank(result, expected).is_some()
     };
     let mut named = vec![];
     for expected in expected {
@@ -719,6 +731,28 @@ fn fontdone_one_file_incremental_profile() {
             &Budget::new(&cancelled),
         )
         .unwrap();
+        let trace_a = search_ranked(
+            &storage,
+            &updated,
+            &delta,
+            query,
+            None,
+            MAX_CANDIDATES,
+            &Budget::new(&cancelled),
+            Some(&rank_targets),
+        )
+        .unwrap();
+        let trace_b = search_ranked(
+            &reference_storage,
+            &updated,
+            &reference,
+            query,
+            None,
+            MAX_CANDIDATES,
+            &Budget::new(&cancelled),
+            Some(&rank_targets),
+        )
+        .unwrap();
         let recovered = expected
             .iter()
             .filter(|e| found(&a, e))
@@ -760,7 +794,36 @@ fn fontdone_one_file_incremental_profile() {
             recovered, fresh,
             "incremental/fresh broad-search recall differs for {query:?}: incremental={recovered:?}; fresh={fresh:?}"
         );
-        broad.push(serde_json::json!({"query":query,"retrieved":recovered,"expectedCount":expected.len(),"limited":a.limited}));
+        let rank_diagnostics = |trace: &SearchResult, page: &SearchResult| {
+            trace
+                .rank_trace
+                .iter()
+                .map(|item| {
+                    let expected_range = expected
+                        .iter()
+                        .find(|candidate| candidate["id"].as_str() == Some(item.id.as_str()))
+                        .unwrap();
+                    serde_json::json!({
+                        "id": item.id.as_str(),
+                        "candidateMember": item.candidate_member,
+                        "rankBeforeDiversification": item.rank_before_diversification,
+                        "rankAfterDiversification": item.rank_after_diversification,
+                        "rankIn256ResultWindow": item.selected_window_rank,
+                        "rankOnActualFirstPage": found_rank(page, expected_range).map(|rank| rank + 1),
+                    })
+                })
+                .collect::<Vec<_>>()
+        };
+        broad.push(serde_json::json!({
+            "query": query,
+            "retrieved": recovered,
+            "expectedCount": expected.len(),
+            "limited": a.limited,
+            "rangeRankDiagnostics": {
+                "incremental": rank_diagnostics(&trace_a, &a),
+                "fresh": rank_diagnostics(&trace_b, &b),
+            },
+        }));
     }
     println!(
         "FONTDONE_INCREMENTAL {}",
