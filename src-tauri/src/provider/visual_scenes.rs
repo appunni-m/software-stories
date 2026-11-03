@@ -322,6 +322,27 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn visual_scene_document_tracks_source_policy_versions_and_limits() {
+        let reference = include_str!("../../../docs/VISUAL_SCENES.md");
+        let normalized_reference = reference.split_whitespace().collect::<Vec<_>>().join(" ");
+        for version in [
+            STORY_POLICY_VERSION,
+            TEACHING_POLICY_VERSION,
+            READER_LANGUAGE_POLICY_VERSION,
+        ] {
+            assert!(
+                normalized_reference.contains(version),
+                "reference is missing {version}"
+            );
+        }
+        let sentence_limit = crate::scene_presentation::MAX_SCENE_NARRATION_SENTENCES;
+        let byte_limit = crate::scene_presentation::MAX_SCENE_NARRATION_BYTES;
+        assert!(normalized_reference.contains(&format!(
+            "up to {sentence_limit} short sentences and {byte_limit} UTF-8 bytes"
+        )));
+    }
+
+    #[test]
     fn complete_transport_speech_and_general_rules_replace_summary_shortcuts() {
         assert!(
             SECTION_NARRATION_INSTRUCTIONS.contains("joins every scene narration in claim order")

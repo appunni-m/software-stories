@@ -64,14 +64,16 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v71`, teaching policy `meaning-first-v33`, and reader
-language policy `reader-language-v1`. It starts
+`ai-html-compositions-v73`, teaching policy `meaning-first-v36`, and reader
+language policy `reader-language-v1`. These policy identifiers come from
+`src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
+reference stays synchronized with the implementation. The teaching contract starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
 titles name that behavior or learning question in plain language rather than
 using a bare format tag or terse classification. Scene narration keeps simple
-behavior to one or two short sentences and allows up to four short sentences
-and 760 UTF-8 bytes when the real path needs room to connect its input, decision
+behavior to one or two short sentences and allows up to 3 short sentences
+and 420 UTF-8 bytes when the real path needs room to connect its input, decision
 or change, visible cue, and caller-visible consequence. Native admission rejects
 longer speech and offers a bounded correction. If a behavior needs more room,
 split it into ordered claims/scenes without omitting outcomes. At first spoken
