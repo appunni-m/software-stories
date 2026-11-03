@@ -3,6 +3,7 @@
 .story-toolbar { position:static;inset:auto;box-sizing:border-box;width:100%;max-width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title map" "progress progress";align-items:center;gap:4px 10px;min-width:0;min-height:42px;padding:5px 12px;border-bottom:1px solid var(--border); }
 .story-scene-title { grid-area:title;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
 .story-scene-progress { grid-area:progress;position:static;inset:auto;display:grid;grid-template-columns:28px minmax(0,1fr) 28px;grid-template-areas:"previous position next";justify-self:center;align-items:center;gap:4px;box-sizing:border-box;width:min(100%,360px);min-width:0;max-width:100%;margin-inline:auto; }
+.story-scene-progress:not(.has-multiple-scenes) { grid-template-columns:minmax(0,1fr);grid-template-areas:"position"; }
 .story-scene-count { grid-area:count;min-width:0;color:var(--muted);font-size:12px;text-align:center;overflow-wrap:anywhere; }
 .story-scene-position { grid-area:position;position:static;inset:auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"count" "dots";justify-items:center;gap:4px;min-width:0;max-width:100%;width:100%; }
 .story-scene-dots { grid-area:dots;box-sizing:border-box;display:flex;flex:0 1 auto;flex-wrap:nowrap;align-content:center;justify-content:flex-start;width:100%;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:thin; }
