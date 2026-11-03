@@ -812,10 +812,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
             {formatTime(currentTime)} / {narrationDurationLabel(duration)}
           </span>
         </div>
-        <label className="walkthrough-seek-label">
+        <div className="walkthrough-seek-label">
           <span>Audio position</span>
-          <AppSlider aria-label="Audio position" min={0} max={duration || 1} step={0.05} value={[Math.min(currentTime, duration || 0)]} disabled={!track || !duration} onValueChange={([value]) => { if (value !== undefined) seek(value); }} size="1" />
-        </label>
+          <AppSlider ariaLabel="Audio position" min={0} max={duration || 1} step={0.05} value={[Math.min(currentTime, duration || 0)]} disabled={!track || !duration} onValueChange={([value]) => { if (value !== undefined) seek(value); }} />
+        </div>
       </div>
       {localNarration && providerRequestBusy && <AppButton intent="quiet" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</AppButton>}
       {track && !savedAudioMatchesDraft && <p className="walkthrough-narration-prior-audio" role="status">Previous audio is kept for its reviewed transcript. New edits do not change it unless you generate another recording.</p>}
