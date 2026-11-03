@@ -64,6 +64,43 @@ test('source-discovery selection notes survive the native conversation wire and 
   assert.ok(reopened.calls.every(call=>call.name==='load_workspace_conversation'));
 });
 
+test('a stop-requested workspace job restores as active after restart', async () => {
+  const b = backend();
+  const jobId = runId(72);
+  const turn = {
+    id: jobId,
+    question: 'Explain the parser decision',
+    context: [],
+    status: 'queued',
+    runIds: [jobId],
+  };
+  const state = addTurn(createWorkspace('project', 'snapshot'), turn, 'guide');
+  b.records.set(scope, { schemaVersion: 1, revision: 1, state });
+
+  const reopened = workspaceStoreHarness(async (name, args) =>
+    name === 'list_workspace_answers' ? []
+      : name === 'list_repository_guides' ? { guides: [], unavailableCount: 0, unavailableGuides: [] }
+        : b.invoke(name, args), {
+    native: true,
+    listWorkspaceGenerationJobsForScope: async () => [{
+      jobId,
+      kind: 'workspaceQuestion',
+      conversationTurnId: jobId,
+      rendererSessionId: 'previous-window',
+      projectId: 'project',
+      snapshotId: 'snapshot',
+      state: 'stopRequested',
+    }],
+  });
+  await reopened.store.prepareWorkspaceConversation('project', 'snapshot');
+  await reopened.store.restoreWorkspaceAnswers('project', 'snapshot');
+
+  const restored = reopened.store.getWorkspace('project', 'snapshot').explorations[0].turns[0];
+  assert.equal(restored.status, 'working');
+  assert.equal(restored.runIds?.at(-1), jobId);
+  assert.ok(reopened.calls.every(call => call.name !== 'generate_progressive_workspace_answer'));
+});
+
 test('close waits for startup reads and saves, then resumes deferred edits only on cancellation',async()=>{
   const b=backend(),h=native(b),held=deferred();b.controls.beforeSave=()=>held.promise;
   const opening=h.store.prepareWorkspaceConversation('project','snapshot');let finished=false;
