@@ -234,6 +234,45 @@ test('late Stop replies cannot overwrite a newer retry on the same question', { 
   await verifyLateStop((pending)=>pending.reject(new Error('The old Stop request failed late')));
 });
 
+test('a durable Stop request stays active until the worker reaches a terminal state', async () => {
+  const b = backend();
+  const generationStarted = deferred();
+  const generation = deferred();
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'generate_progressive_workspace_answer') {
+      generationStarted.resolve();
+      return generation.promise;
+    }
+    if (name === 'load_workspace_answer') throw new Error('No saved answer');
+    return b.invoke(name, args);
+  }, {
+    native: true,
+    ensureCodexConnection: async () => {},
+    readCodexSelection: () => ({ modelId: 'gpt-6-luna', effort: 'max' }),
+    stopWorkspaceGenerationJob: async (jobId, projectId, snapshotId) => ({
+      jobId, projectId, snapshotId, state: 'stopRequested',
+    }),
+  });
+
+  await h.store.prepareWorkspaceConversation('project', 'snapshot');
+  const id = h.store.appendQuestion('project', 'snapshot', 'Explain the parser decision', [], 'guide');
+  const running = h.store.runQuestion('project', 'snapshot', id, 'grant');
+  await generationStarted.promise;
+
+  await h.store.stopQuestion('project', 'snapshot', id);
+  assert.equal(
+    h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].status,
+    'working',
+    'a durable stop request must not look terminal while the worker is unwinding',
+  );
+
+  generation.reject(new Error('Stopped'));
+  await running;
+  const stopped = h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0];
+  assert.equal(stopped.status, 'stopped');
+  assert.equal(stopped.error, undefined);
+});
+
 test('repository guide start, resume and refill carry renderer queue wait to native commands',async()=>{
   const b=backend(),held=deferred(),generationStarted=deferred();let now=0,startArgs,resumeArgs,advanceArgs;
   const h=workspaceStoreHarness(async(name,args)=>{
