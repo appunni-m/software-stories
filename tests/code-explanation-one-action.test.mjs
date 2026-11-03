@@ -14,9 +14,9 @@ function functionBody(signature,nextSignature){
 }
 
 test('Explain selected code submits directly at the current exploration level',()=>{
-  const explain=functionBody('function explain(context:Context){','  function explainSafely(context:Context){');
+  const explain=functionBody('function askAboutSelectedCode(context:Context){','  function explainSafely(context:Context){');
   assert.match(explain,/verifiedCodeContext\(context,snapshotId\)/);
-  assert.match(explain,/ask\(question,view,\[selected\]\)/);
+  assert.match(explain,/ask\(question,current\.view==='flow'\?'flow':'guide',\[selected\]\)/);
   assert.doesNotMatch(explain,/setPendingCodeExplanation\(pending\)/);
   assert.doesNotMatch(workspace,/Review this code question|Nothing is sent until you choose Ask about this code\./);
   assert.ok(!workspace.includes('codeQuestionReview'));
@@ -34,7 +34,7 @@ test('selected code stays bound to the current snapshot and sharing consent',()=
   assert.match(displayed,/source\.path!==selected\.path/);
   assert.match(displayed,/source\.sha256/);
   assert.match(displayed,/selected\.sha256===source\.sha256/);
-  const range=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function explain(context:Context)');
+  const range=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function askAboutSelectedCode(context:Context)');
   assert.match(range,/verifiedDisplayedContext\(context,expectedSnapshotId\)/);
   assert.match(range,/rangeValid/);
 });

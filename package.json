@@ -13,13 +13,14 @@
     "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
     "bundle:macos": "npm run licenses:check && node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
     "bundle:macos:release-candidate": "npm run licenses:check && node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify && node scripts/verify-macos-release-candidate.mjs",
+    "pretest": "npm run quality:build",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "quality:build": "cargo build --locked --manifest-path src-tauri/Cargo.toml --bin code-atlas-quality",
     "quality:corpus": "node scripts/check-chapter-quality.mjs --corpus",
     "quality:metadata": "node scripts/check-chapter-quality.mjs --metadata",
     "quality:gate": "node scripts/check-chapter-quality.mjs",
     "quality:release-preflight": "npm run quality:build && npm run quality:corpus && npm run quality:gate -- --report benchmarks/chapter-quality/review/reports/release.json",
-    "check": "npm run quality:build && npm run quality:corpus && npm run test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
+    "check": "npm run test && npm run quality:corpus && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",

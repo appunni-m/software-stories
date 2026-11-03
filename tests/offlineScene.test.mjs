@@ -4,11 +4,15 @@ import { OFFLINE_SCENE_CSS, renderOfflineScene } from '../src/lib/offlineScene.t
 import { validScenePresentation } from '../src/lib/scenePresentation.ts';
 
 const anchor = { anchorId: 'anchor:one', excerpt: 'run()' };
-const visual = { nodes: [{ label: 'Example <input>', evidenceAnchorIds: ['anchor:one'] }] };
+const visual = { nodes: [
+  { label: 'Example <input>', evidenceAnchorIds: ['anchor:one'] },
+  { label: 'Supporting outcome', evidenceAnchorIds: ['anchor:one'] },
+] };
 const claims = [{ anchors: [anchor] }];
-const scene = (kind, value, parentKind = 'row') => ({ claimIndex: 0, title: 'An illustrative representation', narration: 'This representation shows the value in its supporting context.', mode: 'composition', elements: [
+const scene = (kind, value, parentKind = 'row') => ({ claimIndex: 0, title: 'How an input becomes an outcome', narration: 'The source-backed input leads to a distinct result through this operation.', mode: 'composition', elements: [
   { kind: parentKind, parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
   { kind, parentIndex: 0, nodeIndex: 0, tone: 'accent', value, valueOrigin: 'illustration' },
+  { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'supporting outcome', valueOrigin: 'illustration' },
 ] });
 
 it('offline composition preserves every supported data and layout primitive', () => {
@@ -58,10 +62,12 @@ it('offline stacks read and display the next-to-pop item first', () => {
 
 it('offline scenes keep semantic transform roles and source-linked destinations', () => {
   const authored = scene('token', 'raw input', 'transform');
-  authored.elements.push(
+  authored.elements = [
+    { kind: 'transform', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+    { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'raw input', valueOrigin: 'illustration' },
     { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'neutral', value: 'trim and lowercase', valueOrigin: 'illustration' },
-    { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'positive', value: 'normalized output', valueOrigin: 'illustration' },
-  );
+    { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'normalized output', valueOrigin: 'illustration' },
+  ];
   assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
   const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
   assert.match(markup, /scene-transform/);
@@ -74,10 +80,12 @@ it('offline scenes keep semantic transform roles and source-linked destinations'
 
 it('offline pointFlow scenes show point symbols without implying coordinates', () => {
   const authored = scene('token', 'pt', 'pointFlow');
-  authored.elements.push(
+  authored.elements = [
+    { kind: 'pointFlow', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+    { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'neutral', value: 'pt', valueOrigin: 'illustration' },
     { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'transform_point(pt, comp)', valueOrigin: 'illustration' },
-    { kind: 'token', parentIndex: 0, nodeIndex: 0, tone: 'positive', value: 'transformed', valueOrigin: 'explanation' },
-  );
+    { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'transformed', valueOrigin: 'explanation' },
+  ];
   assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
   const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
   assert.match(markup, /scene-pointFlow/);

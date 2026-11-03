@@ -13,16 +13,16 @@ test('opening and closing code always reveals its corresponding narrow pane',()=
 
 test('explaining selected code submits one source-bound question at the current exploration level',()=>{
   matches(workspace,/function openFile\(context:Context\) \{[\s\S]*?update\(\(s\)=>rememberSourceContext\(s,s\.currentId,context\)\);[\s\S]*?setReveal\(\{\.\.\.context\}\);[\s\S]*?setCodeOpen\(true\);setNarrowPane\('source'\);/);
-  const explainStart=workspace.indexOf('function explain(context:Context){');
+  const explainStart=workspace.indexOf('function askAboutSelectedCode(context:Context){');
   const explainEnd=workspace.indexOf('function explainSafely',explainStart);
   const explainBlock=workspace.slice(explainStart,explainEnd);
-  matches(explainBlock,/const selected=verifiedCodeContext\(context,snapshotId\);[\s\S]*?const question=`Explain what \$\{label\(selected\)\} does and how it works\.`;[\s\S]*?const view:View=current\.view==='flow'\?'flow':'guide';[\s\S]*?ask\(question,view,\[selected\]\);/);
+  matches(explainBlock,/const selected=verifiedCodeContext\(context,snapshotId\);[\s\S]*?const question=`Explain what \$\{label\(selected\)\} does and how it works\.`;[\s\S]*?ask\(question,current\.view==='flow'\?'flow':'guide',\[selected\]\);/);
   assert.doesNotMatch(workspace,/pendingCodeExplanation|setPendingCodeExplanation|Review your code question|dw-code-review-dialog/);
   matches(workspace,/if\(!requireCodexConnection\(\)\)\{\s*updateWorkspaceDraft\(projectId,snapshotId,current\.id,\{question:clean,context\}\);\s*return false;\s*\}/);
-  matches(workspace,/if\(state\.grantId\)\s*void runQuestion\(projectId,snapshotId,id,state\.grantId\);\s*else\{setConsentError\(null\);setConsentTurn\(id\);\}/);
+  matches(workspace,/if\(state\.grantId\)\s*void runQuestion\(projectId,snapshotId,id,state\.grantId\);\s*else\s*\{setConsentError\(null\);setConsentTurn\(id\);\}/);
   matches(workspace,/function verifiedDisplayedContext\(context:Context,expectedSnapshotId:string\):Context\|null \{[\s\S]*?bindSelectionToDisplayedSource\(context,source\)[\s\S]*?source\.path!==selected\.path[\s\S]*?source\.snapshotId!==snapshotId[\s\S]*?selected\.sha256===source\.sha256/);
   matches(workspace,/function verifiedCodeContext\(context:Context,expectedSnapshotId:string\):Context\|null \{[\s\S]*?verifiedDisplayedContext\(context,expectedSnapshotId\)[\s\S]*?selected\.from>=1[\s\S]*?selected\.to<=lineCount[\s\S]*?return rangeValid\?selected:null/);
-  matches(workspace,/function explainSafely\(context:Context\)\s*\{\s*try\s*\{explain\(context\);\}\s*catch\(failure\)\s*\{[\s\S]*?setDraftNotice\(`The selected code could not be prepared\./);
+  matches(workspace,/function explainSafely\(context:Context\)\s*\{\s*try\s*\{askAboutSelectedCode\(context\);\}\s*catch\(failure\)\s*\{[\s\S]*?setDraftNotice\(`The selected code question could not be started\./);
   matches(workspace,/useEffect\(\(\)=>\{setReveal\(current\.reveal\?\?null\);\},\[current\.id,current\.reveal\]\);/);
 });
 

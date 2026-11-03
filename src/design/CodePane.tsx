@@ -315,7 +315,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, capability, ca
         {capability && <>
           <span aria-hidden="true">·</span>
           <Tooltip content={capability.note}>
-            <span className="preview-editor-capability" tabIndex={0} aria-label={`${capability.label} language support. ${capability.note}`}>{capability.label}</span>
+            <span className="preview-editor-capability" tabIndex={0}>{capability.label}</span>
           </Tooltip>
         </>}
       </span>

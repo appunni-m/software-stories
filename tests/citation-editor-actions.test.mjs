@@ -38,16 +38,16 @@ test('native failure and foreign identity preserve the draft and leave an action
 test('each real citation input clears its obsolete error without reading or applying source',()=>{
   const inputs=[];
   function visit(node){
-    if(ts.isJsxSelfClosingElement(node)&&node.tagName.getText(source)==='TextField.Root')inputs.push(node);
+    if(ts.isJsxSelfClosingElement(node)&&node.tagName.getText(source)==='AppTextField')inputs.push(node);
     ts.forEachChild(node,visit);
   }
   visit(component);
   assert.equal(inputs.length,3);
   for(const [index,input] of inputs.entries()){
-    const handler=input.attributes.properties.find(a=>ts.isJsxAttribute(a)&&a.name.getText(source)==='onChange').initializer.expression;
+    const handler=input.attributes.properties.find(a=>ts.isJsxAttribute(a)&&a.name.getText(source)==='onValueChange').initializer.expression;
     const calls=[],compiled=ts.transpileModule(`exports.change=${handler.getText(source)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
     const exports={};runInThisContext(`(function(exports,setPath,setFrom,setTo,setError){${compiled}\n})`)(exports,v=>calls.push(['path',v]),v=>calls.push(['from',v]),v=>calls.push(['to',v]),v=>calls.push(['error',v]));
-    exports.change({target:{value:'changed'}});
+    exports.change('changed');
     assert.deepEqual(calls,[[['path','from','to'][index],'changed'],['error',null]]);
   }
 });
