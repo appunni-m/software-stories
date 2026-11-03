@@ -252,8 +252,7 @@ pub fn load(
     }
     let path = session_path(storage_dir, project_id, session_id)?;
     let bytes = read_bounded(&path, MAX_SESSION_BYTES)?;
-    let session: SectionRepairSession = serde_json::from_slice(&bytes)
-        .map_err(|_| "The saved section repair session is corrupt or unsupported.".to_owned())?;
+    let session = decode_session(&bytes)?;
     validate_session(&session)?;
     if session.project_id != project_id || session.session_id != session_id {
         return Err("The saved section repair session does not match this project.".to_owned());
@@ -312,8 +311,7 @@ pub fn list_for_project(
                     .to_owned(),
             );
         }
-        let session: SectionRepairSession = serde_json::from_slice(&bytes)
-            .map_err(|_| "A saved section repair session is corrupt or unsupported.".to_owned())?;
+        let session = decode_session(&bytes)?;
         validate_session(&session)?;
         if session.project_id != project_id {
             return Err(
@@ -332,6 +330,13 @@ pub fn list_for_project(
             .then_with(|| left.session_id.cmp(&right.session_id))
     });
     Ok(sessions)
+}
+
+fn decode_session(bytes: &[u8]) -> Result<SectionRepairSession, String> {
+    let value = crate::strict_json::from_slice(bytes)
+        .map_err(|_| "A saved section repair session is corrupt or unsupported.".to_owned())?;
+    serde_json::from_value(value)
+        .map_err(|_| "A saved section repair session is corrupt or unsupported.".to_owned())
 }
 
 /// Records a replacement only after the caller has canonicalized and validated it

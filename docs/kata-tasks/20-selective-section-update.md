@@ -199,3 +199,14 @@ source diffs, and the one-section repair action remain visible. The IDs and
 narration script hash remain available on demand for review. Source-only UI
 change; selective-repair provider, unaffected-audio reuse, cancellation, and
 packaged acceptance remain open.
+
+### Reject ambiguous repair-session JSON — 2026-11-03
+
+Session loading and project listing now decode through the shared duplicate-key
+rejecting JSON parser before applying the repair-session schema and identity
+checks. The previous direct `serde_json::from_slice` accepted duplicate JSON
+keys using the last value, so a damaged record could be interpreted
+ambiguously. The file and project-size bounds remain applied before decoding.
+Source-only correction; no tests, build, provider request, or packaged
+corruption-recovery check ran. Keep `tbsh` open for the full selective-repair
+acceptance.
