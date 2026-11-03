@@ -292,7 +292,15 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
   if (turn && guideId) {
     if (job) job.cancelled = true;
     if ((job && !job.runId) || (!turn.guide && !turn.runIds?.length && !job?.runId)) {
-      patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
+      // Another webview can own this guide while our conversation has only
+      // restored the turn ID, not its guide summary. Stop by the stable native
+      // guide ID even before a local run ID or saved summary is available.
+      void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId}).then(async()=>{
+        if(turn.guide)await restoreRepositoryGuide(project,snapshot,guideId);
+        else patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
+      }).catch((failure)=>{
+        patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The guide could not be stopped. Try Stop again.')});
+      });
       return;
     }
     void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:guideId}).then(() => restoreRepositoryGuide(project,snapshot,guideId)).catch((failure) => {
