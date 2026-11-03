@@ -142,8 +142,8 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     // Native monotonic expiry remains authoritative. Bound each UI timer to
     // five minutes as well; the renderer cannot extend the native lease.
     const timer = window.setTimeout(() => {
-      // Admission expires after five minutes. An already-consented run keeps
-      // its native ten-minute budget and its result must still be saveable.
+      // Admission expires after five minutes. An already-consented run remains
+      // active until cancellation, revocation, or result validation completes.
       if (!current.generationHeld) release();
       if (!abandoned) {
         setExpired(true);

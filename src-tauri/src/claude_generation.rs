@@ -285,7 +285,6 @@ async fn execute(
     let input = ClaudeWorkerInput {
         run_id: review.review_id.clone(),
         cancel_signal: access.cancel_signal(),
-        started_at: access.started_at()?,
         settings,
         system_instruction: review.system_instruction.clone(),
         user_prompt: review.user_prompt.clone(),

@@ -11,7 +11,7 @@ use crate::{
     claude_runtime::{
         self, ClaudeCatalogInstallation, ClaudeGenerationAvailability, ClaudeGenerationRuntime,
     },
-    claude_worker::{ClaudeWorkerFailure, ClaudeWorkerFailureKind, RUN_TIMEOUT},
+    claude_worker::{ClaudeWorkerFailure, ClaudeWorkerFailureKind},
     provider, recovery,
 };
 use serde::Serialize;
@@ -75,7 +75,7 @@ struct OperationIdentity {
     runtime: Arc<ClaudeReviewRuntime>,
     cancelled: Arc<AtomicBool>,
     invalidated: Arc<AtomicBool>,
-    dispatched_at: Arc<OnceLock<Instant>>,
+    dispatched: Arc<OnceLock<()>>,
 }
 
 /// Owns only lifecycle, never product/account/isolation qualification. There
@@ -128,14 +128,6 @@ impl ClaudeOperationAccess {
         self.identity.cancelled.clone()
     }
 
-    pub(crate) fn started_at(&self) -> Result<Instant, provider::ProviderFailure> {
-        self.identity
-            .dispatched_at
-            .get()
-            .copied()
-            .ok_or_else(changed)
-    }
-
     /// A dispatched operation owns its inspected identity until completion.
     /// Review/catalog expiry cannot renew admission or invalidate that already
     /// consented run. Refresh, forget, cancellation and owner drop still win.
@@ -159,7 +151,7 @@ impl ClaudeOperationAccess {
     ) -> Result<provider::PendingProviderRequest, provider::ProviderFailure> {
         let mut state = self.connections.lock().map_err(lifecycle_failure)?;
         self.check(&state, review, false)?;
-        if self.identity.dispatched_at.get().is_some() {
+        if self.identity.dispatched.get().is_some() {
             return Err(changed());
         }
         let connection = current(&mut state).map_err(lifecycle_failure)?;
@@ -174,11 +166,11 @@ impl ClaudeOperationAccess {
                 kind: provider::ProviderFailureKind::LocalStorageUnavailable,
                 message: "Local interruption state could not be saved. No Claude request was sent; prepare a fresh review before retrying.".to_owned(),
             })?;
-        // This clock also bounds queue time and result validation/publication,
-        // rather than restarting the allowance when a worker thread starts.
+        // Record one-time consumption before launching the worker. Keeping a
+        // marker instead of a deadline lets an agent finish at its own pace.
         self.identity
-            .dispatched_at
-            .set(Instant::now())
+            .dispatched
+            .set(())
             .map_err(|_| changed())?;
         Ok(pending)
     }
@@ -225,11 +217,8 @@ impl ClaudeOperationAccess {
         {
             return Err(changed());
         }
-        if require_dispatch && self.started_at()?.elapsed() >= RUN_TIMEOUT {
-            return Err(provider::ProviderFailure {
-                kind: provider::ProviderFailureKind::RequestTimedOut,
-                message: "The Claude operation exceeded ten minutes after review consumption. No late result can be published; account usage may already have occurred.".to_owned(),
-            });
+        if require_dispatch && self.identity.dispatched.get().is_none() {
+            return Err(changed());
         }
         Ok(())
     }
@@ -441,7 +430,7 @@ impl ClaudeConnections {
             runtime: runtime.clone(),
             cancelled: Arc::new(AtomicBool::new(false)),
             invalidated: Arc::new(AtomicBool::new(false)),
-            dispatched_at: Arc::new(OnceLock::new()),
+            dispatched: Arc::new(OnceLock::new()),
         };
         state.operation = Some(ActiveOperation {
             id,

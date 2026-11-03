@@ -18,7 +18,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
-pub(crate) const RUN_TIMEOUT: Duration = Duration::from_secs(600);
 const MAX_CANCELLED_RUNS: usize = 256;
 const BUSY: &str =
     "Claude Agent is busy. Finish or cancel the active operation before starting another.";
@@ -28,8 +27,6 @@ pub(crate) struct ClaudeWorkerInput {
     /// Native operation ownership, shared with connection revocation. Never
     /// accepted from the renderer or reconstructed from a stored request.
     pub cancel_signal: Arc<AtomicBool>,
-    /// Monotonic start owned by review consumption, including queue time.
-    pub started_at: Instant,
     pub settings: ClaudeGenerationSettings,
     pub system_instruction: String,
     pub user_prompt: String,
@@ -347,25 +344,15 @@ mod native {
     const IO_BURST: usize = 128 * 1024;
     const INSPECTION_TIMEOUT: Duration = Duration::from_secs(45);
 
-    /// One metadata deadline, optionally bounded by an enclosing generation.
-    /// Pre/post account checks must not reset the ten-minute run allowance.
+    /// Metadata checks stay bounded per inspection; generation has no
+    /// wall-clock deadline and ends through cancellation or a real failure.
     #[derive(Clone, Copy)]
     struct InspectionBudget {
         started: Instant,
-        run_started: Option<Instant>,
     }
     impl InspectionBudget {
         fn new() -> Self {
-            Self {
-                started: Instant::now(),
-                run_started: None,
-            }
-        }
-        fn within_run(run_started: Instant) -> Self {
-            Self {
-                started: Instant::now(),
-                run_started: Some(run_started),
-            }
+            Self { started: Instant::now() }
         }
     }
 
@@ -815,11 +802,7 @@ mod native {
         cancelled: &AtomicBool,
         budget: InspectionBudget,
     ) -> Result<(), ClaudeWorkerFailure> {
-        if let Some(started) = budget.run_started {
-            check_deadline(manager, cancelled, started)?;
-        } else {
-            check_cancelled(manager, cancelled)?;
-        }
+        check_cancelled(manager, cancelled)?;
         if budget.started.elapsed() >= INSPECTION_TIMEOUT {
             Err(failure(
                 ClaudeWorkerFailureKind::TimedOut,
@@ -1022,19 +1005,18 @@ mod native {
         progress: &mut impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
-        let started = input.started_at;
         runtime
             .validate_settings(&input.settings)
             .map_err(|message| failure(Kind::PreparationFailed, message))?;
-        verify_executable(manager, runtime, cancelled, started)?;
+        verify_executable(manager, runtime, cancelled)?;
         progress(ClaudeWorkerProgress {
             run_id: input.run_id.clone(),
             phase: "checkingAccount",
             message: "Checking that the installed Claude account still matches this review.",
         });
-        verify_runtime_account(manager, storage_dir, runtime, cancelled, started)?;
+        verify_runtime_account(manager, storage_dir, runtime, cancelled)?;
         preflight()?;
-        check_deadline(manager, cancelled, started)?;
+        check_cancelled(manager, cancelled)?;
         let stage = PrivateStage::create(storage_dir, &manager.cleanup_failed)?;
         let invocation = claude_agent::prepare_invocation(
             runtime,
@@ -1063,8 +1045,8 @@ mod native {
             &account_home,
         )
         .map_err(|message| failure(Kind::PreparationFailed, message))?;
-        verify_executable(manager, runtime, cancelled, started)?;
-        check_deadline(manager, cancelled, started)?;
+        verify_executable(manager, runtime, cancelled)?;
+        check_cancelled(manager, cancelled)?;
         let mut child = OwnedChild::spawn(manager, &mut command, cancelled)?;
         let mut stream = ClaudeOutputStream::new(&input.settings)
             .map_err(|message| failure(Kind::PreparationFailed, message))?;
@@ -1078,7 +1060,7 @@ mod native {
         let mut last_phase: Option<ClaudeProgressPhase> = None;
         let result = (|| {
             loop {
-                check_deadline(manager, cancelled, started)?;
+                check_cancelled(manager, cancelled)?;
                 if !stdout_eof {
                     stdout_eof = framing.drain(child.stdout()?, &mut stream, |phase| {
                         if last_phase != Some(phase) {
@@ -1097,7 +1079,7 @@ mod native {
                 }
                 // A progress callback can trigger cancellation. Recheck before
                 // delivering another source chunk after draining the pipes.
-                check_deadline(manager, cancelled, started)?;
+                check_cancelled(manager, cancelled)?;
                 if child.stdin.is_some() {
                     if written < invocation.stdin.len() {
                         let end = written.saturating_add(IO_CHUNK).min(invocation.stdin.len());
@@ -1193,9 +1175,9 @@ mod native {
                 phase: "checkingAccount",
                 message: "Rechecking the reviewed Claude account before accepting the response.",
             });
-            verify_runtime_account(manager, storage_dir, runtime, cancelled, started)?;
+            verify_runtime_account(manager, storage_dir, runtime, cancelled)?;
         }
-        check_deadline(manager, cancelled, started)?;
+        check_cancelled(manager, cancelled)?;
         result
     }
 
@@ -1204,15 +1186,14 @@ mod native {
         storage_dir: &Path,
         runtime: &ClaudeReviewRuntime,
         cancelled: &AtomicBool,
-        started: Instant,
     ) -> Result<(), ClaudeWorkerFailure> {
-        check_deadline(manager, cancelled, started)?;
+        check_cancelled(manager, cancelled)?;
         let observed = inspect_connection_at(
             manager,
             storage_dir,
             &runtime.executable_path,
             cancelled,
-            InspectionBudget::within_run(started),
+            InspectionBudget::new(),
         )?;
         if Path::new(&observed.executable_path) != runtime.executable_path
             || observed.executable_sha256 != runtime.executable_sha256
@@ -1227,7 +1208,7 @@ mod native {
         // Reported metadata is neither proof of the effective model account nor
         // entitlement/isolation. The native qualification owner still supplies
         // the permitted runtime route; this check cannot manufacture one.
-        check_deadline(manager, cancelled, started)
+        check_cancelled(manager, cancelled)
     }
 
     fn phase_message(phase: ClaudeProgressPhase) -> (&'static str, &'static str) {
@@ -1250,31 +1231,13 @@ mod native {
         }
     }
 
-    fn check_deadline(
-        manager: &ManagerInner,
-        cancelled: &AtomicBool,
-        started: Instant,
-    ) -> Result<(), ClaudeWorkerFailure> {
-        check_cancelled(manager, cancelled)?;
-        if started.elapsed() >= RUN_TIMEOUT {
-            Err(failure(
-                ClaudeWorkerFailureKind::TimedOut,
-                "The Claude run exceeded ten minutes. No response was accepted; account usage may already have occurred.",
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
     fn verify_executable(
         manager: &ManagerInner,
         runtime: &ClaudeReviewRuntime,
         cancelled: &AtomicBool,
-        started: Instant,
     ) -> Result<(), ClaudeWorkerFailure> {
-        let (path, digest) = inspect_executable(&runtime.executable_path, || {
-            check_deadline(manager, cancelled, started)
-        })?;
+        let (path, digest) =
+            inspect_executable(&runtime.executable_path, || check_cancelled(manager, cancelled))?;
         if path != runtime.executable_path || digest != runtime.executable_sha256 {
             return Err(failure(
                 ClaudeWorkerFailureKind::RuntimeChanged,
