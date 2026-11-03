@@ -42,7 +42,7 @@ export interface InventoryPage {
 // Parser availability is only partial structural capability, not end-to-end
 // semantic or generated-narrative qualification.
 const partialStructuralParserLanguages = new Set([
-  'TypeScript', 'JavaScript', 'Rust', 'Python', 'Go',
+  'TypeScript', 'TSX', 'JavaScript', 'Rust', 'Python', 'Go',
 ]);
 
 const documentationExtensions = new Set(['md', 'markdown', 'mdx', 'rst', 'adoc', 'asciidoc', 'txt']);
@@ -53,7 +53,7 @@ const documentationNames = new Set([
 ]);
 
 const languageByExtension: Record<string, string> = {
-  ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript',
+  ts: 'TypeScript', tsx: 'TSX', mts: 'TypeScript', cts: 'TypeScript',
   js: 'JavaScript', jsx: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript',
   rs: 'Rust', py: 'Python', pyw: 'Python', pyi: 'Python', go: 'Go', java: 'Java',
   c: 'C', h: 'C/C++/Objective-C header', cc: 'C++', cpp: 'C++', cxx: 'C++', 'c++': 'C++',
@@ -210,6 +210,9 @@ export function languageSupportLabel(tier: LanguageSupportTier): string {
 export function languageSupportNote(tier: LanguageSupportTier, language: string): string {
   switch (tier) {
     case 'partialStructural':
+      if (language === 'TSX') {
+        return 'TSX files use the local TypeScript React syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.';
+      }
       if (language === 'Python') {
         return 'Python indexes declarations and selected calls. An explicit relative import can resolve across files only inside a captured regular package with one matching function; absolute and namespace imports, framework behavior, and explanation quality are not qualified.';
       }

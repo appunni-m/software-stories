@@ -324,13 +324,16 @@ export function splitCapturedSourceLines(contents: string): string[] {
 type LexerFamily = 'cLike' | 'python' | 'shell' | 'json';
 
 const lexerFamilyByLanguage: Record<string, LexerFamily> = {
-  TypeScript: 'cLike', JavaScript: 'cLike', Rust: 'cLike', Go: 'cLike', Java: 'cLike',
+  TypeScript: 'cLike', TSX: 'cLike', JavaScript: 'cLike', Rust: 'cLike', Go: 'cLike', Java: 'cLike',
   C: 'cLike', 'C++': 'cLike', 'C#': 'cLike', Swift: 'cLike', Kotlin: 'cLike',
   Python: 'python', Shell: 'shell', JSON: 'json', 'JSON with comments': 'json',
 };
 
+const typeScriptKeywords = new Set('abstract as asserts async await boolean break case catch class const constructor continue debugger declare default delete do else enum export extends false finally for from function get if implements import in infer instanceof interface is keyof let module namespace never new null number object of package private protected public readonly require return set static string super switch symbol this throw true try type typeof undefined unique unknown var void while with yield'.split(' '));
+
 const keywords: Record<string, ReadonlySet<string>> = {
-  TypeScript: new Set('abstract as asserts async await boolean break case catch class const constructor continue debugger declare default delete do else enum export extends false finally for from function get if implements import in infer instanceof interface is keyof let module namespace never new null number object of package private protected public readonly require return set static string super switch symbol this throw true try type typeof undefined unique unknown var void while with yield'.split(' ')),
+  TypeScript: typeScriptKeywords,
+  TSX: typeScriptKeywords,
   JavaScript: new Set('async await break case catch class const continue debugger default delete do else export extends false finally for function if import in instanceof let new null return super switch this throw true try typeof var void while with yield'.split(' ')),
   Rust: new Set('as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while'.split(' ')),
   Python: new Set('and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield'.split(' ')),
