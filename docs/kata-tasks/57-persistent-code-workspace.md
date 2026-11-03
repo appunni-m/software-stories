@@ -185,3 +185,8 @@ search hotkey, quick-open Enter behavior, regex toggle and history clear action
 through typed focus/key handlers, an input ref, and an optional trailing slot.
 Queries, limits, labels, and callbacks are preserved. No build, test, or
 packaged visual/keyboard review ran; the workspace acceptance remains open.
+
+The pinned chat composer now uses `AppTextArea`, extended with a forwarded ref,
+focus key and typed key/change handlers so the existing focus, Enter-to-send,
+Escape, and custom-validity behavior remains attached to the shared field.
+Packaged layout and interaction review remains outstanding.

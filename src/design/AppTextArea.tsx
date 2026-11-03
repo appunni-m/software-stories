@@ -1,10 +1,13 @@
 import { TextArea } from '@radix-ui/themes';
-import type { FocusEventHandler } from 'react';
+import { forwardRef, type ChangeEventHandler, type FocusEventHandler, type KeyboardEventHandler } from 'react';
 
 interface AppTextAreaProps {
   id?: string;
+  dataFocusKey?: string;
   value: string;
   onValueChange?: (value: string) => void;
+  onChange?: ChangeEventHandler<HTMLTextAreaElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLTextAreaElement>;
   ariaLabel?: string;
   ariaDescribedBy?: string;
   autoFocus?: boolean;
@@ -23,10 +26,13 @@ interface AppTextAreaProps {
 }
 
 /** Shared controlled Radix text area for longer user-facing text fields. */
-export function AppTextArea({
+export const AppTextArea = forwardRef<HTMLTextAreaElement, AppTextAreaProps>(function AppTextArea({
   id,
+  dataFocusKey,
   value,
   onValueChange,
+  onChange,
+  onKeyDown,
   ariaLabel,
   ariaDescribedBy,
   autoFocus = false,
@@ -42,9 +48,10 @@ export function AppTextArea({
   rows = 3,
   size = '2',
   spellCheck,
-}: AppTextAreaProps) {
+}, ref) {
   return (
     <TextArea
+      ref={ref}
       aria-describedby={ariaDescribedBy}
       aria-label={ariaLabel}
       autoComplete={autoComplete}
@@ -52,9 +59,14 @@ export function AppTextArea({
       className={['app-text-area', className].filter(Boolean).join(' ')}
       disabled={disabled}
       id={id}
+      data-focus-key={dataFocusKey}
       maxLength={maxLength}
-      onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
+      onChange={onValueChange || onChange ? (event) => {
+        onValueChange?.(event.target.value);
+        onChange?.(event);
+      } : undefined}
       onFocus={onFocus}
+      onKeyDown={onKeyDown}
       placeholder={placeholder}
       readOnly={readOnly}
       required={required}
@@ -67,4 +79,4 @@ export function AppTextArea({
       color="gray"
     />
   );
-}
+});
