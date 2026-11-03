@@ -80,7 +80,8 @@ pub(crate) fn visible_graph_node_count(
 mod quality;
 pub(crate) mod tree;
 pub(crate) use quality::{
-    repeated_selector_outcome_positions, repetition_positions, selector_multiple_outcome_positions,
+    generic_singleton_positions, repeated_selector_outcome_positions, repetition_positions,
+    selector_multiple_outcome_positions,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -489,6 +490,9 @@ pub fn validate(
     let labels: Vec<_> = nodes.iter().map(|n| n.label.as_str()).collect();
     if !repetition_positions(presentation, &labels).is_empty() {
         return Err("A transformation must show distinct input/result labels or values.".into());
+    }
+    if !generic_singleton_positions(presentation).is_empty() {
+        return Err("A lone card or text label is not a visual explanation. Show the source-backed change, branch, order, or data shape; use narration-only when no visual helps.".into());
     }
     Ok(())
 }
@@ -1158,6 +1162,54 @@ mod tests {
 
         presentation.scenes[0].mode = SceneMode::Graph;
         assert!(repetition_positions(&presentation, &labels).is_empty());
+    }
+
+    #[test]
+    fn a_lone_card_or_text_label_does_not_count_as_a_visual_form() {
+        let (nodes, claims, mut presentation) = fixture();
+        for kind in [ElementKind::Card, ElementKind::Text] {
+            presentation.scenes[0].elements = vec![SceneElement {
+                kind,
+                parent_index: None,
+                node_index: Some(3),
+                tone: ElementTone::Neutral,
+                value: "A generic explanation card".into(),
+                value_origin: ValueOrigin::Illustration,
+            }];
+            assert!(
+                validate(&presentation, &nodes, &claims)
+                    .unwrap_err()
+                    .contains("lone card or text label")
+            );
+        }
+
+        presentation.scenes[0].elements = vec![
+            SceneElement {
+                kind: ElementKind::Row,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            SceneElement {
+                kind: ElementKind::Card,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Neutral,
+                value: "Incoming bytes".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+            SceneElement {
+                kind: ElementKind::Token,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Accent,
+                value: "format marker".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+        ];
+        assert!(validate(&presentation, &nodes, &claims).is_ok());
     }
 
     #[test]

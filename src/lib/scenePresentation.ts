@@ -119,6 +119,13 @@ function repeatsTransformation(elements: SceneElement[], nodes: LinkedVisualNode
   });
 }
 
+/** A lone card or prose label is not a visual representation of behavior. */
+function isGenericSingleton(elements: SceneElement[]): boolean {
+  const content = elements.filter(element =>
+    !containerKinds.has(element.kind) && element.kind !== 'arrow' && element.kind !== 'divider');
+  return content.length === 1 && (content[0].kind === 'card' || content[0].kind === 'text');
+}
+
 /** Reject the entire presentation on unknown fields, foreign evidence or an
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
@@ -203,7 +210,8 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
       }
       return true;
     })
-      && (!enforceCurrentQuality || !repeatsTransformation(elements as SceneElement[], nodes));
+      && (!enforceCurrentQuality || (!repeatsTransformation(elements as SceneElement[], nodes)
+        && !isGenericSingleton(elements as SceneElement[])));
   });
   return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;
 }

@@ -31,9 +31,19 @@ describe('AI-authored HTML scene contract', () => {
   });
 
   it('keeps grounded explanatory copy separate from literal source and hypothetical examples', () => {
-    const grounded = presentation([element('text', 'The first matching format selects this decoder', 'explanation')]);
+    const grounded = presentation([
+      { ...element('transform'), nodeIndex: null },
+      element('token', 'incoming bytes', 'illustration', 0),
+      element('text', 'The first matching format selects this decoder', 'explanation', 0),
+      element('token', 'decoder selected', 'illustration', 0),
+    ]);
     assert.equal(validScenePresentation(grounded, nodes, claims), true);
-    const ungroundedSource = presentation([element('text', 'The first matching format selects this decoder', 'source')]);
+    const ungroundedSource = presentation([
+      { ...element('transform'), nodeIndex: null },
+      element('token', 'incoming bytes', 'illustration', 0),
+      element('text', 'The first matching format selects this decoder', 'source', 0),
+      element('token', 'decoder selected', 'illustration', 0),
+    ]);
     assert.equal(validScenePresentation(ungroundedSource, nodes, claims), false);
   });
 
@@ -83,6 +93,19 @@ describe('AI-authored HTML scene contract', () => {
       same.schemaVersion = version;
       assert.equal(validScenePresentation(same, nodes, claims), false);
     }
+  });
+  it('rejects a lone card or prose label but preserves legacy saved scenes', () => {
+    for (const kind of ['card', 'text']) {
+      const lone = presentation([element(kind, 'A generic explanation card', 'illustration')]);
+      assert.equal(validScenePresentation(lone, nodes, claims), false);
+      assert.equal(validStoredScenePresentation(lone, nodes, claims), true);
+    }
+    const composed = presentation([
+      { ...element('row'), nodeIndex: null },
+      element('card', 'Incoming bytes', 'illustration', 0),
+      element('token', 'format marker', 'illustration', 0),
+    ]);
+    assert.equal(validScenePresentation(composed, nodes, claims), true);
   });
   it('compares nested content rather than wrappers, tones or node IDs', () => {
     const tree = presentation([
@@ -291,8 +314,11 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(validScenePresentation(presentation(selector), nodes, candidateClaims), true);
   });
   it('admits the supported representations without executing values as markup', () => {
-    for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {
+    for (const [kind, value] of [['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name']]) {
       assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);
+    }
+    for (const kind of ['card', 'text']) {
+      assert.equal(validScenePresentation(presentation([element(kind)]), nodes, claims), false, kind);
     }
   });
   it('rejects raw HTML, CSS, scripts, URLs, handlers, unknown kinds and unknown fields', () => {

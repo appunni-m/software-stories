@@ -118,6 +118,36 @@ pub(crate) fn repetition_positions(
     positions
 }
 
+/// A lone card or prose label is still explanation text, not a visual form.
+/// Report only the scene/element position so callers never echo generated text.
+pub(crate) fn generic_singleton_positions(presentation: &ScenePresentation) -> Vec<(usize, usize)> {
+    if presentation.schema_version != 3 || presentation.scenes.len() > 20 {
+        return vec![];
+    }
+    presentation
+        .scenes
+        .iter()
+        .enumerate()
+        .filter(|(_, scene)| scene.mode == SceneMode::Composition && has_layout_tree(scene))
+        .filter_map(|(scene_index, scene)| {
+            let mut content = scene
+                .elements
+                .iter()
+                .enumerate()
+                .filter(|(_, element)| !element.kind.container() && !element.kind.decorative());
+            let (element_index, element) = content.next()?;
+            if content.next().is_none()
+                && matches!(&element.kind, ElementKind::Card | ElementKind::Text)
+            {
+                Some((scene_index, element_index))
+            } else {
+                None
+            }
+        })
+        .take(64)
+        .collect()
+}
+
 /// Find repeated visible labels among outcomes in separate selector branches.
 /// The first direct item in each branch is its guard; only outcomes are
 /// compared. Findings contain positions only, never model-authored labels.
