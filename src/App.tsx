@@ -194,12 +194,23 @@ import {
   navigateForward,
   navigateToRoute,
   navigateToWorkspace,
+  normalizeSourceLineRange,
   replaceCurrentRoute,
   type NavigationState,
   type SourceLineRange,
   type Workspace,
   type WorkspaceRoute,
 } from './lib/navigation';
+
+function isSafeCapturedSourcePath(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && new TextEncoder().encode(value).length <= 4096
+    && !value.startsWith('/')
+    && !value.includes('\\')
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value)
+    && value.split('/').every((part) => part.length > 0 && part !== '.' && part !== '..');
+}
 
 type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
@@ -1536,6 +1547,15 @@ function App() {
   };
 
   const openCapturedFile = (relativePath: string, sourceSnapshotId?: string, sourceRange?: SourceLineRange) => {
+    const normalizedRange = sourceRange === undefined ? undefined : normalizeSourceLineRange(sourceRange);
+    if (!isSafeCapturedSourcePath(relativePath) || (sourceRange !== undefined && !normalizedRange)) {
+      setNotice({
+        title: 'This source link is unavailable',
+        message: 'The file path or cited line range is malformed. Open the file from Explorer and try again. Nothing was sent to an AI.',
+        tone: 'error',
+      });
+      return;
+    }
     if (!isNativeRuntime()) {
       setNotice({
         title: 'Open source in the Code Atlas Mac app',
@@ -1586,7 +1606,7 @@ function App() {
         projectId: currentProject.projectId,
         snapshotId: targetSnapshotId,
         relativePath,
-        sourceRange,
+        sourceRange: normalizedRange,
         sourceLine: undefined,
         sourceRangeIssue: undefined,
         symbolId: undefined,
