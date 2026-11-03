@@ -47,6 +47,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .app-window { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas); container-type: inline-size; container-name: app-window; }
 .topbar { box-sizing: border-box; flex: 0 0 auto; width: 100%; max-width: 100%; min-width: 0; min-height: 46px; display: grid; grid-template-columns: minmax(0,max-content) minmax(0,1fr) minmax(0,max-content); grid-template-areas: "brand project actions"; position: relative; z-index: 5; align-items: center; gap: 4px 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 98%, transparent); }
+.topbar.topbar--no-project-controls { grid-template-columns: minmax(0,1fr) minmax(0,max-content); grid-template-areas: "brand actions"; }
 .brand-lockup { grid-area: brand; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; color: var(--accent); background: linear-gradient(140deg, var(--accent-soft), var(--surface-raised)); border: 1px solid var(--accent-border); border-radius: 9px; }
 .brand-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: -0.07em; color: var(--text); }
@@ -104,6 +105,7 @@ html[data-app-zoom-header-compact="true"] .topbar {
   gap:4px 8px;
   padding:5px 10px;
 }
+html[data-app-zoom-header-compact="true"] .topbar.topbar--no-project-controls {grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand actions";align-items:center;}
 html[data-app-zoom-header-compact="true"] .topbar .header-divider {display:none;}
 html[data-app-zoom-header-compact="true"] .topbar .project-controls {grid-area:project;flex:0 1 auto;flex-wrap:wrap;width:100%;}
 html[data-app-zoom-header-compact="true"] .topbar .topbar-actions {grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;}
@@ -123,6 +125,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
     gap:4px 8px;
     padding:5px 10px;
   }
+  .topbar.topbar--no-project-controls {grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand actions";align-items:center;}
   .topbar .header-divider {display:none;}
   .topbar .project-controls {grid-area:project;flex:0 1 auto;flex-wrap:wrap;width:100%;}
   .topbar .topbar-actions {grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;}
@@ -138,6 +141,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
     grid-template-areas:"brand" "actions" "project";
     align-items:stretch;
   }
+  .topbar.topbar--no-project-controls {grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "actions";}
   .topbar .topbar-actions {justify-content:flex-start;}
 }
 @container app-window (max-width: 600px) {

@@ -80,6 +80,19 @@ test('native header keeps desktop controls together and reflows compact controls
   matches(shell,/\.topbar \.theme-control-trigger\s*\{[^}]*flex:\s*0 0 auto;/u);
 });
 
+test('first-run header avoids a duplicate repository action and hides an empty snapshot picker',()=>{
+  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  const shell=readFileSync(new URL('../src/App.css',import.meta.url),'utf8');
+  matches(app,/const hasProjectControls = !!currentProject \|\| projectOpening \|\| projectMetadataBusy \|\| recentsPending \|\| recentProjects\.length > 0;/);
+  matches(app,/className=\{`topbar\$\{hasProjectControls \? '' : ' topbar--no-project-controls'\}`\}/);
+  matches(app,/\{hasProjectControls && <div className="project-controls">/);
+  matches(app,/recentProjects\.length > 0 \? 'Recent repositories'/);
+  matches(app,/\{currentProject && currentSnapshots\.length > 0 && <>\s*<span className="header-divider" \/>/);
+  assert.doesNotMatch(app,/: 'No snapshot'<\/span>/);
+  matches(shell,/\.topbar\.topbar--no-project-controls\s*\{[^}]*grid-template-areas:\s*"brand actions";/);
+  matches(shell,/@container app-window \(max-width: 680px\)\s*\{[\s\S]*?\.topbar\.topbar--no-project-controls\s*\{grid-template-columns:minmax\(0,1fr\);grid-template-areas:"brand" "actions";/);
+});
+
 test('scene navigation stays in normal flow and wraps long scene indexes within their track',()=>{
   const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
   matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;[^}]*inset:\s*auto;/);

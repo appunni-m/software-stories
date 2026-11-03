@@ -1924,6 +1924,8 @@ function App() {
     })),
   ];
 
+  const hasProjectControls = !!currentProject || projectOpening || projectMetadataBusy || recentsPending || recentProjects.length > 0;
+
   return (
     <Theme asChild appearance={appearance} accentColor="blue" grayColor="slate" radius="medium">
     <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${!currentProject && currentWorkspace === 'atlas' && readiness === 'ready' ? ' is-first-run' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
@@ -1931,24 +1933,24 @@ function App() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {repositoryContextAnnouncement}
       </div>
-      <header className="topbar">
+      <header className={`topbar${hasProjectControls ? '' : ' topbar--no-project-controls'}`}>
         <div className="brand-lockup">
           <div className="brand-mark"><Layers3 size={19} strokeWidth={2.1} /></div>
           <span className="brand-name">code<span>atlas</span></span>
         </div>
 
-        <div className="project-controls">
+        {hasProjectControls && <div className="project-controls">
           <AppButton intent="custom" size="1"
             ref={projectButtonRef}
             className="project-button"
             data-focus-key="project-button"
             onClick={() => { setSnapshotMenuOpen(false); setProjectMenuOpen((open) => !open); }}
-            aria-label={currentProject ? `Switch repository. Current repository: ${currentProject.displayName}` : 'Open the repository picker'}
+            aria-label={currentProject ? `Switch repository. Current repository: ${currentProject.displayName}` : recentProjects.length > 0 ? 'Choose a recent repository or open a local repository' : 'Open a local repository'}
             aria-expanded={projectMenuOpen}
             aria-haspopup="menu"
           >
             <FolderOpen size={16} />
-            <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? (recentsPending ? 'Opening workspace…' : 'Open a local repository')}</span>
+            <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? (recentsPending ? 'Opening workspace…' : recentProjects.length > 0 ? 'Recent repositories' : 'Open a local repository')}</span>
             <ChevronDown size={14} className="muted-icon" />
           </AppButton>
           {projectOpening && <AppButton intent="icon" size="1" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></AppButton>}
@@ -2007,22 +2009,22 @@ function App() {
               )}
             </div>
           )}
+          {currentProject && currentSnapshots.length > 0 && <>
           <span className="header-divider" />
           <div className="snapshot-picker-wrap">
             <AppButton intent="custom" size="1"
               className="snapshot-button"
               data-focus-key="snapshot-button"
-              disabled={!currentProject || currentSnapshots.length === 0}
               onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen((open) => !open); }}
-              aria-label={selectedSnapshot ? `Choose snapshot. Selected ${formatSnapshotDate(selectedSnapshot.createdAtUnixMs)}${selectedSnapshot.status === 'partial' ? ', partial capture' : ''}` : 'No snapshot selected'}
+              aria-label={selectedSnapshot ? `Choose snapshot. Selected ${formatSnapshotDate(selectedSnapshot.createdAtUnixMs)}${selectedSnapshot.status === 'partial' ? ', partial capture' : ''}` : 'Choose a snapshot'}
               title={selectedSnapshot?.status === 'partial' ? 'Partial capture · some paths were skipped' : undefined}
               aria-expanded={snapshotMenuOpen}
               aria-haspopup="menu"
             >
               <GitBranch size={14} />
-              <span>{selectedSnapshot ? `${selectedSnapshot.branch ?? 'Detached'} · ${selectedSnapshot.head?.slice(0, 7) ?? selectedSnapshot.snapshotId.slice(-7)}` : currentSnapshots.length ? 'Choose snapshot' : 'No snapshot'}</span>
+              <span>{selectedSnapshot ? `${selectedSnapshot.branch ?? 'Detached'} · ${selectedSnapshot.head?.slice(0, 7) ?? selectedSnapshot.snapshotId.slice(-7)}` : 'Choose snapshot'}</span>
               {selectedSnapshot?.status === 'partial' && <TriangleAlert size={13} className="snapshot-partial-indicator" aria-hidden="true" />}
-              {currentSnapshots.length > 0 && <ChevronDown size={13} className="muted-icon" />}
+              <ChevronDown size={13} className="muted-icon" />
             </AppButton>
             {snapshotMenuOpen && (
               <div className="snapshot-menu" role="menu" aria-label="Repository snapshots">
@@ -2041,6 +2043,7 @@ function App() {
               </div>
             )}
           </div>
+          </>}
           {currentProject && selectedSnapshot && isNativeRuntime() && (
             <AppButton
               intent="secondary"
@@ -2056,7 +2059,7 @@ function App() {
               <span>{snapshotBusy || currentCapture?.status === 'running' ? 'Loading…' : 'Load latest changes'}</span>
             </AppButton>
           )}
-        </div>
+        </div>}
 
 
         <div className="topbar-actions">
@@ -2083,8 +2086,8 @@ function App() {
         </div>
       </header>
 
-      {projectMenuOpen && <AppButton intent="custom" className="menu-scrim" aria-label="Close local repositories menu" onClick={() => { setProjectMenuOpen(false); projectButtonRef.current?.focus(); }} />}
-      {snapshotMenuOpen && <AppButton intent="custom" className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
+      {projectMenuOpen && hasProjectControls && <AppButton intent="custom" className="menu-scrim" aria-label="Close local repositories menu" onClick={() => { setProjectMenuOpen(false); projectButtonRef.current?.focus(); }} />}
+      {snapshotMenuOpen && currentProject && currentSnapshots.length > 0 && <AppButton intent="custom" className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
 
       <div className="app-body">
         <main className="workspace" id="main-content">
