@@ -21,7 +21,7 @@ import { capturedSourceLineIndex } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
-import { buildInventory, recommendedEntryPoint } from '../lib/inventory';
+import { buildInventory, languageSupportLabel, languageSupportNote, languageSupportTier, recommendedEntryPoint } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
@@ -1044,8 +1044,10 @@ export function DeveloperWorkspace(props:Props) {
     }
     return roots.map((exploration)=>rendered.get(exploration.id));
   };
+  const selectedInventoryRow=source?rows.find((row)=>row.path===source.path):undefined;
+  const supportTier=selectedInventoryRow?languageSupportTier(selectedInventoryRow):null;
   const sourcePane=source
-    ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} canExplain={!generationPaused} onExplain={explainSafely} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
+    ? <CodePane key={`${source.snapshotId}:${source.path}:${source.sha256}`} path={source.path} contents={source.contents} sha256={source.sha256} theme={appearance} reveal={reveal?.sha256 && reveal.sha256!==source.sha256 ? null : reveal} capability={selectedInventoryRow&&supportTier?{label:languageSupportLabel(supportTier),note:languageSupportNote(supportTier,selectedInventoryRow.language)}:undefined} canExplain={!generationPaused} onExplain={explainSafely} onAttach={(c)=>attach({...c,sha256:source.sha256})} onClose={()=>{setCodeOpen(false);setNarrowPane('explanation');}}/>
     : <div className="dw-source-empty" data-focus-key="workspace-source" tabIndex={-1}>{sourceBusy?<><LoaderCircle size={18}/><p>Opening source…</p></>:sourceError?<p role="alert">{sourceError}</p>:<><Code2 size={24}/><p>Open a file to read its code.</p></>}</div>;
   const resolveConversationConflict=async(choice:'current'|'saved')=>{
     if(conflictResolutionBusy)return;

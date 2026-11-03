@@ -80,3 +80,7 @@ The Files capability notes now match the implemented Python relative-import and 
 ## Distinguish TSX inventory capability — 2026-11-03
 
 The captured-file inventory now labels `.tsx` files as **TSX**, matching the indexer's distinct TSX grammar selection and the capability matrix. TSX receives the existing **Partial structural** tier with an explicit note that framework behavior and generated explanation quality are not qualified. The lightweight Code Lens syntax highlighter shares the TypeScript keyword vocabulary for TSX rather than losing TypeScript token highlighting after the label split. Source-only change; no tests, build, or packaged acceptance ran. Language fixtures, framework/mixed-language qualification, and human-reviewed narrative quality remain open.
+
+## Active workspace capability disclosure — 2026-11-03
+
+The primary developer workspace now shows the selected file's structural-support tier beside its language in the code-pane footer. Keyboard focus or hover reveals the language-specific limits, including unsupported parser behavior where applicable. This carries the inventory's honest capability signal into the workspace that replaced the older Files detail view without adding a setup step or a persistent settings panel. Source inspection only; no tests or packaged acceptance were run. Parser and narrative qualification criteria remain open.
