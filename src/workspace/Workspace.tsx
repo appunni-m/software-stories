@@ -350,7 +350,7 @@ export function DeveloperWorkspace(props:Props) {
   const guideStackHasHiddenQuestions=visibleGuideQuestionCount<allGuideQuestionCount;
   const showGuideStackControl=guideStackHasHiddenQuestions||groupedGuideAttemptCount>0||guideStackExpanded;
   const groupedGuideAttemptSummary=groupedGuideAttemptCount>0
-    ?' Earlier outcomes are kept under each question.'
+    ?' Earlier replies stay with each question.'
     :'';
   const guideStackStatus=guideStackExpanded
     ?`Showing all ${allGuideQuestionCount} ${guideQuestionNoun}.${groupedGuideAttemptSummary}`
