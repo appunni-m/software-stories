@@ -1126,6 +1126,36 @@ mod tests {
     }
 
     #[test]
+    fn edit_preparation_rejects_unsupported_schema_without_changing_saved_history() {
+        let fixture = Fixture::new();
+        let original = saved_agent_overview(&fixture);
+        let original_bytes = chapters::encode_chapter_revision(&original).unwrap();
+        let history_before =
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap();
+
+        for unsupported_version in [
+            chapters::CHAPTER_SCHEMA_VERSION.saturating_sub(1),
+            chapters::CHAPTER_SCHEMA_VERSION + 1,
+        ] {
+            let mut proposal = original.clone();
+            proposal.schema_version = unsupported_version;
+            let error = prepare_edit(&original, proposal).unwrap_err();
+            assert!(error.contains("unsupported format"), "{error}");
+        }
+
+        assert_eq!(
+            chapters::encode_chapter_revision(&original).unwrap(),
+            original_bytes,
+            "unsupported edit proposals must not mutate their base revision"
+        );
+        assert_eq!(
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap(),
+            history_before,
+            "schema rejection must not append a draft"
+        );
+    }
+
+    #[test]
     fn edited_sections_accept_as_append_only_revisions_without_changing_old_payloads_or_source() {
         let fixture = Fixture::new();
         let original = first_saved_draft(&fixture);
