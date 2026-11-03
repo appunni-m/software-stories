@@ -6,8 +6,8 @@ cargo-about: cargo-about 0.9.2
 license-texts-sha256: 41ae2a5571a0ace9a53aefe851ca2c6928976c89615c1e68e541344f954363b2
 dependency-manifest-sha256: package.json=9aa1ff629f71e47bb6ca22cc535d77a40012d3dfa0e7b5032cbf89b8acb851ee
 source-sha256: package-lock.json=46602ca7db84ac39e79e3eae1467f8014d9b7932086bb8854e2466cfb8ab7aba
-source-sha256: src-tauri/Cargo.toml=00fb30b4ec9286f516fbccc8f06480847d501124434e375960a0836bc58c81e2
-source-sha256: src-tauri/Cargo.lock=553da75c45a89d5e6b938066027eeaa8c75bdf76e4c70fa838239fc9237a9fe7
+source-sha256: src-tauri/Cargo.toml=e1fbb9625d6b8587013b9f0dc2e6d3a38bde0ffaee78ab80fb5f3d92f9ee28bc
+source-sha256: src-tauri/Cargo.lock=e3d379b9115f50e664b9f3f0292bb471550a446dde028c9053bf25e8e5ba1b11
 source-sha256: src-tauri/about.toml=9c8fb92ec9f04063425e9b393b396acd79692158f4dff05fe76e119b30a03c0f
 source-sha256: src-tauri/tauri.conf.json=8cfca85e572de864a5260346db8ca5ed8414cddc93dbf2ccef03b5b206544612
 source-sha256: src-tauri/resources/third-party/react-remove-scroll-bar-LICENSE-MIT.txt=a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84
