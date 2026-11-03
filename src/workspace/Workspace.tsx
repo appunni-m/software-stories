@@ -700,7 +700,7 @@ export function DeveloperWorkspace(props:Props) {
       const detail=errorMessageOr(failure,'').replace(/\s+/gu,' ').trim();
       const safeDetail=detail.length>0&&detail.length<=220&&!/(?:api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]/iu.test(detail)
         ? ` Details: ${detail}` : '';
-      setDraftNotice(`The selected code review could not be opened.${safeDetail} Reopen the captured file and select its code again.`);
+      setDraftNotice(`The selected code question could not be started.${safeDetail} Reopen the captured file and select its code again.`);
     }
   }
   function explainFileSafely(){
