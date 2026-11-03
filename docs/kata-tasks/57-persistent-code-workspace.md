@@ -166,10 +166,12 @@ non-submit behavior remain unchanged. This is source-only; no build, test, or
 packaged visual review ran. Keep the broader component and accessibility
 acceptance open.
 
-## Dialog action migration — 3 November 2026
+## Citation editor field and dialog action migration — 3 November 2026
 
 The production citation editor and keyboard-shortcuts dialog now use the shared
-`AppButton` for trigger, cancel, submit, and close actions. Form submit remains
+`AppButton` for trigger, cancel, submit, and close actions. The citation editor
+also uses the shared `AppTextField` for its file and line-range inputs; the
+wrapper now supports a datalist and bounded numeric inputs. Form submit remains
 an explicit submit; dialog close/cancel remain non-submit controls. The
 citation trigger and cancel use quiet/secondary intents, and **Use these
 lines** and **Done** use the primary intent. No build, test, or packaged dialog

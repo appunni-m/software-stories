@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { Dialog, Flex, Text, TextField } from '@radix-ui/themes';
+import { Dialog, Flex, Text } from '@radix-ui/themes';
 import { repairChapterCitation, type ChapterSourceAnchor } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { AppButton } from './design/AppButton';
+import { AppTextField } from './design/AppTextField';
 
 export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,anchor,paths,disabled,open,onOpenChange,onApply}:{
   projectId:string;baseRevisionId:string;snapshotId:string;anchor:ChapterSourceAnchor;paths:string[];disabled:boolean;
@@ -37,10 +38,10 @@ export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,ancho
       <Dialog.Description size="2">Choose the code that supports this claim. Review its narration and visuals after changing the citation.</Dialog.Description>
       <form onSubmit={event=>void apply(event)}>
         <Flex direction="column" gap="3" mt="4">
-          <label><Text as="div" size="2" mb="1">File</Text><TextField.Root aria-label="Citation file" list={list} value={path} maxLength={4096} disabled={busy} required onChange={event=>{setPath(event.target.value);setError(null);}}/><datalist id={list}>{paths.map(p=><option key={p} value={p}/>)}</datalist></label>
+          <label><Text as="div" size="2" mb="1">File</Text><AppTextField ariaLabel="Citation file" list={list} value={path} maxLength={4096} disabled={busy} required onValueChange={value=>{setPath(value);setError(null);}}/><datalist id={list}>{paths.map(p=><option key={p} value={p}/>)}</datalist></label>
           <Flex gap="3" wrap="wrap">
-            <label><Text as="div" size="2" mb="1">From line</Text><TextField.Root aria-label="Citation from line" type="number" min="1" max="4294967295" step="1" required value={from} disabled={busy} onChange={event=>{setFrom(event.target.value);setError(null);}}/></label>
-            <label><Text as="div" size="2" mb="1">To line</Text><TextField.Root aria-label="Citation to line" type="number" min="1" max="4294967295" step="1" required value={to} disabled={busy} onChange={event=>{setTo(event.target.value);setError(null);}}/></label>
+            <label><Text as="div" size="2" mb="1">From line</Text><AppTextField ariaLabel="Citation from line" type="number" min="1" max="4294967295" step="1" required value={from} disabled={busy} onValueChange={value=>{setFrom(value);setError(null);}}/></label>
+            <label><Text as="div" size="2" mb="1">To line</Text><AppTextField ariaLabel="Citation to line" type="number" min="1" max="4294967295" step="1" required value={to} disabled={busy} onValueChange={value=>{setTo(value);setError(null);}}/></label>
           </Flex>
           {error&&<Text as="p" size="2" color="red" role="alert">{error}</Text>}
           <Flex justify="end" gap="3" mt="2"><Dialog.Close><AppButton type="button" intent="secondary" color="gray">Cancel</AppButton></Dialog.Close><AppButton type="submit" intent="primary" disabled={busy||disabled}>{busy?'Reading source…':'Use these lines'}</AppButton></Flex>
