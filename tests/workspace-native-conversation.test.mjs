@@ -64,7 +64,7 @@ test('source-discovery selection notes survive the native conversation wire and 
   assert.ok(reopened.calls.every(call=>call.name==='load_workspace_conversation'));
 });
 
-test('a stop-requested workspace job restores as active after restart', async () => {
+test('a stop-requested workspace job stays active after its renderer reload', async () => {
   const b = backend();
   const jobId = runId(72);
   const turn = {
@@ -90,6 +90,7 @@ test('a stop-requested workspace job restores as active after restart', async ()
       projectId: 'project',
       snapshotId: 'snapshot',
       state: 'stopRequested',
+      workerRegistered: true,
     }],
   });
   await reopened.store.prepareWorkspaceConversation('project', 'snapshot');
