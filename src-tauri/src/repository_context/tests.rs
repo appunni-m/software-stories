@@ -20,12 +20,13 @@ pub(super) fn add_source(fixture: &mut Fixture, path: &str, text: &str) {
 }
 
 #[test]
-fn literal_pattern_scans_are_bounded_cancellable_and_keep_window_crossing_hits() {
+fn bounded_pattern_scans_are_cancellable_and_keep_window_crossing_hits() {
     let query = "target";
     let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Code);
     let source = "1234567TARGET and more";
     let mut checks = 0;
-    let found = find_pattern_at_with_check(&matcher, source, 0, query, SearchMode::Code, 8, || {
+    let found = find_pattern_at_with_check(&matcher, source, 0, match_width, 8, || {
         checks += 1;
         Ok(())
     })
@@ -36,13 +37,13 @@ fn literal_pattern_scans_are_bounded_cancellable_and_keep_window_crossing_hits()
 
     let query = "ka";
     let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Code);
     let source = "xKa and more";
     let found = find_pattern_at_with_check(
         &matcher,
         source,
         0,
-        query,
-        SearchMode::Code,
+        match_width,
         2,
         || Ok(()),
     )
@@ -52,19 +53,56 @@ fn literal_pattern_scans_are_bounded_cancellable_and_keep_window_crossing_hits()
 
     let query = "missing";
     let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Code);
     let source = "x".repeat(40);
     let mut checks = 0;
-    let result =
-        find_pattern_at_with_check(&matcher, &source, 0, query, SearchMode::Code, 8, || {
-            checks += 1;
-            if checks == 3 {
-                Err("Code search stopped.".to_owned())
-            } else {
-                Ok(())
-            }
-        });
+    let result = find_pattern_at_with_check(&matcher, &source, 0, match_width, 8, || {
+        checks += 1;
+        if checks == 3 {
+            Err("Code search stopped.".to_owned())
+        } else {
+            Ok(())
+        }
+    });
     assert_eq!(result.unwrap_err(), "Code search stopped.");
     assert_eq!(checks, 3, "no-hit scans check cancellation between windows");
+
+    let query = r"a.{0,5}z";
+    let matcher = pattern_matcher(query, SearchMode::Regex).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Regex).unwrap();
+    let source = "1234567a😀z and a long tail";
+    let found = find_pattern_at_with_check(&matcher, source, 0, Some(match_width), 8, || Ok(()))
+        .unwrap()
+        .unwrap();
+    assert_eq!((found.start(), found.end()), (7, 13));
+    assert!(bounded_pattern_width(r"^a.{0,5}z", SearchMode::Regex).is_none());
+    assert!(bounded_pattern_width(r"a.*z", SearchMode::Regex).is_none());
+    assert!(bounded_pattern_width(r"a{65537}", SearchMode::Regex).is_none());
+
+    let query = "kkka";
+    let matcher = pattern_matcher(query, SearchMode::Regex).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Regex).unwrap();
+    let source = "xxxxxKKKa";
+    let found = find_pattern_at_with_check(&matcher, source, 0, Some(match_width), 8, || Ok(()))
+        .unwrap()
+        .unwrap();
+    assert_eq!((found.start(), found.end()), (5, 15));
+
+    let query = r"word[0-9]{1,3}";
+    let matcher = pattern_matcher(query, SearchMode::Regex).unwrap();
+    let match_width = bounded_pattern_width(query, SearchMode::Regex);
+    let source = "x".repeat(40);
+    let mut checks = 0;
+    let result = find_pattern_at_with_check(&matcher, &source, 0, match_width, 8, || {
+        checks += 1;
+        if checks == 3 {
+            Err("Code search stopped.".to_owned())
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(result.unwrap_err(), "Code search stopped.");
+    assert_eq!(checks, 3);
 }
 
 #[test]
@@ -2435,6 +2473,49 @@ fn regex_match_at_chunk_edge_uses_only_context_that_fits_the_range_limit() {
     )
     .unwrap();
     assert_eq!(read.contents, unicode_match);
+}
+
+#[test]
+fn bounded_regex_search_finds_a_unicode_match_across_scan_windows() {
+    let mut fixture = Fixture::new();
+    let prefix = "x".repeat(PATTERN_SCAN_WINDOW_BYTES - 1);
+    add_source(
+        &mut fixture,
+        "lib/scan-window.rs",
+        &format!("{prefix}a😀z and a long tail"),
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        r"a.{1}z",
+        Some("lib/scan-window.rs"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    let hit = &result.matches[0];
+    let match_start = PATTERN_SCAN_WINDOW_BYTES - 1;
+    let match_end = match_start + "a😀z".len();
+    assert!(hit.range.start_byte <= match_start);
+    assert!(hit.range.end_byte >= match_end);
+    assert_eq!(hit.line, 1);
+    let read = read_range(
+        &fixture.storage,
+        &fixture.manifest,
+        &hit.range.path,
+        &hit.range.source_sha256,
+        hit.range.start_byte,
+        hit.range.end_byte,
+    )
+    .unwrap();
+    assert!(read.contents.contains("a😀z"));
 }
 
 #[test]

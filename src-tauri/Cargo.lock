@@ -712,6 +712,7 @@ dependencies = [
  "jsonschema",
  "keyring",
  "libc",
+ "regex-syntax",
  "reqwest",
  "rig-core",
  "rmcp",

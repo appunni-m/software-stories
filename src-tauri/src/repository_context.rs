@@ -1505,26 +1505,40 @@ fn pattern_matcher(query: &str, mode: SearchMode) -> Result<RegexMatcher, String
     Ok(matcher)
 }
 
-/// Search fixed-string queries in bounded windows so large no-hit scans can
-/// observe cancellation and the local deadline. The overlap covers the
-/// longest possible UTF-8 encoding of a case-folded query: case folding maps
-/// one Unicode scalar to one scalar, and a scalar uses at most four bytes.
-/// Regular expressions keep their whole-slice semantics because an arbitrary
-/// expression can match an unbounded number of bytes across window edges.
+/// Return a safe finite match width for windowed scanning. Assertions need
+/// surrounding whole-file context; unbounded or overly wide patterns need an
+/// unlimited window, so those keep the existing whole-slice search path.
+fn bounded_pattern_width(query: &str, mode: SearchMode) -> Option<usize> {
+    if mode == SearchMode::Code {
+        return Some(query.chars().count().saturating_mul(4));
+    }
+    let mut parser = regex_syntax::ParserBuilder::new();
+    parser.case_insensitive(true).nest_limit(64);
+    let hir = parser.build().parse(query).ok()?;
+    let properties = hir.properties();
+    if !properties.look_set().is_empty() {
+        return None;
+    }
+    properties
+        .maximum_len()
+        .filter(|width| *width <= PATTERN_SCAN_WINDOW_BYTES)
+}
+
+/// Search a finite-width pattern in bounded windows so large no-hit scans can
+/// observe cancellation and the local deadline. The overlap includes every
+/// byte a match beginning at the end of the current window may consume.
 fn find_pattern_at(
     matcher: &RegexMatcher,
     haystack: &str,
     cursor: usize,
-    query: &str,
-    mode: SearchMode,
+    match_width: Option<usize>,
     budget: &Budget<'_>,
 ) -> Result<Option<Match>, String> {
     find_pattern_at_with_check(
         matcher,
         haystack,
         cursor,
-        query,
-        mode,
+        match_width,
         PATTERN_SCAN_WINDOW_BYTES,
         || budget.check(),
     )
@@ -1534,17 +1548,16 @@ fn find_pattern_at_with_check(
     matcher: &RegexMatcher,
     haystack: &str,
     cursor: usize,
-    query: &str,
-    mode: SearchMode,
+    match_width: Option<usize>,
     window_bytes: usize,
     mut check: impl FnMut() -> Result<(), String>,
 ) -> Result<Option<Match>, String> {
-    if mode == SearchMode::Regex {
+    let Some(match_width) = match_width else {
         check()?;
         return matcher
             .find_at(haystack.as_bytes(), cursor)
             .map_err(|_| "A captured code snippet could not be searched.".to_owned());
-    }
+    };
     if window_bytes == 0 {
         return Err("The local code search window is invalid.".to_owned());
     }
@@ -1552,7 +1565,7 @@ fn find_pattern_at_with_check(
     if start > haystack.len() || !haystack.is_char_boundary(start) {
         return Err("The code search offset is outside a UTF-8 boundary.".to_owned());
     }
-    let overlap = query.chars().count().saturating_mul(4).saturating_sub(1);
+    let overlap = match_width.saturating_sub(1);
     while start < haystack.len() {
         check()?;
         let mut core_end = start.saturating_add(window_bytes).min(haystack.len());
@@ -1812,7 +1825,7 @@ fn collect_identifier_declarations_from_source(
     source: &snapshot::SnapshotSource,
     ranges: &[&CodeRange],
     snapshot_id: &str,
-    query: &str,
+    match_width: Option<usize>,
     matcher: &RegexMatcher,
     declarations: &mut Vec<SearchHit>,
     limit: usize,
@@ -1825,8 +1838,7 @@ fn collect_identifier_declarations_from_source(
             matcher,
             &source.contents,
             cursor,
-            query,
-            SearchMode::Code,
+            match_width,
             budget,
         )?
         else {
@@ -1905,6 +1917,7 @@ fn search_pattern(
     mode: SearchMode,
 ) -> Result<SearchResult, String> {
     let matcher = pattern_matcher(query, mode)?;
+    let match_width = bounded_pattern_width(query, mode);
     let seek_declarations = mode == SearchMode::Code && is_identifier_query(query);
     let mut files = prepared
         .metadata
@@ -1958,7 +1971,7 @@ fn search_pattern(
         let mut cursor = 0;
         while !pattern_limited {
             let Some(found) =
-                find_pattern_at(&matcher, &captured.contents, cursor, query, mode, budget)?
+                find_pattern_at(&matcher, &captured.contents, cursor, match_width, budget)?
             else {
                 break;
             };
@@ -2072,7 +2085,7 @@ fn search_pattern(
                 &captured,
                 ranges,
                 &manifest.summary.snapshot_id,
-                query,
+                match_width,
                 &matcher,
                 &mut declarations,
                 limit,
