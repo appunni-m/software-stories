@@ -4,8 +4,8 @@ npm-package-count: 148
 cargo-crate-count: 391
 cargo-about: cargo-about 0.9.2
 license-texts-sha256: 41ae2a5571a0ace9a53aefe851ca2c6928976c89615c1e68e541344f954363b2
-dependency-manifest-sha256: package.json=9aa1ff629f71e47bb6ca22cc535d77a40012d3dfa0e7b5032cbf89b8acb851ee
-source-sha256: package-lock.json=46602ca7db84ac39e79e3eae1467f8014d9b7932086bb8854e2466cfb8ab7aba
+dependency-manifest-sha256: package.json=c8742f23906ddca9f098b50adc0326ca16f334b61397f53fdcace3cb5ddb2416
+source-sha256: package-lock.json=75a9f19e4fea576cc68e0f6d0b8087fba48a458cb8bce498b5733d17444020bd
 source-sha256: src-tauri/Cargo.toml=e1fbb9625d6b8587013b9f0dc2e6d3a38bde0ffaee78ab80fb5f3d92f9ee28bc
 source-sha256: src-tauri/Cargo.lock=e3d379b9115f50e664b9f3f0292bb471550a446dde028c9053bf25e8e5ba1b11
 source-sha256: src-tauri/about.toml=9c8fb92ec9f04063425e9b393b396acd79692158f4dff05fe76e119b30a03c0f

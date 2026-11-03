@@ -814,7 +814,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         </div>
         <div className="walkthrough-seek-label">
           <span>Audio position</span>
-          <AppSlider ariaLabel="Audio position" min={0} max={duration || 1} step={0.05} value={[Math.min(currentTime, duration || 0)]} disabled={!track || !duration} onValueChange={([value]) => { if (value !== undefined) seek(value); }} />
+          <AppSlider ariaLabel="Audio position" ariaValueText={formatTime(Math.min(currentTime, duration || 0))} min={0} max={duration || 1} step={0.05} value={[Math.min(currentTime, duration || 0)]} disabled={!track || !duration} onValueChange={([value]) => { if (value !== undefined) seek(value); }} />
         </div>
       </div>
       {localNarration && providerRequestBusy && <AppButton intent="quiet" type="button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</AppButton>}
