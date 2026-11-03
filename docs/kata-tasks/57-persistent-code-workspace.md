@@ -176,3 +176,12 @@ an explicit submit; dialog close/cancel remain non-submit controls. The
 citation trigger and cancel use quiet/secondary intents, and **Use these
 lines** and **Done** use the primary intent. No build, test, or packaged dialog
 review ran; wider shared-component and accessibility acceptance remains open.
+
+## Persistent workspace search fields — 3 November 2026
+
+Explorer file filtering, repository search, exploration filtering, and chat
+history search now use `AppSearchField`. The shared field supports the workspace
+search hotkey, quick-open Enter behavior, regex toggle and history clear action
+through typed focus/key handlers, an input ref, and an optional trailing slot.
+Queries, limits, labels, and callbacks are preserved. No build, test, or
+packaged visual/keyboard review ran; the workspace acceptance remains open.
