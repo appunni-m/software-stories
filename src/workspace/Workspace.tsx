@@ -1218,7 +1218,6 @@ function WorkspaceSharingDetails({kind}:{kind:'question'|'guide'}) {
 }
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
-  const compact=Boolean(props.compact);
   const [guideOutlineState,setGuideOutlineState]=useState<{turnId:string;open:boolean}|null>(null);
   const [restoringSavedGuide,setRestoringSavedGuide]=useState(false);
   const [savedGuideRestoreError,setSavedGuideRestoreError]=useState<string|null>(null);
