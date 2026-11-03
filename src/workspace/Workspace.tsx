@@ -17,7 +17,7 @@ import { AnswerVisualPreview } from './AnswerVisualPreview';
 import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
-import { capturedSourceLineIndex } from '../lib/codeLens';
+import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -372,10 +372,14 @@ export function DeveloperWorkspace(props:Props) {
   const [gitReload,setGitReload] = useState(0);
   const gitRequest = useRef<AbortController|null>(null);
   const [consentTurn,setConsentTurn] = useState<string|null>(null);
+  const [freshConsentTurn,setFreshConsentTurn] = useState<string|null>(null);
+  const [freshConsentPreview,setFreshConsentPreview] = useState<{turnId:string;path:string;sha256:string;from:number;to:number;lines:string[];omitted:boolean}|null>(null);
   const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean;unitKey?:string}|null>(null);
   const [consentBusy,setConsentBusy] = useState(false);
   const [consentError,setConsentError] = useState<string|null>(null);
   const pendingConsentTurn = consentTurn ? current.turns.find((turn)=>turn.id===consentTurn) : undefined;
+  const isCodeLensConsent = Boolean(consentTurn&&freshConsentTurn===consentTurn);
+  const reviewedCodePreview = isCodeLensConsent&&freshConsentPreview?.turnId===consentTurn ? freshConsentPreview : null;
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
   const [draftNotice,setDraftNotice] = useState<string|null>(null);
   const [searchFocused,setSearchFocused] = useState(false);
@@ -643,7 +647,7 @@ export function DeveloperWorkspace(props:Props) {
     else {setGuideConsent({id,resume:false});setConsentError(null);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
-  function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string):boolean{
+  function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string,requireFreshConsent=false):boolean{
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);focusComposer();return false;}
     if(context.length>MAX_CONTEXT_REFERENCES){setDraftNotice(`A question can include up to ${MAX_CONTEXT_REFERENCES} source references. Remove some before sending.`);return false;}
     if(isRepositoryPlanHistoryIntent(clean)&&props.onOpenPlanHistory){setSearchFocused(false);clearComposerDraft();props.onOpenPlanHistory();return true;}
@@ -655,7 +659,18 @@ export function DeveloperWorkspace(props:Props) {
     }
     if(isRepositoryGuideIntent(clean)){startRepositoryGuide(clean,parentTurn);return true;}
     const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
-    if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
+    if(requireFreshConsent){
+      const range=context.length===1?context[0]:undefined;
+      if(range?.from!==undefined&&range.to!==undefined&&source&&source.snapshotId===snapshotId&&source.path===range.path&&source.sha256===range.sha256){
+        const previewStart=range.from;
+        const previewEnd=Math.min(range.to,previewStart+23);
+        const preview=capturedSourceLineWindow(source.contents,previewStart,previewEnd,{maxLineCharacters:200,lineIndex:sourceLineIndex??undefined});
+        const lines=preview.lines.map((line,index)=>`${previewStart+index}  ${preview.omittedBefore[index]?'…':''}${line}${preview.omittedAfter[index]?'…':''}`);
+        setFreshConsentPreview({turnId:id,path:range.path,sha256:source.sha256,from:previewStart,to:range.to,lines,
+          omitted:previewEnd<range.to||preview.omittedBefore.some(Boolean)||preview.omittedAfter.some(Boolean)});
+      }else setFreshConsentPreview(null);
+    }else setFreshConsentPreview(null);
+    if(state.grantId&&!requireFreshConsent) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setFreshConsentTurn(requireFreshConsent?id:null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
     return true;
   }
@@ -694,7 +709,7 @@ export function DeveloperWorkspace(props:Props) {
     setDraftNotice(null);
     setConsentError(null);
     const question=`Explain what ${label(selected)} does and how it works.`;
-    ask(question,current.view==='flow'?'flow':'guide',[selected]);
+    ask(question,current.view==='flow'?'flow':'guide',[selected],undefined,true);
   }
   function explainSafely(context:Context){
     try{askAboutSelectedCode(context);}catch(failure){
@@ -776,7 +791,7 @@ export function DeveloperWorkspace(props:Props) {
     const turnId=appendQuestion(projectId,snapshotId,pending.question,contexts,'guide',undefined,pending.sourceDiscoveryNotes);
     setSearchFocused(false);setNarrowPane('explanation');
     if(state.grantId)void runQuestion(projectId,snapshotId,turnId,state.grantId);
-    else{setConsentError(null);setConsentTurn(turnId);}
+    else{setConsentError(null);setFreshConsentTurn(null);setFreshConsentPreview(null);setConsentTurn(turnId);}
     props.onPendingLargeFileExplanationConsumed?.(pending.id);
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   },[props.pendingLargeFileExplanation,props.workspace,props.routePath,props.manifest.files,props.onSettings,
@@ -791,7 +806,7 @@ export function DeveloperWorkspace(props:Props) {
       setConsentError(null);return;
     }
     if(isRepositoryGuideIntent(turn.question)){startRepositoryGuide(turn.question);return;}
-    if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else setConsentTurn(turn.id);
+    if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else{setFreshConsentTurn(null);setFreshConsentPreview(null);setConsentTurn(turn.id);}
   }
   function retryGuideUnit(turnId:string,unitKey:string) {
     if(generationPaused||!requireCodexConnection())return;
@@ -1204,7 +1219,38 @@ export function DeveloperWorkspace(props:Props) {
         </Group>}
       </section></Panel>
     </Group>
-    <Dialog.Root open={!!consentTurn} onOpenChange={(open)=>{if(!open&&!consentBusy){if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>Let Code Atlas explore {projectName}?</Dialog.Title><Dialog.Description size="2">To answer this question, Code Atlas sends it and a compact map of the captured snapshot through your connected assistant. The assistant may read relevant captured code. Your live working files are not shared, and this snapshot's permission can be revoked at any time.</Dialog.Description>{pendingConsentTurn&&<div className="dw-consent-request-scope"><p><strong>Question</strong>{pendingConsentTurn.question}</p>{pendingConsentTurn.context.length>0&&<ul aria-label="Source references">{pendingConsentTurn.context.map((context,index)=><li key={`${context.path}:${context.from??''}:${context.to??''}:${index}`}><code>{context.path}{context.from!==undefined?`:${context.from}–${context.to??context.from}`:''}</code></li>)}</ul>}</div>}<WorkspaceSharingDetails kind="question"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'The question could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before starting this question.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!consentTurn||generationPaused)return;const id=consentTurn;setConsentBusy(true);setConsentError(null);void authorizeWorkspace(projectId,snapshotId).then((grant)=>{setConsentTurn(null);void runQuestion(projectId,snapshotId,id,grant);}).catch((failure)=>setConsentError(errorMessageOr(failure,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':'Allow and explain'}</AppButton></Flex>{consentError&&<AppButton intent="quiet" onClick={()=>{if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);requestAnimationFrame(onSettings);}}>Open connection settings</AppButton>}</Dialog.Content></Dialog.Root>
+    <Dialog.Root open={!!consentTurn} onOpenChange={(open)=>{if(!open&&!consentBusy){if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setFreshConsentTurn(null);setFreshConsentPreview(null);setConsentTurn(null);}}}>
+      <Dialog.Content maxWidth="520px">
+        <Dialog.Title>{isCodeLensConsent?'Review selected code before sending':`Let Code Atlas explore ${projectName}?`}</Dialog.Title>
+        <Dialog.Description size="2">{isCodeLensConsent
+          ? state.grantId
+            ? 'Review the question and captured source range below. Nothing is sent until you choose Send and explain. The existing snapshot permission lets the assistant read relevant captured code; your live working copy is not shared.'
+            : 'Review the question and captured source range below. Choosing Send and explain shares this request and grants the assistant access to relevant captured code in this snapshot for future questions until revoked. Your live working copy is not shared.'
+          : 'To answer this question, Code Atlas sends it and a compact map of the captured snapshot through your connected assistant. The assistant may read relevant captured code. Your live working files are not shared, and this snapshot’s permission can be revoked at any time.'}</Dialog.Description>
+        {pendingConsentTurn&&<div className="dw-consent-request-scope"><p><strong>Question</strong>{pendingConsentTurn.question}</p>{pendingConsentTurn.context.length>0&&<ul aria-label="Source references">{pendingConsentTurn.context.map((context,index)=><li key={`${context.path}:${context.from??''}:${context.to??''}:${index}`}><code>{context.path}{context.from!==undefined?`:${context.from}–${context.to??context.from}`:''}</code></li>)}</ul>}</div>}
+        {isCodeLensConsent&&reviewedCodePreview&&<details className="dw-code-review-preview" open><summary>Captured code · {reviewedCodePreview.path}:{reviewedCodePreview.from}–{reviewedCodePreview.to}</summary><pre><code>{reviewedCodePreview.lines.join('\n')}</code></pre><small>{reviewedCodePreview.omitted?'Preview shortened to 24 lines and 200 characters per line; the request remains subject to the source limits below.':'This preview matches the selected snapshot range.'}</small></details>}
+        {isCodeLensConsent&&!reviewedCodePreview&&<p role="alert" className="dw-error">The selected source preview is unavailable. Reopen the captured file and select the code again; nothing was sent.</p>}
+        <WorkspaceSharingDetails kind="question"/>
+        {consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'The question could not be started.')}</p>}
+        {generationPaused&&<p role="status">Resolve the saved conversation conflict before starting this question.</p>}
+        <Flex justify="end" gap="3" mt="4">
+          <Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close>
+          <AppButton intent="primary" disabled={consentBusy||generationPaused||(isCodeLensConsent&&!reviewedCodePreview)} onClick={()=>{
+            if(!consentTurn||generationPaused)return;
+            const id=consentTurn;
+            setConsentBusy(true);setConsentError(null);
+            const grant=state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId);
+            void grant.then((grantId)=>{setFreshConsentTurn(null);setFreshConsentPreview(null);setConsentTurn(null);void runQuestion(projectId,snapshotId,id,grantId);})
+              .catch((failure)=>setConsentError(errorMessageOr(failure,'Connect Codex in the header, then try again.')))
+              .finally(()=>setConsentBusy(false));
+          }}>{consentBusy?'Connecting…':isCodeLensConsent?'Send and explain':'Allow and explain'}</AppButton>
+        </Flex>
+        {consentError&&<AppButton intent="quiet" onClick={()=>{
+          if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);
+          setFreshConsentTurn(null);setFreshConsentPreview(null);setConsentTurn(null);requestAnimationFrame(onSettings);
+        }}>Open connection settings</AppButton>}
+      </Dialog.Content>
+    </Dialog.Root>
     <Dialog.Root open={!!guideConsent} onOpenChange={(open)=>{if(!open&&!consentBusy){if(guideConsent&&!guideConsent.resume)update((state)=>discardUnstartedGuide(state,guideConsent.id));setGuideConsent(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>{guideConsent?.unitKey?'Retry one guide slide':guideConsent?.resume?'Continue your guide':'Build a guide to '+projectName}</Dialog.Title><Dialog.Description size="2">Your guide question and a compact map of this captured snapshot (file paths, code names, and relationships) are sent through your connected assistant. It may read relevant captured code to prepare each slide. Your live working files are not shared, and this snapshot's permission can be revoked at any time.</Dialog.Description><p className="dw-permission-note">See the planned topics first. Follow each slide through its code links while the next ones take shape.</p><WorkspaceSharingDetails kind="guide"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'This guide could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before continuing this guide.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!guideConsent||generationPaused)return;const pending=guideConsent;setConsentBusy(true);setConsentError(null);void (state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId)).then((grant)=>{setGuideConsent(null);void runRepositoryGuide(projectId,snapshotId,pending.id,grant,pending.resume,pending.unitKey);}).catch((error)=>setConsentError(errorMessageOr(error,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':guideConsent?.unitKey?'Retry slide':guideConsent?.resume?'Continue guide':'Build guide'}</AppButton></Flex></Dialog.Content></Dialog.Root>
     <Dialog.Root open={props.sharingOpen} onOpenChange={props.onSharingOpenChange}><Dialog.Content maxWidth="460px"><Dialog.Title>Repository sharing</Dialog.Title><Dialog.Description size="2">{state.grantId?'Codex can explore captured code in this snapshot when you ask a question. Your live working copy is not included.':'Codex has no workspace sharing permission for this snapshot.'}</Dialog.Description>{state.grantId&&<AppButton mt="4" intent="danger" color="red" onClick={()=>{void revokeWorkspace(projectId,snapshotId).then(()=>props.onSharingOpenChange(false)).catch((failure)=>setConsentError(errorMessageOr(failure,'Permission could not be revoked.')));}}>Revoke permission and stop questions</AppButton>}{consentError&&<p role="alert">{consentError}</p>}<Flex justify="end" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray">Done</AppButton></Dialog.Close></Flex></Dialog.Content></Dialog.Root>
   </Theme></ReaderProgressContext.Provider>;
