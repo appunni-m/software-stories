@@ -233,12 +233,12 @@
 .dw-search-coverage small {display:block;padding-bottom:var(--space-2);color:var(--dim);}
 .dw-suggestions .dw-search-coverage {margin:var(--space-1) 0;}
 .dw-search-results strong {font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dw-search-results .dw-search-file-path > strong {display:block;min-width:0;max-width:100%;overflow:visible;color:var(--text);font-size:12px;font-weight:600;line-height:1.25;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;}
+.dw-search-results .dw-search-file-path > strong {display:block;min-width:0;max-width:100%;overflow:hidden;color:var(--text);font-size:12px;font-weight:600;line-height:1.25;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal;}
 .dw-search-results .dw-search-file-path > small {display:block;min-width:0;max-width:100%;overflow:hidden;color:var(--dim);font-size:11px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap;}
 @container workspace-sidebar (max-width: 240px) {
   .dw-search-file-heading {grid-template-columns:13px minmax(0,1fr);gap:2px 6px;}
   .dw-search-file-count {grid-column:2;grid-row:2;white-space:normal;}
-  .dw-search-results .dw-search-file-path > strong {overflow-wrap:break-word;word-break:normal;}
+  .dw-search-results .dw-search-file-path > strong {overflow-wrap:normal;word-break:normal;}
 }
 .dw-search-results .rt-Button {margin-top:var(--space-3);}
 .dw-commits {overflow:auto;padding:var(--space-2) var(--space-2) var(--space-5);}
