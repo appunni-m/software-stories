@@ -3022,7 +3022,12 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
 }
 
 fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
-    let version = initialize
+    let server_info_version = initialize
+        .get("serverInfo")
+        .and_then(|server_info| server_info.get("version"))
+        .and_then(Value::as_str)
+        .filter(|version| valid_codex_version(version));
+    let user_agent_version = initialize
         .get("userAgent")
         .and_then(Value::as_str)
         .filter(|user_agent| {
@@ -3032,11 +3037,11 @@ fn codex_runtime_version(initialize: &Value) -> Result<String, String> {
         })
         .and_then(|user_agent| user_agent.split_once('/').map(|(_, value)| value))
         .and_then(|value| value.split_whitespace().next())
-        .filter(|version| valid_codex_version(version))
-        .ok_or_else(|| {
-            "Codex did not report a valid app-server version in its initialize user agent."
-                .to_owned()
-        })?;
+        .filter(|version| valid_codex_version(version));
+    let version = server_info_version.or(user_agent_version).ok_or_else(|| {
+        "Codex did not report a valid app-server version in initialize serverInfo.version or userAgent."
+            .to_owned()
+    })?;
     Ok(version.to_owned())
 }
 
@@ -3176,7 +3181,15 @@ mod tests {
     }
 
     #[test]
-    fn runtime_version_comes_from_the_codex_app_server_initialize_user_agent() {
+    fn runtime_version_prefers_initialize_server_info_then_falls_back_to_user_agent() {
+        assert_eq!(
+            codex_runtime_version(&json!({
+                "serverInfo": {"version": "0.166.1"},
+                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
+            }))
+            .unwrap(),
+            "0.166.1"
+        );
         assert_eq!(
             codex_runtime_version(&json!({
                 "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
@@ -3184,8 +3197,16 @@ mod tests {
             .unwrap(),
             "0.166.0-alpha.5.1"
         );
+        assert_eq!(
+            codex_runtime_version(&json!({
+                "serverInfo": {"version": "invalid"},
+                "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
+            }))
+            .unwrap(),
+            "0.166.0-alpha.5.1"
+        );
         for initialize in [
-            json!({"serverInfo": {"version": "0.165.0"}}),
+            json!({"serverInfo": {"version": "invalid"}}),
             json!({"userAgent": "code_atlas"}),
             json!({"userAgent": "code_atlas/not-a-version"}),
             json!({"userAgent": "code_atlas/0.166.0\ninvalid"}),
