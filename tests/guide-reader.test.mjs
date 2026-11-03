@@ -10,7 +10,7 @@ test('Guide keeps a multi-section answer focused on one stable section', () => {
   assert.equal(sectionPosition('revision-1', sections, { revisionId: 'revision-1', sectionId: 'removed' }), 0);
 
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(workspace, /const position=revision\?sectionPosition\(revision\.revisionId,revision\.sections,answerReadingPosition\(turn,'guide',revision\.revisionId\)\):0/);
+  assert.match(workspace, /const position=revision\?sectionPosition\(revision\.revisionId,revision\.sections,answerReadingPosition\(turn,'guide',revision\.revisionId,revision\.sections\)\):0/);
   assert.match(workspace, /const selectSection=\(index:number\)=>/);
   assert.match(workspace, /onSection\(revision\.revisionId,next\.sectionId\)/);
   assert.match(workspace, /revision\.sections\.length>1&&<div className="dw-section-controls">[\s\S]*?aria-label="Previous section"[\s\S]*?Section \{position\+1\} of \{revision\.sections\.length\}[\s\S]*?Next section/);
