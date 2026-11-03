@@ -747,7 +747,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v31:"));
+    assert!(instructions.contains("Teaching policy v32:"));
     assert!(instructions.contains(
         "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
     ));
@@ -854,7 +854,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v35");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v36");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no scene benefits from a visual, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim"

@@ -570,7 +570,7 @@ mod tests {
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("Teaching policy v31:")
+                .contains("Teaching policy v32:")
         );
         assert!(
             first["systemInstruction"]
