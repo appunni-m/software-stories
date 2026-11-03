@@ -112,8 +112,9 @@ html[data-app-zoom-header-compact="true"] .topbar .snapshot-button {width:100%;m
 html[data-app-zoom-header-compact="true"] .topbar .connection-header {flex:0 1 260px;width:100%;max-width:min(70cqi,260px);}
 html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160px;}
 
-/* Keep the one-row header only while the repository and app controls both fit. */
-@container app-window (max-width: 1600px) {
+/* Let the repository controls share the header row at normal desktop widths.
+   Switch to the compact two-row layout only when that row is genuinely narrow. */
+@container app-window (max-width: 1280px) {
   .topbar {
     grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"brand actions" "project project";

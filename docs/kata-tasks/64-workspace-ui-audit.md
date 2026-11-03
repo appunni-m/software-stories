@@ -1736,3 +1736,105 @@ assertions were aligned to the current bounded flex pager rather than its
 superseded grid layout. This is source-level evidence: the new change has not
 been installed or checked in the packaged app. Keep `13yp` and `x21h` open for
 packaged click-through, keyboard, VoiceOver, zoom, contrast, and motion checks.
+
+### Remove the sticky scene overlay and fit the desktop header — 31 October 2026
+
+Read-only inspection of the open Fontdone Guide reproduced the scene bar
+covering the top of its visual while the answer was scrolled. The scene wrapper
+was still `position: sticky` even though the scene controls were meant to stay
+in normal reading flow. It is now static. The same 1496-CSS-pixel window also
+entered the two-row header layout at the 1600-pixel breakpoint, despite fitting
+its repository and account controls on one row; the compact breakpoint is back
+at 1280 pixels. Source-only correction: no tests, build, provider request, or
+saved-content changes. Packaged multi-scene, narrow-window, high-zoom, and
+accessibility acceptance remains open under `13yp` and `x21h`.
+
+### Packaged confirmation of normal-flow scene controls — 31 October 2026
+
+The unsigned package from `62f0be5` completed successfully; the frontend,
+third-party notice check, Tauri app/DMG bundle, metadata verification, and DMG
+checksum all passed. Installed at `/Users/lazytrot/Applications/Code Atlas.app`
+with executable SHA-256
+`03202ce321e057fd01730fd35f57faa70cfdb3871d1b5abf3c6171c5cfcd2caf`. Relaunch
+restored Fontdone `main@5249b72371`, the saved selected file, Guide and scene
+2 of 3. At the inspected window size, repository/snapshot/refresh and account
+controls fit on one header row. The scene pager appears between its section
+heading and visual, and scrolling carries it out of view rather than keeping it
+over the visual. This is a focused packaged visual check, not the full page,
+keyboard, VoiceOver, high-zoom, contrast or motion audit; no screenshot file
+was retained. Those broader gates remain open under `13yp` and `x21h`.
+
+### Give the top menu more room before it wraps — 1 November 2026
+
+The user again reported that the top menu and scene navigation appeared to
+overflow. Static source review confirms the scene wrapper, title, pager, arrows,
+and scene markers are all in normal flow; the installed Fontdone Guide now
+shows its three-scene pager centered between the section title and visual. The
+header still used its three-column desktop layout down to 1280 CSS pixels,
+where the repository controls compete with the fixed-width account actions.
+Move the normal-flow two-row breakpoint to 1440 CSS pixels so the header wraps
+before that constrained range. No build, tests, or app restart ran; the source
+change still needs packaged review at the boundary widths and with long
+repository/snapshot labels. Keep `13yp` and `x21h` open for full responsive,
+keyboard and accessibility acceptance.
+
+### Recheck the reported overflow in the running app — 2 November 2026
+
+In the open Fontdone workspace, the header fits in one row at the normal
+window zoom. At 200% app zoom, it wraps into two rows and all repository,
+refresh, connection, appearance, notification and help controls remain visible.
+I opened the saved three-scene Guide without starting generation: its
+accessibility order is scene title, Previous, `Scene 2 of 3`, three scene
+buttons, Next, then the visual content. The scene controls are in normal flow;
+the static stylesheet also keeps the toolbar, pager, arrows and markers out of
+absolute positioning. I did not reproduce the reported overflow in this
+available app window. Keep the issue open until the packaged view is checked at
+the user-reported window size and the scene toolbar is visually inspected at
+that size.
+
+### Current window screenshot — 2 November 2026
+
+The running app shows Fontdone main@5249b72371, a populated search, selected
+src/api.rs source, and Guide scene 2 of 3. A live CUA screenshot at
+2880 × 1688 pixels shows the header controls fitting in one row and the scene
+pager between its title and visual, with no visible overlap at this window
+size. The executable at the installed bundle path hashes to
+ea5ac4836485842e5ca201f559111a76dac34e06ea6b55ed63670a15c89fa1eb; the
+current checkout's locally bundled executable hashes to
+2ce3ac560e7ebd53a41d1d96f80752509d53b2025f278e561ca6e3c164cb03ad, so this
+observation cannot qualify the current source or package. Multiple Code Atlas
+processes are running, so the screenshot cannot be tied confidently to the
+executable at that path. No durable screenshot was retained. The user's
+reported dimensions, boundary widths, 200% zoom, keyboard-only navigation,
+VoiceOver, Increase Contrast, and Reduce Motion remain unverified; keep x21h
+and 13yp open.
+
+### Keep stopped-question notices with the question they describe — 2 November 2026
+
+Reviewing the installed Flow view exposed a context mismatch: it displayed a
+stopped request about `implementation.rs` above the static code flow for the
+selected `src/font.rs` file. The failure remains available in Guide, where the
+question and any saved answer belong. Flow now shows this request-status notice
+only when no source file is selected; with a file selected it stays focused on
+that file's verified flow. `npm run build` and `CARGO_INCREMENTAL=0 npm run
+bundle:macos` completed. The rebuilt app was installed at
+`/Users/lazytrot/Applications/Code Atlas.app`; its executable SHA-256 is
+`2feafdf16b2cd514e0972bb27fa1730a9a890f8477b5b6ccea2058ea7c8bbfa8`, matching
+the bundled executable. In the reopened Fontdone workspace, Flow showed the
+`memory_face` source relationships with no stopped question banner. The native
+check used the saved workspace only; no generation or saved content changed.
+Responsive, multi-scene and accessibility acceptance remains open under `x21h`
+and `13yp`.
+
+### Keep repository controls beside the brand at normal desktop width — 3 November 2026
+
+The currently installed Fontdone workspace showed the brand and account/theme/
+notification actions on the first header row, while repository, snapshot and
+**Load latest changes** occupied a second row. In the screenshot, the first row
+still had substantial unused width. Source inspection traced this to the
+`app-window` container switching to the compact header at 1600 CSS pixels.
+Lower the breakpoint to 1280 so normal desktop widths keep the repository
+controls in the same row, while narrower windows and the explicit native-zoom
+compact rule still reflow them. This is a source-only layout correction; the
+current installed screenshot predates it. Boundary-width, long-label, packaged,
+keyboard and accessibility acceptance remains open under `x21h` and `13yp`.
