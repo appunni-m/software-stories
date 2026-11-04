@@ -182,6 +182,7 @@ import {
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, splitSourceTextAtRange } from './lib/codeLens';
+import { normalizeCapturedSourceNavigation } from './lib/capturedSourceNavigation';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
@@ -196,23 +197,12 @@ import {
   navigateForward,
   navigateToRoute,
   navigateToWorkspace,
-  normalizeSourceLineRange,
   replaceCurrentRoute,
   type NavigationState,
   type SourceLineRange,
   type Workspace,
   type WorkspaceRoute,
 } from './lib/navigation';
-
-function isSafeCapturedSourcePath(value: unknown): value is string {
-  return typeof value === 'string'
-    && value.length > 0
-    && new TextEncoder().encode(value).length <= 4096
-    && !value.startsWith('/')
-    && !value.includes('\\')
-    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value)
-    && value.split('/').every((part) => part.length > 0 && part !== '.' && part !== '..');
-}
 
 type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
@@ -1552,8 +1542,8 @@ function App() {
   };
 
   const openCapturedFile = (relativePath: string, sourceSnapshotId?: string, sourceRange?: SourceLineRange) => {
-    const normalizedRange = sourceRange === undefined ? undefined : normalizeSourceLineRange(sourceRange);
-    if (!isSafeCapturedSourcePath(relativePath) || (sourceRange !== undefined && !normalizedRange)) {
+    const sourceLink = normalizeCapturedSourceNavigation(relativePath, sourceRange);
+    if (!sourceLink) {
       setNotice({
         title: 'This source link is unavailable',
         message: 'The file path or cited line range is malformed. Open the file from Explorer and try again. Nothing was sent to an AI.',
@@ -1610,8 +1600,8 @@ function App() {
         workspace: openBesideWorkspace ? origin.current.workspace : 'atlas',
         projectId: currentProject.projectId,
         snapshotId: targetSnapshotId,
-        relativePath,
-        sourceRange: normalizedRange,
+        relativePath: sourceLink.relativePath,
+        sourceRange: sourceLink.sourceRange,
         sourceLine: undefined,
         sourceRangeIssue: undefined,
         symbolId: undefined,
