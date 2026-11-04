@@ -3634,6 +3634,37 @@ mod section_publication_tests {
     }
 
     #[test]
+    fn turn_start_uses_the_reviewed_codex_model_and_reasoning_effort() {
+        let input = CodexRunInput {
+            run_id: Uuid::new_v4().to_string(),
+            expected_runtime: runtime(),
+            prompt_contract_version: "synthetic-settings-v1".into(),
+            model: "gpt-6-luna".into(),
+            effort: "max".into(),
+            run_deadline: RunDeadline::UserControlled,
+            approval_policy: "never".into(),
+            system_instruction: "Use the reviewed evidence only.".into(),
+            user_prompt: "Explain the synthetic source.".into(),
+            output_schema: json!({"type":"object"}),
+            correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled,
+            retrieval: None,
+            sources: vec![],
+        };
+
+        let parameters = turn_start_parameters(
+            &input,
+            Path::new("/synthetic/stage"),
+            "synthetic-thread",
+            &input.user_prompt,
+        );
+
+        assert_eq!(parameters["model"], "gpt-6-luna");
+        assert_eq!(parameters["effort"], "max");
+        assert_eq!(parameters["approvalPolicy"], "never");
+        assert_eq!(parameters["permissions"], PERMISSION_PROFILE);
+    }
+
+    #[test]
     fn timing_storage_failure_does_not_change_pre_dispatch_cancellation() {
         for diagnostics_available in [true, false] {
             let root =

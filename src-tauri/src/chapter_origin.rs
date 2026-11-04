@@ -577,6 +577,14 @@ mod tests {
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
         assert_eq!(origin.schema_version, 6);
         assert_eq!(
+            origin.settings,
+            RecordedAgentSettings::Codex {
+                model_id: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+            }
+        );
+        assert_eq!(
             serde_json::from_slice::<ChapterGenerationOrigin>(
                 &serde_json::to_vec(&origin).unwrap()
             )
