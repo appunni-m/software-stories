@@ -8,8 +8,8 @@ import { isDocumentationPath } from './lib/inventory';
 export function CodexContextDialog(props: CodexChapterDialogProps & {
   onLargeFileDiscovered: (handoff: LargeFileDiscoveryHandoff) => void;
 }) {
-  const [discovery, setDiscovery] = useState<SourceDiscoveryResult | null>(null);
-  const paths = discovery?.selectedFiles.map((file) => file.path);
+  const [discovery, setDiscovery] = useState<{ scopeKey: string; result: SourceDiscoveryResult } | null>(null);
+  const [manualFallbackScope, setManualFallbackScope] = useState<string | null>(null);
   const mode = props.mode;
   const documentationTargetPath = mode !== 'settings'
     && (mode.kind === 'review' || mode.kind === 'overview')
@@ -21,8 +21,16 @@ export function CodexContextDialog(props: CodexChapterDialogProps & {
       targetPath: documentationTargetPath ? null : mode.targetPath,
       question: sourceDiscoveryQuestion(mode.targetPath) }
     : null;
-  if (discoveryScope && !paths) {
-    return <SourceDiscoveryDialog scope={discoveryScope} onClose={props.onClose} onReady={(result, review) => {
+  const discoveryScopeKey = discoveryScope
+    ? JSON.stringify([discoveryScope.projectId, discoveryScope.snapshotId, discoveryScope.question, discoveryScope.targetPath ?? null])
+    : null;
+  const scopedDiscovery = discoveryScopeKey !== null && discovery?.scopeKey === discoveryScopeKey ? discovery.result : null;
+  const paths = scopedDiscovery?.selectedFiles.map((file) => file.path);
+  const useManualFallback = discoveryScopeKey !== null && manualFallbackScope === discoveryScopeKey;
+  if (discoveryScope && !paths && !useManualFallback) {
+    return <SourceDiscoveryDialog scope={discoveryScope} onClose={props.onClose} onChooseFilesManually={() => {
+      setManualFallbackScope(discoveryScopeKey);
+    }} onReady={(result, review) => {
       const rangeTarget = result.rangeTargets?.[0];
       if (rangeTarget) {
         const limitNotes = sourceDiscoveryLimitNotes(result, review);
@@ -40,7 +48,7 @@ export function CodexContextDialog(props: CodexChapterDialogProps & {
         });
         return;
       }
-      setDiscovery(result);
+      setDiscovery({ scopeKey: discoveryScopeKey!, result });
     }} persistSuccessfulResult={false} autoDiscover />;
   }
   const discoveredMode = paths && mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview')
@@ -49,5 +57,11 @@ export function CodexContextDialog(props: CodexChapterDialogProps & {
         question: sourceDiscoveryQuestion(documentationTargetPath) }
       : { ...mode, selectedPaths: paths }
     : mode;
-  return <CodexChapterDialog {...props} discoveryResult={discovery ?? undefined} mode={discoveredMode} />;
+  const chapterMode = useManualFallback && discoveryScope && mode !== 'settings'
+    && (mode.kind === 'review' || mode.kind === 'overview')
+    ? documentationTargetPath
+      ? { kind: 'overview' as const, projectId: mode.projectId, snapshotId: mode.snapshotId, question: discoveryScope.question }
+      : { ...mode, question: discoveryScope.question }
+    : discoveredMode;
+  return <CodexChapterDialog {...props} discoveryResult={scopedDiscovery ?? undefined} mode={chapterMode} />;
 }

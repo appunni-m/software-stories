@@ -11,8 +11,9 @@ import { CodexChapterDialog } from './CodexChapterDialog';
 import { ensureWorkspaceIndex } from './workspace/indexManager';
 import { authorizeWorkspace, getWorkspace, prepareWorkspaceConversation, updateWorkspace } from './workspace/store';
 
-export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = true, autoDiscover = false, ignoreSavedResult = false }: {
+export function SourceDiscoveryDialog({ scope, onReady, onClose, onChooseFilesManually, persistSuccessfulResult = true, autoDiscover = false, ignoreSavedResult = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
+  onChooseFilesManually?: () => void;
   persistSuccessfulResult?: boolean;
   autoDiscover?: boolean;
   ignoreSavedResult?: boolean;
@@ -235,6 +236,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessf
       {savedSelectionNotice && <p className="source-warning" role="status">{savedSelectionNotice}</p>}
       {error && <p role="alert" className="provider-error-text">{error}</p>}
       {error && autoDiscover && <p className="provider-small-note">No file contents are sent during this discovery step. Return to the code view to refine your question or search captured files yourself.</p>}
+      {error && autoDiscover && onChooseFilesManually && <AppButton intent="quiet" onClick={onChooseFilesManually}>Choose files manually</AppButton>}
     </div><footer className="provider-dialog-footer"><AppButton intent="secondary" onClick={onClose}>{active.current ? 'Cancel discovery' : autoDiscover && error ? 'Back to code' : 'Cancel'}</AppButton>
       {error ? <AppButton intent="primary" onClick={() => needsWorkspacePermission ? void allowWorkspaceAndDiscover() : setRetry((value) => value + 1)} disabled={busy}>{needsWorkspacePermission ? 'Allow and find code' : 'Try again'}</AppButton> : needsWorkspacePermission ? <AppButton intent="primary" onClick={() => { void allowWorkspaceAndDiscover(); }} disabled={busy}>Allow and find code</AppButton> : !autoDiscover && <AppButton intent="primary" disabled={busy || !review} onClick={() => { void discover(); }}>Find relevant code</AppButton>}
     </footer>

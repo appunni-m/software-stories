@@ -151,4 +151,18 @@ describe('saved source discovery scope', () => {
     assert.match(dialog, /const chapterQuestion = mode !== 'settings' && \(mode\.kind === 'review' \|\| mode\.kind === 'overview'\) \? mode\.question : undefined/);
     assert.match(dialog, /question: chapterQuestion,/);
   });
+
+  it('offers a manual source picker after automatic discovery fails and preserves its question', async () => {
+    const [context, discovery] = await Promise.all([
+      readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
+    ]);
+    assert.match(discovery, /onChooseFilesManually\?: \(\) => void/);
+    assert.match(discovery, /error && autoDiscover && onChooseFilesManually && <AppButton intent="quiet" onClick=\{onChooseFilesManually\}>Choose files manually<\/AppButton>/);
+    assert.match(context, /setManualFallbackScope\(discoveryScopeKey\)/);
+    assert.match(context, /const chapterMode = useManualFallback && discoveryScope/);
+    assert.match(context, /\{ \.\.\.mode, question: discoveryScope\.question \}/);
+    assert.match(context, /kind: 'overview' as const, projectId: mode\.projectId, snapshotId: mode\.snapshotId, question: discoveryScope\.question/);
+    assert.match(context, /discovery\?\.scopeKey === discoveryScopeKey/);
+  });
 });
