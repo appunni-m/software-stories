@@ -898,27 +898,38 @@ mod tests {
         let session = get_or_create(&temp.0, &base, &report(&base)).unwrap();
         let path = session_path(&temp.0, &base.project_id, &session.session_id).unwrap();
         let serialized = fs::read_to_string(&path).unwrap();
-        let ambiguous = serialized.replacen(
+        let ambiguous_top_level = serialized.replacen(
             "\"schemaVersion\":1",
             "\"schemaVersion\":1,\"schemaVersion\":1",
             1,
         );
+        let ambiguous_nested = serialized.replacen(
+            "\"sections\":[",
+            "\"sections\":[{\"duplicate\":1,\"duplicate\":2},",
+            1,
+        );
         assert_ne!(
-            ambiguous, serialized,
-            "the fixture must contain a duplicate key"
+            ambiguous_top_level, serialized,
+            "the fixture must contain the top-level key"
         );
-        fs::write(&path, ambiguous).unwrap();
+        assert_ne!(
+            ambiguous_nested, serialized,
+            "the fixture must contain the nested sections array"
+        );
 
-        assert!(
-            load(&temp.0, &base.project_id, &session.session_id)
-                .unwrap_err()
-                .contains("corrupt or unsupported")
-        );
-        assert!(
-            list_for_project(&temp.0, &base.project_id)
-                .unwrap_err()
-                .contains("corrupt or unsupported")
-        );
+        for ambiguous in [ambiguous_top_level, ambiguous_nested] {
+            fs::write(&path, ambiguous).unwrap();
+            assert!(
+                load(&temp.0, &base.project_id, &session.session_id)
+                    .unwrap_err()
+                    .contains("corrupt or unsupported")
+            );
+            assert!(
+                list_for_project(&temp.0, &base.project_id)
+                    .unwrap_err()
+                    .contains("corrupt or unsupported")
+            );
+        }
     }
 
     #[test]
