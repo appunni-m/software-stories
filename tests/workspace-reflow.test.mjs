@@ -113,6 +113,12 @@ test('scene navigation stays in normal flow and wraps long scene indexes within 
   matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/);
 });
 
+test('Guide answer panels and stacked turns stay within the reader width',()=>{
+  matches(css,/\.dw-answer-scroll > \[role="tabpanel"\]\s*\{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;\}/);
+  matches(css,/\.dw-guide-attempt-group\s*\{width:100%;min-width:0;max-width:100%;box-sizing:border-box;\}/);
+  matches(css,/\.dw-progressive-answer\s*\{\s*display:\s*grid;\s*width:\s*100%;\s*min-width:\s*0;\s*max-width:\s*100%;\s*box-sizing:\s*border-box;/);
+});
+
 test('native high zoom shows one workspace pane at a time with a return path',()=>{
   matches(css,/html\[data-app-zoom-compact="true"\] \.dw-panels > #repository-sidebar,[\s\S]*?\.dw-panels > \.dw-separator \{display:none!important;\}/);
   matches(css,/html\[data-app-zoom-compact="true"\] \.dw-panels > #reading-workspace \{flex:1!important;min-width:0!important;max-width:none!important;\}/);

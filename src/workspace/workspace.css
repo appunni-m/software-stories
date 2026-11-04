@@ -86,6 +86,7 @@
 .dw-viewbar .rt-TabsTriggerInner {gap:var(--space-1);font-size:12px;}
 .dw-viewbar .dw-view-tab-label {flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:var(--space-4) var(--space-4) var(--space-6);scrollbar-gutter:stable;}
+.dw-answer-scroll > [role="tabpanel"] {display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-welcome {padding:var(--space-5) var(--space-1);max-width:530px;margin:0 auto;}
 .dw-welcome > svg {color:var(--accent);}
@@ -96,7 +97,7 @@
 .dw-guide-stack-control {display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) var(--space-3);margin:0 0 var(--space-4);border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:12px;line-height:1.5;}
 .dw-guide-stack-control span {min-width:0;}
 .dw-guide-stack-control .rt-Button {flex:0 0 auto;}
-.dw-guide-attempt-group {min-width:0;}
+.dw-guide-attempt-group {width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-guide-attempt-group > .dw-turn {margin-bottom:0;}
 .dw-guide-attempt-group > .dw-progressive-answer {margin-bottom:0;}
 .dw-guide-attempt-history {margin:0 0 var(--space-6);border-top:1px solid var(--border);}
@@ -485,7 +486,7 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-tool-content .git-commit-hint {margin:0 0 var(--space-2);color:var(--muted);font-size:13px;}
 .dw-tool-content .git-safety-note {display:none;}
 .dw-tool-content .git-ref-card {padding:var(--space-3) var(--space-4);}
-.dw-progressive-answer { display: grid; gap: var(--space-3); margin-block: var(--space-5) var(--space-6); }
+.dw-progressive-answer { display: grid; width:100%; min-width:0; max-width:100%; box-sizing:border-box; gap: var(--space-3); margin-block: var(--space-5) var(--space-6); }
 .dw-progressive-answer > .dw-turn { margin: 0; }
 .dw-answer-progress { display: flex; align-items: center; gap: var(--space-2); color: var(--gray-11); font-size: 13px; }
 .dw-answer-progress:empty { display: none; }
