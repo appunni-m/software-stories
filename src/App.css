@@ -85,6 +85,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .snapshot-menu-check { margin-left: auto; color: var(--accent); }
 .topbar-actions { grid-area: actions; display: flex; flex: 0 1 auto; flex-wrap: wrap; align-content: center; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; margin-left: 0; }
 .topbar-actions > * { min-width: 0; }
+.topbar .topbar-actions > .notification-trigger { margin-left: 4px; }
+.topbar .topbar-actions > .help-button { margin-left: 12px; }
 .topbar .theme-control { flex: 0 0 auto; }
 .topbar .theme-control-trigger { flex: 0 0 auto; }
 .help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
