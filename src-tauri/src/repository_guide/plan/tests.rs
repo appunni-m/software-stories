@@ -283,6 +283,12 @@ fn plan_instructions_keep_the_full_requested_scope() {
     );
     assert!(instructions.contains("two to five focused behavior questions"));
     assert!(instructions.contains("five-unit limit so the first useful slide is not blocked"));
+    assert!(instructions.contains(
+        "start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query"
+    ));
+    assert!(instructions.contains(
+        "Use focused follow-up searches only when a requested stage or caller still lacks a likely path; batch reads for starting evidence"
+    ));
     assert!(
         instructions
             .contains("Do not deeply investigate pending routes in this planning operation")
