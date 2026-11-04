@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { buildInventory, emptyInventoryFilters, filterInventory, languageSupportLabel, languageSupportNote, languageSupportTier, paginateInventory } from '../src/lib/inventory.ts';
 
@@ -60,6 +61,43 @@ describe('snapshot inventory', () => {
     assert.match(languageSupportNote('partialStructural', python.language), /explicit relative import/);
     assert.equal(languageSupportTier(go), 'partialStructural');
     assert.match(languageSupportNote('partialStructural', go.language), /imported-package calls/);
+  });
+
+  it('keeps workspace language tiers aligned with the native parser extension catalog', async () => {
+    const nativeIndex = await readFile(new URL('../src-tauri/src/index.rs', import.meta.url), 'utf8');
+    const fromPath = nativeIndex.match(/fn from_path\(path: &str\) -> Option<Self> \{([\s\S]*?)\n    \}/)?.[1];
+    assert.ok(fromPath, 'the native parser catalog must remain inspectable');
+    const parserLanguageNames = {
+      Go: 'Go', Python: 'Python', Rust: 'Rust', TypeScript: 'TypeScript', Tsx: 'TSX', JavaScript: 'JavaScript',
+    };
+    const parserExtensions = new Map();
+    const arms = /((?:Some\("[a-z0-9]+"\)(?:\s*\|\s*Some\("[a-z0-9]+"\))*)\s*)=>\s*Some\(Self::(Go|Python|Rust|TypeScript|Tsx|JavaScript)\)/gu;
+    for (const arm of fromPath.matchAll(arms)) {
+      for (const extension of arm[1].matchAll(/Some\("([a-z0-9]+)"\)/gu)) {
+        assert.equal(parserExtensions.has(extension[1]), false, `native extension .${extension[1]} is unique`);
+        parserExtensions.set(extension[1], parserLanguageNames[arm[2]]);
+      }
+    }
+    assert.deepEqual([...parserExtensions.entries()].sort(([a], [b]) => a.localeCompare(b)), [
+      ['cjs', 'JavaScript'], ['cts', 'TypeScript'], ['go', 'Go'], ['js', 'JavaScript'], ['jsx', 'JavaScript'],
+      ['mjs', 'JavaScript'], ['mts', 'TypeScript'], ['py', 'Python'], ['pyi', 'Python'], ['pyw', 'Python'],
+      ['rs', 'Rust'], ['ts', 'TypeScript'], ['tsx', 'TSX'],
+    ]);
+
+    const files = [...parserExtensions].map(([extension], index) => ({
+      path: `src/language-${index}.${extension}`, kind: 'file', sizeBytes: 1,
+      sha256: String(index + 1).repeat(64), contentKind: 'text', secretLike: false,
+    }));
+    files.push({ path: 'src/java-text-only.java', kind: 'file', sizeBytes: 1, sha256: 'f'.repeat(64), contentKind: 'text', secretLike: false });
+    const rows = buildInventory({ ...manifest, files });
+    for (const [index, [extension, expectedLanguage]] of [...parserExtensions].entries()) {
+      const row = rows.find((candidate) => candidate.path === `src/language-${index}.${extension}`);
+      assert.equal(row?.language, expectedLanguage, `.${extension} should use the matching workspace label`);
+      assert.equal(languageSupportTier(row), 'partialStructural', `.${extension} should disclose its partial parser tier`);
+    }
+    const java = rows.find((row) => row.path.endsWith('.java'));
+    assert.equal(java?.language, 'Java');
+    assert.equal(languageSupportTier(java), 'textOnly');
   });
 
   it('keeps user-facing capability labels consistent for captured unknown text and unavailable bytes', () => {
