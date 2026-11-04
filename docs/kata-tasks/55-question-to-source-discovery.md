@@ -221,3 +221,24 @@ Codex connection tests 9/9, commit-navigation tests 3/3, and the TypeScript/Vite
 production build. No agent request, native package, or Fontdone retrieval run
 was made. Multi-repository recall, missing/overflow indexes, restart, consent,
 multi-window and packaged return-state checks remain open; keep `xvjk` open.
+
+## Expand question candidates through indexed static links — 4 November 2026
+
+Discovery now seeds bounded expansion from up to 12 content-ranked paths,
+including an eligible explicit target. It adds up to 24 eligible neighbors
+from high-confidence indexed calls/imports in either direction. After the
+existing target and test/configuration intent ordering, the top 24 direct
+content matches remain ahead of those linked candidates; the linked candidates
+precede lower-ranked direct matches and path/symbol fallback. Expanded records
+carry the exact indexed relation and endpoint paths as a search hint. The prompt
+explicitly says that this metadata does not prove execution, order, or
+relevance. It does not change source transmission, consent, file-count, or byte
+limits.
+
+A synthetic TypeScript regression proves that a linked helper with no query
+terms is included after the matching entry point and carries its exact hint.
+The focused Rust discovery suite passed **8/8**. This verifies candidate
+construction only: no post-change Fontdone profile, live Codex selection,
+packaged workflow, or broad-recall improvement has been established. Keep
+`xvjk` and `a699` open for multi-language recall, agent choice, multi-window,
+consent, restart and packaged acceptance.
