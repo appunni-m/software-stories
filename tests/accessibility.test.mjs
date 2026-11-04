@@ -127,17 +127,19 @@ test('primary actions remain visible and keep their labels readable in dark and 
   const lightTokens = readTokens(theme.match(/:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? '');
 
   for (const [mode, tokens] of [['dark', darkTokens], ['light', lightTokens]]) {
-    assert.ok(tokens.action && tokens['action-hover'] && tokens['on-accent'] && tokens.surface,
+    assert.ok(tokens.action && tokens['action-hover'] && tokens['on-accent'] && tokens.surface && tokens['surface-raised'],
       `${mode} theme defines primary action colors and surface`);
     for (const [state, background] of [['default', tokens.action], ['hover', tokens['action-hover']]]) {
       assert.ok(
         contrastRatio(tokens['on-accent'], background) >= 4.5,
         `${mode} ${state} action label must keep 4.5:1 contrast`,
       );
-      assert.ok(
-        contrastRatio(background, tokens.surface) >= 3,
-        `${mode} ${state} action boundary must keep 3:1 contrast against its surface`,
-      );
+      for (const [surface, color] of [['surface', tokens.surface], ['raised surface', tokens['surface-raised']]]) {
+        assert.ok(
+          contrastRatio(background, color) >= 3,
+          `${mode} ${state} action boundary must keep 3:1 contrast against the ${surface}`,
+        );
+      }
     }
   }
 });
