@@ -73,7 +73,9 @@ test('native header keeps desktop controls together and reflows compact controls
   matches(shell,/@container app-window \(max-width: 680px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"brand" "actions" "project";/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
-  matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding-inline:0;/u);
+  matches(shell,/\.topbar \.topbar-actions\s*\{[^}]*padding-right:8px;/u);
+  matches(shell,/html\[data-app-zoom-header-compact="true"\] \.topbar \.topbar-actions\s*\{[^}]*padding:0 8px 0 0;/u);
+  matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.topbar-actions\s*\{grid-area:actions;display:flex;flex:0 1 auto;flex-flow:row wrap;width:100%;justify-content:flex-end;gap:8px;margin-left:0;padding:0 8px 0 0;/u);
   matches(shell,/@container app-window \(max-width: 600px\)\s*\{[\s\S]*?\.topbar \.brand-name,[\s\S]*?\.topbar \.connection-header \{width:100%;max-width:min\(42cqi,220px\);min-width:0;padding-inline:6px;\}/u);
   matches(shell,/@container app-window \(max-width: 420px\)\s*\{[\s\S]*?\.topbar \.connection-header \{flex:1 1 100%;width:100%;max-width:min\(100%,230px\);\}/u);
   matches(shell,/\.topbar \.theme-control\s*\{[^}]*flex:\s*0 0 auto;/u);
