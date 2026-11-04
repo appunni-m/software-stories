@@ -758,6 +758,12 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
     ));
     assert!(instructions.contains(
+        "and only 2–5 distinctive terms for the central mechanism; don't bundle every requested stage into one lexical query"
+    ));
+    assert!(instructions.contains(
+        "if a requested stage still lacks a likely source path, run one short discovery query for that stage"
+    ));
+    assert!(instructions.contains(
         "then use resultKind:\"ranges\" scoped to those paths and batch the needed reads"
     ));
     assert!(instructions.contains("For a narrow question or supplied source range, start there and skip repository-wide discovery"));
@@ -776,7 +782,9 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     );
     assert!(instructions.contains("Trace the guards and failures"));
     assert!(!instructions.contains("parser fallback starts after those checks"));
-    assert!(instructions.contains("Start with the real input or situation"));
+    assert!(instructions.contains(
+        "For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths"
+    ));
     assert!(instructions.contains("show code only when syntax is the lesson"));
     assert!(instructions.contains(
         "Let observed behavior choose the visual mode independently for each claim scene"
