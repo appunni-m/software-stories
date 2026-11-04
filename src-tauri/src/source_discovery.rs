@@ -645,6 +645,76 @@ fn question_requests_test_sources(words: &[String]) -> bool {
     })
 }
 
+fn is_project_configuration_path(path: &str) -> bool {
+    let normalized = path.to_ascii_lowercase();
+    let filename = normalized.rsplit('/').next().unwrap_or(&normalized);
+    matches!(
+        filename,
+        "cargo.toml"
+            | "cargo.lock"
+            | "package.json"
+            | "package-lock.json"
+            | "pnpm-lock.yaml"
+            | "pnpm-workspace.yaml"
+            | "yarn.lock"
+            | "go.mod"
+            | "go.sum"
+            | "pyproject.toml"
+            | "pipfile"
+            | "makefile"
+            | "gnumakefile"
+            | "dockerfile"
+            | "containerfile"
+            | "cmakelists.txt"
+    ) || [
+        "tsconfig.",
+        "vite.config.",
+        "vitest.config.",
+        "jest.config.",
+        "webpack.config.",
+        "rollup.config.",
+        "next.config.",
+        "astro.config.",
+        "tailwind.config.",
+        "babel.config.",
+        "postcss.config.",
+        "eslint.config.",
+        ".eslintrc",
+        ".prettierrc",
+    ]
+    .iter()
+    .any(|prefix| filename.starts_with(prefix))
+        || normalized.contains(".github/workflows/")
+        || normalized
+            .split('/')
+            .any(|part| matches!(part, ".circleci" | ".buildkite" | ".cargo"))
+}
+
+fn question_requests_configuration(words: &[String]) -> bool {
+    let asks_about_configuration = words.iter().any(|word| {
+        matches!(
+            word.as_str(),
+            "config"
+                | "configuration"
+                | "manifest"
+                | "build"
+                | "compile"
+                | "compilation"
+                | "dependency"
+                | "dependencies"
+                | "script"
+                | "scripts"
+                | "workflow"
+                | "ci"
+                | "toolchain"
+                | "release"
+        )
+    });
+    let asks_about_package_manifest = words.iter().any(|word| word == "package")
+        && words.iter().any(|word| word == "json");
+    asks_about_configuration || asks_about_package_manifest
+}
+
 /// Split indexed names into exact searchable components before applying the
 /// substring fallback. This keeps `memory_face` and `memoryFace` ahead of a
 /// fuzzy hit such as `memoryfacebuffer` when the metadata window is bounded.
@@ -889,9 +959,12 @@ fn metadata(
     // metadata window. For behavior questions, prefer production paths before
     // test/fixture files so a matching example cannot crowd out code that
     // runs. Explicit test questions retain test-first ranking. Within either
-    // class, use source-text search order before declaration, relationship
-    // and path hints.
+    // class, behavior questions keep project manifests and build setup behind
+    // implementation files. Explicit configuration questions retain them.
+    // Use source-text search order before declaration, relationship and path
+    // hints after those intent-specific path classes.
     let question_requests_tests = question_requests_test_sources(&words);
+    let question_requests_config = question_requests_configuration(&words);
     candidates.sort_by_cached_key(|file| {
         let lower = file.path.to_ascii_lowercase();
         let content_rank = content_rank_by_path
@@ -911,6 +984,8 @@ fn metadata(
         (
             std::cmp::Reverse(input.target_path.as_ref() == Some(&file.path)),
             !question_requests_tests && is_test_or_fixture_path(&file.path),
+            !question_requests_config && is_project_configuration_path(&file.path),
+            question_requests_config && !is_project_configuration_path(&file.path),
             content_rank,
             std::cmp::Reverse(path_score + symbol_score + link_score),
             file.path.clone(),
@@ -1839,6 +1914,86 @@ mod tests {
         assert!(
             test_rank < production_rank,
             "test questions must lead with test code: {test_paths:?}"
+        );
+    }
+
+    #[test]
+    fn discovery_prefers_implementation_for_behavior_and_configuration_on_request() {
+        use crate::chapter_generation::tests::Fixture;
+
+        assert!(!question_requests_configuration(&["package".to_owned()]));
+        assert!(question_requests_configuration(&[
+            "package".to_owned(),
+            "json".to_owned()
+        ]));
+
+        let mut fixture = Fixture::new();
+        fixture.recapture_with_source(
+            "src/route.rs",
+            "pub fn route_request_to_renderer(request: &[u8]) -> Result<(), Error> {\n    renderer::dispatch(select_handler(request)?)\n}\n",
+        );
+        fixture.recapture_with_source(
+            "package.json",
+            r#"{"scripts":{"route":"route request renderer route request renderer route request renderer"},"description":"route request renderer"}"#,
+        );
+
+        let cancelled = AtomicBool::new(false);
+        drop(
+            crate::repository_context::prepare(
+                &fixture.storage,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &crate::repository_context::Budget::new(&cancelled),
+            )
+            .unwrap(),
+        );
+
+        let paths_for = |question: &str| {
+            let input = DiscoveryInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                question: question.to_owned(),
+                target_path: None,
+                model_id: "gpt-6-luna".to_owned(),
+                effort: "max".to_owned(),
+                workspace_grant: None,
+            };
+            let (encoded, _, _, _, _, _) = metadata(&fixture.storage, &input).unwrap();
+            let value: Value = serde_json::from_str(&encoded).unwrap();
+            value["codeFiles"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|file| file["path"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>()
+        };
+
+        let behavior_paths = paths_for("How does a route request reach the renderer?");
+        let implementation_rank = behavior_paths
+            .iter()
+            .position(|path| path == "src/route.rs")
+            .unwrap();
+        let configuration_rank = behavior_paths
+            .iter()
+            .position(|path| path == "package.json")
+            .unwrap();
+        assert!(
+            implementation_rank < configuration_rank,
+            "behavior questions should lead with implementation even when a manifest has stronger token matches: {behavior_paths:?}"
+        );
+
+        let configuration_paths = paths_for("Which package script builds the route renderer?");
+        let configuration_rank = configuration_paths
+            .iter()
+            .position(|path| path == "package.json")
+            .unwrap();
+        let implementation_rank = configuration_paths
+            .iter()
+            .position(|path| path == "src/route.rs")
+            .unwrap();
+        assert!(
+            configuration_rank < implementation_rank,
+            "explicit build/configuration questions should retain manifest-first ranking: {configuration_paths:?}"
         );
     }
 
