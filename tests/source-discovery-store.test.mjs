@@ -228,17 +228,16 @@ describe('saved source discovery scope', () => {
     assert.match(dialog, /question: chapterQuestion,/);
   });
 
-  it('offers a manual source picker after automatic discovery fails and preserves its question', async () => {
+  it('keeps source selection automatic after discovery failure and preserves the question', async () => {
     const [context, discovery] = await Promise.all([
       readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
     ]);
-    assert.match(discovery, /onChooseFilesManually\?: \(\) => void/);
-    assert.match(discovery, /error && autoDiscover && onChooseFilesManually && <AppButton intent="quiet" onClick=\{onChooseFilesManually\}>Choose files manually<\/AppButton>/);
-    assert.match(context, /setManualFallbackScope\(discoveryScopeKey\)/);
-    assert.match(context, /const chapterMode = useManualFallback && discoveryScope/);
-    assert.match(context, /\{ \.\.\.mode, question: discoveryScope\.question \}/);
-    assert.match(context, /kind: 'overview' as const, projectId: mode\.projectId, snapshotId: mode\.snapshotId, question: discoveryScope\.question/);
+    assert.doesNotMatch(discovery, /onChooseFilesManually|Choose files manually/);
+    assert.match(discovery, /Retry discovery, or go back and make the question more specific\./);
+    assert.match(discovery, /needsWorkspacePermission \? void allowWorkspaceAndDiscover\(\) : setRetry/);
+    assert.doesNotMatch(context, /manualFallbackScope|setManualFallbackScope|useManualFallback/);
+    assert.match(context, /if \(discoveryScope && !paths\)/);
     assert.match(context, /discovery\?\.scopeKey === discoveryScopeKey/);
   });
 });
