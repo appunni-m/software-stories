@@ -105,9 +105,9 @@ test('repository onboarding focuses on exploring code and progressively disclose
   assert.doesNotMatch(shell,/\.empty-steps\s*\{|\.empty-step\s*\{|\.preflight-next-step\s*\{/);
 });
 
-test('scene navigation stays in normal flow and wraps long scene indexes within their track',()=>{
+test('scene navigation stays in layout flow, remains reachable while reading, and wraps within its track',()=>{
   const story=readFileSync(new URL('../src/visual-story.css',import.meta.url),'utf8');
-  matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*static;[^}]*inset:\s*auto;/);
+  matches(story,/\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*\d+;/);
   matches(story,/\.story-toolbar\s*\{[^}]*position:\s*static;/);
   matches(story,/\.story-scene-progress\s*\{[^}]*position:\s*static;/);
   matches(story,/\.story-scene-dots\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/);

@@ -355,7 +355,7 @@ describe('visual story scenes', () => {
     }), malformed);
   });
 
-  it('leads with the scene visual and keeps playback reachable at the viewport edge', () => {
+  it('keeps scene navigation reachable while playback stays in reading flow', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const headingIndex = component.indexOf('className="story-toolbar"');
@@ -366,15 +366,17 @@ describe('visual story scenes', () => {
       'scene heading, visual, player and details should appear in that order');
     assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{plainInlineCodeText\(scene\.title\)\}/u);
     assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{plainInlineCodeText\(item\.title\)\}`\}/u);
-    assert.match(styles, /\.story-sticky-controls\s*\{\s*position:\s*static;/u,
-      'scene controls should remain anchored in normal reading flow');
+    assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*\d+;/u,
+      'scene controls should stay reachable at the answer-scroll edge without leaving layout flow');
     const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(playerRule, /position:\s*static/u);
     assert.doesNotMatch(playerRule, /bottom:\s*0/u);
     assert.match(playerRule, /background:\s*var\(--surface\)/u);
     const workspace = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
-    assert.doesNotMatch(workspace, /\.dw-answer-scroll \.visual-story > \.story-sticky-controls,\s*\.dw-answer-scroll \.visual-story > \.story-playbar\s*\{\s*position:\s*sticky/u,
-      'inline Guide controls must not become viewport overlays');
+    assert.doesNotMatch(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*(?:absolute|fixed)/u,
+      'scene controls must remain in layout flow rather than becoming detached overlays');
+    assert.doesNotMatch(workspace, /\.dw-answer-scroll \.visual-story > \.story-playbar\s*\{\s*position:\s*sticky/u,
+      'audio playback must remain inline rather than becoming a viewport overlay');
     const storyRule=styles.match(/\.visual-story\s*\{([^}]+)\}/u)?.[1]??'';
     assert.doesNotMatch(storyRule,/overflow:\s*(?:clip|hidden|auto|scroll)/u,'the story container must not clip its in-flow controls');
     assert.match(styles,/\.visual-story > \.story-stage:not\(\.story-html-stage\)\s*\{[^}]*overflow:\s*hidden/u,'only the diagram stage clips to rounded corners');
