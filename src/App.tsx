@@ -185,6 +185,7 @@ import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWin
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
+import { buildChapterStudioTargets, chapterStudioHasReadableCurrentSource } from './lib/chapterStudioTargets';
 import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
 import { readGitComparisonPreference, rememberGitComparisonPreference, restoreGitComparisonPreference } from './lib/gitComparisonPreferences';
 import {
@@ -4374,17 +4375,6 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
   </aside>;
 }
 
-interface ChapterStudioTarget {
-  key: string;
-  targetId: string | null;
-  paths: string[];
-  overview?: boolean;
-  revisions: ChapterRevision[];
-  latestCurrent: ChapterRevision | null;
-  latestAny: ChapterRevision | null;
-  missing: boolean;
-}
-
 interface ChapterFreshnessState {
   key: string;
   report: ChapterFreshnessReport | null;
@@ -4610,57 +4600,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     return () => { history.dispose(); if (chapterHistory.current === history) chapterHistory.current = null; };
   }, [nativeRuntime, projectId]);
 
-  const targets = useMemo<ChapterStudioTarget[]>(() => {
-    const result: ChapterStudioTarget[] = [];
-    const seen = new Set<string>();
-    const chapterRevisions = (targetId: string) => revisions
-      .filter((revision) => revision.target.targetId === targetId)
-      .sort((left, right) => left.revisionNumber - right.revisionNumber);
-    const addTarget = (key: string, targetId: string | null, paths: string[], history: ChapterRevision[], overview = false) => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      const latestCurrent = history
-        .filter((revision) => revision.snapshotId === snapshotId)
-        .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null;
-      const latestAny = [...history].sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null;
-      result.push({ key, targetId, paths, overview, revisions: history, latestCurrent, latestAny, missing: history.length === 0 });
-    };
-    for (const row of rows) {
-      if (row.disposition !== 'captured' || row.kind !== 'file' || !['text', 'unknown'].includes(row.contentKind)) continue;
-      const matches = revisions.filter((revision) => revision.target.scope.kind === 'file' && revision.target.scope.path === row.path);
-      if (matches.length > 0) {
-        const ids = Array.from(new Set(matches.map((revision) => revision.target.targetId)));
-        for (const targetId of ids) addTarget(targetId, targetId, [row.path], chapterRevisions(targetId));
-      } else {
-        addTarget(`file:${row.path}`, null, [row.path], []);
-      }
-    }
-    // Retain chapter history when a file is deleted, excluded, or no longer text
-    // in the current snapshot. Its citations still open the original snapshot.
-    for (const revision of revisions) {
-      if (revision.target.scope.kind === 'file') {
-        addTarget(revision.target.targetId, revision.target.targetId,
-          [revision.target.scope.path], chapterRevisions(revision.target.targetId));
-      }
-    }
-    const groupIds = Array.from(new Set(revisions
-      .filter((revision) => revision.target.scope.kind === 'group')
-      .map((revision) => revision.target.targetId)));
-    for (const targetId of groupIds) {
-      const history = chapterRevisions(targetId);
-      const scope = history[0]?.target.scope;
-      if (scope?.kind === 'group') addTarget(targetId, targetId, scope.paths, history);
-    }
-    const overviewHistory = revisions
-      .filter((revision) => revision.target.scope.kind === 'overview')
-      .sort((left, right) => left.revisionNumber - right.revisionNumber);
-    if (overviewHistory.length > 0) addTarget('overview', 'target:overview', [], overviewHistory, true);
-    return result.sort((left, right) => {
-      const a = left.overview ? '' : left.paths[0] ?? left.key;
-      const b = right.overview ? '' : right.paths[0] ?? right.key;
-      return a.localeCompare(b);
-    });
-  }, [manifest, revisions, rows, snapshotId]);
+  const targets = useMemo(() => buildChapterStudioTargets(rows, revisions, snapshotId), [revisions, rows, snapshotId]);
 
   useEffect(() => {
     if (editing) return;
@@ -5171,7 +5111,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                     {selectedTarget.overview && !selectedTarget.latestCurrent
                       ? <AppButton intent="primary" onClick={onGoPlan}><ListChecks size={14} /> Open Guide</AppButton>
                       : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
-                        && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
+                        && chapterStudioHasReadableCurrentSource(selectedTarget.paths[0], rows)
                         && <AppButton intent="primary" disabled={Boolean(preservedDraftReason)} title={preservedDraftReason ? 'Resolve the unavailable saved edit before creating another draft.' : undefined} onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</AppButton>}
                   </div> : null}
                 </div>
