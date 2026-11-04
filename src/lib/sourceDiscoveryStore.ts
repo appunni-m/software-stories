@@ -1,6 +1,6 @@
 import type { SourceDiscoveryResult, SourceDiscoveryScope } from './sourceDiscovery';
 
-const KEY_PREFIX = 'code-atlas:source-discovery:v2:';
+const KEY_PREFIX = 'code-atlas:source-discovery:v3:';
 const MAX_ID_CHARS = 1024;
 const MAX_SNAPSHOT_CHARS = 256;
 const MAX_QUESTION_CHARS = 300;
@@ -24,20 +24,20 @@ export type SourceDiscoveryRead =
   | { status: 'unavailable'; issue: 'storage' | 'oversized' | 'unreadable' | 'unsupported' | 'invalid' | 'stale-path' };
 
 interface SavedSourceDiscovery {
-  schemaVersion: 1 | 2;
+  schemaVersion: 3;
   projectId: string;
   snapshotId: string;
   question: string;
   targetPath: string | null;
   selectedFiles: { path: string; reason: string }[];
-  rangeTargets?: { path: string; reason: string }[];
+  rangeTargets: { path: string; reason: string }[];
   limitation: string;
-  discoveryNotes?: string[];
+  discoveryNotes: string[];
   savedAtUnixMs: number;
 }
 
 interface SavedSourceDiscoveryCollection {
-  schemaVersion: 2;
+  schemaVersion: 3;
   projectId: string;
   snapshotId: string;
   records: SavedSourceDiscovery[];
@@ -116,18 +116,14 @@ function validDiscoveryNotes(value: unknown): value is string[] {
 function validRecord(value: unknown): value is SavedSourceDiscovery {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  const isLegacy = record.schemaVersion === 1
-    && hasExactKeys(record, ['schemaVersion', 'projectId', 'snapshotId', 'question', 'targetPath', 'selectedFiles', 'limitation', 'savedAtUnixMs']);
-  const isCurrent = record.schemaVersion === 2
-    && hasExactKeys(record, ['schemaVersion', 'projectId', 'snapshotId', 'question', 'targetPath', 'selectedFiles', 'rangeTargets', 'limitation', 'discoveryNotes', 'savedAtUnixMs']);
-  if (!(isLegacy || isCurrent) || !boundedText(record.projectId, MAX_ID_CHARS)
+  if (record.schemaVersion !== 3
+    || !hasExactKeys(record, ['schemaVersion', 'projectId', 'snapshotId', 'question', 'targetPath', 'selectedFiles', 'rangeTargets', 'limitation', 'discoveryNotes', 'savedAtUnixMs'])
+    || !boundedText(record.projectId, MAX_ID_CHARS)
     || !boundedText(record.snapshotId, MAX_SNAPSHOT_CHARS) || !boundedCharacters(record.question, MAX_QUESTION_CHARS)
     || !(record.targetPath === null || relativePath(record.targetPath, MAX_TARGET_PATH_CHARS))
     || !Number.isSafeInteger(record.savedAtUnixMs) || Number(record.savedAtUnixMs) <= 0) return false;
-  const result = isLegacy
-    ? { selectedFiles: record.selectedFiles, limitation: record.limitation }
-    : { selectedFiles: record.selectedFiles, rangeTargets: record.rangeTargets, limitation: record.limitation };
-  if (!validResult(result) || (isCurrent && !validDiscoveryNotes(record.discoveryNotes))) return false;
+  const result = { selectedFiles: record.selectedFiles, rangeTargets: record.rangeTargets, limitation: record.limitation };
+  if (!validResult(result) || !validDiscoveryNotes(record.discoveryNotes)) return false;
   try { return byteLength(JSON.stringify(record)) <= MAX_RECORD_BYTES; }
   catch { return false; }
 }
@@ -136,7 +132,7 @@ function validCollection(value: unknown): value is SavedSourceDiscoveryCollectio
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const collection = value as Record<string, unknown>;
   if (!hasExactKeys(collection, ['schemaVersion', 'projectId', 'snapshotId', 'records'])
-    || collection.schemaVersion !== 2 || !boundedText(collection.projectId, MAX_ID_CHARS)
+    || collection.schemaVersion !== 3 || !boundedText(collection.projectId, MAX_ID_CHARS)
     || !boundedText(collection.snapshotId, MAX_SNAPSHOT_CHARS) || !Array.isArray(collection.records)
     || collection.records.length < 1 || collection.records.length > MAX_SAVED_RESULTS) return false;
 
@@ -175,7 +171,7 @@ export function saveSourceDiscoveryResult(
   const key = storageKey(scope);
   if (!key || !validResult(result) || !validDiscoveryNotes(discoveryNotes)) return false;
   const record: SavedSourceDiscovery = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     projectId: scope.projectId,
     snapshotId: scope.snapshotId,
     question: scope.question,
@@ -203,7 +199,7 @@ export function saveSourceDiscoveryResult(
     let serialized = '';
     while (records.length > 0) {
       const collection: SavedSourceDiscoveryCollection = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         projectId: scope.projectId,
         snapshotId: scope.snapshotId,
         records,
@@ -239,9 +235,9 @@ export function readSourceDiscoveryResult(
   catch { return { status: 'unavailable', issue: 'unreadable' }; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { status: 'unavailable', issue: 'invalid' };
   const collection = parsed as Record<string, unknown>;
-  if (collection.schemaVersion !== 2) return { status: 'unavailable', issue: 'unsupported' };
+  if (collection.schemaVersion !== 3) return { status: 'unavailable', issue: 'unsupported' };
   if (Array.isArray(collection.records) && collection.records.some((candidate) => candidate && typeof candidate === 'object'
-    && !Array.isArray(candidate) && ![1, 2].includes((candidate as Record<string, unknown>).schemaVersion as number))) {
+    && !Array.isArray(candidate) && (candidate as Record<string, unknown>).schemaVersion !== 3)) {
     return { status: 'unavailable', issue: 'unsupported' };
   }
   if (!validCollection(parsed)) return { status: 'unavailable', issue: 'invalid' };
@@ -253,14 +249,14 @@ export function readSourceDiscoveryResult(
     const saved = records.find((record) => recordMatchesScope(record, scope));
     if (!saved) return { status: 'missing' };
     const allowed = new Set(availablePaths);
-    const rangeTargets = saved.rangeTargets ?? [];
+    const rangeTargets = saved.rangeTargets;
     if ([...saved.selectedFiles, ...rangeTargets].some(({ path }) => !allowed.has(path))) return { status: 'unavailable', issue: 'stale-path' };
     const result: SourceDiscoveryResult = {
       selectedFiles: saved.selectedFiles.map(({ path, reason }) => ({ path, reason })),
       limitation: saved.limitation,
     };
     if (rangeTargets.length) result.rangeTargets = rangeTargets.map(({ path, reason }) => ({ path, reason }));
-    const discoveryNotes = saved.discoveryNotes ?? [];
+    const discoveryNotes = saved.discoveryNotes;
     return { status: 'available', result, ...(discoveryNotes.length ? { discoveryNotes: [...discoveryNotes] } : {}) };
   } catch { return { status: 'unavailable', issue: 'invalid' }; }
 }

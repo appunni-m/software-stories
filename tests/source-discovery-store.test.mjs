@@ -39,12 +39,12 @@ describe('saved source discovery scope', () => {
       assert.equal(saveSourceDiscoveryResult(scope, result), true);
       assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
       const collection = JSON.parse([...values.values()][0]);
-      assert.equal(collection.schemaVersion, 2);
+      assert.equal(collection.schemaVersion, 3);
       assert.equal(collection.projectId, scope.projectId);
       assert.equal(collection.snapshotId, scope.snapshotId);
       assert.equal(collection.records.length, 1);
       const record = collection.records[0];
-      assert.equal(record.schemaVersion, 2);
+      assert.equal(record.schemaVersion, 3);
       assert.deepEqual(Object.keys(record).sort(), [
         'discoveryNotes', 'limitation', 'projectId', 'question', 'rangeTargets', 'savedAtUnixMs', 'schemaVersion', 'selectedFiles', 'snapshotId', 'targetPath',
       ]);
@@ -80,14 +80,14 @@ describe('saved source discovery scope', () => {
         selectedFiles: Array.from({ length: 12 }, (_, index) => ({ path: `src/file-${index}.rs`, reason: 'Supporting file.' })),
       }), false);
       const collection = JSON.parse([...values.values()][0]);
-      assert.equal(collection.records[0].schemaVersion, 2);
+      assert.equal(collection.records[0].schemaVersion, 3);
       assert.deepEqual(collection.records[0].rangeTargets, rangeResult.rangeTargets);
       assert.deepEqual(collection.records[0].discoveryNotes, discoveryNotes);
       assert.doesNotMatch(JSON.stringify(collection), /reviewId|fingerprint|consent|sourceContents/i);
     });
   });
 
-  it('continues reading legacy saved scopes and preserves them when adding range results', () => {
+  it('starts a new discovery cache without reading or migrating old scope records', () => {
     const values = new Map();
     const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
     const rangeScope = { ...scope, question: 'How does the large font parser work?' };
@@ -96,21 +96,33 @@ describe('saved source discovery scope', () => {
       rangeTargets: [{ path: 'src/font.rs', reason: 'Contains the parser.' }],
       limitation: '',
     };
+    const oldKey = `code-atlas:source-discovery:v2:${encodeURIComponent(scope.projectId)}:${encodeURIComponent(scope.snapshotId)}`;
+    values.set(oldKey, JSON.stringify({
+      schemaVersion: 2,
+      projectId: scope.projectId,
+      snapshotId: scope.snapshotId,
+      records: [{
+        schemaVersion: 1,
+        projectId: scope.projectId,
+        snapshotId: scope.snapshotId,
+        question: scope.question,
+        targetPath: null,
+        selectedFiles: result.selectedFiles,
+        limitation: result.limitation,
+        savedAtUnixMs: Date.now(),
+      }],
+    }));
     withStorage(storage, () => {
-      assert.equal(saveSourceDiscoveryResult(scope, result), true);
-      const key = [...values.keys()][0];
-      const collection = JSON.parse(values.get(key));
-      const legacy = collection.records[0];
-      legacy.schemaVersion = 1;
-      delete legacy.rangeTargets;
-      delete legacy.discoveryNotes;
-      values.set(key, JSON.stringify(collection));
-
-      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'missing' });
       assert.equal(saveSourceDiscoveryResult(rangeScope, rangeResult), true);
-      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
       assert.deepEqual(readSourceDiscoveryResult(rangeScope, ['src/font.rs']), { status: 'available', result: rangeResult });
-      assert.equal(JSON.parse(values.get(key)).records.length, 2);
+      assert.equal(values.has(oldKey), true, 'old derived data remains untouched but is never read or merged');
+      const currentKey = [...values.keys()].find((key) => key.includes(':source-discovery:v3:'));
+      assert.ok(currentKey);
+      const current = JSON.parse(values.get(currentKey));
+      assert.equal(current.schemaVersion, 3);
+      assert.equal(current.records[0].schemaVersion, 3);
+      assert.equal(current.records.length, 1);
     });
   });
 
