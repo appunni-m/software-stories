@@ -17,6 +17,12 @@ Some advanced chapter and PR workflows also offer direct model APIs with separat
 
 Code is the source of truth when repository documentation conflicts with implementation. Captures, search, supported languages, and large-repository explanations have limits; a citation identifies source but does not prove an explanation is correct. See the [release-readiness draft](docs/releases/0.1.0-draft.md) for known limitations and remaining gates.
 
+## Workspace design preview
+
+![Illustrative Code Atlas workspace showing the repository explorer, captured source, pinned question composer, and a visual Guide with a source citation](docs/design/workspace-guide-dark.jpg)
+
+This image is from the browser design preview and uses a sample checkout repository. It illustrates the intended workspace; it is not a screenshot of the packaged Mac app or evidence that native visual acceptance has passed.
+
 ## Start here
 
 - [Getting started](docs/GETTING_STARTED.md) — prerequisites, native first session, and current sharing and voice behavior.
