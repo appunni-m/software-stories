@@ -3642,6 +3642,63 @@ mod tests {
     }
 
     #[test]
+    fn python_and_go_parse_errors_keep_recovered_declarations_but_withhold_calls() {
+        let python_source = concat!(
+            "def helper(value):\n",
+            "    return value\n",
+            "\n",
+            "def total(value):\n",
+            "    return helper(value)\n",
+            "\n",
+            "def broken(:\n",
+            "    return 0\n",
+        );
+        let python = parse_fixture("cart.py", python_source, SupportedLanguage::Python);
+        assert!(python.file.parse_error_count > 0);
+        assert_eq!(python.file.status, IndexFileStatus::PartialParse);
+        assert!(python.symbols.iter().any(|symbol| symbol.name == "helper"));
+        assert!(python.symbols.iter().any(|symbol| symbol.name == "total"));
+        let python_call = python
+            .calls
+            .iter()
+            .find(|call| call.name == "helper")
+            .expect("recovered Python function call should remain available for inspection");
+        assert!(matches!(
+            python_call.binding.as_ref(),
+            Some(BindingTarget::Unknown("source_has_parse_errors"))
+        ));
+        assert_eq!(
+            &python_source.as_bytes()[python_call.anchor.start_byte..python_call.anchor.end_byte],
+            b"helper(value)"
+        );
+
+        let go_source = concat!(
+            "package cart\n",
+            "func helper(value int) int { return value }\n",
+            "func Total(value int) int { return helper(value) }\n",
+            "func broken( { return 0 }\n",
+        );
+        let go = parse_fixture("cart.go", go_source, SupportedLanguage::Go);
+        assert!(go.file.parse_error_count > 0);
+        assert_eq!(go.file.status, IndexFileStatus::PartialParse);
+        assert!(go.symbols.iter().any(|symbol| symbol.name == "helper"));
+        assert!(go.symbols.iter().any(|symbol| symbol.name == "Total"));
+        let go_call = go
+            .calls
+            .iter()
+            .find(|call| call.name == "helper")
+            .expect("recovered Go function call should remain available for inspection");
+        assert!(matches!(
+            go_call.binding.as_ref(),
+            Some(BindingTarget::Unknown("source_has_parse_errors"))
+        ));
+        assert_eq!(
+            &go_source.as_bytes()[go_call.anchor.start_byte..go_call.anchor.end_byte],
+            b"helper(value)"
+        );
+    }
+
+    #[test]
     fn go_calls_resolve_only_within_the_same_directory_and_package() {
         let caller = parse_fixture(
             "cart/cart.go",
