@@ -44,11 +44,73 @@ describe('saved source discovery scope', () => {
       assert.equal(collection.snapshotId, scope.snapshotId);
       assert.equal(collection.records.length, 1);
       const record = collection.records[0];
-      assert.equal(record.schemaVersion, 1);
+      assert.equal(record.schemaVersion, 2);
       assert.deepEqual(Object.keys(record).sort(), [
-        'limitation', 'projectId', 'question', 'savedAtUnixMs', 'schemaVersion', 'selectedFiles', 'snapshotId', 'targetPath',
+        'discoveryNotes', 'limitation', 'projectId', 'question', 'rangeTargets', 'savedAtUnixMs', 'schemaVersion', 'selectedFiles', 'snapshotId', 'targetPath',
       ]);
       assert.doesNotMatch(JSON.stringify(collection), /reviewId|fingerprint|consent|sourceContents/i);
+    });
+  });
+
+  it('restores a bounded large-file target and its local coverage notes after restart', () => {
+    const values = new Map();
+    const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+    const rangeResult = {
+      selectedFiles: [{ path: 'src/api.rs', reason: 'Contains the caller.' }],
+      rangeTargets: [{ path: 'src/font.rs', reason: 'Contains the large font implementation.' }],
+      limitation: 'Some source did not fit the first review.',
+    };
+    const discoveryNotes = ['3 candidate paths did not fit the bounded review.', 'Discovery note: Some source did not fit the first review.'];
+    withStorage(storage, () => {
+      assert.equal(saveSourceDiscoveryResult(scope, rangeResult, discoveryNotes), true);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/api.rs', 'src/font.rs']), {
+        status: 'available', result: rangeResult, discoveryNotes,
+      });
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/api.rs']), { status: 'unavailable', issue: 'stale-path' });
+      assert.equal(saveSourceDiscoveryResult(scope, {
+        ...rangeResult,
+        rangeTargets: [rangeResult.rangeTargets[0], { path: 'src/other.rs', reason: 'A second large target.' }],
+      }), false);
+      assert.equal(saveSourceDiscoveryResult(scope, {
+        ...rangeResult,
+        selectedFiles: [...rangeResult.selectedFiles, { path: 'src/font.rs', reason: 'Duplicate target path.' }],
+      }), false);
+      assert.equal(saveSourceDiscoveryResult(scope, {
+        ...rangeResult,
+        selectedFiles: Array.from({ length: 12 }, (_, index) => ({ path: `src/file-${index}.rs`, reason: 'Supporting file.' })),
+      }), false);
+      const collection = JSON.parse([...values.values()][0]);
+      assert.equal(collection.records[0].schemaVersion, 2);
+      assert.deepEqual(collection.records[0].rangeTargets, rangeResult.rangeTargets);
+      assert.deepEqual(collection.records[0].discoveryNotes, discoveryNotes);
+      assert.doesNotMatch(JSON.stringify(collection), /reviewId|fingerprint|consent|sourceContents/i);
+    });
+  });
+
+  it('continues reading legacy saved scopes and preserves them when adding range results', () => {
+    const values = new Map();
+    const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+    const rangeScope = { ...scope, question: 'How does the large font parser work?' };
+    const rangeResult = {
+      selectedFiles: [],
+      rangeTargets: [{ path: 'src/font.rs', reason: 'Contains the parser.' }],
+      limitation: '',
+    };
+    withStorage(storage, () => {
+      assert.equal(saveSourceDiscoveryResult(scope, result), true);
+      const key = [...values.keys()][0];
+      const collection = JSON.parse(values.get(key));
+      const legacy = collection.records[0];
+      legacy.schemaVersion = 1;
+      delete legacy.rangeTargets;
+      delete legacy.discoveryNotes;
+      values.set(key, JSON.stringify(collection));
+
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
+      assert.equal(saveSourceDiscoveryResult(rangeScope, rangeResult), true);
+      assert.deepEqual(readSourceDiscoveryResult(scope, ['src/parser.ts', 'src/token.ts']), { status: 'available', result });
+      assert.deepEqual(readSourceDiscoveryResult(rangeScope, ['src/font.rs']), { status: 'available', result: rangeResult });
+      assert.equal(JSON.parse(values.get(key)).records.length, 2);
     });
   });
 
@@ -112,16 +174,18 @@ describe('saved source discovery scope', () => {
     });
   });
 
-  it('persists only successful planner discovery and keeps ordinary file discovery session-only', async () => {
+  it('persists planner range targets while keeping Code Lens discovery session-only', async () => {
     const [discovery, planning, context] = await Promise.all([
       readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/RepositoryPlanningDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
     ]);
     const successPath = discovery.slice(discovery.indexOf('const result = await sendSourceDiscovery'), discovery.indexOf('active.current = null;', discovery.indexOf('const result = await sendSourceDiscovery')));
-    assert.match(discovery, /const cacheableResult = result\.rangeTargets\?\.length \? null : \{/);
-    assert.match(successPath, /if \(persistSuccessfulResult && cacheableResult && saveSourceDiscoveryResult\(scope, cacheableResult\)/);
+    assert.match(successPath, /sourceDiscoveryLimitNotes\(result,\s*selectedReview\)/);
+    assert.match(successPath, /saveSourceDiscoveryResult\(scope,\s*result,\s*discoveryNotes\)/);
+    assert.match(discovery, /onReadyRef\.current\(saved\.result,\s*undefined,\s*saved\.discoveryNotes\)/);
     assert.match(planning, /persistSuccessfulResult autoDiscover ignoreSavedResult=\{ignoreSavedDiscovery\}/);
+    assert.match(planning, /savedDiscoveryNotes\s*\?\?\s*sourceDiscoveryLimitNotes\(result,\s*review\)/);
     assert.match(context, /persistSuccessfulResult=\{false\} autoDiscover/);
   });
 

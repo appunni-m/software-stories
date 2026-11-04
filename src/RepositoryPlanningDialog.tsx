@@ -63,11 +63,11 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   const needsRepositoryDiscovery = !scope.selectedPaths.length && !discoveredPaths
     && !scope.recoveryOperationId && scope.kind !== 'planned-chapter';
   if (needsRepositoryDiscovery && backend === 'codex') {
-    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={(result, review) => {
+    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={(result, review, savedDiscoveryNotes) => {
       const rangeTarget = result.rangeTargets?.[0];
       if (rangeTarget) {
         onClose();
-        const limitNotes = sourceDiscoveryLimitNotes(result, review);
+        const limitNotes = savedDiscoveryNotes ?? sourceDiscoveryLimitNotes(result, review);
         onLargeFileDiscovered({
           projectId: scope.projectId,
           snapshotId: scope.snapshotId,

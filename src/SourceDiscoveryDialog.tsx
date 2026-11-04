@@ -3,7 +3,7 @@ import { LoaderCircle, X } from 'lucide-react';
 import { AppButton } from './design/AppButton';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
-import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, SOURCE_DISCOVERY_COVERAGE_LABELS, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
+import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, sourceDiscoveryLimitNotes, SOURCE_DISCOVERY_COVERAGE_LABELS, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { readSourceDiscoveryResult, saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
 import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotManifest } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
@@ -12,7 +12,7 @@ import { ensureWorkspaceIndex } from './workspace/indexManager';
 import { authorizeWorkspace, getWorkspace, prepareWorkspaceConversation, updateWorkspace } from './workspace/store';
 
 export function SourceDiscoveryDialog({ scope, onReady, onClose, onChooseFilesManually, persistSuccessfulResult = true, autoDiscover = false, ignoreSavedResult = false }: {
-  scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview) => void; onClose: () => void;
+  scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review?: SourceDiscoveryReview, discoveryNotes?: string[]) => void; onClose: () => void;
   onChooseFilesManually?: () => void;
   persistSuccessfulResult?: boolean;
   autoDiscover?: boolean;
@@ -68,7 +68,7 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, onChooseFilesMa
           if (!current) return;
           const availablePaths=manifest.files.filter((file)=>file.kind==='file'&&!file.secretLike).map((file)=>file.path);
           const saved=readSourceDiscoveryResult(scope,availablePaths);
-          if (saved.status === 'available') { onReadyRef.current(saved.result); return; }
+          if (saved.status === 'available') { onReadyRef.current(saved.result, undefined, saved.discoveryNotes); return; }
           if (saved.status === 'unavailable') {
             const issue = saved.issue === 'unsupported' ? 'The saved code selection uses an unsupported format.'
               : saved.issue === 'stale-path' ? 'A saved code path is no longer present in this snapshot.'
@@ -157,15 +157,12 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose, onChooseFilesMa
       const result = await sendSourceDiscovery(selectedReview);
       if (!isCurrent()) return;
       if (!result.selectedFiles.length && !result.rangeTargets?.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
-      const cacheableResult = result.rangeTargets?.length ? null : {
-        selectedFiles: result.selectedFiles,
-        limitation: result.limitation,
-      };
-      if (persistSuccessfulResult && cacheableResult && saveSourceDiscoveryResult(scope, cacheableResult) && typeof window !== 'undefined') {
+      const discoveryNotes = sourceDiscoveryLimitNotes(result, selectedReview);
+      if (persistSuccessfulResult && saveSourceDiscoveryResult(scope, result, discoveryNotes) && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(SOURCE_DISCOVERY_SAVED_EVENT, { detail: scope }));
       }
       active.current = null;
-      onReadyRef.current(result, selectedReview);
+      onReadyRef.current(result, selectedReview, discoveryNotes);
     } catch (failure) {
       const message = errorMessageOr(failure, 'Code discovery could not finish.');
       if (isCurrent()) {
