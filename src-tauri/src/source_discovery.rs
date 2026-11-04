@@ -291,24 +291,43 @@ fn static_link_candidate_hints(
             .then_with(|| left.target_path.cmp(&right.target_path))
     });
 
-    let mut hints = HashMap::new();
+    let mut candidates_by_seed = Vec::with_capacity(seed_paths.len());
+    candidates_by_seed.resize_with(seed_paths.len(), Vec::new);
+    let mut seen_by_seed = vec![HashSet::<String>::new(); seed_paths.len()];
     for candidate in linked {
-        if hints.contains_key(&candidate.path) {
+        let Some(seed_candidates) = candidates_by_seed.get_mut(candidate.seed_rank) else {
+            continue;
+        };
+        if !seen_by_seed[candidate.seed_rank].insert(candidate.path.clone()) {
             continue;
         }
-        if hints.len() >= MAX_STATIC_RELATION_CANDIDATES {
-            break;
+        seed_candidates.push(candidate);
+    }
+
+    let mut hints = HashMap::new();
+    let max_seed_candidates = candidates_by_seed.iter().map(Vec::len).max().unwrap_or(0);
+    'rounds: for round in 0..max_seed_candidates {
+        for seed_candidates in &candidates_by_seed {
+            let Some(candidate) = seed_candidates.get(round) else {
+                continue;
+            };
+            if hints.contains_key(&candidate.path) {
+                continue;
+            }
+            if hints.len() >= MAX_STATIC_RELATION_CANDIDATES {
+                break 'rounds;
+            }
+            let rank = hints.len();
+            hints.insert(
+                candidate.path.clone(),
+                StaticLinkCandidateHint {
+                    rank,
+                    evidence_path: candidate.evidence_path.clone(),
+                    target_path: candidate.target_path.clone(),
+                    relation: candidate.relation,
+                },
+            );
         }
-        let rank = hints.len();
-        hints.insert(
-            candidate.path,
-            StaticLinkCandidateHint {
-                rank,
-                evidence_path: candidate.evidence_path,
-                target_path: candidate.target_path,
-                relation: candidate.relation,
-            },
-        );
     }
     hints
 }
@@ -2145,6 +2164,72 @@ export function renderFont(fontData: Uint8Array) {
         assert_eq!(hint["linkConfidence"], "high");
         assert_eq!(hint["evidencePath"], "src/font_pipeline.ts");
         assert_eq!(hint["targetPath"], "src/transform.ts");
+    }
+
+    #[test]
+    fn static_link_expansion_shares_its_candidate_bound_across_ranked_seeds() {
+        let seed_paths = vec![
+            ("src/a_seed.rs".to_owned(), 0),
+            ("src/b_seed.rs".to_owned(), 1),
+        ];
+        let mut candidate_path_storage = (0..MAX_STATIC_RELATION_CANDIDATES + 8)
+            .map(|index| format!("src/a_helper_{index:02}.rs"))
+            .collect::<HashSet<_>>();
+        candidate_path_storage.insert("src/b_helper.rs".to_owned());
+        let candidate_paths = candidate_path_storage
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        let relationships = (0..MAX_STATIC_RELATION_CANDIDATES + 8)
+            .map(|index| index::IndexedRelationship {
+                relationship_id: format!("a-call-{index}"),
+                kind: index::RelationshipKind::Calls,
+                source_id: format!("a-source-{index}"),
+                target_id: Some(format!("a-target-{index}")),
+                target_path: Some(format!("src/a_helper_{index:02}.rs")),
+                target_label: Some(format!("helper_{index}")),
+                confidence: index::RelationshipConfidence::High,
+                unresolved_reason: None,
+                evidence: index::SourceAnchor {
+                    path: "src/a_seed.rs".to_owned(),
+                    source_sha256: "a".repeat(64),
+                    start_byte: index,
+                    end_byte: index + 1,
+                    start_line: index + 1,
+                    end_line: index + 1,
+                    start_column: 1,
+                    end_column: 2,
+                },
+            })
+            .chain(std::iter::once(index::IndexedRelationship {
+                relationship_id: "b-call".to_owned(),
+                kind: index::RelationshipKind::Calls,
+                source_id: "b-source".to_owned(),
+                target_id: Some("b-target".to_owned()),
+                target_path: Some("src/b_helper.rs".to_owned()),
+                target_label: Some("helper_b".to_owned()),
+                confidence: index::RelationshipConfidence::High,
+                unresolved_reason: None,
+                evidence: index::SourceAnchor {
+                    path: "src/b_seed.rs".to_owned(),
+                    source_sha256: "b".repeat(64),
+                    start_byte: 0,
+                    end_byte: 1,
+                    start_line: 1,
+                    end_line: 1,
+                    start_column: 1,
+                    end_column: 2,
+                },
+            }))
+            .collect::<Vec<_>>();
+
+        let hints = static_link_candidate_hints(&candidate_paths, &seed_paths, &relationships);
+
+        assert_eq!(hints.len(), MAX_STATIC_RELATION_CANDIDATES);
+        assert!(hints.contains_key("src/a_helper_00.rs"));
+        assert!(hints.contains_key("src/b_helper.rs"));
+        assert_eq!(hints["src/a_helper_00.rs"].rank, 0);
+        assert_eq!(hints["src/b_helper.rs"].rank, 1);
     }
 
     #[test]

@@ -242,3 +242,21 @@ construction only: no post-change Fontdone profile, live Codex selection,
 packaged workflow, or broad-recall improvement has been established. Keep
 `xvjk` and `a699` open for multi-language recall, agent choice, multi-window,
 consent, restart and packaged acceptance.
+
+### Fair bounded expansion across matching files — 4 November 2026
+
+A dense first-ranked implementation could previously fill all 24 relationship
+hints, hiding linked candidates from other content-ranked files. Candidate
+expansion now de-duplicates each seed's neighbors, keeps that seed's existing
+call/import and path ordering, then emits one neighbor per seed in ranked
+rounds until the shared 24-candidate cap is reached. This preserves the
+strongest direct content matches and prevents one high-fanout file from
+monopolizing the relationship shortlist.
+
+A focused Rust regression constructs a first seed with more than 24 neighbors
+and a second seed with one eligible call target; both remain in the bounded
+hint set and their stable ranks are checked. The focused native discovery
+module passed **17/17**; rustfmt and `git diff --check` passed. This source
+change improves candidate fairness only. Fontdone recall, agent selection,
+packaged behavior, consent, restart, and the broader multi-language matrix
+remain open; keep `xvjk` and `a699` open.
