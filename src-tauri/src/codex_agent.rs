@@ -903,15 +903,7 @@ impl CodexAgentManager {
                 return Err(codex_identity::changed());
             }
             let models = process.models_for_run(input.run_deadline)?;
-            let model = models.iter().find(|model| model.model_id == input.model)
-                .ok_or_else(|| "The selected model is not in this Codex account's model catalog. Refresh models and review the request again.".to_owned())?;
-            if !model
-                .supported_reasoning_efforts
-                .iter()
-                .any(|effort| effort == &input.effort)
-            {
-                return Err("The selected model does not advertise that reasoning effort. Choose a supported effort and review again.".to_owned());
-            }
+            validate_model_effort_selection(&models, &input.model, &input.effort)?;
             // Model discovery can observe account-change events as well.
             if self.observe_runtime_for_run(storage_dir, process, input.run_deadline)?
                 != input.expected_runtime
@@ -2257,6 +2249,30 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
                     .to_owned(),
             );
         }
+    }
+    Ok(())
+}
+
+fn validate_model_effort_selection(
+    models: &[CodexModel],
+    model_id: &str,
+    effort: &str,
+) -> Result<(), String> {
+    let model = models
+        .iter()
+        .find(|model| model.model_id == model_id)
+        .ok_or_else(|| {
+            "The selected model is not in this Codex account's model catalog. Refresh models and review the request again.".to_owned()
+        })?;
+    if !model
+        .supported_reasoning_efforts
+        .iter()
+        .any(|supported| supported == effort)
+    {
+        return Err(
+            "The selected model does not advertise that reasoning effort. Choose a supported effort and review again."
+                .to_owned(),
+        );
     }
     Ok(())
 }
@@ -3662,6 +3678,27 @@ mod section_publication_tests {
         assert_eq!(parameters["effort"], "max");
         assert_eq!(parameters["approvalPolicy"], "never");
         assert_eq!(parameters["permissions"], PERMISSION_PROFILE);
+    }
+
+    #[test]
+    fn model_effort_preflight_rejects_choices_not_advertised_by_the_account() {
+        let models = vec![CodexModel {
+            model_id: "gpt-6-luna".into(),
+            display_name: "GPT-6 Luna".into(),
+            default_reasoning_effort: Some("medium".into()),
+            supported_reasoning_efforts: vec!["low".into(), "medium".into(), "max".into()],
+            is_default: true,
+        }];
+
+        assert!(validate_model_effort_selection(&models, "gpt-6-luna", "max").is_ok());
+        assert_eq!(
+            validate_model_effort_selection(&models, "gpt-6-luna", "ultra").unwrap_err(),
+            "The selected model does not advertise that reasoning effort. Choose a supported effort and review again."
+        );
+        assert_eq!(
+            validate_model_effort_selection(&models, "unlisted-model", "max").unwrap_err(),
+            "The selected model is not in this Codex account's model catalog. Refresh models and review the request again."
+        );
     }
 
     #[test]
