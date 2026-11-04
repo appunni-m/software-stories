@@ -2205,6 +2205,65 @@ mod tests {
             .is_err()
         );
     }
+
+    #[test]
+    fn large_fixed_target_is_selected_only_as_a_bounded_range_target() {
+        let sizes = BTreeMap::from([
+            (
+                "src/bitmap.rs".to_owned(),
+                CandidateSize {
+                    bytes: 245_000,
+                    range_only: false,
+                },
+            ),
+            (
+                "src/font.rs".to_owned(),
+                CandidateSize {
+                    bytes: 375_700,
+                    range_only: true,
+                },
+            ),
+        ]);
+        let valid = json!({
+            "selectedFiles": [{
+                "path": "src/bitmap.rs",
+                "reason": "Supporting bitmap construction"
+            }],
+            "rangeTargets": [{
+                "path": "src/font.rs",
+                "reason": "The attached implementation needs bounded source reads"
+            }],
+            "limitation": ""
+        })
+        .to_string();
+
+        let selection = validate_selection(&valid, &sizes, Some("src/font.rs")).unwrap();
+        assert_eq!(selection.selected_files.len(), 1);
+        assert_eq!(selection.range_targets.len(), 1);
+        assert_eq!(selection.range_targets[0].path, "src/font.rs");
+
+        let whole_file = json!({
+            "selectedFiles": [{
+                "path": "src/font.rs",
+                "reason": "Read the whole implementation"
+            }],
+            "rangeTargets": [],
+            "limitation": ""
+        })
+        .to_string();
+        assert!(validate_selection(&whole_file, &sizes, Some("src/font.rs")).is_err());
+
+        let omitted = json!({
+            "selectedFiles": [{
+                "path": "src/bitmap.rs",
+                "reason": "Supporting bitmap construction"
+            }],
+            "rangeTargets": [],
+            "limitation": "The attached file was omitted"
+        })
+        .to_string();
+        assert!(validate_selection(&omitted, &sizes, Some("src/font.rs")).is_err());
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
