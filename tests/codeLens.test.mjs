@@ -5,7 +5,9 @@ import {
   codeLensRangeFromChapterAnchor,
   codeLensRelationshipLabel,
   highlightSourceLines,
+  MAX_CODE_LENS_RANGE_BYTES,
   resolveCodeLensCitation,
+  selectedCodeLineRange,
   sourceLineTextRanges,
   splitCapturedSourceLines,
   splitSourceTextAtRange,
@@ -147,6 +149,35 @@ describe('Code Lens source rendering helpers', () => {
     }, undefined, 'b'.repeat(64), 2, contents), {
       status: 'stale', range: null, expectedSha256: hash, actualSha256: 'b'.repeat(64),
     });
+  });
+
+  it('builds snapshot-bound whole-line ranges and counts UTF-8 bytes across CRLF lines', () => {
+    const contents = '✨ first\r\n  second();\r\nthird();';
+    const sourceSha256 = 'f'.repeat(64);
+    const firstLineByteLength = Buffer.byteLength('✨ first\r\n  second();');
+
+    assert.deepEqual(selectedCodeLineRange(contents, sourceSha256, 1, 2), {
+      status: 'ready',
+      range: { startLine: 1, endLine: 2, sourceSha256 },
+      byteLength: firstLineByteLength,
+    });
+  });
+
+  it('allows exactly 32 KB and asks for a smaller selection above the native limit', () => {
+    const hash = '1'.repeat(64);
+    assert.equal(MAX_CODE_LENS_RANGE_BYTES, 32_000);
+    assert.deepEqual(selectedCodeLineRange('x'.repeat(32_000), hash, 1, 1), {
+      status: 'ready', range: { startLine: 1, endLine: 1, sourceSha256: hash }, byteLength: 32_000,
+    });
+    assert.deepEqual(selectedCodeLineRange('x'.repeat(32_001), hash, 1, 1), {
+      status: 'too-large', range: { startLine: 1, endLine: 1, sourceSha256: hash }, byteLength: 32_001,
+    });
+  });
+
+  it('rejects missing hashes, out-of-file lines, and blank selections', () => {
+    assert.deepEqual(selectedCodeLineRange('code();', 'not-a-hash', 1, 1), { status: 'unavailable' });
+    assert.deepEqual(selectedCodeLineRange('code();', 'a'.repeat(64), 1, 2), { status: 'unavailable' });
+    assert.deepEqual(selectedCodeLineRange('   ', 'a'.repeat(64), 1, 1), { status: 'unavailable' });
   });
 
   it('surfaces malformed, hashless, and absent citation anchors without highlighting a range', () => {

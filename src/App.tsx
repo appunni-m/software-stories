@@ -181,7 +181,7 @@ import {
   type InventoryRow,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
-import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, splitSourceTextAtRange } from './lib/codeLens';
+import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, selectedCodeLineRange, splitSourceTextAtRange } from './lib/codeLens';
 import { normalizeCapturedSourceNavigation } from './lib/capturedSourceNavigation';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
@@ -5379,6 +5379,8 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
   selectedPath: string | null;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
+  const [selectedCode, setSelectedCode] = useState<{ snapshotId: string; path: string; sha256: string; range: SourceLineRange; status: 'ready' | 'too-large' } | null>(null);
+  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const [sourceWindowStart, setSourceWindowStart] = useState<number | null>(() => sourceLine ?? null);
   const [showAllRelationships, setShowAllRelationships] = useState(false);
   const [snapshotIndex, setSnapshotIndex] = useState<SnapshotIndex | null>(null);
@@ -5407,6 +5409,9 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
             : `The citation requests lines ${sourceRange?.startLine}–${sourceRange?.endLine}, but the captured file has ${sourceLineCount} lines.`
     : null;
   const visibleSourceRange = citation.status === 'verified' ? citation.range : null;
+  const activeSelectedCode = selectedCode && selectedCode.snapshotId === source?.snapshotId
+    && selectedCode.path === source?.path && selectedCode.sha256 === source?.sha256
+    ? selectedCode : null;
   useEffect(() => {
     if (!projectId || !snapshotId || !selectedPath) {
       setSnapshotIndex(null);
@@ -5477,6 +5482,8 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
 
   useEffect(() => {
     setShowCompleteSource(false);
+    setSelectedCode(null);
+    setSelectionMessage(null);
     setSourceWindowStart(sourceLine ?? null);
     setShowAllRelationships(false);
     lastReportedSourceLineRef.current = null;
@@ -5496,11 +5503,73 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
     onSourceLineChange(line);
   };
   const changeSourceWindow = (firstLine: number | null) => {
+    setSelectedCode(null);
+    setSelectionMessage(null);
     setSourceWindowStart(firstLine);
     const line = firstLine ?? defaultWindowStart;
     lastReportedSourceLineRef.current = line;
     onSourceLineChange(line);
     if (sourceCodeRef.current) sourceCodeRef.current.scrollTop = 0;
+  };
+
+  const readSelectedCode = () => {
+    const pre = sourceCodeRef.current;
+    const selection = window.getSelection();
+    if (!pre || !source || !selection || selection.isCollapsed || selection.rangeCount !== 1) {
+      setSelectedCode(null);
+      setSelectionMessage(null);
+      return null;
+    }
+    const selectionRange = selection.getRangeAt(0);
+    if (!pre.contains(selectionRange.startContainer) || !pre.contains(selectionRange.endContainer)) {
+      setSelectedCode(null);
+      setSelectionMessage(null);
+      return null;
+    }
+    const lineContentFor = (node: Node) => {
+      const element = node instanceof Element ? node : node.parentElement;
+      const content = element?.closest('.snapshot-source-line-content');
+      return content && pre.contains(content) ? content : null;
+    };
+    const startContent = lineContentFor(selectionRange.startContainer);
+    const endContent = lineContentFor(selectionRange.endContainer);
+    const startLine = Number(startContent?.closest('[data-source-line]')?.getAttribute('data-source-line'));
+    const endLine = Number(endContent?.closest('[data-source-line]')?.getAttribute('data-source-line'));
+    const touchesOmission = Array.from(pre.querySelectorAll('.snapshot-source-line-omission, .snapshot-source-omission'))
+      .some((omission) => selectionRange.intersectsNode(omission));
+    if (!startContent || !endContent || !Number.isSafeInteger(startLine) || !Number.isSafeInteger(endLine)
+      || startLine < 1 || endLine < startLine || touchesOmission || !selectionRange.toString().trim()) {
+      setSelectedCode(null);
+      setSelectionMessage(touchesOmission ? 'Select visible source only; omitted text is not available.' : null);
+      return null;
+    }
+    const result = selectedCodeLineRange(source.contents, source.sha256, startLine, endLine, sourceLineIndex ?? undefined);
+    if (result.status === 'unavailable') {
+      setSelectedCode(null);
+      setSelectionMessage(null);
+      return null;
+    }
+    const next = {
+      snapshotId: source.snapshotId,
+      path: source.path,
+      sha256: source.sha256,
+      range: result.range,
+      status: result.status,
+    };
+    setSelectedCode(next);
+    setSelectionMessage(result.status === 'too-large'
+      ? 'Selection exceeds 32 KB. Select a smaller range.'
+      : null);
+    return next;
+  };
+
+  const explainSelectedCode = (event: ReactKeyboardEvent<HTMLPreElement>) => {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'i'
+      || event.repeat || event.nativeEvent.isComposing) return;
+    const selection = readSelectedCode();
+    if (!selection) return;
+    event.preventDefault();
+    if (selection.status === 'ready') onRequestRangeExplanation(selection.path, selection.range);
   };
 
   const renderRelationshipRows = (relationships: typeof relatedRelationships) => relationships.map((relationship) => {
@@ -5589,9 +5658,17 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
-            {visibleSourceRange && <AppButton intent="secondary" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</AppButton>}
+            {activeSelectedCode && <AppButton
+              intent="secondary"
+              disabled={activeSelectedCode.status !== 'ready'}
+              aria-keyshortcuts="Meta+I Control+I"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onRequestRangeExplanation(activeSelectedCode.path, activeSelectedCode.range)}
+            ><Sparkles size={15} /> Explain selection · lines {activeSelectedCode.range.startLine}–{activeSelectedCode.range.endLine}</AppButton>}
+            {visibleSourceRange && !activeSelectedCode && <AppButton intent="secondary" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</AppButton>}
           </div>
         </div>
+        {selectionMessage && <div className="source-selection-status" role="status">{selectionMessage}</div>}
         <div className="source-provenance">
           <span>{highlightedLines ? `${languageForPath(source.path)} source` : 'Plain text source'} · {sourceLineCount.toLocaleString()} lines · showing {sourceLineCount === 0 ? 'no lines' : `${firstDisplayedLine}–${lastDisplayedLine}`}</span>
           {visibleSourceRange && <strong>Citation verified · lines {visibleSourceRange.startLine}–{visibleSourceRange.endLine}</strong>}
@@ -5619,7 +5696,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
             else { setShowCompleteSource(true); changeSourceWindow(1); }
           }}>{showCompleteSource ? 'Show cited context' : 'Browse full file'}</AppButton>
         </div>}
-        <pre ref={sourceCodeRef} onScroll={rememberVisibleSourceLine} className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
+        <pre ref={sourceCodeRef} onScroll={rememberVisibleSourceLine} onMouseUp={() => { readSelectedCode(); }} onKeyUp={() => { readSelectedCode(); }} onKeyDown={explainSelectedCode} className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
           ? `Read-only source from snapshot ${source.snapshotId}, citation lines ${visibleSourceRange.startLine} to ${visibleSourceRange.endLine}`
           : `Read-only source from snapshot ${source.snapshotId}`}>
           <code>
@@ -5655,7 +5732,7 @@ function CapturedSourcePanel({ projectId, snapshotId, manifest, onOpenFile, onSo
                 ref={lineNumber === visibleSourceRange?.startLine ? citedLineRef : undefined}
                 className={`snapshot-source-line${isCited ? ' is-cited' : ''}`}
                 id={`snapshot-source-line-${lineNumber}`}
-              ><span className="snapshot-source-line-number" aria-hidden="true">{lineNumber}</span><span>
+              ><span className="snapshot-source-line-number" aria-hidden="true">{lineNumber}</span><span className="snapshot-source-line-content">
                 {displayedWindow.omittedBefore[offset] && <span className="snapshot-source-line-omission">… earlier characters on this line omitted …</span>}
                 {renderedText}
                 {displayedWindow.omittedAfter[offset] && <span className="snapshot-source-line-omission">… later characters on this line omitted …</span>}

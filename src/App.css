@@ -681,6 +681,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .source-view-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .source-view-toolbar h2 { max-width: 75%; overflow: hidden; margin: 8px 0 0; color: var(--text); font: 14px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .source-view-toolbar .secondary-button { min-height: 32px; margin: 0; border-color: var(--border-strong); background: var(--surface-raised); color: var(--accent); box-shadow: none; font-size: 12px; }
+.source-selection-status { flex: 0 0 auto; padding: 7px 12px; border-bottom: 1px solid var(--warning-border); background: var(--surface-raised); color: var(--warning); font-size: 12px; }
 .source-provenance { display: flex; flex-wrap: wrap; gap: 7px 17px; align-items: center; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--muted); font-size: 12px; }
 .source-provenance code { color: var(--muted); font: 12px var(--mono); }
 .source-provenance strong { margin-left: auto; color: var(--accent); font: 12px var(--mono); text-transform: uppercase; }
@@ -1442,6 +1443,7 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .atlas-columns > .source-view-inline .snapshot-source-code { flex: 1; min-height: 0; max-height: none; margin: 0; padding: 16px 0; border: 0; border-radius: 0; background: transparent; font: 12px/1.85 var(--mono); }
 .source-view-inline .snapshot-source-line-number { min-width: 48px; padding-right: 16px; }
 .source-view-inline .source-range-focus { flex-shrink: 0; margin: 0; padding: 8px 18px; border-width: 1px 0; border-radius: 0; }
+.source-view-inline .source-selection-status { padding: 6px 18px; }
 .source-view-inline .source-range-focus small { display: none; }
 .source-view-inline .source-range-focus strong { font-size: 12px; }
 .source-view-inline .source-range-focus code { font-size: 12px; }

@@ -222,6 +222,40 @@ export function capturedSourceLineWindow(contents: string, firstLine: number, la
   return { lines, ranges, omittedBefore, omittedAfter };
 }
 
+/** Keep renderer selection preflight aligned with the native Code Lens payload ceiling. */
+export const MAX_CODE_LENS_RANGE_BYTES = 32_000;
+
+export type SelectedCodeRangeResult =
+  | { status: 'ready' | 'too-large'; range: SourceLineRange; byteLength: number }
+  | { status: 'unavailable' };
+
+/** Build a snapshot-bound, whole-line range for selected source and preflight its exact UTF-8 size. */
+export function selectedCodeLineRange(
+  contents: string,
+  sourceSha256: string,
+  startLine: number,
+  endLine: number,
+  lineIndex?: CapturedSourceLineIndex,
+): SelectedCodeRangeResult {
+  const index = lineIndex?.contents === contents ? lineIndex : capturedSourceLineIndex(contents);
+  if (!/^[0-9a-f]{64}$/i.test(sourceSha256)
+    || !Number.isSafeInteger(startLine) || !Number.isSafeInteger(endLine)
+    || startLine < 1 || endLine < startLine || endLine > index.lineCount) {
+    return { status: 'unavailable' };
+  }
+  const selected = capturedSourceLineWindow(contents, startLine, endLine, { lineIndex: index });
+  const first = selected.ranges[0];
+  const last = selected.ranges.at(-1);
+  if (!first || !last || selected.ranges.length !== endLine - startLine + 1) return { status: 'unavailable' };
+  const excerpt = contents.slice(first.start, last.end);
+  if (!excerpt.trim()) return { status: 'unavailable' };
+  const byteLength = new TextEncoder().encode(excerpt).byteLength;
+  const range = { startLine, endLine, sourceSha256 };
+  return byteLength <= MAX_CODE_LENS_RANGE_BYTES
+    ? { status: 'ready', range, byteLength }
+    : { status: 'too-large', range, byteLength };
+}
+
 /** Return the 1-based source line at a UTF-16 offset, counting CRLF as one terminator. */
 function sourceLineNumberAtOffset(contents: string, offset: number): number {
   let line = 1;
