@@ -5082,7 +5082,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   }}
                   aria-current={selectedTargetKey === target.key ? 'true' : undefined}
                 >
-                  <span className={`chapter-studio-target-status status-${rowStatus}`}>{rowStatus}</span>
+                  <span className={`chapter-studio-target-status status-${rowStatus}`}>{chapterStudioStatusLabel(rowStatus)}</span>
                   <code title={label}>{label}</code>
                   <small>{latest ? <><InlineCodeText text={latest.title}/> · r{latest.revisionNumber}</> : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history unavailable' : 'No chapter for this snapshot'}</small>
                 </AppButton>;
