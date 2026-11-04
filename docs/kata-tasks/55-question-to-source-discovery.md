@@ -260,3 +260,9 @@ module passed **17/17**; rustfmt and `git diff --check` passed. This source
 change improves candidate fairness only. Fontdone recall, agent selection,
 packaged behavior, consent, restart, and the broader multi-language matrix
 remain open; keep `xvjk` and `a699` open.
+
+GitHub package verification run `41798014426` for pushed commit `5ab8c0a`
+completed successfully on 4 November 2026, including the unsigned macOS bundle
+build and inspection. This establishes package build integrity for this source
+revision; it does not run the retrieval-quality matrix or establish native
+workspace navigation and visual acceptance.
