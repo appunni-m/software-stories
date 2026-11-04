@@ -7258,6 +7258,67 @@ mod tests {
     }
 
     #[test]
+    fn codex_snapshot_review_keeps_large_fixed_target_out_of_initial_source_payload() {
+        let mut fixture = ChapterFixture::new();
+        const SENTINEL: &str = "LARGE_SOURCE_SENTINEL_NOT_FOR_INITIAL_REQUEST";
+        let source = format!(
+            "export function memory_face() {{ return '{SENTINEL}'; }}\n{}",
+            "// captured padding for the large fixed-target regression\n".repeat(7_000)
+        );
+        assert!(source.len() > 250_000);
+        fixture.recapture_with_source(SIMPLE_PATH, &source);
+
+        let runtime = crate::codex_identity::CodexReviewRuntime {
+            connection_id: Uuid::new_v4().to_string(),
+            executable_path: "/usr/local/bin/codex".to_owned(),
+            executable_sha256: "a".repeat(64),
+            runtime_version: Some("fixture-app-server-1.0.0".to_owned()),
+            runtime_version_source: Some(
+                crate::codex_identity::CodexRuntimeVersionSource::ServerInfoVersion,
+            ),
+            account_identity_sha256: "b".repeat(64),
+            account_revision: 1,
+        };
+        let request = build_codex_chapter_review(
+            &fixture.storage,
+            &BuildCodexReviewInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gpt-6-luna".to_owned(),
+                effort: "max".to_owned(),
+                approval_policy: "never".to_owned(),
+                section_update: None,
+                question: Some("How does this large implementation transform its input?".to_owned()),
+                focus: Vec::new(),
+                workspace_grant: None,
+            },
+            &runtime,
+        )
+        .unwrap();
+
+        let review = request.review;
+        assert_eq!(review.purpose, FILE_CHAPTER_PURPOSE);
+        assert_eq!(review.target_path.as_deref(), Some(SIMPLE_PATH));
+        assert_eq!(review.selected_files.len(), 1);
+        assert_eq!(review.selected_files[0].path, SIMPLE_PATH);
+        assert_eq!(review.selected_files[0].size_bytes, source.len() as u64);
+        assert!(review.selected_files[0].contents.is_empty());
+        assert_eq!(review.source_bytes, 0);
+        assert_eq!(
+            review.generation_config["codexSnapshotRetrieval"]["maxSourceBytes"],
+            crate::evidence_ledger::MAX_SOURCE_BYTES
+        );
+        assert!(review.user_prompt.contains("private search_code and read_code tools"));
+        assert!(!review.user_prompt.contains(SENTINEL));
+        assert!(review.request_body_bytes < MAX_REQUEST_BODY_BYTES);
+        assert!(!serde_json::to_string(&review.request_body_preview)
+            .unwrap()
+            .contains(SENTINEL));
+    }
+
+    #[test]
     fn source_blocks_reduce_review_size_without_changing_source_bytes() {
         let mut contents = String::from("[");
         while contents.len() < 225_000 {
