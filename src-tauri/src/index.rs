@@ -3642,60 +3642,74 @@ mod tests {
     }
 
     #[test]
-    fn python_and_go_parse_errors_keep_recovered_declarations_but_withhold_calls() {
-        let python_source = concat!(
-            "def helper(value):\n",
-            "    return value\n",
-            "\n",
-            "def total(value):\n",
-            "    return helper(value)\n",
-            "\n",
-            "def broken(:\n",
-            "    return 0\n",
-        );
-        let python = parse_fixture("cart.py", python_source, SupportedLanguage::Python);
-        assert!(python.file.parse_error_count > 0);
-        assert_eq!(python.file.status, IndexFileStatus::PartialParse);
-        assert!(python.symbols.iter().any(|symbol| symbol.name == "helper"));
-        assert!(python.symbols.iter().any(|symbol| symbol.name == "total"));
-        let python_call = python
-            .calls
-            .iter()
-            .find(|call| call.name == "helper")
-            .expect("recovered Python function call should remain available for inspection");
-        assert!(matches!(
-            python_call.binding.as_ref(),
-            Some(BindingTarget::Unknown("source_has_parse_errors"))
-        ));
-        assert_eq!(
-            &python_source.as_bytes()[python_call.anchor.start_byte..python_call.anchor.end_byte],
-            b"helper(value)"
-        );
+    fn structural_parsers_keep_recovered_declarations_but_withhold_calls_on_errors() {
+        let fixtures = [
+            (
+                "cart.py",
+                SupportedLanguage::Python,
+                "def helper(value):\n    return value\n\ndef total(value):\n    return helper(value)\n\ndef broken(:\n    return 0\n",
+            ),
+            (
+                "cart.go",
+                SupportedLanguage::Go,
+                "package cart\nfunc helper(value int) int { return value }\nfunc total(value int) int { return helper(value) }\nfunc broken( { return 0 }\n",
+            ),
+            (
+                "cart.rs",
+                SupportedLanguage::Rust,
+                "fn helper(value: i32) -> i32 { value }\nfn total(value: i32) -> i32 { helper(value) }\nfn broken( { 0 }\n",
+            ),
+            (
+                "cart.ts",
+                SupportedLanguage::TypeScript,
+                "function helper(value: number): number { return value; }\nfunction total(value: number): number { return helper(value); }\nfunction broken( { return 0; }\n",
+            ),
+            (
+                "cart.tsx",
+                SupportedLanguage::Tsx,
+                "function helper(value: number): number { return value; }\nfunction total(value: number): number { return helper(value); }\nfunction broken( { return 0; }\n",
+            ),
+            (
+                "cart.js",
+                SupportedLanguage::JavaScript,
+                "function helper(value) { return value; }\nfunction total(value) { return helper(value); }\nfunction broken( { return 0; }\n",
+            ),
+        ];
 
-        let go_source = concat!(
-            "package cart\n",
-            "func helper(value int) int { return value }\n",
-            "func Total(value int) int { return helper(value) }\n",
-            "func broken( { return 0 }\n",
-        );
-        let go = parse_fixture("cart.go", go_source, SupportedLanguage::Go);
-        assert!(go.file.parse_error_count > 0);
-        assert_eq!(go.file.status, IndexFileStatus::PartialParse);
-        assert!(go.symbols.iter().any(|symbol| symbol.name == "helper"));
-        assert!(go.symbols.iter().any(|symbol| symbol.name == "Total"));
-        let go_call = go
-            .calls
-            .iter()
-            .find(|call| call.name == "helper")
-            .expect("recovered Go function call should remain available for inspection");
-        assert!(matches!(
-            go_call.binding.as_ref(),
-            Some(BindingTarget::Unknown("source_has_parse_errors"))
-        ));
-        assert_eq!(
-            &go_source.as_bytes()[go_call.anchor.start_byte..go_call.anchor.end_byte],
-            b"helper(value)"
-        );
+        for (path, language, source) in fixtures {
+            let parsed = parse_fixture(path, source, language);
+            assert!(
+                parsed.file.parse_error_count > 0,
+                "{path} should report syntax errors"
+            );
+            assert_eq!(
+                parsed.file.status,
+                IndexFileStatus::PartialParse,
+                "{path} should retain its recovered declarations"
+            );
+            assert!(parsed.symbols.iter().any(|symbol| symbol.name == "helper"));
+            assert!(parsed.symbols.iter().any(|symbol| symbol.name == "total"));
+            assert!(
+                parsed.callable_exports.is_empty(),
+                "{path} must not expose callable exports from a partial syntax tree"
+            );
+            let call = parsed
+                .calls
+                .iter()
+                .find(|call| call.name == "helper")
+                .unwrap_or_else(|| {
+                    panic!("{path} should retain the recovered call for inspection")
+                });
+            assert!(matches!(
+                call.binding.as_ref(),
+                Some(BindingTarget::Unknown("source_has_parse_errors"))
+            ));
+            assert_eq!(
+                &source.as_bytes()[call.anchor.start_byte..call.anchor.end_byte],
+                b"helper(value)",
+                "{path} should keep the exact recovered call anchor"
+            );
+        }
     }
 
     #[test]
