@@ -121,6 +121,27 @@ test('Increase Contrast preference strengthens text, boundaries, and focus indic
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?outline:\s*3px solid var\(--border-strong\)\s*!important;/);
 });
 
+test('primary actions remain visible and keep their labels readable in dark and light themes', () => {
+  assert.ok(rootBlock, 'root design tokens are present');
+  const darkTokens = readTokens(rootBlock);
+  const lightTokens = readTokens(theme.match(/:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? '');
+
+  for (const [mode, tokens] of [['dark', darkTokens], ['light', lightTokens]]) {
+    assert.ok(tokens.action && tokens['action-hover'] && tokens['on-accent'] && tokens.surface,
+      `${mode} theme defines primary action colors and surface`);
+    for (const [state, background] of [['default', tokens.action], ['hover', tokens['action-hover']]]) {
+      assert.ok(
+        contrastRatio(tokens['on-accent'], background) >= 4.5,
+        `${mode} ${state} action label must keep 4.5:1 contrast`,
+      );
+      assert.ok(
+        contrastRatio(background, tokens.surface) >= 3,
+        `${mode} ${state} action boundary must keep 3:1 contrast against its surface`,
+      );
+    }
+  }
+});
+
 test('solid text and surface colors in the same CSS rule meet normal-text contrast', () => {
   assert.ok(rootBlock, 'root design tokens are present');
   const defaultTokens = readTokens(rootBlock);
