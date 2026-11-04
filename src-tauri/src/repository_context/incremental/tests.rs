@@ -669,6 +669,73 @@ fn fontdone_one_file_incremental_profile() {
     let found = |result: &SearchResult, expected: &serde_json::Value| {
         found_rank(result, expected).is_some()
     };
+    let expected_paths = expected
+        .iter()
+        .map(|item| item["path"].as_str().unwrap().to_owned())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut file_discovery = Vec::new();
+    for (label, query) in [
+        ("broadQuestion", corpus["broadQuestion"].as_str().unwrap()),
+        (
+            "nameFreeQuestion",
+            corpus["nameFreeQuestion"].as_str().unwrap(),
+        ),
+    ] {
+        assert!(should_discover_files(query, None));
+        let a = search_files_with_mode_page(
+            &storage,
+            &updated,
+            &delta,
+            query,
+            None,
+            crate::context_mcp::MAX_FILE_DISCOVERY_PAGE_SIZE,
+            0,
+            &Budget::new(&cancelled),
+            SearchMode::Code,
+        )
+        .unwrap();
+        let b = search_files_with_mode_page(
+            &reference_storage,
+            &updated,
+            &reference,
+            query,
+            None,
+            crate::context_mcp::MAX_FILE_DISCOVERY_PAGE_SIZE,
+            0,
+            &Budget::new(&cancelled),
+            SearchMode::Code,
+        )
+        .unwrap();
+        let discovered = a
+            .matches
+            .iter()
+            .map(|hit| hit.range.path.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            discovered,
+            b.matches
+                .iter()
+                .map(|hit| hit.range.path.clone())
+                .collect::<Vec<_>>(),
+            "file-first discovery must be identical between incremental and fresh indexes for {label}"
+        );
+        let discovered_paths = discovered
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected_paths_found = expected_paths
+            .intersection(&discovered_paths)
+            .cloned()
+            .collect::<Vec<_>>();
+        file_discovery.push(serde_json::json!({
+            "query": label,
+            "returnedPaths": discovered.len(),
+            "expectedPathsFound": expected_paths_found,
+            "expectedPathCount": expected_paths.len(),
+            "largeFontFileDiscovered": discovered_paths.contains("src/font.rs"),
+            "topPaths": discovered,
+        }));
+    }
     let mut named = vec![];
     for expected in expected {
         let query = expected["query"].as_str().unwrap();
@@ -827,6 +894,6 @@ fn fontdone_one_file_incremental_profile() {
     }
     println!(
         "FONTDONE_INCREMENTAL {}",
-        serde_json::json!({"baseSnapshot":manifest.summary.snapshot_id,"changedPath":changed_path,"appendBytes":suffix.len(),"coldMs":cold_ms,"syntaxRebuildMs":syntax_ms,"incrementalMs":incremental_ms,"freshReferenceMs":reference_ms,"oldGenerationUnchanged":true,"sameCurrentDocumentKeysAsFresh":true,"coverage":delta.metadata.coverage,"coldBuild":first.metadata.build,"incrementalBuild":delta.metadata.build,"freshBuild":reference.metadata.build,"named":named,"broad":broad})
+        serde_json::json!({"baseSnapshot":manifest.summary.snapshot_id,"changedPath":changed_path,"appendBytes":suffix.len(),"coldMs":cold_ms,"syntaxRebuildMs":syntax_ms,"incrementalMs":incremental_ms,"freshReferenceMs":reference_ms,"oldGenerationUnchanged":true,"sameCurrentDocumentKeysAsFresh":true,"coverage":delta.metadata.coverage,"coldBuild":first.metadata.build,"incrementalBuild":delta.metadata.build,"freshBuild":reference.metadata.build,"fileDiscovery":file_discovery,"named":named,"broad":broad})
     );
 }
