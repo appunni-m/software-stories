@@ -726,6 +726,20 @@ fn final_manifest_rejections_have_fixed_failure_categories() {
 }
 
 #[test]
+fn codex_request_timeout_has_a_safe_timeout_category() {
+    assert_eq!(
+        FailureCode::from_error(
+            "Codex timed out while handling turn/start. Reconnect before retrying."
+        ),
+        FailureCode::RunTimeout
+    );
+    assert_eq!(
+        FailureCode::from_error("untrusted provider detail"),
+        FailureCode::Unknown
+    );
+}
+
+#[test]
 fn a_manifest_without_a_published_section_has_a_specific_failure_class() {
     let f = Fixture::new();
     let (ledger, runtime, cancel) = setup(&f);

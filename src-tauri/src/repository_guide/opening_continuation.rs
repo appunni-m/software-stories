@@ -264,6 +264,7 @@ pub(super) fn run(
                     &record.project_id,
                     &record.snapshot_id,
                     &opening::question(&record)?,
+                    Some(error.as_str()),
                 )
             }
         }

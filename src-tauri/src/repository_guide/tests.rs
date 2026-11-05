@@ -140,6 +140,44 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
 }
 
 #[test]
+fn synthetic_failed_slide_keeps_only_a_safe_failure_category() {
+    let run_id = Uuid::new_v4().to_string();
+    let timed_out = synthetic_failed_slide(
+        &run_id,
+        "project",
+        "snapshot",
+        "How does the request finish?",
+        Some("Codex timed out while handling turn/start. Reconnect before retrying."),
+    );
+    assert_eq!(
+        timed_out.failure_code,
+        Some(crate::evidence_ledger::sections::FailureCode::RunTimeout)
+    );
+    assert!(
+        !serde_json::to_string(&timed_out)
+            .unwrap()
+            .contains("turn/start")
+    );
+
+    let untrusted = synthetic_failed_slide(
+        &run_id,
+        "project",
+        "snapshot",
+        "How does the request finish?",
+        Some("untrusted provider text must not be retained"),
+    );
+    assert_eq!(
+        untrusted.failure_code,
+        Some(crate::evidence_ledger::sections::FailureCode::Unknown)
+    );
+    assert!(
+        !serde_json::to_string(&untrusted)
+            .unwrap()
+            .contains("untrusted provider text")
+    );
+}
+
+#[test]
 fn planning_timing_outcome_uses_the_persisted_guide_terminal_state() {
     let f = Fixture::new();
     let mut guide = record(&f);

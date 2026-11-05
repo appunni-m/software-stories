@@ -120,6 +120,12 @@ impl FailureCode {
             error if error.starts_with("The Codex account probe exceeded its ten-minute limit") => {
                 Self::RunTimeout
             }
+            error
+                if error.starts_with("Codex timed out while handling ")
+                    && error.ends_with(". Reconnect before retrying.") =>
+            {
+                Self::RunTimeout
+            }
             error if error == crate::codex_identity::changed() => Self::RuntimeIdentity,
             "The answer's final manifest exceeds its limit." => Self::FinalManifestTooLarge,
             "The answer's final manifest is invalid. Published sections are preserved." => {

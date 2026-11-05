@@ -1284,6 +1284,7 @@ function Answer(props:AnswerProps){
   const mappedErrorMessage=turn.error?explanationErrorMessage(turn.error):undefined;
   const failureMessage=(mappedErrorMessage!==turn.error?mappedErrorMessage:undefined)
     ??explanationFailureMessage(turn.failureCode)
+    ??explanationFailureMessage(turn.guide?.openingFailureCode)
     ??repositoryGuideFailureMessage(turn.guide);
   const progressText=questionProgressText(turn);
   const guideCoverageLabel=repositoryGuideCoverageLabel(turn.guide,sections.length>0);
@@ -1347,6 +1348,7 @@ function Answer(props:AnswerProps){
                 aria-label={`Open ready slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectGuideSlide(slideIndex)}><InlineCodeText text={unit.question}/></AppButton>
             : <span><InlineCodeText text={unit.question}/></span>}
           <small>{status}</small>
+          {unit.failureCode&&<details className="dw-guide-unit-failure"><summary>Why this slide stopped</summary><p>{explanationFailureMessage(unit.failureCode)}</p></details>}
           {unit.canRetry&&props.onRetryGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Retry slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>Retry slide</AppButton>}
         </li>;
       })}</ol>

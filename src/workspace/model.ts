@@ -50,13 +50,14 @@ export interface RepositoryGuide {
   status: 'planning' | 'building' | 'waitingForPlayback' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
   planningRunId?: string;
   planningFailureCode?: 'outlineNotPublished';
+  openingFailureCode?: ExplanationFailureCode;
   openingRunId: string | null;
   openingRunIds: string[];
   canContinue: boolean;
   canExtend: boolean;
   continuationOperations: number;
   consumedSlideRevisions?: string[];
-  units: { key: string; question: string; prerequisites: string[]; status: string; canRetry: boolean; runIds: string[] }[];
+  units: { key: string; question: string; prerequisites: string[]; status: string; failureCode?: ExplanationFailureCode; canRetry: boolean; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
 export interface RepositoryGuideList {

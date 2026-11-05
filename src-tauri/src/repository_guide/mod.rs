@@ -170,6 +170,8 @@ pub(crate) struct GuideSummary {
     planning_run_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     planning_failure_code: Option<PlanningFailureCode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    opening_failure_code: Option<crate::evidence_ledger::sections::FailureCode>,
     units: Vec<UnitSummary>,
     answers: Vec<Summary>,
     opening_run_id: Option<String>,
@@ -208,6 +210,8 @@ struct UnitSummary {
     question: String,
     prerequisites: Vec<String>,
     status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failure_code: Option<crate::evidence_ledger::sections::FailureCode>,
     can_retry: bool,
     run_ids: Vec<String>,
 }
@@ -671,6 +675,7 @@ fn synthetic_failed_slide(
     project_id: &str,
     snapshot_id: &str,
     question: &str,
+    error: Option<&str>,
 ) -> Summary {
     Summary {
         run_id: run_id.into(),
@@ -678,7 +683,7 @@ fn synthetic_failed_slide(
         snapshot_id: snapshot_id.into(),
         question: question.into(),
         outcome: Outcome::Failed,
-        failure_code: None,
+        failure_code: error.map(crate::evidence_ledger::sections::FailureCode::from_error),
         sections: vec![],
         incomplete_topics: vec![
             "This slide did not publish. The guide preserved its other progress.".into(),
@@ -919,6 +924,11 @@ fn guide_summary(
                 question: planned.question.clone(),
                 prerequisites: planned.prerequisites.clone(),
                 status: unit_status(unit).into(),
+                failure_code: unit
+                    .attempts
+                    .last()
+                    .and_then(|attempt| attempt.summary.as_ref())
+                    .and_then(|answer| answer.failure_code.clone()),
                 can_retry: unit_retryable(record, index),
                 run_ids: unit
                     .attempts
@@ -938,6 +948,9 @@ fn guide_summary(
         status: record.status.clone(),
         planning_run_id: record.planning_run_id.clone(),
         planning_failure_code: record.planning_failure_code,
+        opening_failure_code: opening_continuation::latest(record)
+            .and_then(|attempt| attempt.summary.as_ref())
+            .and_then(|answer| answer.failure_code.clone()),
         units,
         answers,
         opening_run_id: opening_continuation::latest(record).map(|a| a.run_id.clone()),
@@ -1228,7 +1241,13 @@ fn run_initial_opening(
                 reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?
                     .summary()
             } else {
-                synthetic_failed_slide(&run_id, &record.project_id, &record.snapshot_id, &question)
+                synthetic_failed_slide(
+                    &run_id,
+                    &record.project_id,
+                    &record.snapshot_id,
+                    &question,
+                    operation_error.as_deref(),
+                )
             }
         }
     };
@@ -1577,6 +1596,7 @@ fn build_inner(
                                 &record.project_id,
                                 &record.snapshot_id,
                                 &question,
+                                operation_error.as_deref(),
                             )
                         }
                     }
