@@ -306,9 +306,7 @@ pub(crate) mod tests {
         assert!(instructions.contains("Raw JavaScript and 3-D/WebGL are unsupported"));
         assert!(instructions.contains("The app owns HTML, styling and interactions"));
         assert!(instructions.contains("whole section allows at most 12 nodes and 20 edges"));
-        assert!(
-            instructions.contains("each scene allows at most 48 elements and 12 content leaves")
-        );
+        assert!(instructions.contains("Per scene, 48 elements and 12 content leaves"));
         assert!(instructions.contains("Default every visual node source to null"));
         assert!(instructions.contains("never imply unobserved execution, priority or values"));
         assert!(instructions.contains(

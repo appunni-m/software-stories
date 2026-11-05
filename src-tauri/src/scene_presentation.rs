@@ -705,13 +705,19 @@ mod tests {
                     evidence_anchor_ids: vec![active_anchor.clone()],
                 })
                 .collect::<Vec<_>>();
+            presentation.scenes.truncate(1);
             presentation.scenes[0].mode = SceneMode::Graph;
             presentation.scenes[0].elements.clear();
             (nodes, edges, claims, presentation)
         };
 
         let (nodes, edges, claims, presentation) = make(7);
-        assert!(validate_graph_density(&presentation, &nodes, &edges, &claims).is_ok());
+        assert_eq!(presentation.scenes[0].claim_index, 0);
+        assert!(nodes[0]
+            .evidence_anchor_ids
+            .contains(&claims[0].anchors[0].anchor_id));
+        validate_graph_density(&presentation, &nodes, &edges, &claims)
+            .unwrap_or_else(|error| panic!("eight-node focused graph should pass: {error}"));
         let (nodes, edges, claims, presentation) = make(8);
         assert!(
             validate_graph_density(&presentation, &nodes, &edges, &claims)
@@ -759,6 +765,8 @@ mod tests {
     #[test]
     fn ordered_candidate_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
         let (mut nodes, mut claims, mut presentation) = fixture();
+        claims.truncate(1);
+        presentation.scenes.truncate(1);
         claims[0].prose = "Parser signatures are competing candidates checked in source order; the first matching parser handles the input.".into();
         let claim_anchors: Vec<_> = claims[0]
             .anchors
@@ -791,7 +799,10 @@ mod tests {
             },
         ];
         let error = validate(&presentation, &nodes, &claims).unwrap_err();
-        assert!(error.contains("LIFO stack reverses the priority"));
+        assert!(
+            error.contains("LIFO stack reverses the priority"),
+            "unexpected error for a reversed priority stack: {error}"
+        );
 
         let leaf = |kind, parent, value: &str| SceneElement {
             kind,

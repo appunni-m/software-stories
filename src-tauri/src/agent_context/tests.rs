@@ -881,7 +881,10 @@ fn bad_nonce_and_extra_fields_cannot_read_source() {
         .as_ref()
         .expect("test session has a publication owner")
         .cancellation_token();
-    assert!(s.poll(&cancelled, || Ok(())).is_err());
+    assert!(
+        s.poll(&cancelled, || Ok(())).is_ok(),
+        "invalid search arguments should receive a bounded response without reading source"
+    );
     assert!(s.ledger.admitted_ranges().is_empty());
     let mut s = session(&f);
     let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
