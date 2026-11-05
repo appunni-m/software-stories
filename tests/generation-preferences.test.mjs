@@ -28,12 +28,48 @@ describe('generation backend preference', () => {
     });
   });
 
-  it('defaults to Codex only when the backend is unset and surfaces unsupported or unreadable values', () => {
+  it('keeps the newly selected backend for this session when storage rejects the write', () => {
+    const saved = new Map([['code-atlas:generation-backend', 'api']]);
+    withStorage({
+      getItem: (key) => saved.get(key) ?? null,
+      setItem() { throw Error('storage unavailable'); },
+    }, () => {
+      rememberGenerationBackend('codex');
+      assert.equal(readGenerationBackend(), 'codex', 'the header and request entry points must use the explicit Codex selection');
+    });
+
+    // Leave the module's session fallback in its normal persisted state for
+    // other tests that share the same process.
+    const persisted = new Map();
+    withStorage({ getItem: (key) => persisted.get(key) ?? null, setItem: (key, value) => persisted.set(key, value) }, () => {
+      rememberGenerationBackend('codex');
+    });
+
+    const cleared = new Map();
+    withStorage({ getItem: (key) => cleared.get(key) ?? null, setItem: (key, value) => cleared.set(key, value) }, () => {
+      rememberGenerationBackend('api');
+      cleared.delete('code-atlas:generation-backend');
+      assert.equal(readGenerationBackend(), 'api', 'clearing storage must not override an explicit session selection');
+    });
+
+    const finalPersisted = new Map();
+    withStorage({ getItem: (key) => finalPersisted.get(key) ?? null, setItem: (key, value) => finalPersisted.set(key, value) }, () => {
+      rememberGenerationBackend('codex');
+    });
+  });
+
+  it('defaults to Codex only when unset and preserves a known session choice if storage becomes unreadable', () => {
     withStorage({ getItem: () => null }, () => assert.equal(readGenerationBackend(), 'codex'));
     withStorage({ getItem: () => 'unknown' }, () => assert.equal(readGenerationBackend(), null));
     withStorage({ getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }, () => {
-      assert.equal(readGenerationBackend(), null);
+      assert.equal(readGenerationBackend(), 'codex');
       assert.doesNotThrow(() => rememberGenerationBackend('api'));
+      assert.equal(readGenerationBackend(), 'api');
+    });
+
+    const persisted = new Map();
+    withStorage({ getItem: (key) => persisted.get(key) ?? null, setItem: (key, value) => persisted.set(key, value) }, () => {
+      rememberGenerationBackend('codex');
     });
   });
 

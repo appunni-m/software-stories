@@ -15,6 +15,8 @@ export interface DirectApiSelection {
 
 export type DirectApiSelectionIssue = 'invalid' | 'oversized' | 'unavailable';
 let directApiSelectionIssue: DirectApiSelectionIssue | null = null;
+let sessionGenerationBackend: GenerationBackend | null = null;
+let generationBackendWriteFailed = false;
 
 function validSelectionId(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 256
@@ -67,14 +69,21 @@ export function rememberDirectApiSelection(selection: DirectApiSelection): void 
 export function readGenerationBackend(): GenerationBackend | null {
   try {
     const saved = localStorage.getItem(key);
-    if (saved === null) return 'codex';
-    if (saved === 'codex' || saved === 'claude-setup' || saved === 'handoff' || saved === 'api') return saved;
+    if (saved === null) return sessionGenerationBackend ?? 'codex';
+    if (saved === 'codex' || saved === 'claude-setup' || saved === 'handoff' || saved === 'api') {
+      return generationBackendWriteFailed ? sessionGenerationBackend : saved;
+    }
+    return null;
   } catch { /* An unreadable saved selection must not silently choose another backend. */ }
-  return null;
+  return sessionGenerationBackend;
 }
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
-  try { localStorage.setItem(key, backend); } catch { /* The current session still works. */ }
+  sessionGenerationBackend = backend;
+  try {
+    localStorage.setItem(key, backend);
+    generationBackendWriteFailed = false;
+  } catch { generationBackendWriteFailed = true; /* The current session still works. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
 }
 
