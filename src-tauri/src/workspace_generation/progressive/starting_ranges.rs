@@ -202,6 +202,21 @@ mod tests {
     }
 
     #[test]
+    fn first_opening_slide_binds_the_single_entry_transition_scope() {
+        let f = Fixture::new();
+        let (input, _) = prepared(&f);
+        let mut intent = guide_intent();
+        intent.unit_key = "opening".into();
+        intent.unit_number = 1;
+
+        let (_, _, _, instructions) =
+            request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
+
+        assert!(instructions.contains(guide_intent::OPENING_INSTRUCTIONS));
+        assert!(instructions.contains(guide_intent::OPENING_SCOPE_INSTRUCTIONS));
+    }
+
+    #[test]
     fn opening_follow_up_binds_both_questions_gaps_owner_and_original_budgets() {
         let f = Fixture::new();
         let (input, _) = prepared(&f);
@@ -224,6 +239,7 @@ mod tests {
             guide_intent::OPENING_POLICY
         );
         assert!(instructions.contains(guide_intent::OPENING_CONTINUATION_INSTRUCTIONS));
+        assert!(instructions.contains(guide_intent::OPENING_SCOPE_INSTRUCTIONS));
         assert!(!prompt.contains(SIMPLE_SOURCE));
         assert!(value.get("startingRanges").is_none());
         assert!(schema["properties"].get("outline").is_none());
