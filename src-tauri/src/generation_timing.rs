@@ -23,7 +23,7 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-const SCHEMA_VERSION: u32 = 6;
+const SCHEMA_VERSION: u32 = 7;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

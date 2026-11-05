@@ -56,6 +56,45 @@ fn first_agent_message_delta_is_reported_without_calling_it_a_token_time() {
 }
 
 #[test]
+fn each_turn_exposes_its_app_server_elapsed_interval() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now());
+    for index in 1..=2 {
+        trace.turn_requested(index);
+        trace.runtime_event(index, RuntimeEventKind::TurnStarted);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        trace.runtime_event(index, RuntimeEventKind::TurnCompleted);
+    }
+    trace.finish(Ok(()));
+
+    let record = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(record.runtime_turns.len(), 2);
+    for turn in &record.runtime_turns {
+        let started = turn
+            .observations
+            .iter()
+            .find(|event| event.kind == RuntimeEventKind::TurnStarted)
+            .unwrap()
+            .first_ms;
+        let completed = turn
+            .observations
+            .iter()
+            .find(|event| event.kind == RuntimeEventKind::TurnCompleted)
+            .unwrap()
+            .first_ms;
+        assert_eq!(turn.elapsed_ms, Some(completed - started));
+        assert!(turn.elapsed_ms.unwrap() > 0);
+    }
+
+    let file = path(&f.0, &id).unwrap();
+    let mut invalid: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    invalid["runtimeTurns"][0]["elapsedMs"] = Value::Null;
+    fs::write(&file, serde_json::to_vec(&invalid).unwrap()).unwrap();
+    assert!(inspect(&f.0, &id).is_err());
+}
+
+#[test]
 fn runtime_counters_keep_correction_separate_and_never_sum_cumulative_usage() {
     let f = Fixture::new();
     let id = run();
@@ -85,6 +124,7 @@ fn runtime_counters_keep_correction_separate_and_never_sum_cumulative_usage() {
     assert_eq!(record.runtime_turns.len(), 2);
     assert_eq!(record.runtime_turns[0].observations[1].count, 20_000);
     assert_eq!(record.runtime_turns[0].observations.len(), 3);
+    assert_eq!(record.runtime_turns[0].elapsed_ms, None);
     assert_eq!(
         record.runtime_turns[0]
             .token_usage

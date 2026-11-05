@@ -65,6 +65,10 @@ pub(super) struct ReportedUsage {
 pub(super) struct RuntimeTurn {
     index: u8,
     requested_ms: u64,
+    /// Same-clock interval between app-server turn-start and turn-complete
+    /// notifications. This includes all work during the turn, not just model
+    /// inference; an unmatched boundary remains unknown.
+    elapsed_ms: Option<u64>,
     observations: Vec<Observation>,
     token_usage: Option<ReportedUsage>,
 }
@@ -132,6 +136,7 @@ impl Trace {
             record.runtime_turns.push(RuntimeTurn {
                 index,
                 requested_ms: elapsed(self.started),
+                elapsed_ms: None,
                 observations: vec![],
                 token_usage: None,
             });
@@ -168,6 +173,19 @@ impl Trace {
                     last_ms: now,
                 });
             }
+            let turn_started_ms = turn
+                .observations
+                .iter()
+                .find(|event| event.kind == RuntimeEventKind::TurnStarted)
+                .map(|event| event.first_ms);
+            let turn_completed_ms = turn
+                .observations
+                .iter()
+                .find(|event| event.kind == RuntimeEventKind::TurnCompleted)
+                .map(|event| event.first_ms);
+            turn.elapsed_ms = turn_started_ms
+                .zip(turn_completed_ms)
+                .and_then(|(started, completed)| completed.checked_sub(started));
             true
         });
     }
@@ -217,6 +235,24 @@ pub(super) fn validate(record: &Record) -> Result<(), String> {
             return Err(invalid());
         }
         prior = turn.requested_ms;
+        let turn_started_ms = turn
+            .observations
+            .iter()
+            .find(|event| event.kind == RuntimeEventKind::TurnStarted)
+            .map(|event| event.first_ms);
+        let turn_completed_ms = turn
+            .observations
+            .iter()
+            .find(|event| event.kind == RuntimeEventKind::TurnCompleted)
+            .map(|event| event.first_ms);
+        let expected_elapsed = match turn_started_ms.zip(turn_completed_ms) {
+            Some((started, completed)) if completed >= started => Some(completed - started),
+            Some(_) => return Err(invalid()),
+            None => None,
+        };
+        if turn.elapsed_ms != expected_elapsed {
+            return Err(invalid());
+        }
         let mut first = turn.requested_ms;
         for (i, event) in turn.observations.iter().enumerate() {
             if event.count == 0
