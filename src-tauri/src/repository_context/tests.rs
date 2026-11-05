@@ -223,6 +223,45 @@ fn compound_identifier_search_does_not_return_common_component_only_hits() {
 }
 
 #[test]
+fn unicode_compound_identifier_search_does_not_combine_separate_names() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/split.rs",
+        "fn naïve() {}\nfn 字形() {}\nfn Parser() {}\n",
+    );
+    add_source(&mut fixture, "lib/match.rs", "fn naïve_字形() {}\n");
+    add_source(
+        &mut fixture,
+        "lib/unicode-start-match.rs",
+        "fn 字形_Parser() {}\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    for (query, expected_path) in [
+        ("Naïve_字形", "lib/match.rs"),
+        ("字形_Parser", "lib/unicode-start-match.rs"),
+    ] {
+        let result = search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            query,
+            Some("lib"),
+            8,
+            &budget,
+        )
+        .unwrap();
+
+        assert_eq!(result.matches.len(), 1, "query: {query}");
+        assert_eq!(result.matches[0].range.path, expected_path, "query: {query}");
+        assert!(result.matches[0].exact_identifier, "query: {query}");
+    }
+}
+
+#[test]
 fn natural_language_search_matches_common_english_inflections() {
     let mut fixture = Fixture::new();
     add_source(

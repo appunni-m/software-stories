@@ -1683,8 +1683,8 @@ fn is_identifier_query(query: &str) -> bool {
     let mut chars = query.chars();
     chars
         .next()
-        .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
-        && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+        .is_some_and(|first| first == '_' || first.is_alphabetic())
+        && chars.all(|c| c == '_' || c.is_alphanumeric())
 }
 
 /// Canonicalize one identifier while preserving component order. This lets a
