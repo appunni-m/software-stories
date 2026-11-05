@@ -4,6 +4,8 @@
 .developer-workspace.light { --code-keyword:#7d469d;--code-function:#205fa1;--code-string:#376d3a;--code-type:#80601d;--code-number:#a14d26; }
 .dw-activity {display:flex;flex-direction:column;flex:0 0 48px;background:var(--surface);border-right:1px solid var(--border);padding:var(--space-2) 0;gap:var(--space-2);}
 .dw-activity button {display:grid;place-items:center;width:47px;height:44px;background:transparent;border:0;border-left:2px solid transparent;color:var(--dim);cursor:pointer;}
+/* Radix ghost icon buttons use negative margins to align inline icons. Keep rail hit areas inside the app edge. */
+.dw-activity .rt-IconButton {margin:0;}
 .dw-activity button:hover,.dw-activity button.active {color:var(--text);background:var(--surface-hover);}
 .dw-activity button.active {border-left-color:var(--accent);}
 .dw-panels {flex:1;min-height:0;min-width:0;}
