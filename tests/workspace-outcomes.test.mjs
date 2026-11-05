@@ -148,6 +148,20 @@ test('returning to a legacy parent restores the answer that owns the child explo
   assert.equal(returned.currentId, 'root');
 });
 
+test('returning from a child without an origin turn keeps focus on the parent’s latest question', () => {
+  const root = stateWith(turn('parent', 'ready', { revisionId: 'revision:parent' }));
+  const state = {
+    ...root,
+    currentId: 'child',
+    explorations: [...root.explorations, {
+      id: 'child', parentId: 'root', originTurnId: null, title: 'Untied exploration', view: 'guide', turns: [],
+    }],
+  };
+
+  const returned = openWorkspaceExploration(state, 'root');
+  assert.equal(returned.explorations.find((exploration) => exploration.id === 'root').focusedTurnId, 'parent');
+});
+
 test('adjacent unavailable answer parts collapse together without changing available-part order', () => {
   const sections = ['missing-1', 'missing-2', 'available', 'missing-3'].map((revisionId, order) => ({
     runId: 'run', key: `part-${order}`, order, generationId: `generation-${order}`, revisionId,

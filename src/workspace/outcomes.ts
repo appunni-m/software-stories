@@ -133,10 +133,11 @@ export function openWorkspaceExploration(state: WorkspaceState, explorationId: s
   const path = ancestors(state);
   const targetIndex = path.findIndex((exploration) => exploration.id === target.id);
   const returningOriginTurnId = targetIndex >= 0 ? path[targetIndex + 1]?.originTurnId : undefined;
+  const returningOriginTurn = target.turns.find((turn) => turn.id === returningOriginTurnId);
   const focusedTurnId = target.turns.some((turn) => turn.id === target.focusedTurnId)
     ? target.focusedTurnId
-    : target.turns.some((turn) => turn.id === returningOriginTurnId)
-      ? returningOriginTurnId
+    : returningOriginTurn
+      ? returningOriginTurn.id
       : target.turns.at(-1)?.id;
   return {
     ...state,
