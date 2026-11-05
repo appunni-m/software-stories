@@ -40,6 +40,7 @@ const MAX_CANDIDATES: usize = 256;
 const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
 const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
 const MAX_NATURAL_COVERAGE_TERMS: usize = 12;
+const NATURAL_COVERAGE_TERM_BONUS: f32 = std::f32::consts::LN_2;
 const PATTERN_SCAN_WINDOW_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_FILE_DISCOVERY_RESULTS: usize = MAX_CANDIDATES;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
@@ -612,8 +613,7 @@ fn scored_coverage_terms(
     if !should_discover_files(query, scope) {
         return (words.to_vec(), Vec::new());
     }
-    let mut selected = Vec::with_capacity(MAX_NATURAL_COVERAGE_TERMS);
-    let mut unscored = Vec::new();
+    let mut candidates = Vec::new();
     let mut seen = BTreeSet::new();
     for token in query
         .split(|character: char| !character.is_alphanumeric() && character != '_')
@@ -622,11 +622,31 @@ fn scored_coverage_terms(
             if !is_coverage_term(&word) || !seen.insert(word.clone()) {
                 continue;
             }
-            if selected.len() < MAX_NATURAL_COVERAGE_TERMS {
-                selected.push(word);
-            } else {
-                unscored.push(word);
-            }
+            candidates.push(word);
+        }
+    }
+
+    // Keep the ranking work bounded, but sample across the whole question.
+    // Broad repository questions often list later implementation stages after
+    // the overview terms; taking only the first N silently removes those stages
+    // from the coverage signal. Exact lexical matching still sees every word.
+    let selected_indices = if candidates.len() <= MAX_NATURAL_COVERAGE_TERMS {
+        (0..candidates.len()).collect::<BTreeSet<_>>()
+    } else {
+        (0..MAX_NATURAL_COVERAGE_TERMS)
+            .map(|position| {
+                (position * (candidates.len() - 1) + (MAX_NATURAL_COVERAGE_TERMS - 1) / 2)
+                    / (MAX_NATURAL_COVERAGE_TERMS - 1)
+            })
+            .collect::<BTreeSet<_>>()
+    };
+    let mut selected = Vec::with_capacity(selected_indices.len());
+    let mut unscored = Vec::new();
+    for (index, word) in candidates.into_iter().enumerate() {
+        if selected_indices.contains(&index) {
+            selected.push(word);
+        } else {
+            unscored.push(word);
         }
     }
     selected.sort_unstable();
@@ -3088,7 +3108,12 @@ fn search_ranked(
                 .filter_map(|(term_index, weight)| {
                     (coverage_mask & (1u32 << term_index) != 0).then_some(*weight)
                 })
-                .sum::<f32>();
+                .sum::<f32>()
+                // Give each independently matched concept a twofold baseline
+                // so a range covering several requested stages can beat one
+                // rare-term coincidence, while a sufficiently distinctive
+                // term can still win through its corpus IDF.
+                + coverage as f32 * NATURAL_COVERAGE_TERM_BONUS;
             let symbol_mask = symbol_term_coverage.get(&id).copied().unwrap_or_default();
             let symbol_coverage = symbol_mask.count_ones() as usize;
             let weighted_symbol_coverage = symbol_term_weights

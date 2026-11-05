@@ -389,6 +389,34 @@ fn broad_question_coverage_ignores_prompt_scaffolding() {
 }
 
 #[test]
+fn long_broad_question_coverage_samples_terms_across_the_full_request() {
+    let query = "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo";
+    let words = terms(query);
+    let (scored, unscored) = scored_coverage_terms(query, None, &words);
+
+    assert_eq!(
+        scored,
+        [
+            "alpha", "charlie", "delta", "foxtrot", "golf", "india", "juliet", "lima", "mike",
+            "oscar", "papa", "romeo"
+        ]
+    );
+    assert_eq!(
+        unscored,
+        ["bravo", "echo", "hotel", "kilo", "november", "quebec"]
+    );
+    assert!(scored.len() <= MAX_NATURAL_COVERAGE_TERMS);
+    assert!(
+        scored.contains(&"romeo".to_owned()),
+        "late request terms remain represented"
+    );
+    assert_eq!(
+        scored.len() + unscored.len(),
+        words.iter().filter(|word| is_coverage_term(word)).count()
+    );
+}
+
+#[test]
 fn broad_range_search_reports_content_terms_not_question_scaffolding() {
     let mut fixture = Fixture::new();
     add_source(
