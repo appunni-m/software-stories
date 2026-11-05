@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import ts from 'typescript';
 import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
-import { loadShellStartupData, WORKSPACE_COPY, workspaceHeading } from '../src/lib/shell.ts';
+import { loadShellStartupData, WORKSPACE_COPY, WORKSPACE_LABEL, workspaceHeading } from '../src/lib/shell.ts';
 
 const allWorkspaces = ['atlas', 'guide-plan', 'chapter-studio', 'changes'];
 
@@ -32,6 +32,14 @@ describe('desktop shell acceptance contract', () => {
       assert.ok(copy.title.length > 0, `${workspace} has a title`);
       assert.ok(copy.subtitle.length > 0, `${workspace} has explanatory empty-state copy`);
     }
+  });
+
+  it('uses a truthful breadcrumb label for every workspace, including Chapter Studio', async () => {
+    assert.deepEqual(allWorkspaces.map((workspace) => WORKSPACE_LABEL[workspace]), [
+      'Explorer', 'Guide', 'Chapter Studio', 'Changes',
+    ]);
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    assert.match(source, /<strong>\{WORKSPACE_LABEL\[currentWorkspace\]\}<\/strong>/);
   });
 
   it('reaches every workspace while preserving one project and snapshot selection', () => {

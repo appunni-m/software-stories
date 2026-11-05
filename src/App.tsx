@@ -183,7 +183,7 @@ import {
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, selectedCodeLineRange, splitSourceTextAtRange } from './lib/codeLens';
 import { normalizeCapturedSourceNavigation } from './lib/capturedSourceNavigation';
-import { loadShellStartupData, workspaceHeading } from './lib/shell';
+import { loadShellStartupData, workspaceHeading, WORKSPACE_LABEL } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import { buildChapterStudioTargets, chapterStudioHasReadableCurrentSource } from './lib/chapterStudioTargets';
@@ -2083,7 +2083,7 @@ function App() {
       <div className="app-body">
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
-            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' ? 'Explorer' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{WORKSPACE_LABEL[currentWorkspace]}</strong></div>
             <div className="toolbar-right">
               <AppButton intent="icon" size="1" className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />

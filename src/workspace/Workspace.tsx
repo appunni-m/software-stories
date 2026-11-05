@@ -117,10 +117,9 @@ function SearchCoverageNote({unavailableFiles,omissions}:{unavailableFiles:numbe
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
 export function WorkspaceFrame({manifest,...props}:Omit<Props,'manifest'>&{manifest:SnapshotManifest|null}) {
-  // Chapter editing is a contextual tool opened from an existing explanation.
-  // Let its route render the editor child instead of swallowing it in the
-  // conversational workspace wrapper.
-  return manifest && props.workspace !== 'chapter-studio'
+  // Keep every repository tool inside the shared code workspace so source,
+  // exploration and the pinned composer remain available while it is open.
+  return manifest
     ? <SavedWorkspace key={`${manifest.summary.projectId}:${manifest.summary.snapshotId}`} {...props} manifest={manifest}/>
     : <>{props.children}</>;
 }
@@ -389,7 +388,7 @@ export function DeveloperWorkspace(props:Props) {
   const answerScroll = useRef<HTMLDivElement>(null);
   const chapterRefresh = useRef<ChapterHistory|null>(null);
   const restoringScroll = useRef(true);
-  const tool = workspace==='changes';
+  const tool = workspace==='changes'||workspace==='chapter-studio';
   const firstFocusableCommitId = commits.find((commit)=>commit.parents.length>0)?.oid ?? null;
   const commitHistoryEmpty = commitHistoryEmptyMessage(commits,{loaded:gitLoaded,loading:gitBusy,stopped:gitStopped,error:gitError});
   const rovingCommitId = commits.some((commit)=>commit.oid===focusedCommitId&&commit.parents.length>0)
@@ -1094,7 +1093,7 @@ export function DeveloperWorkspace(props:Props) {
         </aside>
       </Panel><Separator className="dw-separator" aria-label="Resize repository sidebar"/>
       <Panel id="reading-workspace" minSize="320px"><section className="dw-main" aria-label="Code exploration">
-        <nav className="dw-path" aria-label="Exploration path"><IconButton className="dw-path-back" size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path[0]&&<div className="dw-path-root"><AppButton intent="custom" aria-current={path[0].id===current.id?'page':undefined} onClick={()=>go(path[0].id)}><span className="dw-path-label">{projectName}</span></AppButton></div>}<div ref={explorationPath} className="dw-path-segments">{path.slice(1).map((e)=><span key={e.id} className={e.id===current.id?'is-current':''}><ChevronRight size={12}/><AppButton intent="custom" aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)} title={questionSummaryText(e.title)}><span className="dw-path-label">{questionSummaryText(e.title)}</span></AppButton></span>)}</div>{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">Changes</span>}</nav>
+        <nav className="dw-path" aria-label="Exploration path"><IconButton className="dw-path-back" size="1" variant="ghost" color="gray" aria-label="Back one exploration" disabled={!current.parentId} onClick={()=>current.parentId&&go(current.parentId)}><ArrowLeft size={14}/></IconButton>{path[0]&&<div className="dw-path-root"><AppButton intent="custom" aria-current={path[0].id===current.id?'page':undefined} onClick={()=>go(path[0].id)}><span className="dw-path-label">{projectName}</span></AppButton></div>}<div ref={explorationPath} className="dw-path-segments">{path.slice(1).map((e)=><span key={e.id} className={e.id===current.id?'is-current':''}><ChevronRight size={12}/><AppButton intent="custom" aria-current={e.id===current.id?'page':undefined} onClick={()=>go(e.id)} title={questionSummaryText(e.title)}><span className="dw-path-label">{questionSummaryText(e.title)}</span></AppButton></span>)}</div>{path.length>1&&<Badge size="1" color="gray">Level {path.length}</Badge>}{tool&&<span className="dw-tool-label">{workspace==='chapter-studio'?'Chapter Studio':'Changes'}</span>}</nav>
         {conversationUnavailable&&<div className="dw-conversation-warning" role="status"><MessageSquare size={16}/><p><strong>Saved conversation unavailable.</strong> Your saved work has not been changed. You can browse and search this snapshot; new questions cannot be saved.</p></div>}
         {conversationConflict&&<div className="dw-conversation-warning dw-conversation-conflict" role="alert">
           <MessageSquare size={16}/><div><strong>Changes in two windows</strong><p>Separate edits will merge. Choose which value to keep for {conversationConflict.overlappingChanges} overlapping change{conversationConflict.overlappingChanges===1?'':'s'}. New questions are paused until this is saved.</p>{conflictResolutionError&&<p className="dw-error" role="status">{conflictResolutionError}</p>}</div>
@@ -1113,7 +1112,7 @@ export function DeveloperWorkspace(props:Props) {
         </div>
         {tool?<Group orientation="horizontal" className="dw-reading dw-tool-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
-          <Panel id="explanations" minSize="280px"><div className="dw-tool-content"><AppButton className="dw-return" size="1" intent="quiet" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</AppButton><GitHistoryEmptyContext.Provider value={commitHistoryEmpty}>{children}</GitHistoryEmptyContext.Provider></div></Panel>
+          <Panel id="explanations" minSize="280px"><div className={workspace==='chapter-studio'?'dw-tool-content dw-tool-content-chapter-studio':'dw-tool-content'}><AppButton className="dw-return" size="1" intent="quiet" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</AppButton><GitHistoryEmptyContext.Provider value={commitHistoryEmpty}>{children}</GitHistoryEmptyContext.Provider></div></Panel>
         </Group>:<Group orientation="horizontal" className="dw-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
           <Panel id="explanations" minSize="460px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13}/><span className="dw-view-tab-label">Guide</span></Tabs.Trigger><Tabs.Trigger aria-label="Flow" data-focus-key="workspace-flow-tab" value="flow"><Network size={13}/><span className="dw-view-tab-label">Flow</span></Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13}/><span className="dw-view-tab-label">Chat history</span></Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>{setCodeOpen(true);setNarrowPane('source');}}><Code2 size={15}/></IconButton>}</div>

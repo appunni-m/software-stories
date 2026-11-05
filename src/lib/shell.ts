@@ -24,6 +24,13 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
   },
 };
 
+export const WORKSPACE_LABEL: Record<Workspace, string> = {
+  atlas: 'Explorer',
+  'guide-plan': 'Guide',
+  'chapter-studio': 'Chapter Studio',
+  changes: 'Changes',
+};
+
 const EXPLORATION_COPY = {
   eyebrow: 'CODE EXPLORATION',
   title: 'Explore this codebase.',
