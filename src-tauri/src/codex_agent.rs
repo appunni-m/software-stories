@@ -3062,35 +3062,19 @@ struct ObservedCodexRuntimeVersion {
 }
 
 fn codex_runtime_version(initialize: &Value) -> Result<ObservedCodexRuntimeVersion, String> {
-    let server_info_version = initialize
+    // Bind the runtime only to its explicit serverInfo field; the user-agent
+    // identifies upstream traffic and is not a substitute for this version.
+    let version = initialize
         .get("serverInfo")
         .and_then(|server_info| server_info.get("version"))
         .and_then(Value::as_str)
-        .filter(|version| valid_codex_version(version));
-    let user_agent_version = initialize
-        .get("userAgent")
-        .and_then(Value::as_str)
-        .filter(|user_agent| {
-            !user_agent.is_empty()
-                && user_agent.len() <= 512
-                && !user_agent.chars().any(char::is_control)
-        })
-        .and_then(|user_agent| user_agent.split_once('/').map(|(_, value)| value))
-        .and_then(|value| value.split_whitespace().next())
-        .filter(|version| valid_codex_version(version));
-    let (version, source) = if let Some(version) = server_info_version {
-        (version, CodexRuntimeVersionSource::ServerInfoVersion)
-    } else if let Some(version) = user_agent_version {
-        (version, CodexRuntimeVersionSource::UserAgent)
-    } else {
-        return Err(
-            "Codex did not report a valid app-server version in initialize serverInfo.version or userAgent."
-                .to_owned(),
-        );
-    };
+        .filter(|version| valid_codex_version(version))
+        .ok_or_else(|| {
+            "The Codex connection could not be verified. Update Codex and reconnect.".to_owned()
+        })?;
     Ok(ObservedCodexRuntimeVersion {
         version: version.to_owned(),
-        source,
+        source: CodexRuntimeVersionSource::ServerInfoVersion,
     })
 }
 
@@ -3230,38 +3214,30 @@ mod tests {
     }
 
     #[test]
-    fn runtime_version_prefers_initialize_server_info_then_falls_back_to_user_agent() {
+    fn runtime_version_uses_only_the_initialize_server_info_version() {
         let observed = codex_runtime_version(&json!({
             "serverInfo": {"version": "0.166.1"},
             "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
         }))
         .unwrap();
         assert_eq!(observed.version, "0.166.1");
-        assert_eq!(observed.source, CodexRuntimeVersionSource::ServerInfoVersion);
+        assert_eq!(
+            observed.source,
+            CodexRuntimeVersionSource::ServerInfoVersion
+        );
 
-        let observed = codex_runtime_version(&json!({
-            "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
-        }))
-        .unwrap();
-        assert_eq!(observed.version, "0.166.0-alpha.5.1");
-        assert_eq!(observed.source, CodexRuntimeVersionSource::UserAgent);
-
-        let observed = codex_runtime_version(&json!({
-            "serverInfo": {"version": "invalid"},
-            "userAgent": "code_atlas/0.166.0-alpha.5.1 (macOS 15 arm64)"
-        }))
-        .unwrap();
-        assert_eq!(observed.version, "0.166.0-alpha.5.1");
-        assert_eq!(observed.source, CodexRuntimeVersionSource::UserAgent);
         for initialize in [
+            json!({"userAgent": "codex_app_server/0.166.1"}),
             json!({"serverInfo": {"version": "invalid"}}),
+            json!({"serverInfo": {"version": "invalid"}, "userAgent": "codex_app_server/0.166.1"}),
             json!({"userAgent": "code_atlas"}),
             json!({"userAgent": "code_atlas/not-a-version"}),
             json!({"userAgent": "code_atlas/0.166.0\ninvalid"}),
         ] {
-            assert!(codex_runtime_version(&initialize)
-                .unwrap_err()
-                .contains("valid app-server version"));
+            assert_eq!(
+                codex_runtime_version(&initialize).unwrap_err(),
+                "The Codex connection could not be verified. Update Codex and reconnect."
+            );
         }
     }
 
