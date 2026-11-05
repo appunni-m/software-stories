@@ -1,5 +1,10 @@
 use super::*;
 
+fn protocol_frame(value: Value) -> ProtocolFrame {
+    let wire_bytes = serde_json::to_vec(&value).unwrap().len() + 1;
+    ProtocolFrame { value, wire_bytes }
+}
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
@@ -115,20 +120,20 @@ fn process(events: Vec<Value>, before_ack: Vec<Value>) -> (ServerProcess, Arc<Mu
         observed.lock().unwrap().push(request.clone());
         frame.acknowledged.send(Ok(())).unwrap();
         for value in before_ack {
-            if sender.send(Ok(value)).is_err() {
+            if sender.send(Ok(protocol_frame(value))).is_err() {
                 return;
             }
         }
         if sender
-            .send(Ok(
+            .send(Ok(protocol_frame(
                 json!({"id":request["id"],"result":{"turn":{"id":"owned-turn"}}}),
-            ))
+            )))
             .is_err()
         {
             return;
         }
         for value in events {
-            if sender.send(Ok(value)).is_err() {
+            if sender.send(Ok(protocol_frame(value))).is_err() {
                 return;
             }
         }

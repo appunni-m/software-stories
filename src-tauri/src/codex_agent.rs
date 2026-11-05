@@ -1177,7 +1177,7 @@ struct ServerProcess {
     child: Child,
     writer_sender: Option<mpsc::SyncSender<WriteFrame>>,
     writer: Option<JoinHandle<()>>,
-    receiver: Option<mpsc::Receiver<Result<Value, String>>>,
+    receiver: Option<mpsc::Receiver<Result<ProtocolFrame, String>>>,
     reader: Option<JoinHandle<()>>,
     next_id: u64,
     process_id: Arc<AtomicU32>,
@@ -1197,6 +1197,11 @@ struct ServerProcess {
 struct WriteFrame {
     bytes: Vec<u8>,
     acknowledged: mpsc::SyncSender<Result<(), String>>,
+}
+
+struct ProtocolFrame {
+    value: Value,
+    wire_bytes: usize,
 }
 
 impl ServerProcess {
@@ -1286,9 +1291,9 @@ impl ServerProcess {
                 let mut reader = BufReader::new(stdout);
                 loop {
                     let frame = read_frame(&mut reader);
-                    if frame.as_ref().is_ok_and(|v| {
+                    if frame.as_ref().is_ok_and(|frame| {
                         matches!(
-                            v["method"].as_str(),
+                            frame.value["method"].as_str(),
                             Some("account/updated" | "model/rerouted")
                         )
                     }) {
@@ -2062,21 +2067,16 @@ impl ServerProcess {
             .recv_timeout(timeout)
         {
             Ok(Ok(value)) => {
-                *total = total.saturating_add(
-                    serde_json::to_vec(&value)
-                        .map_err(|_| "Codex output could not be measured.")?
-                        .len(),
-                );
-                if *total > MAX_OPERATION_BYTES {
-                    return Err("Codex output exceeded the local operation limit.".to_owned());
-                }
-                if value.get("method").and_then(Value::as_str) == Some("account/updated") {
+                account_operation_bytes(total, value.wire_bytes)?;
+                if value.value.get("method").and_then(Value::as_str)
+                    == Some("account/updated")
+                {
                     self.account_revision = self
                         .account_revision
                         .checked_add(1)
                         .ok_or_else(codex_identity::changed)?;
                 }
-                Ok(Some(value))
+                Ok(Some(value.value))
             }
             Ok(Err(error)) => Err(error),
             Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
@@ -2147,7 +2147,7 @@ impl Drop for ServerProcess {
     }
 }
 
-fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
+fn read_frame(reader: &mut impl BufRead) -> Result<ProtocolFrame, String> {
     let mut bytes = Vec::new();
     loop {
         let available = reader
@@ -2168,6 +2168,7 @@ fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
         bytes.extend_from_slice(&available[..count]);
         reader.consume(count);
         if complete {
+            let wire_bytes = bytes.len();
             let value = crate::strict_json::from_slice(&bytes).map_err(|_| {
                 "Codex sent malformed or duplicate-key protocol output. Reconnect with a supported runtime."
                     .to_owned()
@@ -2177,9 +2178,17 @@ fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
                     "Codex sent a non-object protocol frame. No response was accepted.".to_owned(),
                 );
             }
-            return Ok(value);
+            return Ok(ProtocolFrame { value, wire_bytes });
         }
     }
+}
+
+fn account_operation_bytes(total: &mut usize, wire_bytes: usize) -> Result<(), String> {
+    *total = total.saturating_add(wire_bytes);
+    if *total > MAX_OPERATION_BYTES {
+        return Err("Codex output exceeded the local operation limit.".to_owned());
+    }
+    Ok(())
 }
 
 fn validate_run(input: &CodexRunInput) -> Result<(), String> {
@@ -3208,6 +3217,22 @@ fn hex_digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operation_output_limit_counts_the_received_jsonl_bytes() {
+        let escaped_text = r#"\u0061"#.repeat(64);
+        let wire = format!("{{\"text\":\"{escaped_text}\"}}\n");
+        let mut reader = std::io::BufReader::new(std::io::Cursor::new(wire.as_bytes()));
+        let frame = read_frame(&mut reader).unwrap();
+        let normalized_bytes = serde_json::to_vec(&frame.value).unwrap().len();
+
+        assert_eq!(frame.wire_bytes, wire.len());
+        assert!(frame.wire_bytes > normalized_bytes);
+
+        let mut total = MAX_OPERATION_BYTES - frame.wire_bytes + 1;
+        assert!(account_operation_bytes(&mut total, frame.wire_bytes).is_err());
+        assert!(total > MAX_OPERATION_BYTES);
+    }
 
     #[test]
     fn retrieval_accepts_a_configured_model_and_effort_without_staged_source_files() {
