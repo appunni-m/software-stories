@@ -510,7 +510,7 @@ fn slow_saved_answer_validation_does_not_block_stop_ownership() {
 }
 
 #[test]
-fn saved_answer_rereads_changed_receipts_locally_with_a_fixed_retry_bound() {
+fn saved_answer_rereads_changed_receipts_through_the_publication_budget() {
     let f = Fixture::new();
     let input = input(&f);
     let path = empty_saved_answer(&f, &input);
@@ -529,13 +529,13 @@ fn saved_answer_rereads_changed_receipts_locally_with_a_fixed_retry_bound() {
         reads += 1;
         Ok(old.clone())
     });
-    assert_eq!(reads, 3);
+    assert_eq!(reads, MAX_SAVED_ANSWER_READ_ATTEMPTS);
     assert!(matches!(stale, Err(message) if message.contains("nothing was regenerated")));
     assert_eq!(std::fs::read(&path).unwrap(), stopped);
     let mut reads = 0;
     let current = load_saved_answer_with_reader(&f.storage, &input.run_id, &manager, || {
         reads += 1;
-        if reads == 1 {
+        if reads < MAX_SAVED_ANSWER_READ_ATTEMPTS {
             Ok(old.clone())
         } else {
             reading::observe(
@@ -547,7 +547,7 @@ fn saved_answer_rereads_changed_receipts_locally_with_a_fixed_retry_bound() {
         }
     })
     .unwrap();
-    assert_eq!(reads, 2);
+    assert_eq!(reads, MAX_SAVED_ANSWER_READ_ATTEMPTS);
     assert_eq!(current.outcome, Outcome::Stopped);
     assert_eq!(std::fs::read(&path).unwrap(), stopped);
     assert!(!f.storage.join("codex-agent/runtime.json").exists());

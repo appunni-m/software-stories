@@ -13,6 +13,11 @@ mod guide_intent;
 mod starting_ranges;
 pub(crate) use guide_intent::{GuideIntent, OpeningContinuation};
 
+// A live answer can record eight proposal attempts and one terminal update
+// while a snapshot is being replayed. Keep one bounded read for the final
+// stable receipt after those changes.
+const MAX_SAVED_ANSWER_READ_ATTEMPTS: usize = 10;
+
 const ANSWER_ROLE: &str = r#"Investigate the learning question using captured implementation code and publish useful sections through propose_answer_section. Start from the attached identifier/range if supplied. For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths. Preserve the requested causal order: begin at the input named in the question, then move downstream. An early section can teach the first real transition while deeper stages remain under investigation; do not start at a downstream API and explain its prerequisites later. Read promising code early; do not delay the main answer for a whole-repository inventory.
 
 Publish a small complete main-answer section as soon as its implementation evidence has been read, then investigate and publish deeper sections. The first section must teach the actual answer, not announce a plan or list files. For a predicate explain its true/false conditions first."#;
@@ -716,7 +721,7 @@ fn load_saved_answer_with_reader(
     // Validate captured source before acquiring the same ordering as Stop and
     // publication. Recheck only the exact bounded receipt while holding it.
     // Concurrent append/finalization requires fresh local validation, never AI.
-    for _ in 0..3 {
+    for _ in 0..MAX_SAVED_ANSWER_READ_ATTEMPTS {
         let answer = read()?;
         if let Some(summary) = manager.with_operation_state(run_id, |active| {
             reading::reconcile_observed(storage, answer, active)
