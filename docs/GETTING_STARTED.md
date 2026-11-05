@@ -49,7 +49,9 @@ Typing searches locally without sending a model request. The Search activity cov
 
 | Shortcut | Action |
 | --- | --- |
-| Cmd+P, Cmd+K, Cmd+Shift+F | Open repository search |
+| Cmd+P | Focus quick file search in the Explorer |
+| Cmd+K | Open the current exploration's Flow view |
+| Cmd+Shift+F | Open repository text search |
 | Cmd+L | Focus chat |
 | Cmd+I | Explain the code selected in the source pane |
 | Cmd+1 / 2 / 3 | Guide / Flow / Chat history |
