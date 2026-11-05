@@ -37,10 +37,20 @@ test('search commands reveal their distinct tools and narrow navigation has a di
   matches(workspace,/const findInRepository=\(\)=>\{setActivity\('search'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
   matches(workspace,/const quickOpen=\(\)=>\{setActivity\('files'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
   matches(workspace,/if\(mod&&event.shiftKey&&k==='f'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);findInRepository\(\);\}[\s\S]*?else if\(mod&&k==='p'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);quickOpen\(\);\}[\s\S]*?else if\(mod&&k==='k'\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);setActivity\('files'\);[\s\S]*?showView\('flow'\);/);
-  matches(workspace,/const returnToGuide = \(pane:'explorer'\|'explanation'\) => \{[\s\S]*?setNarrowPane\(pane\);\s*onWorkspace\('guide-plan'\);\s*\};/);
+  matches(workspace,/const returnToGuide = \(pane:'explorer'\|'explanation'\) => \{[\s\S]*?setNarrowPane\(pane\);\s*onWorkspace\('guide-plan'\);/);
   matches(workspace,/className="dw-sidebar-back"[^\n]*aria-label="Back to explanation"[^\n]*onClick=\{\(\)=>returnToGuide\('explanation'\)\}/);
   matches(css,/\.developer-workspace \.dw-sidebar-back\s*\{display:none;\}/);
   matches(css,/@media\(max-width:680px\)\{\.developer-workspace \.dw-sidebar-back\{display:inline-flex;\}/);
+});
+
+test('returning from the narrow Explorer restores focus to the active explanation view',()=>{
+  const start=workspace.indexOf('const returnToGuide =');
+  const end=workspace.indexOf('const update =',start);
+  const returnBlock=workspace.slice(start,end);
+  matches(returnBlock,/if\(pane==='explanation'\)requestAnimationFrame\(\(\)=>requestAnimationFrame\(\(\)=>\{[\s\S]*?workspace-\$\{current\.view\}-tab[\s\S]*?\.focus\(\{preventScroll:true\}\);[\s\S]*?\}\)\);/);
+  matches(workspace,/data-focus-key="workspace-guide-tab" value="guide"/);
+  matches(workspace,/data-focus-key="workspace-flow-tab" value="flow"/);
+  matches(workspace,/data-focus-key="workspace-history-tab" value="history"/);
 });
 
 test('search results stay inside the resizable repository sidebar',()=>{

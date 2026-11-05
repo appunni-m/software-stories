@@ -400,6 +400,9 @@ export function DeveloperWorkspace(props:Props) {
     if (workspace==='changes' || activity==='changes') setActivity('files');
     setNarrowPane(pane);
     onWorkspace('guide-plan');
+    if(pane==='explanation')requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      document.querySelector<HTMLElement>(`[data-focus-key="workspace-${current.view}-tab"]`)?.focus({preventScroll:true});
+    }));
   };
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
   const focusAnswer = (turnId:string,revisionId:string,sectionId:string) => {
@@ -1115,7 +1118,7 @@ export function DeveloperWorkspace(props:Props) {
           <Panel id="explanations" minSize={workspace==='chapter-studio'?'460px':'280px'}><div className={workspace==='chapter-studio'?'dw-tool-content dw-tool-content-chapter-studio':'dw-tool-content'}><AppButton className="dw-return" size="1" intent="quiet" onClick={()=>returnToGuide('explorer')}><ArrowLeft size={13}/>Back to exploration</AppButton><GitHistoryEmptyContext.Provider value={commitHistoryEmpty}>{children}</GitHistoryEmptyContext.Provider></div></Panel>
         </Group>:<Group orientation="horizontal" className="dw-reading" defaultLayout={readingDefaultLayout} onLayoutChanged={rememberSourceSize}>
           {codeOpen&&<><Panel id="source" defaultSize="43%" minSize="220px">{sourcePane}</Panel><Separator className="dw-separator" aria-label="Resize source and explanation"/></>}
-          <Panel id="explanations" minSize="460px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13}/><span className="dw-view-tab-label">Guide</span></Tabs.Trigger><Tabs.Trigger aria-label="Flow" data-focus-key="workspace-flow-tab" value="flow"><Network size={13}/><span className="dw-view-tab-label">Flow</span></Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13}/><span className="dw-view-tab-label">Chat history</span></Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>{setCodeOpen(true);setNarrowPane('source');}}><Code2 size={15}/></IconButton>}</div>
+          <Panel id="explanations" minSize="460px"><Tabs.Root className="dw-explanation" value={current.view} onValueChange={(value)=>setView(value as View)}><div className="dw-viewbar"><Tabs.List aria-label="Exploration views"><Tabs.Trigger data-focus-key="workspace-guide-tab" value="guide"><BookOpen size={13}/><span className="dw-view-tab-label">Guide</span></Tabs.Trigger><Tabs.Trigger aria-label="Flow" data-focus-key="workspace-flow-tab" value="flow"><Network size={13}/><span className="dw-view-tab-label">Flow</span></Tabs.Trigger><Tabs.Trigger data-focus-key="workspace-history-tab" value="history"><MessageSquare size={13}/><span className="dw-view-tab-label">Chat history</span></Tabs.Trigger></Tabs.List>{!codeOpen&&<IconButton size="1" variant="ghost" color="gray" aria-label="Show code pane" onClick={()=>{setCodeOpen(true);setNarrowPane('source');}}><Code2 size={15}/></IconButton>}</div>
             <div className="dw-answer-scroll" ref={answerScroll} onScroll={(event)=>{if(restoringScroll.current)return;const top=event.currentTarget.scrollTop;update((s)=>rememberScroll(s,current.id,current.view,top));}}>
               {chapterError&&<p className="dw-error" role="alert">{chapterError}<AppButton intent="quiet" size="1" onClick={()=>{void refreshChapters();}}>Retry</AppButton></p>}
               <Tabs.Content value="guide">
