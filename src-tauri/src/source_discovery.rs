@@ -30,7 +30,7 @@ const MAX_STATIC_RELATION_SEEDS: usize = 12;
 const MAX_STATIC_RELATION_CANDIDATES: usize = 24;
 const MAX_DIRECT_CONTENT_PRIORITY: usize = 24;
 const TTL: Duration = Duration::from_secs(300);
-const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v7-static-relation-expansion";
+const PROMPT_CONTRACT_VERSION: &str = "source-discovery-v8-large-range-link-priority";
 const SNAPSHOT_GRANT_REQUIRED: &str = "Allow Codex to explore this snapshot first.";
 
 fn required_workspace_grant(grant: Option<&str>) -> Result<&str, String> {
@@ -233,6 +233,7 @@ struct StaticLinkCandidate {
 
 fn static_link_candidate_hints(
     candidate_paths: &HashSet<&str>,
+    range_only_paths: &HashSet<&str>,
     seed_paths: &[(String, usize)],
     relationships: &[index::IndexedRelationship],
 ) -> HashMap<String, StaticLinkCandidateHint> {
@@ -285,6 +286,11 @@ fn static_link_candidate_hints(
     linked.sort_by(|left, right| {
         left.seed_rank
             .cmp(&right.seed_rank)
+            .then_with(|| {
+                range_only_paths
+                    .contains(right.path.as_str())
+                    .cmp(&range_only_paths.contains(left.path.as_str()))
+            })
             .then_with(|| left.direction_rank.cmp(&right.direction_rank))
             .then_with(|| left.path.cmp(&right.path))
             .then_with(|| left.evidence_path.cmp(&right.evidence_path))
@@ -1112,7 +1118,17 @@ fn metadata(
     let static_link_hints = local_index
         .as_ref()
         .map_or_else(HashMap::new, |local_index| {
-            static_link_candidate_hints(&candidate_paths, &seed_paths, &local_index.relationships)
+            let range_only_paths = candidates
+                .iter()
+                .filter(|file| file.size_bytes > 250_000)
+                .map(|file| file.path.as_str())
+                .collect::<HashSet<_>>();
+            static_link_candidate_hints(
+                &candidate_paths,
+                &range_only_paths,
+                &seed_paths,
+                &local_index.relationships,
+            )
         });
     // Keep an explicitly requested implementation in front of the bounded
     // metadata window. For behavior questions, prefer production paths before
@@ -2176,10 +2192,12 @@ export function renderFont(fontData: Uint8Array) {
             .map(|index| format!("src/a_helper_{index:02}.rs"))
             .collect::<HashSet<_>>();
         candidate_path_storage.insert("src/b_helper.rs".to_owned());
+        candidate_path_storage.insert("src/z_large_pipeline.rs".to_owned());
         let candidate_paths = candidate_path_storage
             .iter()
             .map(String::as_str)
             .collect::<HashSet<_>>();
+        let range_only_paths = HashSet::from(["src/z_large_pipeline.rs"]);
         let relationships = (0..MAX_STATIC_RELATION_CANDIDATES + 8)
             .map(|index| index::IndexedRelationship {
                 relationship_id: format!("a-call-{index}"),
@@ -2202,6 +2220,26 @@ export function renderFont(fontData: Uint8Array) {
                 },
             })
             .chain(std::iter::once(index::IndexedRelationship {
+                relationship_id: "a-large-call".to_owned(),
+                kind: index::RelationshipKind::Calls,
+                source_id: "a-large-source".to_owned(),
+                target_id: Some("a-large-target".to_owned()),
+                target_path: Some("src/z_large_pipeline.rs".to_owned()),
+                target_label: Some("large_pipeline".to_owned()),
+                confidence: index::RelationshipConfidence::High,
+                unresolved_reason: None,
+                evidence: index::SourceAnchor {
+                    path: "src/a_seed.rs".to_owned(),
+                    source_sha256: "a".repeat(64),
+                    start_byte: 100,
+                    end_byte: 101,
+                    start_line: 100,
+                    end_line: 100,
+                    start_column: 1,
+                    end_column: 2,
+                },
+            }))
+            .chain(std::iter::once(index::IndexedRelationship {
                 relationship_id: "b-call".to_owned(),
                 kind: index::RelationshipKind::Calls,
                 source_id: "b-source".to_owned(),
@@ -2223,13 +2261,20 @@ export function renderFont(fontData: Uint8Array) {
             }))
             .collect::<Vec<_>>();
 
-        let hints = static_link_candidate_hints(&candidate_paths, &seed_paths, &relationships);
+        let hints = static_link_candidate_hints(
+            &candidate_paths,
+            &range_only_paths,
+            &seed_paths,
+            &relationships,
+        );
 
         assert_eq!(hints.len(), MAX_STATIC_RELATION_CANDIDATES);
+        assert!(hints.contains_key("src/z_large_pipeline.rs"));
         assert!(hints.contains_key("src/a_helper_00.rs"));
         assert!(hints.contains_key("src/b_helper.rs"));
-        assert_eq!(hints["src/a_helper_00.rs"].rank, 0);
+        assert_eq!(hints["src/z_large_pipeline.rs"].rank, 0);
         assert_eq!(hints["src/b_helper.rs"].rank, 1);
+        assert_eq!(hints["src/a_helper_00.rs"].rank, 2);
     }
 
     #[test]
