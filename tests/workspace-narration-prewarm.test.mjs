@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { flushLocalReads, workspaceStoreHarness } from './helpers/workspace-store-harness.mjs';
 import { createNarrationPrewarmQueue } from '../src/workspace/narrationQueue.ts';
+import { createWorkspace } from '../src/workspace/model.ts';
 
 const input = {
   spokenText: 'The prefix chooses a reader.',
@@ -131,6 +132,56 @@ test('a progressive repository-guide section is adopted and warmed before its in
 
   assert.equal(h.calls.filter(call => call.name === 'save_workspace_answer_section').length, 1);
   assert.deepEqual(warmups, [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }]);
+  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
+  stop();
+  assert.equal(h.listenerCount(), 0);
+});
+
+test('a validated guide section starts local prewarming while conversation restoration is still loading', async () => {
+  let finishConversationLoad;
+  const conversationLoad = new Promise(resolve => { finishConversationLoad = resolve; });
+  const warmups = [];
+  const runId = '11111111-1111-4111-8111-111111111111';
+  const guideId = '99999999-9999-4999-8999-999999999999';
+  const restored = createWorkspace('project', 'snapshot');
+  restored.explorations[0].turns.push({ id: '88888888-8888-4888-8888-888888888888', question: 'Follow this repository feature', context: [], status: 'working',
+    runIds: [runId], publishedSections: [], guideId });
+  const revision = {
+    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'early-guide-revision',
+    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
+    target: { targetId: 'target', scope: { kind: 'overview' } },
+    sections: [{ sectionId: 'guide-section', title: 'Dispatch', spokenText: 'The first section is ready.', claims: [] }],
+  };
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'load_workspace_conversation') return conversationLoad;
+    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'save_workspace_answer_section') return revision;
+    assert.fail(`Unexpected native command: ${name}`);
+  }, {
+    native: true,
+    localNarrationPrewarmInputs: () => [{ spokenText: 'The first section is ready.', voice: 'alba', style: '', lexicon: [] }],
+    prewarmLocalNarration: input => { warmups.push(input); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
+  });
+
+  const loading = h.store.prepareWorkspaceConversation('project', 'snapshot');
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
+  h.emit('repository-guide-section-published', { guideId, section: {
+    projectId: 'project', snapshotId: 'snapshot', runId, key: 'dispatch', order: 1,
+    generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', revisionId: revision.revisionId,
+    supersedes: null, contextElapsedMs: 10, runElapsedMs: 20,
+  } });
+  await flushLocalReads();
+
+  assert.equal(h.calls.filter(call => call.name === 'save_workspace_answer_section').length, 1);
+  assert.equal(h.calls.some(call => call.name === 'load_workspace_conversation'), true);
+  assert.deepEqual(warmups, [{ spokenText: 'The first section is ready.', voice: 'alba', style: '', lexicon: [] }]);
+  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations.flatMap(item => item.turns)
+    .some(turn => turn.publishedSections?.some(section => section.revisionId === revision.revisionId)), false,
+  'reader publication waits for the restored conversation tree');
+
+  finishConversationLoad({ schemaVersion: 1, revision: 1, state: restored });
+  await loading;
+  await flushLocalReads();
   assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
   stop();
   assert.equal(h.listenerCount(), 0);

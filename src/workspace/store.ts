@@ -378,6 +378,17 @@ function prewarmRevisionNarration(revision: ChapterRevision) {
   };
   localNarrationPrewarmer.enqueue(localNarrationPrewarmInputs(revision, connection, read));
 }
+function publishAdoptedSection(project: string, snapshot: string, turnId: string, section: PublishedSection) {
+  updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
+    turns:e.turns.map((t) => {
+      if (t.id !== turnId) return t;
+      const owner = t.guideId && !t.runIds?.includes(section.runId)
+        ? {...t,runIds:[...(t.runIds ?? []),section.runId].slice(-32)}
+        : t;
+      return mergePublishedSections(owner,[section]);
+    }),
+  }))}));
+}
 /** Store section references only after the native draft is independently read
  * and saved. Retrying adoption cannot trigger another model request. */
 async function adoptSection(project: string, snapshot: string, turnId: string | undefined, section: PublishedSection, prewarmAudio = false): Promise<ChapterRevision> {
@@ -393,15 +404,7 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
     try { prewarmRevisionNarration(revision); }
     catch { /* Optional local audio must not fail adoption of the saved answer. */ }
   }
-  if (turnId) updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
-    turns:e.turns.map((t) => {
-      if (t.id !== turnId) return t;
-      const owner = t.guideId && !t.runIds?.includes(section.runId)
-        ? {...t,runIds:[...(t.runIds ?? []),section.runId].slice(-32)}
-        : t;
-      return mergePublishedSections(owner,[section]);
-    }),
-  }))}));
+  if (turnId) publishAdoptedSection(project,snapshot,turnId,section);
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
@@ -509,14 +512,19 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
         // The progressive answer receipt is already durable, but repository-guide
         // summaries arrive only after a whole investigation unit. Adopt this exact
         // validated section now so local narration can warm while that unit continues.
+        // Keep native draft adoption and audio enqueue out of the conversation-load
+        // gate; only merge into the reader after its restored tree is available.
+        const adoption = adoptSection(project,snapshot,undefined,section,true).catch(() => null);
         whenConversationReady(async()=>{
           const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === payload.guideId);
           if(!owner){
+            await adoption;
             await restoreChangedRepositoryGuide(project,snapshot,payload.guideId);
             return;
           }
-          try{await adoptSection(project,snapshot,owner.id,section,true);}
-          catch{await restoreChangedRepositoryGuide(project,snapshot,payload.guideId);}
+          const revision = await adoption;
+          if(!revision){await restoreChangedRepositoryGuide(project,snapshot,payload.guideId);return;}
+          publishAdoptedSection(project,snapshot,owner.id,section);
         });
       });
       guideAdvance = await listen<{guideId:string;projectId:string;snapshotId:string;revisionId:string;rendererSessionId:string}>('repository-guide-slide-consumed',({payload}) => {

@@ -51,6 +51,7 @@ export function workspaceStoreHarness(invoke,options={}) {
         modelId:input.modelId,reasoningEffort:input.reasoningEffort,state:'queued',workerRegistered:false,
         providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:1,
       })),
+      recordWorkspaceGenerationQueueWait: options.recordWorkspaceGenerationQueueWait ?? (async () => {}),
       finishQueuedWorkspaceGenerationJob: options.finishQueuedWorkspaceGenerationJob ?? (async (jobId,projectId,snapshotId,state) => ({
         jobId,kind:'workspaceQuestion',conversationTurnId:null,rendererSessionId:null,projectId,snapshotId,
         modelId:null,reasoningEffort:null,state,workerRegistered:false,providerThreadId:null,providerTurnIds:[],createdAtUnixMs:1,updatedAtUnixMs:1,
