@@ -147,6 +147,10 @@ test('exploration breadcrumb buttons cancel Radix ghost margins so names are not
   matches(css,/\.dw-path-root button:not\(\.rt-IconButton\),\.dw-path-segments button:not\(\.rt-IconButton\)\s*\{[^}]*margin:0;[^}]*padding:0;/);
 });
 
+test('activity rail cancels Radix ghost margins so hit areas stay within the window edge',()=>{
+  matches(css,/\.dw-activity \.rt-IconButton\s*\{\s*margin:0;\s*\}/);
+});
+
 test('source-linked relationship previews wrap labels in wide and narrow Guide panes',()=>{
   matches(css,/\.dw-answer-visual-preview-graph li \{display:grid;min-width:0;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   matches(css,/@container answer-visual \(min-width: 720px\) \{[\s\S]*?\.dw-answer-visual-preview-graph > ul > li \{grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1fr\)/);
