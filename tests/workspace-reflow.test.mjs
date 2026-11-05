@@ -70,6 +70,8 @@ test('native header keeps desktop controls together and reflows compact controls
   matches(shell,/\.topbar \.project-controls\s*\{[^}]*flex:\s*0 1 auto;/);
   matches(shell,/\.topbar \.connection-header\s*\{[^}]*flex:\s*0 1 300px;/);
   matches(shell,/@container app-window \(max-width: 1280px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:auto minmax\(0,1fr\);[^}]*grid-template-areas:"brand actions" "project project";/);
+  matches(shell,/@container app-window \(max-width: 1280px\)\s*\{[\s\S]*?\.topbar \.project-controls \{display:grid;grid-area:project;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) max-content;align-items:center;gap:4px 8px;width:100%;min-width:0;/u);
+  matches(shell,/html\[data-app-zoom-header-compact="true"\] \.topbar \.project-controls \{display:grid;grid-area:project;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) max-content;align-items:center;gap:4px 8px;width:100%;min-width:0;/u);
   matches(shell,/@container app-window \(max-width: 680px\)\s*\{\s*\.topbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*grid-template-areas:"brand" "actions" "project";/);
   matches(shell,/\.project-controls\s*\{[^}]*flex-wrap:\s*wrap/u);
   assert.doesNotMatch(shell,/\.topbar \.topbar-actions\s*\{[^}]*flex-wrap:nowrap;[^}]*width:max-content;/u);
