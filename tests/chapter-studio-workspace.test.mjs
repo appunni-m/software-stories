@@ -14,6 +14,8 @@ test('Chapter Studio stays inside the persistent code workspace', () => {
   assert.match(workspaceSource, /const tool = workspace==='changes'\|\|workspace==='chapter-studio';/u);
   assert.match(workspaceSource, /dw-tool-content dw-tool-content-chapter-studio/u,
     'the editor should use the shared contextual-tool pane');
+  assert.match(workspaceSource, /<Panel id="explanations" minSize=\{workspace==='chapter-studio'\?'460px':'280px'\}/u,
+    'the nested target list and review need a usable minimum width while the source remains resizable');
   assert.match(workspaceSource, /<Panel id="source"[\s\S]*?<Panel id="explanations"/u,
     'the shared reading workspace should retain its resizable source pane');
   assert.match(appSource, /currentWorkspace === 'chapter-studio'[\s\S]*?<ChapterStudioScreen/u,
