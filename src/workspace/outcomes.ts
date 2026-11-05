@@ -1,6 +1,6 @@
 import type { ChapterRevision } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion } from './answerVersions.ts';
-import { rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model.ts';
+import { ancestors, rememberSection, repositoryGuideCoverageLabel, type Exploration, type PublishedSection, type Turn, type WorkspaceState } from './model.ts';
 
 const active = (turn: Pick<Turn, 'status'>) => turn.status === 'queued' || turn.status === 'working' || turn.status === 'waiting';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length || turn.answerVersions?.length);
@@ -130,9 +130,14 @@ export function featuredGuideTurnId(
 export function openWorkspaceExploration(state: WorkspaceState, explorationId: string): WorkspaceState {
   const target = state.explorations.find((exploration) => exploration.id === explorationId);
   if (!target) return state;
+  const path = ancestors(state);
+  const targetIndex = path.findIndex((exploration) => exploration.id === target.id);
+  const returningOriginTurnId = targetIndex >= 0 ? path[targetIndex + 1]?.originTurnId : undefined;
   const focusedTurnId = target.turns.some((turn) => turn.id === target.focusedTurnId)
     ? target.focusedTurnId
-    : target.turns.at(-1)?.id;
+    : target.turns.some((turn) => turn.id === returningOriginTurnId)
+      ? returningOriginTurnId
+      : target.turns.at(-1)?.id;
   return {
     ...state,
     currentId: target.id,

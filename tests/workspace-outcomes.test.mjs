@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, createWorkspace, parseWorkspace, questionProgressText, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
+import { addTurn, createWorkspace, parseWorkspace, questionProgressText, rememberSection, workspaceAnswerLifecycleBadge } from '../src/workspace/model.ts';
 import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackCopy, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
@@ -125,6 +125,27 @@ test('reopening an exploration focuses its latest question without changing its 
       : exploration),
   }, 'child');
   assert.equal(explicitlyFocused.explorations.find((exploration) => exploration.id === 'child').focusedTurnId, 'first');
+});
+
+test('returning to a legacy parent restores the answer that owns the child exploration', () => {
+  let state = addTurn(createWorkspace('project', 'snapshot'), turn('origin', 'ready', { revisionId: 'revision:origin' }), 'guide');
+  state = rememberSection(state, 'root', 'origin', 'guide', { revisionId: 'revision:origin', sectionId: 'section:second' });
+  state = addTurn(state, turn('later', 'ready', { revisionId: 'revision:later' }), 'guide');
+  // Older saved conversations can have branches but no focusedTurnId metadata.
+  state = {
+    ...state,
+    explorations: state.explorations.map((exploration) => exploration.id === 'root'
+      ? { ...exploration, focusedTurnId: undefined }
+      : exploration),
+  };
+  state = addTurn(state, turn('stopped-child', 'stopped'), 'guide', { id: 'child', originTurnId: 'origin' });
+
+  const returned = openWorkspaceExploration(state, 'root');
+  const root = returned.explorations.find((exploration) => exploration.id === 'root');
+  assert.equal(root.focusedTurnId, 'origin', 'the child path identifies the parent answer when legacy focus metadata is absent');
+  assert.deepEqual(root.turns.find((question) => question.id === 'origin').reading.guide,
+    { revisionId: 'revision:origin', sectionId: 'section:second' });
+  assert.equal(returned.currentId, 'root');
 });
 
 test('adjacent unavailable answer parts collapse together without changing available-part order', () => {
