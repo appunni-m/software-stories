@@ -111,9 +111,8 @@ function topMatches<T>(items:readonly T[],scoreOf:(item:T)=>number,compare:(left
   return best.map(({item})=>item);
 }
 
-/** Keep AI available beside local matches, including while more are loading, or
- * after an incomplete search. A source hit is useful context, not a replacement
- * for answering the question. */
+/** Offer AI when local search cannot supply a result. Local matches stay the
+ * primary action; a failed search can still fall through to the assistant. */
 export function shouldOfferExploreWithAI(
   query:string,
   mode:CodeSearchMode,
@@ -125,7 +124,8 @@ export function shouldOfferExploreWithAI(
   if(mode==='regex'&&error&&/(?:invalid|malformed|syntax).*(?:regular expression|regex)|(?:regular expression|regex).*(?:invalid|malformed|syntax)/iu.test(error))return false;
   const matchesAvailable=Number.isSafeInteger(resultCount)&&resultCount>0;
   const searchUsable=(!busy||matchesAvailable)&&Number.isSafeInteger(resultCount)&&resultCount>=0;
-  return length>=(mode==='regex'?1:2)&&length<=240&&searchUsable;
+  const noUsableLocalMatch=resultCount===0||error!==null;
+  return length>=(mode==='regex'?1:2)&&length<=240&&searchUsable&&noUsableLocalMatch;
 }
 
 /** Tell readers how much of a capped result set is currently visible. */
