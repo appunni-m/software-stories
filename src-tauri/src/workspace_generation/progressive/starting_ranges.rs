@@ -103,6 +103,14 @@ pub(super) fn request_for(
             guide_intent::OPENING_CONTINUATION_INSTRUCTIONS
         ));
     }
+    if guide_intent.is_some_and(|intent| {
+        intent.unit_key == "opening" || intent.opening_continuation.is_some()
+    }) {
+        instructions.push_str(&format!(
+            "\n\n{}",
+            guide_intent::OPENING_SCOPE_INSTRUCTIONS
+        ));
+    }
     let mut contract = generation_contract_for(input, &prompt, &schema, repository_guide_slide)?;
     contract["systemInstructions"] = json!(instructions);
     if !ranges.is_empty() {
