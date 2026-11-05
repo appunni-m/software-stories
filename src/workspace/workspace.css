@@ -79,7 +79,8 @@
 .dw-context button {display:flex;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;}
 .dw-context .dw-attachment-remove {display:grid;place-items:center;width:20px;min-width:20px;height:20px;min-height:20px;padding:0;}
 .dw-reading {flex:1;min-height:0;min-width:0;}
-.dw-explanation {height:100%;display:flex;flex-direction:column;min-width:0;container-type:inline-size;container-name:guide-pane;}
+.dw-reading > #explanations > div {box-sizing:border-box;min-width:0;max-width:100%;}
+.dw-explanation {box-sizing:border-box;width:100%;max-width:100%;height:100%;display:flex;flex-direction:column;min-width:0;container-type:inline-size;container-name:guide-pane;}
 .dw-viewbar {display:flex;align-items:center;justify-content:space-between;min-width:0;border-bottom:1px solid var(--border);min-height:39px;padding-right:var(--space-2);}
 .dw-viewbar .rt-TabsList {box-shadow:none;flex:1 1 0;min-width:0;display:flex;}
 .dw-viewbar .rt-TabsList > .rt-TabsTrigger {flex:1 1 0;min-width:0;justify-content:center;padding-inline:var(--space-2);}
