@@ -135,6 +135,7 @@ fn scope(value: Option<&str>) -> Option<&str> {
     value.filter(|path| !matches!(*path, "" | "."))
 }
 const INVALID_LITERAL_SEARCH_MESSAGE: &str = "No code was returned. This literal query could not be matched within the bounded search. Retry once with a shorter identifier or phrase, keep punctuation literal, and narrow the captured scope if useful.";
+const INVALID_SEARCH_ARGUMENTS_MESSAGE: &str = "No code or search results were returned. Correct the search_code arguments using its schema: provide a query, scope, and page limit, with optional resultKind and offset.";
 
 fn recoverable_search_message(error: &str) -> Option<&'static str> {
     (error == context::INVALID_LITERAL_SEARCH_QUERY).then_some(INVALID_LITERAL_SEARCH_MESSAGE)
@@ -916,7 +917,23 @@ impl Session {
         match kind {
             Tool::ProposeSection => Err("Section publication did not own its native path.".into()),
             Tool::Search => {
-                let args: Search = parse(request.arguments)?;
+                let args: Search = match parse(request.arguments) {
+                    Ok(args) => args,
+                    Err(_) => {
+                        return self.ledger.deliver(
+                            token,
+                            Context::SearchError {
+                                code: "invalidArguments",
+                                message: INVALID_SEARCH_ARGUMENTS_MESSAGE,
+                            },
+                            &[],
+                            &fresh,
+                            &self.runtime,
+                            cancelled,
+                            send,
+                        );
+                    }
+                };
                 let query_scope = scope(args.scope.as_deref());
                 let result_kind = args.result_kind.resolve(&args.query, query_scope);
                 if query_scope.is_some_and(|p| !context::safe_path(p)) {

@@ -721,6 +721,41 @@ fn invalid_query_returns_bounded_feedback_and_can_be_corrected() {
 }
 
 #[test]
+fn malformed_search_arguments_return_bounded_feedback_before_a_corrected_search() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    for arguments in [
+        Value::Null,
+        json!({"query":"search_argument_secret","scope":null,"limit":"4"}),
+        json!({"query":"greeting","scope":null,"limit":4,"extra":"search_argument_secret"}),
+    ] {
+        let (_, text) = exchange(&mut s, "search_code", arguments);
+        let result: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(result["context"]["kind"], "searchError");
+        assert_eq!(result["context"]["result"]["code"], "invalidArguments");
+        assert_eq!(result["added"], json!([]));
+        assert!(!text.contains("search_argument_secret"));
+        assert!(text.len() < 1536);
+        assert!(s.ledger.admitted_ranges().is_empty());
+    }
+
+    let (_, text) = exchange(
+        &mut s,
+        "search_code",
+        json!({"query":"greeting","scope":null,"limit":4}),
+    );
+    let result: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(result["context"]["kind"], "search");
+    assert!(
+        !result["context"]["result"]["matches"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    s.check_complete().unwrap();
+}
+
+#[test]
 fn literal_punctuation_is_a_valid_bounded_agent_search() {
     let f = Fixture::new();
     let mut s = session(&f);
