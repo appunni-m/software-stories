@@ -95,6 +95,13 @@ describe('visual story scenes', () => {
     assert.ok(visibleStoryEdgeLabel(full).length <= 36);
   });
 
+  it('truncates edge labels only at complete Unicode graphemes', () => {
+    for (const grapheme of ['🌳', 'e\u0301', '👩‍💻']) {
+      const label = `${'a'.repeat(34)}${grapheme} and the caller receives the result`;
+      assert.equal(visibleStoryEdgeLabel(label, 36), `${'a'.repeat(34)}${grapheme}…`);
+    }
+  });
+
   it('opens a visual node on its unique literal expression inside the cited snapshot bytes', () => {
     const excerpt = [
       'impl Font {',

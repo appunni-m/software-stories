@@ -348,11 +348,14 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
 /** Keep dense edge labels scannable; the complete label remains available to assistive tech and hover text. */
 export function visibleStoryEdgeLabel(label: string, maxCharacters = 36): string {
   const text = label.trim();
-  if (text.length <= maxCharacters || maxCharacters < 2) return text;
-  const prefix = text.slice(0, maxCharacters - 1);
+  if (maxCharacters < 2) return text;
+  const characters = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+    ({ segment }) => segment);
+  if (characters.length <= maxCharacters) return text;
+  const prefix = characters.slice(0, maxCharacters - 1);
   const lastSpace = prefix.lastIndexOf(' ');
   const boundary = lastSpace >= Math.floor(maxCharacters * 0.6) ? lastSpace : prefix.length;
-  return `${prefix.slice(0, boundary).trimEnd()}…`;
+  return `${prefix.slice(0, boundary).join('').trimEnd()}…`;
 }
 
 /** Put vertical-path labels beside the cards, not over the short connector gap. */
