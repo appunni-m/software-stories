@@ -96,21 +96,22 @@ pub(crate) fn findings(elements: &[SceneElement]) -> Vec<TreeFinding> {
                 "A composition needs 1–12 cited content elements and no empty groups.",
             );
         }
-        let point_flow_has_only_direct_content = element.kind != ElementKind::PointFlow
-            || !elements.iter().any(|child| {
-                child.parent_index == Some(index)
-                    && (child.kind.container() || child.kind.decorative())
-            });
+        let transform_slots_have_only_direct_content = !matches!(
+            &element.kind,
+            ElementKind::Transform | ElementKind::PointFlow
+        ) || !elements.iter().any(|child| {
+            child.parent_index == Some(index) && (child.kind.container() || child.kind.decorative())
+        });
         if matches!(
             &element.kind,
             ElementKind::Transform | ElementKind::PointFlow
-        ) && (children[index] != 3 || !point_flow_has_only_direct_content)
+        ) && (children[index] != 3 || !transform_slots_have_only_direct_content)
         {
             add(
                 Some(index),
                 "transformShape",
                 "parentIndex",
-                "A transform or pointFlow needs exactly three direct children: input, operation and result.",
+                "A transform or pointFlow needs three direct content slots: input, operation and result.",
             );
         }
         if element.kind == ElementKind::Selector {
@@ -251,6 +252,30 @@ mod tests {
                 .iter()
                 .any(|finding| finding.code == "transformShape")
         );
+
+        // Each renderer-labeled transform slot must contain one cited content
+        // leaf. A decorative arrow or nested layout leaves a misleading slot.
+        let transform_with_decoration = vec![
+            element("transform", None),
+            element("token", Some(0)),
+            element("arrow", Some(0)),
+            element("token", Some(0)),
+        ];
+        assert!(findings(&transform_with_decoration)
+            .iter()
+            .any(|finding| finding.code == "transformShape" && finding.element == Some(0)));
+
+        let transform_with_nested_slot = vec![
+            element("transform", None),
+            element("token", Some(0)),
+            element("row", Some(0)),
+            element("token", Some(0)),
+            element("token", Some(2)),
+        ];
+        assert!(findings(&transform_with_nested_slot)
+            .iter()
+            .any(|finding| finding.code == "transformShape" && finding.element == Some(0)));
+
         for child_count in [2, 4] {
             let mut elements = vec![element("pointFlow", None)];
             elements.extend((0..child_count).map(|_| element("token", Some(0))));
