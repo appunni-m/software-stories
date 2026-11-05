@@ -69,8 +69,14 @@ const chapter = (diagram = visual(), { anchors = [anchor()], hotspots = [{
 
 describe('interactive diagram safety', () => {
   it('creates a focused visual refresh question without replacing saved sections', () => {
-    assert.equal(visualRefreshQuestion('Transform the child points'),
-      'Create a fresh visual explanation for "Transform the child points" from the captured source. Show the behavior with the representation that best fits, connect each visual cue to the code that proves it, and narrate what changes and why it matters. Leave other saved sections untouched.');
+    const question = visualRefreshQuestion('Transform the child points');
+    assert.match(question, /^Create a fresh visual explanation for "Transform the child points" from the captured source\./u);
+    assert.match(question, /input → operation → result/u);
+    assert.match(question, /byte or field layouts, a table, queue, stack, hierarchy, or pixel matrix/u);
+    assert.match(question, /Use a relationship graph only when those forms cannot explain the real links clearly/u);
+    assert.match(question, /Tie every visible cue to this section's cited source/u);
+    assert.match(question, /If no visual can explain the behavior honestly, keep the section text-only/u);
+    assert.match(question, /Leave other saved sections untouched\.$/u);
     assert.match(visualRefreshQuestion('line\nbreak'), /"line break"/u);
   });
 

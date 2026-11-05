@@ -32,7 +32,7 @@ export function visualRefreshQuestion(sectionTitle: string): string {
     .replace(/\s+/gu, ' ')
     .trim()
     .slice(0, 180) || 'this section';
-  return `Create a fresh visual explanation for "${title}" from the captured source. Show the behavior with the representation that best fits, connect each visual cue to the code that proves it, and narrate what changes and why it matters. Leave other saved sections untouched.`;
+  return `Create a fresh visual explanation for "${title}" from the captured source. First identify the behavior this section proves, then choose an app-supported visual form that makes it easy to see: a distinct input → operation → result for a real transformation; a separate guard and outcome for each branch; a timeline only for verified order; before/after states, byte or field layouts, a table, queue, stack, hierarchy, or pixel matrix when those match the code. Use a relationship graph only when those forms cannot explain the real links clearly. Choose for meaning rather than reusing one layout or adding decorative variety; avoid generic cards as the whole visual. Tie every visible cue to this section's cited source, label hypothetical values, and narrate the consequence in plain language. If no visual can explain the behavior honestly, keep the section text-only. Leave other saved sections untouched.`;
 }
 
 export function inspectInteractiveVisual(
