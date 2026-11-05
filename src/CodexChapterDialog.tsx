@@ -734,7 +734,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<AppSelect ariaLabel="Codex model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked || !models.length} clearLabel={models.length ? 'Choose a model…' : 'Load models first…'} options={models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={changeModel}/></label>
               <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={(effort)=>{if(locked || !selectedModel?.supportedReasoningEfforts.includes(effort))return;releaseReview();const next={...selection,effort};setSelection(next);remember(next.modelId,next.effort);}}/></label>
-              <p><strong>Agent approval · Never.</strong> Fixed for read-only repository access. Codex can inspect only the reviewed {gitOperation ? 'changes' : 'snapshot files'}; requests to edit files, run commands, or browse the web are denied.</p>
+              <p><strong>Access is always read-only.</strong> Codex can inspect only the reviewed {gitOperation ? 'changes' : 'snapshot files'}. It cannot edit files, run commands, or browse the web.</p>
               <p className="provider-small-note">These settings are saved once. Source review and consent apply separately to each generation.</p>
             </section></details>}
               </div>
@@ -785,7 +785,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>{gitOperation ? 'Comparison identity' : 'Source snapshot'}</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
-                  <div><span>Reasoning effort</span><strong>{String(review.generationConfig.effort)}</strong></div><div><span>Agent approval</span><strong>Never · read-only</strong></div>
+                  <div><span>Reasoning effort</span><strong>{String(review.generationConfig.effort)}</strong></div><div><span>Access</span><strong>Read-only · fixed</strong></div>
                   <div><span>{retrievalLimits ? 'Snapshot retrieval limit' : sectionUpdate ? 'Current files · source bytes across both snapshots' : 'Selected source'}</span><strong>{retrievalLimits ? `Up to ${retrievalLimits.maxFiles ?? 12} files · ${(retrievalLimits.maxSourceBytes ?? 250000).toLocaleString()} source bytes` : `${review.selectedFiles.length} files · ${review.sourceBytes.toLocaleString()} bytes`}</strong></div>
                   <div><span>Input estimate</span><strong>About {review.estimatedInputTokens.toLocaleString()} tokens</strong></div>
                   <div><span>Review expiry</span><strong>{new Date(review.expiresAtUnixMs).toLocaleTimeString()}</strong></div>
