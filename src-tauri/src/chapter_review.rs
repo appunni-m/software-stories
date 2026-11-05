@@ -1156,6 +1156,56 @@ mod tests {
     }
 
     #[test]
+    fn a_native_publication_during_an_unsaved_edit_rejects_the_stale_save() {
+        let fixture = Fixture::new();
+        let original = first_saved_draft(&fixture);
+        let original_bytes = chapters::encode_chapter_revision(&original).unwrap();
+        let mut unsaved_candidate = original.clone();
+        unsaved_candidate.title = "Unsaved title that must survive a concurrent publication".into();
+
+        // Model a separate native generation completing while Chapter Studio
+        // still holds its editor candidate. This appends through the real
+        // immutable draft store, not a mocked history callback.
+        let concurrent_publication = first_saved_draft(&fixture);
+        let concurrent_bytes =
+            chapters::encode_chapter_revision(&concurrent_publication).unwrap();
+        assert_ne!(concurrent_publication.revision_id, original.revision_id);
+        assert!(concurrent_publication.revision_number > original.revision_number);
+
+        let write_lock = Mutex::new(());
+        let error = save_edits(
+            &fixture.storage,
+            &write_lock,
+            &original.project_id,
+            &original.revision_id,
+            unsaved_candidate.clone(),
+        )
+        .unwrap_err();
+        assert!(error.contains("changed since it was opened"), "{error}");
+        assert_eq!(
+            unsaved_candidate.title,
+            "Unsaved title that must survive a concurrent publication"
+        );
+
+        let history = chapter_store::list_for_project(&fixture.storage, &original.project_id)
+            .unwrap();
+        assert_eq!(history, vec![original.clone(), concurrent_publication.clone()]);
+        assert_eq!(
+            chapters::encode_chapter_revision(&history[0]).unwrap(),
+            original_bytes,
+            "a concurrent save must not rewrite the editor's original base"
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&history[1]).unwrap(),
+            concurrent_bytes,
+            "the background publication remains intact after the stale editor save"
+        );
+        assert!(history
+            .iter()
+            .all(|revision| revision.title != unsaved_candidate.title));
+    }
+
+    #[test]
     fn edited_sections_accept_as_append_only_revisions_without_changing_old_payloads_or_source() {
         let fixture = Fixture::new();
         let original = first_saved_draft(&fixture);
