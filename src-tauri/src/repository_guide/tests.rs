@@ -316,6 +316,47 @@ fn playback_receipt_is_durable_while_a_guide_worker_owns_the_runway() {
     assert_eq!(slide_run_limit(5, 0, &repeated, false), 5);
 }
 
+#[test]
+fn five_slide_buffer_counts_opening_and_follow_on_sections_by_revision() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+
+    let mut opening = attempt(&record, Outcome::Complete);
+    opening.question = opening::LEARNING_QUESTION.to_owned();
+    let opening_run_id = opening.run_id.clone();
+    let opening_summary = opening.summary.as_mut().unwrap();
+    opening_summary.run_id = opening_run_id.clone();
+    opening_summary.question = opening::LEARNING_QUESTION.to_owned();
+    opening_summary.sections[0].run_id = opening_run_id;
+    opening_summary.sections[0].key = "opening".into();
+    let opening_revision = opening_summary.sections[0].revision_id.clone();
+    record.opening = Some(opening);
+    record.opening_context_sha256 = Some(opening::context_sha256(&record).unwrap());
+
+    let mut follow_on = attempt(&record, Outcome::Complete);
+    let follow_on_summary = follow_on.summary.as_mut().unwrap();
+    let template = follow_on_summary.sections[0].clone();
+    for order in 1..4 {
+        let mut section = template.clone();
+        section.key = format!("input-{order}");
+        section.order = order;
+        section.generation_id = format!("generation:{}", Uuid::new_v4());
+        section.revision_id = format!("revision:{}", Uuid::new_v4());
+        follow_on_summary.sections.push(section);
+    }
+    record.units[0].attempts.push(follow_on);
+
+    assert_eq!(published_slide_count(&record), GUIDE_SLIDE_BUFFER);
+    assert_eq!(guide_buffer_gap(&record), 0);
+    store::create(&f.storage, &record).unwrap();
+
+    let consumed = record_consumed_slide(&f.storage, &record.id, &opening_revision).unwrap();
+    assert_eq!(guide_buffer_gap(&consumed), 1);
+    let replayed = record_consumed_slide(&f.storage, &record.id, &opening_revision).unwrap();
+    assert_eq!(replayed.revision, consumed.revision);
+    assert_eq!(guide_buffer_gap(&replayed), 1);
+}
+
 #[tokio::test]
 async fn terminal_playback_receipt_waits_for_the_owner_lease_then_claims_refill() {
     let f = Fixture::new();
