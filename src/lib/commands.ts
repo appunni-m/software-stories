@@ -63,6 +63,7 @@ export interface WorkspaceGenerationJob {
   sourceFingerprintSha256: string | null;
   requestFingerprintSha256: string | null;
   runtimeIdentitySha256: string | null;
+  rendererQueueWaitMs: number | null;
   state: WorkspaceGenerationJobState;
   workerRegistered: boolean;
   providerThreadId: string | null;
@@ -1563,6 +1564,11 @@ export function finishQueuedWorkspaceGenerationJob(
 ):Promise<WorkspaceGenerationJob> {
   return invoke<WorkspaceGenerationJob>('finish_queued_workspace_generation_job', {jobId,projectId,snapshotId,state});
 }
+export function recordWorkspaceGenerationQueueWait(
+  jobId:string, projectId:string, snapshotId:string, rendererQueueWaitMs:number,
+):Promise<WorkspaceGenerationJob> {
+  return invoke<WorkspaceGenerationJob>('record_workspace_generation_queue_wait', {jobId,projectId,snapshotId,rendererQueueWaitMs});
+}
 export function listWorkspaceGenerationJobsForScope(projectId:string,snapshotId:string,rendererSessionId:string):Promise<WorkspaceGenerationJob[]> {
   return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs_for_scope',{projectId,snapshotId,rendererSessionId});
 }
@@ -1573,8 +1579,9 @@ export function stopWorkspaceGenerationJob(
   jobId: string,
   projectId: string,
   snapshotId: string,
+  rendererQueueWaitMs?: number,
 ): Promise<WorkspaceGenerationJob> {
-  return invoke<WorkspaceGenerationJob>('stop_workspace_generation_job', { jobId, projectId, snapshotId });
+  return invoke<WorkspaceGenerationJob>('stop_workspace_generation_job', { jobId, projectId, snapshotId, rendererQueueWaitMs: rendererQueueWaitMs ?? null });
 }
 export async function buildCodexPrGuideReview(input: {
   projectId: string; baseRef: string; headRef: string; comparisonId: string;

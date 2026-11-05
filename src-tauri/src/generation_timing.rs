@@ -326,6 +326,14 @@ impl Record {
         runtime::first_agent_message_delta_ms(self)
     }
 
+    pub(crate) fn renderer_queue_wait_ms(&self) -> Option<u64> {
+        self.renderer_queue_wait_ms
+    }
+
+    pub(crate) fn terminal_state(&self) -> Option<Terminal> {
+        self.terminal.as_ref().map(|terminal| terminal.state)
+    }
+
     /// Native work after the manager acquires its runtime lock and before the
     /// first turn starts. If no turn starts, the interval ends at the recorded
     /// terminal event. This does not include provider/model processing time.

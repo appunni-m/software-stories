@@ -58,13 +58,15 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
     ];
     let first = first_useful_answer(&publications).unwrap();
     let report = TimingReport {
-        schema_version: 5,
+        schema_version: 6,
         kind: "code-atlas-generation-timing",
         scope: "synthetic scope",
         run_id: "synthetic-run".into(),
         answer_outcome: Outcome::Partial,
+        terminal_reason: None,
         worker_active: false,
         trace: None,
+        renderer_queue_wait_ms: None,
         post_lock_pre_dispatch_ms: None,
         first_agent_message_delta_elapsed_ms: Some(12),
         first_useful_answer: Some(first),
@@ -81,7 +83,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         ],
     };
     let value = serde_json::to_value(report).unwrap();
-    assert_eq!(value["schemaVersion"], 5);
+    assert_eq!(value["schemaVersion"], 6);
     assert_eq!(value["firstAgentMessageDeltaElapsedMs"], 12);
     assert_eq!(
         value["firstUsefulAnswer"]["generationId"],
@@ -107,6 +109,47 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
             .unwrap()
             .contains(&json!("wholeGuideCompletionAcrossUserPlayback"))
     );
+}
+
+#[test]
+fn queued_stop_keeps_queue_duration_and_exports_a_queue_cancellation_reason() {
+    let f = Fixture::new();
+    let run_id = Uuid::new_v4().to_string();
+    let turn_id = Uuid::new_v4().to_string();
+    let renderer_session_id = Uuid::new_v4().to_string();
+    let project_id = f.manifest.summary.project_id.clone();
+    let snapshot_id = f.manifest.summary.snapshot_id.clone();
+    super::super::jobs::queue_workspace_question(
+        &f.storage,
+        &run_id,
+        &turn_id,
+        &renderer_session_id,
+        &project_id,
+        &snapshot_id,
+        "gpt-6-luna",
+        "max",
+    )
+    .unwrap();
+    let stopped = super::super::jobs::request_stop_or_record(
+        &f.storage,
+        &run_id,
+        &project_id,
+        &snapshot_id,
+        Some(742),
+    )
+    .unwrap();
+    assert_eq!(stopped.state, super::super::jobs::JobState::Stopped);
+    assert!(!stopped.worker_registered);
+
+    let report = timing_report(&f.storage, &run_id, &project_id, &snapshot_id, false).unwrap();
+    assert_eq!(report.answer_outcome, Outcome::Stopped);
+    assert_eq!(report.terminal_reason, Some(TerminalReason::QueueCancelled));
+    assert_eq!(report.renderer_queue_wait_ms, Some(742));
+    assert!(report.trace.is_none());
+    assert!(report.preparation_stages.is_empty());
+    let encoded = serde_json::to_value(report).unwrap();
+    assert_eq!(encoded["terminalReason"], "queueCancelled");
+    assert_eq!(encoded["rendererQueueWaitMs"], 742);
 }
 
 #[test]
@@ -169,7 +212,7 @@ fn failed_local_preparation_is_exportable_without_answer_or_source_content() {
     );
 
     let report = timing_report(&f.storage, &run_id, &project_id, &snapshot_id, false).unwrap();
-    assert_eq!(report.schema_version, 5);
+    assert_eq!(report.schema_version, 6);
     assert_eq!(report.answer_outcome, Outcome::Failed);
     assert!(report.trace.is_none());
     assert!(report.publications.is_empty());
@@ -194,9 +237,7 @@ fn guide_planning_failure_timing_is_source_free_and_does_not_require_an_answer()
         executable_path: "/private/NEVER_EXPORT_CODEX_PATH".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     };
@@ -318,9 +359,7 @@ fn empty_saved_answer(f: &Fixture, input: &Input) -> std::path::PathBuf {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     };

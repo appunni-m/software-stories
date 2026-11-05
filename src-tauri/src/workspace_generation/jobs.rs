@@ -75,6 +75,10 @@ pub(crate) struct JobRecord {
     pub(crate) source_fingerprint_sha256: Option<String>,
     pub(crate) request_fingerprint_sha256: Option<String>,
     pub(crate) runtime_identity_sha256: Option<String>,
+    /// Renderer monotonic queue duration, retained even when the request is
+    /// stopped before a native timing trace is created.
+    #[serde(default)]
+    pub(crate) renderer_queue_wait_ms: Option<u64>,
     pub(crate) state: JobState,
     pub(crate) worker_registered: bool,
     pub(crate) provider_thread_id: Option<String>,
@@ -150,6 +154,7 @@ pub(crate) fn start(
         source_fingerprint_sha256: None,
         request_fingerprint_sha256: None,
         runtime_identity_sha256: None,
+        renderer_queue_wait_ms: None,
         state: JobState::Preparing,
         worker_registered: true,
         provider_thread_id: None,
@@ -245,6 +250,7 @@ pub(crate) fn queue_workspace_question(
         source_fingerprint_sha256: None,
         request_fingerprint_sha256: None,
         runtime_identity_sha256: None,
+        renderer_queue_wait_ms: None,
         state: JobState::Queued,
         worker_registered: false,
         provider_thread_id: None,
@@ -256,6 +262,42 @@ pub(crate) fn queue_workspace_question(
     store.jobs.push(job.clone());
     write_store(storage, &store)?;
     Ok(job)
+}
+
+/// Persist the renderer-owned wait before connection preparation or inference
+/// can fail. Repeating the same receipt is safe; a different value is rejected.
+pub(crate) fn record_renderer_queue_wait(
+    storage: &Path,
+    job_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    elapsed_ms: u64,
+) -> Result<JobRecord, String> {
+    validate_identity(job_id, project_id, snapshot_id)?;
+    if elapsed_ms > crate::generation_timing::MAX_ELAPSED {
+        return Err("The renderer queue duration exceeds its limit.".into());
+    }
+    let _guard = lock()?;
+    let mut store = read_store(storage)?;
+    let job = find_job_mut(&mut store, job_id)?;
+    if job.project_id != project_id || job.snapshot_id != snapshot_id {
+        return Err(
+            "This workspace job belongs to another snapshot. Its record was preserved.".into(),
+        );
+    }
+    if job
+        .renderer_queue_wait_ms
+        .is_some_and(|recorded| recorded != elapsed_ms)
+    {
+        return Err("The renderer queue duration changed after it was recorded.".into());
+    }
+    if job.renderer_queue_wait_ms.is_none() {
+        job.renderer_queue_wait_ms = Some(elapsed_ms);
+        job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
+    }
+    let updated = job.clone();
+    write_store(storage, &store)?;
+    Ok(updated)
 }
 
 /// Bind the immutable source, request and observed account/runtime after local
@@ -473,8 +515,13 @@ pub(crate) fn request_stop_or_record(
     job_id: &str,
     project_id: &str,
     snapshot_id: &str,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<JobRecord, String> {
     validate_identity(job_id, project_id, snapshot_id)?;
+    if renderer_queue_wait_ms.is_some_and(|elapsed| elapsed > crate::generation_timing::MAX_ELAPSED)
+    {
+        return Err("The renderer queue duration exceeds its limit.".into());
+    }
     let _guard = lock()?;
     let mut store = read_store(storage)?;
     if let Some(job) = store.jobs.iter_mut().find(|job| job.job_id == job_id) {
@@ -486,12 +533,20 @@ pub(crate) fn request_stop_or_record(
         if job.state.is_terminal() {
             return Err("This workspace generation job has already finished.".into());
         }
+        let mut changed = false;
         if job.state != JobState::StopRequested {
             job.state = if job.state == JobState::Queued && !job.worker_registered {
                 JobState::Stopped
             } else {
                 JobState::StopRequested
             };
+            changed = true;
+        }
+        if job.renderer_queue_wait_ms.is_none() && renderer_queue_wait_ms.is_some() {
+            job.renderer_queue_wait_ms = renderer_queue_wait_ms;
+            changed = true;
+        }
+        if changed {
             job.updated_at_unix_ms = now_unix_ms().max(job.created_at_unix_ms);
         }
         let updated = job.clone();
@@ -516,6 +571,7 @@ pub(crate) fn request_stop_or_record(
         source_fingerprint_sha256: None,
         request_fingerprint_sha256: None,
         runtime_identity_sha256: None,
+        renderer_queue_wait_ms,
         state: JobState::StopRequested,
         worker_registered: false,
         provider_thread_id: None,
@@ -810,9 +866,7 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
     };
     if (saved_hash_count != 0 && saved_hash_count != identity_hashes.len())
         || (saved_hash_count == identity_hashes.len()
-            && (missing_required_scope
-                || job.model_id.is_none()
-                || job.reasoning_effort.is_none()))
+            && (missing_required_scope || job.model_id.is_none() || job.reasoning_effort.is_none()))
     {
         return Err("The saved workspace job identity is incomplete.".into());
     }
@@ -838,6 +892,9 @@ fn validate_job(job: &JobRecord) -> Result<(), String> {
             .any(|value| !valid_text(value, 256))
         || job.provider_turn_ids.iter().collect::<HashSet<_>>().len() != job.provider_turn_ids.len()
         || job.updated_at_unix_ms < job.created_at_unix_ms
+        || job
+            .renderer_queue_wait_ms
+            .is_some_and(|elapsed| elapsed > crate::generation_timing::MAX_ELAPSED)
     {
         return Err("The saved workspace job record is invalid.".into());
     }
@@ -1112,7 +1169,7 @@ mod tests {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
         let conversation_turn_id = Uuid::new_v4().to_string();
-        request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a").unwrap();
+        request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a", None).unwrap();
         let adopted = start(
             &directory.0,
             &job_id,
@@ -1269,6 +1326,53 @@ mod tests {
     }
 
     #[test]
+    fn renderer_queue_wait_receipt_is_bounded_scoped_and_idempotent() {
+        let directory = TestDirectory::new();
+        let job_id = Uuid::new_v4().to_string();
+        let turn_id = Uuid::new_v4().to_string();
+        let renderer_id = Uuid::new_v4().to_string();
+        queue_workspace_question(
+            &directory.0,
+            &job_id,
+            &turn_id,
+            &renderer_id,
+            "project-a",
+            "snapshot-a",
+            "gpt-6-luna",
+            "max",
+        )
+        .unwrap();
+
+        let saved =
+            record_renderer_queue_wait(&directory.0, &job_id, "project-a", "snapshot-a", 742)
+                .unwrap();
+        assert_eq!(saved.renderer_queue_wait_ms, Some(742));
+        assert_eq!(
+            record_renderer_queue_wait(&directory.0, &job_id, "project-a", "snapshot-a", 742,)
+                .unwrap(),
+            saved
+        );
+        assert!(
+            record_renderer_queue_wait(&directory.0, &job_id, "project-a", "snapshot-a", 743,)
+                .is_err()
+        );
+        assert!(
+            record_renderer_queue_wait(&directory.0, &job_id, "project-b", "snapshot-a", 742,)
+                .is_err()
+        );
+        assert!(
+            record_renderer_queue_wait(
+                &directory.0,
+                &job_id,
+                "project-a",
+                "snapshot-a",
+                crate::generation_timing::MAX_ELAPSED + 1,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn queued_question_is_adopted_by_its_native_worker_without_changing_identity() {
         let directory = TestDirectory::new();
         let job_id = Uuid::new_v4().to_string();
@@ -1353,7 +1457,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            request_stop_or_record(&directory.0, &stop_id, "project-a", "snapshot-a")
+            request_stop_or_record(&directory.0, &stop_id, "project-a", "snapshot-a", None)
                 .unwrap()
                 .state,
             JobState::Stopped
@@ -1539,7 +1643,7 @@ mod tests {
         let job_id = Uuid::new_v4().to_string();
         let conversation_turn_id = Uuid::new_v4().to_string();
         let stopped =
-            request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a").unwrap();
+            request_stop_or_record(&directory.0, &job_id, "project-a", "snapshot-a", None).unwrap();
         assert_eq!(stopped.state, JobState::StopRequested);
         let adopted = start(
             &directory.0,

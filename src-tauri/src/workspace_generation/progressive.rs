@@ -4,9 +4,8 @@
 use super::*;
 use crate::codex_agent::RunDeadline;
 use crate::evidence_ledger::sections::{
-    self,
+    self, Outcome, SectionNotice,
     reading::{self, Summary},
-    Outcome, SectionNotice,
 };
 use tauri::Manager;
 
@@ -828,14 +827,68 @@ pub(crate) struct TimingReport {
     scope: &'static str,
     run_id: String,
     answer_outcome: Outcome,
+    terminal_reason: Option<TerminalReason>,
     worker_active: bool,
     trace: Option<crate::generation_timing::Record>,
+    renderer_queue_wait_ms: Option<u64>,
     post_lock_pre_dispatch_ms: Option<u64>,
     first_agent_message_delta_elapsed_ms: Option<u64>,
     first_useful_answer: Option<FirstUsefulAnswerTiming>,
     publications: Vec<PublicationTiming>,
     preparation_stages: Vec<crate::generation_timing::PreparationStage>,
     unmeasured: [&'static str; 7],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+enum TerminalReason {
+    QueueCancelled,
+    UserStopped,
+    NativeTimeout,
+    AgentOperationFailed,
+    PreparationFailed,
+    RuntimeChanged,
+    Interrupted,
+    ApplicationFailed,
+}
+
+fn terminal_reason(
+    answer_outcome: &Outcome,
+    job: Option<&super::jobs::JobRecord>,
+    trace: Option<&crate::generation_timing::Record>,
+    preparation_failed: bool,
+) -> Option<TerminalReason> {
+    let queued_cancellation = job.is_some_and(|job| {
+        job.state == super::jobs::JobState::Stopped
+            && !job.worker_registered
+            && job.provider_thread_id.is_none()
+            && job.provider_turn_ids.is_empty()
+    });
+
+    match trace.and_then(crate::generation_timing::Record::terminal_state) {
+        Some(crate::generation_timing::Terminal::TimedOut) => Some(TerminalReason::NativeTimeout),
+        Some(crate::generation_timing::Terminal::RuntimeChanged) => {
+            Some(TerminalReason::RuntimeChanged)
+        }
+        Some(crate::generation_timing::Terminal::Failed) => {
+            Some(TerminalReason::AgentOperationFailed)
+        }
+        Some(crate::generation_timing::Terminal::Abandoned) => Some(TerminalReason::Interrupted),
+        Some(crate::generation_timing::Terminal::Cancelled) => match answer_outcome {
+            Outcome::Stopped if queued_cancellation => Some(TerminalReason::QueueCancelled),
+            Outcome::Stopped => Some(TerminalReason::UserStopped),
+            Outcome::Interrupted => Some(TerminalReason::Interrupted),
+            _ => Some(TerminalReason::AgentOperationFailed),
+        },
+        _ => match answer_outcome {
+            Outcome::Stopped if queued_cancellation => Some(TerminalReason::QueueCancelled),
+            Outcome::Stopped => Some(TerminalReason::UserStopped),
+            Outcome::Interrupted => Some(TerminalReason::Interrupted),
+            Outcome::Failed if preparation_failed => Some(TerminalReason::PreparationFailed),
+            Outcome::Failed => Some(TerminalReason::ApplicationFailed),
+            _ => None,
+        },
+    }
 }
 
 #[derive(Serialize)]
@@ -911,13 +964,11 @@ fn timing_report_with_guide_outcome(
     } else {
         None
     };
-    let preparation_checkpoint = job.filter(|job| !job.preparation_stages.is_empty());
-    if answer.is_none()
-        && guide_planning_outcome.is_none()
-        && preparation_checkpoint
-            .as_ref()
-            .is_none_or(|job| job.project_id != project || job.snapshot_id != snapshot)
-    {
+    let scoped_job = job
+        .as_ref()
+        .filter(|job| job.project_id == project && job.snapshot_id == snapshot);
+    let preparation_checkpoint = scoped_job.filter(|job| !job.preparation_stages.is_empty());
+    if answer.is_none() && guide_planning_outcome.is_none() && scoped_job.is_none() {
         return Err("The saved answer timing report is unavailable.".into());
     }
     if guide_planning_outcome.is_some() && trace.is_none() {
@@ -950,37 +1001,60 @@ fn timing_report_with_guide_outcome(
     let post_lock_pre_dispatch_ms = trace
         .as_ref()
         .and_then(crate::generation_timing::Record::post_lock_pre_dispatch_ms);
-    Ok(TimingReport {
-        schema_version: 5,
-        kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. postLockPreDispatchMs measures native work after RuntimeLockAcquired until the first Starting event; if the operation terminates before a turn starts, it ends at the recorded terminal event. It excludes time before runtime-lock acquisition and provider/model processing. For a repository-guide operation, the candidate runs before its first published section are anchored to that command's monotonic start. On a fresh guide this makes firstUsefulAnswer include outline planning and earlier failed slide attempts; a resumed or refilled guide starts a new origin at that user action, excluding time waiting for playback. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
-        run_id: run.into(),
-        answer_outcome: if let Some(answer) = answer {
-            if !active && answer.outcome == Outcome::Working {
-                Outcome::Interrupted
-            } else {
-                answer.outcome
-            }
-        } else if let Some(outcome) = guide_planning_outcome {
-            if !active && outcome == Outcome::Working {
-                Outcome::Interrupted
-            } else {
-                outcome
-            }
+    let renderer_queue_wait_ms = trace
+        .as_ref()
+        .and_then(crate::generation_timing::Record::renderer_queue_wait_ms)
+        .or_else(|| scoped_job.and_then(|job| job.renderer_queue_wait_ms));
+    let answer_outcome = if let Some(answer) = answer {
+        if !active && answer.outcome == Outcome::Working {
+            Outcome::Interrupted
         } else {
-            match preparation_checkpoint.as_ref().map(|job| &job.state) {
-                Some(
-                    super::jobs::JobState::Preparing
-                    | super::jobs::JobState::Running
-                    | super::jobs::JobState::StopRequested,
-                ) => Outcome::Working,
-                Some(super::jobs::JobState::Stopped) => Outcome::Stopped,
-                Some(super::jobs::JobState::Failed) => Outcome::Failed,
-                _ => return Err("The saved answer timing report is unavailable.".into()),
-            }
-        },
+            answer.outcome
+        }
+    } else if let Some(outcome) = guide_planning_outcome {
+        if !active && outcome == Outcome::Working {
+            Outcome::Interrupted
+        } else {
+            outcome
+        }
+    } else {
+        match scoped_job.map(|job| &job.state) {
+            Some(
+                super::jobs::JobState::Queued
+                | super::jobs::JobState::Preparing
+                | super::jobs::JobState::Running
+                | super::jobs::JobState::StopRequested,
+            ) => Outcome::Working,
+            Some(super::jobs::JobState::Stopped) => Outcome::Stopped,
+            Some(super::jobs::JobState::Failed) => Outcome::Failed,
+            Some(super::jobs::JobState::Interrupted) => Outcome::Interrupted,
+            _ => return Err("The saved answer timing report is unavailable.".into()),
+        }
+    };
+    let preparation_failed = preparation_checkpoint.is_some_and(|job| {
+        job.preparation_stages.last().is_some_and(|stage| {
+            matches!(
+                stage.outcome,
+                crate::generation_timing::PreparationOutcome::Failed
+                    | crate::generation_timing::PreparationOutcome::Stopped
+            )
+        })
+    });
+    Ok(TimingReport {
+        schema_version: 6,
+        kind: "code-atlas-generation-timing",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. A queued workspace job durably retains this duration after its renderer queue slot is released; a Stop while waiting records elapsed wait through that action, even when no native timing trace exists. terminalReason distinguishes queue cancellation from an active User Stop, native timeout, agent-operation failure, pre-dispatch preparation failure, runtime change and interruption. postLockPreDispatchMs measures native work after RuntimeLockAcquired until the first Starting event; if the operation terminates before a turn starts, it ends at the recorded terminal event. It excludes time before runtime-lock acquisition and provider/model processing. For a repository-guide operation, the candidate runs before its first published section are anchored to that command's monotonic start. On a fresh guide this makes firstUsefulAnswer include outline planning and earlier failed slide attempts; a resumed or refilled guide starts a new origin at that user action, excluding time waiting for playback. Fixed native preparation checkpoints are copied from the timing trace or durable job record, including failures before provider dispatch; failures before a durable job record remain unmeasured. This WebView duration is not comparable to or combined with native monotonic timestamps. applicationResult records the answer-store outcome and published-section count under the same run ID; reconciled observations intentionally have no elapsed value from the new process clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        run_id: run.into(),
+        answer_outcome: answer_outcome.clone(),
+        terminal_reason: terminal_reason(
+            &answer_outcome,
+            scoped_job,
+            trace.as_ref(),
+            preparation_failed,
+        ),
         worker_active: active,
         post_lock_pre_dispatch_ms,
+        renderer_queue_wait_ms,
         first_agent_message_delta_elapsed_ms: trace
             .as_ref()
             .and_then(crate::generation_timing::Record::first_agent_message_delta_ms),
@@ -1202,6 +1276,26 @@ pub(crate) async fn get_workspace_generation_job(
     .map_err(|_| "The workspace job check worker stopped.".to_owned())?
 }
 
+/// Record renderer queue wait before later preparation can fail. This job
+/// receipt also covers a stop that happens before the native timing trace exists.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn record_workspace_generation_queue_wait(
+    app: AppHandle,
+    job_id: String,
+    project_id: String,
+    snapshot_id: String,
+    renderer_queue_wait_ms: u64,
+) -> Result<super::jobs::JobRecord, String> {
+    let storage = app_data_directory(&app)?;
+    super::jobs::record_renderer_queue_wait(
+        &storage,
+        &job_id,
+        &project_id,
+        &snapshot_id,
+        renderer_queue_wait_ms,
+    )
+}
+
 /// Durably record Stop before asking the run owner to cancel provider work.
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_workspace_generation_job(
@@ -1210,10 +1304,16 @@ pub(crate) fn stop_workspace_generation_job(
     job_id: String,
     project_id: String,
     snapshot_id: String,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<super::jobs::JobRecord, String> {
     let storage = app_data_directory(&app)?;
-    let requested =
-        super::jobs::request_stop_or_record(&storage, &job_id, &project_id, &snapshot_id)?;
+    let requested = super::jobs::request_stop_or_record(
+        &storage,
+        &job_id,
+        &project_id,
+        &snapshot_id,
+        renderer_queue_wait_ms,
+    )?;
     if !manager.cancel(&job_id) {
         if matches!(
             requested.state,

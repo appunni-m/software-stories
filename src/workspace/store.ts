@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
-import { finishQueuedWorkspaceGenerationJob, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, queueWorkspaceGenerationJob, stopWorkspaceGenerationJob, type ChapterRevision, type WorkspaceGenerationJob } from '../lib/commands';
+import { finishQueuedWorkspaceGenerationJob, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, queueWorkspaceGenerationJob, recordWorkspaceGenerationQueueWait, stopWorkspaceGenerationJob, type ChapterRevision, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -18,7 +18,13 @@ const states = new Map<string, WorkspaceState>();
 const browserPreviewWriteBlocked = new Set<string>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
-type WorkspaceJob = { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] };
+type WorkspaceJob = {
+  cancelled: boolean;
+  runId: string | null;
+  pendingGuideAdvances: string[];
+  rendererQueueWaitStartedAt?: number;
+  rendererQueueWaitMs?: number;
+};
 const jobs = new Map<string, WorkspaceJob>();
 const workspaceDraftTimers = new Map<string,{project:string;snapshot:string;timer:ReturnType<typeof setTimeout>}>();
 // A new identity on WebView reload lets native recovery distinguish live
@@ -330,9 +336,16 @@ async function stopQuestionAndWait(project: string, snapshot: string, id: string
   }
   const runId = job?.runId ?? turn?.runIds?.at(-1);
   if (runId) {
+    if (job) job.cancelled = true;
     try {
-      const saved = await stopWorkspaceGenerationJob(runId,project,snapshot);
-      if (job) job.cancelled = true;
+      const queueWaitMs = job?.rendererQueueWaitStartedAt === undefined
+        ? job?.rendererQueueWaitMs
+        : Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-job.rendererQueueWaitStartedAt)));
+      if (job && queueWaitMs !== undefined) {
+        job.rendererQueueWaitStartedAt = undefined;
+        job.rendererQueueWaitMs = queueWaitMs;
+      }
+      const saved = await stopWorkspaceGenerationJob(runId,project,snapshot,queueWaitMs);
       if (['queued','preparing','running','stopRequested'].includes(saved.state)) {
         // Native Stop is durably requested, but the worker has not reached a
         // terminal state yet. Keep the turn active until its owner reconciles.
@@ -797,7 +810,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   if ((turn.runIds?.length ?? 0) >= 32) { patchTurn(project,snapshot,id,{error:'This question has reached its retry limit. Ask a follow-up to continue.'}); return null; }
   const runId = crypto.randomUUID();
   const selection = readCodexSelection();
-  const job = {cancelled:false,runId,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
+  const job:WorkspaceJob = {cancelled:false,runId,pendingGuideAdvances:[]}; jobs.set(id,job);
   const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
   patchTurn(project,snapshot,id,{status:'queued',failureCode:undefined,error:undefined,runIds:[...(turn.runIds ?? []),runId]});
   let release:(()=>void)|null=null;
@@ -810,10 +823,17 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     await flushWorkspaceConversationBeforeGeneration(project,snapshot);check();
     await queueWorkspaceGenerationJob({jobId:runId,conversationTurnId:id,rendererSessionId,projectId:project,snapshotId:snapshot,
       modelId:selection.modelId,reasoningEffort:selection.effort});
+    check();
     const queueWaitStarted=rendererClock();
+    job.rendererQueueWaitStartedAt=queueWaitStarted;
     release=await enterQuestionQueue();
     const queueWaitMs = Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-queueWaitStarted)));
-    check(); patchTurn(project,snapshot,id,{status:'working',error:undefined});
+    job.rendererQueueWaitStartedAt=undefined;
+    const measuredQueueWaitMs=job.rendererQueueWaitMs ?? queueWaitMs;
+    job.rendererQueueWaitMs=measuredQueueWaitMs;
+    await recordWorkspaceGenerationQueueWait(runId,project,snapshot,measuredQueueWaitMs).catch(() => undefined);
+    check();
+    patchTurn(project,snapshot,id,{status:'working',error:undefined});
     await ensureCodexConnection(); check();
     // Subscribe before dispatch. Events carry identities only; the native save
     // command verifies the full checkpoint before any content is rendered.
