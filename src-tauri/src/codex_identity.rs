@@ -1,7 +1,7 @@
 //! Observed app-server/account identity bound to a native request review.
 //! This is local change detection, not entitlement or immutable-execution proof.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path};
@@ -20,12 +20,11 @@ pub(crate) struct CodexReviewRuntime {
     pub connection_id: String,
     pub executable_path: String,
     pub executable_sha256: String,
-    /// `None` is accepted only when decoding older, read-only local records.
-    /// New Codex reviews must bind the version reported by app-server initialize.
-    #[serde(default)]
+    /// Codex app-server version observed during initialize.
+    #[serde(deserialize_with = "required_nullable_field")]
     pub runtime_version: Option<String>,
-    /// Older saved reviews have no source metadata; current reviews require it.
-    #[serde(default)]
+    /// Provenance for the observed runtime version.
+    #[serde(deserialize_with = "required_nullable_field")]
     pub runtime_version_source: Option<CodexRuntimeVersionSource>,
     pub account_identity_sha256: String,
     pub account_revision: u64,
@@ -81,11 +80,6 @@ impl CodexReviewRuntime {
     /// New source-bearing reviews require the observed app-server version.
     pub(crate) fn current_review_shape(&self) -> bool {
         self.valid_shape()
-            && self
-                .runtime_version
-                .as_deref()
-                .is_some_and(|version| text(version, 128))
-            && self.runtime_version_source.is_some()
     }
 
     pub(crate) fn valid_shape(&self) -> bool {
@@ -101,8 +95,8 @@ impl CodexReviewRuntime {
             && self
                 .runtime_version
                 .as_deref()
-                .is_none_or(|version| text(version, 128))
-            && (self.runtime_version.is_some() || self.runtime_version_source.is_none())
+                .is_some_and(|version| text(version, 128))
+            && self.runtime_version_source.is_some()
             && digest(&self.account_identity_sha256)
     }
 }
@@ -121,6 +115,14 @@ fn digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn required_nullable_field<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{CodexReviewRuntime, CodexRuntimeVersionSource};
@@ -128,7 +130,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn runtime_version_provenance_is_bound_and_old_reviews_remain_readable() {
+    fn runtime_version_provenance_is_required_by_the_current_review_contract() {
         let account = json!({
             "requiresOpenaiAuth": true,
             "account": {
@@ -156,19 +158,26 @@ mod tests {
         let serialized = serde_json::to_value(&runtime).unwrap();
         assert_eq!(serialized["runtimeVersionSource"], "serverInfoVersion");
 
-        let mut old_review = serialized;
-        old_review
+        let mut missing_source = serialized.clone();
+        missing_source
             .as_object_mut()
             .unwrap()
             .remove("runtimeVersionSource");
-        let old_review: CodexReviewRuntime = serde_json::from_value(old_review).unwrap();
-        assert!(old_review.valid_shape());
-        assert!(!old_review.current_review_shape());
+        assert!(serde_json::from_value::<CodexReviewRuntime>(missing_source).is_err());
+
+        let mut missing_version = serialized;
+        missing_version
+            .as_object_mut()
+            .unwrap()
+            .remove("runtimeVersion");
+        assert!(serde_json::from_value::<CodexReviewRuntime>(missing_version).is_err());
 
         let mut malformed: Value = serde_json::to_value(&runtime).unwrap();
         malformed["runtimeVersion"] = Value::Null;
-        assert!(!serde_json::from_value::<CodexReviewRuntime>(malformed)
-            .unwrap()
-            .valid_shape());
+        assert!(
+            !serde_json::from_value::<CodexReviewRuntime>(malformed)
+                .unwrap()
+                .valid_shape()
+        );
     }
 }
