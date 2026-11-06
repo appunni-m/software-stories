@@ -5,6 +5,8 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'tests/**'
+      - '**/tests.rs'
+      - '**/tests/**'
       - '.gitignore'
       - 'README.md'
       - 'CONTRIBUTING.md'
@@ -13,11 +15,13 @@ on:
   push:
     branches:
       - main
-    # These files are not copied into the app bundle. Do not let user/contributor
-    # docs or test fixtures occupy the branch's single pending package-input run.
+    # Docs and test-only files are not copied into the app bundle. Do not let
+    # them occupy the branch's single pending package-input run.
     paths-ignore:
       - 'docs/**'
       - 'tests/**'
+      - '**/tests.rs'
+      - '**/tests/**'
       - '.gitignore'
       - 'README.md'
       - 'CONTRIBUTING.md'
@@ -83,6 +87,8 @@ jobs:
           if git diff --quiet "$base" "$head" -- . \
             ':(exclude)docs/**' \
             ':(exclude)tests/**' \
+            ':(glob,exclude)**/tests.rs' \
+            ':(glob,exclude)**/tests/**' \
             ':(exclude).gitignore' \
             ':(exclude)README.md' \
             ':(exclude)CONTRIBUTING.md' \
