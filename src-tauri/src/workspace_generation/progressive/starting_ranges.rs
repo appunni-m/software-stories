@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 const POLICY: &str = "native-starting-range-hints-v1";
 const INSTRUCTIONS: &str = "The prompt's startingRanges are native-checked captured byte coordinates from the guide outline. For this one slide, start by reading all supplied ranges together in one read_code call; do not repeat repository-wide discovery first. They are hints, not evidence or a source selection. Only citeable fragments delivered by this investigation's own read_code are evidence; never cite a starting range or an earlier operation's reference ID. Search only when a specific important part of this slide remains unverified, and batch the resulting reads. Answer this slide's question only; other mechanisms belong to their own slides. Stop researching once the delivered source supports the input, key decision, outcomes and requested failure paths. Prefer one to three short relevant evidence fragments per claim, with a concrete backticked code name from each fragment also named in the prose. Do not exhaust unrelated search pages or map the whole repository.";
+const CALLEE_TRACE_INSTRUCTIONS: &str = "Trace every requested behavior across each call boundary. A caller's call site proves which arguments it forwards and how it handles the result; it does not prove a callee's state mutation, fallback or produced value. Use find_definitions or a scoped search and read the implementation that changes or returns the requested object. For a claim about a type or mutable slot, cite the operation that fills, clears or returns it; for a fallback, cite its guard and the fallback construction or return. Cite the caller too when explaining how the request reaches that operation. After namedIdentifierEvidence, read a range containing the named declaration or remove the identifier only if the remaining behavior is still directly proved; do not rename an error as a substitute for missing path evidence.";
 
 pub(super) fn request(
     storage: &Path,
@@ -92,6 +93,7 @@ pub(super) fn request_for(
         instructions.push_str(&format!("\n\n{INSTRUCTIONS}"));
     }
     if guide_intent.is_some() {
+        instructions.push_str(&format!("\n\n{CALLEE_TRACE_INSTRUCTIONS}"));
         instructions.push_str(&format!("\n\n{}", guide_intent::INSTRUCTIONS));
     }
     if guide_intent.is_some_and(|intent| intent.unit_key == "opening") {
@@ -613,7 +615,7 @@ mod tests {
             &runtime,
         )
         .unwrap();
-        let (prompt, _, _, _) = request(
+        let (prompt, _, _, instructions) = request(
             &f.storage,
             &input,
             &f.manifest,
@@ -621,6 +623,7 @@ mod tests {
             Some(&guide_intent()),
         )
         .unwrap();
+        assert!(instructions.contains(CALLEE_TRACE_INSTRUCTIONS));
         let value: Value = serde_json::from_str(&prompt).unwrap();
         let ranges: Vec<RangeRequest> =
             serde_json::from_value(value["startingRanges"].clone()).unwrap();
