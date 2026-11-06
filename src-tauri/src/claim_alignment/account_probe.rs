@@ -58,7 +58,7 @@ fn installed_codex_repairs_a_leaf_parent_once() {
         .map_err(|e| e.message)?
         .review;
         let policy = CorrectionPolicy::from_generation_config(&review.generation_config);
-        if policy != CorrectionPolicy::ChapterScenesV8 {
+        if policy != CorrectionPolicy::ChapterScenesV9 {
             return Err(
                 "The production review did not select the current chapter correction policy."
                     .into(),

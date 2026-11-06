@@ -595,8 +595,9 @@ pub fn validate(
     Ok(())
 }
 
-/// A narrated graph scene must have a claim-linked focus and remain readable
-/// in the reader's focused view, which adds one edge of context.
+/// A narrated graph scene must have a claim-linked focus and a claim-cited
+/// relationship. It must remain readable in the focused view, which adds one
+/// edge of context.
 pub(crate) fn validate_graph_density(
     presentation: &ScenePresentation,
     nodes: &[VisualNode],
@@ -640,6 +641,40 @@ pub(crate) fn validate_graph_density(
         if focused.is_empty() {
             return Err(
                 "A graph scene needs at least one node linked to its own claim's source evidence; full-map inspection is available separately."
+                    .into(),
+            );
+        }
+        let mut has_source_backed_relationship = false;
+        let mut has_unsupported_relationship = false;
+        for edge in edges {
+            let Some(from) = indices.get(edge.from_node_id.as_str()) else {
+                continue;
+            };
+            let Some(to) = indices.get(edge.to_node_id.as_str()) else {
+                continue;
+            };
+            if !focused.contains(from) && !focused.contains(to) {
+                continue;
+            }
+            let supports_claim = edge
+                .evidence_anchor_ids
+                .iter()
+                .any(|id| anchor_ids.contains(id.as_str()));
+            if !edge.label.trim().is_empty() && supports_claim {
+                has_source_backed_relationship = true;
+            } else {
+                has_unsupported_relationship = true;
+            }
+        }
+        if has_unsupported_relationship {
+            return Err(
+                "Every relationship touching a graph scene's claim-linked focus must be labeled and cited to that same claim's source evidence."
+                    .into(),
+            );
+        }
+        if !has_source_backed_relationship {
+            return Err(
+                "A graph scene needs a labeled relationship connected to its claim-linked focus and cited to that same claim's source evidence; use a meaningful composition when no such relationship exists."
                     .into(),
             );
         }
@@ -724,6 +759,57 @@ mod tests {
                 .unwrap_err()
                 .contains("at most eight nodes")
         );
+    }
+
+    #[test]
+    fn graph_scene_requires_a_claim_cited_relationship_connected_to_its_focus() {
+        let (mut nodes, claims, mut presentation) = fixture();
+        let claim_anchor = claims[0].anchors[0].anchor_id.clone();
+        nodes[0].evidence_anchor_ids = vec![claim_anchor.clone()];
+        if nodes.len() == 1 {
+            let mut context = nodes[0].clone();
+            context.node_id = "graph-context".into();
+            context.evidence_anchor_ids.clear();
+            nodes.push(context);
+        }
+        presentation.scenes.truncate(1);
+        presentation.scenes[0].mode = SceneMode::Graph;
+        presentation.scenes[0].elements.clear();
+
+        let missing = validate_graph_density(&presentation, &nodes, &[], &claims).unwrap_err();
+        assert!(missing.contains("labeled relationship"));
+
+        let related = crate::chapters::VisualEdge {
+            edge_id: "claim-related-edge".into(),
+            from_node_id: nodes[0].node_id.clone(),
+            to_node_id: nodes[1].node_id.clone(),
+            label: "calls the next step".into(),
+            evidence_anchor_ids: vec![claim_anchor.clone()],
+        };
+        validate_graph_density(
+            &presentation,
+            &nodes,
+            std::slice::from_ref(&related),
+            &claims,
+        )
+        .unwrap();
+
+        let unrelated_evidence = crate::chapters::VisualEdge {
+            evidence_anchor_ids: vec!["anchor:another-claim".into()],
+            ..related.clone()
+        };
+        let error = validate_graph_density(
+            &presentation,
+            &nodes,
+            std::slice::from_ref(&unrelated_evidence),
+            &claims,
+        )
+        .unwrap_err();
+        assert!(error.contains("Every relationship touching"));
+
+        let mixed = [related, unrelated_evidence];
+        let error = validate_graph_density(&presentation, &nodes, &mixed, &claims).unwrap_err();
+        assert!(error.contains("Every relationship touching"));
     }
 
     #[test]

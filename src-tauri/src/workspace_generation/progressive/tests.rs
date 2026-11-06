@@ -943,15 +943,18 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(
         system_instructions().contains("independent validation guards belong in separate scenes")
     );
-    assert!(system_instructions().contains("Choose among these visual grammars by meaning."));
+    assert!(system_instructions().contains(
+        "Let the cited behavior choose the smallest app-supported visual form for each claim."
+    ));
     assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-"));
     assert!(system_instructions().contains("Visual composition review v"));
     assert!(system_instructions().contains(
-        "one source-backed change, decision or result and one focal object or relationship"
+        "Before composing, name the mechanism and the one focal point the reader should understand."
     ));
     assert!(
-        system_instructions()
-            .contains("use the actual source variable or field as a symbolic input/result")
+        system_instructions().contains(
+            "Use the actual source variable or field as a symbolic input/result when it clarifies static code"
+        )
     );
     assert!(system_instructions().contains(
         "sceneSpeechRole means spoken narration contains compact source syntax, an all-caps abbreviation or a format token."
@@ -963,15 +966,15 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(!system_instructions().contains("Elements have exactly kind,parentIndex,nodeIndex"));
     assert!(system_instructions().contains("under 45 visible characters per card"));
     assert!(system_instructions().contains(
-        "Let observed behavior choose the visual mode independently for each claim scene"
+        "Choose the visual mode independently for each claim scene; a visual section may mix composition and graph scenes"
+    ));
+    assert!(system_instructions().contains(
+        "Every other edge touching a focused node must also cite that same claim"
     ));
     assert!(
         system_instructions()
             .contains("Follow a real input through source-grounded changes and outcomes")
     );
-    assert!(system_instructions().contains(
-        "Let observed behavior choose the visual mode independently for each claim scene"
-    ));
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );

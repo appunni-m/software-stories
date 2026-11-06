@@ -64,11 +64,11 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v75`, Visual design method `v65`, teaching policy
+`ai-html-compositions-v76`, Visual design method `v66`, teaching policy
 `meaning-first-v36`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
-reference stays synchronized with the implementation. The v75 authoring prompt
+reference stays synchronized with the implementation. The v76 authoring prompt
 uses a compact behavior-to-visual selector and removes repeated narration and
 layout rules; the typed schema and source-evidence checks remain the enforcement
 boundary. The teaching contract starts
@@ -147,14 +147,15 @@ natural or that TTS pronounces it well. Layout must enact the behavior rather
 than default to a uniform card grid; it changes at an evidenced handoff, not
 for decoration.
 
-Every narrated graph scene must include at least one node citing that scene's
-own claim. The focused scene shows those claim-linked nodes plus one edge of
-context and is limited to eight visible nodes. A scene without claim-linked
-focus is rejected; the separate Full map view does not substitute for a
-scene-grounded visual. One bounded correction tells the agent to add a node
-linked to the scene's evidence or choose a meaningful composition. These are
-source-validation and repair guarantees, not evidence that a generated graph
-is clear or useful.
+Every narrated graph scene must include a node citing its own claim and at
+least one labeled edge connecting that focused node to another node. Every edge
+touching a claim-focused node must cite the same claim's source evidence. The
+focused scene shows claim-linked nodes plus one edge of context and is limited to eight visible nodes. A scene without a
+claim-linked focus or same-claim relationship is rejected; the separate Full
+map view does not substitute for a scene-grounded visual. One bounded
+correction asks for the missing same-claim relationship or a meaningful
+composition. These are source-validation and repair guarantees, not evidence
+that a generated graph is clear or useful.
 For static code without a concrete runtime sample, a visual should use the
 source variable or field as a symbolic input or result when that makes the
 change clearer. Generic stand-ins such as “Loaded input” or “Processed result”

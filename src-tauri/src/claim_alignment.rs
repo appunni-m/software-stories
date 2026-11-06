@@ -17,7 +17,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CorrectionPolicy {
     Disabled,
-    ChapterScenesV8,
+    ChapterScenesV9,
 }
 
 impl CorrectionPolicy {
@@ -25,7 +25,7 @@ impl CorrectionPolicy {
         if config.get("claimAlignmentCorrection").is_none()
             && config.get("candidateCorrection") == Some(&chapter_correction_config())
         {
-            Self::ChapterScenesV8
+            Self::ChapterScenesV9
         } else {
             Self::Disabled
         }
@@ -33,7 +33,7 @@ impl CorrectionPolicy {
 }
 
 pub(crate) fn chapter_correction_config() -> Value {
-    json!({"policy":"chapter-scenes-identifiers-and-graph-density-v8","maxAttempts":1})
+    json!({"policy":"chapter-scenes-identifiers-graph-relationship-and-density-v9","maxAttempts":1})
 }
 
 /// Chapter-specific preflight; full source and storage admission remain separate.
@@ -43,7 +43,7 @@ pub(crate) fn chapter_diagnostics(response: &str) -> Option<Vec<Value>> {
     Some(issues)
 }
 
-/// Whether a graph scene lacks claim-linked focus or exceeds its visible node budget.
+/// Whether a graph scene lacks claim-linked focus, a supported relationship, or exceeds its node budget.
 pub(crate) fn graph_scene_needs_focus_or_density_repair(
     section: &Value,
     claim_index: usize,
@@ -251,7 +251,7 @@ fn prompt_for_issues(mut issues: Vec<Value>) -> Option<String> {
         .iter()
         .any(|issue| issue["sceneProblem"] == "graphDensity")
     {
-        " A graphDensity finding means the graph scene either has no node linked to its own claim's source evidence or its focused view would display more than eight nodes after adding one edge of context. Link at least one node to this scene's claim, then keep each focused scene at eight visible nodes or fewer. If a broad claim causes the crowding, split it into narrower, consecutively ordered, source-grounded claims and scenes, then assign each node to the claim it proves. A scene may instead use a meaningful HTML composition for that claim. Preserve all guards, branches, failures, outcomes, evidence and real graph edges; never hide supported behavior by deleting nodes or links. Full-map inspection is a separate reader view and does not replace scene focus."
+        " A graphDensity finding means the graph scene either has no node linked to its own claim's source evidence, has no labeled edge joining a node focused on this claim and cited to that same claim's source evidence, has another edge touching the focused node without same-claim evidence, or its focused view would display more than eight nodes after adding one edge of context. Link at least one node to this scene's claim and one same-claim edge to a focused node; every edge touching that focus must cite the same claim. Then keep each focused scene at eight visible nodes or fewer. If no source-backed relationship belongs in this scene, use a meaningful composition. If a broad claim causes the crowding, split it into narrower, consecutively ordered, source-grounded claims and scenes, then assign each node to the claim it proves. A scene may instead use a meaningful HTML composition for that claim. Preserve all guards, branches, failures, outcomes, evidence and real graph edges; never hide supported behavior by deleting nodes or links. Full-map inspection is a separate reader view and does not replace scene focus."
     } else {
         ""
     };
@@ -429,7 +429,7 @@ mod tests {
         let current = json!({"candidateCorrection":chapter_correction_config()});
         assert_eq!(
             CorrectionPolicy::from_generation_config(&current),
-            ChapterScenesV8
+            ChapterScenesV9
         );
         let legacy = json!({"workspaceQuestion":"Which path runs?", "claimAlignmentCorrection":{"policy":"identifier-alignment-v1","maxAttempts":1}});
         assert_eq!(CorrectionPolicy::from_generation_config(&legacy), Disabled);
@@ -443,6 +443,8 @@ mod tests {
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v7","maxAttempts":1}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v8","maxAttempts":1}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-graph-relationship-and-density-v9","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"future","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-identifiers-and-graph-density-v6","maxAttempts":1,"extra":true}}),
             json!({"candidateCorrection":chapter_correction_config(),"claimAlignmentCorrection":legacy["claimAlignmentCorrection"]}),

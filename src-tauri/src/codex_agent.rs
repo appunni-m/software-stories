@@ -3253,12 +3253,12 @@ mod tests {
         use crate::claim_alignment::CorrectionPolicy::*;
 
         assert_eq!(
-            completed_response_text(Some("not-json"), ChapterScenesV8).unwrap(),
+            completed_response_text(Some("not-json"), ChapterScenesV9).unwrap(),
             "not-json"
         );
         assert!(completed_response_text(Some("not-json"), Disabled).is_err());
         assert!(completed_response_text(Some("{}"), Disabled).is_ok());
-        assert!(completed_response_text(None, ChapterScenesV8).is_err());
+        assert!(completed_response_text(None, ChapterScenesV9).is_err());
     }
 
     #[test]

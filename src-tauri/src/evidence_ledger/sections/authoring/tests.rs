@@ -283,6 +283,9 @@ fn authored_graph_scenes_are_limited_by_their_focused_visible_node_count() {
             }))
             .collect::<Vec<_>>()
     );
+    readable["claims"][0]["scene"]["edges"] = json!([{
+        "fromKey":"step-0","toKey":"step-1","label":"continues to","references":["code:1"]
+    }]);
     let result = compile(&readable);
     assert!(result.is_ok(), "{:?}", result.err());
 

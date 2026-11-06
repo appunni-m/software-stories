@@ -162,19 +162,19 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
 /// context. Return None for an unknown proposal shape and leave it to full
 /// admission.
 pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
-    graph_scene_metrics(section, claim_index).map(|(count, _)| count)
+    graph_scene_metrics(section, claim_index).map(|(count, _, _)| count)
 }
 
 pub(super) fn graph_scene_needs_focus_or_density_repair(
     section: &Value,
     claim_index: usize,
 ) -> Option<bool> {
-    graph_scene_metrics(section, claim_index).map(|(count, focused)| {
-        !focused || count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
+    graph_scene_metrics(section, claim_index).map(|(count, focused, related)| {
+        !focused || !related || count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
     })
 }
 
-fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bool)> {
+fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bool, bool)> {
     let visual = section.get("visual")?;
     let nodes = visual.get("nodes")?.as_array()?;
     let edges = visual.get("edges")?.as_array()?;
@@ -193,20 +193,33 @@ fn graph_scene_metrics(section: &Value, claim_index: usize) -> Option<(usize, bo
         }
     }
     let mut valid_edges = Vec::with_capacity(edges.len());
+    let mut related_to_claim = false;
+    let mut unrelated_incident_edge = false;
     for edge in edges {
         let from = usize::try_from(edge.get("fromNodeIndex")?.as_u64()?).ok()?;
         let to = usize::try_from(edge.get("toNodeIndex")?.as_u64()?).ok()?;
         if from >= nodes.len() || to >= nodes.len() {
             return None;
         }
+        let supports_claim = edge.get("evidence")?.as_array()?.iter().any(|reference| {
+            reference.get("claimIndex").and_then(Value::as_u64) == Some(claim_index)
+        });
+        if focused.contains(&from) || focused.contains(&to) {
+            if supports_claim {
+                related_to_claim = true;
+            } else {
+                unrelated_incident_edge = true;
+            }
+        }
         valid_edges.push((from, to));
     }
     if focused.is_empty() {
-        return Some((nodes.len(), false));
+        return Some((nodes.len(), false, false));
     }
     Some((
         crate::scene_presentation::visible_graph_node_count(nodes.len(), &focused, valid_edges),
         true,
+        related_to_claim && !unrelated_incident_edge,
     ))
 }
 
@@ -267,6 +280,49 @@ mod tests {
     }
 
     #[test]
+    fn focused_graph_without_a_claim_cited_relationship_needs_repair() {
+        let missing = graph_section(1, 0, 1);
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&missing, 0),
+            Some(true)
+        );
+
+        let wrong_claim = graph_section(1, 1, 2);
+        let mut wrong_claim = wrong_claim;
+        wrong_claim["visual"]["edges"][0]["evidence"][0]["claimIndex"] = json!(1);
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&wrong_claim, 0),
+            Some(true)
+        );
+
+        let disconnected = graph_section(1, 1, 3);
+        let mut disconnected = disconnected;
+        disconnected["visual"]["edges"][0]["fromNodeIndex"] = json!(1);
+        disconnected["visual"]["edges"][0]["toNodeIndex"] = json!(2);
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&disconnected, 0),
+            Some(true)
+        );
+
+        let supported = graph_section(1, 1, 2);
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&supported, 0),
+            Some(false)
+        );
+
+        let mut mixed = supported;
+        mixed["visual"]["edges"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"fromNodeIndex":0,"toNodeIndex":1,"label":"unrelated",
+                "evidence":[{"claimIndex":1,"evidenceIndex":0}]}));
+        assert_eq!(
+            graph_scene_needs_focus_or_density_repair(&mixed, 0),
+            Some(true)
+        );
+    }
+
+    #[test]
     fn crowded_graph_scene_gets_a_positional_diagnostic_without_node_text() {
         let mut proposal = composed_proposal(3);
         let nodes = (0..9)
@@ -293,6 +349,7 @@ mod tests {
         let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
         assert!(prompt.contains("eight visible nodes or fewer"));
         assert!(prompt.contains("no node linked to its own claim's source evidence"));
+        assert!(prompt.contains("labeled edge joining a node focused on this claim"));
         assert!(prompt.contains("Full-map inspection is a separate reader view"));
         assert!(prompt.contains(
             "Preserve all guards, branches, failures, outcomes, evidence and real graph edges"
