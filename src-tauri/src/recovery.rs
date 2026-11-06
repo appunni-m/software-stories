@@ -11,6 +11,14 @@ const JOURNAL_SCHEMA_VERSION: u32 = 2;
 const MAX_JOURNAL_BYTES: usize = 1024 * 1024;
 const MAX_OPERATION_COUNT: usize = 256;
 
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InterruptedOperationKind {
@@ -25,6 +33,7 @@ pub struct InterruptedOperation {
     pub kind: InterruptedOperationKind,
     pub project_id: String,
     pub snapshot_id: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub target_path: Option<String>,
     pub started_at_unix_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -37,6 +46,7 @@ pub struct InterruptedProviderRequest {
     pub provider_id: String,
     pub purpose: String,
     pub selected_paths: Vec<String>,
+    #[serde(deserialize_with = "required_nullable")]
     pub section_update: Option<crate::provider::SectionUpdateReviewTarget>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_lens: Option<crate::provider::CodeLensExplanationTarget>,
@@ -69,6 +79,7 @@ pub struct InterruptedGitScope {
     /// Binds the requested refs and their resolved commit object identities.
     pub comparison_id: String,
     pub selected_changes: Vec<crate::pr_guide::SelectedChangeIdentity>,
+    #[serde(deserialize_with = "required_nullable")]
     pub hunk_index: Option<usize>,
     pub patch_sha256: Vec<String>,
 }
@@ -657,6 +668,88 @@ mod tests {
             Err(error) if error.contains("unsupported")
         ));
         assert_eq!(fs::read(journal_path(&directory.0)).unwrap(), old_bytes);
+    }
+
+    #[test]
+    fn current_recovery_records_require_explicit_nullable_fields() {
+        let operation = new_capture_operation("/repo/a".to_owned(), "snap-a".to_owned());
+        let value = serde_json::to_value(&operation).unwrap();
+        let mut missing_target = value.clone();
+        assert!(
+            missing_target
+                .as_object_mut()
+                .unwrap()
+                .remove("targetPath")
+                .is_some()
+        );
+        assert!(serde_json::from_value::<InterruptedOperation>(missing_target).is_err());
+
+        let provider_request = InterruptedProviderRequest {
+            provider_id: "openai".to_owned(),
+            purpose: "fileChapter".to_owned(),
+            selected_paths: vec![],
+            section_update: None,
+            code_lens: None,
+            git: None,
+            repository_plan: None,
+            planned_chapter: None,
+        };
+        let mut missing_section_update = serde_json::to_value(provider_request).unwrap();
+        assert!(
+            missing_section_update
+                .as_object_mut()
+                .unwrap()
+                .remove("sectionUpdate")
+                .is_some()
+        );
+        assert!(
+            serde_json::from_value::<InterruptedProviderRequest>(missing_section_update).is_err()
+        );
+
+        let git_scope = InterruptedGitScope {
+            base_ref: "main".to_owned(),
+            head_ref: "feature".to_owned(),
+            comparison_id: "comparison".to_owned(),
+            selected_changes: vec![],
+            hunk_index: None,
+            patch_sha256: vec![],
+        };
+        let mut missing_hunk_index = serde_json::to_value(git_scope).unwrap();
+        assert!(
+            missing_hunk_index
+                .as_object_mut()
+                .unwrap()
+                .remove("hunkIndex")
+                .is_some()
+        );
+        assert!(serde_json::from_value::<InterruptedGitScope>(missing_hunk_index).is_err());
+    }
+
+    #[test]
+    fn omitted_current_recovery_field_preserves_the_journal_bytes() {
+        let directory = TestDirectory::new();
+        let journal = InterruptionJournal::default();
+        journal
+            .record(
+                &directory.0,
+                new_capture_operation("/repo/a".to_owned(), "snap-a".to_owned()),
+            )
+            .unwrap();
+        let path = journal_path(&directory.0);
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(
+            value["operations"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("targetPath")
+                .is_some()
+        );
+        let malformed = serde_json::to_vec(&value).unwrap();
+        fs::write(&path, &malformed).unwrap();
+
+        assert!(matches!(journal.list(&directory.0), Err(error) if error.contains("invalid")));
+        assert_eq!(fs::read(&path).unwrap(), malformed);
     }
 
     #[test]
