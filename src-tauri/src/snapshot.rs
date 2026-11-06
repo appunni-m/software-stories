@@ -28,6 +28,14 @@ const MAX_MANIFEST_METADATA_BYTES: usize = 128 * 1024 * 1024;
 const MAX_CATALOG_METADATA_BYTES: usize = 16 * 1024 * 1024;
 const MAX_SNAPSHOTS_PER_PROJECT: usize = 20_000;
 
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 static SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -160,6 +168,7 @@ pub struct CapturedFile {
 pub struct SkippedPath {
     pub path: String,
     pub kind: InventoryPathKind,
+    #[serde(deserialize_with = "required_nullable")]
     pub size_bytes: Option<u64>,
     pub reason: String,
     pub details: String,
@@ -180,6 +189,7 @@ pub struct SnapshotSource {
 pub struct InventoryDirectory {
     pub path: String,
     pub kind: InventoryPathKind,
+    #[serde(deserialize_with = "required_nullable")]
     pub size_bytes: Option<u64>,
 }
 
@@ -188,9 +198,12 @@ pub struct InventoryDirectory {
 pub struct SnapshotSummary {
     pub snapshot_id: String,
     pub project_id: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub parent_snapshot_id: Option<String>,
     pub created_at_unix_ms: u64,
+    #[serde(deserialize_with = "required_nullable")]
     pub branch: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
     pub head: Option<String>,
     pub index_state: GitChangeState,
     pub worktree_state: GitChangeState,
@@ -2389,6 +2402,66 @@ mod tests {
     }
 
     #[test]
+    fn persisted_snapshot_records_require_explicit_nullable_fields() {
+        let summary = SnapshotSummary {
+            snapshot_id: "snapshot-a".to_owned(),
+            project_id: "project-a".to_owned(),
+            parent_snapshot_id: None,
+            created_at_unix_ms: 1,
+            branch: None,
+            head: None,
+            index_state: GitChangeState::Clean,
+            worktree_state: GitChangeState::Clean,
+            status: CaptureStatus::Complete,
+            files_captured: 0,
+            paths_skipped: 0,
+            total_bytes: 0,
+            paths_visited: 0,
+            policy_version: POLICY_VERSION.to_owned(),
+        };
+        let summary = serde_json::to_value(summary).unwrap();
+        for field in ["parentSnapshotId", "branch", "head"] {
+            let mut missing = summary.clone();
+            assert!(missing.as_object_mut().unwrap().remove(field).is_some());
+            assert!(serde_json::from_value::<SnapshotSummary>(missing).is_err());
+        }
+
+        let directory = serde_json::to_value(InventoryDirectory {
+            path: ".".to_owned(),
+            kind: InventoryPathKind::Directory,
+            size_bytes: None,
+        })
+        .unwrap();
+        let mut missing_directory_size = directory;
+        assert!(
+            missing_directory_size
+                .as_object_mut()
+                .unwrap()
+                .remove("sizeBytes")
+                .is_some()
+        );
+        assert!(serde_json::from_value::<InventoryDirectory>(missing_directory_size).is_err());
+
+        let skipped = serde_json::to_value(SkippedPath {
+            path: "large.bin".to_owned(),
+            kind: InventoryPathKind::File,
+            size_bytes: None,
+            reason: "unsupported".to_owned(),
+            details: "not captured".to_owned(),
+        })
+        .unwrap();
+        let mut missing_skipped_size = skipped;
+        assert!(
+            missing_skipped_size
+                .as_object_mut()
+                .unwrap()
+                .remove("sizeBytes")
+                .is_some()
+        );
+        assert!(serde_json::from_value::<SkippedPath>(missing_skipped_size).is_err());
+    }
+
+    #[test]
     fn corrupt_snapshot_catalog_does_not_reset_history_or_start_capture() {
         let temporary = TestDirectory::new("catalog-corrupt");
         let repository = temporary.path().join("repository");
@@ -2397,6 +2470,25 @@ mod tests {
         let project = project(&repository);
         let previous = default_capture(&storage, &project);
         let path = catalog_path(&storage, &project.project_id);
+
+        let mut incomplete: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(
+            incomplete["snapshots"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("branch")
+                .is_some()
+        );
+        let incomplete = serde_json::to_vec(&incomplete).unwrap();
+        fs::write(&path, &incomplete).unwrap();
+        assert!(
+            list_project_snapshots(&storage, &project.project_id)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid")
+        );
+        assert_eq!(fs::read(&path).unwrap(), incomplete);
 
         let unsupported = serde_json::to_vec(&serde_json::json!({
             "schemaVersion": 99,
@@ -2441,6 +2533,23 @@ mod tests {
         let path = manifest_path(&storage, &project.project_id, &manifest.summary.snapshot_id);
 
         let original = fs::read(&path).unwrap();
+        let mut incomplete: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        assert!(
+            incomplete["summary"]
+                .as_object_mut()
+                .unwrap()
+                .remove("branch")
+                .is_some()
+        );
+        let incomplete = serde_json::to_vec(&incomplete).unwrap();
+        fs::write(&path, &incomplete).unwrap();
+        assert!(
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap_err()
+                .contains("invalid")
+        );
+        assert_eq!(fs::read(&path).unwrap(), incomplete);
+
         let mut legacy: serde_json::Value = serde_json::from_slice(&original).unwrap();
         legacy["schemaVersion"] = serde_json::json!(1);
         let legacy = serde_json::to_vec(&legacy).unwrap();
