@@ -21,6 +21,7 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
+mod freshness;
 mod opening;
 mod opening_continuation;
 mod plan;
@@ -118,7 +119,15 @@ struct Attempt {
     run_id: String,
     question: String,
     automatic_retry: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    prerequisite_fingerprints: Option<Vec<PrerequisiteFingerprint>>,
     summary: Option<Summary>,
+}
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PrerequisiteFingerprint {
+    key: String,
+    revision_ids: Vec<String>,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -801,6 +810,7 @@ fn begin_unit_attempt(
         {
             return Err("The guide changed before its investigation started. Saved progress was preserved; no operation was dispatched.".into());
         }
+        let prerequisite_fingerprints = unit_prerequisite_fingerprints(current, index)?;
         let unit = current
             .units
             .get_mut(index)
@@ -823,10 +833,58 @@ fn begin_unit_attempt(
             run_id: run_id.into(),
             question: question.into(),
             automatic_retry,
+            prerequisite_fingerprints: Some(prerequisite_fingerprints),
             summary: None,
         });
         Ok(())
     })
+}
+
+fn unit_prerequisite_fingerprints(
+    record: &Record,
+    unit_index: usize,
+) -> Result<Vec<PrerequisiteFingerprint>, String> {
+    let plan = record
+        .plan
+        .as_ref()
+        .ok_or("The guide has no saved outline.")?;
+    let planned = plan
+        .units
+        .get(unit_index)
+        .ok_or("The guide unit is unavailable.")?;
+    planned
+        .prerequisites
+        .iter()
+        .map(|key| {
+            let prerequisite_index = plan
+                .units
+                .iter()
+                .position(|unit| &unit.key == key)
+                .ok_or("A guide prerequisite is unavailable.")?;
+            let prerequisite = record
+                .units
+                .get(prerequisite_index)
+                .ok_or("A guide prerequisite is unavailable.")?;
+            let revision_ids = prerequisite
+                .attempts
+                .iter()
+                .rev()
+                .find(|attempt| unit_attempt_complete(attempt))
+                .and_then(|attempt| attempt.summary.as_ref())
+                .map(|summary| {
+                    summary
+                        .sections
+                        .iter()
+                        .map(|section| section.revision_id.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
+            Ok(PrerequisiteFingerprint {
+                key: key.clone(),
+                revision_ids,
+            })
+        })
+        .collect()
 }
 
 fn check_research_outcome(
@@ -1862,6 +1920,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
             run_id: opening_run_id,
             question: opening::LEARNING_QUESTION.into(),
             automatic_retry: false,
+            prerequisite_fingerprints: None,
             summary: None,
         }),
         opening_context_sha256: None,
@@ -2389,6 +2448,32 @@ pub(crate) async fn load_repository_guide(
     .await
     .map_err(|_| {
         "The saved guide could not be read. Its original record remains on this Mac.".to_owned()
+    })?
+}
+
+/// Compare a saved Guide with another captured snapshot using its locally
+/// recorded source ranges. This is read-only and never contacts an agent.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn assess_repository_guide_freshness(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    guide_id: String,
+    target_snapshot_id: String,
+) -> Result<freshness::RepositoryGuideFreshness, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage = app_data_directory(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let record = store::read(&storage, &guide_id)?;
+        if record.id != guide_id || record.project_id != project_id {
+            return Err("This Guide belongs to another repository.".to_owned());
+        }
+        freshness::assess(&storage, &record, &target_snapshot_id)
+    })
+    .await
+    .map_err(|_| {
+        "The Guide source comparison could not be completed. Existing explanations were preserved."
+            .to_owned()
     })?
 }
 

@@ -65,6 +65,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         run_id: result.planning_run_id.clone(),
         question: opening::LEARNING_QUESTION.into(),
         automatic_retry: false,
+        prerequisite_fingerprints: None,
         summary: Some(Summary {
             run_id: result.planning_run_id.clone(),
             project_id: result.project_id.clone(),
@@ -104,6 +105,7 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
         run_id: run_id.clone(),
         question: question.clone(),
         automatic_retry: false,
+        prerequisite_fingerprints: None,
         summary: Some(Summary {
             run_id,
             question,
@@ -1234,6 +1236,7 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
         run_id: Uuid::new_v4().to_string(),
         question: "Which output remains unexplored?".into(),
         automatic_retry: false,
+        prerequisite_fingerprints: None,
         summary: None,
     });
     record.active_run_id = Some(record.units[1].attempts[0].run_id.clone());

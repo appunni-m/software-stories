@@ -667,6 +667,30 @@ export interface ChapterFreshnessReport {
   reverseDependencies: ChapterFreshnessReverseDependency[];
 }
 
+export type RepositoryGuideFreshnessStatus = 'current' | 'safeToCarry' | 'stale' | 'needsReview' | 'incomplete' | 'pending';
+export interface RepositoryGuideSectionFreshness {
+  revisionId: string;
+  status: ChapterFreshnessStatus;
+  evidenceState: ChapterFreshnessEvidenceState;
+  reasons: string[];
+}
+export interface RepositoryGuideUnitFreshness {
+  key: string;
+  question: string;
+  prerequisites: string[];
+  status: RepositoryGuideFreshnessStatus;
+  sections: RepositoryGuideSectionFreshness[];
+  reasons: string[];
+}
+/** Local, read-only source comparison; it never sends Guide content to a provider. */
+export interface RepositoryGuideFreshness {
+  guideId: string;
+  projectId: string;
+  fromSnapshotId: string;
+  toSnapshotId: string;
+  units: RepositoryGuideUnitFreshness[];
+}
+
 export interface IndexProgress {
   jobId: string;
   projectId: string;
@@ -1283,6 +1307,18 @@ export async function assessChapterFreshness(
   return invoke<ChapterFreshnessReport>('assess_chapter_freshness', {
     projectId,
     revisionId,
+    targetSnapshotId,
+  });
+}
+
+export async function assessRepositoryGuideFreshness(
+  projectId: string,
+  guideId: string,
+  targetSnapshotId: string,
+): Promise<RepositoryGuideFreshness> {
+  return invoke<RepositoryGuideFreshness>('assess_repository_guide_freshness', {
+    projectId,
+    guideId,
     targetSnapshotId,
   });
 }

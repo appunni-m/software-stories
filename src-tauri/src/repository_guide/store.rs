@@ -533,6 +533,7 @@ fn validate(record: &Record) -> Result<(), String> {
                     return Err("The saved guide repeats an investigation identity.".into());
                 }
                 validate_summary(record, attempt)?;
+                validate_prerequisite_fingerprints(record, unit, attempt)?;
             }
         }
     } else if !record.units.is_empty() {
@@ -605,6 +606,63 @@ fn validate_summary(record: &Record, attempt: &Attempt) -> Result<(), String> {
             })
         {
             return Err("The saved guide's answer lineage or bounds changed.".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_prerequisite_fingerprints(
+    record: &Record,
+    unit: &plan::UnitPlan,
+    attempt: &Attempt,
+) -> Result<(), String> {
+    let Some(fingerprints) = &attempt.prerequisite_fingerprints else {
+        // Schema-9 Guides saved before this receipt was added remain readable,
+        // but freshness treats their prerequisite dependencies as unknown.
+        return Ok(());
+    };
+    if fingerprints.len() != unit.prerequisites.len() {
+        return Err("The Guide attempt's prerequisite receipt is incomplete.".into());
+    }
+    for (fingerprint, key) in fingerprints.iter().zip(&unit.prerequisites) {
+        let Some(prerequisite_index) = record.plan.as_ref().and_then(|plan| {
+            plan.units
+                .iter()
+                .position(|candidate| &candidate.key == key)
+        }) else {
+            return Err("The Guide attempt references an unavailable prerequisite.".into());
+        };
+        let Some(prerequisite) = record.units.get(prerequisite_index) else {
+            return Err("The Guide attempt references an unavailable prerequisite.".into());
+        };
+        if &fingerprint.key != key
+            || fingerprint.revision_ids.len() > 8
+            || fingerprint
+                .revision_ids
+                .iter()
+                .any(|id| id.is_empty() || id.len() > 256)
+            || fingerprint
+                .revision_ids
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != fingerprint.revision_ids.len()
+        {
+            return Err("The Guide attempt's prerequisite receipt is invalid.".into());
+        }
+        if !fingerprint.revision_ids.is_empty()
+            && !prerequisite.attempts.iter().any(|candidate| {
+                super::unit_attempt_complete(candidate)
+                    && candidate.summary.as_ref().is_some_and(|summary| {
+                        summary
+                            .sections
+                            .iter()
+                            .map(|section| section.revision_id.as_str())
+                            .eq(fingerprint.revision_ids.iter().map(String::as_str))
+                    })
+            })
+        {
+            return Err("The Guide attempt's prerequisite revisions are unavailable.".into());
         }
     }
     Ok(())

@@ -120,6 +120,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
             run_id: Uuid::new_v4().to_string(),
             question: opening::question(&guide).unwrap().into(),
             automatic_retry,
+            prerequisite_fingerprints: None,
             summary: None,
         });
     }
@@ -133,6 +134,7 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
                 run_id: Uuid::new_v4().to_string(),
                 question: plan.question.clone(),
                 automatic_retry: false,
+                prerequisite_fingerprints: None,
                 summary: None,
             });
         }
@@ -227,6 +229,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
         run_id: retry_id.clone(),
         question: retry_question.clone(),
         automatic_retry: true,
+        prerequisite_fingerprints: None,
         summary: Some(Summary {
             run_id: retry_id,
             project_id: next.project_id.clone(),

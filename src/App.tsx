@@ -441,6 +441,9 @@ function App() {
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
+  const latestComparableSnapshot = currentSnapshots
+    .filter((snapshot) => snapshot.status === 'complete' || snapshot.status === 'partial')
+    .reduce<SnapshotSummary | null>((latest, snapshot) => !latest || snapshot.createdAtUnixMs > latest.createdAtUnixMs ? snapshot : latest, null);
   const fullFooterContext = currentWorkspace === 'changes'
     ? navigation.current.baseRef && navigation.current.headRef
       ? `${navigation.current.baseRef} → ${navigation.current.headRef}`
@@ -2144,6 +2147,7 @@ function App() {
               onPendingCodeLensQuestionConsumed={(id) => setPendingCodeLensQuestion((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
+              latestSnapshotId={latestComparableSnapshot?.snapshotId ?? null}
               comparisonRefs={{baseRef:navigation.current.baseRef,headRef:navigation.current.headRef,resolvedHeadOid:comparisonResolvedHeadOid}}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               routeSearchQuery={navigation.current.searchQuery} routeSearchMode={navigation.current.searchMode} routeSidebarActivity={navigation.current.sidebarActivity}

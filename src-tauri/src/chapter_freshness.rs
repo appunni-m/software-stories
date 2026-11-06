@@ -1,6 +1,7 @@
 use crate::chapters::{
     self, ChapterHotspot, ChapterRevision, ChapterSection, ChapterSourceAnchor,
-    ChapterVisualPayload, HotspotDestination, RevisionLifecycle, SectionDependency, VisualSpec,
+    ChapterVisualPayload, HotspotDestination, RevisionLifecycle, SectionDependency,
+    ValidationStatus, VisualSpec,
 };
 use crate::index::{
     IndexFileStatus, IndexedRelationship, IndexedSymbol, RelationshipKind, SnapshotIndex,
@@ -211,10 +212,96 @@ pub fn classify_chapter_freshness(
     to_index: Option<&SnapshotIndex>,
     revision: &ChapterRevision,
 ) -> Result<ChapterFreshnessReport, String> {
+    classify_revision_freshness(
+        storage_dir,
+        from_manifest,
+        from_index,
+        to_manifest,
+        to_index,
+        revision,
+        RevisionLifecycle::Accepted,
+        false,
+    )
+}
+
+/// Compare an independently validated, generated Guide draft with another
+/// immutable snapshot. Guide slides remain drafts until a user accepts them,
+/// so they use the same evidence comparator without weakening the public
+/// accepted-chapter freshness contract.
+pub(crate) fn classify_guide_draft_freshness(
+    storage_dir: &Path,
+    from_manifest: &SnapshotManifest,
+    from_index: Option<&SnapshotIndex>,
+    to_manifest: &SnapshotManifest,
+    to_index: Option<&SnapshotIndex>,
+    revision: &ChapterRevision,
+) -> Result<ChapterFreshnessReport, String> {
+    if revision.validation_status != ValidationStatus::Valid {
+        return Err("Only a validated Guide slide can be checked for source changes.".to_owned());
+    }
+    let report = classify_revision_freshness(
+        storage_dir,
+        from_manifest,
+        from_index,
+        to_manifest,
+        to_index,
+        revision,
+        RevisionLifecycle::Draft,
+        true,
+    )?;
+    if revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
+        .is_some()
+    {
+        return Ok(report);
+    }
+
+    // Older or incomplete Guide records may have citations but no recorded
+    // retrieval scope. Matching those citations alone cannot prove that a new
+    // implementation or import is irrelevant, so fail closed for this slide.
+    let sections = report
+        .sections
+        .into_iter()
+        .map(|mut section| {
+            section.status = SectionFreshnessStatus::NeedsReview;
+            section.evidence_state = EvidenceState::Partial;
+            section.reasons.push(FreshnessReason {
+                code: "retrievalScopeUnavailable".to_owned(),
+                message: "The Guide slide has no complete saved retrieval scope, so its source impact cannot be confirmed.".to_owned(),
+                path: None,
+            });
+            section
+        })
+        .collect();
+    Ok(ChapterFreshnessReport { sections, ..report })
+}
+
+fn classify_revision_freshness(
+    storage_dir: &Path,
+    from_manifest: &SnapshotManifest,
+    from_index: Option<&SnapshotIndex>,
+    to_manifest: &SnapshotManifest,
+    to_index: Option<&SnapshotIndex>,
+    revision: &ChapterRevision,
+    expected_lifecycle: RevisionLifecycle,
+    guide_draft: bool,
+) -> Result<ChapterFreshnessReport, String> {
     let from_id = from_manifest.summary.snapshot_id.as_str();
     let to_id = to_manifest.summary.snapshot_id.as_str();
-    if revision.lifecycle != RevisionLifecycle::Accepted {
-        return Err("Freshness can only be assessed for an accepted chapter revision.".to_owned());
+    if revision.lifecycle != expected_lifecycle {
+        return Err(match expected_lifecycle {
+            RevisionLifecycle::Accepted => {
+                "Freshness can only be assessed for an accepted chapter revision.".to_owned()
+            }
+            RevisionLifecycle::Draft => {
+                "Guide freshness requires a generated draft slide.".to_owned()
+            }
+            RevisionLifecycle::Rejected => {
+                "Rejected chapter revisions cannot be assessed for freshness.".to_owned()
+            }
+        });
     }
     if revision.project_id != from_manifest.summary.project_id
         || revision.project_id != to_manifest.summary.project_id
@@ -236,16 +323,28 @@ pub fn classify_chapter_freshness(
             return Err("The target symbol index does not match the selected snapshot.".to_owned());
         }
     }
-    let retrieval_ranges = revision
+    let saved_retrieval_ranges = revision
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges);
+    let enriched_retrieval_ranges = guide_draft.then(|| {
+        saved_retrieval_ranges.map(|ranges| {
+            guide_retrieval_index_context(from_manifest, from_index, ranges)
+        })
+    }).flatten();
+    let retrieval_ranges = enriched_retrieval_ranges
+        .as_deref()
+        .or(saved_retrieval_ranges);
     let retrieval_index_identity = revision
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_index_identity);
-    let retrieval_index_dependencies =
-        retrieved_index_dependencies(revision, from_manifest, from_index);
+    let retrieval_index_dependencies = retrieved_index_dependencies(
+        revision,
+        from_manifest,
+        from_index,
+        retrieval_ranges,
+    );
 
     let sections = revision
         .sections
@@ -311,6 +410,62 @@ fn index_summary(
         ),
         total_files: Some(manifest.files.len()),
     }
+}
+
+/// Reattach structural context to the exact source ranges stored by a Guide.
+/// Progressive retrieval receipts preserve byte ranges and hashes but may not
+/// persist parser or containing-symbol details. Rebuild those details only
+/// from the immutable source snapshot's already-saved index.
+fn guide_retrieval_index_context(
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    ranges: &[crate::repository_context::CodeRange],
+) -> Vec<crate::repository_context::CodeRange> {
+    ranges
+        .iter()
+        .map(|source_range| {
+            let mut range = source_range.clone();
+            let captured = manifest.files.iter().any(|file| {
+                file.path == range.path && file.sha256 == range.source_sha256
+            });
+            if !captured {
+                return range;
+            }
+            let Some(index) = index else {
+                return range;
+            };
+            let indexed_file = index.files.iter().find(|file| {
+                file.path == range.path && file.source_sha256 == range.source_sha256
+            });
+            if range.parser.is_none() {
+                range.parser = indexed_file.and_then(|file| file.parser.clone());
+            }
+            if range.enclosing.is_none() && range.parent.is_none() {
+                if let Some(symbol) = index
+                    .symbols
+                    .iter()
+                    .filter(|symbol| {
+                        symbol.path == range.path
+                            && symbol.anchor.source_sha256 == range.source_sha256
+                            && symbol.anchor.start_byte <= range.start_byte
+                            && symbol.anchor.end_byte >= range.end_byte
+                    })
+                    .min_by_key(|symbol| {
+                        symbol.anchor.end_byte.saturating_sub(symbol.anchor.start_byte)
+                    })
+                {
+                    range.enclosing = Some(crate::repository_context::SymbolContext {
+                        symbol_id: symbol.symbol_id.clone(),
+                        name: symbol.name.clone(),
+                        qualified_name: symbol.qualified_name.clone(),
+                        start_byte: symbol.anchor.start_byte,
+                        end_byte: symbol.anchor.end_byte,
+                    });
+                }
+            }
+            range
+        })
+        .collect()
 }
 
 fn assess_section(
@@ -397,6 +552,18 @@ fn assess_section(
             retrieval_index_identity,
             &mut result,
         );
+        if from_manifest.summary.snapshot_id != to_manifest.summary.snapshot_id {
+            for range in ranges
+                .iter()
+                .filter(|range| range.enclosing.is_none() && range.parent.is_none())
+            {
+                result.unknown(
+                    "retrievalSymbolContextUnavailable",
+                    "The retrieved range has no stable indexed symbol context, so changes outside its exact bytes need review.",
+                    Some(&range.path),
+                );
+            }
+        }
     }
 
     for dependency in dependencies {
@@ -2237,6 +2404,7 @@ fn retrieved_index_dependencies(
     revision: &ChapterRevision,
     source_manifest: &SnapshotManifest,
     source_index: Option<&SnapshotIndex>,
+    retrieval_ranges: Option<&[crate::repository_context::CodeRange]>,
 ) -> Vec<SectionDependency> {
     if revision.sections.len() != 1 {
         return Vec::new();
@@ -2262,11 +2430,7 @@ fn retrieved_index_dependencies(
     {
         return Vec::new();
     }
-    let ranges = revision
-        .generation_origin
-        .as_ref()
-        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
-        .unwrap_or_default();
+    let ranges = retrieval_ranges.unwrap_or_default();
     let retrieved_paths = ranges
         .iter()
         .map(|range| range.path.clone())
@@ -4275,6 +4439,125 @@ mod tests {
                 .reasons
                 .iter()
                 .any(|reason| reason.code == "sourceNotCaptured")
+        );
+    }
+
+    #[test]
+    fn guide_draft_without_recorded_retrieval_scope_is_needs_review() {
+        let storage = TempStorage::new();
+        let source_text = "fn entry() { run(); }\n";
+        let old_manifest = manifest(
+            "old",
+            vec![put_file(&storage.0, "src/entry.rs", source_text)],
+        );
+        let new_manifest = manifest(
+            "new",
+            vec![put_file(&storage.0, "src/entry.rs", source_text)],
+        );
+        let old_index = index(
+            "old",
+            &old_manifest,
+            vec![symbol(
+                "src/entry.rs",
+                "sym-entry",
+                "entry",
+                source_text,
+                false,
+            )],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let new_index = index(
+            "new",
+            &new_manifest,
+            vec![symbol(
+                "src/entry.rs",
+                "sym-entry",
+                "entry",
+                source_text,
+                false,
+            )],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let mut guide_draft = revision(vec![anchored_section(
+            "guide-slide",
+            "src/entry.rs",
+            source_text,
+            "sym-entry",
+            "run()",
+        )]);
+        guide_draft.lifecycle = RevisionLifecycle::Draft;
+
+        let report = classify_guide_draft_freshness(
+            &storage.0,
+            &old_manifest,
+            Some(&old_index),
+            &new_manifest,
+            Some(&new_index),
+            &guide_draft,
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.sections[0].status,
+            SectionFreshnessStatus::NeedsReview
+        );
+        assert!(
+            report.sections[0]
+                .reasons
+                .iter()
+                .any(|reason| reason.code == "retrievalScopeUnavailable")
+        );
+    }
+
+    #[test]
+    fn guide_retrieval_ranges_recover_their_containing_indexed_symbol() {
+        let storage = TempStorage::new();
+        let source_text = "fn entry() { let value = 7; run(value); }\n";
+        let captured = put_file(&storage.0, "src/entry.rs", source_text);
+        let source_manifest = manifest("old", vec![captured.clone()]);
+        let source_index = index(
+            "old",
+            &source_manifest,
+            vec![symbol(
+                "src/entry.rs",
+                "sym-entry",
+                "entry",
+                source_text,
+                false,
+            )],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let start_byte = source_text.find("run(value)").unwrap();
+        let end_byte = start_byte + "run(value)".len();
+        let range = crate::repository_context::CodeRange {
+            snapshot_id: "old".into(),
+            path: captured.path,
+            source_sha256: captured.sha256,
+            start_byte,
+            end_byte,
+            start_line: 1,
+            end_line: 1,
+            chunk_sha256: hash(&source_text.as_bytes()[start_byte..end_byte]),
+            enclosing: None,
+            parent: None,
+            parser: None,
+        };
+
+        let enriched = guide_retrieval_index_context(
+            &source_manifest,
+            Some(&source_index),
+            &[range],
+        );
+
+        assert_eq!(
+            enriched[0]
+                .enclosing
+                .as_ref()
+                .map(|symbol| symbol.symbol_id.as_str()),
+            Some("sym-entry")
         );
     }
 }

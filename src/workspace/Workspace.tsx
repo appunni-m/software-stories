@@ -22,7 +22,7 @@ import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visu
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory, languageSupportLabel, languageSupportNote, languageSupportTier, recommendedEntryPoint } from '../lib/inventory';
-import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
+import { assessRepositoryGuideFreshness, isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
@@ -55,7 +55,7 @@ import { filterExplorations } from './explorationFilter';
 import './workspace.css';
 
 interface Props {
-  manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
+  manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; latestSnapshotId?:string | null; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
   routeSearchQuery?:string; routeSearchMode?:CodeSearchMode; routeSidebarActivity?:'files'|'search'|'changes'|'history';
   onRememberSearch?:(query:string,mode:CodeSearchMode,activity:'files'|'search'|'changes'|'history')=>void;
   comparisonRefs?: { baseRef?:string; headRef?:string; resolvedHeadOid?:string };
@@ -981,6 +981,8 @@ export function DeveloperWorkspace(props:Props) {
     onGo={go} onOpen={(anchor)=>openFile(fromAnchor(anchor))} onDestination={openDestination}
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)}
+    latestSnapshotId={props.latestSnapshotId}
+    onAssessGuideFreshness={isNativeRuntime()?(guideId,targetSnapshotId)=>assessRepositoryGuideFreshness(projectId,guideId,targetSnapshotId):undefined}
     onRestoreSaved={isNativeRuntime()?guideId=>restoreRepositoryGuide(projectId,snapshotId,guideId):undefined}
     onRetryGuideUnit={retryGuideUnit}
     onRegenerateGuideUnit={regenerateGuideUnit}
@@ -1323,23 +1325,45 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
 function WorkspaceSharingDetails({kind}:{kind:'question'|'guide'}) {
   return <details className="dw-error-details"><summary>What can be shared</summary><p className="dw-permission-note">Relevant captured code, file names and documentation hints from this snapshot may be sent to your connected assistant. Each {kind==='guide'?'guide slide':'question'} is limited to 250 KB across 12 files; large files can be read in portions. Secret-like paths and excluded files stay blocked. Your account quota applies. The live working copy is not sent. Manage or revoke this snapshot's permission in Repository sharing. Code Atlas does not run repository code.</p></details>;
 }
+function guideFreshnessSummary(report:RepositoryGuideFreshness):string {
+  const changed=report.units.filter(unit=>unit.status==='stale').length;
+  const review=report.units.filter(unit=>unit.status==='needsReview').length;
+  const unaffected=report.units.filter(unit=>unit.status==='current'||unit.status==='safeToCarry').length;
+  const notReady=report.units.filter(unit=>unit.status==='incomplete'||unit.status==='pending').length;
+  return [`${changed} changed`,`${review} need review`,`${unaffected} unaffected`,notReady?`${notReady} not ready`:null].filter((part):part is string=>Boolean(part)).join(' · ');
+}
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
   const [guideOutlineState,setGuideOutlineState]=useState<{turnId:string;open:boolean}|null>(null);
   const [restoringSavedGuide,setRestoringSavedGuide]=useState(false);
   const [savedGuideRestoreError,setSavedGuideRestoreError]=useState<string|null>(null);
+  const [guideFreshness,setGuideFreshness]=useState<{guideId:string;targetSnapshotId:string;report:RepositoryGuideFreshness}|null>(null);
+  const [guideFreshnessBusy,setGuideFreshnessBusy]=useState(false);
+  const [guideFreshnessError,setGuideFreshnessError]=useState<string|null>(null);
   // Show the outline as soon as planning finishes. Remember an explicit
   // collapse for this question, while opening the outline for a new guide.
   const guideOutlineOpen=guideOutlineState?.turnId===turn.id
     ?guideOutlineState.open
     :Boolean(turn.guide&&turn.guide.units.length>0);
+  const latestGuideFreshness=turn.guide&&guideFreshness?.guideId===turn.guide.id
+    &&guideFreshness.targetSnapshotId===props.latestSnapshotId?guideFreshness.report:null;
+  const checkGuideFreshness=async()=>{
+    if(!turn.guide||!props.latestSnapshotId||!props.onAssessGuideFreshness)return;
+    setGuideFreshnessBusy(true);setGuideFreshnessError(null);
+    try{
+      const targetSnapshotId=props.latestSnapshotId;
+      const report=await props.onAssessGuideFreshness(turn.guide.id,targetSnapshotId);
+      setGuideFreshness({guideId:turn.guide.id,targetSnapshotId,report});
+    }catch(error){setGuideFreshnessError(errorMessageOr(error,'Source changes could not be checked.'))}
+    finally{setGuideFreshnessBusy(false)}
+  };
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
@@ -1478,6 +1502,17 @@ function Answer(props:AnswerProps){
     {savedGuideRestoreError&&guideHasUnavailableSlides&&<><p className="dw-answer-note" role="alert">{savedGuideRestoreError} Nothing was regenerated.</p>{(turn.status==='waiting'||turn.status==='ready')&&<AppButton size="1" intent="secondary" onClick={props.onRetry}>{guideRecovery.action}</AppButton>}</>}
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({turnId:turn.id,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
+      {props.latestSnapshotId&&props.latestSnapshotId!==turn.guide.snapshotId&&props.onAssessGuideFreshness&&<section className="dw-guide-freshness" aria-label="Check for source changes">
+        <AppButton size="1" intent="secondary" disabled={guideFreshnessBusy} onClick={()=>void checkGuideFreshness()}>{guideFreshnessBusy?'Checking source changes…':'Check for source changes'}</AppButton>
+        {guideFreshnessError&&<p role="alert">{guideFreshnessError}</p>}
+        {latestGuideFreshness&&<>
+          <p role="status">Source check: {guideFreshnessSummary(latestGuideFreshness)}.</p>
+          <ul className="dw-guide-freshness-list">{latestGuideFreshness.units.filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
+            <InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
+            {unit.reasons.length>0&&<details><summary>Why</summary><ul>{unit.reasons.map((reason,index)=><li key={`${unit.key}:${index}`}>{reason}</li>)}</ul></details>}
+          </li>)}</ul>
+        </>}
+      </section>}
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
         const versionRunIds=unit.runIds.filter((runId)=>guideSlides.some((slide)=>slide.runId===runId));
         const hasCompletedVersion=Boolean(unit.latestCompleteRunId&&versionRunIds.includes(unit.latestCompleteRunId));

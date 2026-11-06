@@ -30,6 +30,66 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
 }
 
 #[test]
+fn prerequisite_receipt_must_reference_a_saved_complete_prerequisite_version() {
+    let f = Fixture::new();
+    let mut guide = record(&f);
+    let prerequisite_attempt = attempt(&guide, Outcome::Complete);
+    let prerequisite_revision = prerequisite_attempt.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    guide.units[0].attempts.push(prerequisite_attempt);
+    let mut dependent_attempt = Attempt {
+        run_id: Uuid::new_v4().to_string(),
+        question: guide.plan.as_ref().unwrap().units[1].question.clone(),
+        automatic_retry: false,
+        prerequisite_fingerprints: Some(vec![PrerequisiteFingerprint {
+            key: "input".into(),
+            revision_ids: vec![prerequisite_revision],
+        }]),
+        summary: None,
+    };
+    validate_prerequisite_fingerprints(
+        &guide,
+        &guide.plan.as_ref().unwrap().units[1],
+        &dependent_attempt,
+    )
+    .unwrap();
+
+    dependent_attempt
+        .prerequisite_fingerprints
+        .as_mut()
+        .unwrap()[0]
+        .revision_ids[0] = "revision:foreign".into();
+    assert!(
+        validate_prerequisite_fingerprints(
+            &guide,
+            &guide.plan.as_ref().unwrap().units[1],
+            &dependent_attempt,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn schema_nine_guide_without_prerequisite_receipts_remains_readable() {
+    let f = Fixture::new();
+    let mut guide = record(&f);
+    guide.units[1].attempts.push(Attempt {
+        run_id: Uuid::new_v4().to_string(),
+        question: guide.plan.as_ref().unwrap().units[1].question.clone(),
+        automatic_retry: false,
+        prerequisite_fingerprints: None,
+        summary: None,
+    });
+    save(&f.storage, &guide, true).unwrap();
+
+    let reopened = read(&f.storage, &guide.id).unwrap();
+    assert!(reopened.units[1].attempts[0]
+        .prerequisite_fingerprints
+        .is_none());
+}
+
+#[test]
 fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     let f = Fixture::new();
     let id = Uuid::new_v4().to_string();
@@ -161,6 +221,7 @@ fn automatic_retry_markers_cannot_replace_the_original_slide_attempt() {
             .question
             .clone(),
         automatic_retry: true,
+        prerequisite_fingerprints: None,
         summary: None,
     });
     assert!(validate(&invalid_topic).is_err());
