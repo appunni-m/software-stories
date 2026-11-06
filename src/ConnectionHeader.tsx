@@ -29,6 +29,7 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     };
   }, [backend]);
   const codexSelected = backend === 'codex';
+  const codexNeedsAttention = codexSelected && Boolean(connection.error);
   const codexRuntimeReady = codexSelected && connection.status?.authenticated && connection.status.runtimeRunning;
   const providerName = apiSelection.providerId === 'gemini' ? 'Gemini'
     : apiSelection.providerId === 'openai' ? 'OpenAI'
@@ -45,13 +46,15 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
     : backend === 'claude-setup' ? 'Claude Agent'
       : backend === 'handoff' ? `${handoffAgentName} handoff`
         : connection.checking ? 'Connecting to Codex…'
+          : codexNeedsAttention ? 'Retry Codex'
           : ready ? `Codex · ${codexModel}`
             : codexRuntimeReady ? 'Choose model' : 'Connect Codex';
-  const Icon = codexSelected && connection.checking ? LoaderCircle : ready ? CheckCircle2
+  const Icon = codexSelected && connection.checking ? LoaderCircle : codexNeedsAttention ? CircleAlert : ready ? CheckCircle2
     : backend === null || backend === 'api' && Boolean(apiSelectionIssue) || codexSelected && (connection.error || codexRuntimeReady && !modelReady) ? CircleAlert : PlugZap;
   const details = backend === null ? 'Choose an AI connection in Connections.'
     : backend === 'codex'
-    ? ready ? `Connected to Codex. Model: ${codexModel}. Open Connections to change AI or voice settings.`
+    ? codexNeedsAttention ? 'Could not refresh Codex right now. Open Connections to retry; your saved account and model choice are unchanged.'
+      : ready ? `Connected to Codex. Model: ${codexModel}. Open Connections to change AI or voice settings.`
       : connection.checking ? 'Checking your saved Codex connection…'
         : codexRuntimeReady ? 'The saved Codex model is unavailable. Choose a model in Connections.' : 'Set up your Codex connection once'
     : backend === 'api' ? apiSelectionIssue ? 'The saved AI connection needs attention. Choose a provider in Connections.'

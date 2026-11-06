@@ -136,6 +136,9 @@ describe('generation backend preference', () => {
     assert.match(app, /backend === 'codex'\) return <ConnectionsDialog/);
     assert.match(connections, /Change AI connection/);
     assert.match(header, /code-atlas:connection-changed/);
+    assert.match(header, /const codexNeedsAttention = codexSelected && Boolean\(connection\.error\)/);
+    assert.match(header, /codexNeedsAttention \? 'Retry Codex'/);
+    assert.match(header, /Could not refresh Codex right now\. Open Connections to retry; your saved account and model choice are unchanged\./);
     assert.match(header, /backend === 'api'\s*\? apiSelectionIssue \? 'Review AI connection'/);
     assert.match(header, /The saved AI connection needs attention\. Choose a provider in Connections\./);
     assert.match(app, /The saved direct API selection is \{directApiSelectionIssue === 'invalid' \? 'invalid' : directApiSelectionIssue === 'oversized' \? 'too large'/);
