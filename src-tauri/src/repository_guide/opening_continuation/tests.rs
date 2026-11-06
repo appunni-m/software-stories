@@ -21,6 +21,26 @@ fn partial(f: &Fixture) -> Record {
     record
 }
 
+fn partial_with_published_opening_section(f: &Fixture) -> Record {
+    let mut record = partial(f);
+    let original_run_id = record.opening.as_ref().unwrap().run_id.clone();
+    let mut opening = attempt(&record, Outcome::Complete);
+    opening.run_id = original_run_id.clone();
+    opening.question = opening::question(&record).unwrap().to_owned();
+    let summary = opening.summary.as_mut().unwrap();
+    summary.run_id = original_run_id.clone();
+    summary.question = opening.question.clone();
+    summary.outcome = Outcome::Partial;
+    summary.incomplete_topics =
+        vec!["The opening's return behavior still needs one bounded follow-up.".into()];
+    for section in &mut summary.sections {
+        section.run_id = original_run_id.clone();
+        section.key = "opening".into();
+    }
+    record.opening = Some(opening);
+    record
+}
+
 fn after_automatic_retry(f: &Fixture) -> Record {
     let record = partial(f);
     store::create(&f.storage, &record).unwrap();
@@ -113,6 +133,31 @@ fn automatic_recovery_precedes_one_explicit_follow_up() {
     assert_eq!(explicit.opening_continuations.len(), 2);
     assert!(!explicit.opening_continuations[1].automatic_retry);
     assert!(begin(&f.storage, &explicit, &Uuid::new_v4().to_string()).is_err());
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
+}
+
+#[test]
+fn a_failed_explicit_follow_up_does_not_trigger_an_automatic_third_investigation() {
+    let f = Fixture::new();
+    let record = partial_with_published_opening_section(&f);
+    store::create(&f.storage, &record).unwrap();
+    assert!(!automatic_retry_eligible(&record));
+
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
+    assert!(eligible(&prepared));
+    let explicit = begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).unwrap();
+    let owner = explicit.opening_continuations.last().unwrap();
+    let mut failed = attempt(&record, Outcome::Partial).summary.unwrap();
+    failed.run_id = owner.run_id.clone();
+    failed.question = owner.question.clone();
+    let terminal = finish(&f.storage, &explicit, failed).unwrap();
+
+    assert!(explicit_retry_used(&terminal));
+    assert!(!automatic_retry_eligible(&terminal));
+    assert!(!eligible(&terminal));
+    assert_eq!(remaining_operations(&terminal), 0);
+    assert_eq!(terminal.opening_continuations.len(), 1);
+    assert!(terminal.active_run_id.is_none());
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 

@@ -35,6 +35,7 @@ pub(super) fn automatic_retry_eligible(record: &Record) -> bool {
     record.status != Status::Stopped
         && incomplete(record)
         && !automatic_retry_used(record)
+        && !explicit_retry_used(record)
         && latest(record)
             .and_then(|attempt| attempt.summary.as_ref())
             .is_some_and(|summary| summary.sections.is_empty())
