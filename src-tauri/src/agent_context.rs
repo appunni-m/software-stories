@@ -893,7 +893,8 @@ impl Session {
                     findings: &findings,
                     finish_now,
                     remaining_attempts,
-                    remaining_corrections: answer.remaining_corrections(),
+                    remaining_corrections: answer
+                        .remaining_corrections_with_limit(mode.section_limit.unwrap_or(6)),
                     next_new_section_order,
                 },
                 &[],

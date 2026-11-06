@@ -343,6 +343,72 @@ fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
 }
 
 #[test]
+fn one_slide_budget_allows_repairs_across_multiple_validation_layers() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
+    assert_eq!(answer.remaining_corrections_with_limit(1), MAX_ATTEMPTS - 1);
+
+    let mut bad_citation = narrated(&reference);
+    bad_citation["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &bad_citation.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert_eq!(prepared.findings[0]["code"], "citation");
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    // The first proposal discovers the citation finding; only a subsequent
+    // failed repair consumes a correction slot.
+    assert_eq!(answer.remaining_corrections_with_limit(1), MAX_ATTEMPTS - 1);
+
+    let mut bad_visual = narrated(&reference);
+    bad_visual["section"]["visual"]["direction"] = json!("diagonal");
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &bad_visual.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert_eq!(prepared.findings[0]["code"], "visualField");
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.remaining_corrections_with_limit(1), MAX_ATTEMPTS - 2);
+
+    let valid = narrated(&reference);
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &valid.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert!(prepared.findings.is_empty());
+    assert!(prepared.generation_id.is_some());
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.value.sections.len(), 1);
+    assert_eq!(answer.remaining_corrections_with_limit(1), MAX_ATTEMPTS - 3);
+}
+
+#[test]
 fn correction_limit_is_retained_and_eight_proposals_remain_the_hard_ceiling() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

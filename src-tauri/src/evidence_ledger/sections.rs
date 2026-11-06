@@ -14,8 +14,8 @@ pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
-// Six first proposals plus two shared correction attempts. Exact successful
-// replays still count as proposals, but do not consume a correction attempt.
+// General answers reserve six first proposals plus two shared corrections.
+// Exact successful replays still count as proposals, but not corrections.
 const MAX_CORRECTIONS: usize = MAX_ATTEMPTS - MAX_SECTIONS;
 const MAX_CORRECTIONS_PER_KEY: usize = 1;
 // A guide reserves its full bounded lifetime allowance and standalone
@@ -1066,8 +1066,28 @@ impl Answer {
         keys.iter().map(|key| self.corrections_for_key(key)).sum()
     }
 
+    fn correction_limit(section_limit: usize) -> usize {
+        if section_limit == 1 {
+            MAX_ATTEMPTS.saturating_sub(1)
+        } else {
+            MAX_CORRECTIONS
+        }
+    }
+
+    fn correction_limit_per_key(section_limit: usize) -> usize {
+        if section_limit == 1 {
+            Self::correction_limit(section_limit)
+        } else {
+            MAX_CORRECTIONS_PER_KEY
+        }
+    }
+
     fn remaining_corrections(&self) -> usize {
-        MAX_CORRECTIONS.saturating_sub(self.corrections_used())
+        self.remaining_corrections_with_limit(MAX_SECTIONS)
+    }
+
+    fn remaining_corrections_with_limit(&self, section_limit: usize) -> usize {
+        Self::correction_limit(section_limit).saturating_sub(self.corrections_used())
     }
 
     fn supports_checkpoint(&self, checkpoint: u32) -> bool {
@@ -1198,6 +1218,11 @@ impl ActiveAnswer {
 
     pub(crate) fn remaining_corrections(&self) -> usize {
         self.value.remaining_corrections()
+    }
+
+    pub(crate) fn remaining_corrections_with_limit(&self, section_limit: usize) -> usize {
+        self.value
+            .remaining_corrections_with_limit(section_limit)
     }
 
     pub(crate) fn next_new_section_order(&self) -> Option<usize> {
@@ -1494,8 +1519,9 @@ impl ActiveAnswer {
             && self.value.has_substantive_attempt_for_key(&proposal_key)
             && Answer::correction_required(&findings, generation_id.as_deref());
         if requires_correction
-            && (self.value.corrections_for_key(&proposal_key) >= MAX_CORRECTIONS_PER_KEY
-                || self.value.corrections_used() >= MAX_CORRECTIONS)
+            && (self.value.corrections_for_key(&proposal_key)
+                >= Answer::correction_limit_per_key(section_limit)
+                || self.value.corrections_used() >= Answer::correction_limit(section_limit))
         {
             // Validation may have prepared a new immutable revision. Enforce
             // the correction reserve before admitting or recording its ID.

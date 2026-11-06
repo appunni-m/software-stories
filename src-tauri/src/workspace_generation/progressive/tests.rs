@@ -41,6 +41,16 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
 }
 
 #[test]
+fn guide_slide_prompt_keeps_recoverable_speech_findings_inside_the_correction_loop() {
+    let instructions = system_instructions_for(true);
+    assert!(instructions.contains("sceneSpeechRole means spoken narration"));
+    assert!(instructions.contains("the method returns"));
+    assert!(instructions.contains("rather than 'the API returns'"));
+    assert!(instructions.contains("submit the corrected section with the same key and order"));
+    assert!(instructions.contains("do not finish immediately after a correctable finding"));
+}
+
+#[test]
 fn timing_report_names_the_first_native_validated_publication_by_section_order() {
     let publications = vec![
         PublicationTiming {

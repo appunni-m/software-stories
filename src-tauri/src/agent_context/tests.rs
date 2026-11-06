@@ -283,6 +283,68 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
 }
 
 #[test]
+fn one_slide_tool_result_exposes_its_larger_bounded_correction_budget() {
+    let f = Fixture::new();
+    let runtime = CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64),
+        runtime_version: Some("fixture-runtime-1".to_owned()),
+        runtime_version_source: Some(
+            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
+        ),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 0,
+    };
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    let operation_id = Uuid::new_v4().to_string();
+    let fingerprint = "e".repeat(64);
+    let mut slide = Session::new_guide_progressive(
+        &f.storage,
+        &operation_id,
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+        "How does the requested name become the greeting?",
+        &fingerprint,
+        "gpt-6-luna",
+        "max",
+        crate::codex_agent::RunDeadline::UserControlled,
+        Arc::new(|_| {}),
+    )
+    .unwrap();
+    let (_manager, owner, _) =
+        crate::codex_agent::section_owner_for_test(&operation_id, &fingerprint, &runtime);
+    slide.bind_section_owner(owner).unwrap();
+
+    let (_, text) = exchange(
+        &mut slide,
+        mcp::PROPOSAL_TOOL,
+        json!({
+            "proposalVersion":crate::evidence_ledger::sections::NARRATION_PROPOSAL_VERSION,
+            "sectionKey":"bad_key",
+            "order":0,
+            "previousGenerationId":null,
+            "section":{}
+        }),
+    );
+    let response: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        response["context"]["result"]["findings"][0]["code"],
+        "sectionKeyFormat"
+    );
+    assert_eq!(response["context"]["result"]["remainingAttempts"], 7);
+    assert_eq!(response["context"]["result"]["remainingCorrections"], 7);
+}
+
+#[test]
 fn native_session_binds_the_selected_model_and_effort() {
     let f = Fixture::new();
     let (_session, operation_id) = session_with_model(&f, "gpt-5.6-luna", "medium");
