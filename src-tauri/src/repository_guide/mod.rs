@@ -345,11 +345,11 @@ fn unit_attempt_complete(attempt: &Attempt) -> bool {
 fn unit_latest_attempt_complete(unit: &Unit) -> bool {
     unit.attempts.last().is_some_and(unit_attempt_complete)
 }
-fn unit_latest_attempt_failed_after_completion(unit: &Unit) -> bool {
+fn unit_latest_attempt_incomplete_after_completion(unit: &Unit) -> bool {
     unit_complete(unit)
         && unit.attempts.last().is_some_and(|attempt| {
             attempt.summary.as_ref().is_some_and(|summary| {
-                !matches!(&summary.outcome, &Outcome::Complete | &Outcome::Working)
+                !matches!(&summary.outcome, &Outcome::Working) && !unit_attempt_complete(attempt)
             })
         })
 }
@@ -436,7 +436,7 @@ fn unit_version_capacity_available(record: &Record, index: usize) -> bool {
             .is_some_and(|unit| {
                 unit_complete(unit)
                     && (unit_latest_attempt_complete(unit)
-                        || unit_latest_attempt_failed_after_completion(unit))
+                        || unit_latest_attempt_incomplete_after_completion(unit))
                     && unit.attempts.len() < MAX_ATTEMPTS
             })
 }
@@ -1013,7 +1013,7 @@ fn guide_summary(
                     .rev()
                     .find(|attempt| unit_attempt_complete(attempt))
                     .map(|attempt| attempt.run_id.clone()),
-                latest_attempt_incomplete: unit_latest_attempt_failed_after_completion(unit),
+                latest_attempt_incomplete: unit_latest_attempt_incomplete_after_completion(unit),
                 failure_code: unit
                     .attempts
                     .last()
