@@ -45,7 +45,8 @@ import {
   serializeNarrationPreferences,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
-import { localNarrationPrewarmState } from './workspace/localNarrationQueue';
+import { localNarrationPrewarmState, localNarrationPrewarmer } from './workspace/localNarrationQueue';
+import { listenForPocketTtsRuntimeReady } from './workspace/pocketRuntimeEvents';
 import { AppButton } from './design/AppButton';
 import { AppSlider } from './design/AppSlider';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
@@ -394,14 +395,14 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       && !voiceConnectionIssue
       && requestedDraft.backend === 'pocket-tts'
       && requestedDraft.spokenText.trim().length > 0;
+    const input = {
+      spokenText: requestedDraft.spokenText,
+      voice: requestedDraft.voice,
+      style: requestedDraft.style,
+      lexicon: requestedDraft.lexicon,
+    };
     const refresh = async () => {
       try {
-        const input = {
-          spokenText: requestedDraft.spokenText,
-          voice: requestedDraft.voice,
-          style: requestedDraft.style,
-          lexicon: requestedDraft.lexicon,
-        };
         const result = await getLocalNarrationPreparationStatus(input);
         if (!active || !narrationPreferencesMatch(draftRef.current, requestedDraft)) return;
         if (result.status === 'error') {
@@ -422,11 +423,22 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       }
     };
     setPrewarmState(shouldCheckCache ? 'checking' : 'idle');
+    const stopRuntimeReadyListener = shouldCheckCache && typeof window !== 'undefined'
+      ? listenForPocketTtsRuntimeReady(window, () => {
+        if (!active) return;
+        // An earlier attempt can fail before Pocket is installed. When setup
+        // finishes, retry only the clip the reader currently has open.
+        localNarrationPrewarmer.enqueue([input]);
+        if (timer !== undefined) clearTimeout(timer);
+        void refresh();
+      })
+      : undefined;
     if (shouldCheckCache) {
       timer = setTimeout(() => { void refresh(); }, 100);
     }
     return () => {
       active = false;
+      stopRuntimeReadyListener?.();
       if (timer !== undefined) clearTimeout(timer);
     };
   }, [storageKey, draft.backend, draft.spokenText, draft.voice, draft.style, draft.lexicon, voiceConnectionIssue]);

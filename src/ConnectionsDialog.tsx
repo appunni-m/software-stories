@@ -10,6 +10,7 @@ import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getP
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { readVoiceConnectionIssue, saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 import { invalidateLocalNarrationPrewarmIdentity } from './workspace/localNarrationQueue';
+import { notifyPocketTtsRuntimeReady } from './workspace/pocketRuntimeEvents';
 
 export function ConnectionsDialog({ native, initialSection = 'explanations', onClose, onChooseBackend }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void; onChooseBackend: () => void }) {
   const [section, setSection] = useState(initialSection);
@@ -75,10 +76,15 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
   const prepare = async () => {
     if (busy || status?.busy) return;
     const id = crypto.randomUUID(); setupId.current = id; setBusy(true); setError(null); setMessage(null);
+    let runtimeReady = false;
     try {
       const result = await setupPocketTts(id);
       if (!alive.current) return;
-      if (result.status === 'ok') { setStatus(result.data); setMessage('Voice is ready. Open any answer and choose Listen.'); }
+      if (result.status === 'ok') {
+        setStatus(result.data);
+        runtimeReady = result.data.ready;
+        setMessage(runtimeReady ? 'Voice is ready. Open any answer and choose Listen.' : 'Local voice setup is not ready yet. Check the status below.');
+      }
       else setError(result.error.message);
     } catch { if (alive.current) setError('Local voice setup could not finish. Try again.'); }
     finally {
@@ -87,6 +93,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       // Pocket work after this attempt.
       invalidateLocalNarrationPrewarmIdentity();
       setupId.current = null;
+      if (runtimeReady && typeof window !== 'undefined') notifyPocketTtsRuntimeReady(window);
       if (alive.current) setBusy(false);
     }
   };
