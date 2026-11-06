@@ -1,4 +1,4 @@
-use super::{unit_attempt_complete, Attempt, Record, Unit};
+use super::{Attempt, Record, Unit, unit_attempt_complete};
 use crate::{
     chapter_freshness::{self, EvidenceState, SectionFreshnessStatus},
     chapters::ChapterRevision,
@@ -53,8 +53,12 @@ pub(crate) fn assess(
     guide: &Record,
     to_snapshot_id: &str,
 ) -> Result<RepositoryGuideFreshness, String> {
-    let from_manifest =
-        snapshot::load_snapshot_manifest(storage, &guide.project_id, &guide.snapshot_id)?;
+    // Freshness is only meaningful when the source being compared is the
+    // exact immutable inventory this Guide originally reviewed. Reuse the
+    // same digest and starting-range checks required by normal Guide reads;
+    // otherwise changed local snapshot metadata could make old evidence look
+    // safe to carry into a new snapshot.
+    let from_manifest = super::checked_manifest(storage, guide)?;
     let to_manifest = snapshot::load_snapshot_manifest(storage, &guide.project_id, to_snapshot_id)?;
     if from_manifest.summary.project_id != to_manifest.summary.project_id
         || from_manifest.summary.project_id != guide.project_id
@@ -377,6 +381,35 @@ fn propagate_prerequisite_freshness(units: &mut [GuideUnitFreshness]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_change_assessment_rejects_a_changed_saved_inventory_digest() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let mut guide = crate::repository_guide::tests::fresh_record(&fixture);
+        guide.manifest_sha256 = "f".repeat(64);
+
+        let error = assess(&fixture.storage, &guide, &guide.snapshot_id).unwrap_err();
+
+        assert!(error.contains("captured inventory changed"));
+    }
+
+    #[test]
+    fn source_change_assessment_accepts_the_original_guide_inventory() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let guide = crate::repository_guide::tests::fresh_record(&fixture);
+
+        let report = assess(&fixture.storage, &guide, &guide.snapshot_id).unwrap();
+
+        assert_eq!(report.from_snapshot_id, guide.snapshot_id);
+        assert_eq!(report.to_snapshot_id, guide.snapshot_id);
+        assert_eq!(report.units.len(), guide.units.len());
+        assert!(
+            report
+                .units
+                .iter()
+                .all(|unit| { unit.status == GuideUnitFreshnessStatus::Pending })
+        );
+    }
 
     fn unit(
         key: &str,
