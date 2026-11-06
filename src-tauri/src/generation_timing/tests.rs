@@ -686,6 +686,59 @@ fn retention_is_bounded_preserves_unfinished_records_and_never_overwrites_a_run(
 }
 
 #[test]
+fn retention_prunes_known_legacy_terminal_records_without_rewriting_them() {
+    let f = Fixture::new();
+    codex_agent::ensure_private_directory(&f.0.join("generation-timings")).unwrap();
+    let mut legacy_records = Vec::new();
+    let mut unfinished_path = None;
+    for index in 0..MAX_RECORDS {
+        let id = run();
+        let is_terminal = index != 0;
+        let terminal = if is_terminal {
+            json!({"state":"returned","elapsedMs":1})
+        } else {
+            Value::Null
+        };
+        let bytes = serde_json::to_vec(&json!({
+            "schemaVersion": if index % 2 == 0 {2} else {3},
+            "runId": id,
+            "terminal": terminal,
+        }))
+        .unwrap();
+        let file = path(&f.0, &id).unwrap();
+        fs::write(&file, &bytes).unwrap();
+        if !is_terminal {
+            unfinished_path = Some(file.clone());
+        }
+        legacy_records.push((file, bytes, is_terminal));
+    }
+
+    let new_id = run();
+    let new_trace = f.trace(&new_id, Instant::now());
+    new_trace.finish(Ok(()));
+
+    assert!(inspect(&f.0, &new_id).unwrap().is_some());
+    assert_eq!(
+        fs::read_dir(f.0.join("generation-timings"))
+            .unwrap()
+            .count(),
+        MAX_RECORDS
+    );
+    assert!(unfinished_path.unwrap().exists());
+
+    let mut removed_terminal_records = 0;
+    for (file, original, was_terminal) in legacy_records {
+        if file.exists() {
+            assert_eq!(fs::read(file).unwrap(), original);
+        } else {
+            assert!(was_terminal, "an unfinished legacy trace was removed");
+            removed_terminal_records += 1;
+        }
+    }
+    assert_eq!(removed_terminal_records, 1);
+}
+
+#[test]
 fn malformed_event_order_and_context_states_are_not_exported() {
     let f = Fixture::new();
     let id = run();
