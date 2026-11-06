@@ -953,9 +953,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         system_instructions()
             .contains("use the actual source variable or field as a symbolic input/result")
     );
-    assert!(
-        system_instructions().contains("sceneSpeechRole identifies compact all-caps abbreviations")
-    );
+    assert!(system_instructions().contains(
+        "sceneSpeechRole means spoken narration contains compact source syntax, an all-caps abbreviation or a format token."
+    ));
     assert!(system_instructions().contains("a caller lookup followed by a load is a call or sequence, not a status edge from the lookup"));
     assert!(system_instructions().contains("Each branch's parentKey names the selector key"));
     assert!(system_instructions().contains("both leaves' parentKey names their branch key"));
