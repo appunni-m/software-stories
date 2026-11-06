@@ -77,7 +77,6 @@ pub(crate) struct JobRecord {
     pub(crate) runtime_identity_sha256: Option<String>,
     /// Renderer monotonic queue duration, retained even when the request is
     /// stopped before a native timing trace is created.
-    #[serde(default)]
     pub(crate) renderer_queue_wait_ms: Option<u64>,
     pub(crate) state: JobState,
     pub(crate) worker_registered: bool,
@@ -1000,6 +999,7 @@ fn read_store(storage: &Path) -> Result<StoreFile, String> {
         "sourceFingerprintSha256",
         "requestFingerprintSha256",
         "runtimeIdentitySha256",
+        "rendererQueueWaitMs",
         "state",
         "workerRegistered",
         "providerThreadId",
@@ -1246,6 +1246,25 @@ mod tests {
 
         assert!(get(&directory.0, &job.job_id).is_err());
         assert_eq!(fs::read(store_path(&directory.0)).unwrap(), original);
+    }
+
+    #[test]
+    fn current_job_store_requires_renderer_queue_wait_field_without_rewriting() {
+        let directory = TestDirectory::new();
+        let job = start_job(&directory);
+        let file = store_path(&directory.0);
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+        assert!(value["jobs"][0].get("rendererQueueWaitMs").is_some());
+        value["jobs"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("rendererQueueWaitMs");
+        let original = serde_json::to_vec(&value).unwrap();
+        fs::write(&file, &original).unwrap();
+
+        assert!(get(&directory.0, &job.job_id).is_err());
+        assert_eq!(fs::read(&file).unwrap(), original);
     }
 
     #[test]

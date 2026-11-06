@@ -13,6 +13,26 @@ use uuid::Uuid;
 
 pub(crate) const CHAPTER_ORIGIN_SCHEMA_VERSION: u32 = 6;
 
+/// Current lineage records serialize nullable values explicitly as null.
+/// Missing a nullable field is an incomplete record, not an older shape.
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+/// Retrieval is omitted when absent; a present null is not a second encoding.
+fn present_retrieval<'de, D>(
+    deserializer: D,
+) -> Result<Option<RecordedRetrievalEvidence>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    RecordedRetrievalEvidence::deserialize(deserializer).map(Some)
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "backend", deny_unknown_fields)]
 pub enum RecordedAgentSettings {
@@ -25,6 +45,7 @@ pub enum RecordedAgentSettings {
     #[serde(rename = "claude-agent", rename_all = "camelCase")]
     Claude {
         model_id: String,
+        #[serde(deserialize_with = "required_nullable")]
         effort: Option<String>,
         approval_policy: String,
         max_turns: u32,
@@ -64,6 +85,7 @@ pub struct ChapterGenerationOrigin {
     pub schema_version: u32,
     pub project_id: String,
     pub snapshot_id: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub target_path: Option<String>,
     pub purpose: String,
     pub request_id: String,
@@ -72,9 +94,15 @@ pub struct ChapterGenerationOrigin {
     pub contract_version: String,
     pub settings: RecordedAgentSettings,
     pub source_files: Vec<RecordedSourceDigest>,
+    #[serde(deserialize_with = "required_nullable")]
     pub section_update: Option<provider::SectionUpdateReviewTarget>,
+    #[serde(deserialize_with = "required_nullable")]
     pub(crate) planned_chapter: Option<PlannedChapterScope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_retrieval",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub(crate) retrieval: Option<RecordedRetrievalEvidence>,
     /// Digest of original project/snapshot/target/title/sections. Lifecycle,
     /// review IDs and this lineage record are deliberately excluded.
@@ -591,6 +619,30 @@ mod tests {
             .unwrap(),
             origin
         );
+        let wire = serde_json::to_value(&origin).unwrap();
+        for field in ["targetPath", "sectionUpdate", "plannedChapter"] {
+            let mut incomplete = wire.clone();
+            incomplete.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<ChapterGenerationOrigin>(incomplete).is_err(),
+                "missing nullable field {field} must not be accepted"
+            );
+        }
+        let mut null_retrieval = wire;
+        null_retrieval["retrieval"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<ChapterGenerationOrigin>(null_retrieval).is_err());
+        let mut incomplete_claude = serde_json::json!({
+            "backend": "claude-agent",
+            "modelId": "claude-test",
+            "effort": null,
+            "approvalPolicy": "dontAsk",
+            "maxTurns": 2
+        });
+        incomplete_claude
+            .as_object_mut()
+            .unwrap()
+            .remove("effort");
+        assert!(serde_json::from_value::<RecordedAgentSettings>(incomplete_claude).is_err());
         for version in [0, 1, 2, 3, 4, 5] {
             let mut unsupported = origin.clone();
             unsupported.schema_version = version;
