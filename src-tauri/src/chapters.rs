@@ -66,8 +66,11 @@ pub struct ChapterDraftPreview {
     pub revision: ChapterRevision,
     pub validation: ChapterValidationReport,
     pub model_id: String,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub model_version: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub input_tokens: Option<u64>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub output_tokens: Option<u64>,
     pub update_notes: Vec<String>,
 }
@@ -284,18 +287,17 @@ pub struct ChapterSection {
     pub spoken_text: String,
     pub claims: Vec<ChapterClaim>,
     pub dependencies: Vec<SectionDependency>,
-    #[serde(deserialize_with = "required_nullable_chapter_visual")]
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub visual: Option<ChapterVisualPayload>,
     pub hotspots: Vec<ChapterHotspot>,
 }
 
-fn required_nullable_chapter_visual<'de, D>(
-    deserializer: D,
-) -> Result<Option<ChapterVisualPayload>, D::Error>
+fn required_nullable_chapter_field<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
+    T: Deserialize<'de>,
 {
-    Option::<ChapterVisualPayload>::deserialize(deserializer)
+    Option::<T>::deserialize(deserializer)
 }
 
 /// Keeps malformed diagrams attached to an otherwise readable chapter. The
@@ -581,6 +583,7 @@ pub enum SectionDependency {
 pub struct ChapterSourceAnchor {
     pub anchor_id: String,
     pub path: String,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub symbol_id: Option<String>,
     pub snapshot_id: String,
     pub source_sha256: String,
@@ -667,7 +670,9 @@ pub enum VisualKind {
 pub struct VisualNode {
     pub node_id: String,
     pub label: String,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub detail: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub hotspot_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_anchor_ids: Vec<String>,
@@ -711,11 +716,17 @@ pub struct ChapterValidationReport {
 pub struct ChapterValidationIssue {
     pub code: ChapterIssueCode,
     pub message: String,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub path: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub section_id: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub claim_id: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub anchor_id: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub hotspot_id: Option<String>,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub visual_item_id: Option<String>,
 }
 
@@ -754,6 +765,7 @@ pub enum AnchorRemapStatus {
 #[serde(rename_all = "camelCase")]
 pub struct AnchorRemapResult {
     pub status: AnchorRemapStatus,
+    #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub anchor: Option<ChapterSourceAnchor>,
     pub issues: Vec<ChapterValidationIssue>,
 }
@@ -2916,6 +2928,12 @@ mod tests {
             &source,
         )
         .expect("an indexed symbol should produce an exact chapter anchor");
+        let mut context_call_anchor = call_anchor.clone();
+        context_call_anchor.anchor_id = "anchor:compute-call-context".to_owned();
+        let mut inference_call_anchor = call_anchor.clone();
+        inference_call_anchor.anchor_id = "anchor:compute-call-inference-claim".to_owned();
+        let mut inference_result_anchor = result_anchor.clone();
+        inference_result_anchor.anchor_id = "anchor:return-value-inference".to_owned();
         let code_claim = ChapterClaim {
             claim_id: "claim:call-flow".to_owned(),
             category: ClaimCategory::CodeBehavior,
@@ -2938,7 +2956,7 @@ mod tests {
             claim_id: "claim:repository-context".to_owned(),
             category: ClaimCategory::RepositoryContext,
             prose: "This file contains the public entry point and its helper.".to_owned(),
-            anchors: vec![context_anchor.clone()],
+            anchors: vec![context_anchor.clone(), context_call_anchor.clone()],
             dependencies: Vec::new(),
         };
         let inference_anchor = anchor_for(
@@ -2952,12 +2970,16 @@ mod tests {
             category: ClaimCategory::Inference {
                 visible_label: "Inference".to_owned(),
                 basis:
-                    "The small helper is only called by the public entry point in this snapshot."
+                    "The source shows that the public entry point delegates its calculation to a small helper."
                         .to_owned(),
             },
             prose: "The helper appears to keep the public function's implementation small."
                 .to_owned(),
-            anchors: vec![inference_anchor.clone()],
+            anchors: vec![
+                inference_call_anchor.clone(),
+                inference_result_anchor.clone(),
+                inference_anchor.clone(),
+            ],
             dependencies: Vec::new(),
         };
         ChapterRevision {
@@ -3030,6 +3052,8 @@ mod tests {
                                 evidence_anchor_ids: vec![
                                     call_anchor.anchor_id.clone(),
                                     context_anchor.anchor_id.clone(),
+                                    context_call_anchor.anchor_id.clone(),
+                                    inference_call_anchor.anchor_id.clone(),
                                 ],
                                 source_anchor_id: None,
                                 source_value: None,
@@ -3042,6 +3066,7 @@ mod tests {
                                 evidence_anchor_ids: vec![
                                     result_anchor.anchor_id.clone(),
                                     inference_anchor.anchor_id.clone(),
+                                    inference_result_anchor.anchor_id.clone(),
                                 ],
                                 source_anchor_id: None,
                                 source_value: None,
@@ -3052,7 +3077,11 @@ mod tests {
                             from_node_id: "node:answer".to_owned(),
                             to_node_id: "node:compute".to_owned(),
                             label: "calls".to_owned(),
-                            evidence_anchor_ids: vec![call_anchor.anchor_id.clone()],
+                            evidence_anchor_ids: vec![
+                                call_anchor.anchor_id.clone(),
+                                context_call_anchor.anchor_id.clone(),
+                                inference_call_anchor.anchor_id.clone(),
+                            ],
                         }],
                     })),
                     hotspots: vec![
@@ -3185,6 +3214,108 @@ mod tests {
         assert_eq!(value["symbolId"], "symbol:one");
         let old_shape = serde_json::json!({"kind":"symbol","path":"a.ts","source_sha256":"hash","symbol_id":"symbol:one"});
         assert!(serde_json::from_value::<SectionDependency>(old_shape).is_err());
+    }
+
+    #[test]
+    fn current_chapter_records_require_explicit_nullable_fields() {
+        let temporary = TestDirectory::new();
+        let (_root, storage, project, manifest, index) = fixture(&temporary);
+        let revision = valid_revision(&storage, &project, &manifest, &index);
+        let current = serde_json::to_value(&revision).unwrap();
+
+        let mut missing_symbol = current.clone();
+        assert!(
+            missing_symbol["sections"][0]["claims"][0]["anchors"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("symbolId")
+                .is_some()
+        );
+        assert!(decode_chapter_revision(&serde_json::to_vec(&missing_symbol).unwrap()).is_err());
+
+        for field in ["detail", "hotspotId"] {
+            let mut missing = current.clone();
+            let visual = &mut missing["sections"][0]["visual"];
+            assert!(
+                visual["nodes"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(field)
+                    .is_some()
+            );
+            assert!(serde_json::from_value::<VisualSpec>(visual.clone()).is_err());
+            let decoded = decode_chapter_revision(&serde_json::to_vec(&missing).unwrap()).unwrap();
+            assert!(matches!(
+                decoded.sections[0].visual.as_ref(),
+                Some(ChapterVisualPayload::Unavailable(_))
+            ));
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(
+                    &encode_chapter_revision(&decoded).unwrap()
+                )
+                .unwrap(),
+                missing,
+                "unavailable visuals retain their malformed fields unchanged"
+            );
+        }
+
+        let validation = validate_chapter_revision(&storage, &manifest, Some(&index), &revision);
+        let preview = ChapterDraftPreview {
+            generation_id: "generation:current".to_owned(),
+            revision,
+            validation,
+            model_id: "model".to_owned(),
+            model_version: None,
+            input_tokens: None,
+            output_tokens: None,
+            update_notes: vec![],
+        };
+        let preview = serde_json::to_value(preview).unwrap();
+        for field in ["modelVersion", "inputTokens", "outputTokens"] {
+            let mut missing = preview.clone();
+            assert!(missing.as_object_mut().unwrap().remove(field).is_some());
+            assert!(serde_json::from_value::<ChapterDraftPreview>(missing).is_err());
+        }
+
+        let issue = ChapterValidationIssue {
+            code: ChapterIssueCode::InvalidId,
+            message: "Invalid identifier".to_owned(),
+            path: None,
+            section_id: None,
+            claim_id: None,
+            anchor_id: None,
+            hotspot_id: None,
+            visual_item_id: None,
+        };
+        let issue = serde_json::to_value(issue).unwrap();
+        for field in [
+            "path",
+            "sectionId",
+            "claimId",
+            "anchorId",
+            "hotspotId",
+            "visualItemId",
+        ] {
+            let mut missing = issue.clone();
+            assert!(missing.as_object_mut().unwrap().remove(field).is_some());
+            assert!(serde_json::from_value::<ChapterValidationIssue>(missing).is_err());
+        }
+
+        let remap = serde_json::to_value(AnchorRemapResult {
+            status: AnchorRemapStatus::Unavailable,
+            anchor: None,
+            issues: vec![],
+        })
+        .unwrap();
+        let mut missing_anchor = remap;
+        assert!(
+            missing_anchor
+                .as_object_mut()
+                .unwrap()
+                .remove("anchor")
+                .is_some()
+        );
+        assert!(serde_json::from_value::<AnchorRemapResult>(missing_anchor).is_err());
     }
 
     #[test]
