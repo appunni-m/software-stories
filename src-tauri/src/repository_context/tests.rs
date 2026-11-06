@@ -1344,6 +1344,126 @@ fn generation_reuse_corruption_rebuild_and_changed_snapshot_do_not_mix_results()
 }
 
 #[test]
+fn current_range_cache_requires_nullable_fields() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/cache-contract.py",
+        "def cache_contract_probe():\n    return 1\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let initial = prepare(
+        &fixture.storage,
+        &fixture.manifest,
+        Some(&fixture.index),
+        &budget,
+    )
+    .unwrap();
+    assert!(!initial.reused_generation);
+    let metadata = serde_json::to_value(&initial.metadata).unwrap();
+    for (collection, field) in [
+        ("files", "parser"),
+        ("files", "status"),
+        ("files", "reason"),
+        ("files", "indexKey"),
+        ("ranges", "enclosing"),
+        ("ranges", "parent"),
+        ("ranges", "parser"),
+        ("coverage", "sourceByteLimitedFiles"),
+        ("build", "incrementalBaseSnapshot"),
+    ] {
+        let mut incomplete = metadata.clone();
+        let removed = if matches!(collection, "files" | "ranges") {
+            incomplete[collection]
+                .as_array_mut()
+                .and_then(|files| files.first_mut())
+                .and_then(serde_json::Value::as_object_mut)
+                .and_then(|file| file.remove(field))
+        } else {
+            incomplete[collection]
+                .as_object_mut()
+                .and_then(|coverage| coverage.remove(field))
+        };
+        assert!(removed.is_some(), "current metadata must write {field}");
+        assert!(
+            serde_json::from_value::<Metadata>(incomplete).is_err(),
+            "missing {field} must not be treated as a current cached value"
+        );
+    }
+
+    let chunk_directory = fixture.storage.join("repository-context/chunk-cache");
+    let chunk_path = fs::read_dir(&chunk_directory)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .unwrap();
+    let chunk_cache: serde_json::Value =
+        serde_json::from_slice(&fs::read(&chunk_path).unwrap()).unwrap();
+    for field in ["enclosing", "parent"] {
+        let mut incomplete = chunk_cache.clone();
+        let removed = incomplete["chunks"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+        assert!(removed.is_some());
+        assert!(
+            serde_json::from_value::<ChunkCache>(incomplete).is_err(),
+            "missing {field} must not be treated as a current cached value"
+        );
+    }
+}
+
+#[test]
+fn omitted_coverage_field_invalidates_cached_generation() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/cache-contract.py",
+        "def cache_contract_probe():\n    return 1\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let initial = prepare(
+        &fixture.storage,
+        &fixture.manifest,
+        Some(&fixture.index),
+        &budget,
+    )
+    .unwrap();
+    assert!(!initial.reused_generation);
+    let cache_root = root(
+        &fixture.storage,
+        &fixture.manifest.summary.project_id,
+        &fixture.manifest.summary.snapshot_id,
+    );
+    let pointer_path = cache_root.join("current.json");
+    let mut pointer: Pointer =
+        serde_json::from_slice(&fs::read(&pointer_path).unwrap()).unwrap();
+    let metadata_path = cache_root.join(&pointer.generation).join("ranges.json");
+    let mut metadata: serde_json::Value =
+        serde_json::from_slice(&fs::read(&metadata_path).unwrap()).unwrap();
+    metadata["coverage"]
+        .as_object_mut()
+        .unwrap()
+        .remove("sourceByteLimitedFiles");
+    let encoded = serde_json::to_vec(&metadata).unwrap();
+    fs::write(&metadata_path, &encoded).unwrap();
+    pointer.metadata_sha256 = digest(&encoded);
+    fs::write(&pointer_path, serde_json::to_vec(&pointer).unwrap()).unwrap();
+
+    let rebuilt = prepare(
+        &fixture.storage,
+        &fixture.manifest,
+        Some(&fixture.index),
+        &budget,
+    )
+    .unwrap();
+    assert!(!rebuilt.reused_generation);
+}
+
+#[test]
 fn one_changed_file_reuses_other_chunk_layouts_but_rehashes_all_source() {
     let mut fixture = Fixture::new();
     let cancelled = AtomicBool::new(false);

@@ -113,6 +113,14 @@ pub(crate) struct SymbolContext {
     pub(crate) end_byte: usize,
 }
 
+fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Chunk {
@@ -121,8 +129,10 @@ struct Chunk {
     start_line: usize,
     end_line: usize,
     chunk_sha256: String,
+    #[serde(deserialize_with = "required_nullable")]
     // The innermost containing declaration survives splitting an oversized function.
     enclosing: Option<SymbolContext>,
+    #[serde(deserialize_with = "required_nullable")]
     parent: Option<SymbolContext>,
 }
 
@@ -138,8 +148,11 @@ pub(crate) struct CodeRange {
     pub(crate) start_line: usize,
     pub(crate) end_line: usize,
     pub(crate) chunk_sha256: String,
+    #[serde(deserialize_with = "required_nullable")]
     pub(crate) enclosing: Option<SymbolContext>,
+    #[serde(deserialize_with = "required_nullable")]
     pub(crate) parent: Option<SymbolContext>,
+    #[serde(deserialize_with = "required_nullable")]
     pub(crate) parser: Option<index::ParserVersion>,
 }
 
@@ -150,10 +163,13 @@ struct FileCoverage {
     source_sha256: String,
     bytes: u64,
     chunks: usize,
+    #[serde(deserialize_with = "required_nullable")]
     parser: Option<index::ParserVersion>,
-    #[serde(default)]
+    #[serde(deserialize_with = "required_nullable")]
     status: Option<index::IndexFileStatus>,
+    #[serde(deserialize_with = "required_nullable")]
     reason: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
     index_key: Option<String>,
 }
 
@@ -162,7 +178,6 @@ struct FileCoverage {
 pub(crate) struct Coverage {
     pub(crate) files_indexed: usize,
     pub(crate) files_unavailable: usize,
-    #[serde(default)]
     pub(crate) source_byte_limited_files: usize,
     pub(crate) bytes_indexed: u64,
     pub(crate) chunks: usize,
@@ -250,6 +265,7 @@ pub(crate) struct BuildStats {
     pub(crate) documents_added: usize,
     pub(crate) documents_deleted: usize,
     pub(crate) segment_bytes_copied: u64,
+    #[serde(deserialize_with = "required_nullable")]
     pub(crate) incremental_base_snapshot: Option<String>,
 }
 
