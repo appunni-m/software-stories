@@ -23,10 +23,6 @@ const MAX_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
-// Historical trace versions still present in user storage are eligible for
-// retention only. They remain unsupported by `read()` and are never exported
-// or rewritten. The oldest shipped envelope is schema 2.
-const MIN_RETENTION_SCHEMA_VERSION: u32 = 2;
 const SCHEMA_VERSION: u32 = 7;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -323,24 +319,6 @@ pub(crate) struct Record {
     truncated: bool,
 }
 
-/// The narrow envelope needed to decide whether an obsolete trace can be
-/// removed under the bounded retention policy. Unknown schema-specific fields
-/// are ignored here; old records still cannot be read or exported as current.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RetentionRecord {
-    schema_version: u32,
-    run_id: String,
-    terminal: Option<RetentionEnd>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RetentionEnd {
-    state: Terminal,
-    elapsed_ms: u64,
-}
-
 impl Record {
     /// First observed assistant-message delta on this trace's monotonic clock.
     /// This is transport-visible text progress, not a model-token timestamp.
@@ -475,53 +453,17 @@ fn read(path: &Path) -> Result<Record, String> {
     Ok(record)
 }
 
-/// Returns the run identity and whether a file is terminal for retention.
-/// Current records receive full validation. Historical known schemas are
-/// parsed only through their bounded identity/terminal envelope so a schema
-/// upgrade cannot make old files block creation of new diagnostics. They are
-/// never accepted by `read()`, exported, or rewritten.
+/// Returns the run identity and whether a current-format file is terminal for
+/// retention. Unsupported or incomplete records are never interpreted as
+/// current and cannot be deleted to make room for new diagnostics.
 fn retention_record(path: &Path) -> Result<(String, bool), String> {
-    let metadata = fs::symlink_metadata(path).map_err(|_| "Timing diagnostics are unavailable.")?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() {
-        return Err("Timing diagnostics are not a regular file.".into());
-    }
-    let bytes = bounded_file::read(path, MAX_BYTES)
-        .map_err(|_| "Timing diagnostics exceed their limit.")?;
-    let value =
-        crate::strict_json::from_slice(&bytes).map_err(|_| "Timing diagnostics are damaged.")?;
-    let schema_version = value
-        .get("schemaVersion")
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|version| u32::try_from(version).ok())
-        .ok_or("Timing diagnostics are damaged.")?;
+    let record = read(path)?;
     let file_run = path
         .file_stem()
         .and_then(|stem| stem.to_str())
         .ok_or("Timing filename changed.")?;
-
-    if schema_version == SCHEMA_VERSION {
-        let record = read(path)?;
-        if record.run_id != file_run {
-            return Err("Timing filename changed.".into());
-        }
-        return Ok((record.run_id, record.terminal.is_some()));
-    }
-    if !(MIN_RETENTION_SCHEMA_VERSION..SCHEMA_VERSION).contains(&schema_version) {
-        return Err("Timing diagnostics use an unsupported format.".into());
-    }
-
-    let record: RetentionRecord =
-        serde_json::from_value(value).map_err(|_| "Timing diagnostics are damaged.")?;
-    let terminal_invalid = record.terminal.as_ref().is_some_and(|terminal| {
-        let _known_terminal_state = terminal.state;
-        terminal.elapsed_ms > MAX_ELAPSED
-    });
-    if record.schema_version != schema_version
-        || !canonical_run(&record.run_id)
-        || record.run_id != file_run
-        || terminal_invalid
-    {
-        return Err("Timing diagnostics are invalid.".into());
+    if record.run_id != file_run {
+        return Err("Timing filename changed.".into());
     }
     Ok((record.run_id, record.terminal.is_some()))
 }
