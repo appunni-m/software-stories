@@ -688,6 +688,7 @@ export interface RepositoryGuideFreshness {
   projectId: string;
   fromSnapshotId: string;
   toSnapshotId: string;
+  opening: RepositoryGuideUnitFreshness;
   units: RepositoryGuideUnitFreshness[];
 }
 

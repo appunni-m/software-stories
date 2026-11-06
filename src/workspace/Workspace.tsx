@@ -1333,10 +1333,11 @@ function WorkspaceSharingDetails({kind}:{kind:'question'|'guide'}) {
   return <details className="dw-error-details"><summary>What can be shared</summary><p className="dw-permission-note">Relevant captured code, file names and documentation hints from this snapshot may be sent to your connected assistant. Each {kind==='guide'?'guide slide':'question'} is limited to 250 KB across 12 files; large files can be read in portions. Secret-like paths and excluded files stay blocked. Your account quota applies. The live working copy is not sent. Manage or revoke this snapshot's permission in Repository sharing. Code Atlas does not run repository code.</p></details>;
 }
 function guideFreshnessSummary(report:RepositoryGuideFreshness):string {
-  const changed=report.units.filter(unit=>unit.status==='stale').length;
-  const review=report.units.filter(unit=>unit.status==='needsReview').length;
-  const unaffected=report.units.filter(unit=>unit.status==='current'||unit.status==='safeToCarry').length;
-  const notReady=report.units.filter(unit=>unit.status==='incomplete'||unit.status==='pending').length;
+  const entries=[report.opening,...report.units];
+  const changed=entries.filter(unit=>unit.status==='stale').length;
+  const review=entries.filter(unit=>unit.status==='needsReview').length;
+  const unaffected=entries.filter(unit=>unit.status==='current'||unit.status==='safeToCarry').length;
+  const notReady=entries.filter(unit=>unit.status==='incomplete'||unit.status==='pending').length;
   return [`${changed} changed`,`${review} need review`,`${unaffected} unaffected`,notReady?`${notReady} not ready`:null].filter((part):part is string=>Boolean(part)).join(' · ');
 }
 function Answer(props:AnswerProps){
@@ -1507,8 +1508,8 @@ function Answer(props:AnswerProps){
         {guideFreshnessError&&<p role="alert">{guideFreshnessError}</p>}
         {latestGuideFreshness&&<>
           <p role="status">Source check: {guideFreshnessSummary(latestGuideFreshness)}.</p>
-          <ul className="dw-guide-freshness-list">{latestGuideFreshness.units.filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
-            <InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
+          <ul className="dw-guide-freshness-list">{[latestGuideFreshness.opening,...latestGuideFreshness.units].filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
+            {unit.key==='opening'&&<strong>Opening · </strong>}<InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
             {unit.reasons.length>0&&<details><summary>Why</summary><ul>{unit.reasons.map((reason,index)=><li key={`${unit.key}:${index}`}>{reason}</li>)}</ul></details>}
           </li>)}</ul>
         </>}

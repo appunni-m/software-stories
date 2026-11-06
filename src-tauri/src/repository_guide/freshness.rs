@@ -14,6 +14,7 @@ pub(crate) struct RepositoryGuideFreshness {
     pub(crate) project_id: String,
     pub(crate) from_snapshot_id: String,
     pub(crate) to_snapshot_id: String,
+    pub(crate) opening: GuideUnitFreshness,
     pub(crate) units: Vec<GuideUnitFreshness>,
 }
 
@@ -75,12 +76,40 @@ pub(crate) fn assess(
         .map(|revision| (revision.revision_id.clone(), revision))
         .collect::<HashMap<_, _>>();
 
+    let opening_attempts = guide
+        .opening
+        .iter()
+        .cloned()
+        .chain(guide.opening_continuations.iter().cloned())
+        .collect();
+    let opening_unit = Unit {
+        key: "opening".into(),
+        attempts: opening_attempts,
+    };
+    let opening_question = if guide.opening.is_some() {
+        super::opening::question(guide)?
+    } else {
+        super::opening::LEARNING_QUESTION
+    };
+    let opening = assess_unit(
+        storage,
+        &from_manifest,
+        from_index.as_ref(),
+        &to_manifest,
+        to_index.as_ref(),
+        &opening_unit,
+        opening_question,
+        &[],
+        &revisions,
+    );
+
     let Some(plan) = guide.plan.as_ref() else {
         return Ok(RepositoryGuideFreshness {
             guide_id: guide.id.clone(),
             project_id: guide.project_id.clone(),
             from_snapshot_id: guide.snapshot_id.clone(),
             to_snapshot_id: to_snapshot_id.to_owned(),
+            opening,
             units: Vec::new(),
         });
     };
@@ -116,6 +145,7 @@ pub(crate) fn assess(
         project_id: guide.project_id.clone(),
         from_snapshot_id: guide.snapshot_id.clone(),
         to_snapshot_id: to_snapshot_id.to_owned(),
+        opening,
         units,
     })
 }
@@ -402,6 +432,12 @@ mod tests {
 
         assert_eq!(report.from_snapshot_id, guide.snapshot_id);
         assert_eq!(report.to_snapshot_id, guide.snapshot_id);
+        assert_eq!(report.opening.key, "opening");
+        assert_eq!(
+            report.opening.question,
+            super::super::opening::LEARNING_QUESTION
+        );
+        assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
         assert_eq!(report.units.len(), guide.units.len());
         assert!(
             report
@@ -409,6 +445,20 @@ mod tests {
                 .iter()
                 .all(|unit| { unit.status == GuideUnitFreshnessStatus::Pending })
         );
+    }
+
+    #[test]
+    fn source_change_assessment_includes_the_opening_without_an_outline() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let mut guide = crate::repository_guide::tests::fresh_record(&fixture);
+        guide.plan = None;
+        guide.units.clear();
+
+        let report = assess(&fixture.storage, &guide, &guide.snapshot_id).unwrap();
+
+        assert_eq!(report.opening.key, "opening");
+        assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
+        assert!(report.units.is_empty());
     }
 
     fn unit(
