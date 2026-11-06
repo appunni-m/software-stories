@@ -1348,14 +1348,14 @@ fn fontdone_repository_guide_account_probe() {
     let manifest = snapshot::load_snapshot_manifest(&storage, project, snapshot_id).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
     manager.resume_connection(&storage).unwrap();
+    // The desktop app loads this catalog during its one-time connection setup.
+    // A fresh test manager must do the same before it binds a reviewed runtime.
+    let models = manager.models(&storage).unwrap();
+    validate_model_selection(&models, DEFAULT_MODEL_ID, DEFAULT_REASONING_EFFORT).unwrap();
     let runtime = manager.review_runtime(&storage).unwrap();
     let resume_id = std::env::var("CODE_ATLAS_GUIDE_RESUME_ID").ok();
     let record = if let Some(id) = &resume_id {
         let original = scoped(&storage, id, project, snapshot_id).unwrap();
-        assert!(
-            original.plan.is_some(),
-            "Explicit continuation cannot repeat planning"
-        );
         assert!(!matches!(
             original.status,
             Status::Planning | Status::Building
@@ -1387,10 +1387,15 @@ fn fontdone_repository_guide_account_probe() {
     }
     let record = if resume_id.is_some() {
         let reconciled = reconcile(&storage, &record, &manager).unwrap();
-        store::prepare_continuation(&storage, &record.id, reconciled.revision).unwrap()
+        if reconciled.plan.is_some() {
+            store::prepare_continuation(&storage, &record.id, reconciled.revision).unwrap()
+        } else {
+            store::prepare_plan_retry(&storage, &record.id, reconciled.revision).unwrap()
+        }
     } else {
         record
     };
+    let continue_opening = resume_id.is_some() && record.plan.is_some();
     let started = Instant::now();
     let observations = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&observations);
@@ -1448,7 +1453,7 @@ fn fontdone_repository_guide_account_probe() {
         let pass = build(
             &storage,
             &record.id,
-            first_build && resume_id.is_some(),
+            first_build && continue_opening,
             &manager,
             RepositoryContextJobs::default(),
             &recovery::InterruptionJournal::default(),

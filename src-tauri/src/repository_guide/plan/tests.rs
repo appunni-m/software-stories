@@ -335,6 +335,15 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(instructions.contains(
         "Split long dispatches, branch chains, separate API operations, or multi-stage behavior"
     ));
+    assert!(instructions.contains(
+        "Give each distinct format family, backend, rendering mode, or failure policy its own question"
+    ));
+    assert!(instructions.contains(
+        "A question that combines several such paths with 'and', 'or', a slash, or a list is a signal to split the work"
+    ));
+    assert!(instructions.contains(
+        "Group alternatives only when the same code decision leads to the same consequential behavior"
+    ));
     assert!(instructions.contains("Preserve source order, outcomes, continuation, and fallback"));
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
