@@ -189,7 +189,7 @@ fn focused_story_layout_requires_the_current_version() {
     assert_eq!(record.state, s);
     let before = fs::read(f.path()).unwrap();
 
-    for version in [json!(5), json!(4), json!(3), json!(2)] {
+    for version in [json!(6), json!(5), json!(4), json!(3), json!(2)] {
         let mut unsupported = s.clone();
         unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
             version;
@@ -276,7 +276,7 @@ fn focused_flow_edge_round_trips_without_a_saved_viewport() {
 }
 
 #[test]
-fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() {
+fn opening_unsupported_reader_layouts_fails_without_rewriting_the_conversation() {
     let f = Fixture::new();
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
@@ -288,17 +288,7 @@ fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() 
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
-    let restored = load(&f.0, "project", "snapshot")
-        .unwrap()
-        .expect("stale optional reader layouts must not hide saved answers");
-    let turn = &restored.state["explorations"][0]["turns"][0];
-    assert_eq!(
-        turn["question"],
-        "What happens to the font bytes?\nShow the failure path."
-    );
-    assert_eq!(turn["status"], "stopped");
-    assert_eq!(turn["presentation"]["stories"], json!([]));
-    assert_eq!(turn["presentation"]["diagrams"], json!([]));
+    assert!(load(&f.0, "project", "snapshot").is_err());
     assert_eq!(
         fs::read(f.path()).unwrap(),
         original_bytes,
@@ -307,7 +297,7 @@ fn opening_stale_reader_layouts_preserves_answers_and_discards_only_positions() 
 }
 
 #[test]
-fn opening_v6_guide_layout_refits_camera_and_preserves_reading_location() {
+fn opening_v6_guide_layout_is_rejected_without_rewriting_the_conversation() {
     let f = Fixture::new();
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
@@ -317,14 +307,8 @@ fn opening_v6_guide_layout_refits_camera_and_preserves_reading_location() {
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
-    let restored = load(&f.0, "project", "snapshot").unwrap().unwrap();
-    let story = &restored.state["explorations"][0]["turns"][0]["presentation"]["stories"][0];
-    assert_eq!(story["focusLayoutVersion"], json!(FOCUSED_STORY_LAYOUT_VERSION));
-    assert_eq!(story["sceneId"], "claim:second");
-    assert_eq!(story["positions"]["claim:second"], json!(3.2));
-    assert_eq!(story["focusedNodeId"], "claim:second");
-    assert!(story.get("viewport").is_none());
-    assert_eq!(fs::read(f.path()).unwrap(), original_bytes, "opening migrates only in memory");
+    assert!(load(&f.0, "project", "snapshot").is_err());
+    assert_eq!(fs::read(f.path()).unwrap(), original_bytes, "unsupported layouts are not rewritten");
 }
 
 #[test]

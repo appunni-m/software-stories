@@ -774,8 +774,8 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
 
 /// Reader positions from the current layout are transient. Repair malformed
 /// optional fields in memory so they cannot make the conversation unavailable.
-/// Unsupported layout versions are rejected before this function runs, and the
-/// durable record is never rewritten here.
+/// Layout versions are checked before this cleanup; this function never upgrades
+/// an unsupported reader format or rewrites the durable record.
 fn discard_stale_reader_positions(state: &mut Value) {
     let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
         return;
@@ -804,27 +804,49 @@ fn discard_stale_reader_positions(state: &mut Value) {
     }
 }
 
+/// Reject saved presentations authored for a different renderer layout before
+/// best-effort cleanup touches malformed optional reader metadata. The original
+/// conversation bytes remain intact when a layout is no longer supported.
+fn validate_reader_layout_versions(state: &Value) -> Result<(), String> {
+    let Some(explorations) = state.get("explorations").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for exploration in explorations {
+        let Some(turns) = exploration.get("turns").and_then(Value::as_array) else {
+            continue;
+        };
+        for turn in turns {
+            let Some(presentation) = turn.get("presentation").and_then(Value::as_object) else {
+                continue;
+            };
+            for (collection, version_field, current_version) in [
+                ("stories", "focusLayoutVersion", FOCUSED_STORY_LAYOUT_VERSION),
+                ("diagrams", "layoutVersion", FLOW_DIAGRAM_LAYOUT_VERSION),
+            ] {
+                let Some(entries) = presentation.get(collection).and_then(Value::as_array) else {
+                    continue;
+                };
+                if entries.iter().any(|entry| {
+                    entry.get(version_field).and_then(Value::as_u64) != Some(current_version)
+                }) {
+                    return Err(UNAVAILABLE.into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Keep a saved Guide position only when its answer/section ownership fields
 /// are syntactically usable. Ownership itself remains checked by `validate`.
-/// Older camera layouts retain scene/audio/focus state but discard the viewport
-/// so the reader can fit the current visual without hiding the saved answer.
+/// Retain a camera only when it was saved for the current renderer layout.
 fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
     let story = story.as_object_mut()?;
     story.retain(|key, _| STORY_POSITION_FIELDS.contains(&key.as_str()));
-    let layout_version = story.get("focusLayoutVersion").and_then(Value::as_u64)?;
-    if !matches!(layout_version, 4 | 5 | 6 | FOCUSED_STORY_LAYOUT_VERSION) {
+    if story.get("focusLayoutVersion").and_then(Value::as_u64)
+        != Some(FOCUSED_STORY_LAYOUT_VERSION)
+    {
         return None;
-    }
-
-    // The Guide scene graph changed edge-label sizing in v7. Older saved
-    // cameras may frame that layout incorrectly, so retain the reading
-    // location and focus while letting the frontend fit the new scene.
-    if layout_version != FOCUSED_STORY_LAYOUT_VERSION {
-        story.remove("viewport");
-        story.insert(
-            "focusLayoutVersion".into(),
-            Value::from(FOCUSED_STORY_LAYOUT_VERSION),
-        );
     }
 
     let revision = story.get("revisionId").and_then(Value::as_str)?.to_owned();
@@ -1033,6 +1055,7 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
     {
         return Err(UNAVAILABLE.into());
     }
+    validate_reader_layout_versions(&record.state)?;
     discard_stale_reader_positions(&mut record.state);
     validate(&record.state, project, snapshot)?;
     Ok(Some(record))

@@ -60,12 +60,12 @@ test('focused graph progress keeps its current layout and exact section position
   assert.equal(cleanStoryProgress({...focused,focusLayoutVersion:1}),undefined);
 });
 
-test('previous Guide layout migrates reading position and focus while refitting its camera',()=>{
-  const previous={...story,focusLayoutVersion:6,focusedNodeId:'claim:second',focusedEdgeId:'edge:next'};
-  const migrated=cleanStoryProgress(previous);
-  const {viewport,...previousReadingState}=previous;
-  assert.deepEqual(migrated,{...previousReadingState,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION});
-  assert.equal('viewport' in migrated,false,'a viewport framed for narrower labels must not be restored');
+test('older Guide layout positions are unavailable and are never upgraded',()=>{
+  for(const focusLayoutVersion of [1,2,3,4,5,6]){
+    const previous={...story,focusLayoutVersion,focusedNodeId:'claim:second',focusedEdgeId:'edge:next'};
+    assert.equal(cleanStoryProgress(previous),undefined,`layout ${focusLayoutVersion}`);
+  }
+  assert.deepEqual(cleanStoryProgress(story),story);
 });
 
 test('Flow viewport restoration accepts only the current layout version',()=>{

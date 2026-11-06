@@ -797,7 +797,7 @@ describe('visual story scenes', () => {
   it('restores the exact scene and independent audio positions without resuming playback', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
-    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 4 };
+    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION };
     const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
     assert.deepEqual(progress, { status: 'available', progress: { ...saved, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION } });
     const restored = readSectionStoryProgress(progress.status === 'available' ? progress.progress : undefined, identity, scenes);
@@ -809,7 +809,7 @@ describe('visual story scenes', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2 }, fullMap: false,
-      focusedNodeId: 'check', focusedEdgeId: 'e:1', focusLayoutVersion: 4 };
+      focusedNodeId: 'check', focusedEdgeId: 'e:1', focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION };
 
     const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
     const restored = readSectionStoryProgress(progress.status === 'available' ? progress.progress : undefined, identity, scenes);
@@ -833,7 +833,7 @@ describe('visual story scenes', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
     const saved = { ...identity, sceneId: 'check', positions: { entry: 4, check: 9 }, fullMap: false,
-      focusedNodeId: 'x'.repeat(257), focusedEdgeId: {}, focusLayoutVersion: 4 };
+      focusedNodeId: 'x'.repeat(257), focusedEdgeId: {}, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION };
 
     const progress = readStoryProgressRecord(JSON.stringify(saved), identity, scenes);
     assert.equal(progress.status, 'unavailable');
@@ -848,13 +848,13 @@ describe('visual story scenes', () => {
     for (const raw of ['{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
       assert.equal(readStoryProgressRecord(raw, identity, scenes).status, 'unavailable');
     }
-    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4 };
+    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION };
     assert.equal(readStoryProgressRecord(JSON.stringify(foreign), identity, scenes).status, 'unavailable');
     const unversioned = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false };
     assert.equal(readStoryProgressRecord(JSON.stringify(unversioned), identity, scenes).status, 'unavailable');
-    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4, autoPlay: true };
+    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION, autoPlay: true };
     assert.equal(readStoryProgressRecord(JSON.stringify(extra), identity, scenes).status, 'unavailable');
-    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 4 };
+    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: FOCUSED_STORY_LAYOUT_VERSION };
     assert.equal(readStoryProgressRecord(JSON.stringify(bad), identity, scenes).status, 'unavailable');
   });
 });

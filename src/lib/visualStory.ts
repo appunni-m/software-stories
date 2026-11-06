@@ -450,6 +450,6 @@ function isCurrentStoryProgress(value: unknown): value is Record<string, unknown
   const actual = Object.keys(record);
   return actual.every(key => allowed.includes(key))
     && required.every(key => Object.hasOwn(record, key))
-    && (record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION || record.focusLayoutVersion === 4 || record.focusLayoutVersion === 5 || record.focusLayoutVersion === 6)
+    && record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION
     && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }

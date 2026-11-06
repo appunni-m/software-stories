@@ -29,15 +29,13 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   const allowed=[...required,'viewport','focusedNodeId','focusedEdgeId'];
   if(!object(value)||!only(value,allowed)||!required.every(key=>Object.hasOwn(value,key))
     ||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
-  // Older layouts may frame the wider v7 label lanes incorrectly. Preserve
-  // the selected scene, narration positions and focus, then refit the graph.
-  if(value.focusLayoutVersion!==4 && value.focusLayoutVersion!==5 && value.focusLayoutVersion!==6 && value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
+  if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
   if(Object.hasOwn(value,'focusedNodeId')&&!id(value.focusedNodeId)
     ||Object.hasOwn(value,'focusedEdgeId')&&!id(value.focusedEdgeId))return undefined;
   const entries=Object.entries(value.positions);
   if(entries.length>128||entries.some(([key,n])=>!id(key)||typeof n!=='number'||!Number.isFinite(n)||n<0||n>3600))return undefined;
-  const viewport=value.focusLayoutVersion===FOCUSED_STORY_LAYOUT_VERSION&&Object.hasOwn(value,'viewport')?cleanFlowViewport(value.viewport):undefined;
-  if(value.focusLayoutVersion===FOCUSED_STORY_LAYOUT_VERSION&&Object.hasOwn(value,'viewport')&&!viewport)return undefined;
+  const viewport=Object.hasOwn(value,'viewport')?cleanFlowViewport(value.viewport):undefined;
+  if(Object.hasOwn(value,'viewport')&&!viewport)return undefined;
   const focusedNodeId=value.focusedNodeId as string|undefined;
   const focusedEdgeId=value.focusedEdgeId as string|undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
