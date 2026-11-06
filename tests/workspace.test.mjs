@@ -234,9 +234,33 @@ test('reading positions belong to the exact exploration, turn, revision and view
   assert.deepEqual(ancestors(restored,'grandchild').map(e=>e.id),['root',testId('child'),testId('grandchild')]);
 });
 
+test('changing a focused Guide section requests reveal without changing other view positions',()=>{
+  const revisionId='revision:font';
+  let state=addTurn(createWorkspace('p','snap'),{
+    ...turn('answer'),status:'ready',revisionId,
+    reading:{guide:{revisionId,sectionId:'section:one'},flow:{revisionId,sectionId:'diagram:two'}},
+  },'guide');
+  state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{
+    ...exploration,focusedTurnId:testId('answer'),scrollPositions:{guide:1_740,flow:230,history:80},
+  }:exploration)};
+
+  const selected=focusAnswerSection(state,'root','answer',{revisionId,sectionId:'section:two'});
+  const root=selected.explorations[0];
+  assert.equal(root.focusedTurnId,testId('answer'));
+  assert.equal(root.revealTurnId,testId('answer'));
+  assert.deepEqual(root.turns[0].reading,{
+    guide:{revisionId,sectionId:'section:two'},
+    flow:{revisionId,sectionId:'diagram:two'},
+  });
+  assert.deepEqual(root.scrollPositions,{guide:1_740,flow:230,history:80},
+    'the selected section is revealed without erasing independently stored tab scroll positions');
+});
+
 test('opening a compact answer stores its exact section across Guide and Flow switches',()=>{
   let state=addTurn(createWorkspace('p','snap'),{...turn('answer'),status:'ready',revisionId:'revision:font'},'guide');
   state=focusAnswerSection(state,'root','answer',{revisionId:'revision:font',sectionId:'section:probes'});
+  assert.equal(state.explorations[0].revealTurnId,testId('answer'),
+    'a newly selected section reveals its owning answer in the reader');
   state=rememberSection(state,'root','answer','flow',{revisionId:'revision:font',sectionId:'section:dispatch'});
   state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'flow'}:exploration)};
   state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'guide'}:exploration)};
@@ -255,8 +279,8 @@ test('opening a compact answer stores its exact section across Guide and Flow sw
 
 test('selecting another Guide slide reveals its answer card in the reader',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
-  assert.match(source,/if\(props\.compact\)props\.onFocus\(revision\.revisionId,sectionId\)/,
-    'Guide slide navigation must focus the selected section through the workspace');
+  assert.match(source,/if\(revision&&sectionId\)props\.onFocus\(revision\.revisionId,sectionId\)/,
+    'Guide slide navigation must focus the selected section in the full reader and compact cards');
   assert.match(source,/target\.scrollIntoView\(\{block:'start'\}\)/,
     'the selected Guide answer must return to view when its section changes');
   assert.match(source,/const restoreTurnId=current\.revealTurnId\?\?\(revealAnswer\?current\.focusedTurnId\?\?featuredTurnId:undefined\)/,

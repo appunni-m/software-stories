@@ -1272,10 +1272,7 @@ function Answer(props:AnswerProps){
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
     const sectionId=(revision&&answerReadingPosition(turn,'guide',revision.revisionId,revision.sections)?.sectionId)
       ?? revision?.sections[0]?.sectionId;
-    if(revision&&sectionId){
-      if(props.compact)props.onFocus(revision.revisionId,sectionId);
-      else props.onSection(revision.revisionId,sectionId);
-    }
+    if(revision&&sectionId)props.onFocus(revision.revisionId,sectionId);
   };
   const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
   const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));

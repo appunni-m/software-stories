@@ -654,8 +654,7 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
     ...(answerVersions === undefined ? {} : { answerVersions }),
   }) }) };
 }
-/** Opening a compact answer card must restore the exact section the reader chose,
- * even when the same question has several published revisions. */
+/** Focus an answer section and request a reveal when its selected reading target changes. */
 export function focusAnswerSection(state: WorkspaceState, explorationId: string, turnId: string, position: ReadingPosition): WorkspaceState {
   const clean = cleanReadingPosition(position);
   const owner = state.explorations.find((e) => e.id === explorationId);
