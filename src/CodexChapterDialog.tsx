@@ -125,6 +125,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const [login, setLogin] = useState<{ loginId: string; authUrl: string } | null>(null);
   const [models, setModels] = useState<CodexModel[]>([]);
   const [selection, setSelection] = useState(preferences);
+  const [selectionSaveFailed, setSelectionSaveFailed] = useState(false);
   const [manifest, setManifest] = useState<SnapshotManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestError, setManifestError] = useState<string | null>(null);
@@ -431,9 +432,18 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const changeModel = (modelId: string) => {
     if (locked) return;
     releaseReview();
+    setSelectionSaveFailed(false);
     // Selecting a replacement model does not implicitly replace the saved
     // reasoning preference. Require an explicit, supported effort selection.
     setSelection({ modelId, effort: '' });
+  };
+
+  const changeEffort = (effort: string) => {
+    if (locked || !selectedModel?.supportedReasoningEfforts.includes(effort)) return;
+    releaseReview();
+    const next = { ...selection, effort };
+    setSelection(next);
+    setSelectionSaveFailed(!remember(next.modelId, next.effort));
   };
 
   const changePath = (path: string, checked: boolean) => {
@@ -733,9 +743,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               <div className="provider-section-heading"><div><span>ACCOUNT MODELS</span><h3 id="codex-model-title">Model and reasoning</h3></div><AppButton intent="secondary" onClick={() => { void discoverModels(); }} disabled={locked || otherRun || Boolean(login)}>{busy === 'models' ? 'Loading…' : 'Load / refresh models'}</AppButton></div>
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<AppSelect ariaLabel="Codex model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked || !models.length} clearLabel={models.length ? 'Choose a model…' : 'Load models first…'} options={models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={changeModel}/></label>
-              <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={(effort)=>{if(locked || !selectedModel?.supportedReasoningEfforts.includes(effort))return;releaseReview();const next={...selection,effort};setSelection(next);remember(next.modelId,next.effort);}}/></label>
+              <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={changeEffort}/></label>
               <p><strong>Access is always read-only.</strong> Codex can inspect only the reviewed {gitOperation ? 'changes' : 'snapshot files'}. It cannot edit files, run commands, or browse the web.</p>
-              <p className="provider-small-note">These settings are saved once. Source review and consent apply separately to each generation.</p>
+              <p className="provider-small-note">Model and reasoning defaults are saved on this Mac when storage is available. Source review and consent apply separately to each generation.</p>
+              {selectionSaveFailed && <p className="provider-status-note" role="status">This model and reasoning choice is active for this session, but could not be saved on this Mac. Reselect it after restarting Code Atlas.</p>}
             </section></details>}
               </div>
             </details>}

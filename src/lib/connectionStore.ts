@@ -19,11 +19,14 @@ export function readCodexSelection(): { modelId: string; effort: string } {
   } catch { /* An unreadable saved selection must not choose another model. */ }
   return { modelId: '', effort: '' };
 }
-export function rememberCodexSelection(modelId: string, effort: string) {
+export function rememberCodexSelection(modelId: string, effort: string): boolean {
   if (!modelId.trim() || modelId.length > 256 || /[\u0000-\u001f\u007f-\u009f]/u.test(modelId)
-    || !effort.trim() || effort.length > 32 || /[\u0000-\u001f\u007f-\u009f]/u.test(effort)) return;
-  try { localStorage.setItem(codexPreferenceKey, JSON.stringify({ modelId, effort })); } catch { /* Optional. */ }
+    || !effort.trim() || effort.length > 32 || /[\u0000-\u001f\u007f-\u009f]/u.test(effort)) return false;
+  let persisted = true;
+  try { localStorage.setItem(codexPreferenceKey, JSON.stringify({ modelId, effort })); }
+  catch { persisted = false; }
   publish({ selection: { modelId, effort } });
+  return persisted;
 }
 interface ConnectionState { status: CodexAgentStatus | null; models: CodexModel[]; checking: boolean; error: string | null; selection: { modelId: string; effort: string } }
 let state: ConnectionState = { status: null, models: [], checking: false, error: null, selection: readCodexSelection() };

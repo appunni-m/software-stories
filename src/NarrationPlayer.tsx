@@ -428,7 +428,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         if (!active) return;
         // An earlier attempt can fail before Pocket is installed. When setup
         // finishes, retry only the clip the reader currently has open.
-        localNarrationPrewarmer.enqueue([input]);
+        localNarrationPrewarmer.retry([input]);
         if (timer !== undefined) clearTimeout(timer);
         void refresh();
       })

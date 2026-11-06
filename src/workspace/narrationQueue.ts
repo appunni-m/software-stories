@@ -3,6 +3,7 @@ import { applyPronunciationLexicon } from '../lib/narration.ts';
 
 export interface NarrationPrewarmQueue {
   enqueue(inputs: readonly NarrationSynthesisInput[]): number;
+  retry(inputs: readonly NarrationSynthesisInput[]): number;
   state(input: NarrationSynthesisInput): 'idle' | 'queued' | 'preparing';
   cancelPending(): number;
   invalidateIdentity(): void;
@@ -141,20 +142,29 @@ export function createNarrationPrewarmQueue(options: {
     }
   };
 
+  const enqueue = (inputs: readonly NarrationSynthesisInput[]) => {
+    let accepted = 0;
+    for (const input of inputs) {
+      const key = keyOf(input);
+      if (keys.has(key) || settledKeys.has(key)) continue;
+      if (keys.size >= maxPending) break;
+      keys.add(key);
+      queuedKeys.add(key);
+      pending.push({ input, key });
+      accepted += 1;
+    }
+    if (accepted) pump();
+    return accepted;
+  };
+
   return {
-    enqueue(inputs) {
-      let accepted = 0;
-      for (const input of inputs) {
-        const key = keyOf(input);
-        if (keys.has(key) || settledKeys.has(key)) continue;
-        if (keys.size >= maxPending) break;
-        keys.add(key);
-        queuedKeys.add(key);
-        pending.push({ input, key });
-        accepted += 1;
-      }
-      if (accepted) pump();
-      return accepted;
+    enqueue,
+    retry(inputs) {
+      // Runtime setup can make a previously unavailable request runnable.
+      // Clear only those settled identities, preserving coalescing for every
+      // other script and allowing native cache hits to resolve immediately.
+      for (const input of inputs) settledKeys.delete(keyOf(input));
+      return enqueue(inputs);
     },
     state(input) {
       const key = keyOf(input);

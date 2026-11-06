@@ -4665,6 +4665,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const activeValidation = validation && activeDocument && validation.revisionId === activeDocument.revisionId
     ? validation.report
     : null;
+  const selectedRevisionPassesValidation = selectedRevision !== null
+    && (validation?.revisionId === selectedRevision.revisionId
+      ? validation.report.status === 'valid'
+      : selectedRevision.validationStatus === 'valid');
   const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
   const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
@@ -5167,7 +5171,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <AppButton intent="secondary" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing || Boolean(pendingDraft) || Boolean(preservedDraftReason) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before restoring an older revision.' : 'Create a new draft from this earlier content and revalidate it against the current snapshot.'}><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</AppButton>}
                             {isLatestCurrent && <AppButton intent="secondary" onClick={beginEditing} disabled={busy || Boolean(pendingDraft) || Boolean(preservedDraftReason)}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</AppButton>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
-                              <AppButton intent="primary" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || selectedRevision.validationStatus !== 'valid' || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before accepting this draft.' : undefined}><Check size={14} /> Accept</AppButton>
+                              <AppButton intent="primary" onClick={() => { void accept(); }} disabled={busy || Boolean(pendingDraft) || !selectedRevisionPassesValidation || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before accepting this draft.' : !selectedRevisionPassesValidation ? 'Validate this saved draft and resolve any evidence issues before accepting it.' : undefined}><Check size={14} /> Accept</AppButton>
                               <AppButton intent="secondary" className="button-reject" aria-expanded={rejecting} aria-controls={rejecting ? 'chapter-rejection-form' : undefined} onClick={() => { if (rejecting) { setRejecting(false); setRejectReason(''); } else { setRejectReason(''); setRejecting(true); } }} disabled={busy || Boolean(pendingDraft) || historyAvailability !== 'ready'} title={historyAvailability !== 'ready' ? 'Refresh saved revision history before rejecting this draft.' : undefined}><X size={14} /> {rejecting ? 'Cancel rejection' : 'Reject'}</AppButton>
                             </>}
                           </div>
