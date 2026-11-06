@@ -24,10 +24,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 mod contracts;
-use contracts::RequestContract;
 
 // Immutable evidence/context serialization for the current planning request.
-pub(crate) const PROMPT_VERSION: &str = RequestContract::CURRENT.prompt_version();
+pub(crate) const PROMPT_VERSION: &str = contracts::PROMPT_VERSION;
 const MAX_STEPS: usize = 24;
 const MAX_RESPONSE_BYTES: usize = 1_000_000;
 const INVALID: &str = "The repository plan does not match the reviewed source, evidence or planning contract. No plan or chapter was saved.";
@@ -95,17 +94,6 @@ impl RepositoryPlanReviewScope {
                 "complete" | "partial" | "cancelled" | "missing" | "unreadable"
             )
     }
-
-    /// A coarse filter only; exact evidence and request digests are compared
-    /// after rebuilding each supported historical contract.
-    fn same_replay_envelope(&self, other: &Self) -> bool {
-        self.schema_version == other.schema_version
-            && self.question == other.question
-            && self.inventory_sha256 == other.inventory_sha256
-            && self.capture_status == other.capture_status
-            && self.coverage == other.coverage
-            && self.index_status == other.index_status
-    }
 }
 
 /// Owned native inputs for the existing transport-independent agent review
@@ -150,8 +138,6 @@ pub(crate) struct PreparedRepositoryPlanContext {
     request_body_sha256: String,
     estimated_input_tokens: usize,
     #[serde(skip)]
-    request_contract: RequestContract,
-    #[serde(skip)]
     input: PrepareRepositoryPlanInput,
 }
 
@@ -169,15 +155,9 @@ impl PreparedRepositoryPlanContext {
         }
     }
 
-    fn with_contract(&self, contract: RequestContract) -> Result<Self, String> {
-        let mut prepared = self.clone();
-        prepared.apply_contract(contract)?;
-        Ok(prepared)
-    }
-
-    fn apply_contract(&mut self, contract: RequestContract) -> Result<(), String> {
+    fn apply_current_contract(&mut self) -> Result<(), String> {
         let data = json!({
-            "promptVersion": contract.prompt_version(),
+            "promptVersion": PROMPT_VERSION,
             "projectId": self.project_id,
             "snapshotId": self.snapshot_id,
             "captureStatus": self.capture_status,
@@ -194,7 +174,7 @@ impl PreparedRepositoryPlanContext {
         });
         let context_sha256 = digest_json(&data)?;
         let prompt_data = json!({
-            "promptVersion": contract.prompt_version(),
+            "promptVersion": PROMPT_VERSION,
             "projectId": self.project_id,
             "snapshotId": self.snapshot_id,
             "captureStatus": self.capture_status,
@@ -211,9 +191,9 @@ impl PreparedRepositoryPlanContext {
         });
         let source_blocks = provider::format_selected_source_blocks(&self.selected_files)
             .map_err(|_| INVALID.to_owned())?;
-        let system_instruction = contract.system_instruction();
-        let user_prompt = contract.user_prompt(&context_sha256, &prompt_data, &source_blocks);
-        let output_schema = contract.output_schema();
+        let system_instruction = contracts::system_instruction();
+        let user_prompt = contracts::user_prompt(&context_sha256, &prompt_data, &source_blocks);
+        let output_schema = contracts::output_schema();
         let encoded = serde_json::to_vec(&json!({
             "systemInstruction": system_instruction,
             "userPrompt": user_prompt,
@@ -221,7 +201,7 @@ impl PreparedRepositoryPlanContext {
         }))
         .map_err(|_| INVALID.to_owned())?;
 
-        self.prompt_version = contract.prompt_version();
+        self.prompt_version = PROMPT_VERSION;
         self.context_sha256 = context_sha256;
         self.system_instruction = system_instruction;
         self.user_prompt = user_prompt;
@@ -229,7 +209,6 @@ impl PreparedRepositoryPlanContext {
         self.request_body_bytes = encoded.len();
         self.request_body_sha256 = format!("{:x}", Sha256::digest(&encoded));
         self.estimated_input_tokens = encoded.len().div_ceil(4);
-        self.request_contract = contract;
         Ok(())
     }
 
@@ -307,25 +286,16 @@ pub(crate) fn prepare(
     storage: &Path,
     input: PrepareRepositoryPlanInput,
 ) -> Result<PreparedRepositoryPlanContext, String> {
-    let context = prepare_with_contract(storage, input, RequestContract::CURRENT)?;
+    let context = prepare_current(storage, input)?;
     if context.request_body_bytes > provider::MAX_REQUEST_BODY_BYTES {
         return Err("The selected source and code map exceed the single-request limit. Narrow the question or its source scope, then prepare a fresh review.".to_owned());
     }
     Ok(context)
 }
 
-fn prepare_for_replay(
+fn prepare_current(
     storage: &Path,
     input: PrepareRepositoryPlanInput,
-    contract: RequestContract,
-) -> Result<PreparedRepositoryPlanContext, String> {
-    prepare_with_contract(storage, input, contract)
-}
-
-fn prepare_with_contract(
-    storage: &Path,
-    input: PrepareRepositoryPlanInput,
-    contract: RequestContract,
 ) -> Result<PreparedRepositoryPlanContext, String> {
     if !valid_learning_question(&input.question) {
         return Err("Describe the learning question in 8–300 characters without leading/trailing whitespace or control characters.".to_owned());
@@ -375,7 +345,7 @@ fn prepare_with_contract(
         project_id: input.project_id.clone(),
         snapshot_id: input.snapshot_id.clone(),
         question: input.question.clone(),
-        prompt_version: contract.prompt_version(),
+        prompt_version: PROMPT_VERSION,
         capture_status: evidence.manifest.summary.status.clone(),
         inventory_sha256,
         context_sha256: String::new(),
@@ -392,10 +362,9 @@ fn prepare_with_contract(
         request_body_bytes: 0,
         request_body_sha256: String::new(),
         estimated_input_tokens: 0,
-        request_contract: contract,
         input,
     };
-    context.apply_contract(contract)?;
+    context.apply_current_contract()?;
     Ok(context)
 }
 
@@ -529,7 +498,7 @@ mod live_tests {
     }
 
     #[test]
-    fn saved_plan_replays_after_a_prompt_only_upgrade() {
+    fn saved_plan_requires_the_current_planning_contract() {
         let mut fixture = chapter_generation::tests::Fixture::new();
         let source = include_str!("../../benchmarks/codex-account-smoke/cart.ts");
         fixture.recapture_with_source("cart.ts", source);
@@ -541,51 +510,38 @@ mod live_tests {
                     .to_owned(),
             selected_paths: vec!["cart.ts".to_owned()],
         };
-        let saved_context = prepare_with_contract(
-            &fixture.storage,
-            input.clone(),
-            RequestContract::ExplicitEvidenceV1,
-        )
-        .unwrap();
-        let response = valid_cart_plan_response(&saved_context, source);
-        let saved = canonicalize(&fixture.storage, &saved_context, &response).unwrap();
-
-        let current_context = prepare(&fixture.storage, input.clone()).unwrap();
-        assert_eq!(saved_context.prompt_version, "grounded-repository-plan-v1");
-        assert_eq!(
-            current_context.prompt_version,
-            "grounded-repository-plan-v2"
-        );
-        assert!(
-            saved_context
-                .review_scope()
-                .same_replay_envelope(&current_context.review_scope())
-        );
-        assert_ne!(
-            saved_context.review_scope().planning_contract_sha256,
-            current_context.review_scope().planning_contract_sha256
-        );
+        let context = prepare(&fixture.storage, input.clone()).unwrap();
+        let response = valid_cart_plan_response(&context, source);
+        let saved = canonicalize(&fixture.storage, &context, &response).unwrap();
 
         revalidate_saved(
             &fixture.storage,
             input.clone(),
-            &saved_context.review_scope(),
+            &context.review_scope(),
             &response,
             &saved,
         )
         .unwrap();
 
-        let mut unknown_contract = saved_context.review_scope();
-        unknown_contract.planning_contract_sha256 = "0".repeat(64);
+        let saved_before = saved.clone();
+        let mut previous_contract = context.review_scope();
+        previous_contract.planning_contract_sha256 = "0".repeat(64);
         let error = revalidate_saved(
             &fixture.storage,
             input,
-            &unknown_contract,
+            &previous_contract,
             &response,
             &saved,
         )
         .unwrap_err();
-        assert!(error.contains("planning contract"), "{error}");
+        assert!(
+            error.contains("current source, index and planning contract"),
+            "{error}"
+        );
+        assert_eq!(
+            saved, saved_before,
+            "rejection leaves the saved plan intact"
+        );
     }
 
     fn valid_cart_plan_response(context: &PreparedRepositoryPlanContext, source: &str) -> Vec<u8> {
@@ -631,7 +587,7 @@ fn canonicalize_with_identity(
     if response.is_empty() || response.len() > MAX_RESPONSE_BYTES {
         return Err(INVALID.to_owned());
     }
-    let fresh = prepare_for_replay(storage, context.input.clone(), context.request_contract)?;
+    let fresh = prepare(storage, context.input.clone())?;
     if fresh.context_sha256 != context.context_sha256
         || fresh.request_body_sha256 != context.request_body_sha256
         || fresh.inventory_sha256 != context.inventory_sha256
@@ -803,31 +759,16 @@ pub(crate) fn revalidate_saved(
     {
         return Err("The saved plan has an invalid native identity or creation time. Its local copy was preserved.".to_owned());
     }
-    let context = prepare_for_replay(storage, input.clone(), RequestContract::CURRENT).map_err(|_| {
+    let context = prepare(storage, input.clone()).map_err(|_| {
         "The saved plan's original source or index is unavailable. Its local copy was preserved.".to_owned()
     })?;
     let current_scope = context.review_scope();
-    let replay_context = if current_scope == *scope {
-        context
-    } else if !scope.same_replay_envelope(&current_scope) {
-        return Err("The saved plan's source or index context changed. Its local copy was preserved; regenerate the route.".to_owned());
-    } else {
-        RequestContract::KNOWN
-            .into_iter()
-            .find_map(|contract| {
-                context
-                    .with_contract(contract)
-                    .ok()
-                    .filter(|candidate| candidate.review_scope() == *scope)
-            })
-            .ok_or_else(|| {
-                "The saved plan's source/index context or planning contract could not be reproduced. Its local copy was preserved; regenerate the route."
-                    .to_owned()
-            })?
-    };
+    if current_scope != *scope {
+        return Err("The saved plan does not match the current source, index and planning contract. Its local copy was preserved; regenerate the route.".to_owned());
+    }
     let mut checked = canonicalize_with_identity(
         storage,
-        &replay_context,
+        &context,
         response,
         Some((&saved.draft_id, saved.created_at_unix_ms)),
     ).map_err(|_| "The saved plan's original proposal could not be validated against its source. Its local copy was preserved.".to_owned())?;
