@@ -34,7 +34,7 @@ import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
