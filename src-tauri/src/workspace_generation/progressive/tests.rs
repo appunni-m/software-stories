@@ -1059,7 +1059,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
 }
 
 #[test]
-fn guide_progressive_contract_has_no_wall_clock_deadline() {
+fn guide_progressive_research_stop_separates_budget_from_proposal_finish() {
     let f = Fixture::new();
     let input = input(&f);
     let prompt = question_prompt(&input, &f.manifest).unwrap();
@@ -1072,11 +1072,24 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
     assert!(instructions.contains("This operation owns exactly one planned slide"));
     assert!(instructions.contains("a final manifest cannot replace a slide"));
     assert!(instructions.contains("Do not finish with an incomplete-topic notice"));
+    assert!(instructions.contains(
+        "A context response's budget.stopResearch only ends further source research; it does not end a one-slide job"
+    ));
+    assert!(instructions.contains(
+        "If no section has been accepted yet, use the evidence already delivered to submit the best complete supported section"
+    ));
+    assert!(!instructions.contains("At finishNow, stop tools and return the final manifest"));
     assert!(
         contract["tools"]
             .to_string()
-            .contains("Do not return a final manifest as a substitute for an unsubmitted slide")
+            .contains("Do not return a final manifest in place of a supported slide")
     );
+    assert!(contract["tools"].to_string().contains(
+        "budget.stopResearch in a search/read/definitions response ends source retrieval only"
+    ));
+    assert!(contract["tools"].to_string().contains(
+        "A proposal result reports proposalFinishNow when proposal attempts are exhausted"
+    ));
     assert!(instructions.contains("make no further tool calls"));
     assert!(instructions.contains("the next slide is a separate operation"));
     assert!(!instructions.contains("ten-minute wall-clock deadline"));

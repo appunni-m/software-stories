@@ -67,10 +67,10 @@ struct ResponseBudget {
     // reserved for possible subsequent source-free limit notices.
     remaining: RemainingBudget,
     feedback_bytes_reserved: usize,
-    finish_now: bool,
+    stop_research: bool,
 }
 
-fn requires_finalization_now(budget_stop: bool, budget: &ResponseBudget) -> bool {
+fn should_stop_research(budget_stop: bool, budget: &ResponseBudget) -> bool {
     budget_stop
         || budget.remaining.calls <= FINALIZATION_CALL_RESERVE
         || budget.remaining.metadata_bytes < 16_000
@@ -121,8 +121,8 @@ pub(crate) enum Context<'a> {
         #[serde(rename = "generationId")]
         generation_id: Option<&'a str>,
         findings: &'a [serde_json::Value],
-        #[serde(rename = "finishNow")]
-        finish_now: bool,
+        #[serde(rename = "proposalFinishNow")]
+        proposal_finish_now: bool,
         #[serde(rename = "remainingAttempts")]
         remaining_attempts: usize,
         #[serde(rename = "remainingCorrections")]
@@ -781,7 +781,7 @@ impl Ledger {
                 }),
             },
             feedback_bytes_reserved: reserved,
-            finish_now: false,
+            stop_research: false,
         }
     }
 
@@ -835,8 +835,8 @@ impl Ledger {
                 .ok_or("Context accounting is invalid.")?,
         );
         response.budget.remaining.wire_bytes = base_wire.saturating_sub(first.len());
-        response.budget.finish_now =
-            requires_finalization_now(response.budget_stop.is_some(), &response.budget);
+        response.budget.stop_research =
+            should_stop_research(response.budget_stop.is_some(), &response.budget);
         let bytes =
             serde_json::to_vec(response).map_err(|_| "Context response encoding failed.")?;
         let metadata = bytes

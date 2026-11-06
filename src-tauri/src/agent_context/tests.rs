@@ -113,6 +113,22 @@ fn proposal_correction_exhaustion_finishes_only_a_one_slide_job() {
     assert!(proposal_finish_now(Some(6), &[], 6, None));
 }
 
+#[test]
+fn guide_slide_research_stop_preserves_the_required_publication() {
+    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains(
+        "Use at most ten source-research tool calls, then use the remaining proposal budget"
+    ));
+    assert!(
+        GUIDE_SLIDE_BASE_INSTRUCTIONS
+            .contains("A context response's budget.stopResearch ends further source research only")
+    );
+    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains(
+        "if no section has been accepted, publish the best complete section supported by delivered evidence"
+    ));
+    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains("proposalFinishNow"));
+    assert!(!GUIDE_SLIDE_BASE_INSTRUCTIONS.contains("At finishNow, return the manifest"));
+}
+
 fn session(f: &Fixture) -> Session {
     session_with_model(f, "gpt-6-luna", "max").0
 }

@@ -80,7 +80,7 @@ fn selected_model_and_effort_are_bound_to_saved_workspace_answers() {
 }
 
 #[test]
-fn repository_planning_and_slides_receive_small_independent_call_budgets() {
+fn guide_slide_research_stop_preserves_reserved_proposal_calls() {
     let f = Fixture::new();
     let runtime = runtime();
     let grant = workspace::save_retrieval_grant(
@@ -133,12 +133,49 @@ fn repository_planning_and_slides_receive_small_independent_call_budgets() {
         .is_err()
     );
 
-    let slide = make_ledger(REPOSITORY_GUIDE_SLIDE_CALL_LIMIT);
+    let mut slide = make_ledger(REPOSITORY_GUIDE_SLIDE_CALL_LIMIT);
     assert_eq!(
         slide.response_budget().remaining.calls,
         REPOSITORY_GUIDE_SLIDE_CALL_LIMIT
     );
     assert!(slide.deadline.is_none());
+
+    let mut last_response = Value::Null;
+    for _ in 0..(REPOSITORY_GUIDE_SLIDE_CALL_LIMIT - FINALIZATION_CALL_RESERVE) {
+        last_response = read(
+            &mut slide,
+            &f,
+            &runtime,
+            &cancelled,
+            std::slice::from_ref(&range),
+        );
+    }
+    assert_eq!(last_response["budget"]["remaining"]["calls"], FINALIZATION_CALL_RESERVE);
+    assert_eq!(last_response["budget"]["stopResearch"], true);
+    assert!(last_response["budget"].get("finishNow").is_none());
+    slide
+        .begin_call(
+            Tool::ProposeSection,
+            &"d".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancelled,
+        )
+        .expect("a guide may publish its slide with reserved proposal calls");
+    assert_eq!(slide.response_budget().remaining.calls, FINALIZATION_CALL_RESERVE - 1);
+
+    let findings = [];
+    let proposal_result = Context::SectionProposal {
+        generation_id: None,
+        findings: &findings,
+        proposal_finish_now: true,
+        remaining_attempts: 0,
+        remaining_corrections: 0,
+        next_new_section_order: None,
+    };
+    let proposal_result = serde_json::to_value(proposal_result).unwrap();
+    assert_eq!(proposal_result["result"]["proposalFinishNow"], true);
+    assert!(proposal_result["result"].get("finishNow").is_none());
 }
 
 fn request(f: &Fixture, start_byte: usize, end_byte: usize) -> RangeRequest {
@@ -452,28 +489,28 @@ fn comfortable_response_budget() -> ResponseBudget {
             time_ms: Some(FINALIZATION_TIME_RESERVE.as_millis() as u64),
         },
         feedback_bytes_reserved: 0,
-        finish_now: false,
+        stop_research: false,
     }
 }
 
 #[test]
-fn finish_now_preserves_six_calls_or_sixty_seconds_for_final_manifest() {
+fn stop_research_preserves_six_calls_or_sixty_seconds_for_finalization() {
     let budget = comfortable_response_budget();
-    assert!(!requires_finalization_now(false, &budget));
+    assert!(!should_stop_research(false, &budget));
 
     let mut calls_reserved = comfortable_response_budget();
     calls_reserved.remaining.calls = FINALIZATION_CALL_RESERVE;
-    assert!(requires_finalization_now(false, &calls_reserved));
+    assert!(should_stop_research(false, &calls_reserved));
 
     let mut time_reserved = comfortable_response_budget();
     time_reserved.remaining.time_ms = Some(FINALIZATION_TIME_RESERVE.as_millis() as u64 - 1);
-    assert!(requires_finalization_now(false, &time_reserved));
+    assert!(should_stop_research(false, &time_reserved));
 
-    assert!(requires_finalization_now(true, &budget));
+    assert!(should_stop_research(true, &budget));
 
     let mut no_deadline = comfortable_response_budget();
     no_deadline.remaining.time_ms = None;
-    assert!(!requires_finalization_now(false, &no_deadline));
+    assert!(!should_stop_research(false, &no_deadline));
 }
 
 #[test]

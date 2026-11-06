@@ -273,7 +273,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
 }
 
 #[test]
-fn plan_instructions_keep_the_full_requested_scope() {
+fn plan_instructions_keep_full_scope_and_research_stop_contract() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
@@ -393,7 +393,9 @@ fn plan_instructions_keep_the_full_requested_scope() {
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("Use at most twelve code-tool calls, matching the native planner budget")
     );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
+        "When a context response reports budget.stopResearch, stop researching and return the outline"
+    ));
 
     assert_eq!(MAX_INITIAL_UNITS, 5);
     assert_eq!(MAX_TOTAL_UNITS, 20);
