@@ -273,6 +273,7 @@ describe('notification totals', () => {
     assert.match(app, /sortInterruptedOperations\(interruptedOperations,currentProject\?\.projectId\)/);
     assert.match(app, /label: 'Discard recovery'/);
     const css = await readFile(new URL('../src/NotificationCenter.css', import.meta.url), 'utf8');
+    assert.match(css, /\.notification-announcement\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0 auto auto 0;[^}]*width:\s*1px;[^}]*height:\s*1px;[^}]*clip:\s*rect\(0, 0, 0, 0\)/);
     assert.match(css, /\.notification-panel-header \{ position: sticky; top: 0;/);
   });
 });
