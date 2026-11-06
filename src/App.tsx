@@ -185,7 +185,7 @@ import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWin
 import { normalizeCapturedSourceNavigation } from './lib/capturedSourceNavigation';
 import { loadShellStartupData, workspaceHeading, WORKSPACE_LABEL } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
-import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
+import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStaleRevisionGuidance, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import { buildChapterStudioTargets, chapterStudioHasReadableCurrentSource } from './lib/chapterStudioTargets';
 import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
 import { readGitComparisonPreference, rememberGitComparisonPreference, restoreGitComparisonPreference } from './lib/gitComparisonPreferences';
@@ -5126,7 +5126,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 {status === 'loading' || status === 'unavailable' ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{status === 'loading' ? 'Checking saved chapter history.' : 'Saved chapter history is unavailable.'}</strong><p>{status === 'loading' ? 'This file will be marked as needing an explanation only after its saved history is checked.' : nativeRuntime ? 'Retry the history read above before creating a chapter, so an existing explanation is not mistaken for a missing one.' : 'Open Chapter Studio in the Mac app to load saved history before deciding whether this file needs an explanation.'}</p></div>
                     : selectedTarget.missing ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{selectedTarget.overview ? 'No repository overview has been saved for this snapshot.' : 'This file has no chapter in the selected snapshot.'}</strong><p>Start with the captured source; the generated draft stays local until you choose to save it.</p></div>
                     : selectedRevision && activeDocument ? <>
-                      {status === 'stale' && <div className="chapter-studio-stale"><TriangleAlert size={17} /><div><strong>This selected revision belongs to an older snapshot.</strong><p>Its citations stay pinned to snapshot {selectedRevision.snapshotId.slice(-12)}. Open a citation to inspect that exact captured code, or choose a current revision in the history above.</p></div></div>}
+                      {status === 'stale' && <div className="chapter-studio-stale"><TriangleAlert size={17} /><div><strong>This selected revision belongs to an older snapshot.</strong><p>{chapterStudioStaleRevisionGuidance(historyAvailability, nativeRuntime, selectedRevision.snapshotId)}</p></div></div>}
                       <div className="chapter-review-toolbar">
                         {editing ? <>
                           <span className="chapter-editing-label"><Pencil size={13} /> Editing a new draft from r{selectedRevision.revisionNumber}</span>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from '../src/lib/chapterStudioStatus.ts';
+import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStaleRevisionGuidance, chapterStudioStatus, chapterStudioStatusLabel } from '../src/lib/chapterStudioStatus.ts';
 
 const revision = (snapshotId, lifecycle, revisionId = `${snapshotId}-${lifecycle}`) => ({ snapshotId, lifecycle, revisionId });
 
@@ -42,6 +42,14 @@ test('known older-snapshot chapters stay stale during an unavailable current-his
   assert.equal(chapterStudioRowStatus('unavailable', true, null), 'stale');
   assert.equal(chapterStudioStatusLabel('stale'), 'Older snapshot');
   assert.equal(chapterStudioCanGenerate('unavailable', 'stale'), false);
+});
+
+test('stale revision guidance matches current history availability and runtime', () => {
+  const snapshot = 'snapshot-older-123456789012';
+  assert.match(chapterStudioStaleRevisionGuidance('loading', true, snapshot), /snapshot 123456789012.*still loading.*Wait/i);
+  assert.match(chapterStudioStaleRevisionGuidance('unavailable', true, snapshot), /Retry above/i);
+  assert.match(chapterStudioStaleRevisionGuidance('unavailable', false, snapshot), /Mac app/i);
+  assert.match(chapterStudioStaleRevisionGuidance('ready', true, snapshot), /history above.*action above/i);
 });
 
 test('Chapter Studio offers generation only when a completed read proves missing or stale history', () => {
