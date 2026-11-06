@@ -211,6 +211,9 @@ struct UnitSummary {
     prerequisites: Vec<String>,
     status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    latest_complete_run_id: Option<String>,
+    latest_attempt_incomplete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     failure_code: Option<crate::evidence_ledger::sections::FailureCode>,
     can_retry: bool,
     can_regenerate: bool,
@@ -330,9 +333,25 @@ fn scoped(storage: &Path, id: &str, project: &str, snapshot: &str) -> Result<Rec
 }
 fn unit_complete(unit: &Unit) -> bool {
     unit.attempts
-        .last()
-        .and_then(|a| a.summary.as_ref())
-        .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
+        .iter()
+        .any(unit_attempt_complete)
+}
+fn unit_attempt_complete(attempt: &Attempt) -> bool {
+    attempt
+        .summary
+        .as_ref()
+        .is_some_and(|summary| summary.outcome == Outcome::Complete && !summary.sections.is_empty())
+}
+fn unit_latest_attempt_complete(unit: &Unit) -> bool {
+    unit.attempts.last().is_some_and(unit_attempt_complete)
+}
+fn unit_latest_attempt_failed_after_completion(unit: &Unit) -> bool {
+    unit_complete(unit)
+        && unit.attempts.last().is_some_and(|attempt| {
+            attempt.summary.as_ref().is_some_and(|summary| {
+                !matches!(&summary.outcome, &Outcome::Complete | &Outcome::Working)
+            })
+        })
 }
 fn guide_complete(record: &Record) -> bool {
     opening_continuation::latest(record).is_some_and(|a| {
@@ -386,8 +405,8 @@ fn unit_research_eligible(record: &Record, index: usize) -> bool {
             .is_some_and(|unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
 }
 
-/// A manual slide retry is available only after that exact planned unit has
-/// produced a terminal incomplete result. Pending later units stay in order.
+/// A manual retry is available after a terminal incomplete attempt, including
+/// an update that failed while an older complete version remains published.
 fn unit_retryable(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
         && record.active_run_id.is_none()
@@ -414,7 +433,12 @@ fn unit_version_capacity_available(record: &Record, index: usize) -> bool {
         && record
             .units
             .get(index)
-            .is_some_and(|unit| unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
+            .is_some_and(|unit| {
+                unit_complete(unit)
+                    && (unit_latest_attempt_complete(unit)
+                        || unit_latest_attempt_failed_after_completion(unit))
+                    && unit.attempts.len() < MAX_ATTEMPTS
+            })
 }
 
 /// A completed unit may receive a fresh, append-only version while its
@@ -848,6 +872,7 @@ fn unit_status(unit: &Unit) -> &'static str {
         Some(a) => match a.summary.as_ref().map(|s| &s.outcome) {
             None | Some(Outcome::Working) => "working",
             Some(Outcome::Complete) => "complete",
+            Some(_) if unit_complete(unit) => "complete",
             Some(Outcome::Partial) => "partial",
             Some(Outcome::Stopped) => "stopped",
             Some(Outcome::Interrupted) => "interrupted",
@@ -982,6 +1007,13 @@ fn guide_summary(
                 question: planned.question.clone(),
                 prerequisites: planned.prerequisites.clone(),
                 status: unit_status(unit).into(),
+                latest_complete_run_id: unit
+                    .attempts
+                    .iter()
+                    .rev()
+                    .find(|attempt| unit_attempt_complete(attempt))
+                    .map(|attempt| attempt.run_id.clone()),
+                latest_attempt_incomplete: unit_latest_attempt_failed_after_completion(unit),
                 failure_code: unit
                     .attempts
                     .last()

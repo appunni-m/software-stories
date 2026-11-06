@@ -59,7 +59,7 @@ export interface RepositoryGuide {
   canExtend: boolean;
   continuationOperations: number;
   consumedSlideRevisions?: string[];
-  units: { key: string; question: string; prerequisites: string[]; status: string; failureCode?: ExplanationFailureCode; canRetry: boolean; canRegenerate?: boolean; runIds: string[] }[];
+  units: { key: string; question: string; prerequisites: string[]; status: string; latestCompleteRunId?: string; latestAttemptIncomplete?: boolean; failureCode?: ExplanationFailureCode; canRetry: boolean; canRegenerate?: boolean; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
 export interface RepositoryGuideList {

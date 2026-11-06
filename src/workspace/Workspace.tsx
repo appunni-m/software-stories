@@ -1349,7 +1349,10 @@ function Answer(props:AnswerProps){
   const latestPublishedRunByUnit=new Map<string,string>();
   for(const unit of turn.guide?.units??[]){
     const publishedRunIds=unit.runIds.filter((runId)=>guideSlides.some((slide)=>slide.runId===runId));
-    const latestPublishedRunId=publishedRunIds.at(-1);
+    const latestCompleteRunId=unit.latestCompleteRunId;
+    const latestPublishedRunId=latestCompleteRunId&&publishedRunIds.includes(latestCompleteRunId)
+      ?latestCompleteRunId
+      :publishedRunIds.at(-1);
     if(latestPublishedRunId)latestPublishedRunByUnit.set(unit.key,latestPublishedRunId);
   }
   const unitIndexByRunId=new Map<string,number>();
@@ -1376,11 +1379,16 @@ function Answer(props:AnswerProps){
   const guideSlide=selectedGuideSlide>=0?guideSlides[selectedGuideSlide]:undefined;
   const guideSlideUnit=guideSlide?turn.guide?.units.find((unit)=>unit.runIds.includes(guideSlide.runId)):undefined;
   const guideSlidePublishedRunIds=guideSlideUnit
-    ?[...new Set(guideSlides.filter((slide)=>guideSlideUnit.runIds.includes(slide.runId)).map((slide)=>slide.runId))]
+    ?guideSlideUnit.runIds.filter((runId)=>guideSlides.some((slide)=>slide.runId===runId))
     :[];
   const guideSlideVersionIndex=guideSlide&&guideSlideUnit?guideSlidePublishedRunIds.indexOf(guideSlide.runId):-1;
+  const isLatestGuideVersion=guideSlide&&guideSlideUnit
+    ?guideSlideUnit.latestCompleteRunId
+      ?guideSlideUnit.latestCompleteRunId===guideSlide.runId
+      :latestPublishedRunByUnit.get(guideSlideUnit.key)===guideSlide.runId
+    :false;
   const guideSlideVersionLabel=guideSlideUnit&&guideSlidePublishedRunIds.length>1&&guideSlideVersionIndex>=0
-    ?`Version ${guideSlideVersionIndex+1} of ${guideSlidePublishedRunIds.length} · ${guideSlideVersionIndex===guideSlidePublishedRunIds.length-1?'latest published':'earlier published'}`
+    ?`Version ${guideSlideVersionIndex+1} of ${guideSlidePublishedRunIds.length} · ${isLatestGuideVersion?'latest ready':'earlier version'}`
     :undefined;
   const guideSlideItemIndex=guideSlide?sectionItems.findIndex((item)=>item.kind==='section'&&item.section.revisionId===guideSlide.revisionId):-1;
   const guideSlideRevision=guideSlide?chapters?.find((candidate)=>candidate.revisionId===guideSlide.revisionId):undefined;
@@ -1471,8 +1479,11 @@ function Answer(props:AnswerProps){
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={guideOutlineOpen} onToggle={(event)=>setGuideOutlineState({turnId:turn.id,open:event.currentTarget.open})}>
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
-        const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
-        const versionRunIds=[...new Set(guideSlides.filter((slide)=>unit.runIds.includes(slide.runId)).map((slide)=>slide.runId))];
+        const versionRunIds=unit.runIds.filter((runId)=>guideSlides.some((slide)=>slide.runId===runId));
+        const hasCompletedVersion=Boolean(unit.latestCompleteRunId&&versionRunIds.includes(unit.latestCompleteRunId));
+        const status=hasCompletedVersion&&unit.latestAttemptIncomplete?'Ready · latest update incomplete'
+          :hasCompletedVersion&&unit.status==='working'?'Ready · update in progress'
+          :unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
         const latestPublishedRunId=latestPublishedRunByUnit.get(unit.key);
         const slideIndex=latestPublishedRunId?guideSlides.findIndex((slide)=>slide.runId===latestPublishedRunId):-1;
         const slidePosition=activeGuideSlideIndices.indexOf(slideIndex);
@@ -1491,7 +1502,7 @@ function Answer(props:AnswerProps){
             })}
           </ol></details>}
           {unit.failureCode&&<details className="dw-guide-unit-failure"><summary>Why this slide stopped</summary><p>{explanationFailureMessage(unit.failureCode)}</p></details>}
-          {unit.canRetry&&props.onRetryGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Retry slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>Retry slide</AppButton>}
+          {unit.canRetry&&props.onRetryGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Retry ${hasCompletedVersion?'version':'slide'}: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>{hasCompletedVersion?'Retry version':'Retry slide'}</AppButton>}
           {unit.canRegenerate&&props.onRegenerateGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Create a new version of: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRegenerateGuideUnit?.(turn.id,unit.key)}>Create new version</AppButton>}
         </li>;
       })}</ol>
