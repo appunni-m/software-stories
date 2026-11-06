@@ -137,6 +137,7 @@ fn real_build_preflight_failure_notifies_partial_without_starting_or_replaying_a
         &recovery::InterruptionJournal::default(),
         GUIDE_SLIDE_BUFFER,
         None,
+        false,
         None,
         Instant::now(),
         |_| {},

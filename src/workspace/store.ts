@@ -12,7 +12,7 @@ import type { NoticeTarget } from '../lib/noticeHistory';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { localNarrationPrewarmer } from './localNarrationQueue';
 import { createQuestionOutcomeSelector, questionOutcomes, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, cleanSourceDiscoveryNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, cleanSourceDiscoveryNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, MAX_REPOSITORY_GUIDE_RUN_IDS, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const states = new Map<string, WorkspaceState>();
 const browserPreviewWriteBlocked = new Set<string>();
@@ -383,7 +383,7 @@ function publishAdoptedSection(project: string, snapshot: string, turnId: string
     turns:e.turns.map((t) => {
       if (t.id !== turnId) return t;
       const owner = t.guideId && !t.runIds?.includes(section.runId)
-        ? {...t,runIds:[...(t.runIds ?? []),section.runId].slice(-32)}
+        ? {...t,runIds:[...(t.runIds ?? []),section.runId].slice(-(t.guideId?MAX_REPOSITORY_GUIDE_RUN_IDS:32))}
         : t;
       return mergePublishedSections(owner,[section]);
     }),
@@ -718,7 +718,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */
-export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false, retryUnitKey?: string) {
+export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false, retryUnitKey?: string, regenerateUnit = false) {
   if (jobs.has(id)) return;
   if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return;}
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
@@ -743,7 +743,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     const selection = readCodexSelection();
     job.runId = guideId;
     const guide = retryUnitKey
-      ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,rendererQueueWaitMs})
+      ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,regenerate:regenerateUnit,rendererQueueWaitMs})
       : await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
         ? {id:guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
         : {input:{id:guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,

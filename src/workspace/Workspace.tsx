@@ -377,7 +377,7 @@ export function DeveloperWorkspace(props:Props) {
   const [gitReload,setGitReload] = useState(0);
   const gitRequest = useRef<AbortController|null>(null);
   const [consentTurn,setConsentTurn] = useState<string|null>(null);
-  const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean;unitKey?:string}|null>(null);
+  const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean;unitKey?:string;regenerate?:boolean}|null>(null);
   const [consentBusy,setConsentBusy] = useState(false);
   const [consentError,setConsentError] = useState<string|null>(null);
   const pendingConsentTurn = consentTurn ? current.turns.find((turn)=>turn.id===consentTurn) : undefined;
@@ -833,6 +833,11 @@ export function DeveloperWorkspace(props:Props) {
     if(state.grantId)void runRepositoryGuide(projectId,snapshotId,turnId,state.grantId,true,unitKey);
     else {setGuideConsent({id:turnId,resume:true,unitKey});setConsentError(null);}
   }
+  function regenerateGuideUnit(turnId:string,unitKey:string) {
+    if(generationPaused||!requireCodexConnection())return;
+    if(state.grantId)void runRepositoryGuide(projectId,snapshotId,turnId,state.grantId,true,unitKey,true);
+    else {setGuideConsent({id:turnId,resume:true,unitKey,regenerate:true});setConsentError(null);}
+  }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
   function exploreGuideOmissions(turn:Turn){
     if(generationPaused||!turn.guideId||!turn.guide?.canExtend||!requireCodexConnection())return;
@@ -978,6 +983,7 @@ export function DeveloperWorkspace(props:Props) {
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)}
     onRestoreSaved={isNativeRuntime()?guideId=>restoreRepositoryGuide(projectId,snapshotId,guideId):undefined}
     onRetryGuideUnit={retryGuideUnit}
+    onRegenerateGuideUnit={regenerateGuideUnit}
     onReview={onReview} onFocus={(revisionId,sectionId)=>focusAnswer(turn.id,revisionId,sectionId)}
     onSection={(revisionId,sectionId)=>saveSection(turn.id,'guide',revisionId,sectionId)}
     onStoryProgress={(progress)=>savePresentation(turn.id,'stories',progress)}
@@ -1291,12 +1297,33 @@ export function DeveloperWorkspace(props:Props) {
         }}>Open connection settings</AppButton>}
       </Dialog.Content>
     </Dialog.Root>
-    <Dialog.Root open={!!guideConsent} onOpenChange={(open)=>{if(!open&&!consentBusy){if(guideConsent&&!guideConsent.resume)update((state)=>discardUnstartedGuide(state,guideConsent.id));setGuideConsent(null);}}}><Dialog.Content maxWidth="520px"><Dialog.Title>{guideConsent?.unitKey?'Retry one guide slide':guideConsent?.resume?'Continue your guide':'Build a guide to '+projectName}</Dialog.Title><Dialog.Description size="2">To build this guide, we’ll share your question and repository details with your connected assistant. It may read relevant code from this snapshot. Your live files stay on this Mac, and you can revoke access at any time.</Dialog.Description><p className="dw-permission-note">Your guide appears here as each topic is ready, with links to the code behind it.</p><WorkspaceSharingDetails kind="guide"/>{consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'This guide could not be started.')}</p>}{generationPaused&&<p role="status">Resolve the saved conversation conflict before continuing this guide.</p>}<Flex justify="end" gap="3" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close><AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{if(!guideConsent||generationPaused)return;const pending=guideConsent;setConsentBusy(true);setConsentError(null);void (state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId)).then((grant)=>{setGuideConsent(null);void runRepositoryGuide(projectId,snapshotId,pending.id,grant,pending.resume,pending.unitKey);}).catch((error)=>setConsentError(errorMessageOr(error,'Connect Codex in the header, then try again.'))).finally(()=>setConsentBusy(false));}}>{consentBusy?'Connecting…':guideConsent?.unitKey?'Retry slide':guideConsent?.resume?'Continue guide':'Build guide'}</AppButton></Flex></Dialog.Content></Dialog.Root>
+    <Dialog.Root open={!!guideConsent} onOpenChange={(open)=>{if(!open&&!consentBusy){if(guideConsent&&!guideConsent.resume)update((state)=>discardUnstartedGuide(state,guideConsent.id));setGuideConsent(null);}}}>
+      <Dialog.Content maxWidth="520px">
+        <Dialog.Title>{guideConsent?.regenerate?'Create a new slide version':guideConsent?.unitKey?'Retry one guide slide':guideConsent?.resume?'Continue your guide':'Build a guide to '+projectName}</Dialog.Title>
+        <Dialog.Description size="2">To build this guide, we’ll share your question and repository details with your connected assistant. It may read relevant code from this snapshot. Your live files stay on this Mac, and you can revoke access at any time.</Dialog.Description>
+        {guideConsent?.regenerate&&<p>Your previous slide version stays available, and only this planned topic will be regenerated.</p>}
+        <p className="dw-permission-note">Your guide appears here as each topic is ready, with links to the code behind it.</p>
+        <WorkspaceSharingDetails kind="guide"/>
+        {consentError&&<p role="alert" className="dw-error">{errorMessageOr(consentError,'This guide could not be started.')}</p>}
+        {generationPaused&&<p role="status">Resolve the saved conversation conflict before continuing this guide.</p>}
+        <Flex justify="end" gap="3" mt="4">
+          <Dialog.Close><AppButton intent="secondary" color="gray" disabled={consentBusy}>Cancel</AppButton></Dialog.Close>
+          <AppButton intent="primary" disabled={consentBusy||generationPaused} onClick={()=>{
+            if(!guideConsent||generationPaused)return;
+            const pending=guideConsent;setConsentBusy(true);setConsentError(null);
+            void (state.grantId?Promise.resolve(state.grantId):authorizeWorkspace(projectId,snapshotId))
+              .then((grant)=>{setGuideConsent(null);void runRepositoryGuide(projectId,snapshotId,pending.id,grant,pending.resume,pending.unitKey,pending.regenerate??false);})
+              .catch((error)=>setConsentError(errorMessageOr(error,'Connect Codex in the header, then try again.')))
+              .finally(()=>setConsentBusy(false));
+          }}>{consentBusy?'Connecting…':guideConsent?.regenerate?'Create new version':guideConsent?.unitKey?'Retry slide':guideConsent?.resume?'Continue guide':'Build guide'}</AppButton>
+        </Flex>
+      </Dialog.Content>
+    </Dialog.Root>
     <Dialog.Root open={props.sharingOpen} onOpenChange={props.onSharingOpenChange}><Dialog.Content maxWidth="460px"><Dialog.Title>Repository sharing</Dialog.Title><Dialog.Description size="2">{state.grantId?'Codex can explore captured code in this snapshot when you ask a question. Your live working copy is not included.':'Codex has no workspace sharing permission for this snapshot.'}</Dialog.Description>{state.grantId&&<AppButton mt="4" intent="danger" color="red" onClick={()=>{void revokeWorkspace(projectId,snapshotId).then(()=>props.onSharingOpenChange(false)).catch((failure)=>setConsentError(errorMessageOr(failure,'Permission could not be revoked.')));}}>Revoke permission and stop questions</AppButton>}{consentError&&<p role="alert">{consentError}</p>}<Flex justify="end" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray">Done</AppButton></Dialog.Close></Flex></Dialog.Content></Dialog.Root>
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
@@ -1319,23 +1346,69 @@ function Answer(props:AnswerProps){
   const progressiveAnswerSequence=shouldSequencePublishedAnswer(turn);
   const sectionSequence=Boolean(turn.guideId||progressiveAnswerSequence);
   const guideSlides=sectionSequence&&!props.loading?sectionItems.flatMap((item)=>item.kind==='section'?[item.section]:[]):[];
-  const selectedGuideSlide=sectionSequence?guideSlideIndex(guideSlides,turn.reading?.guide?.revisionId):-1;
+  const latestPublishedRunByUnit=new Map<string,string>();
+  for(const unit of turn.guide?.units??[]){
+    const publishedRunIds=unit.runIds.filter((runId)=>guideSlides.some((slide)=>slide.runId===runId));
+    const latestPublishedRunId=publishedRunIds.at(-1);
+    if(latestPublishedRunId)latestPublishedRunByUnit.set(unit.key,latestPublishedRunId);
+  }
+  const unitIndexByRunId=new Map<string,number>();
+  for(const [index,unit] of (turn.guide?.units??[]).entries())for(const runId of unit.runIds)unitIndexByRunId.set(runId,index);
+  const activeGuideSlideIndices=guideSlides.flatMap((slide,index)=>{
+    const unit=turn.guide?.units.find((candidate)=>candidate.runIds.includes(slide.runId));
+    return !unit||latestPublishedRunByUnit.get(unit.key)===slide.runId?[index]:[];
+  }).sort((left,right)=>{
+    const leftUnitIndex=unitIndexByRunId.get(guideSlides[left].runId);
+    const rightUnitIndex=unitIndexByRunId.get(guideSlides[right].runId);
+    if(leftUnitIndex===undefined&&rightUnitIndex!==undefined)return -1;
+    if(leftUnitIndex!==undefined&&rightUnitIndex===undefined)return 1;
+    if(leftUnitIndex!==undefined&&rightUnitIndex!==undefined&&leftUnitIndex!==rightUnitIndex)return leftUnitIndex-rightUnitIndex;
+    return left-right;
+  });
+  const savedGuideSlide=turn.reading?.guide?.revisionId
+    ?guideSlides.findIndex((slide)=>slide.revisionId===turn.reading?.guide?.revisionId)
+    :-1;
+  const selectedGuideSlide=sectionSequence
+    ?savedGuideSlide>=0?savedGuideSlide:activeGuideSlideIndices[0]??-1
+    :-1;
+  const selectedActiveGuidePosition=activeGuideSlideIndices.indexOf(selectedGuideSlide);
+  const isHistoricalGuideSlide=Boolean(turn.guideId&&selectedGuideSlide>=0&&selectedActiveGuidePosition<0);
   const guideSlide=selectedGuideSlide>=0?guideSlides[selectedGuideSlide]:undefined;
+  const guideSlideUnit=guideSlide?turn.guide?.units.find((unit)=>unit.runIds.includes(guideSlide.runId)):undefined;
+  const guideSlidePublishedRunIds=guideSlideUnit
+    ?[...new Set(guideSlides.filter((slide)=>guideSlideUnit.runIds.includes(slide.runId)).map((slide)=>slide.runId))]
+    :[];
+  const guideSlideVersionIndex=guideSlide&&guideSlideUnit?guideSlidePublishedRunIds.indexOf(guideSlide.runId):-1;
+  const guideSlideVersionLabel=guideSlideUnit&&guideSlidePublishedRunIds.length>1&&guideSlideVersionIndex>=0
+    ?`Version ${guideSlideVersionIndex+1} of ${guideSlidePublishedRunIds.length} · ${guideSlideVersionIndex===guideSlidePublishedRunIds.length-1?'latest published':'earlier published'}`
+    :undefined;
   const guideSlideItemIndex=guideSlide?sectionItems.findIndex((item)=>item.kind==='section'&&item.section.revisionId===guideSlide.revisionId):-1;
   const guideSlideRevision=guideSlide?chapters?.find((candidate)=>candidate.revisionId===guideSlide.revisionId):undefined;
-  const selectGuideSlide=(index:number)=>{
-    if(turn.guideId&&index>selectedGuideSlide&&guideSlide)
-      props.onGuideSlideConsumed?.(guideSlide.revisionId);
+  const focusGuideSlide=(index:number)=>{
     const next=guideSlides[index];
     const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
     const sectionId=(revision&&answerReadingPosition(turn,'guide',revision.revisionId,revision.sections)?.sectionId)
       ?? revision?.sections[0]?.sectionId;
     if(revision&&sectionId)props.onFocus(revision.revisionId,sectionId);
   };
-  const hasNextGuideSlide=selectedGuideSlide<guideSlides.length-1;
-  const canBuildNextGuideSlide=Boolean(turn.guideId&&canContinueRepositoryGuide(turn.guide));
+  const selectGuideSlide=(position:number)=>{
+    if(turn.guideId&&position>selectedActiveGuidePosition&&guideSlide&&!isHistoricalGuideSlide)
+      props.onGuideSlideConsumed?.(guideSlide.revisionId);
+    const index=activeGuideSlideIndices[position];
+    if(index!==undefined)focusGuideSlide(index);
+  };
+  const selectHistoricalGuideSlide=(index:number)=>focusGuideSlide(index);
+  const returnToLatestTopicVersion=()=>{
+    if(!guideSlideUnit)return;
+    const latestRunId=latestPublishedRunByUnit.get(guideSlideUnit.key);
+    const latestIndex=latestRunId?guideSlides.findIndex((slide)=>slide.runId===latestRunId):-1;
+    const activePosition=activeGuideSlideIndices.indexOf(latestIndex);
+    if(activePosition>=0)selectGuideSlide(activePosition);
+  };
+  const hasNextGuideSlide=!isHistoricalGuideSlide&&selectedActiveGuidePosition<activeGuideSlideIndices.length-1;
+  const canBuildNextGuideSlide=Boolean(turn.guideId&&!isHistoricalGuideSlide&&canContinueRepositoryGuide(turn.guide));
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
-  const availableSequenceCount=guideSlides.length;
+  const availableSequenceCount=activeGuideSlideIndices.length;
   const unavailableSequenceCount=sectionItems.reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const mappedErrorMessage=turn.error?explanationErrorMessage(turn.error):undefined;
@@ -1359,7 +1432,8 @@ function Answer(props:AnswerProps){
     if(turn.status==='failed')return 'Answer could not finish';
     return 'Answer complete';
   };
-  const nextGuideSlideLabel=hasNextGuideSlide?`Next ${turn.guideId?'slide':'section'}`
+  const nextGuideSlideLabel=isHistoricalGuideSlide?'Return to latest version'
+    :hasNextGuideSlide?`Next ${turn.guideId?'slide':'section'}`
     :canBuildNextGuideSlide?'Build next slide'
     :turn.status==='working'?`Another ${turn.guideId?'slide':'section'} is being prepared`
     :completedSequenceLabel();
@@ -1398,15 +1472,27 @@ function Answer(props:AnswerProps){
       <summary><InlineCodeText text={turn.guide.title}/>{guideCoverageLabel&&<span className={`dw-guide-status${guideCoverageLabel==='Planned topics complete'?' is-complete':''}`} role="status">{guideCoverageLabel==='Planned topics complete'?'Complete':guideCoverageLabel==='Partial coverage'?'Partial':'Incomplete'}</span>}</summary>
       <ol aria-label="Planned guide topics">{turn.guide.units.map((unit)=>{
         const status=unit.status==='complete'?'Ready':unit.status==='working'?'In progress':unit.status==='partial'?'Incomplete':unit.status==='failed'?'Could not build':unit.status==='interrupted'?'Interrupted':unit.status==='stopped'?'Stopped':'Not yet available';
-        const slideIndex=guideSlides.findIndex((slide)=>unit.runIds.includes(slide.runId));
+        const versionRunIds=[...new Set(guideSlides.filter((slide)=>unit.runIds.includes(slide.runId)).map((slide)=>slide.runId))];
+        const latestPublishedRunId=latestPublishedRunByUnit.get(unit.key);
+        const slideIndex=latestPublishedRunId?guideSlides.findIndex((slide)=>slide.runId===latestPublishedRunId):-1;
+        const slidePosition=activeGuideSlideIndices.indexOf(slideIndex);
+        const previousPublishedRunIds=versionRunIds.filter((runId)=>runId!==latestPublishedRunId);
         return <li key={unit.key}>
           {slideIndex>=0
             ? <AppButton size="1" intent="quiet" color="gray" className="dw-guide-topic-link" aria-current={slideIndex===selectedGuideSlide?'step':undefined}
-                aria-label={`Open ready slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectGuideSlide(slideIndex)}><InlineCodeText text={unit.question}/></AppButton>
+                aria-label={`Open latest published slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectGuideSlide(slidePosition)}><InlineCodeText text={unit.question}/></AppButton>
             : <span><InlineCodeText text={unit.question}/></span>}
-          <small>{status}</small>
+          <small>{status}{versionRunIds.length>1?` · ${versionRunIds.length} versions`:''}</small>
+          {previousPublishedRunIds.length>0&&<details className="dw-guide-version-history"><summary>Previous versions ({previousPublishedRunIds.length})</summary><ol>
+            {previousPublishedRunIds.map((runId)=>{
+              const previousIndex=guideSlides.findIndex((slide)=>slide.runId===runId);
+              const version=versionRunIds.indexOf(runId)+1;
+              return <li key={runId}><AppButton size="1" intent="quiet" color="gray" disabled={previousIndex<0} aria-label={`Open earlier version ${version} of: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectHistoricalGuideSlide(previousIndex)}>Version {version}</AppButton></li>;
+            })}
+          </ol></details>}
           {unit.failureCode&&<details className="dw-guide-unit-failure"><summary>Why this slide stopped</summary><p>{explanationFailureMessage(unit.failureCode)}</p></details>}
           {unit.canRetry&&props.onRetryGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Retry slide: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>Retry slide</AppButton>}
+          {unit.canRegenerate&&props.onRegenerateGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Create a new version of: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRegenerateGuideUnit?.(turn.id,unit.key)}>Create new version</AppButton>}
         </li>;
       })}</ol>
       <p>Follow these parts in order, or open another file to explore a different part of the code.</p>
@@ -1416,13 +1502,22 @@ function Answer(props:AnswerProps){
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
     {sectionSequence&&props.loading&&sections.length>0&&turn.status!=='waiting'&&<p className="dw-guide-loading" role="status">{turn.guideId?'Opening your guide…':'Opening your explanation…'}</p>}
+    {turn.guideId&&guideSlideVersionLabel&&<p className="dw-answer-note" role="status">{guideSlideVersionLabel} for this topic. Earlier published versions remain available in this topic’s history.</p>}
     {sectionSequence&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
       turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
       branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}
       branchLabel={canExtendOmissions?'Explore uncovered topics':undefined}
       coverageSummary={guideCoverageSummary??undefined}
       onBranch={canExtendOmissions?()=>props.onExploreOmissions(turn):props.onBranch}/>}
-    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}><AppButton size="1" intent="quiet" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</AppButton><span role="status" aria-live="polite" aria-atomic="true">{turn.guideId?'Slide':'Section'} {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><AppButton size="1" intent="secondary" disabled={!hasNextGuideSlide&&!canBuildNextGuideSlide} aria-label={nextGuideSlideLabel} onClick={()=>{if(hasNextGuideSlide)selectGuideSlide(selectedGuideSlide+1);else if(canBuildNextGuideSlide)props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{nextGuideSlideLabel}<ArrowRight size={13}/></AppButton></nav>}
+    {sectionSequence&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label={turn.guideId?'Guide slides':'Answer sections'}>
+      {isHistoricalGuideSlide
+        ? <><span role="status">Earlier published version</span><AppButton size="1" intent="secondary" onClick={returnToLatestTopicVersion}>Return to latest version<ArrowRight size={13}/></AppButton></>
+        : <>
+          <AppButton size="1" intent="quiet" color="gray" disabled={selectedActiveGuidePosition<=0} onClick={()=>selectGuideSlide(selectedActiveGuidePosition-1)}><ArrowLeft size={13}/>Previous</AppButton>
+          <span role="status" aria-live="polite" aria-atomic="true">{turn.guideId?'Slide':'Section'} {selectedActiveGuidePosition+1} of {activeGuideSlideIndices.length}{progressText?' · more on the way':''}</span>
+          <AppButton size="1" intent="secondary" disabled={!hasNextGuideSlide&&!canBuildNextGuideSlide} aria-label={nextGuideSlideLabel} onClick={()=>{if(hasNextGuideSlide)selectGuideSlide(selectedActiveGuidePosition+1);else if(canBuildNextGuideSlide)props.onGuideSlideConsumed?.(guideSlide.revisionId);}}>{nextGuideSlideLabel}<ArrowRight size={13}/></AppButton>
+        </>}
+    </nav>}
     {!turn.guideId&&progressiveAnswerSequence&&sectionItems.some((item)=>item.kind==='unavailable')&&<details className="dw-unavailable-group"><summary>{sectionItems.filter((item)=>item.kind==='unavailable').reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0)} saved answer part(s) unavailable</summary><p>These parts could not be reopened. Re-explain this question to build them again.</p><AppButton size="1" intent="secondary" onClick={props.onRetry}>Explain this question again</AppButton></details>}
     {!turn.guideId&&!progressiveAnswerSequence&&sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion
       loading={props.loading} revision={chapters?.find((r)=>r.revisionId===item.section.revisionId)}

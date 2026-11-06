@@ -633,6 +633,33 @@ pub(in crate::repository_guide) fn prepare_continuation(
     })
 }
 
+/// Admit a new version for one completed unit without changing its plan or
+/// removing any earlier attempt.
+pub(in crate::repository_guide) fn prepare_unit_regeneration(
+    storage: &Path,
+    id: &str,
+    revision: u64,
+    unit_key: &str,
+) -> Result<Record, String> {
+    update(storage, id, |current| {
+        if current.revision != revision || current.active_run_id.is_some() {
+            return Err("The guide changed before its slide version could start. Existing sections were preserved.".into());
+        }
+        let index = current
+            .plan
+            .as_ref()
+            .and_then(|plan| plan.units.iter().position(|unit| unit.key == unit_key))
+            .ok_or("That slide is not part of this guide.")?;
+        if !super::unit_regenerable(current, index) {
+            return Err(
+                "This slide cannot receive another version. Its saved work was preserved.".into(),
+            );
+        }
+        current.status = Status::Building;
+        Ok(())
+    })
+}
+
 /// Admit one explicit fresh outline attempt after a failed or interrupted
 /// planning run. It keeps the guide identity and source grant while giving the
 /// Codex operation a new owner and the same bounded planning contract.

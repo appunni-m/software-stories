@@ -64,9 +64,8 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
         + record.units.iter().filter(|unit| pending(unit)).count()
 }
 
-/// Keep capacity for work this guide can still publish, plus its saved
-/// attempts. Completed or exhausted guides keep their receipts but release
-/// the slots they can no longer use.
+/// Keep capacity for all attempts this guide may still publish, plus its saved
+/// attempts. Exhausted guides keep their receipts but release unused slots.
 pub(super) fn remaining_answer_records(record: &Record) -> usize {
     let Some(plan) = &record.plan else {
         let planning_can_continue = record.active_run_id.is_some()
@@ -91,10 +90,12 @@ pub(super) fn remaining_answer_records(record: &Record) -> usize {
     } else {
         usize::from(automatic_retry_eligible(record)) + usize::from(explicit_retry_eligible(record))
     };
+    // A completed planned unit can receive an explicit new version until its
+    // bounded attempt allowance is spent, so retain the remaining slots for
+    // completed as well as incomplete units.
     let unit_slots = record
         .units
         .iter()
-        .filter(|unit| !unit_complete(unit))
         .map(|unit| MAX_ATTEMPTS.saturating_sub(unit.attempts.len()))
         .sum::<usize>();
     let extension_slots = super::pending_extension_topics(plan).len() * MAX_ATTEMPTS;

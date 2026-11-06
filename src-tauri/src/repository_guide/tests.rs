@@ -1454,6 +1454,7 @@ fn fontdone_repository_guide_account_probe() {
             &recovery::InterruptionJournal::default(),
             GUIDE_SLIDES_PER_OPERATION,
             None,
+            false,
             None,
             Instant::now(),
             &progress,

@@ -5,6 +5,8 @@ import { isDocumentationPath } from '../lib/inventory.ts';
 
 // Match workspace_conversation::MAX_BYTES before either parsing or persisting.
 const MAX_WORKSPACE_STATE_BYTES = 8 * 1024 * 1024;
+// Keep aligned with repository_guide::MAX_GUIDE_ANSWER_RECORDS.
+export const MAX_REPOSITORY_GUIDE_RUN_IDS = 1 + 2 + 20 * 3;
 
 function exceedsUtf8ByteLimit(value: string, limit: number): boolean {
   if (value.length > limit) return true;
@@ -57,7 +59,7 @@ export interface RepositoryGuide {
   canExtend: boolean;
   continuationOperations: number;
   consumedSlideRevisions?: string[];
-  units: { key: string; question: string; prerequisites: string[]; status: string; failureCode?: ExplanationFailureCode; canRetry: boolean; runIds: string[] }[];
+  units: { key: string; question: string; prerequisites: string[]; status: string; failureCode?: ExplanationFailureCode; canRetry: boolean; canRegenerate?: boolean; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
 export interface RepositoryGuideList {
@@ -308,7 +310,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
           || Object.keys(t.outcomeNotice).length === 0
           || Object.values(t.outcomeNotice).some((id) => typeof id !== 'string' || !/^[a-f0-9]{16}$/u.test(id)))) delete t.outcomeNotice;
         const savedRunIds: unknown = t.runIds;
-        if (savedRunIds !== undefined && (!Array.isArray(savedRunIds) || savedRunIds.length > 32 || savedRunIds.some((id) => !validRunId(id)))) return fallback();
+        const maxRunIds = validRunId(t.guideId) ? MAX_REPOSITORY_GUIDE_RUN_IDS : 32;
+        if (savedRunIds !== undefined && (!Array.isArray(savedRunIds) || savedRunIds.length > maxRunIds || savedRunIds.some((id) => !validRunId(id)))) return fallback();
         const runIds = (savedRunIds === undefined ? [] : savedRunIds) as string[];
         if (new Set(runIds).size !== runIds.length
           || (t.guideId !== undefined && !validRunId(t.guideId))

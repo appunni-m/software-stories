@@ -1148,6 +1148,10 @@ impl CodexAgentManager {
                 status.message =
                     "Connected through Codex-managed ChatGPT sign-in. Account plan limits apply."
                         .to_owned();
+            } else if status.pending_login_id.is_none() {
+                status.message =
+                    "Sign in to your ChatGPT account once. Future requests reuse it automatically."
+                        .to_owned();
             }
         });
     }
