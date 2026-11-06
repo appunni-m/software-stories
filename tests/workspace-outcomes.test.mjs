@@ -15,6 +15,14 @@ test('the Guide reader hides draft bookkeeping but keeps an explicit rejection w
   assert.equal(workspaceAnswerLifecycleBadge('rejected'), 'Rejected');
 });
 
+test('Guide slide navigation stays reachable in the answer scroll area', () => {
+  const stylesheet = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  const rule = stylesheet.match(/\.dw-guide-slide-nav\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(rule, /position\s*:\s*sticky\s*;/);
+  assert.match(rule, /bottom\s*:\s*var\(--space-2\)\s*;/);
+  assert.doesNotMatch(rule, /position\s*:\s*(?:fixed|absolute)\s*;/);
+});
+
 test('the Guide stack counts retained failed branch questions without calling them answers', () => {
   let state = stateWith(turn('stopped-parent', 'stopped'));
   state = addTurn(state, turn('stopped-child', 'stopped'), 'guide', { id: 'child', originTurnId: 'stopped-parent' });
