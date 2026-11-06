@@ -154,7 +154,7 @@ describe('Code Lens source rendering helpers', () => {
   it('builds snapshot-bound whole-line ranges and counts UTF-8 bytes across CRLF lines', () => {
     const contents = '✨ first\r\n  second();\r\nthird();';
     const sourceSha256 = 'f'.repeat(64);
-    const firstLineByteLength = Buffer.byteLength('✨ first\r\n  second();');
+    const firstLineByteLength = Buffer.byteLength('✨ first\r\n  second();\r\n');
 
     assert.deepEqual(selectedCodeLineRange(contents, sourceSha256, 1, 2), {
       status: 'ready',
@@ -171,6 +171,12 @@ describe('Code Lens source rendering helpers', () => {
     });
     assert.deepEqual(selectedCodeLineRange('x'.repeat(32_001), hash, 1, 1), {
       status: 'too-large', range: { startLine: 1, endLine: 1, sourceSha256: hash }, byteLength: 32_001,
+    });
+    assert.deepEqual(selectedCodeLineRange(`${'x'.repeat(31_999)}\n`, hash, 1, 1), {
+      status: 'ready', range: { startLine: 1, endLine: 1, sourceSha256: hash }, byteLength: 32_000,
+    });
+    assert.deepEqual(selectedCodeLineRange(`${'x'.repeat(32_000)}\r\n`, hash, 1, 1), {
+      status: 'too-large', range: { startLine: 1, endLine: 1, sourceSha256: hash }, byteLength: 32_002,
     });
   });
 

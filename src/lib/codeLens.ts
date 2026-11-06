@@ -247,7 +247,13 @@ export function selectedCodeLineRange(
   const first = selected.ranges[0];
   const last = selected.ranges.at(-1);
   if (!first || !last || selected.ranges.length !== endLine - startLine + 1) return { status: 'unavailable' };
-  const excerpt = contents.slice(first.start, last.end);
+  // The native request uses the complete selected lines, including the final
+  // line terminator when one exists. Count the same bytes here so a range at
+  // the 32 KB boundary is rejected before request review.
+  let end = last.end;
+  if (contents[end] === '\r') end += contents[end + 1] === '\n' ? 2 : 1;
+  else if (contents[end] === '\n') end += 1;
+  const excerpt = contents.slice(first.start, end);
   if (!excerpt.trim()) return { status: 'unavailable' };
   const byteLength = new TextEncoder().encode(excerpt).byteLength;
   const range = { startLine, endLine, sourceSha256 };

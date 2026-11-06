@@ -181,7 +181,7 @@ import {
   type InventoryRow,
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
-import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, selectedCodeLineRange, splitSourceTextAtRange } from './lib/codeLens';
+import { capturedSourceLineCount, capturedSourceLineIndex, capturedSourceLineWindow, classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, MAX_CODE_LENS_RANGE_BYTES, resolveCodeLensCitation, selectedCodeLineRange, splitSourceTextAtRange } from './lib/codeLens';
 import { normalizeCapturedSourceNavigation } from './lib/capturedSourceNavigation';
 import { loadShellStartupData, workspaceHeading, WORKSPACE_LABEL } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
@@ -1497,6 +1497,28 @@ function App() {
     }
     if (resolvedRange.status !== 'verified') {
       setNotice({ title: 'This source range could not be verified', message: 'Reopen the captured file and select its code again before requesting an explanation.' });
+      return;
+    }
+    const measuredRange = resolvedRange.textRange
+      ? { byteLength: new TextEncoder().encode(sourceDocument.contents.slice(
+        resolvedRange.textRange.start,
+        resolvedRange.textRange.end,
+      )).byteLength }
+      : selectedCodeLineRange(
+        sourceDocument.contents,
+        sourceDocument.sha256,
+        resolvedRange.range.startLine,
+        resolvedRange.range.endLine,
+      );
+    if (!('byteLength' in measuredRange)) {
+      setNotice({ title: 'This code range could not be measured', message: 'Reopen the captured file and select its code again. No source was sent.' });
+      return;
+    }
+    if (measuredRange.byteLength > MAX_CODE_LENS_RANGE_BYTES) {
+      setNotice({
+        title: 'This code range is too large to explain at once',
+        message: 'Select a smaller portion of the captured code, up to 32 KB. No source was sent.',
+      });
       return;
     }
     const projectId = currentProject.projectId;
