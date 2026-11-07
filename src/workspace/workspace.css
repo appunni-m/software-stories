@@ -413,6 +413,29 @@
   .dw-answer-visual-fork-source {justify-self:start;max-width:100%;}
 }
 @container guide-pane (max-width: 420px) {
+  .dw-section-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    row-gap: var(--space-2);
+  }
+  .dw-section-controls > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .dw-section-controls > button {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+  .dw-section-controls > button:first-child {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .dw-section-controls > button:last-child {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
   .dw-answer-visual-preview-graph li {grid-template-columns:minmax(0,1fr);}
   .dw-answer-visual-preview-graph li > button:first-child {grid-column:1;grid-row:1;}
   .dw-answer-visual-preview-graph li > .dw-answer-visual-edge {grid-column:1;grid-row:2;}
