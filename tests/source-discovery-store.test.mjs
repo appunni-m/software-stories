@@ -229,9 +229,10 @@ describe('saved source discovery scope', () => {
   });
 
   it('keeps source selection automatic after discovery failure and preserves the question', async () => {
-    const [context, discovery] = await Promise.all([
+    const [context, discovery, dialog] = await Promise.all([
       readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8'),
     ]);
     assert.doesNotMatch(discovery, /onChooseFilesManually|Choose files manually/);
     assert.match(discovery, /Retry discovery, or go back and make the question more specific\./);
@@ -239,5 +240,9 @@ describe('saved source discovery scope', () => {
     assert.doesNotMatch(context, /manualFallbackScope|setManualFallbackScope|useManualFallback/);
     assert.match(context, /if \(discoveryScope && !paths\)/);
     assert.match(context, /discovery\?\.scopeKey === discoveryScopeKey/);
+    assert.match(dialog, /overviewNeedsAutomaticDiscovery = mode !== 'settings' && mode\.kind === 'overview'[\s\S]*?!discoveryResult && !initialSelectedPaths\?\.length/);
+    assert.match(dialog, /Find the code automatically[\s\S]*?Return to the workspace and ask again so Code Atlas can find relevant code for you/);
+    assert.match(dialog, /!initialSelectedPaths\?\.length && !overviewNeedsAutomaticDiscovery/);
+    assert.doesNotMatch(dialog, /Choose 1–12 files that ground the repository overview/);
   });
 });

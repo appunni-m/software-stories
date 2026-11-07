@@ -116,6 +116,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
   const initialSelectedPaths = mode !== 'settings' && 'selectedPaths' in mode ? mode.selectedPaths : undefined;
+  const overviewNeedsAutomaticDiscovery = mode !== 'settings' && mode.kind === 'overview'
+    && !discoveryResult && !initialSelectedPaths?.length;
   const chapterRecovery = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update')
     && mode.recoveryOperationId ? mode : null;
   const [recoveryReady, setRecoveryReady] = useState(!chapterRecovery);
@@ -769,16 +771,20 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {manifestLoading && <p role="status">Checking the captured source…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
                 {!manifestLoading && !manifestError && !sourceReady && <p className="provider-error-text" role="alert">This selection’s source is unavailable. Reopen the captured file and select the code again.</p>}
+              </div> : overviewNeedsAutomaticDiscovery ? <div className="provider-context-picker" role="status">
+                <strong>Find the code automatically</strong>
+                <p>This saved request no longer has its source selection. Return to the workspace and ask again so Code Atlas can find relevant code for you. Check saved answers first if you are unsure whether the earlier request finished.</p>
+                <AppButton intent="secondary" onClick={onClose}>Return to workspace</AppButton>
               </div> : <div className="provider-context-picker">
                 <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Code for your route' : 'Repository overview')}</strong><span>{paths.length} code {paths.length === 1 ? 'file' : 'files'}</span></div>
                 {discoveryResult && onFindCodeAgain && <AppButton intent="quiet" size="1" disabled={busy !== null || hasResult} onClick={onFindCodeAgain}>Find code again</AppButton>}
                 {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>Codex will propose a route through this code. You can review the route, then build its chapters together.</p></>}
                 {plannedChapter && <><h4>Learning question</h4><p>{plannedChapter.question}</p><p>One accepted reading step · {plannedChapter.prerequisites.length} learning prerequisites. The original plan revision and source stay fixed. This creates one unaccepted chapter.</p><details><summary>Plan question and prerequisites</summary><p>{plannedChapter.planQuestion}</p><ul>{plannedChapter.prerequisites.map((item) => <li key={item.stepId}>{item.question}</li>)}</ul><p>Reading prerequisites do not prove runtime calls.</p></details></>}
-                <p>{plannedChapter ? 'This chapter follows the accepted step and its cited implementation.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. The native review checks that the other sections can carry forward.' : discoveryResult ? 'Codex picked relevant code for you. Open the details below to inspect its choices; answers still need to cite captured source.' : planning ? 'This review retains the code from your original request.' : targetPath ? 'The captured file grounds this explanation.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                <p>{plannedChapter ? 'This chapter follows the accepted step and its cited implementation.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. The native review checks that the other sections can carry forward.' : discoveryResult ? 'Codex picked relevant code for you. Open the details below to inspect its choices; answers still need to cite captured source.' : planning ? 'This review retains the code from your original request.' : targetPath ? 'The captured file grounds this explanation.' : 'Code Atlas finds relevant code for the repository question.'}</p>
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-                {manifest && <>{!planning && !targetPath && !initialSelectedPaths?.length && <details className="codex-supporting-files" open={!discoveryResult}><summary>{discoveryResult ? 'Review selected files' : 'Choose files'} ({paths.length})</summary><div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} placeholder="Search snapshot paths" size="1" /></div>
+                {manifest && <>{!planning && !targetPath && !initialSelectedPaths?.length && !overviewNeedsAutomaticDiscovery && <details className="codex-supporting-files" open={!discoveryResult}><summary>{discoveryResult ? 'Review selected files' : 'Choose files'} ({paths.length})</summary><div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} placeholder="Search snapshot paths" size="1" /></div>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
                     return <label key={file.path} className={checked ? 'selected' : ''}><AppCheckbox checked={checked} disabled={locked || Boolean(planning) || Boolean(plannedChapter) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
@@ -791,8 +797,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </>}
                 <p className="provider-small-note">{snapshotRetrievalRoute ? 'These are starting points. After consent, Codex reads only relevant ranges from this captured snapshot; your live working files are excluded.' : 'Review the captured code above before sending. Files that look private or cannot be read are left out.'}</p>
               </div>}
-              <AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
-              <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>
+              {!overviewNeedsAutomaticDiscovery && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
+              <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p></>}
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>{gitOperation ? 'Comparison identity' : 'Source snapshot'}</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
