@@ -2094,6 +2094,7 @@ function App() {
               : undefined} />
           <AppButton intent="custom" size="1"
             className="help-button"
+            data-focus-key="tools-button"
             onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setShortcutsOpen(true); }}
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts"

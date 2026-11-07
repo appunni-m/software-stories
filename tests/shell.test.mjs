@@ -169,7 +169,7 @@ describe('desktop shell acceptance contract', () => {
 
   it('opens keyboard help directly and keeps connection setup in the header', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-    assert.match(source, /className="help-button"[\s\S]*?setShortcutsOpen\(true\)/);
+    assert.match(source, /className="help-button"[\s\S]*?data-focus-key="tools-button"[\s\S]*?setShortcutsOpen\(true\)/);
     assert.match(source, /aria-label="Keyboard shortcuts"/);
     assert.doesNotMatch(source, /toolsOpen|setToolsOpen|tools-menu|Browse accepted guides|Review a draft/);
     assert.doesNotMatch(source, /aria-label="Open workspace settings"/);
