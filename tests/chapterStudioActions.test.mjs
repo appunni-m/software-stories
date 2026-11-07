@@ -177,6 +177,23 @@ test('the real Validate callback reports one issue with singular feedback and re
   assert.deepEqual(state.validation,{revisionId:bindings.activeDocument.revisionId,report});assert.equal(state.feedback.message,'1 issue needs review before acceptance.');assert.equal(state.feedback.tone,'error');
 });
 
+test('the latest selected-revision validation overrides its persisted validation status',()=>{
+  const revisionId='draft:r2';
+  const selectedRevision={revisionId,validationStatus:'valid'};
+  assert.equal(callback('selectedRevisionPassesValidation',{
+    selectedRevision,
+    validation:{revisionId,report:{status:'invalid',issues:[{code:'invalidClaim'}]}},
+  }),false,'a fresh invalid report must disable Accept even when the saved status was valid');
+  assert.equal(callback('selectedRevisionPassesValidation',{
+    selectedRevision:{revisionId,validationStatus:'invalid'},
+    validation:{revisionId,report:{status:'valid',issues:[]}},
+  }),true,'a fresh valid report must enable Accept when the saved status was invalid');
+  assert.equal(callback('selectedRevisionPassesValidation',{
+    selectedRevision:{revisionId,validationStatus:'invalid'},
+    validation:{revisionId:'draft:r1',report:{status:'valid',issues:[]}},
+  }),false,'a report for another revision must not change the selected draft gate');
+});
+
 for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'the native saved record without a renderer round-trip'}`,async()=>{
   const {state,bindings,before}=setup();const requests=[];bindings.editing=editing;bindings.activeDocument=bindings.candidate;
   bindings.validationScopeRef.current={projectId:'p',snapshotId:'s',targetKey:'target:one',revisionId:bindings.activeDocument.revisionId,editing,candidate:editing?bindings.candidate:null};
