@@ -20,7 +20,7 @@ mod queue;
 
 #[cfg(unix)]
 use std::os::unix::{
-    fs::{MetadataExt, PermissionsExt},
+    fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     process::CommandExt,
 };
 
@@ -191,6 +191,25 @@ fn ensure_runtime_directories(runtime: &Path) -> Result<(), ProviderFailure> {
     ensure_plain_directory(storage, true)?;
     ensure_plain_directory(parent, false)?;
     ensure_plain_directory(runtime, false)
+}
+
+/// Create the runtime's writable directories without following a pre-existing
+/// link planted inside app storage. These paths are passed to the setup tools
+/// as cache, interpreter, temporary, and asset destinations.
+fn ensure_setup_directories(runtime: &Path) -> Result<(), ProviderFailure> {
+    for name in [
+        "tmp",
+        "uv-cache",
+        "python",
+        "huggingface",
+        "cache",
+        "tooling",
+        "venv",
+        "assets",
+    ] {
+        ensure_plain_directory(&runtime.join(name), false)?;
+    }
+    Ok(())
 }
 
 /// Cache identity includes the exact worker, all asset revision pins it embeds,
@@ -592,9 +611,7 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
     #[cfg(unix)]
     fs::set_permissions(runtime, fs::Permissions::from_mode(0o700))
         .map_err(|_| storage_failure())?;
-    for directory in ["tmp", "uv-cache", "python", "huggingface", "cache"] {
-        fs::create_dir_all(runtime.join(directory)).map_err(|_| storage_failure())?;
-    }
+    ensure_setup_directories(runtime)?;
     let uv = ensure_uv(runtime, cancelled)?;
     let _ = fs::remove_file(runtime.join("ready.json"));
     write_worker(runtime)?;
@@ -677,12 +694,32 @@ fn runtime_removal_failure() -> ProviderFailure {
 }
 
 fn write_worker(runtime: &Path) -> Result<(), ProviderFailure> {
-    fs::write(runtime.join("worker.py"), WORKER).map_err(|_| storage_failure())
+    write_runtime_file(runtime, "worker.py", WORKER.as_bytes())
 }
 
 fn write_requirements_lock(runtime: &Path) -> Result<(), ProviderFailure> {
-    fs::write(runtime.join(REQUIREMENTS_LOCK_FILE), REQUIREMENTS_LOCK)
-        .map_err(|_| storage_failure())
+    write_runtime_file(
+        runtime,
+        REQUIREMENTS_LOCK_FILE,
+        REQUIREMENTS_LOCK.as_bytes(),
+    )
+}
+
+/// Replace app-owned runtime files atomically. Renaming over a symlink replaces
+/// the link itself instead of following it and writing into its target.
+fn write_runtime_file(runtime: &Path, name: &str, bytes: &[u8]) -> Result<(), ProviderFailure> {
+    let destination = runtime.join(name);
+    let temporary = runtime.join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
+    let _cleanup = OutputCleanup(temporary.clone());
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(&temporary).map_err(|_| storage_failure())?;
+    file.write_all(bytes).map_err(|_| storage_failure())?;
+    file.sync_all().map_err(|_| storage_failure())?;
+    drop(file);
+    fs::rename(&temporary, &destination).map_err(|_| storage_failure())
 }
 
 fn requirements_sha256() -> String {
@@ -696,7 +733,7 @@ fn ensure_uv(runtime: &Path, cancelled: &AtomicBool) -> Result<PathBuf, Provider
 
     set_phase("tool");
     let tooling = runtime.join("tooling");
-    fs::create_dir_all(&tooling).map_err(|_| storage_failure())?;
+    ensure_plain_directory(&tooling, false)?;
     #[cfg(unix)]
     fs::set_permissions(&tooling, fs::Permissions::from_mode(0o700))
         .map_err(|_| storage_failure())?;
@@ -1155,6 +1192,61 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setup_rejects_symlinked_runtime_directories_before_starting_downloads() {
+        use std::os::unix::fs::symlink;
+
+        let storage = TestRuntime::new();
+        let runtime = root(&storage.0);
+        fs::create_dir_all(&runtime).unwrap();
+        let outside = storage.0.join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.txt"), b"outside data").unwrap();
+        symlink(&outside, runtime.join("tmp")).unwrap();
+
+        assert!(setup_blocking(&runtime, &AtomicBool::new(false)).is_err());
+        assert_eq!(fs::read(outside.join("keep.txt")).unwrap(), b"outside data");
+        assert!(
+            fs::read_dir(&outside)
+                .unwrap()
+                .all(|entry| { entry.unwrap().file_name() == "keep.txt" })
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn runtime_script_and_lock_replace_symlinks_without_writing_through_them() {
+        use std::os::unix::fs::symlink;
+
+        let runtime = TestRuntime::new();
+        let outside = runtime.0.join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        let outside_worker = outside.join("worker.py");
+        let outside_lock = outside.join("requirements.lock");
+        fs::write(&outside_worker, b"preserve external worker").unwrap();
+        fs::write(&outside_lock, b"preserve external lock").unwrap();
+        symlink(&outside_worker, runtime.0.join("worker.py")).unwrap();
+        symlink(&outside_lock, runtime.0.join(REQUIREMENTS_LOCK_FILE)).unwrap();
+
+        write_worker(&runtime.0).unwrap();
+        write_requirements_lock(&runtime.0).unwrap();
+
+        assert_eq!(
+            fs::read(outside_worker).unwrap(),
+            b"preserve external worker"
+        );
+        assert_eq!(fs::read(outside_lock).unwrap(), b"preserve external lock");
+        assert_eq!(
+            fs::read(runtime.0.join("worker.py")).unwrap(),
+            WORKER.as_bytes()
+        );
+        assert_eq!(
+            fs::read(runtime.0.join(REQUIREMENTS_LOCK_FILE)).unwrap(),
+            REQUIREMENTS_LOCK.as_bytes()
+        );
     }
 
     #[test]

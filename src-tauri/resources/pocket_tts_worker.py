@@ -6,7 +6,9 @@ import json
 import logging
 import os
 from pathlib import Path
+import shutil
 import sys
+import tempfile
 import wave
 
 PACKAGE_VERSION = "3.3.0"
@@ -54,6 +56,37 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+def atomic_replace_bytes(path, content):
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def atomic_copy(source, path):
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            with source.open("rb") as source_stream:
+                shutil.copyfileobj(source_stream, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
 def load_local_model(root):
     from pocket_tts import TTSModel
 
@@ -65,13 +98,13 @@ def load_local_model(root):
 
 
 def setup(root):
-    import shutil
     import pocket_tts
     import yaml
     from huggingface_hub import hf_hub_download
 
     assets = root / "assets"
-    assets.mkdir(exist_ok=True)
+    if assets.is_symlink() or not assets.is_dir():
+        raise ValueError("runtime_directory_unavailable")
     manifest_assets = {}
     for name, (filename, revision) in ASSETS.items():
         source = hf_hub_download(
@@ -81,9 +114,7 @@ def setup(root):
             token=False,
         )
         target = assets / name
-        temporary = assets / (name + ".part")
-        shutil.copyfile(source, temporary)
-        temporary.replace(target)
+        atomic_copy(Path(source), target)
         manifest_assets[name] = {"size": target.stat().st_size, "sha256": digest(target)}
 
     source_config = Path(pocket_tts.__file__).parent / "config" / "english_2026-09.yaml"
@@ -94,7 +125,7 @@ def setup(root):
     config["weights_path_without_voice_cloning"] = None
     config["flow_lm"]["lookup_table"]["tokenizer_path"] = str(assets / "tokenizer.json")
     config_path = root / "model.yaml"
-    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    atomic_replace_bytes(config_path, yaml.safe_dump(config).encode("utf-8"))
     os.environ["HF_HUB_OFFLINE"] = "1"
     load_local_model(root)
     manifest = {
@@ -106,9 +137,7 @@ def setup(root):
         "configSha256": digest(config_path),
         "requirementsSha256": expected_requirements_sha256(),
     }
-    temporary = root / "ready.json.part"
-    temporary.write_text(json.dumps(manifest), encoding="utf-8")
-    temporary.replace(root / "ready.json")
+    atomic_replace_bytes(root / "ready.json", json.dumps(manifest).encode("utf-8"))
 
 
 def unique_object(pairs):

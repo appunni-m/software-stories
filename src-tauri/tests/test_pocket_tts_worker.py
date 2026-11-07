@@ -53,6 +53,29 @@ class WorkerTests(unittest.TestCase):
             "requirementsSha256": self.requirements_sha256, "assets": assets,
         }))
 
+    def test_setup_atomic_writes_replace_symlinks_without_writing_through_them(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        external_config = outside / "config.yaml"
+        external_asset = outside / "asset.bin"
+        external_config.write_bytes(b"preserve config")
+        external_asset.write_bytes(b"preserve asset")
+
+        config_link = self.root / "linked-config.yaml"
+        asset_link = self.root / "assets" / "linked-asset.bin"
+        config_link.symlink_to(external_config)
+        asset_link.symlink_to(external_asset)
+
+        worker.atomic_replace_bytes(config_link, b"local config")
+        worker.atomic_copy(external_asset, asset_link)
+
+        self.assertEqual(external_config.read_bytes(), b"preserve config")
+        self.assertEqual(external_asset.read_bytes(), b"preserve asset")
+        self.assertFalse(config_link.is_symlink())
+        self.assertFalse(asset_link.is_symlink())
+        self.assertEqual(config_link.read_bytes(), b"local config")
+        self.assertEqual(asset_link.read_bytes(), b"preserve asset")
+
     def run_worker(self, payload, model):
         stdin = io.TextIOWrapper(io.BytesIO(payload))
         with (
