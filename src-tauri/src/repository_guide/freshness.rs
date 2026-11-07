@@ -1,4 +1,4 @@
-use super::{Attempt, Record, Unit, unit_attempt_complete};
+use super::{Attempt, Record, SectionNotice, Unit, unit_attempt_complete};
 use crate::{
     chapter_freshness::{self, EvidenceState, SectionFreshnessStatus},
     chapters::ChapterRevision,
@@ -76,30 +76,19 @@ pub(crate) fn assess(
         .map(|revision| (revision.revision_id.clone(), revision))
         .collect::<HashMap<_, _>>();
 
-    let opening_attempts = guide
-        .opening
-        .iter()
-        .cloned()
-        .chain(guide.opening_continuations.iter().cloned())
-        .collect();
-    let opening_unit = Unit {
-        key: "opening".into(),
-        attempts: opening_attempts,
-    };
     let opening_question = if guide.opening.is_some() {
         super::opening::question(guide)?
     } else {
         super::opening::LEARNING_QUESTION
     };
-    let opening = assess_unit(
+    let opening = assess_opening(
         storage,
         &from_manifest,
         from_index.as_ref(),
         &to_manifest,
         to_index.as_ref(),
-        &opening_unit,
+        guide,
         opening_question,
-        &[],
         &revisions,
     );
 
@@ -198,46 +187,15 @@ fn assess_unit(
         return output;
     }
 
-    for notice in &answer.sections {
-        let Some(revision) = revisions.get(&notice.revision_id) else {
-            output.sections.push(GuideSectionFreshness {
-                revision_id: notice.revision_id.clone(),
-                status: SectionFreshnessStatus::NeedsReview,
-                evidence_state: EvidenceState::Unavailable,
-                reasons: vec!["The saved source-linked slide is unavailable.".into()],
-            });
-            continue;
-        };
-        match chapter_freshness::classify_guide_draft_freshness(
-            storage,
-            from_manifest,
-            from_index,
-            to_manifest,
-            to_index,
-            revision,
-        ) {
-            Ok(report) => {
-                for section in report.sections {
-                    output.sections.push(GuideSectionFreshness {
-                        revision_id: revision.revision_id.clone(),
-                        status: section.status,
-                        evidence_state: section.evidence_state,
-                        reasons: section
-                            .reasons
-                            .into_iter()
-                            .map(|reason| reason.message)
-                            .collect(),
-                    });
-                }
-            }
-            Err(_) => output.sections.push(GuideSectionFreshness {
-                revision_id: notice.revision_id.clone(),
-                status: SectionFreshnessStatus::NeedsReview,
-                evidence_state: EvidenceState::Unavailable,
-                reasons: vec!["The saved source scope could not be verified.".into()],
-            }),
-        }
-    }
+    output.sections = assess_notices(
+        storage,
+        from_manifest,
+        from_index,
+        to_manifest,
+        to_index,
+        answer.sections.iter(),
+        revisions,
+    );
 
     output.status = aggregate_sections(&output.sections);
     if output.status == GuideUnitFreshnessStatus::Current && !complete {
@@ -253,6 +211,133 @@ fn assess_unit(
             .flat_map(|section| section.reasons.iter().cloned()),
     );
     output
+}
+
+/// Opening continuations add newly published slides while keeping earlier
+/// slides in the same Guide. Unlike a normal unit retry, freshness therefore
+/// has to assess every published attempt, not only the latest complete one.
+fn assess_opening(
+    storage: &Path,
+    from_manifest: &SnapshotManifest,
+    from_index: Option<&crate::index::SnapshotIndex>,
+    to_manifest: &SnapshotManifest,
+    to_index: Option<&crate::index::SnapshotIndex>,
+    guide: &Record,
+    question: &str,
+    revisions: &HashMap<String, ChapterRevision>,
+) -> GuideUnitFreshness {
+    let attempts = guide
+        .opening
+        .iter()
+        .chain(&guide.opening_continuations)
+        .collect::<Vec<_>>();
+    let mut output = GuideUnitFreshness {
+        key: "opening".into(),
+        question: question.to_owned(),
+        prerequisites: Vec::new(),
+        status: GuideUnitFreshnessStatus::Pending,
+        sections: Vec::new(),
+        reasons: Vec::new(),
+    };
+
+    if attempts.is_empty() {
+        return output;
+    }
+
+    output.sections = assess_notices(
+        storage,
+        from_manifest,
+        from_index,
+        to_manifest,
+        to_index,
+        attempts
+            .iter()
+            .filter_map(|attempt| attempt.summary.as_ref())
+            .flat_map(|answer| answer.sections.iter()),
+        revisions,
+    );
+
+    let Some(latest) = attempts.last() else {
+        return output;
+    };
+    let latest_is_complete = unit_attempt_complete(latest);
+    if output.sections.is_empty() {
+        output.status = GuideUnitFreshnessStatus::Incomplete;
+        output.reasons.push(if latest.summary.is_none() {
+            "The latest saved attempt has no completed source receipt.".into()
+        } else {
+            "This Guide topic has no published section yet.".into()
+        });
+        return output;
+    }
+
+    output.status = aggregate_sections(&output.sections);
+    if output.status == GuideUnitFreshnessStatus::Current && !latest_is_complete {
+        output.status = GuideUnitFreshnessStatus::Incomplete;
+        output
+            .reasons
+            .push("Only a partial opening attempt has published content.".into());
+    }
+    output.reasons.extend(
+        output
+            .sections
+            .iter()
+            .flat_map(|section| section.reasons.iter().cloned()),
+    );
+    output
+}
+
+fn assess_notices<'a>(
+    storage: &Path,
+    from_manifest: &SnapshotManifest,
+    from_index: Option<&crate::index::SnapshotIndex>,
+    to_manifest: &SnapshotManifest,
+    to_index: Option<&crate::index::SnapshotIndex>,
+    notices: impl Iterator<Item = &'a SectionNotice>,
+    revisions: &HashMap<String, ChapterRevision>,
+) -> Vec<GuideSectionFreshness> {
+    let mut assessed = Vec::new();
+    for notice in notices {
+        let Some(revision) = revisions.get(&notice.revision_id) else {
+            assessed.push(GuideSectionFreshness {
+                revision_id: notice.revision_id.clone(),
+                status: SectionFreshnessStatus::NeedsReview,
+                evidence_state: EvidenceState::Unavailable,
+                reasons: vec!["The saved source-linked slide is unavailable.".into()],
+            });
+            continue;
+        };
+        match chapter_freshness::classify_guide_draft_freshness(
+            storage,
+            from_manifest,
+            from_index,
+            to_manifest,
+            to_index,
+            revision,
+        ) {
+            Ok(report) if !report.sections.is_empty() => {
+                assessed.extend(report.sections.into_iter().map(|section| {
+                    GuideSectionFreshness {
+                        revision_id: revision.revision_id.clone(),
+                        status: section.status,
+                        evidence_state: section.evidence_state,
+                        reasons: section
+                            .reasons
+                            .into_iter()
+                            .map(|reason| reason.message)
+                            .collect(),
+                    }
+                }));
+            }
+            Ok(_) | Err(_) => assessed.push(GuideSectionFreshness {
+                revision_id: notice.revision_id.clone(),
+                status: SectionFreshnessStatus::NeedsReview,
+                evidence_state: EvidenceState::Unavailable,
+                reasons: vec!["The saved source scope could not be verified.".into()],
+            }),
+        }
+    }
+    assessed
 }
 
 fn attempt_has_sections(attempt: &Attempt) -> bool {
@@ -459,6 +544,40 @@ mod tests {
         assert_eq!(report.opening.key, "opening");
         assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
         assert!(report.units.is_empty());
+    }
+
+    #[test]
+    fn opening_freshness_includes_slides_from_partial_attempts_and_continuations() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let mut guide = crate::repository_guide::tests::fresh_record(&fixture);
+        let mut partial =
+            crate::repository_guide::tests::attempt(&guide, super::super::Outcome::Complete);
+        partial.summary.as_mut().unwrap().outcome = super::super::Outcome::Partial;
+        guide.opening = Some(partial);
+        guide
+            .opening_continuations
+            .push(crate::repository_guide::tests::attempt(
+                &guide,
+                super::super::Outcome::Complete,
+            ));
+
+        let report = assess_opening(
+            &fixture.storage,
+            &fixture.manifest,
+            None,
+            &fixture.manifest,
+            None,
+            &guide,
+            super::super::opening::LEARNING_QUESTION,
+            &HashMap::new(),
+        );
+
+        assert_eq!(report.sections.len(), 2);
+        assert_ne!(
+            report.sections[0].revision_id,
+            report.sections[1].revision_id
+        );
+        assert_eq!(report.status, GuideUnitFreshnessStatus::NeedsReview);
     }
 
     fn unit(
