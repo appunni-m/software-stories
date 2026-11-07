@@ -102,33 +102,33 @@ export function explanationFailureMessage(code: ExplanationFailureCode | undefin
   }
 }
 
-/** Explain a failed guide topic in terms of its saved, retryable progress. */
+/** Explain a failed guide topic without promising an action its retry budget may not allow. */
 export function guideUnitFailureMessage(code: ExplanationFailureCode | undefined): string | undefined {
   switch (code) {
     case 'noPublishedSections':
-      return 'This attempt did not produce a verified slide. Retry this topic; your other ready slides are still available.';
+      return 'This attempt did not produce a verified slide. Any other saved slides remain available.';
     case 'contextTimeout':
-      return 'The source lookup for this topic did not finish. Retry this topic; your other ready slides are still available.';
+      return 'The source lookup for this topic did not finish. Any other saved slides remain available.';
     case 'runTimeout':
-      return 'The agent stopped before this topic finished. Retry this topic; any published sections are still available.';
+      return 'The agent stopped before this topic finished. Any published sections remain available.';
     case 'invalidToolArguments':
     case 'toolEvent':
-      return 'The code reading for this topic could not finish safely. Retry this topic; your other ready slides are still available.';
+      return 'The code reading for this topic could not finish safely. Any other saved slides remain available.';
     case 'contextPeerClosed':
     case 'contextTransport':
     case 'contextDelivery':
-      return 'The source reader could not complete this topic. Retry it; your other ready slides are still available.';
+      return 'The source reader could not complete this topic. Any other saved slides remain available.';
     case 'runtimeIdentity':
-      return 'The connected AI session changed while this topic was being prepared. Reconnect in the header, then retry this topic.';
+      return 'The connected AI session changed while this topic was being prepared. Reconnect in the header before continuing the guide.';
     case 'stopped':
-      return 'This topic was stopped. Any published sections remain available; retry it when you are ready.';
+      return 'This topic was stopped. Any published sections remain available.';
     case 'finalManifestTooLarge':
     case 'invalidFinalManifest':
     case 'unsupportedManifestVersion':
     case 'invalidIncompleteTopics':
-      return 'This attempt could not be saved in a usable form. Retry this topic; any earlier version remains available.';
+      return 'This attempt could not be saved in a usable form. Any earlier saved version remains available.';
     case 'unknown':
-      return 'This topic could not be completed. Retry it; your other ready slides are still available.';
+      return 'This topic could not be completed. Any other saved slides remain available.';
     default:
       return undefined;
   }
