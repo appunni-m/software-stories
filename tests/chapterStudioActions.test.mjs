@@ -30,7 +30,7 @@ function setup(){
   const change=key=>value=>{state[key]=value;};
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
-    pendingDraft:null,preservedDraftReason:null,historyAvailability:'ready',
+    pendingDraft:null,preservedDraftReason:null,historyAvailability:'ready',selectedRevisionPassesValidation:true,
     validationScopeRef:{current:{projectId:'p',snapshotId:'s',targetKey:'target:one',revisionId:before.revisionId,editing:false,candidate:null}},
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
@@ -175,6 +175,15 @@ test('the real Validate callback reports one issue with singular feedback and re
   bindings.validateSavedChapterRevision=async()=>report;
   await callback('validateCurrent',bindings)();
   assert.deepEqual(state.validation,{revisionId:bindings.activeDocument.revisionId,report});assert.equal(state.feedback.message,'1 issue needs review before acceptance.');assert.equal(state.feedback.tone,'error');
+});
+
+test('accept refuses a draft without a current passing validation before calling native storage',async()=>{
+  const {state,bindings}=setup();bindings.selectedRevisionPassesValidation=false;
+  bindings.acceptChapterDraft=async()=>assert.fail('an invalid draft must not reach the native accept command');
+  await callback('accept',bindings)();
+  assert.equal(state.feedback?.tone,'info');
+  assert.match(state.feedback.message,/Validate this saved draft/);
+  assert.equal(state.busy,false);
 });
 
 test('the latest selected-revision validation overrides its persisted validation status',()=>{

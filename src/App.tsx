@@ -4985,6 +4985,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       }
       return;
     }
+    if (!selectedRevisionPassesValidation) {
+      setFeedback({ message: 'Validate this saved draft and resolve any evidence issues before accepting it.', tone: 'info' });
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
