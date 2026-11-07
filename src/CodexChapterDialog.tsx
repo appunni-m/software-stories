@@ -74,7 +74,6 @@ export interface CodexChapterDialogProps {
   mode: CodexChapterDialogMode;
   native: boolean;
   onClose: () => void;
-  onChooseBackend?: () => void;
   onSaved?: (revision: ChapterRevision) => void;
   onRecoveryReviewReady?: (operationId: string) => void;
   onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
@@ -100,7 +99,7 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, onOpenRepositoryPlans, onFindCodeAgain, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, onOpenRepositoryPlans, onFindCodeAgain, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
   const scopeIdentity = requestScopeKey(mode);
   const projectId = mode === 'settings' ? null : mode.projectId;
   const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
@@ -846,7 +845,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
                 <GenerationRecord origin={preview.revision.generationOrigin} />
-                <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing or switching backends discards an unsaved preview.'}</p>
+                <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing before saving discards the preview.'}</p>
                 {preview.updateNotes.length > 0 && <div className="provider-status-note" role="status"><strong>Generation notes</strong><ul>{preview.updateNotes.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
                 {preview.validation.issues.length > 0 && <div className="provider-error-text" role="alert"><strong>Evidence validation issues</strong><ul>{preview.validation.issues.map((issue, index) => <li key={index}>{issue.code}{issue.path ? ` · ${issue.path}` : ''}{issue.sectionId ? ` · ${issue.sectionId}` : ''}</li>)}</ul></div>}
                 <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}>
@@ -861,10 +860,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           </>}
           {error && <p className="provider-error-text" role="alert">{error}</p>}
           {note && <p className="provider-status-note" role="status">{note}</p>}
-          {mode === 'settings' && onChooseBackend && <p className="provider-small-note">Change backend returns to the available generation options. Saved plans and PR Guides remain local; switching discards an unsaved chapter preview or temporary explanation.</p>}
         </div>
         {!embeddedSettings && <footer className="provider-dialog-footer">
-          <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</AppButton>{mode === 'settings' && onChooseBackend && <AppButton intent="secondary" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</AppButton>}</div>
+          <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</AppButton></div>
           {native && mode !== 'settings' && (busy === 'send' ? <AppButton intent="secondary" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</AppButton>
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>

@@ -126,11 +126,12 @@ describe('generation backend preference', () => {
   });
 
   it('opens settings for the selected header backend and keeps PR Guide on that choice', async () => {
-    const [app, header, connections, prGuide] = await Promise.all([
+    const [app, header, connections, prGuide, codexDialog] = await Promise.all([
       readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/ConnectionHeader.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/ConnectionsDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/PrGuideStudio.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8'),
     ]);
     assert.match(app, /setProviderDialog\(\{ kind: 'settings' \}\)/);
     assert.match(app, /backend === 'codex'\) return <ConnectionsDialog/);
@@ -138,6 +139,7 @@ describe('generation backend preference', () => {
     assert.doesNotMatch(app, /More AI options|provider-alternatives/);
     assert.match(app, /Connect with Codex/);
     assert.match(app, /Use Codex/);
+    assert.doesNotMatch(codexDialog, /Change backend|onChooseBackend/);
     assert.match(header, /code-atlas:connection-changed/);
     assert.match(header, /const codexNeedsAttention = codexSelected && Boolean\(connection\.error\)/);
     assert.match(header, /codexNeedsAttention \? 'Retry Codex'/);

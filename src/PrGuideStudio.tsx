@@ -643,7 +643,7 @@ export function PrGuideStudio({
       {notice && <p className="pr-guide-notice" role="status"><Check size={15} /> {notice}</p>}
 
       {codexMode && <CodexChapterDialog mode={codexMode} native={isNativeRuntime()}
-        onClose={() => setCodexMode(null)} onChooseBackend={() => setCodexMode(null)}
+        onClose={() => setCodexMode(null)}
         onRecoveryReviewReady={onRecoveryReviewReady}
         onPrGuideReady={(preview) => {
           setCurrentDraft(preview.revision);

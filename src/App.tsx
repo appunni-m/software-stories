@@ -2481,7 +2481,7 @@ function ProviderDialog(props: ProviderDialogProps) {
       ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
       : selectedMode;
     return <CodexContextDialog mode={mode}
-      native={props.native} onClose={props.onClose} onChooseBackend={chooseConnection}
+      native={props.native} onClose={props.onClose}
       onLargeFileDiscovered={props.onLargeFileDiscovered}
       onOpenPendingPreview={props.onOpenPendingPreview}
       onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
