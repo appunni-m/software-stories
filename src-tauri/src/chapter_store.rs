@@ -88,7 +88,7 @@ pub fn save_new_draft(
     // New overview drafts must follow the current content policy. History reads
     // use identity validation only so older drafts remain available for repair.
     chapters::validate_overview_content(&revision)?;
-    append_revision(storage_dir, &mut revision, false)
+    append_revision(storage_dir, &mut revision, AppendMode::Generated)
 }
 
 /// Append an immutable review revision. The caller must validate its source evidence
@@ -120,19 +120,73 @@ pub fn append_review_revision(
         // Invalid drafts can be saved for repair, but acceptance is always gated.
         chapters::validate_overview_content(&revision)?;
     }
-    append_revision(storage_dir, &mut revision, true)
+    append_revision(storage_dir, &mut revision, AppendMode::Review)
+}
+
+/// Publish one source-validated Guide slide as a new immutable draft for a
+/// different snapshot. The explicit carry origin is checked against the exact
+/// stored source revision before the target evidence is validated and saved.
+pub fn append_carried_guide_draft(
+    storage_dir: &Path,
+    mut revision: ChapterRevision,
+) -> Result<ChapterRevision, String> {
+    if revision.lifecycle != RevisionLifecycle::Draft
+        || revision.validation_status != ValidationStatus::Valid
+    {
+        return Err("Only a validated, unaccepted carried Guide slide can be saved.".into());
+    }
+    let origin = revision
+        .guide_carry_forward
+        .as_ref()
+        .ok_or("The carried Guide slide is missing its local lineage.")?;
+    if revision.based_on_revision_id.as_deref() != Some(origin.source_revision_id.as_str()) {
+        return Err(
+            "The carried Guide slide does not point to its recorded source revision.".into(),
+        );
+    }
+    validate_revision_identity(&revision)?;
+    let manifest = crate::snapshot::load_snapshot_manifest(
+        storage_dir,
+        &revision.project_id,
+        &revision.snapshot_id,
+    )?;
+    let index = crate::index::load_snapshot_index(
+        storage_dir,
+        &revision.project_id,
+        &revision.snapshot_id,
+    )?;
+    let validation =
+        chapters::validate_chapter_revision(storage_dir, &manifest, index.as_ref(), &revision);
+    if validation.status != chapters::ValidationReportStatus::Valid {
+        return Err(
+            "The carried Guide slide no longer validates against the target snapshot.".into(),
+        );
+    }
+    append_revision(storage_dir, &mut revision, AppendMode::GuideCarryForward)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AppendMode {
+    Generated,
+    Review,
+    GuideCarryForward,
 }
 
 fn append_revision(
     storage_dir: &Path,
     revision: &mut ChapterRevision,
-    review: bool,
+    mode: AppendMode,
 ) -> Result<ChapterRevision, String> {
     if revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
-    if !review && revision.based_on_revision_id.is_some() {
+    if mode == AppendMode::Generated && revision.based_on_revision_id.is_some() {
         return Err("Generated chapter revisions cannot claim a review parent.".to_owned());
+    }
+    if mode == AppendMode::GuideCarryForward
+        && (revision.based_on_revision_id.is_none() || revision.guide_carry_forward.is_none())
+    {
+        return Err("A carried Guide revision needs its exact source and local lineage.".into());
     }
     let existing = load_project_revisions(storage_dir, &revision.project_id)?;
     if existing.revision_entries >= MAX_REVISION_COUNT {
@@ -201,7 +255,7 @@ fn append_revision(
             );
         }
     }
-    if review {
+    if mode == AppendMode::Review {
         let parent_id = revision
             .based_on_revision_id
             .as_deref()
@@ -261,6 +315,55 @@ fn append_revision(
         ) && parent.lifecycle != RevisionLifecycle::Draft
         {
             return Err("Only a saved draft can be accepted or rejected.".to_owned());
+        }
+    } else if mode == AppendMode::GuideCarryForward {
+        let origin = revision
+            .guide_carry_forward
+            .as_ref()
+            .ok_or("The carried Guide revision is missing its source lineage.")?;
+        let source_id = revision
+            .based_on_revision_id
+            .as_deref()
+            .ok_or("The carried Guide revision is missing its source revision.")?;
+        let source = existing
+            .revisions
+            .iter()
+            .find(|item| item.revision_id == source_id)
+            .ok_or("The carried Guide source revision is unavailable.")?;
+        if source.revision_id != origin.source_revision_id
+            || source.project_id != revision.project_id
+            || source.snapshot_id != origin.source_snapshot_id
+            || source.snapshot_id == revision.snapshot_id
+            || source.chapter_id != revision.chapter_id
+            || source.target.target_id != revision.target.target_id
+            || source.target.scope != revision.target.scope
+        {
+            return Err(
+                "The carried Guide source does not match its saved chapter lineage.".into(),
+            );
+        }
+        let source_section = source
+            .sections
+            .iter()
+            .find(|section| {
+                section.section_id == origin.source_section_id
+                    && section.section_revision_id == origin.source_section_revision_id
+            })
+            .ok_or("The carried Guide source section is unavailable.")?;
+        if crate::chapter_origin::section_digest(source_section)? != origin.source_section_sha256 {
+            return Err("The carried Guide source section changed after freshness review.".into());
+        }
+        let existing_carry = existing.revisions.iter().any(|item| {
+            item.guide_carry_forward.as_ref().is_some_and(|saved| {
+                saved.source_guide_id == origin.source_guide_id
+                    && saved.target_guide_id == origin.target_guide_id
+                    && saved.source_revision_id == origin.source_revision_id
+                    && saved.source_section_revision_id == origin.source_section_revision_id
+                    && saved.target_snapshot_id == origin.target_snapshot_id
+            })
+        });
+        if existing_carry {
+            return Err("This Guide slide was already carried into the selected snapshot.".into());
         }
     }
     revision.revision_number = last_number
@@ -675,32 +778,54 @@ fn validate_project_revision_order(
                     );
                 }
             } else {
-                // A selective update starts a new snapshot history with a draft
-                // based on the latest accepted revision from the old snapshot.
-                // Later acceptance/rejection is then an ordinary same-snapshot
-                // child of that saved draft.
-                let latest_parent_snapshot = revisions
-                    .iter()
-                    .filter(|item| {
-                        item.target.target_id == parent.target.target_id
-                            && item.snapshot_id == parent.snapshot_id
-                    })
-                    .max_by_key(|item| item.revision_number);
-                let has_prior_destination_revision = revisions.iter().any(|item| {
-                    item.target.target_id == revision.target.target_id
-                        && item.snapshot_id == revision.snapshot_id
-                        && item.revision_number < revision.revision_number
-                });
-                if revision.lifecycle != RevisionLifecycle::Draft
-                    || parent.lifecycle != RevisionLifecycle::Accepted
-                    || latest_parent_snapshot.map(|item| item.revision_id.as_str())
-                        != Some(parent_id)
-                    || has_prior_destination_revision
-                {
-                    return Err(
-                        "A cross-snapshot update must be the first draft in its snapshot and follow the latest accepted source revision."
-                            .to_owned(),
-                    );
+                if let Some(origin) = &revision.guide_carry_forward {
+                    let source_section = parent.sections.iter().find(|section| {
+                        section.section_id == origin.source_section_id
+                            && section.section_revision_id == origin.source_section_revision_id
+                    });
+                    let source_matches = source_section.is_some_and(|section| {
+                        crate::chapter_origin::section_digest(section)
+                            .is_ok_and(|digest| digest == origin.source_section_sha256)
+                    });
+                    if revision.lifecycle != RevisionLifecycle::Draft
+                        || origin.source_revision_id != parent_id
+                        || origin.project_id != revision.project_id
+                        || origin.source_snapshot_id != parent.snapshot_id
+                        || origin.target_snapshot_id != revision.snapshot_id
+                        || !source_matches
+                    {
+                        return Err(
+                            "A carried Guide revision does not match its immutable source section."
+                                .to_owned(),
+                        );
+                    }
+                } else {
+                    // A selective editor update starts a new snapshot history
+                    // from the latest accepted revision. Guide carry-forward
+                    // uses its own narrower section-level lineage above.
+                    let latest_parent_snapshot = revisions
+                        .iter()
+                        .filter(|item| {
+                            item.target.target_id == parent.target.target_id
+                                && item.snapshot_id == parent.snapshot_id
+                        })
+                        .max_by_key(|item| item.revision_number);
+                    let has_prior_destination_revision = revisions.iter().any(|item| {
+                        item.target.target_id == revision.target.target_id
+                            && item.snapshot_id == revision.snapshot_id
+                            && item.revision_number < revision.revision_number
+                    });
+                    if revision.lifecycle != RevisionLifecycle::Draft
+                        || parent.lifecycle != RevisionLifecycle::Accepted
+                        || latest_parent_snapshot.map(|item| item.revision_id.as_str())
+                            != Some(parent_id)
+                        || has_prior_destination_revision
+                    {
+                        return Err(
+                            "A cross-snapshot update must be the first draft in its snapshot and follow the latest accepted source revision."
+                                .to_owned(),
+                        );
+                    }
                 }
             }
             if matches!(
@@ -853,6 +978,7 @@ mod tests {
             based_on_revision_id: None,
             decision_note: None,
             generation_origin: None,
+            guide_carry_forward: None,
             sections: Vec::new(),
         }
     }

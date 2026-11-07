@@ -3304,6 +3304,7 @@ mod tests {
             based_on_revision_id: None,
             decision_note: None,
             generation_origin: None,
+            guide_carry_forward: None,
             sections,
         }
     }

@@ -56,6 +56,9 @@ pub struct ChapterRevision {
         skip_serializing_if = "Option::is_none"
     )]
     pub generation_origin: Option<crate::chapter_origin::ChapterGenerationOrigin>,
+    /// Local, source-verified lineage for a Guide slide copied between snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guide_carry_forward: Option<crate::chapter_origin::GuideCarryForwardOrigin>,
     pub sections: Vec<ChapterSection>,
 }
 
@@ -3002,6 +3005,7 @@ mod tests {
             based_on_revision_id: None,
             decision_note: None,
             generation_origin: None,
+            guide_carry_forward: None,
             sections: vec![
                 ChapterSection {
                     section_id: "section:entry".to_owned(),

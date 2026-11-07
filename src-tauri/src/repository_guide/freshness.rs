@@ -605,6 +605,7 @@ mod tests {
             based_on_revision_id: None,
             decision_note: None,
             generation_origin: None,
+            guide_carry_forward: None,
             sections: Vec::new(),
         };
         let revisions = HashMap::from([(revision.revision_id.clone(), revision)]);

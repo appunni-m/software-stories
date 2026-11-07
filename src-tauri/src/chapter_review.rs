@@ -161,6 +161,7 @@ fn prepare_edit(
     revision.created_at_unix_ms = unix_time_ms();
     revision.based_on_revision_id = Some(base.revision_id.clone());
     revision.decision_note = None;
+    revision.guide_carry_forward = None;
 
     Ok(revision)
 }
@@ -218,6 +219,9 @@ pub fn restore_revision(
     restored.created_at_unix_ms = unix_time_ms();
     restored.based_on_revision_id = Some(base.revision_id.clone());
     restored.decision_note = None;
+    // A restore is a new review revision, not the root publication that
+    // originally carried this section across snapshots.
+    restored.guide_carry_forward = None;
 
     if source.snapshot_id != base.snapshot_id {
         for section in &mut restored.sections {
@@ -341,6 +345,7 @@ pub fn accept_draft(
     accepted.created_at_unix_ms = unix_time_ms();
     accepted.based_on_revision_id = Some(draft.revision_id.clone());
     accepted.decision_note = None;
+    accepted.guide_carry_forward = None;
     let validation = chapters::validate_chapter_revision(
         storage_dir,
         &manifest,
@@ -392,6 +397,7 @@ pub fn reject_draft(
     rejected.created_at_unix_ms = unix_time_ms();
     rejected.based_on_revision_id = Some(draft.revision_id.clone());
     rejected.decision_note = Some(reason.to_owned());
+    rejected.guide_carry_forward = None;
     chapter_store::append_review_revision(storage_dir, rejected)
 }
 

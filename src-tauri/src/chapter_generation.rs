@@ -507,6 +507,7 @@ pub fn canonicalize_section_update(
         let mut revision = base.clone();
         revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
         revision.generation_origin = None;
+        revision.guide_carry_forward = None;
         revision.revision_id = generated_id("revision");
         revision.revision_number = base
             .revision_number
@@ -546,6 +547,7 @@ pub fn canonicalize_section_update(
     // A new generation has its own native dispatch record. It must not claim
     // the prior agent/request/plan origin inherited from the accepted base.
     revision.generation_origin = None;
+    revision.guide_carry_forward = None;
     revision.revision_id = generated_id("revision");
     revision.revision_number = base
         .revision_number
@@ -1156,6 +1158,7 @@ fn canonicalize_file_chapter_inner(
         based_on_revision_id: None,
         decision_note: None,
         generation_origin: None,
+        guide_carry_forward: None,
         sections,
     };
     if target_source.snapshot_id != revision.snapshot_id {
@@ -1352,6 +1355,7 @@ fn canonicalize_overview(
         based_on_revision_id: None,
         decision_note: None,
         generation_origin: None,
+        guide_carry_forward: None,
         sections,
     })
 }
@@ -4215,6 +4219,161 @@ pub(crate) mod tests {
                 &HashSet::new()
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn a_verified_guide_section_can_be_carried_to_an_unchanged_source_in_a_new_snapshot() {
+        let mut fixture = Fixture::new();
+        let project_id = fixture.manifest.summary.project_id.clone();
+        let mut source = canonicalize_file_chapter(
+            &project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
+            &simple_proposal_text(),
+        )
+        .unwrap();
+        let source_validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &source,
+        );
+        assert_eq!(source_validation.status, ValidationReportStatus::Valid);
+        source.validation_status = chapters::ValidationStatus::Valid;
+        let source = crate::chapter_store::save_new_draft(&fixture.storage, source).unwrap();
+        let source_section = source.sections[0].clone();
+
+        // A README-only edit creates another immutable capture while the
+        // cited implementation and its declared dependencies stay the same.
+        fixture.recapture_with_source("README.md", "# Snapshot note\nUnrelated guide fixture.\n");
+        let target_manifest = fixture.manifest.clone();
+        let target_index = fixture.index.clone();
+        let source_manifest =
+            snapshot::load_snapshot_manifest(&fixture.storage, &project_id, &source.snapshot_id)
+                .unwrap();
+        let source_index =
+            index::load_snapshot_index(&fixture.storage, &project_id, &source.snapshot_id).unwrap();
+        let mut target_section = remap_carried_section(
+            &fixture.storage,
+            &source_manifest,
+            source_index.as_ref(),
+            &target_manifest,
+            Some(&target_index),
+            &source_section,
+        )
+        .unwrap();
+        target_section.section_revision_id = format!("sectionrev:{}", Uuid::new_v4());
+
+        let mut target = source.clone();
+        target.revision_id = format!("revision:{}", Uuid::new_v4());
+        target.snapshot_id = target_manifest.summary.snapshot_id.clone();
+        target.based_on_revision_id = Some(source.revision_id.clone());
+        target.lifecycle = chapters::RevisionLifecycle::Draft;
+        target.validation_status = chapters::ValidationStatus::Valid;
+        target.created_at_unix_ms = target.created_at_unix_ms.saturating_add(1);
+        target.generation_origin = None;
+        target.sections = vec![target_section.clone()];
+        target.guide_carry_forward = Some(
+            crate::chapter_origin::GuideCarryForwardOrigin::for_section(
+                &Uuid::new_v4().to_string(),
+                &Uuid::new_v4().to_string(),
+                &Uuid::new_v4().to_string(),
+                &Uuid::new_v4().to_string(),
+                &format!("generation:{}", Uuid::new_v4()),
+                &source,
+                &source_section,
+                &target,
+            )
+            .unwrap(),
+        );
+        let target_validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &target_manifest,
+            Some(&target_index),
+            &target,
+        );
+        assert_eq!(target_validation.status, ValidationReportStatus::Valid);
+        let original_bytes = chapters::encode_chapter_revision(&source).unwrap();
+
+        let carried =
+            crate::chapter_store::append_carried_guide_draft(&fixture.storage, target.clone())
+                .unwrap();
+
+        assert_eq!(carried.snapshot_id, target_manifest.summary.snapshot_id);
+        assert_eq!(
+            carried.based_on_revision_id.as_deref(),
+            Some(source.revision_id.as_str())
+        );
+        assert_eq!(carried.sections[0].section_id, source_section.section_id);
+        assert_ne!(
+            carried.sections[0].section_revision_id,
+            source_section.section_revision_id
+        );
+        assert!(carried.guide_carry_forward.is_some());
+        assert_eq!(
+            chapters::encode_chapter_revision(
+                &crate::chapter_store::list_for_snapshot(
+                    &fixture.storage,
+                    &project_id,
+                    &source.snapshot_id,
+                )
+                .unwrap()[0]
+            )
+            .unwrap(),
+            original_bytes,
+            "the original Guide section remains byte-for-byte unchanged"
+        );
+        assert!(
+            crate::chapter_store::append_carried_guide_draft(&fixture.storage, target).is_err()
+        );
+
+        let mut proposal = carried.clone();
+        proposal.title.push_str(" reviewed");
+        let edited = crate::chapter_review::save_edits(
+            &fixture.storage,
+            &std::sync::Mutex::new(()),
+            &project_id,
+            &carried.revision_id,
+            proposal,
+        )
+        .unwrap();
+        assert!(edited.revision.guide_carry_forward.is_none());
+        let accepted = crate::chapter_review::accept_draft(
+            &fixture.storage,
+            &std::sync::Mutex::new(()),
+            &project_id,
+            &edited.revision.revision_id,
+        )
+        .unwrap();
+        assert_eq!(
+            accepted.revision.lifecycle,
+            chapters::RevisionLifecycle::Accepted
+        );
+        assert!(accepted.revision.guide_carry_forward.is_none());
+        let history =
+            crate::chapter_store::list_for_project(&fixture.storage, &project_id).unwrap();
+        assert!(history.iter().any(|revision| {
+            revision.revision_id == carried.revision_id && revision.guide_carry_forward.is_some()
+        }));
+        assert!(history.iter().any(|revision| {
+            revision.revision_id == edited.revision.revision_id
+                && revision.guide_carry_forward.is_none()
+                && revision.based_on_revision_id.as_deref() == Some(carried.revision_id.as_str())
+        }));
+        assert_eq!(
+            chapters::encode_chapter_revision(
+                history
+                    .iter()
+                    .find(|revision| revision.revision_id == source.revision_id)
+                    .unwrap()
+            )
+            .unwrap(),
+            original_bytes,
+            "accepting the carried revision still preserves its source history"
         );
     }
 }
