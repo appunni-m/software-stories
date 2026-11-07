@@ -2,19 +2,22 @@ import { useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } fro
 import { ChevronDown, ChevronRight, FileCode2, Folder } from 'lucide-react';
 import { atlasTreeKeyboardAction, virtualRowWindow } from '../lib/atlas';
 import { buildExplorerTree, explorerActivePath, explorerAncestors, explorerRows, explorerTypeahead, matchingExplorerPaths, type ExplorerRow } from './explorerTree';
+import { WORKSPACE_FILE_CONTEXT_MIME, workspaceFileDragPayload } from './fileDrop';
 
 const ROW_HEIGHT = 28;
 const OVERSCAN = 6;
 
 /** One keyboard target and a bounded DOM, even when a captured folder is large.
  * Arrow/typeahead navigation changes focus; Enter/Space opens captured source. */
-export function WorkspaceExplorer({ paths, query, selectedPath, expanded, onExpandedChange, onOpen, treeRef }: {
+export function WorkspaceExplorer({ paths, query, selectedPath, expanded, onExpandedChange, onOpen, onFileDragStart, onFileDragEnd, treeRef }: {
   paths: readonly string[];
   query: string;
   selectedPath: string | null;
   expanded: ReadonlySet<string>;
   onExpandedChange: (next: Set<string>) => void;
   onOpen: (path: string) => void;
+  onFileDragStart: (path: string) => string;
+  onFileDragEnd: (token: string) => void;
   treeRef: RefObject<HTMLDivElement | null>;
 }) {
   const id = useId();
@@ -28,6 +31,7 @@ export function WorkspaceExplorer({ paths, query, selectedPath, expanded, onExpa
   const [viewport, setViewport] = useState({ top: 0, height: 400 });
   const reveal = useRef(true);
   const typeahead = useRef({ text: '', at: -Infinity });
+  const activeDragToken = useRef<string | null>(null);
 
   const moveTo = (index: number) => {
     const row = rows[index];
@@ -114,7 +118,8 @@ export function WorkspaceExplorer({ paths, query, selectedPath, expanded, onExpa
           aria-selected={!row.hasChildren && row.path === selectedPath} aria-expanded={row.hasChildren ? row.expanded : undefined}
           className={`dw-file${row.hasChildren ? ' dw-folder' : ''}${!row.hasChildren && row.path === selectedPath ? ' active' : ''}${index === activeIndex ? ' dw-file-focused' : ''}`}
           style={{ top: index * ROW_HEIGHT, paddingLeft: 8 + row.depth * 12 }} title={row.path} draggable={!row.hasChildren}
-          onDragStart={event => { if (row.hasChildren) { event.preventDefault(); return; } event.dataTransfer.setData('application/x-code-atlas-context', JSON.stringify({ path: row.path })); event.dataTransfer.effectAllowed = 'copy'; }}
+          onDragStart={event => { if (row.hasChildren) { event.preventDefault(); return; } const token = onFileDragStart(row.path); activeDragToken.current = token; event.dataTransfer.setData(WORKSPACE_FILE_CONTEXT_MIME, workspaceFileDragPayload(row.path, token)); event.dataTransfer.effectAllowed = 'copy'; }}
+          onDragEnd={() => { const token = activeDragToken.current; activeDragToken.current = null; if (token) onFileDragEnd(token); }}
           onClick={() => { setDesiredPath(row.path); treeRef.current?.focus({ preventScroll: true }); activate(row); }}>
           {row.hasChildren ? <>{row.expanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}<Folder size={14} aria-hidden="true" /></> : <><span className="dw-file-indent" aria-hidden="true" /><FileCode2 size={14} aria-hidden="true" /></>}
           <span>{row.name}</span>

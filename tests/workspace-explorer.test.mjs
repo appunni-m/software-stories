@@ -7,6 +7,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import * as tree from '../src/workspace/explorerTree.ts';
+import * as fileDrop from '../src/workspace/fileDrop.ts';
 import * as atlas from '../src/lib/atlas.ts';
 
 const paths = ['README.md', 'src/main.rs', 'src/io/read.rs', 'src/io/write.rs', 'tests/read.rs'];
@@ -83,6 +84,7 @@ function loadComponent(react) {
   const module = { exports: {} };
   runInThisContext(`(function(require,module,exports){${compiled}\n})`, { filename: file.pathname })(name => {
     if (name === './explorerTree') return tree;
+    if (name === './fileDrop') return fileDrop;
     if (name === '../lib/atlas') return atlas;
     if (name === 'react' && react) return react;
     assert.ok(['react', 'react/jsx-runtime', 'lucide-react'].includes(name), `unexpected Explorer dependency ${name}`);
@@ -109,7 +111,7 @@ test('the real component renders a bounded accessible window for 100,000 files',
 });
 
 test('untrusted filenames are escaped and empty filters have an explicit result', () => {
-  const props = { paths: ['src/<script>unsafe().rs'], query: '', selectedPath: null, expanded: new Set(['src']), onExpandedChange() {}, onOpen() {}, treeRef: { current: null } };
+  const props = { paths: ['src/<script>unsafe().rs'], query: '', selectedPath: null, expanded: new Set(['src']), onExpandedChange() {}, onOpen() {}, onFileDragStart: () => 'test-token', onFileDragEnd() {}, treeRef: { current: null } };
   const html = renderToStaticMarkup(createElement(WorkspaceExplorer, props));
   assert.ok(!html.includes('<script>'));
   assert.match(html, /&lt;script&gt;unsafe\(\)\.rs/);
@@ -128,13 +130,14 @@ function interactiveExplorer() {
     useRef(initial) { const i = cursor++; if (!(i in slots)) slots[i] = { current: initial }; return slots[i]; },
   };
   const Component = loadComponent(react), opened = [], scroll = { scrollTop: 0, clientHeight: 84, focus() {} };
-  const props = { paths, query: '', selectedPath: 'src/main.rs', expanded: expanded(), onExpandedChange(next) { props.expanded = next; }, onOpen(path) { opened.push(path); }, treeRef: { current: scroll } };
+  const dragStarted = [], dragEnded = [];
+  const props = { paths, query: '', selectedPath: 'src/main.rs', expanded: expanded(), onExpandedChange(next) { props.expanded = next; }, onOpen(path) { opened.push(path); }, onFileDragStart(path) { dragStarted.push(path); return `token:${path}`; }, onFileDragEnd(token) { dragEnded.push(token); }, treeRef: { current: scroll } };
   const render = () => { cursor = 0; return Component(props); };
   const children = element => [element.props?.children].flat(Infinity).filter(Boolean);
   const entries = element => children(element).flatMap(child => child.props?.role === 'treeitem' ? [child] : children(child));
   const active = element => entries(element).find(child => child.props?.id === element.props['aria-activedescendant']);
   const key = (value, extra = {}) => { let prevented = false; render().props.onKeyDown({ key: value, nativeEvent: { isComposing: false }, preventDefault() { prevented = true; }, ...extra }); return prevented; };
-  return { props, render, entries, active, key, opened, scroll };
+  return { props, render, entries, active, key, opened, scroll, dragStarted, dragEnded };
 }
 
 test('real Explorer handlers navigate and scroll without opening files until activation', () => {
@@ -177,10 +180,26 @@ test('real file drag retains the scoped chat payload and folders cannot be dragg
   const h = interactiveExplorer(), payload = new Map(), dataTransfer = { setData(key, value) { payload.set(key, value); } };
   const file = h.entries(h.render()).find(row => row.props.title === 'src/main.rs');
   file.props.onDragStart({ dataTransfer });
-  assert.deepEqual(JSON.parse(payload.get('application/x-code-atlas-context')), { path: 'src/main.rs' });
+  assert.deepEqual(JSON.parse(payload.get(fileDrop.WORKSPACE_FILE_CONTEXT_MIME)), { path: 'src/main.rs', token: 'token:src/main.rs' });
   assert.equal(dataTransfer.effectAllowed, 'copy');
+  assert.deepEqual(h.dragStarted, ['src/main.rs']);
+  file.props.onDragEnd();
+  assert.deepEqual(h.dragEnded, ['token:src/main.rs']);
   let prevented = false;
   const folder = h.entries(h.render()).find(row => row.props.title === 'src');
   folder.props.onDragStart({ preventDefault() { prevented = true; }, dataTransfer });
   assert.equal(prevented, true);
+});
+
+test('file drops require the matching live Explorer drag and an exact captured path', () => {
+  const active = { path: 'src/main.rs', token: 'opaque-token' };
+  const captured = new Set(['src/main.rs', 'README.md']);
+  const payload = fileDrop.workspaceFileDragPayload(active.path, active.token);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(payload, active, captured), 'src/main.rs');
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(payload, null, captured), null);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(fileDrop.workspaceFileDragPayload(active.path, 'other-token'), active, captured), null);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(fileDrop.workspaceFileDragPayload('README.md', active.token), active, captured), null);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(fileDrop.workspaceFileDragPayload('outside.rs', active.token), active, captured), null);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop(JSON.stringify({ ...active, sha256: 'foreign-hash' }), active, captured), null);
+  assert.equal(fileDrop.acceptedWorkspaceFileDrop('{', active, captured), null);
 });

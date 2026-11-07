@@ -59,6 +59,7 @@
 .dw-path > .rt-Badge {white-space:nowrap;}
 .dw-tool-label {flex:0 1 auto;min-width:0;max-width:140px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-composer {position:relative;padding:var(--space-2) var(--space-4) var(--space-3);flex-shrink:0;border-bottom:1px solid var(--border);}
+.dw-composer.dw-composer-drag-over {background:var(--accent-soft);border-bottom-color:var(--accent);}
 .dw-composer-actions {align-items:center;flex-wrap:wrap;}
 .dw-conversation-warning {display:flex;align-items:flex-start;gap:var(--space-2);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;line-height:1.55;}
 .dw-conversation-warning svg {flex:0 0 auto;margin-top:1px;color:var(--accent);}
@@ -72,6 +73,7 @@
 .dw-composer textarea:disabled {cursor:not-allowed;opacity:.72;}
 .dw-input {display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;min-height:44px;padding:var(--space-2) var(--space-3);border:1px solid var(--border-strong);border-radius:8px;background:var(--surface-raised);}
 .dw-input:focus-within {border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft);}
+.dw-composer-drag-over .dw-input {border-style:dashed;border-color:var(--accent);}
 .dw-input > .dw-composer-text-area {flex:1 1 auto;width:0;min-width:80px;min-height:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;}
 .dw-input > .dw-composer-text-area:focus-within {outline:0;box-shadow:none;}
 .dw-input textarea {border:0;background:transparent;color:var(--text);resize:none;flex:1;width:0;min-width:80px;outline:0;font:13px/1.6 inherit;font-family:inherit;font-size:13px;line-height:1.6;padding:var(--space-1) 0;}

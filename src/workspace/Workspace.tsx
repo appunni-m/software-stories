@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Badge, Dialog, Flex, IconButton, Tabs, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -31,6 +31,7 @@ import { advanceRepositoryGuide, appendQuestion, appendRepositoryGuide, authoriz
 import { ensureWorkspaceIndex } from './indexManager';
 import { useConnectionState } from '../lib/connectionStore';
 import { codexSelectionIsSupported } from '../lib/codexConnection';
+import { acceptedWorkspaceFileDrop, WORKSPACE_FILE_CONTEXT_MIME, type ActiveWorkspaceFileDrag } from './fileDrop';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, guideUnitFailureMessage, isStaleWorkspaceGrantError, workspaceQuestionRetryLabel } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
@@ -377,11 +378,13 @@ export function DeveloperWorkspace(props:Props) {
   const pendingConsentTurn = consentTurn ? current.turns.find((turn)=>turn.id===consentTurn) : undefined;
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
   const [draftNotice,setDraftNotice] = useState<string|null>(null);
+  const [composerDragOver,setComposerDragOver] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
   const handledLargeFileExplanation = useRef<string|null>(null);
   const requestedConnectionForLargeFileExplanation = useRef<string|null>(null);
   const autoOpenedInitialFile = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const activeFileDrag = useRef<ActiveWorkspaceFileDrag|null>(null);
   const search = useRef<HTMLInputElement>(null);
   const explorationSearch = useRef<HTMLInputElement>(null);
   const commitList = useRef<HTMLDivElement>(null);
@@ -637,6 +640,34 @@ export function DeveloperWorkspace(props:Props) {
     if(attachments.length>=MAX_CONTEXT_REFERENCES){setDraftNotice(`A question can include up to ${MAX_CONTEXT_REFERENCES} source references. Remove one to add another.`);return;}
     setDraftNotice(null);
     setAttachments((all)=>[...all,context]);focusComposer();
+  }
+  function beginFileDrag(path:string):string {
+    const token=crypto.randomUUID();
+    activeFileDrag.current={path,token};
+    return token;
+  }
+  function endFileDrag(token:string) {
+    if(activeFileDrag.current?.token===token)activeFileDrag.current=null;
+  }
+  function handleComposerDragOver(event:ReactDragEvent<HTMLDivElement>) {
+    if(conversationUnavailable||!event.dataTransfer.types.includes(WORKSPACE_FILE_CONTEXT_MIME))return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect='copy';
+    setComposerDragOver(true);
+  }
+  function handleComposerDragLeave(event:ReactDragEvent<HTMLDivElement>) {
+    if(!event.currentTarget.contains(event.relatedTarget as globalThis.Node|null))setComposerDragOver(false);
+  }
+  function handleComposerDrop(event:ReactDragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setComposerDragOver(false);
+    if(conversationUnavailable)return;
+    const path=acceptedWorkspaceFileDrop(
+      event.dataTransfer.getData(WORKSPACE_FILE_CONTEXT_MIME),
+      activeFileDrag.current,
+      new Set(rows.map((row)=>row.path)),
+    );
+    if(path)attach({path});
   }
   function startRepositoryGuide(question:string,parentTurn?:string) {
     if(generationPaused)return;
@@ -1102,7 +1133,7 @@ export function DeveloperWorkspace(props:Props) {
                   {remainingHits.length>0&&<details className="dw-search-more-matches"><summary>Show {remainingHits.length} more match{remainingHits.length===1?'':'es'}</summary>{remainingHits.map(renderHit)}</details>}
                 </div>
               </section>;
-            })}{currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null&&results.length<80&&<AppButton size="1" intent="secondary" disabled={currentSourceSearch.busy} onClick={()=>{const offset=currentSourceSearch.nextOffset;if(offset!==null)setSearchOffset(offset);}}>Load more matches</AppButton>}</>}</div>:<><div className="dw-sidebar-section">{projectName}</div><WorkspaceExplorer paths={sourcePaths} query={fileFilter} selectedPath={state.file} expanded={openFolders} onExpandedChange={setOpenFolders} onOpen={(path)=>openFile({path})} treeRef={explorer}/></>}
+            })}{currentSourceSearch.limited&&currentSourceSearch.nextOffset!==null&&results.length<80&&<AppButton size="1" intent="secondary" disabled={currentSourceSearch.busy} onClick={()=>{const offset=currentSourceSearch.nextOffset;if(offset!==null)setSearchOffset(offset);}}>Load more matches</AppButton>}</>}</div>:<><div className="dw-sidebar-section">{projectName}</div><WorkspaceExplorer paths={sourcePaths} query={fileFilter} selectedPath={state.file} expanded={openFolders} onExpandedChange={setOpenFolders} onOpen={(path)=>openFile({path})} onFileDragStart={beginFileDrag} onFileDragEnd={endFileDrag} treeRef={explorer}/></>}
           </>}
         </aside>
       </Panel><Separator className="dw-separator" aria-label="Resize repository sidebar"/>
@@ -1114,7 +1145,7 @@ export function DeveloperWorkspace(props:Props) {
           <AppButton size="1" intent="secondary" disabled={conflictResolutionBusy} title="Keep this window's value only where both windows changed the same field" onClick={()=>void resolveConversationConflict('current')}>{conflictResolutionBusy?'Saving…':'Keep this window'}</AppButton>
           <AppButton size="1" intent="secondary" color="gray" disabled={conflictResolutionBusy} title="Keep the saved value only where both windows changed the same field" onClick={()=>void resolveConversationConflict('saved')}>Keep saved value</AppButton>
         </div>}
-        <div className="dw-composer" onDragOver={(e)=>{if(!conversationUnavailable&&e.dataTransfer.types.includes('application/x-code-atlas-context'))e.preventDefault();}} onDrop={(e)=>{e.preventDefault();if(conversationUnavailable)return;try{const c=JSON.parse(e.dataTransfer.getData('application/x-code-atlas-context')) as Context;if(rows.some((r)=>r.path===c.path))attach(c);}catch{/* Ignore unrelated drops. */}}}>
+        <div className={`dw-composer${composerDragOver?' dw-composer-drag-over':''}`} onDragOver={handleComposerDragOver} onDragLeave={handleComposerDragLeave} onDrop={handleComposerDrop}>
           <Flex className="dw-composer-actions" gap="2" mb="2"><AppButton size="1" intent="secondary" disabled={generationPaused&&!isRepositoryPlanIntent(query)&&!isRepositoryPlanHistoryIntent(query)} onClick={()=>{const action=contextualGuideAction(query,attachments,!!current.parentId);if(isRepositoryPlanHistoryIntent(action.intent)&&props.onOpenPlanHistory){setSearchFocused(false);clearComposerDraft();props.onOpenPlanHistory();}else if(isRepositoryPlanIntent(action.intent)&&props.onPlanRoute){setSearchFocused(false);clearComposerDraft();props.onPlanRoute(action.intent,[...new Set(attachments.map((item)=>item.path))].slice(0,MAX_CONTEXT_REFERENCES));}else if(action.kind==='repository-guide')startRepositoryGuide(action.intent);else ask(action.intent,'guide');}}><BookOpen size={14}/>Guide me</AppButton><AppButton size="1" intent="secondary" color="gray" disabled={generationPaused&&!!query.trim()&&!isRepositoryPlanIntent(query)&&!isRepositoryPlanHistoryIntent(query)} onClick={()=>{if(!query.trim())showView('flow');else ask(query,'flow');}}><Network size={14}/>Show the flow</AppButton><IconButton className="dw-narrow-toggle" size="1" variant="ghost" color="gray" aria-label={narrowPane==='source'?'Show explanation':'Show source'} onClick={()=>{if(narrowPane==='source')setNarrowPane('explanation');else{setCodeOpen(true);setNarrowPane('source');}}}><Code2 size={15}/></IconButton></Flex>
           <div className="dw-input">{attachments.length>0&&<div className="dw-context">{attachments.map((c,i)=><Badge key={i} color="gray"><FileCode2 size={12}/><code>{label(c)}</code><IconButton type="button" className="dw-attachment-remove" size="1" variant="ghost" color="gray" aria-label={`Remove ${label(c)}`} onClick={()=>setAttachments((all)=>all.filter((_,n)=>n!==i))}><X size={12}/></IconButton></Badge>)}</div>}
             <AppTextArea className="dw-composer-text-area" ref={composer} dataFocusKey="workspace-composer" rows={1} value={query} maxLength={1000} disabled={conversationUnavailable} ariaLabel="Ask about this codebase" placeholder={conversationUnavailable?'Saved explanations are read-only for now':conversationConflict?'Resolve the saved conversation conflict to send':'Ask about this codebase'} onChange={(event)=>{event.target.setCustomValidity('');setQuery(event.target.value);}} onFocus={()=>{setSearchFocused(true);setSearchOffset(0);}} onKeyDown={(event)=>{if(event.key==='Escape')setSearchFocused(false);if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();ask(query);}}}/>
