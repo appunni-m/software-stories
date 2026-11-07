@@ -1126,6 +1126,23 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
 }
 
 #[test]
+fn progressive_flow_edges_require_source_proof_without_trusting_index_relationships() {
+    let instructions = system_instructions();
+    assert!(instructions.contains(
+        "Use relationshipIds:[] in progressive claims because the publication path accepts source citations, not index IDs."
+    ));
+    assert!(instructions.contains(
+        "When that source explicitly connects two nodes in the same claim, add a labeled visual edge citing that same claim's evidence"
+    ));
+    assert!(instructions.contains(
+        "A call edge proves only a static call expression, not runtime invocation, order, success, or causal effect"
+    ));
+    assert!(instructions.contains(
+        "Never infer an edge from names, paths, or index metadata alone; leave points unlinked if selected source does not show a connection."
+    ));
+}
+
+#[test]
 fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let f = Fixture::new();
     let input = input(&f);
