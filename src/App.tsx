@@ -15,6 +15,7 @@ import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import { isEditableKeyboardTarget } from './lib/keyboardShortcuts';
+import { workspaceViewForShortcut } from './lib/workspaceShortcuts';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useLoadedWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
@@ -276,6 +277,7 @@ function captureOutcomeNotice(progress: SnapshotProgress, loadLatestChanges = fa
 function App() {
   const appearance=useAppAppearance();
   const [navigation, setNavigation] = useState<NavigationState>(initialNavigationState);
+  const workspaceViewShortcutRequest = useRef(0);
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
   const interruptedReviewToken = useRef(0);
@@ -1351,15 +1353,18 @@ function App() {
       if (event.isComposing || isEditableKeyboardTarget(event.target)) return;
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
-      if (key === '1') {
+      const readerView = workspaceViewForShortcut(key);
+      if (readerView) {
         event.preventDefault();
-        navigationActions.workspace('guide-plan');
-      } else if (key === '2') {
-        event.preventDefault();
-        navigationActions.workspace('atlas');
-      } else if (key === '3') {
-        event.preventDefault();
-        navigationActions.workspace('changes');
+        const focusRequest = ++workspaceViewShortcutRequest.current;
+        setNavigation((state) => {
+          const route = state.current.snapshotId
+            ? { ...state.current, workspace: 'guide-plan' as const, focusTarget: `workspace-view:${readerView}:${focusRequest}` }
+            : { ...state.current, workspace: 'guide-plan' as const, focusTarget: 'heading:guide-plan' };
+          return state.current.workspace === 'guide-plan'
+            ? replaceCurrentRoute(state, route)
+            : navigateToRoute(state, route);
+        });
       } else if (key === '[') {
         event.preventDefault();
         navigationActions.back();
@@ -1728,10 +1733,13 @@ function App() {
     if (!focusTarget) return;
     let observer: MutationObserver | null = null;
     let expiry: number | null = null;
+    const workspaceView = focusTarget.match(/^workspace-view:(guide|flow|history)(?::|$)/)?.[1];
+    const targetKey = workspaceView ? `workspace-${workspaceView}-tab` : focusTarget;
     const focusWhenAvailable = (): boolean => {
       const target = Array.from(document.querySelectorAll<HTMLElement>('[data-focus-key]'))
-        .find((element) => element.dataset.focusKey === focusTarget);
+        .find((element) => element.dataset.focusKey === targetKey);
       if (!target) return false;
+      if (workspaceView && target.getAttribute('aria-selected') !== 'true') target.click();
       target.focus({ preventScroll: false });
       observer?.disconnect();
       if (expiry !== null) window.clearTimeout(expiry);
