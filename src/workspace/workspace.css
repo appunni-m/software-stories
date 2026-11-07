@@ -536,7 +536,7 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-guide-freshness-list details { flex-basis: 100%; margin-left: var(--space-2); }
 .dw-guide-freshness-list details summary { color: var(--gray-10); font-size: 11px; }
 .dw-guide-freshness-list details ul { margin-block: var(--space-1); }
-.dw-guide-slide-nav { box-sizing:border-box;position:sticky;bottom:var(--space-2);z-index:2;display:grid;width:min(100%,680px);min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch;align-items:center;column-gap:var(--space-2);row-gap:var(--space-1);margin-block:var(--space-2);margin-inline:auto;padding:var(--space-2);border:1px solid var(--border);border-radius:var(--radius-3);background:var(--surface); }
+.dw-guide-slide-nav { box-sizing:border-box;display:grid;width:min(100%,680px);min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch;align-items:center;column-gap:var(--space-2);row-gap:var(--space-1);margin-block:var(--space-2);margin-inline:auto;padding:var(--space-2);border:1px solid var(--border);border-radius:var(--radius-3);background:var(--surface); }
 .dw-guide-slide-nav > button { min-width:0;max-width:100%;white-space:normal; }
 .dw-guide-slide-nav > button:first-child {justify-self:end;}
 .dw-guide-slide-nav > button:last-child {justify-self:start;}

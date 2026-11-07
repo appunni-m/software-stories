@@ -1291,11 +1291,11 @@ function Answer(props:AnswerProps){
   const [guideFreshness,setGuideFreshness]=useState<{guideId:string;targetSnapshotId:string;report:RepositoryGuideFreshness}|null>(null);
   const [guideFreshnessBusy,setGuideFreshnessBusy]=useState(false);
   const [guideFreshnessError,setGuideFreshnessError]=useState<string|null>(null);
-  // Show the outline as soon as planning finishes. Remember an explicit
-  // collapse for this question, while opening the outline for a new guide.
+  // Keep the topic plan available on demand without letting its long text
+  // push the selected visual out of view by default.
   const guideOutlineOpen=guideOutlineState?.turnId===turn.id
     ?guideOutlineState.open
-    :Boolean(turn.guide&&turn.guide.units.length>0);
+    :false;
   const latestGuideFreshness=turn.guide&&guideFreshness?.guideId===turn.guide.id
     &&guideFreshness.targetSnapshotId===props.latestSnapshotId?guideFreshness.report:null;
   const checkGuideFreshness=async()=>{
