@@ -1302,16 +1302,33 @@ mod tests {
                 layout_hint: Some(chapters::VisualLayoutHint {
                     direction: chapters::VisualLayoutDirection::LeftToRight,
                 }),
-                nodes: vec![chapters::VisualNode {
-                    node_id: "node:greeting".to_owned(),
-                    label: "greeting".to_owned(),
-                    detail: Some("returns the Hello template".to_owned()),
-                    hotspot_id: None,
+                nodes: vec![
+                    chapters::VisualNode {
+                        node_id: "node:greeting".to_owned(),
+                        label: "greeting".to_owned(),
+                        detail: Some("returns the Hello template".to_owned()),
+                        hotspot_id: None,
+                        evidence_anchor_ids: vec![anchor_id.clone()],
+                        source_anchor_id: None,
+                        source_value: None,
+                    },
+                    chapters::VisualNode {
+                        node_id: "node:caller".to_owned(),
+                        label: "Caller receives".to_owned(),
+                        detail: Some("formatted greeting".to_owned()),
+                        hotspot_id: None,
+                        evidence_anchor_ids: vec![anchor_id.clone()],
+                        source_anchor_id: None,
+                        source_value: None,
+                    },
+                ],
+                edges: vec![chapters::VisualEdge {
+                    edge_id: "edge:returns-greeting".to_owned(),
+                    from_node_id: "node:greeting".to_owned(),
+                    to_node_id: "node:caller".to_owned(),
+                    label: "returns".to_owned(),
                     evidence_anchor_ids: vec![anchor_id],
-                    source_anchor_id: None,
-                    source_value: None,
                 }],
-                edges: Vec::new(),
             }));
         let visual_draft = save_edits(
             &fixture.storage,

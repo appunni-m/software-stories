@@ -295,8 +295,11 @@ pub(crate) mod tests {
                 .contains("Aim for roughly 20–45 spoken words when natural")
         );
         let progressive = super::progressive_teaching_instructions();
-        assert!(progressive.contains("On first use, briefly unpack specialist terminology"));
-        assert!(progressive.contains("say what stops or continues and what the caller receives"));
+        assert!(progressive.contains(
+            "Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about"
+        ));
+        assert!(SECTION_NARRATION_INSTRUCTIONS
+            .contains("For a failure, say what stops or continues and what the caller receives"));
         assert!(
             super::instructions()
                 .contains("Natural speech following the real subject through this claim")
@@ -361,7 +364,7 @@ pub(crate) mod tests {
             "Cards may label a semantic form but cannot replace it",
             "Do not repeat the same generic row/cards/arrow skeleton with only labels changed",
             "Before proposing another section for the same answer",
-            "a new title or a second rendering of the same decision is not new coverage",
+            "A new title or a second rendering of the same decision is not new coverage",
             "name the concrete uncovered behavior instead of repeating a neighboring section",
             "Use illustration only for an invented hypothetical input or output",
             "This version uses inert app-owned HTML/CSS primitives",

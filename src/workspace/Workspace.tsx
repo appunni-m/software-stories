@@ -17,7 +17,7 @@ import { AnswerVisualPreview } from './AnswerVisualPreview';
 import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
-import { capturedSourceLineIndex, capturedSourceLineWindow } from '../lib/codeLens';
+import { capturedSourceLineIndex } from '../lib/codeLens';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
@@ -73,12 +73,6 @@ interface Props {
 }
 export interface PendingCodeLensQuestion {
   id:string; projectId:string; snapshotId:string; path:string; sourceSha256:string; startLine:number; endLine:number;
-}
-interface SelectedCodeReview {
-  context:Context;
-  question:string;
-  view:View;
-  explorationId:string;
 }
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 const MAX_CONTEXT_REFERENCES = 12;
@@ -383,20 +377,6 @@ export function DeveloperWorkspace(props:Props) {
   const pendingConsentTurn = consentTurn ? current.turns.find((turn)=>turn.id===consentTurn) : undefined;
   const [connectionNotice,setConnectionNotice] = useState<string|null>(null);
   const [draftNotice,setDraftNotice] = useState<string|null>(null);
-  const [selectedCodeReview,setSelectedCodeReview] = useState<SelectedCodeReview|null>(null);
-  const [selectedCodeReviewError,setSelectedCodeReviewError] = useState<string|null>(null);
-  const selectedCodePreview=useMemo(()=>{
-    const context=selectedCodeReview?.context;
-    if(!context||!source||source.path!==context.path||source.sha256!==context.sha256
-      ||typeof context.from!=='number'||typeof context.to!=='number'||!sourceLineIndex)return null;
-    const previewEnd=Math.min(context.to,context.from+23);
-    const sourceWindow=capturedSourceLineWindow(source.contents,context.from,previewEnd,{maxLineCharacters:420,lineIndex:sourceLineIndex});
-    return {
-      firstLine:context.from,
-      selectedLineCount:context.to-context.from+1,
-      lines:sourceWindow.lines.map((text,index)=>({text,omittedBefore:sourceWindow.omittedBefore[index],omittedAfter:sourceWindow.omittedAfter[index]})),
-    };
-  },[selectedCodeReview,source,sourceLineIndex]);
   const [searchFocused,setSearchFocused] = useState(false);
   const handledLargeFileExplanation = useRef<string|null>(null);
   const requestedConnectionForLargeFileExplanation = useRef<string|null>(null);
@@ -717,8 +697,7 @@ export function DeveloperWorkspace(props:Props) {
     setDraftNotice(null);
     setConsentError(null);
     const question=`Explain what ${label(selected)} does and how it works.`;
-    setSelectedCodeReviewError(null);
-    setSelectedCodeReview({context:selected,question,view:current.view==='flow'?'flow':'guide',explorationId:current.id});
+    ask(question,current.view==='flow'?'flow':'guide',[selected]);
   }
   function explainSafely(context:Context){
     try{askAboutSelectedCode(context);}catch(failure){
@@ -729,17 +708,7 @@ export function DeveloperWorkspace(props:Props) {
       setDraftNotice(`The selected code question could not be started.${safeDetail} Reopen the captured file and select its code again.`);
     }
   }
-  function confirmSelectedCodeReview(){
-    const review=selectedCodeReview;
-    if(!review)return;
-    if(generationPaused){setSelectedCodeReviewError('Resolve the saved conversation conflict before asking about this code.');return;}
-    if(current.id!==review.explorationId){setSelectedCodeReviewError('This exploration changed. Close this review and select the code again at the level you want to explore.');return;}
-    const selected=verifiedCodeContext(review.context,snapshotId);
-    if(!selected||!selectedCodePreview){setSelectedCodeReviewError('This captured range is no longer available. Close this review, reopen the file, and select the code again. Nothing was sent.');return;}
-    setSelectedCodeReview(null);
-    setSelectedCodeReviewError(null);
-    ask(review.question,review.view,[selected]);
-  }
+
   function explainFileSafely(){
     try{
       if(generationPaused)return;
@@ -1247,32 +1216,6 @@ export function DeveloperWorkspace(props:Props) {
         </Group>}
       </section></Panel>
     </Group>
-    <Dialog.Root open={!!selectedCodeReview} onOpenChange={(open)=>{
-      if(!open){setSelectedCodeReview(null);setSelectedCodeReviewError(null);}
-    }}>
-      <Dialog.Content maxWidth="620px" className="dw-code-review-dialog">
-        <Dialog.Title>Review selected code</Dialog.Title>
-        <Dialog.Description size="2">Nothing is sent until you choose Ask about this code. The request uses this captured snapshot; live files stay on this Mac.</Dialog.Description>
-        {selectedCodeReview&&<>
-          <div className="dw-code-review-scope">
-            <div><strong>Source</strong><code>{selectedCodeReview.context.path}:{selectedCodeReview.context.from}–{selectedCodeReview.context.to}</code></div>
-            <div><strong>Question</strong><p>{selectedCodeReview.question}</p></div>
-          </div>
-          {selectedCodePreview
-            ? <details className="dw-code-review-preview" open>
-                <summary>Captured source · lines {selectedCodePreview.firstLine}–{selectedCodePreview.firstLine+selectedCodePreview.lines.length-1}{selectedCodePreview.selectedLineCount>selectedCodePreview.lines.length?` · first ${selectedCodePreview.lines.length} of ${selectedCodePreview.selectedLineCount} selected lines`:''}</summary>
-                <pre><code>{selectedCodePreview.lines.map((line,index)=>`${selectedCodePreview.firstLine+index}  ${line.omittedBefore?'…':''}${line.text}${line.omittedAfter?'…':''}`).join('\n')}{selectedCodePreview.selectedLineCount>selectedCodePreview.lines.length?'\n…':''}</code></pre>
-              </details>
-            : <p role="status">This captured range is no longer available. Close this review and select the code again.</p>}
-          {selectedCodeReviewError&&<p className="dw-error" role="alert">{selectedCodeReviewError}</p>}
-          {generationPaused&&<p role="status">Resolve the saved conversation conflict before asking about this code.</p>}
-          <Flex justify="end" gap="3" mt="4">
-            <Dialog.Close><AppButton intent="secondary" color="gray">Cancel</AppButton></Dialog.Close>
-            <AppButton intent="primary" disabled={!selectedCodePreview||generationPaused||conversationUnavailable} onClick={confirmSelectedCodeReview}>Ask about this code</AppButton>
-          </Flex>
-        </>}
-      </Dialog.Content>
-    </Dialog.Root>
     <Dialog.Root open={!!consentTurn} onOpenChange={(open)=>{if(!open&&!consentBusy){if(consentTurn)stopQuestion(projectId,snapshotId,consentTurn);setConsentTurn(null);}}}>
       <Dialog.Content maxWidth="520px">
         <Dialog.Title>Let Code Atlas explore {projectName}?</Dialog.Title>

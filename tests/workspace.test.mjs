@@ -291,24 +291,24 @@ test('selecting another Guide slide reveals its answer card in the reader',()=>{
     'changing the durable reader target reruns restoration for the current exploration');
 });
 
-test('selected code opens a bounded review before dispatching its question',()=>{
+test('selected code asks directly after snapshot and range validation',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
-  const actionStart=source.indexOf('function askAboutSelectedCode(context:Context)');
+  const actionStart=source.indexOf('function askAboutSelectedCode(context:Context){');
   const actionEnd=source.indexOf('\n  function explainSafely',actionStart);
   assert.ok(actionStart>=0&&actionEnd>actionStart,'the selected-code action must be present');
   const action=source.slice(actionStart,actionEnd);
-  assert.match(action,/setSelectedCodeReview\(/,
-    'selecting code prepares a review instead of sending immediately');
-  assert.doesNotMatch(action,/\bask\(/,
-    'the code-pane action must not dispatch a question before explicit acceptance');
-  assert.match(source,/function confirmSelectedCodeReview\(\)[\s\S]*?ask\(review\.question,review\.view,\[selected\]\)/,
-    'only the review confirmation dispatches the selected-code question');
-  assert.match(source,/Nothing is sent until you choose Ask about this code/,
-    'the review tells users when the captured selection will be shared');
-  assert.match(source,/capturedSourceLineWindow\(source\.contents,context\.from,previewEnd/,
-    'the review includes a bounded preview from the captured source');
+  assert.match(action,/verifiedCodeContext\(context,snapshotId\)/,
+    'selected code must still be bound to the displayed captured snapshot and valid lines');
+  assert.match(action,/ask\(question,current\.view==='flow'\?'flow':'guide',\[selected\]\)/,
+    'the explicit code action submits into the current exploration and selected view');
+  assert.doesNotMatch(action,/selectedCodeReview|setSelectedCodeReview/,
+    'a second confirmation dialog must not delay the action');
+  assert.doesNotMatch(source,/selectedCodeReview|selectedCodePreview|dw-code-review-dialog/);
+  assert.match(source,/if\(!requireCodexConnection\(\)\)\{\s*updateWorkspaceDraft\(projectId,snapshotId,current\.id,\{question:clean,context\}\);\s*return false;\s*\}/,
+    'the normal connection gate remains in force');
+  assert.match(source,/if\(state\.grantId\)\s*void runQuestion\(projectId,snapshotId,id,state\.grantId\);\s*else\s*\{setConsentError\(null\);setConsentTurn\(id\);\}/,
+    'the normal workspace-sharing consent gate remains in force');
 });
-
 test('stable section identity survives ordering and safely falls back for a changed answer',()=>{
   const sections=[{sectionId:'two'},{sectionId:'one'},{sectionId:'three'}];
   assert.equal(sectionPosition('rev',sections,{revisionId:'rev',sectionId:'one'}),1);

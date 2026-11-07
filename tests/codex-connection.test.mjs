@@ -54,7 +54,7 @@ describe('one-time Codex connection', () => {
     const runQuestion = source.indexOf('export async function runQuestion(');
     assert.notEqual(runQuestion, -1);
     const dispatch = source.slice(runQuestion);
-    assert.match(dispatch, /const job = \{cancelled:false,runId,pendingGuideAdvances:\[\] as string\[\]\}; jobs\.set\(id,job\);/);
+    assert.match(dispatch, /const job:WorkspaceJob = \{cancelled:false,runId,pendingGuideAdvances:\[\]\}; jobs\.set\(id,job\);/);
     const savedTurn = dispatch.indexOf('flushWorkspaceConversationBeforeGeneration');
     const queued = dispatch.indexOf('queueWorkspaceGenerationJob');
     const dequeued = dispatch.indexOf('release=await enterQuestionQueue()');

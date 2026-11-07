@@ -392,16 +392,7 @@
 @media(prefers-reduced-motion:reduce){.developer-workspace *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}
 .developer-workspace .dw-narrow-toggle {display:none;}
 .dw-error-details {color:var(--muted);font-size:12px;margin:var(--space-2) 0 var(--space-3);}
-.dw-code-review-dialog {box-sizing:border-box;max-height:calc(100dvh - 32px);overflow:auto;}
-.dw-code-review-scope {display:grid;gap:var(--space-3);margin-top:var(--space-4);}
-.dw-code-review-scope > div {display:grid;gap:var(--space-1);min-width:0;}
-.dw-code-review-scope strong {color:var(--muted);font-size:12px;font-weight:600;}
-.dw-code-review-scope code {min-width:0;overflow-wrap:anywhere;color:var(--text);font-family:var(--mono);}
-.dw-code-review-scope p {margin:0;color:var(--text);overflow-wrap:anywhere;}
-.dw-code-review-preview {min-width:0;margin-top:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-2);background:var(--surface-raised);}
-.dw-code-review-preview summary {padding:var(--space-2) var(--space-3);color:var(--muted);font-size:12px;cursor:pointer;}
-.dw-code-review-preview pre {max-height:min(34vh,280px);overflow:auto;margin:0;padding:var(--space-2) var(--space-3);border-top:1px solid var(--border);color:var(--text);font:12px/1.55 var(--mono);white-space:pre;}
-.dw-code-review-preview code {font:inherit;}
+
 .dw-error-details summary {cursor:pointer;}
 .dw-error-details p {line-height:1.7;overflow-wrap:anywhere;}
 /* The reader pane can become narrow from zoom or user resizing even when the

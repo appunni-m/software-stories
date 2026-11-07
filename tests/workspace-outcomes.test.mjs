@@ -238,7 +238,7 @@ test('ordinary multi-section answers use one focused section without changing on
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /const progressiveAnswerSequence=shouldSequencePublishedAnswer\(turn\)/);
   assert.match(source, /aria-label=\{turn\.guideId\?'Guide slides':'Answer sections'\}/);
-  assert.match(source, /\{selectedGuideSlide\+1\} of \{guideSlides\.length\}/);
+  assert.match(source, /\{selectedActiveGuidePosition\+1\} of \{activeGuideSlideIndices\.length\}/);
 });
 
 test('question-owned branches stay attached to the last available part before unavailable newer parts', () => {

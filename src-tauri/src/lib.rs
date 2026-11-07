@@ -3169,16 +3169,33 @@ mod chapter_pipeline_tests {
                 layout_hint: Some(chapters::VisualLayoutHint {
                     direction: chapters::VisualLayoutDirection::LeftToRight,
                 }),
-                nodes: vec![chapters::VisualNode {
-                    node_id: "node:overlapping".to_owned(),
-                    label: "overlapping".to_owned(),
-                    detail: Some("one module constant".to_owned()),
-                    hotspot_id: None,
+                nodes: vec![
+                    chapters::VisualNode {
+                        node_id: "node:overlapping".to_owned(),
+                        label: "overlapping".to_owned(),
+                        detail: Some("one module constant".to_owned()),
+                        hotspot_id: None,
+                        evidence_anchor_ids: vec![stable_anchor.clone()],
+                        source_anchor_id: None,
+                        source_value: None,
+                    },
+                    chapters::VisualNode {
+                        node_id: "node:literal".to_owned(),
+                        label: "Repeated literal".to_owned(),
+                        detail: Some("the assigned value".to_owned()),
+                        hotspot_id: None,
+                        evidence_anchor_ids: vec![stable_anchor.clone()],
+                        source_anchor_id: None,
+                        source_value: None,
+                    },
+                ],
+                edges: vec![chapters::VisualEdge {
+                    edge_id: "edge:stores-literal".to_owned(),
+                    from_node_id: "node:overlapping".to_owned(),
+                    to_node_id: "node:literal".to_owned(),
+                    label: "stores".to_owned(),
                     evidence_anchor_ids: vec![stable_anchor],
-                    source_anchor_id: None,
-                    source_value: None,
                 }],
-                edges: Vec::new(),
             }));
         let initial_validation = chapters::validate_chapter_revision(
             &fixture.storage,

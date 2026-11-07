@@ -357,7 +357,7 @@ test('a missed Guide slide event can recover from its durable answer summary', a
   assert.equal(h.calls.some((call) => /generate|start_repository|resume_repository/.test(call.name)), false);
 });
 
-test('a Guide slide published during startup is adopted after its conversation restores', { timeout: 2000 }, async () => {
+test('a Guide slide published during startup warms locally and joins the reader after conversation restore', { timeout: 2000 }, async () => {
   const turnId = '33333333-3333-4333-8333-333333333333';
   const guideId = '44444444-4444-4444-8444-444444444444';
   const runId = '55555555-5555-4555-8555-555555555555';
@@ -385,8 +385,11 @@ test('a Guide slide published during startup is adopted after its conversation r
     section: { ...section, projectId: 'project', snapshotId: 'snapshot', runId, generationId, revisionId: revision.revisionId },
   });
   await flushLocalReads();
-  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 0,
-    'the event waits instead of mutating an unreadable conversation');
+  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 1,
+    'the durable slide is adopted immediately so local narration can prewarm');
+  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_conversation').length, 0,
+    'reader state waits until the saved conversation is readable');
+  assert.equal(turns(h).length, 0, 'the slide is not attached to the temporary empty reader');
 
   loading.resolve(savedRecord);
   await opening;
@@ -395,7 +398,8 @@ test('a Guide slide published during startup is adopted after its conversation r
   assert.equal(restored.id, turnId);
   assert.equal(restored.publishedSections.length, 1);
   assert.equal(restored.publishedSections[0].revisionId, revision.revisionId);
-  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 1);
+  assert.equal(h.calls.filter((call) => call.name === 'save_workspace_answer_section').length, 1,
+    'restore does not adopt the same durable slide twice');
   assert.equal(h.calls.some((call) => /generate|start_repository|resume_repository/.test(call.name)), false);
   stop();
   assert.equal(h.listenerCount(), 0);

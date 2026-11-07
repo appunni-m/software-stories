@@ -820,7 +820,8 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         instructions.contains("Do not page the whole repository before reading implementation")
     );
     assert!(instructions.contains("visible cue"));
-    assert!(instructions.contains("Narration tells the subject's journey in direct speech"));
+    assert!(instructions.contains("Tell the behavior in cause-and-effect order"));
+    assert!(instructions.contains("Explain what the result means to the caller or next step"));
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
@@ -836,18 +837,18 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     ));
     assert!(instructions.contains("show code only when syntax is the lesson"));
     assert!(instructions.contains(
-        "Let observed behavior choose the visual mode independently for each claim scene"
+        "Choose the visual mode independently for each claim scene; a visual section may mix composition and graph scenes"
     ));
-    assert!(instructions.contains("use timeline for verified call order"));
+    assert!(instructions.contains("Verified call order uses timeline"));
     assert!(instructions.contains(
         "Use a graph only when those forms cannot show a genuinely non-linear relationship"
     ));
     assert!(instructions.contains(
-        "Before proposing another section for the same answer, compare its focus with the sections already published in this answer"
+        "Before proposing another section for the same answer, compare its behavior with sections already published"
     ));
     assert!(
         instructions
-            .contains("a new title or a second rendering of the same decision is not new coverage")
+            .contains("A new title or a second rendering of the same decision is not new coverage")
     );
 
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
@@ -887,7 +888,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     ));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
-    assert!(instructions.contains("Point to a visible behavior-specific label"));
+    assert!(instructions.contains("Narrate a visible cue in natural speech"));
     assert!(instructions.contains("State the decision rule before examples"));
     assert!(instructions.contains("explain every outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
@@ -1112,7 +1113,7 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
     assert!(instructions.contains(
-        "Let observed behavior choose the visual mode independently for each claim scene"
+        "Choose the visual mode independently for each claim scene; a visual section may mix composition and graph scenes"
     ));
     assert!(instructions.contains("Use a three-part transform only when one cited operation maps a named input value or state to a distinct result"));
     assert!(instructions.contains("Do not use transform as the generic layout for call paths, collection behavior, or chains of decisions"));
