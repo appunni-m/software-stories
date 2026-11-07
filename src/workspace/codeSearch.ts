@@ -19,6 +19,21 @@ function searchableParts(value:string):string[]{
   return value.replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 }
 
+function compositeIdentifierTokens(query:string):string[]|null{
+  const trimmed=query.trim();
+  if(!/^[\p{L}\p{N}_]+$/u.test(trimmed)||(!/_/u.test(trimmed)&&!/[a-z][A-Z]/u.test(trimmed)))return null;
+  const tokens=searchableParts(trimmed);
+  return tokens.length>1?tokens:null;
+}
+
+function containsTokenSequence(parts:readonly string[],sequence:readonly string[]):boolean{
+  if(!sequence.length||sequence.length>parts.length)return false;
+  for(let start=0;start<=parts.length-sequence.length;start++){
+    if(sequence.every((token,index)=>parts[start+index]===token))return true;
+  }
+  return false;
+}
+
 function stableTextCompare(left:string,right:string):number{
   return left<right?-1:left>right?1:0;
 }
@@ -67,16 +82,17 @@ function pluralVariants(term:string):string[]{
  */
 function localMatcher(query:string,terms:readonly string[]):(value:string)=>number{
   const phrase=searchableParts(query).join(' ');
-  const trimmed=query.trim();
   // Composite identifiers are exact discovery queries. Treating their
   // underscore/camel-case components like independent natural-language words
   // produces convincing but unrelated results when only one component exists.
-  const identifierPhrase=/^[\p{L}\p{N}_]+$/u.test(trimmed)&&(/_/u.test(trimmed)||/[a-z][A-Z]/u.test(trimmed))?phrase:null;
+  const identifierTokens=compositeIdentifierTokens(query);
   return (value:string)=>{
     const parts=searchableParts(value);
     if(!parts.length)return 0;
     const normalized=parts.join(' ');
-    if(identifierPhrase&&!normalized.includes(identifierPhrase))return 0;
+    // Match whole adjacent identifier components. A substring check lets
+    // `memory_face` accidentally match a single `faced` component.
+    if(identifierTokens&&!containsTokenSequence(parts,identifierTokens))return 0;
     const matched=terms.filter(term=>parts.some(part=>{
       if(part===term)return true;
       if(Math.min(part.length,term.length)<3)return false;
@@ -206,9 +222,16 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const term=query.toLowerCase();
   const terms=localQueryTerms(query);
   const scoreLocal=localMatcher(query,terms);
+  const identifierTokens=compositeIdentifierTokens(query);
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
-    const symbolMatches=topMatches(symbols,symbol=>scoreLocal(`${symbol.name} ${symbol.path}`),
+    // Keep a composite identifier inside one field. Combining a symbol name
+    // with its path can manufacture a match from unrelated fragments, such
+    // as a symbol `memory` in `face.rs` for the query `memory_face`.
+    const scoreSymbol=(symbol:{name:string;path:string})=>identifierTokens
+      ? Math.max(scoreLocal(symbol.name),scoreLocal(symbol.path))
+      : scoreLocal(`${symbol.name} ${symbol.path}`);
+    const symbolMatches=topMatches(symbols,scoreSymbol,
       (left,right)=>stableTextCompare(left.name,right.name)||stableTextCompare(left.path,right.path),8);
     local.push(...symbolMatches.map((symbol)=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
     const fileMatches=topMatches(files,file=>scoreLocal(file.path),(left,right)=>stableTextCompare(left.path,right.path),8);

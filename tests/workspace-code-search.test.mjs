@@ -92,6 +92,23 @@ test('composite identifier queries do not return hits for isolated components',(
   ]);
 });
 
+test('composite identifiers require complete adjacent tokens within one symbol field',()=>{
+  const hits=workspaceSearchResults({query:'memory_face',mode:'code',files:[
+    {path:'src/memory_faced.rs'},
+    {path:'src/memory_face.rs'},
+  ],symbols:[
+    {path:'face.rs',name:'memory',anchor:{startLine:1,endLine:3}},
+    {path:'src/font.rs',name:'memory_faced',anchor:{startLine:10,endLine:12}},
+    {path:'src/font.rs',name:'memory_face',anchor:{startLine:20,endLine:22}},
+    {path:'src/font.rs',name:'memory_face_wrapper',anchor:{startLine:30,endLine:32}},
+  ],source:null,captured:[]});
+  assert.deepEqual(hits.map(hit=>[hit.path,hit.text]),[
+    ['src/font.rs','memory_face'],
+    ['src/font.rs','memory_face_wrapper'],
+    ['src/memory_face.rs','src/memory_face.rs'],
+  ]);
+});
+
 test('a source line matching a symbol declaration is one result with the richer snippet',()=>{
   const hits=workspaceSearchResults({query:'memory_face',mode:'code',files:[{path:'src/font.rs'}],symbols:[
     {path:'src/font.rs',name:'memory_face',anchor:{startLine:4053,endLine:4115}},
