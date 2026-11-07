@@ -670,6 +670,8 @@ export interface ChapterFreshnessReport {
 export type RepositoryGuideFreshnessStatus = 'current' | 'safeToCarry' | 'stale' | 'needsReview' | 'incomplete' | 'pending';
 export interface RepositoryGuideSectionFreshness {
   revisionId: string;
+  sectionId: string | null;
+  sectionRevisionId: string | null;
   status: ChapterFreshnessStatus;
   evidenceState: ChapterFreshnessEvidenceState;
   reasons: string[];

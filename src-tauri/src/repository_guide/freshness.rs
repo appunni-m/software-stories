@@ -33,6 +33,8 @@ pub(crate) struct GuideUnitFreshness {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GuideSectionFreshness {
     pub(crate) revision_id: String,
+    pub(crate) section_id: Option<String>,
+    pub(crate) section_revision_id: Option<String>,
     pub(crate) status: SectionFreshnessStatus,
     pub(crate) evidence_state: EvidenceState,
     pub(crate) reasons: Vec<String>,
@@ -301,6 +303,8 @@ fn assess_notices<'a>(
         let Some(revision) = revisions.get(&notice.revision_id) else {
             assessed.push(GuideSectionFreshness {
                 revision_id: notice.revision_id.clone(),
+                section_id: None,
+                section_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
                 reasons: vec!["The saved source-linked slide is unavailable.".into()],
@@ -319,6 +323,8 @@ fn assess_notices<'a>(
                 assessed.extend(report.sections.into_iter().map(|section| {
                     GuideSectionFreshness {
                         revision_id: revision.revision_id.clone(),
+                        section_id: Some(section.section_id),
+                        section_revision_id: Some(section.section_revision_id),
                         status: section.status,
                         evidence_state: section.evidence_state,
                         reasons: section
@@ -331,6 +337,8 @@ fn assess_notices<'a>(
             }
             Ok(_) | Err(_) => assessed.push(GuideSectionFreshness {
                 revision_id: notice.revision_id.clone(),
+                section_id: None,
+                section_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
                 reasons: vec!["The saved source scope could not be verified.".into()],

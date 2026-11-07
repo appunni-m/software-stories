@@ -1454,6 +1454,17 @@ function Answer(props:AnswerProps){
           <p className="dw-answer-note" role="note">This compares saved citations and known code links. A new or uncaptured path may still affect a topic.</p>
           <ul className="dw-guide-freshness-list">{[latestGuideFreshness.opening,...latestGuideFreshness.units].filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
             {unit.key==='opening'&&<strong>Opening · </strong>}<InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
+            {unit.sections.length>0&&<ul className="dw-guide-freshness-parts" aria-label={`Slides in ${unit.question}`}>{unit.sections.map((part,index)=>{
+              const sectionId=part.sectionId;
+              const revision=chapters?.find((chapter)=>chapter.revisionId===part.revisionId);
+              const chapterSection=revision?.sections.find((section)=>section.sectionId===sectionId);
+              const label=part.status==='current'?'Unchanged':part.status==='safeToCarry'?'Safe to carry':part.status==='stale'?'Source changed':'Needs review';
+              return <li key={`${part.revisionId}:${part.sectionRevisionId??index}`}>
+                <span>{chapterSection?.title??`Slide ${index+1}`}</span>
+                <span className={`dw-guide-freshness-status is-${part.status}`}>{label}</span>
+                {sectionId&&chapterSection&&<AppButton size="1" intent="quiet" aria-label={`Open slide ${chapterSection.title}`} onClick={()=>props.onFocus(part.revisionId,sectionId)}>Open slide</AppButton>}
+              </li>;
+            })}</ul>}
             {unit.reasons.length>0&&<details><summary>Why</summary><ul>{unit.reasons.map((reason,index)=><li key={`${unit.key}:${index}`}>{reason}</li>)}</ul></details>}
           </li>)}</ul>
         </>}
