@@ -33,6 +33,16 @@ test('view and composer shortcuts reveal their targets before focusing',()=>{
   matches(workspace,/function attach\(context:Context\) \{[\s\S]*?setAttachments\(\(all\)=>\[\.\.\.all,context\]\);focusComposer\(\);/);
 });
 
+test('workspace navigation shortcuts leave text editing and IME composition alone',()=>{
+  const start=workspace.indexOf('const listener=(event:KeyboardEvent)=>{');
+  const end=workspace.indexOf("window.addEventListener('keydown',listener,true)",start);
+  assert.ok(start>=0&&end>start,'workspace keyboard listener is present');
+  const listener=workspace.slice(start,end);
+  const guard=listener.indexOf('if(event.isComposing||isEditableKeyboardTarget(event.target))return;');
+  const firstCommand=listener.indexOf("if(mod&&event.shiftKey&&k==='f')");
+  assert.ok(guard>=0&&firstCommand>guard,'editing and IME guard runs before every workspace shortcut');
+});
+
 test('search commands reveal their distinct tools and narrow navigation has a direct return',()=>{
   matches(workspace,/const findInRepository=\(\)=>\{setActivity\('search'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
   matches(workspace,/const quickOpen=\(\)=>\{setActivity\('files'\);[\s\S]*?setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>\{search\.current\?\.focus\(\);search\.current\?\.select\(\);\}\);\};/);
