@@ -624,7 +624,7 @@ fn canonicalize_generated_section(
     })
 }
 
-fn remap_carried_section(
+pub(crate) fn remap_carried_section(
     storage_dir: &std::path::Path,
     old_manifest: &SnapshotManifest,
     old_index: Option<&SnapshotIndex>,
@@ -4278,14 +4278,16 @@ pub(crate) mod tests {
         target.generation_origin = None;
         target.sections = vec![target_section.clone()];
         target.guide_carry_forward = Some(
-            crate::chapter_origin::GuideCarryForwardOrigin::for_section(
+            crate::chapter_origin::GuideCarryForwardOrigin::for_sections(
                 &Uuid::new_v4().to_string(),
                 &Uuid::new_v4().to_string(),
                 &Uuid::new_v4().to_string(),
-                &Uuid::new_v4().to_string(),
-                &format!("generation:{}", Uuid::new_v4()),
-                &source,
-                &source_section,
+                &[(
+                    &Uuid::new_v4().to_string(),
+                    &format!("generation:{}", Uuid::new_v4()),
+                    &source,
+                    &source_section,
+                )],
                 &target,
             )
             .unwrap(),

@@ -35,9 +35,7 @@ where
 }
 
 /// Retrieval is omitted when absent; a present null is not a second encoding.
-fn present_retrieval<'de, D>(
-    deserializer: D,
-) -> Result<Option<RecordedRetrievalEvidence>, D::Error>
+fn present_retrieval<'de, D>(deserializer: D) -> Result<Option<RecordedRetrievalEvidence>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -243,21 +241,12 @@ pub struct ChapterGenerationOrigin {
     pub content_sha256: String,
 }
 
-/// Local provenance for copying one already-published Guide slide to a newer
-/// immutable snapshot after every citation and declared dependency is remapped
-/// and revalidated. This records no model request and grants no source access.
+/// One exact Guide slide included in a local carry-forward revision.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GuideCarryForwardOrigin {
-    pub schema_version: u32,
-    pub operation_id: String,
-    pub target_guide_id: String,
-    pub source_guide_id: String,
+pub struct GuideCarryForwardSectionOrigin {
     pub source_run_id: String,
     pub source_generation_id: String,
-    pub project_id: String,
-    pub source_snapshot_id: String,
-    pub target_snapshot_id: String,
     pub source_revision_id: String,
     pub source_section_id: String,
     pub source_section_revision_id: String,
@@ -265,70 +254,114 @@ pub struct GuideCarryForwardOrigin {
     pub target_section_sha256: String,
 }
 
+/// Local provenance for copying verified Guide slides to a newer immutable
+/// snapshot after every citation and declared dependency is remapped and
+/// revalidated. This records no model request and grants no source access.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GuideCarryForwardOrigin {
+    pub schema_version: u32,
+    pub operation_id: String,
+    pub target_guide_id: String,
+    pub source_guide_id: String,
+    pub project_id: String,
+    pub source_snapshot_id: String,
+    pub target_snapshot_id: String,
+    pub sections: Vec<GuideCarryForwardSectionOrigin>,
+}
+
 impl GuideCarryForwardOrigin {
-    pub(crate) fn for_section(
+    pub(crate) fn for_sections(
         operation_id: &str,
         target_guide_id: &str,
         source_guide_id: &str,
-        source_run_id: &str,
-        source_generation_id: &str,
-        source_revision: &ChapterRevision,
-        source_section: &crate::chapters::ChapterSection,
+        lineages: &[(
+            &str,
+            &str,
+            &ChapterRevision,
+            &crate::chapters::ChapterSection,
+        )],
         target_revision: &ChapterRevision,
     ) -> Result<Self, String> {
-        let target_section = target_revision
-            .sections
+        let (_, _, first_revision, _) = lineages
             .first()
-            .ok_or("A carried Guide slide has no target section.")?;
+            .ok_or("A carried Guide revision has no source slides.")?;
+        let mut sections = Vec::with_capacity(lineages.len());
+        for (target_section, (run_id, generation_id, source_revision, source_section)) in
+            target_revision.sections.iter().zip(lineages)
+        {
+            if target_section.section_id != source_section.section_id {
+                return Err("A carried Guide revision reordered its source slide lineage.".into());
+            }
+            sections.push(GuideCarryForwardSectionOrigin {
+                source_run_id: (*run_id).to_owned(),
+                source_generation_id: (*generation_id).to_owned(),
+                source_revision_id: source_revision.revision_id.clone(),
+                source_section_id: source_section.section_id.clone(),
+                source_section_revision_id: source_section.section_revision_id.clone(),
+                source_section_sha256: section_digest(source_section)?,
+                target_section_sha256: section_digest(target_section)?,
+            });
+        }
+        if target_revision.sections.len() != lineages.len() {
+            return Err("A carried Guide revision has incomplete source lineage.".into());
+        }
         Ok(Self {
             schema_version: 1,
             operation_id: operation_id.to_owned(),
             target_guide_id: target_guide_id.to_owned(),
             source_guide_id: source_guide_id.to_owned(),
-            source_run_id: source_run_id.to_owned(),
-            source_generation_id: source_generation_id.to_owned(),
-            project_id: source_revision.project_id.clone(),
-            source_snapshot_id: source_revision.snapshot_id.clone(),
+            project_id: first_revision.project_id.clone(),
+            source_snapshot_id: first_revision.snapshot_id.clone(),
             target_snapshot_id: target_revision.snapshot_id.clone(),
-            source_revision_id: source_revision.revision_id.clone(),
-            source_section_id: source_section.section_id.clone(),
-            source_section_revision_id: source_section.section_revision_id.clone(),
-            source_section_sha256: section_digest(source_section)?,
-            target_section_sha256: section_digest(target_section)?,
+            sections,
         })
     }
 
     fn validate(&self, revision: &ChapterRevision) -> Result<(), String> {
-        let Some(section) = revision.sections.first() else {
-            return Err("A carried Guide revision has no section.".into());
-        };
-        let source_generation_id = self
-            .source_generation_id
-            .strip_prefix("generation:")
-            .is_some_and(canonical_uuid);
         if self.schema_version != 1
             || !canonical_uuid(&self.operation_id)
             || !canonical_uuid(&self.target_guide_id)
             || !canonical_uuid(&self.source_guide_id)
-            || !canonical_uuid(&self.source_run_id)
-            || !source_generation_id
             || !project_identity(&self.project_id)
             || !local_id(&self.source_snapshot_id)
             || !local_id(&self.target_snapshot_id)
             || self.source_snapshot_id == self.target_snapshot_id
-            || !local_id(&self.source_revision_id)
-            || !local_id(&self.source_section_id)
-            || !local_id(&self.source_section_revision_id)
-            || self.source_section_revision_id == section.section_revision_id
-            || !digest(&self.source_section_sha256)
-            || !digest(&self.target_section_sha256)
             || revision.project_id != self.project_id
             || revision.snapshot_id != self.target_snapshot_id
-            || revision.based_on_revision_id.as_deref() != Some(&self.source_revision_id)
             || revision.generation_origin.is_some()
-            || revision.sections.len() != 1
-            || section.section_id != self.source_section_id
-            || section_digest(section)? != self.target_section_sha256
+            || self.sections.is_empty()
+            || revision.sections.len() != self.sections.len()
+            || !revision
+                .sections
+                .iter()
+                .zip(&self.sections)
+                .all(|(section, origin)| {
+                    let generation_id = origin
+                        .source_generation_id
+                        .strip_prefix("generation:")
+                        .is_some_and(canonical_uuid);
+                    canonical_uuid(&origin.source_run_id)
+                        && generation_id
+                        && local_id(&origin.source_revision_id)
+                        && local_id(&origin.source_section_id)
+                        && local_id(&origin.source_section_revision_id)
+                        && origin.source_section_revision_id != section.section_revision_id
+                        && digest(&origin.source_section_sha256)
+                        && digest(&origin.target_section_sha256)
+                        && section.section_id == origin.source_section_id
+                        && section_digest(section)
+                            .is_ok_and(|digest| digest == origin.target_section_sha256)
+                })
+            || !self.sections.iter().any(|origin| {
+                revision.based_on_revision_id.as_deref() == Some(&origin.source_revision_id)
+            })
+            || self.sections.iter().enumerate().any(|(index, origin)| {
+                self.sections.iter().skip(index + 1).any(|other| {
+                    origin.source_revision_id == other.source_revision_id
+                        && origin.source_section_revision_id == other.source_section_revision_id
+                })
+            })
         {
             return Err("The carried Guide revision has invalid source or target lineage.".into());
         }
@@ -773,8 +806,7 @@ impl ChapterGenerationOrigin {
 pub(crate) fn validate_revision_origin(revision: &ChapterRevision) -> Result<(), String> {
     if revision.generation_origin.is_some() && revision.guide_carry_forward.is_some() {
         return Err(
-            "A chapter revision cannot claim both agent generation and Guide carry-forward."
-                .into(),
+            "A chapter revision cannot claim both agent generation and Guide carry-forward.".into(),
         );
     }
     if let Some(origin) = &revision.generation_origin {
@@ -898,14 +930,16 @@ mod tests {
         }
         revision.sections = vec![section.clone()];
         revision.guide_carry_forward = Some(
-            GuideCarryForwardOrigin::for_section(
+            GuideCarryForwardOrigin::for_sections(
                 &Uuid::new_v4().to_string(),
                 &Uuid::new_v4().to_string(),
                 &Uuid::new_v4().to_string(),
-                &Uuid::new_v4().to_string(),
-                &format!("generation:{}", Uuid::new_v4()),
-                source,
-                source_section,
+                &[(
+                    &Uuid::new_v4().to_string(),
+                    &format!("generation:{}", Uuid::new_v4()),
+                    source,
+                    source_section,
+                )],
                 &revision,
             )
             .unwrap(),
@@ -921,11 +955,12 @@ mod tests {
 
         validate_revision_origin(&revision).unwrap();
         let origin = revision.guide_carry_forward.as_ref().unwrap();
+        let lineage = &origin.sections[0];
         assert_ne!(origin.source_snapshot_id, origin.target_snapshot_id);
-        assert_eq!(origin.source_revision_id, source.revision_id);
-        assert_eq!(origin.source_section_id, source.sections[0].section_id);
+        assert_eq!(lineage.source_revision_id, source.revision_id);
+        assert_eq!(lineage.source_section_id, source.sections[0].section_id);
         assert_eq!(
-            origin.target_section_sha256,
+            lineage.target_section_sha256,
             section_digest(&revision.sections[0]).unwrap()
         );
         let round_trip =
@@ -954,6 +989,68 @@ mod tests {
         let mut changed_parent = revision.clone();
         changed_parent.based_on_revision_id = Some("revision:another-source".into());
         assert!(validate_revision_origin(&changed_parent).is_err());
+    }
+
+    #[test]
+    fn guide_carry_forward_origin_binds_every_slide_in_a_target_batch() {
+        let fixture = Fixture::new();
+        let mut source = chapter(&fixture);
+        let mut second_source_section = source.sections[0].clone();
+        second_source_section.section_id = "section:second-guide-slide".into();
+        second_source_section.section_revision_id = "sectionrev:second-guide-slide".into();
+        second_source_section.order = 1;
+        source.sections.push(second_source_section.clone());
+        let second_source_index = source.sections.len() - 1;
+
+        let mut target = carried_chapter(&source);
+        let mut second_target_section = second_source_section.clone();
+        second_target_section.section_revision_id = "sectionrev:carried-second-slide".into();
+        for anchor in second_target_section
+            .claims
+            .iter_mut()
+            .flat_map(|claim| &mut claim.anchors)
+        {
+            anchor.snapshot_id = target.snapshot_id.clone();
+        }
+        target.sections.push(second_target_section);
+        assert_eq!(target.sections[0].section_id, source.sections[0].section_id);
+        assert_eq!(
+            target.sections[1].section_id,
+            source.sections[second_source_index].section_id
+        );
+        target.guide_carry_forward = Some(
+            GuideCarryForwardOrigin::for_sections(
+                &Uuid::new_v4().to_string(),
+                &Uuid::new_v4().to_string(),
+                &Uuid::new_v4().to_string(),
+                &[
+                    (
+                        &Uuid::new_v4().to_string(),
+                        &format!("generation:{}", Uuid::new_v4()),
+                        &source,
+                        &source.sections[0],
+                    ),
+                    (
+                        &Uuid::new_v4().to_string(),
+                        &format!("generation:{}", Uuid::new_v4()),
+                        &source,
+                        &source.sections[second_source_index],
+                    ),
+                ],
+                &target,
+            )
+            .unwrap(),
+        );
+
+        validate_revision_origin(&target).unwrap();
+        let mut missing_lineage = target.clone();
+        missing_lineage
+            .guide_carry_forward
+            .as_mut()
+            .unwrap()
+            .sections
+            .pop();
+        assert!(validate_revision_origin(&missing_lineage).is_err());
     }
 
     #[test]
@@ -1032,10 +1129,7 @@ mod tests {
             "approvalPolicy": "dontAsk",
             "maxTurns": 2
         });
-        incomplete_claude
-            .as_object_mut()
-            .unwrap()
-            .remove("effort");
+        incomplete_claude.as_object_mut().unwrap().remove("effort");
         assert!(serde_json::from_value::<RecordedAgentSettings>(incomplete_claude).is_err());
         for version in [0, 1, 2, 3, 4, 5] {
             let mut unsupported = origin.clone();

@@ -22,7 +22,7 @@ import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visu
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory, languageSupportLabel, languageSupportNote, languageSupportTier, recommendedEntryPoint } from '../lib/inventory';
-import { assessRepositoryGuideFreshness, isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
+import { assessRepositoryGuideFreshness, carryRepositoryGuideSafeSections, isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type RepositoryGuideCarryResult, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
@@ -984,6 +984,7 @@ export function DeveloperWorkspace(props:Props) {
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)}
     latestSnapshotId={props.latestSnapshotId}
     onAssessGuideFreshness={isNativeRuntime()?(guideId,targetSnapshotId)=>assessRepositoryGuideFreshness(projectId,guideId,targetSnapshotId):undefined}
+    onCarryGuideSections={isNativeRuntime()?(guideId,targetSnapshotId)=>carryRepositoryGuideSafeSections(projectId,guideId,targetSnapshotId):undefined}
     onRestoreSaved={isNativeRuntime()?guideId=>restoreRepositoryGuide(projectId,snapshotId,guideId):undefined}
     onRetryGuideUnit={retryGuideUnit}
     onRegenerateGuideUnit={regenerateGuideUnit}
@@ -1300,7 +1301,7 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
@@ -1323,6 +1324,9 @@ function Answer(props:AnswerProps){
   const [guideFreshness,setGuideFreshness]=useState<{guideId:string;targetSnapshotId:string;report:RepositoryGuideFreshness}|null>(null);
   const [guideFreshnessBusy,setGuideFreshnessBusy]=useState(false);
   const [guideFreshnessError,setGuideFreshnessError]=useState<string|null>(null);
+  const [guideCarryBusy,setGuideCarryBusy]=useState(false);
+  const [guideCarryError,setGuideCarryError]=useState<string|null>(null);
+  const [guideCarryResult,setGuideCarryResult]=useState<RepositoryGuideCarryResult|null>(null);
   // Keep the topic plan available on demand without letting its long text
   // push the selected visual out of view by default.
   const guideOutlineOpen=guideOutlineState?.turnId===turn.id
@@ -1330,6 +1334,10 @@ function Answer(props:AnswerProps){
     :false;
   const latestGuideFreshness=turn.guide&&guideFreshness?.guideId===turn.guide.id
     &&guideFreshness.targetSnapshotId===props.latestSnapshotId?guideFreshness.report:null;
+  const carryableGuideSectionCount=latestGuideFreshness
+    ?[latestGuideFreshness.opening,...latestGuideFreshness.units].flatMap((unit)=>unit.sections)
+      .filter((section)=>(section.status==='safeToCarry'||(section.status==='current'&&section.evidenceState==='complete'))&&!section.carriedRevisionId).length
+    :0;
   const checkGuideFreshness=async()=>{
     if(!turn.guide||!props.latestSnapshotId||!props.onAssessGuideFreshness)return;
     setGuideFreshnessBusy(true);setGuideFreshnessError(null);
@@ -1339,6 +1347,26 @@ function Answer(props:AnswerProps){
       setGuideFreshness({guideId:turn.guide.id,targetSnapshotId,report});
     }catch(error){setGuideFreshnessError(errorMessageOr(error,'Source changes could not be checked.'))}
     finally{setGuideFreshnessBusy(false)}
+  };
+  const carrySafeGuideSections=async()=>{
+    if(!turn.guide||!props.latestSnapshotId||!props.onCarryGuideSections)return;
+    setGuideCarryBusy(true);setGuideCarryError(null);setGuideCarryResult(null);
+    try{
+      const targetSnapshotId=props.latestSnapshotId;
+      const result=await props.onCarryGuideSections(turn.guide.id,targetSnapshotId);
+      setGuideFreshness({guideId:turn.guide.id,targetSnapshotId,report:result.freshness});
+      setGuideCarryResult(result);
+    }catch(error){setGuideCarryError(errorMessageOr(error,'Unchanged slides could not be carried forward.'))}
+    finally{setGuideCarryBusy(false)}
+  };
+  const openCarriedRevision=async(revisionId:string)=>{
+    if(!turn.guide||!props.latestSnapshotId)return;
+    try{
+      const revisions=await listChapterRevisions(turn.guide.projectId,props.latestSnapshotId);
+      const revision=revisions.find((item)=>item.revisionId===revisionId);
+      if(revision)props.onReview(revision);
+      else setGuideCarryError('The carried draft is no longer available. Check the latest snapshot and try again.');
+    }catch(error){setGuideCarryError(errorMessageOr(error,'The carried draft could not be opened.'))}
   };
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
@@ -1484,17 +1512,31 @@ function Answer(props:AnswerProps){
         {latestGuideFreshness&&<>
           <p role="status">Source check: {guideFreshnessSummary(latestGuideFreshness)}.</p>
           <p className="dw-answer-note" role="note">This compares saved citations and known code links. A new or uncaptured path may still affect a topic.</p>
-          <ul className="dw-guide-freshness-list">{[latestGuideFreshness.opening,...latestGuideFreshness.units].filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
+          {carryableGuideSectionCount>0&&props.onCarryGuideSections&&<div className="dw-guide-carry-action">
+            <AppButton size="1" intent="secondary" disabled={guideCarryBusy} onClick={()=>void carrySafeGuideSections()}>{guideCarryBusy?'Saving unchanged slides…':`Carry unchanged slides to latest (${carryableGuideSectionCount})`}</AppButton>
+            <span>Changed slides stay here for review.</span>
+          </div>}
+          {guideCarryError&&<p role="alert">{guideCarryError}</p>}
+          {guideCarryResult&&<div className="dw-guide-carry-result" role="status">
+            {guideCarryResult.savedRevisions.length===0&&guideCarryResult.failures.length===0&&<p>No unchanged slides needed copying.</p>}
+            {guideCarryResult.savedRevisions.length>0&&<>
+              <p>{guideCarryResult.savedRevisions.reduce((count,revision)=>count+revision.sections.length,0)} unchanged {guideCarryResult.savedRevisions.reduce((count,revision)=>count+revision.sections.length,0)===1?'slide was':'slides were'} saved for review.</p>
+              {guideCarryResult.savedRevisions.map((revision)=><AppButton key={revision.revisionId} size="1" intent="quiet" onClick={()=>props.onReview(revision)}>Review {revision.sections.length} slides · {revision.title}</AppButton>)}
+            </>}
+            {guideCarryResult.failures.length>0&&<details><summary>{guideCarryResult.failures.length} slide{guideCarryResult.failures.length===1?'':'s'} need review</summary><ul>{guideCarryResult.failures.map((failure,index)=><li key={`${failure.sectionId??'unknown'}:${index}`}>{failure.reason}</li>)}</ul></details>}
+          </div>}
+          <ul className="dw-guide-freshness-list">{[latestGuideFreshness.opening,...latestGuideFreshness.units].filter((unit)=>unit.status!=='current'||unit.sections.some((part)=>part.status==='safeToCarry'||(part.status==='current'&&part.evidenceState==='complete')||part.carriedRevisionId)).map((unit)=><li key={unit.key}>
             {unit.key==='opening'&&<strong>Opening · </strong>}<InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
             {unit.sections.length>0&&<ul className="dw-guide-freshness-parts" aria-label={`Slides in ${unit.question}`}>{unit.sections.map((part,index)=>{
               const sectionId=part.sectionId;
               const revision=chapters?.find((chapter)=>chapter.revisionId===part.revisionId);
               const chapterSection=revision?.sections.find((section)=>section.sectionId===sectionId);
-              const label=part.status==='current'?'Unchanged':part.status==='safeToCarry'?'Safe to carry':part.status==='stale'?'Source changed':'Needs review';
+              const label=part.carriedRevisionId?'Carried to latest':part.status==='current'?'Unchanged':part.status==='safeToCarry'?'Safe to carry':part.status==='stale'?'Source changed':'Needs review';
               return <li key={`${part.revisionId}:${part.sectionRevisionId??index}`}>
                 <span>{chapterSection?.title??`Slide ${index+1}`}</span>
                 <span className={`dw-guide-freshness-status is-${part.status}`}>{label}</span>
                 {sectionId&&chapterSection&&<AppButton size="1" intent="quiet" aria-label={`Open slide ${chapterSection.title}`} onClick={()=>props.onFocus(part.revisionId,sectionId)}>Open slide</AppButton>}
+                {part.carriedRevisionId&&<AppButton size="1" intent="quiet" onClick={()=>void openCarriedRevision(part.carriedRevisionId!)}>Review latest draft</AppButton>}
                 {part.sourceChanges.length>0&&<details className="dw-guide-section-changes">
                   <summary>Changed code ({part.sourceChanges.length})</summary>
                   <ul>{part.sourceChanges.map((change,changeIndex)=><li key={`${change.path}:${change.kind}:${changeIndex}`}>

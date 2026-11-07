@@ -123,9 +123,9 @@ pub fn append_review_revision(
     append_revision(storage_dir, &mut revision, AppendMode::Review)
 }
 
-/// Publish one source-validated Guide slide as a new immutable draft for a
-/// different snapshot. The explicit carry origin is checked against the exact
-/// stored source revision before the target evidence is validated and saved.
+/// Publish source-validated Guide slides as one immutable target draft for a
+/// different snapshot. Every lineage is checked against its exact source
+/// revision before target evidence is validated and saved.
 pub fn append_carried_guide_draft(
     storage_dir: &Path,
     mut revision: ChapterRevision,
@@ -139,7 +139,9 @@ pub fn append_carried_guide_draft(
         .guide_carry_forward
         .as_ref()
         .ok_or("The carried Guide slide is missing its local lineage.")?;
-    if revision.based_on_revision_id.as_deref() != Some(origin.source_revision_id.as_str()) {
+    if !origin.sections.iter().any(|lineage| {
+        revision.based_on_revision_id.as_deref() == Some(lineage.source_revision_id.as_str())
+    }) {
         return Err(
             "The carried Guide slide does not point to its recorded source revision.".into(),
         );
@@ -330,8 +332,7 @@ fn append_revision(
             .iter()
             .find(|item| item.revision_id == source_id)
             .ok_or("The carried Guide source revision is unavailable.")?;
-        if source.revision_id != origin.source_revision_id
-            || source.project_id != revision.project_id
+        if source.project_id != revision.project_id
             || source.snapshot_id != origin.source_snapshot_id
             || source.snapshot_id == revision.snapshot_id
             || source.chapter_id != revision.chapter_id
@@ -342,28 +343,58 @@ fn append_revision(
                 "The carried Guide source does not match its saved chapter lineage.".into(),
             );
         }
-        let source_section = source
+        if !origin
             .sections
             .iter()
-            .find(|section| {
-                section.section_id == origin.source_section_id
-                    && section.section_revision_id == origin.source_section_revision_id
-            })
-            .ok_or("The carried Guide source section is unavailable.")?;
-        if crate::chapter_origin::section_digest(source_section)? != origin.source_section_sha256 {
-            return Err("The carried Guide source section changed after freshness review.".into());
+            .any(|lineage| lineage.source_revision_id == source_id)
+        {
+            return Err(
+                "The carried Guide revision does not include its parent source slide.".into(),
+            );
         }
-        let existing_carry = existing.revisions.iter().any(|item| {
-            item.guide_carry_forward.as_ref().is_some_and(|saved| {
-                saved.source_guide_id == origin.source_guide_id
-                    && saved.target_guide_id == origin.target_guide_id
-                    && saved.source_revision_id == origin.source_revision_id
-                    && saved.source_section_revision_id == origin.source_section_revision_id
-                    && saved.target_snapshot_id == origin.target_snapshot_id
-            })
-        });
-        if existing_carry {
-            return Err("This Guide slide was already carried into the selected snapshot.".into());
+        for lineage in &origin.sections {
+            let source_revision = existing
+                .revisions
+                .iter()
+                .find(|item| item.revision_id == lineage.source_revision_id)
+                .ok_or("A carried Guide source revision is unavailable.")?;
+            let source_section = source_revision
+                .sections
+                .iter()
+                .find(|section| {
+                    section.section_id == lineage.source_section_id
+                        && section.section_revision_id == lineage.source_section_revision_id
+                })
+                .ok_or("A carried Guide source section is unavailable.")?;
+            if source_revision.project_id != origin.project_id
+                || source_revision.snapshot_id != origin.source_snapshot_id
+                || source_revision.chapter_id != revision.chapter_id
+                || source_revision.target != revision.target
+                || crate::chapter_origin::section_digest(source_section)?
+                    != lineage.source_section_sha256
+            {
+                return Err(
+                    "A carried Guide source section changed after freshness review.".into(),
+                );
+            }
+            let already_carried = existing.revisions.iter().any(|item| {
+                item.guide_carry_forward.as_ref().is_some_and(|saved| {
+                    saved.source_guide_id == origin.source_guide_id
+                        && saved.target_guide_id == origin.target_guide_id
+                        && saved.target_snapshot_id == origin.target_snapshot_id
+                        && saved.sections.iter().any(|saved_lineage| {
+                            saved_lineage.source_revision_id == lineage.source_revision_id
+                                && saved_lineage.source_section_revision_id
+                                    == lineage.source_section_revision_id
+                        })
+                })
+            });
+            if already_carried {
+                return Err(
+                    "A Guide slide in this batch was already carried into the selected snapshot."
+                        .into(),
+                );
+            }
         }
     }
     revision.revision_number = last_number
@@ -779,20 +810,42 @@ fn validate_project_revision_order(
                 }
             } else {
                 if let Some(origin) = &revision.guide_carry_forward {
-                    let source_section = parent.sections.iter().find(|section| {
-                        section.section_id == origin.source_section_id
-                            && section.section_revision_id == origin.source_section_revision_id
-                    });
-                    let source_matches = source_section.is_some_and(|section| {
-                        crate::chapter_origin::section_digest(section)
-                            .is_ok_and(|digest| digest == origin.source_section_sha256)
+                    let source_section_matches_parent = origin
+                        .sections
+                        .iter()
+                        .any(|lineage| lineage.source_revision_id == parent_id);
+                    let source_sections_match = origin.sections.iter().all(|lineage| {
+                        revisions
+                            .iter()
+                            .find(|item| {
+                                item.revision_id == lineage.source_revision_id
+                                    && item.project_id == origin.project_id
+                                    && item.snapshot_id == origin.source_snapshot_id
+                                    && item.chapter_id == revision.chapter_id
+                                    && item.target == revision.target
+                            })
+                            .is_some_and(|source| {
+                                source
+                                    .sections
+                                    .iter()
+                                    .find(|section| {
+                                        section.section_id == lineage.source_section_id
+                                            && section.section_revision_id
+                                                == lineage.source_section_revision_id
+                                    })
+                                    .is_some_and(|section| {
+                                        crate::chapter_origin::section_digest(section).is_ok_and(
+                                            |digest| digest == lineage.source_section_sha256,
+                                        )
+                                    })
+                            })
                     });
                     if revision.lifecycle != RevisionLifecycle::Draft
-                        || origin.source_revision_id != parent_id
+                        || !source_section_matches_parent
+                        || !source_sections_match
                         || origin.project_id != revision.project_id
                         || origin.source_snapshot_id != parent.snapshot_id
                         || origin.target_snapshot_id != revision.snapshot_id
-                        || !source_matches
                     {
                         return Err(
                             "A carried Guide revision does not match its immutable source section."

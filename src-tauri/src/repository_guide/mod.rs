@@ -21,6 +21,7 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
+mod carry;
 mod freshness;
 mod opening;
 mod opening_continuation;
@@ -341,9 +342,7 @@ fn scoped(storage: &Path, id: &str, project: &str, snapshot: &str) -> Result<Rec
     Ok(record)
 }
 fn unit_complete(unit: &Unit) -> bool {
-    unit.attempts
-        .iter()
-        .any(unit_attempt_complete)
+    unit.attempts.iter().any(unit_attempt_complete)
 }
 fn unit_attempt_complete(attempt: &Attempt) -> bool {
     attempt
@@ -439,15 +438,12 @@ fn unit_version_capacity_available(record: &Record, index: usize) -> bool {
         && record.active_run_id.is_none()
         && published_slide_count(record).saturating_sub(record.consumed_slide_revisions.len())
             < GUIDE_SLIDE_BUFFER
-        && record
-            .units
-            .get(index)
-            .is_some_and(|unit| {
-                unit_complete(unit)
-                    && (unit_latest_attempt_complete(unit)
-                        || unit_latest_attempt_incomplete_after_completion(unit))
-                    && unit.attempts.len() < MAX_ATTEMPTS
-            })
+        && record.units.get(index).is_some_and(|unit| {
+            unit_complete(unit)
+                && (unit_latest_attempt_complete(unit)
+                    || unit_latest_attempt_incomplete_after_completion(unit))
+                && unit.attempts.len() < MAX_ATTEMPTS
+        })
 }
 
 /// A completed unit may receive a fresh, append-only version while its
@@ -805,8 +801,7 @@ fn begin_unit_attempt(
             || current.active_run_id.is_some()
             || (!unit_research_eligible(current, index)
                 && !(allow_completed
-                    && (unit_regenerable(current, index)
-                        || unit_version_building(current, index))))
+                    && (unit_regenerable(current, index) || unit_version_building(current, index))))
         {
             return Err("The guide changed before its investigation started. Saved progress was preserved; no operation was dispatched.".into());
         }
@@ -1686,8 +1681,8 @@ fn build_inner(
             let mut automatic_retry = false;
             loop {
                 record = store::read(storage, id)?;
-                let is_regeneration_target = only_unit_key
-                    == record.units.get(index).map(|unit| unit.key.as_str());
+                let is_regeneration_target =
+                    only_unit_key == record.units.get(index).map(|unit| unit.key.as_str());
                 let new_version = regenerate_unit
                     && is_regeneration_target
                     && unit_version_building(&record, index);
@@ -2479,6 +2474,33 @@ pub(crate) async fn assess_repository_guide_freshness(
         "The Guide source comparison could not be completed. Existing explanations were preserved."
             .to_owned()
     })?
+}
+
+/// Carry unchanged Guide slides into a newer local snapshot after rechecking
+/// their current freshness. No agent or narration service is called.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn carry_repository_guide_safe_sections(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    write_lock: State<'_, crate::ChapterStoreLock>,
+    project_id: String,
+    guide_id: String,
+    target_snapshot_id: String,
+) -> Result<carry::CarryResult, String> {
+    let _project = sessions.get(&project_id)?;
+    let _guard = write_lock
+        .0
+        .lock()
+        .map_err(|_| "The local chapter store is temporarily unavailable.".to_owned())?;
+    let storage = app_data_directory(&app)?;
+    let record = store::read(&storage, &guide_id)?;
+    if record.id != guide_id
+        || record.project_id != project_id
+        || record.snapshot_id == target_snapshot_id
+    {
+        return Err("Choose a newer snapshot for this saved Guide.".into());
+    }
+    carry::carry_safe_sections(&storage, &record, &target_snapshot_id)
 }
 
 fn planning_timing_scope(

@@ -672,6 +672,7 @@ export interface RepositoryGuideSectionFreshness {
   revisionId: string;
   sectionId: string | null;
   sectionRevisionId: string | null;
+  carriedRevisionId: string | null;
   status: ChapterFreshnessStatus;
   evidenceState: ChapterFreshnessEvidenceState;
   sourceChanges: ChapterFreshnessSourceChange[];
@@ -693,6 +694,15 @@ export interface RepositoryGuideFreshness {
   toSnapshotId: string;
   opening: RepositoryGuideUnitFreshness;
   units: RepositoryGuideUnitFreshness[];
+}
+export interface RepositoryGuideCarryFailure {
+  sectionId: string | null;
+  reason: string;
+}
+export interface RepositoryGuideCarryResult {
+  savedRevisions: ChapterRevision[];
+  failures: RepositoryGuideCarryFailure[];
+  freshness: RepositoryGuideFreshness;
 }
 
 export interface IndexProgress {
@@ -1321,6 +1331,18 @@ export async function assessRepositoryGuideFreshness(
   targetSnapshotId: string,
 ): Promise<RepositoryGuideFreshness> {
   return invoke<RepositoryGuideFreshness>('assess_repository_guide_freshness', {
+    projectId,
+    guideId,
+    targetSnapshotId,
+  });
+}
+
+export async function carryRepositoryGuideSafeSections(
+  projectId: string,
+  guideId: string,
+  targetSnapshotId: string,
+): Promise<RepositoryGuideCarryResult> {
+  return invoke<RepositoryGuideCarryResult>('carry_repository_guide_safe_sections', {
     projectId,
     guideId,
     targetSnapshotId,

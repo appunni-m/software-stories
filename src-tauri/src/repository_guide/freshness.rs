@@ -35,6 +35,7 @@ pub(crate) struct GuideSectionFreshness {
     pub(crate) revision_id: String,
     pub(crate) section_id: Option<String>,
     pub(crate) section_revision_id: Option<String>,
+    pub(crate) carried_revision_id: Option<String>,
     pub(crate) status: SectionFreshnessStatus,
     pub(crate) evidence_state: EvidenceState,
     pub(crate) source_changes: Vec<chapter_freshness::FreshnessSourceChange>,
@@ -72,10 +73,31 @@ pub(crate) fn assess(
     let from_index =
         crate::index::load_snapshot_index(storage, &guide.project_id, &guide.snapshot_id)?;
     let to_index = crate::index::load_snapshot_index(storage, &guide.project_id, to_snapshot_id)?;
-    let revisions =
-        crate::chapter_store::list_for_snapshot(storage, &guide.project_id, &guide.snapshot_id)?;
-    let revisions = revisions
+    let all_revisions = crate::chapter_store::list_for_project(storage, &guide.project_id)?;
+    let carried_revisions = all_revisions
+        .iter()
+        .filter_map(|revision| {
+            let origin = revision.guide_carry_forward.as_ref()?;
+            (origin.source_guide_id == guide.id
+                && origin.target_guide_id == guide.id
+                && origin.target_snapshot_id == to_snapshot_id)
+                .then_some((revision, origin))
+        })
+        .flat_map(|(revision, origin)| {
+            origin.sections.iter().map(move |lineage| {
+                (
+                    (
+                        lineage.source_revision_id.clone(),
+                        lineage.source_section_revision_id.clone(),
+                    ),
+                    revision.revision_id.clone(),
+                )
+            })
+        })
+        .collect::<HashMap<_, _>>();
+    let revisions = all_revisions
         .into_iter()
+        .filter(|revision| revision.snapshot_id == guide.snapshot_id)
         .map(|revision| (revision.revision_id.clone(), revision))
         .collect::<HashMap<_, _>>();
 
@@ -93,6 +115,7 @@ pub(crate) fn assess(
         guide,
         opening_question,
         &revisions,
+        &carried_revisions,
     );
 
     let Some(plan) = guide.plan.as_ref() else {
@@ -126,6 +149,7 @@ pub(crate) fn assess(
                 planned.question.as_str(),
                 &planned.prerequisites,
                 &revisions,
+                &carried_revisions,
             )
         })
         .collect::<Vec<_>>();
@@ -152,6 +176,7 @@ fn assess_unit(
     question: &str,
     prerequisites: &[String],
     revisions: &HashMap<String, ChapterRevision>,
+    carried_revisions: &HashMap<(String, String), String>,
 ) -> GuideUnitFreshness {
     let selected = selected_attempt(unit);
     let mut output = GuideUnitFreshness {
@@ -198,6 +223,7 @@ fn assess_unit(
         to_index,
         answer.sections.iter(),
         revisions,
+        carried_revisions,
     );
 
     output.status = aggregate_sections(&output.sections);
@@ -228,6 +254,7 @@ fn assess_opening(
     guide: &Record,
     question: &str,
     revisions: &HashMap<String, ChapterRevision>,
+    carried_revisions: &HashMap<(String, String), String>,
 ) -> GuideUnitFreshness {
     let attempts = guide
         .opening
@@ -258,6 +285,7 @@ fn assess_opening(
             .filter_map(|attempt| attempt.summary.as_ref())
             .flat_map(|answer| answer.sections.iter()),
         revisions,
+        carried_revisions,
     );
 
     let Some(latest) = attempts.last() else {
@@ -298,6 +326,7 @@ fn assess_notices<'a>(
     to_index: Option<&crate::index::SnapshotIndex>,
     notices: impl Iterator<Item = &'a SectionNotice>,
     revisions: &HashMap<String, ChapterRevision>,
+    carried_revisions: &HashMap<(String, String), String>,
 ) -> Vec<GuideSectionFreshness> {
     let mut assessed = Vec::new();
     for notice in notices {
@@ -306,6 +335,7 @@ fn assess_notices<'a>(
                 revision_id: notice.revision_id.clone(),
                 section_id: None,
                 section_revision_id: None,
+                carried_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
                 source_changes: Vec::new(),
@@ -325,6 +355,7 @@ fn assess_notices<'a>(
                 revision_id: notice.revision_id.clone(),
                 section_id: None,
                 section_revision_id: None,
+                carried_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
                 source_changes: Vec::new(),
@@ -348,6 +379,12 @@ fn assess_notices<'a>(
                     GuideSectionFreshness {
                         revision_id: revision.revision_id.clone(),
                         section_id: Some(section.section_id),
+                        carried_revision_id: carried_revisions
+                            .get(&(
+                                revision.revision_id.clone(),
+                                section.section_revision_id.clone(),
+                            ))
+                            .cloned(),
                         section_revision_id: Some(section.section_revision_id),
                         status: section.status,
                         evidence_state: section.evidence_state,
@@ -364,6 +401,7 @@ fn assess_notices<'a>(
                 revision_id: notice.revision_id.clone(),
                 section_id: None,
                 section_revision_id: None,
+                carried_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
                 source_changes: Vec::new(),
@@ -618,6 +656,7 @@ mod tests {
             None,
             std::iter::once(&notice),
             &revisions,
+            &HashMap::new(),
         );
 
         assert_eq!(assessed.len(), 1);
@@ -649,6 +688,7 @@ mod tests {
             None,
             &guide,
             super::super::opening::LEARNING_QUESTION,
+            &HashMap::new(),
             &HashMap::new(),
         );
 

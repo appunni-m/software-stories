@@ -530,6 +530,11 @@ html[data-app-zoom-compact="true"] .developer-workspace .dw-sidebar-back {displa
 .dw-guide-outline p { font-size: 12px; line-height: 1.5; }
 .dw-guide-freshness { display: grid; justify-items: start; gap: var(--space-2); margin-block: var(--space-3); padding: var(--space-3); border: 1px solid var(--gray-6); border-radius: var(--radius-2); background: var(--gray-2); }
 .dw-guide-freshness > p { margin: 0; color: var(--gray-11); }
+.dw-guide-carry-action, .dw-guide-carry-result { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.dw-guide-carry-action > span { color: var(--gray-10); font-size: 12px; }
+.dw-guide-carry-result { width: 100%; }
+.dw-guide-carry-result > p { margin: 0; color: var(--gray-11); }
+.dw-guide-carry-result details { flex-basis: 100%; }
 .dw-guide-freshness-list { display: grid; gap: var(--space-2); width: 100%; margin: 0; padding: 0; list-style: none; }
 .dw-guide-freshness-list > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding-block: var(--space-1); }
 .dw-guide-freshness-status { padding: 1px var(--space-2); border: 1px solid var(--gray-6); border-radius: 999px; color: var(--gray-11); font-size: 11px; }
