@@ -22,7 +22,7 @@ import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visu
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory, languageSupportLabel, languageSupportNote, languageSupportTier, recommendedEntryPoint } from '../lib/inventory';
-import { assessRepositoryGuideFreshness, carryRepositoryGuideSafeSections, isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type RepositoryGuideCarryResult, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
+import { assessRepositoryGuideFreshness, carryRepositoryGuideSafeSections, isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterFreshnessLineRange, type ChapterRevision, type ChapterSourceAnchor, type RepositoryGuideCarryResult, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
@@ -66,6 +66,7 @@ interface Props {
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onPlanRoute?:(question:string,selectedPaths:string[])=>void; onOpenPlanHistory?:()=>void;
   onReview:(revision:ChapterRevision)=>void;
+  onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void;
   onCompare:(base:string,head:string,remember?:boolean)=>void; onRememberFile:(path:string)=>void;
   onAnswerRestoration:(state:WorkspaceAnswerRestoration)=>void;
   conversationAvailability?:'ready'|'unavailable';
@@ -980,6 +981,7 @@ export function DeveloperWorkspace(props:Props) {
     revision={chapters.find((revision)=>revision.revisionId===turn.revisionId)}
     branches={branchOverride??branchesByTurn.get(turn.id)??[]} hideQuestion={hideQuestion}
     onGo={go} onOpen={(anchor)=>openFile(fromAnchor(anchor))} onDestination={openDestination}
+    onOpenFreshnessRange={props.onOpenFreshnessRange}
     onBranch={(question,context)=>branch(turn,question,context)} onExploreOmissions={exploreGuideOmissions}
     onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>retryTurn(turn)}
     latestSnapshotId={props.latestSnapshotId}
@@ -1301,7 +1303,7 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
@@ -1542,6 +1544,7 @@ function Answer(props:AnswerProps){
                   <ul>{part.sourceChanges.map((change,changeIndex)=><li key={`${change.path}:${change.kind}:${changeIndex}`}>
                     <InlineCodeText text={change.path}/><span>{change.kind}</span>
                     <span>{change.oldRange?`Saved L${change.oldRange.startLine}–${change.oldRange.endLine}`:'No saved range'} → {change.newRange?`Latest L${change.newRange.startLine}–${change.newRange.endLine}`:'No matching latest range'}</span>
+                    {change.newRange&&props.onOpenFreshnessRange&&<AppButton size="1" intent="quiet" aria-label={`Open latest code ${change.newRange.path} lines ${change.newRange.startLine} to ${change.newRange.endLine}`} onClick={()=>props.onOpenFreshnessRange?.(change.newRange!)}>Open latest code</AppButton>}
                   </li>)}</ul>
                 </details>}
               </li>;

@@ -28,6 +28,15 @@ test('Guide slide navigation stays in normal reading flow after the section', ()
   assert.doesNotMatch(rule, /(?:top|bottom|inset)\s*:/, 'navigation does not overlay the visual');
 });
 
+test('Guide freshness opens the exact changed range from its newer snapshot', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(workspace, /onOpenFreshnessRange\?\:\(range\:ChapterFreshnessLineRange\)=>void/);
+  assert.match(workspace, /aria-label=\{`Open latest code \$\{change\.newRange\.path\} lines \$\{change\.newRange\.startLine\} to \$\{change\.newRange\.endLine\}`\}/);
+  assert.match(workspace, /onClick=\{\(\)=>props\.onOpenFreshnessRange\?\.\(change\.newRange!\)\}>Open latest code/);
+  assert.match(app, /openCapturedFile\(range\.path, range\.snapshotId, \{\s*startLine: range\.startLine,\s*endLine: range\.endLine,\s*sourceSha256: range\.sourceSha256,/);
+});
+
 test('the Guide stack counts retained failed branch questions without calling them answers', () => {
   let state = stateWith(turn('stopped-parent', 'stopped'));
   state = addTurn(state, turn('stopped-child', 'stopped'), 'guide', { id: 'child', originTurnId: 'stopped-parent' });

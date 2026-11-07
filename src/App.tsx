@@ -2160,6 +2160,11 @@ function App() {
                 sidebarActivity: sidebarActivity === 'changes' ? 'files' : sidebarActivity,
               }))}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision}
+              onOpenFreshnessRange={(range) => openCapturedFile(range.path, range.snapshotId, {
+                startLine: range.startLine,
+                endLine: range.endLine,
+                sourceSha256: range.sourceSha256,
+              })}
               onPlanRoute={(question,selectedPaths)=>{
                 if(!currentProject||!selectedSnapshot)return;
                 const projectId=currentProject.projectId;const snapshotId=selectedSnapshot.snapshotId;
