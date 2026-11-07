@@ -1281,7 +1281,7 @@ function guideFreshnessSummary(report:RepositoryGuideFreshness):string {
   const review=entries.filter(unit=>unit.status==='needsReview').length;
   const unaffected=entries.filter(unit=>unit.status==='current'||unit.status==='safeToCarry').length;
   const notReady=entries.filter(unit=>unit.status==='incomplete'||unit.status==='pending').length;
-  return [`${changed} changed`,`${review} need review`,`${unaffected} unaffected`,notReady?`${notReady} not ready`:null].filter((part):part is string=>Boolean(part)).join(' · ');
+  return [`${changed} changed`,`${review} need review`,`${unaffected} citations unchanged`,notReady?`${notReady} not ready`:null].filter((part):part is string=>Boolean(part)).join(' · ');
 }
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
@@ -1451,6 +1451,7 @@ function Answer(props:AnswerProps){
         {guideFreshnessError&&<p role="alert">{guideFreshnessError}</p>}
         {latestGuideFreshness&&<>
           <p role="status">Source check: {guideFreshnessSummary(latestGuideFreshness)}.</p>
+          <p className="dw-answer-note" role="note">This compares saved citations and known code links. A new or uncaptured path may still affect a topic.</p>
           <ul className="dw-guide-freshness-list">{[latestGuideFreshness.opening,...latestGuideFreshness.units].filter((unit)=>unit.status!=='current'&&unit.status!=='safeToCarry').map((unit)=><li key={unit.key}>
             {unit.key==='opening'&&<strong>Opening · </strong>}<InlineCodeText text={unit.question}/><span className={`dw-guide-freshness-status is-${unit.status}`}>{unit.status==='stale'?'Source changed':unit.status==='needsReview'?'Needs review':unit.status==='incomplete'?'Incomplete':'Not generated'}</span>
             {unit.reasons.length>0&&<details><summary>Why</summary><ul>{unit.reasons.map((reason,index)=><li key={`${unit.key}:${index}`}>{reason}</li>)}</ul></details>}
