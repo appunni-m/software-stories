@@ -37,6 +37,7 @@ pub(crate) struct GuideSectionFreshness {
     pub(crate) section_revision_id: Option<String>,
     pub(crate) status: SectionFreshnessStatus,
     pub(crate) evidence_state: EvidenceState,
+    pub(crate) source_changes: Vec<chapter_freshness::FreshnessSourceChange>,
     pub(crate) reasons: Vec<String>,
 }
 
@@ -307,6 +308,7 @@ fn assess_notices<'a>(
                 section_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
+                source_changes: Vec::new(),
                 reasons: vec!["The saved source-linked slide is unavailable.".into()],
             });
             continue;
@@ -327,6 +329,7 @@ fn assess_notices<'a>(
                         section_revision_id: Some(section.section_revision_id),
                         status: section.status,
                         evidence_state: section.evidence_state,
+                        source_changes: section.source_changes,
                         reasons: section
                             .reasons
                             .into_iter()
@@ -341,6 +344,7 @@ fn assess_notices<'a>(
                 section_revision_id: None,
                 status: SectionFreshnessStatus::NeedsReview,
                 evidence_state: EvidenceState::Unavailable,
+                source_changes: Vec::new(),
                 reasons: vec!["The saved source scope could not be verified.".into()],
             }),
         }

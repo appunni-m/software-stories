@@ -674,6 +674,7 @@ export interface RepositoryGuideSectionFreshness {
   sectionRevisionId: string | null;
   status: ChapterFreshnessStatus;
   evidenceState: ChapterFreshnessEvidenceState;
+  sourceChanges: ChapterFreshnessSourceChange[];
   reasons: string[];
 }
 export interface RepositoryGuideUnitFreshness {

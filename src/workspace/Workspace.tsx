@@ -1463,6 +1463,13 @@ function Answer(props:AnswerProps){
                 <span>{chapterSection?.title??`Slide ${index+1}`}</span>
                 <span className={`dw-guide-freshness-status is-${part.status}`}>{label}</span>
                 {sectionId&&chapterSection&&<AppButton size="1" intent="quiet" aria-label={`Open slide ${chapterSection.title}`} onClick={()=>props.onFocus(part.revisionId,sectionId)}>Open slide</AppButton>}
+                {part.sourceChanges.length>0&&<details className="dw-guide-section-changes">
+                  <summary>Changed code ({part.sourceChanges.length})</summary>
+                  <ul>{part.sourceChanges.map((change,changeIndex)=><li key={`${change.path}:${change.kind}:${changeIndex}`}>
+                    <InlineCodeText text={change.path}/><span>{change.kind}</span>
+                    <span>{change.oldRange?`Saved L${change.oldRange.startLine}–${change.oldRange.endLine}`:'No saved range'} → {change.newRange?`Latest L${change.newRange.startLine}–${change.newRange.endLine}`:'No matching latest range'}</span>
+                  </li>)}</ul>
+                </details>}
               </li>;
             })}</ul>}
             {unit.reasons.length>0&&<details><summary>Why</summary><ul>{unit.reasons.map((reason,index)=><li key={`${unit.key}:${index}`}>{reason}</li>)}</ul></details>}
