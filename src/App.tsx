@@ -10,6 +10,7 @@ import { AppSearchField } from './design/AppSearchField';
 import { AppTextField } from './design/AppTextField';
 import { AppTextArea } from './design/AppTextArea';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
+import { resolveChapterStudioRoute } from './lib/chapterStudioRoute';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
@@ -4617,24 +4618,30 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   }, [nativeRuntime, projectId]);
 
   const targets = useMemo(() => buildChapterStudioTargets(rows, revisions, snapshotId), [revisions, rows, snapshotId]);
+  const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
+  const routeResolution = editing
+    ? { kind: 'none' as const }
+    : resolveChapterStudioRoute(routeChapterId, routeRevisionId, historyAvailability, targets);
+  const routeTargetKey = routeResolution.kind === 'resolved' ? routeResolution.targetKey : null;
+  const routedRevisionId = routeResolution.kind === 'resolved' ? routeResolution.revisionId : null;
 
   useEffect(() => {
     if (editing) return;
-    if (routeChapterId) {
-      const routed = targets.find((target) => target.revisions.some((revision) => revision.chapterId === routeChapterId));
-      if (routed) {
-        setSelectedTargetKey(routed.key);
-        return;
-      }
+    if (routeResolution.kind === 'loading' || routeResolution.kind === 'unavailable') return;
+    if (routeResolution.kind === 'resolved') {
+      setSelectedTargetKey(routeResolution.targetKey);
+      setSelectedRevisionId(routeResolution.revisionId);
+      return;
+    }
+    if (routeChapterId || routeRevisionId) {
+      setSelectedTargetKey('');
+      setSelectedRevisionId(routeRevisionId);
+      return;
     }
     if (!selectedTargetKey || !targets.some((target) => target.key === selectedTargetKey)) {
       setSelectedTargetKey(targets[0]?.key ?? '');
     }
-  }, [editing, routeChapterId, selectedTargetKey, targets]);
-
-  useEffect(() => {
-    if (!editing && routeRevisionId) setSelectedRevisionId(routeRevisionId);
-  }, [editing, routeRevisionId]);
+  }, [editing, routeChapterId, routeResolution.kind, routeTargetKey, routedRevisionId, routeRevisionId, selectedTargetKey, targets]);
 
   const visibleTargets = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -4673,7 +4680,6 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     && (validation?.revisionId === selectedRevision.revisionId
       ? validation.report.status === 'valid'
       : selectedRevision.validationStatus === 'valid');
-  const historyAvailability = !nativeRuntime ? 'unavailable' : loadError ? 'unavailable' : loading ? 'loading' : 'ready';
   const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
   const freshnessKey = selectedRevision?.lifecycle === 'accepted' && selectedRevision.snapshotId !== snapshotId
@@ -5122,7 +5128,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
           </aside>
 
           <main className="chapter-studio-review">
-            {!selectedTarget ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>No captured text files</strong><p>Create a snapshot with readable text files before reviewing chapters.</p></div> : (
+            {routeResolution.kind === 'loading' ? <div className="chapter-studio-empty" role="status"><BookOpen size={20} /><strong>Finding the selected explanation…</strong><p>Saved chapter history is still loading. No other file will be opened in its place.</p></div>
+              : routeResolution.kind === 'unavailable' ? <div className="chapter-studio-empty" role="status"><BookOpen size={20} /><strong>The selected explanation could not be checked.</strong><p>Retry saved history above. The requested file and revision remain selected; another file will not be substituted.</p></div>
+              : routeResolution.kind === 'chapter-missing' ? <div className="chapter-studio-empty" role="status"><BookOpen size={20} /><strong>This saved explanation is no longer in history.</strong><p>The requested chapter could not be found, so Chapter Studio did not open an unrelated file. Choose another file from the list or return to Guide.</p><AppButton intent="secondary" onClick={onGoPlan}><ListChecks size={14} /> Back to Guide</AppButton></div>
+              : routeResolution.kind === 'revision-missing' ? <div className="chapter-studio-empty" role="status"><BookOpen size={20} /><strong>This saved revision is no longer in history.</strong><p>The requested revision could not be found for this chapter, so Chapter Studio did not substitute a different revision. Choose another file from the list or return to Guide.</p><AppButton intent="secondary" onClick={onGoPlan}><ListChecks size={14} /> Back to Guide</AppButton></div>
+              : routeResolution.kind === 'resolved' && routeTargetKey !== selectedTargetKey ? <div className="chapter-studio-empty" role="status"><BookOpen size={20} /><strong>Opening the selected explanation…</strong><p>Restoring its saved file and revision.</p></div>
+              : !selectedTarget ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>No captured text files</strong><p>Create a snapshot with readable text files before reviewing chapters.</p></div> : (
               <>
                 <div className="chapter-review-heading">
                   <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3><InlineCodeText text={selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}/></h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
