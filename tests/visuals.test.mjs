@@ -74,6 +74,9 @@ describe('interactive diagram safety', () => {
     assert.match(question, /input → operation → result/u);
     assert.match(question, /byte or field layouts, a table, queue, stack, hierarchy, or pixel matrix/u);
     assert.match(question, /Use a relationship graph only when those forms cannot explain the real links clearly/u);
+    assert.match(question, /For every visual edge, the cited code in that claim must show the exact connection/u);
+    assert.match(question, /A call edge shows a static call expression, not runtime invocation, order, or success/u);
+    assert.match(question, /Leave points unlinked if the selected section does not cite code for their connection/u);
     assert.match(question, /Tie every visible cue to this section's cited source/u);
     assert.match(question, /If no visual can explain the behavior honestly, keep the section text-only/u);
     assert.match(question, /Leave other saved sections untouched\.$/u);
