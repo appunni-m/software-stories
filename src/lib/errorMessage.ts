@@ -101,3 +101,35 @@ export function explanationFailureMessage(code: ExplanationFailureCode | undefin
       return undefined;
   }
 }
+
+/** Explain a failed guide topic in terms of its saved, retryable progress. */
+export function guideUnitFailureMessage(code: ExplanationFailureCode | undefined): string | undefined {
+  switch (code) {
+    case 'noPublishedSections':
+      return 'This attempt did not produce a verified slide. Retry this topic; your other ready slides are still available.';
+    case 'contextTimeout':
+      return 'The source lookup for this topic did not finish. Retry this topic; your other ready slides are still available.';
+    case 'runTimeout':
+      return 'The agent stopped before this topic finished. Retry this topic; any published sections are still available.';
+    case 'invalidToolArguments':
+    case 'toolEvent':
+      return 'The code reading for this topic could not finish safely. Retry this topic; your other ready slides are still available.';
+    case 'contextPeerClosed':
+    case 'contextTransport':
+    case 'contextDelivery':
+      return 'The source reader could not complete this topic. Retry it; your other ready slides are still available.';
+    case 'runtimeIdentity':
+      return 'The connected AI session changed while this topic was being prepared. Reconnect in the header, then retry this topic.';
+    case 'stopped':
+      return 'This topic was stopped. Any published sections remain available; retry it when you are ready.';
+    case 'finalManifestTooLarge':
+    case 'invalidFinalManifest':
+    case 'unsupportedManifestVersion':
+    case 'invalidIncompleteTopics':
+      return 'This attempt could not be saved in a usable form. Retry this topic; any earlier version remains available.';
+    case 'unknown':
+      return 'This topic could not be completed. Retry it; your other ready slides are still available.';
+    default:
+      return undefined;
+  }
+}

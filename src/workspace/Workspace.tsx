@@ -32,7 +32,7 @@ import { ensureWorkspaceIndex } from './indexManager';
 import { useConnectionState } from '../lib/connectionStore';
 import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
-import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../lib/errorMessage';
+import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, guideUnitFailureMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
 import { featuredGuideTurnId, groupUnavailablePublishedSections, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
@@ -1481,7 +1481,7 @@ function Answer(props:AnswerProps){
               return <li key={runId}><AppButton size="1" intent="quiet" color="gray" disabled={previousIndex<0} aria-label={`Open earlier version ${version} of: ${plainInlineCodeText(unit.question)}`} onClick={()=>selectHistoricalGuideSlide(previousIndex)}>Version {version}</AppButton></li>;
             })}
           </ol></details>}
-          {unit.failureCode&&<details className="dw-guide-unit-failure"><summary>Why this slide stopped</summary><p>{explanationFailureMessage(unit.failureCode)}</p></details>}
+          {unit.failureCode&&<details className="dw-guide-unit-failure"><summary>Why this slide stopped</summary><p>{guideUnitFailureMessage(unit.failureCode)}</p></details>}
           {unit.canRetry&&props.onRetryGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Retry ${hasCompletedVersion?'version':'slide'}: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRetryGuideUnit?.(turn.id,unit.key)}>{hasCompletedVersion?'Retry version':'Retry slide'}</AppButton>}
           {unit.canRegenerate&&props.onRegenerateGuideUnit&&<AppButton size="1" intent="secondary" aria-label={`Create a new version of: ${plainInlineCodeText(unit.question)}`} onClick={()=>props.onRegenerateGuideUnit?.(turn.id,unit.key)}>Create new version</AppButton>}
         </li>;
