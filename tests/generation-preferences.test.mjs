@@ -134,7 +134,10 @@ describe('generation backend preference', () => {
     ]);
     assert.match(app, /setProviderDialog\(\{ kind: 'settings' \}\)/);
     assert.match(app, /backend === 'codex'\) return <ConnectionsDialog/);
-    assert.match(connections, /Change AI connection/);
+    assert.doesNotMatch(connections, /Change AI connection/);
+    assert.doesNotMatch(app, /More AI options|provider-alternatives/);
+    assert.match(app, /Connect with Codex/);
+    assert.match(app, /Use Codex/);
     assert.match(header, /code-atlas:connection-changed/);
     assert.match(header, /const codexNeedsAttention = codexSelected && Boolean\(connection\.error\)/);
     assert.match(header, /codexNeedsAttention \? 'Retry Codex'/);

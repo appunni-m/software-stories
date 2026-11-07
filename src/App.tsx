@@ -2463,7 +2463,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     if (props.mode.kind === 'settings') setBackend('choose');
     else openConnections();
   };
-  if (props.mode.kind === 'settings' && backend === 'codex') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}/>;
+  if (props.mode.kind === 'settings' && backend === 'codex') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose}/>;
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={chooseConnection} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
@@ -2498,8 +2498,8 @@ function ProviderDialog(props: ProviderDialogProps) {
     <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
       <header className="provider-dialog-header">
         <div>
-          <h2 id="backend-choice-title">Choose your AI connection</h2>
-          <p>Choose once. You can change it from the header whenever you need.</p></div>
+          <h2 id="backend-choice-title">Connect with Codex</h2>
+          <p>Use the Codex account already signed in on this Mac. No API key is needed.</p></div>
         <AppButton intent="icon" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></AppButton>
       </header>
       <div className="provider-dialog-content">
@@ -2508,28 +2508,6 @@ function ProviderDialog(props: ProviderDialogProps) {
           <AppButton intent="primary" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</AppButton>
           {!agentOperation && <p role="status">Codex isn’t available for this kind of explanation yet.</p>}
         </section>
-        <details className="provider-alternatives">
-          <summary>More AI options</summary>
-          <div className="provider-alternatives-grid">
-            <section className="provider-review-card"><h3>Direct API</h3>
-              <p>Connect Gemini, OpenAI, or Anthropic with your own API key. Provider usage and billing rules apply.</p>
-              <AppButton intent="secondary" onClick={() => choose('api')}>Choose a direct API</AppButton>
-            </section>
-            <section className="provider-review-card"><h3>Claude Code</h3>
-              <p>Copy a reviewed task into Claude Code, then bring its answer back here to check it against the source.</p>
-              <div className="provider-alternative-actions">
-                <AppButton intent="secondary" onClick={() => choose('claude-setup')}>Set up Claude Agent</AppButton>
-                <AppButton intent="secondary" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</AppButton>
-              </div>
-            </section>
-            <section className="provider-review-card"><h3>Antigravity</h3>
-              <p>Prepare a reviewed task to copy into Antigravity, then validate the answer here. Google does not allow third-party apps to use a consumer Antigravity login.</p>
-              <AppButton intent="secondary" disabled={!handoffOperation} onClick={() => { chooseHandoffAgent('antigravity'); choose('handoff'); }}>Use Antigravity handoff</AppButton>
-              <p className="provider-small-note"><a href="https://www.antigravity.google/docs/faq" target="_blank" rel="noreferrer">Google Antigravity account rules</a></p>
-            </section>
-            {!handoffOperation && <p role="status">Agent handoff is available for file chapters and repository overviews.</p>}
-          </div>
-        </details>
       </div>
     </section>
   </div>;
