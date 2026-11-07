@@ -3,6 +3,7 @@ use crate::{
     chapter_generation::tests::Fixture,
     repository_guide::tests::{attempt, record},
 };
+use uuid::Uuid;
 #[test]
 fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
     let f = Fixture::new();
@@ -97,6 +98,46 @@ fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     assert!(lease(&f.storage, &id).unwrap().is_none());
     drop(worker);
     assert!(lease(&f.storage, &id).unwrap().is_some());
+}
+
+#[test]
+fn replacing_a_guide_grant_is_scoped_revision_checked_and_idempotent() {
+    let f = Fixture::new();
+    let guide = record(&f);
+    let id = guide.id.clone();
+    let original_grant = guide.grant_id.clone();
+    create(&f.storage, &guide).unwrap();
+
+    let replacement = Uuid::new_v4().to_string();
+    let updated = replace_grant(&f.storage, &id, guide.revision, &replacement).unwrap();
+    assert_eq!(updated.grant_id, replacement);
+    assert_eq!(updated.revision, guide.revision + 1);
+    assert_eq!(updated.question, guide.question);
+    assert_eq!(
+        updated.opening.as_ref().map(|opening| &opening.run_id),
+        guide.opening.as_ref().map(|opening| &opening.run_id)
+    );
+    assert_ne!(updated.grant_id, original_grant);
+
+    let unchanged = replace_grant(&f.storage, &id, updated.revision, &replacement).unwrap();
+    assert_eq!(unchanged.revision, updated.revision);
+
+    let path = path(&f.storage, &id).unwrap();
+    let before_stale = fs::read(&path).unwrap();
+    let stale_replacement = Uuid::new_v4().to_string();
+    assert!(replace_grant(&f.storage, &id, guide.revision, &stale_replacement).is_err());
+    assert_eq!(fs::read(&path).unwrap(), before_stale);
+
+    let active = update(&f.storage, &id, |current| {
+        current.active_run_id = Some(current.planning_run_id.clone());
+        Ok(())
+    })
+    .unwrap();
+    let before_active = fs::read(&path).unwrap();
+    assert!(replace_grant(&f.storage, &id, active.revision, &stale_replacement).is_err());
+    assert_eq!(fs::read(&path).unwrap(), before_active);
+    assert!(replace_grant(&f.storage, &id, active.revision, "not-a-uuid").is_err());
+    assert_eq!(fs::read(&path).unwrap(), before_active);
 }
 
 #[test]

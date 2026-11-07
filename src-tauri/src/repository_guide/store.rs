@@ -364,6 +364,35 @@ pub(super) fn update_if_changed(
     save(storage, &record, false)?;
     Ok(record)
 }
+
+/// Replace the snapshot/account grant only after the caller has independently
+/// checked it against the current native runtime and requested source scope.
+/// The revision guard prevents a delayed consent result from overwriting newer
+/// guide progress.
+pub(super) fn replace_grant(
+    storage: &Path,
+    id: &str,
+    expected_revision: u64,
+    grant_id: &str,
+) -> Result<Record, String> {
+    if !uuid(grant_id) {
+        return Err("Review a valid snapshot permission before continuing this guide.".into());
+    }
+    update_if_changed(storage, id, |current| {
+        if current.revision != expected_revision || current.active_run_id.is_some() {
+            return Err(
+                "The guide changed before its access permission could be updated. Saved progress was preserved."
+                    .into(),
+            );
+        }
+        if current.grant_id == grant_id {
+            return Ok(false);
+        }
+        current.grant_id = grant_id.to_owned();
+        Ok(true)
+    })
+}
+
 pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
     let _guard = STORE.lock().map_err(|_| "Guide storage is unavailable.")?;
     let _transaction = lock_named(storage, ".transactions.lock")?

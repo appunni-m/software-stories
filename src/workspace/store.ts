@@ -40,6 +40,12 @@ const rendererClock = typeof globalThis.performance?.now === 'function'
 let closingWorkspace=false;
 let deferredCloseUpdates:(()=>void)[]=[];
 
+function clearRejectedWorkspaceGrant(project:string,snapshot:string,attemptedGrantId:string|undefined,message:string) {
+  if(!attemptedGrantId||!/permission|allow.*explor|snapshot or Codex account changed/i.test(message))return;
+  if(getWorkspace(project,snapshot).grantId!==attemptedGrantId)return;
+  updateWorkspace(project,snapshot,state=>state.grantId===attemptedGrantId?{...state,grantId:undefined}:state);
+}
+
 function queuePendingGuideAdvance(job: WorkspaceJob, revisionId: string) {
   if (!job.cancelled && !job.pendingGuideAdvances.includes(revisionId) && job.pendingGuideAdvances.length < 16) {
     job.pendingGuideAdvances.push(revisionId);
@@ -745,13 +751,14 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     const guide = retryUnitKey
       ? await invoke<RepositoryGuide>('retry_repository_guide_unit',{id:guideId,projectId:project,snapshotId:snapshot,unitKey:retryUnitKey,grantId,consent:true,regenerate:regenerateUnit,rendererQueueWaitMs})
       : await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
-        ? {id:guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
+        ? {id:guideId,projectId:project,snapshotId:snapshot,grantId,consent:true,rendererQueueWaitMs}
         : {input:{id:guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
             modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
     await reconcileGuide(project,snapshot,guide,true);
   } catch (failure) {
     try { await restoreRepositoryGuide(project,snapshot,guideId); } catch { /* Preserve saved cards and the original error. */ }
     const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
+    clearRejectedWorkspaceGrant(project,snapshot,grantId,message);
     patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
   } finally {
     const pending = job.pendingGuideAdvances.slice();
@@ -782,6 +789,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
   const queueWaitStarted=rendererClock();
   const release=await enterQuestionQueue();
   const rendererQueueWaitMs=Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-queueWaitStarted)));
+  let attemptedGrantId:string|undefined;
   try{
     if(job.cancelled||closingWorkspace)return;
     const current=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
@@ -792,7 +800,9 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     await ensureCodexConnection();
     if(job.cancelled||closingWorkspace)return;
     job.runId=current.guideId;
-    const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,rendererQueueWaitMs});
+    const grantId=getWorkspace(project,snapshot).grantId;
+    attemptedGrantId=grantId;
+    const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,grantId:grantId??null,rendererQueueWaitMs});
     // The native receipt is already durable. This local signal only wakes an
     // active owner in another webview so it can extend the current runway.
     try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* Refill can recover from the saved receipt on the next reader action. */}
@@ -800,6 +810,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
   }catch(failure){
     try{await restoreRepositoryGuide(project,snapshot,guideId);}catch{/* Keep the current reader content. */}
     const message=errorMessageOr(failure,'The next slide could not be prepared. Saved slides remain available.');
+    clearRejectedWorkspaceGrant(project,snapshot,attemptedGrantId,message);
     patchTurn(project,snapshot,turnId,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
   }finally{
     const pending=job.pendingGuideAdvances.slice();
@@ -889,7 +900,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     }
     if (!recovered) {
       const message = errorMessageOr(failure,'This question could not be completed. Saved sections remain available.');
-      if (/permission|allow.*explor|snapshot or Codex account changed/i.test(message)) updateWorkspace(project,snapshot,(s) => ({...s,grantId:undefined}));
+      clearRejectedWorkspaceGrant(project,snapshot,grantId,message);
       const saved = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id)?.publishedSections;
       patchTurn(project,snapshot,id,{status:job.cancelled ? 'stopped' : message===closingMessage ? 'interrupted' : saved?.length ? 'partial' : 'failed',error:job.cancelled ? undefined : message});
     }

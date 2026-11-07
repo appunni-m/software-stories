@@ -336,6 +336,42 @@ test('repository guide start, resume and refill carry renderer queue wait to nat
   assert.ok(Number.isInteger(advanceArgs.rendererQueueWaitMs)&&advanceArgs.rendererQueueWaitMs>=0&&advanceArgs.rendererQueueWaitMs<=86_400_000);
 });
 
+test('a rejected Guide permission is cleared and a replacement permission is sent on resume and refill',async()=>{
+  const staleGrant='The snapshot or Codex account changed. Allow exploration again.';
+  const b=backend();let resumeArgs,advanceArgs;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='start_repository_guide')throw new Error(staleGrant);
+    if(name==='resume_repository_guide'){resumeArgs=clone(args);throw new Error('controlled before any provider operation');}
+    if(name==='advance_repository_guide'){advanceArgs=clone(args);throw new Error(staleGrant);}
+    if(name==='load_repository_guide')throw new Error('No restored guide fixture');
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const turnId=h.store.appendRepositoryGuide('project','snapshot','Explain the repository journey');
+  const originalGrant=runId(901),replacementGrant=runId(902);
+  h.store.updateWorkspace('project','snapshot',state=>({...state,grantId:originalGrant}));
+
+  await h.store.runRepositoryGuide('project','snapshot',turnId,originalGrant);
+  assert.equal(h.store.getWorkspace('project','snapshot').grantId,undefined,
+    'a stale permission is removed so the visible recovery action can request fresh consent');
+
+  h.store.updateWorkspace('project','snapshot',state=>({...state,grantId:replacementGrant}));
+  await h.store.runRepositoryGuide('project','snapshot',turnId,replacementGrant,true);
+  assert.equal(resumeArgs.grantId,replacementGrant,
+    'the resumed Guide must receive the grant the user just approved');
+
+  h.store.updateWorkspace('project','snapshot',state=>({...state,
+    grantId:replacementGrant,
+    explorations:state.explorations.map(exploration=>({...exploration,turns:exploration.turns.map(turn=>
+      turn.id===turnId?{...turn,guide:{canContinue:true}}:turn)})),
+  }));
+  await h.store.advanceRepositoryGuide('project','snapshot',turnId,'consumed-revision');
+  assert.equal(advanceArgs.grantId,replacementGrant,
+    'a buffered refill must use the currently approved snapshot permission');
+  assert.equal(h.store.getWorkspace('project','snapshot').grantId,undefined,
+    'a rejected refill permission is cleared only after the matching grant fails');
+});
+
 test('playing a Guide slide during an active run saves its receipt before the queued refill',async()=>{
   const b=backend(),started=deferred(),startResult=deferred(),receiptSaved=deferred(),refillStarted=deferred();
   let receiptArgs,refillArgs;

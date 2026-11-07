@@ -2070,6 +2070,7 @@ pub(crate) async fn resume_repository_guide(
     id: String,
     project_id: String,
     snapshot_id: String,
+    grant_id: String,
     consent: bool,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
@@ -2077,6 +2078,9 @@ pub(crate) async fn resume_repository_guide(
     sessions.get(&project_id)?;
     if !consent {
         return Err("Allow continuation before building more guide content.".into());
+    }
+    if !uuid(&grant_id) {
+        return Err("Review a valid snapshot permission before continuing this guide.".into());
     }
     let storage = app_data_directory(&app)?;
     let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
@@ -2086,22 +2090,16 @@ pub(crate) async fn resume_repository_guide(
     let manager = app.state::<codex_agent::CodexAgentManager>();
     let latest = store::read(&storage, &id)?;
     let record = reconcile(&storage, &latest, &manager)?;
-    let expected_revision = record.revision;
     let runtime = manager.review_runtime(&storage)?;
-    workspace::check_retrieval_grant(
-        &storage,
-        &record.grant_id,
-        &project_id,
-        &snapshot_id,
-        &runtime,
-    )?;
+    workspace::check_retrieval_grant(&storage, &grant_id, &project_id, &snapshot_id, &runtime)?;
+    let record = store::replace_grant(&storage, &id, record.revision, &grant_id)?;
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         &storage,
         &answer_reservation(&record),
         || Ok(()),
     )?;
     if record.plan.is_none() {
-        store::prepare_plan_retry(&storage, &id, expected_revision)?;
+        store::prepare_plan_retry(&storage, &id, record.revision)?;
         return run_command(
             app,
             storage,
@@ -2116,7 +2114,7 @@ pub(crate) async fn resume_repository_guide(
         )
         .await;
     }
-    store::prepare_continuation(&storage, &id, expected_revision)?;
+    store::prepare_continuation(&storage, &id, record.revision)?;
     run_command(
         app,
         storage,
@@ -2157,6 +2155,7 @@ pub(crate) async fn advance_repository_guide(
     project_id: String,
     snapshot_id: String,
     consumed_revision_id: String,
+    grant_id: Option<String>,
     renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
     let operation_started_at = Instant::now();
@@ -2212,21 +2211,26 @@ pub(crate) async fn advance_repository_guide(
                 .into(),
         );
     }
+    let runtime = manager.review_runtime(&storage)?;
+    let record = if let Some(grant_id) = grant_id {
+        workspace::check_retrieval_grant(&storage, &grant_id, &project_id, &snapshot_id, &runtime)?;
+        store::replace_grant(&storage, &id, record.revision, &grant_id)?
+    } else {
+        workspace::check_retrieval_grant(
+            &storage,
+            &record.grant_id,
+            &project_id,
+            &snapshot_id,
+            &runtime,
+        )?;
+        record
+    };
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         &storage,
         &answer_reservation(&record),
         || Ok(()),
     )?;
-    let runtime = manager.review_runtime(&storage)?;
-    workspace::check_retrieval_grant(
-        &storage,
-        &record.grant_id,
-        &project_id,
-        &snapshot_id,
-        &runtime,
-    )?;
-    let expected_revision = record.revision;
-    store::prepare_continuation(&storage, &id, expected_revision)?;
+    store::prepare_continuation(&storage, &id, record.revision)?;
     run_command(
         app,
         storage,
