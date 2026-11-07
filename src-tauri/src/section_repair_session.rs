@@ -207,8 +207,10 @@ pub fn verify_binding(
         };
         if assessment.section_revision_id != stored.original_section_revision_id
             || (stored.state != original_state
-                && !(original_state == RepairSectionState::Stale
-                    && stored.state == RepairSectionState::Replaced))
+                && !(matches!(
+                    original_state,
+                    RepairSectionState::Stale | RepairSectionState::NeedsReview
+                ) && stored.state == RepairSectionState::Replaced))
         {
             return Err("The section repair session no longer matches the freshness status of every original section.".to_owned());
         }
@@ -370,15 +372,14 @@ pub fn record_canonicalized_replacement(
         .ok_or_else(|| "The selected section is not part of this repair session.".to_owned())?;
     if !matches!(
         target.state,
-        RepairSectionState::Stale | RepairSectionState::Replaced
+        RepairSectionState::Stale | RepairSectionState::NeedsReview | RepairSectionState::Replaced
     ) || target.original_section_revision_id != original_section_revision_id
         || replacement.section_id != section_id
         || replacement.section_revision_id.trim().is_empty()
         || replacement.section_revision_id == original_section_revision_id
     {
         return Err(
-            "The replacement does not match a pending stale section in this repair session."
-                .to_owned(),
+            "The replacement does not match a pending section in this repair session.".to_owned(),
         );
     }
     target.state = RepairSectionState::Replaced;
@@ -955,5 +956,57 @@ mod tests {
             vec!["section:first", "section:second"]
         );
         assert!(!session.is_ready_to_assemble());
+    }
+
+    #[test]
+    fn a_needs_review_section_can_be_replaced_and_rechecked_in_the_same_session() {
+        let temp = TempDir::new();
+        let base = base();
+        let mut report = report(&base);
+        report.sections[1].status = SectionFreshnessStatus::NeedsReview;
+        let session = get_or_create(&temp.0, &base, &report).unwrap();
+
+        let review_replacement = ChapterSection {
+            section_revision_id: "sectionrev:second-reviewed".into(),
+            ..section("section:second", "sectionrev:second-reviewed")
+        };
+        let progressed = record_canonicalized_replacement(
+            &temp.0,
+            &base.project_id,
+            &session.session_id,
+            &base.revision_id,
+            &report.to_snapshot_id,
+            &session.freshness_sha256,
+            "section:second",
+            "sectionrev:second",
+            review_replacement,
+        )
+        .unwrap();
+        assert_eq!(progressed.sections[1].state, RepairSectionState::Replaced);
+        assert_eq!(progressed.pending_section_ids(), vec!["section:first"]);
+        assert!(!progressed.is_ready_to_assemble());
+
+        // The unchanged freshness report remains the authority for later
+        // repairs; a previously reviewed NeedsReview section stays replaced.
+        verify_binding(&progressed, &base, &report).unwrap();
+
+        let stale_replacement = ChapterSection {
+            section_revision_id: "sectionrev:first-repaired".into(),
+            ..section("section:first", "sectionrev:first-repaired")
+        };
+        let completed = record_canonicalized_replacement(
+            &temp.0,
+            &base.project_id,
+            &session.session_id,
+            &base.revision_id,
+            &report.to_snapshot_id,
+            &session.freshness_sha256,
+            "section:first",
+            "sectionrev:first",
+            stale_replacement,
+        )
+        .unwrap();
+        assert!(completed.is_ready_to_assemble());
+        verify_binding(&completed, &base, &report).unwrap();
     }
 }

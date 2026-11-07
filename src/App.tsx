@@ -4862,7 +4862,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       );
       if (!studioMounted.current) return;
       const selected = session.sections.find((item) => item.sectionId === section.sectionId);
-      if (!selected || !['stale', 'replaced'].includes(selected.state)) {
+      if (!selected || !['stale', 'needsReview', 'replaced'].includes(selected.state)) {
         setFeedback({ message: 'This section no longer matches the saved repair session. Reassess freshness before sending.', tone: 'error' });
         return;
       }
@@ -5222,7 +5222,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               return <span key={side}>{label} index: {index.status}{counts}</span>;
                             })}
                           </div>
-                          {selectedFreshness.report.sections.some((item) => item.status === 'needsReview') && <p className="chapter-review-feedback tone-info">You can repair sections marked Stale one at a time. A section marked Needs review needs another source check before the updated chapter can be created.</p>}
+                          {selectedFreshness.report.sections.some((item) => item.status === 'needsReview') && <p className="chapter-review-feedback tone-info">Sections marked Stale or Needs review can be regenerated one at a time from the selected snapshot. Each replacement must pass source validation before the updated draft is assembled.</p>}
                         </div>
                         {selectedFreshness.report.sections.map((sectionResult) => {
                           const section = activeDocument.sections.find((item) => item.sectionId === sectionResult.sectionId);
@@ -5246,11 +5246,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                               <h4>{sectionTitle}</h4>
                               <span className={`chapter-review-status status-${sectionResult.status}`}>{labels[sectionResult.status]}</span>
                               <span className="chapter-review-status">Evidence {sectionResult.evidenceState}</span>
-                              {sectionResult.status === 'stale' && section && nativeRuntime && <AppButton intent="secondary"
+                              {(sectionResult.status === 'stale' || sectionResult.status === 'needsReview') && section && nativeRuntime && <AppButton intent="secondary"
                                 disabled={busy || Boolean(pendingDraft) || sectionPaths.length === 0 || sectionPaths.length > 12}
                                 onClick={() => { void beginSectionRepair(selectedRevision, section, sectionPaths); }}
                                 title="Continue a local repair session for this section."
-                              ><Sparkles size={13} /> Regenerate this section</AppButton>}
+                              ><Sparkles size={13} /> {sectionResult.status === 'needsReview' ? 'Review and regenerate' : 'Regenerate this section'}</AppButton>}
                             </div>
                             {sectionResult.reasons.length > 0 && <ul className="chapter-freshness-reasons">
                               {sectionResult.reasons.map((reason, index) => <li key={`${reason.code}:${reason.path ?? ''}:${index}`}>

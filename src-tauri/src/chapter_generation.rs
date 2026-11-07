@@ -338,10 +338,13 @@ pub fn canonicalize_section_update(
         .iter()
         .find(|item| item.section_id == selected_section_id)
         .ok_or_else(|| "The selected section is absent from the freshness report.".to_owned())?;
+    let can_replace_selected = selected_freshness.status == SectionFreshnessStatus::Stale
+        || (repair_session.is_some()
+            && selected_freshness.status == SectionFreshnessStatus::NeedsReview);
     if selected_freshness.section_revision_id != selected_section_revision_id
-        || selected_freshness.status != SectionFreshnessStatus::Stale
+        || !can_replace_selected
     {
-        return Err("The selected section changed or is no longer proven stale. Reassess freshness and review a new request.".to_owned());
+        return Err("The selected section changed or is no longer eligible for a source-backed repair. Reassess freshness and review a new request.".to_owned());
     }
     let blocked_sections = freshness
         .sections

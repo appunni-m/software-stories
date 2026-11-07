@@ -863,9 +863,13 @@ fn start_section_repair_session(
             "The selected section is missing from the freshness assessment.".to_owned()
         })?;
     if selected.section_revision_id != section_revision_id
-        || selected.status != chapter_freshness::SectionFreshnessStatus::Stale
+        || !matches!(
+            selected.status,
+            chapter_freshness::SectionFreshnessStatus::Stale
+                | chapter_freshness::SectionFreshnessStatus::NeedsReview
+        )
     {
-        return Err("The selected section is no longer proven stale. Reassess freshness before repairing it.".to_owned());
+        return Err("The selected section is no longer marked Stale or Needs review. Reassess freshness before repairing it.".to_owned());
     }
     let repair = section_repair_session::get_or_create(&storage_dir, base, &freshness)?;
     section_repair_session::verify_binding(&repair, base, &freshness)?;
