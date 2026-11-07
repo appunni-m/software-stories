@@ -474,8 +474,9 @@ fn unsupported_revision_identity(bytes: &[u8]) -> Option<UnsupportedRevisionIden
     let value = crate::strict_json::from_slice(bytes).ok()?;
     let header: RevisionHeader = serde_json::from_value(value).ok()?;
     if header.schema_version != chapters::CHAPTER_SCHEMA_VERSION
-        || header.generation_origin.as_ref()?.schema_version
-            == crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION
+        || crate::chapter_origin::supports_schema_version(
+            header.generation_origin.as_ref()?.schema_version,
+        )
     {
         return None;
     }

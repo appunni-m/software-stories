@@ -76,6 +76,61 @@ fn read(
         .to_owned()
 }
 
+fn search(ledger: &mut Ledger, f: &Fixture, runtime: &CodexReviewRuntime, cancel: &AtomicBool) {
+    let source = f.sources(&[SIMPLE_PATH]).remove(0);
+    let range = crate::repository_context::range_from_source(&source, 0, source.contents.len())
+        .unwrap()
+        .range;
+    let result = crate::repository_context::SearchResult {
+        matches: vec![crate::repository_context::SearchHit {
+            range,
+            line: 1,
+            text: String::new(),
+            exact_identifier: false,
+            declaration_match: false,
+            score: 1.0,
+            query_coverage: None,
+        }],
+        limited: false,
+        next_offset: None,
+        coverage: crate::repository_context::Coverage::default(),
+        index_limit_omissions: crate::repository_context::IndexLimitOmissions::default(),
+        reused_generation: true,
+        build: crate::repository_context::BuildStats::default(),
+        elapsed_ms: 1,
+        result_bytes: 1,
+        rank_trace: Vec::new(),
+    };
+    let scope = chapter_origin::RecordedSearchScope {
+        query_sha256: "a".repeat(64),
+        scope: None,
+        result_kind: "ranges".into(),
+        limit: 4,
+        offset: 0,
+        candidates: vec![chapter_origin::RecordedSearchCandidate {
+            path: SIMPLE_PATH.into(),
+            source_sha256: source.sha256,
+        }],
+        candidates_complete: true,
+        limited: false,
+        next_offset: None,
+    };
+    let token = ledger
+        .begin_call(Tool::Search, &"e".repeat(64), &f.manifest, runtime, cancel)
+        .unwrap();
+    ledger
+        .deliver(
+            token,
+            Context::Search(SearchMetadata::from_result(&result, true, Some(scope))),
+            &[],
+            &f.manifest,
+            runtime,
+            cancel,
+            |_| Ok(()),
+        )
+        .unwrap();
+}
+
 fn start(
     ledger: &Ledger,
     f: &Fixture,
@@ -418,6 +473,7 @@ fn progressive_scene_feedback_requires_an_origin_for_nonempty_element_values() {
 fn greenfield_current_format_answer_requires_update_notes() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
+    search(&mut ledger, &f, &runtime, &cancel);
     let reference = read(&mut ledger, &f, &runtime, &cancel);
     let mut answer = start(&ledger, &f, &runtime, &cancel);
     let proposal = authoring::tests::narrated_proposal(&reference, "entry", 0);
@@ -440,6 +496,14 @@ fn greenfield_current_format_answer_requires_update_notes() {
         crate::chapters::CHAPTER_SCHEMA_VERSION
     );
     assert!(revision.sections[0].visual.is_none());
+    let retrieval_searches = revision
+        .generation_origin
+        .as_ref()
+        .unwrap()
+        .retrieval_search_scopes()
+        .unwrap();
+    assert_eq!(retrieval_searches.len(), 1);
+    assert_eq!(retrieval_searches[0].candidates[0].path, SIMPLE_PATH);
     assert_eq!(
         revision.sections[0].spoken_text,
         proposal["section"]["claims"][0]["scene"]["narration"]
@@ -452,6 +516,72 @@ fn greenfield_current_format_answer_requires_update_notes() {
         .unwrap()
         .remove("updateNotes");
     assert!(decode_answer(&serde_json::to_vec(&missing_update_notes).unwrap()).is_err());
+}
+
+#[test]
+fn each_published_section_keeps_only_its_cited_retrieval_scope() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let answer = start(&ledger, &f, &runtime, &cancel);
+    let proposal = authoring::tests::narrated_proposal(&reference, "entry", 0);
+    let prepared = answer
+        .prepare(
+            &ledger,
+            &proposal.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
+        .unwrap();
+    assert!(prepared.findings.is_empty(), "{:?}", prepared.findings);
+    let section = &prepared.next.sections[0].preview.revision.sections[0];
+
+    let other_path = "src/user.ts";
+    let sources = f.sources(&[SIMPLE_PATH, other_path]);
+    let ranges = sources
+        .iter()
+        .map(|source| {
+            crate::repository_context::range_from_source(source, 0, source.contents.len())
+                .unwrap()
+                .range
+        })
+        .collect::<Vec<_>>();
+    let scope =
+        |query_sha256: &str, offset, path: &str, source_sha256: &str, limited, next_offset| {
+            chapter_origin::RecordedSearchScope {
+                query_sha256: query_sha256.to_owned(),
+                scope: None,
+                result_kind: "files".into(),
+                limit: 1,
+                offset,
+                candidates: vec![chapter_origin::RecordedSearchCandidate {
+                    path: path.into(),
+                    source_sha256: source_sha256.into(),
+                }],
+                candidates_complete: true,
+                limited,
+                next_offset,
+            }
+        };
+    let query_a = "a".repeat(64);
+    let query_b = "b".repeat(64);
+    let searches = vec![
+        scope(&query_a, 0, SIMPLE_PATH, &sources[0].sha256, true, Some(1)),
+        scope(&query_a, 1, other_path, &sources[1].sha256, false, None),
+        scope(&query_b, 0, other_path, &sources[1].sha256, false, None),
+    ];
+
+    let section_ranges = section_retrieval_ranges(section, &ranges);
+    assert_eq!(section_ranges.len(), 1);
+    assert_eq!(section_ranges[0].path, SIMPLE_PATH);
+    let section_searches = section_retrieval_searches(&section_ranges, &searches);
+    assert_eq!(section_searches.len(), 2);
+    assert!(
+        section_searches
+            .iter()
+            .all(|search| search.query_sha256 == query_a)
+    );
 }
 
 #[test]
@@ -639,10 +769,14 @@ fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
             .unwrap();
     }
 
-    assert!(
-        (1..NARRATION_CHECKPOINT_VERSION)
-            .all(|version| { !answer.value.supports_checkpoint(version) })
-    );
+    assert!((1..NARRATION_CHECKPOINT_VERSION).all(|version| {
+        answer.value.supports_checkpoint(version)
+            == (version == super::PRE_SEARCH_SCOPE_CHECKPOINT_VERSION)
+    }));
+    assert!(answer.value.supports_checkpoint_record(9, 5));
+    assert!(!answer.value.supports_checkpoint_record(9, 6));
+    assert!(!answer.value.supports_checkpoint_record(10, 5));
+    assert!(answer.value.supports_checkpoint_record(10, 6));
     assert!(
         answer
             .value

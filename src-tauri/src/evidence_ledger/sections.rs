@@ -9,7 +9,8 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const NARRATION_PROPOSAL_VERSION: &str = "answerSectionV6";
 pub(crate) const NARRATION_ANSWER_VERSION: u32 = 7;
-pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 9;
+pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 10;
+const PRE_SEARCH_SCOPE_CHECKPOINT_VERSION: u32 = 9;
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;
@@ -285,6 +286,60 @@ fn record_ranges(record: &Record) -> Vec<context::CodeRange> {
                 .any(|c| c.state == CallState::Delivered && c.evidence_ids.contains(&e.id))
         })
         .map(|e| e.range.clone())
+        .collect()
+}
+
+fn section_retrieval_ranges(
+    section: &chapters::ChapterSection,
+    ranges: &[context::CodeRange],
+) -> Vec<context::CodeRange> {
+    ranges
+        .iter()
+        .filter(|range| {
+            let (Ok(range_start), Ok(range_end)) = (
+                u64::try_from(range.start_byte),
+                u64::try_from(range.end_byte),
+            ) else {
+                return false;
+            };
+            section
+                .claims
+                .iter()
+                .flat_map(|claim| &claim.anchors)
+                .any(|anchor| {
+                    anchor.path == range.path
+                        && anchor.snapshot_id == range.snapshot_id
+                        && anchor.source_sha256 == range.source_sha256
+                        && range_start <= anchor.end_byte_inclusive
+                        && anchor.start_byte < range_end
+                })
+        })
+        .cloned()
+        .collect()
+}
+
+fn section_retrieval_searches(
+    ranges: &[context::CodeRange],
+    searches: &[chapter_origin::RecordedSearchScope],
+) -> Vec<chapter_origin::RecordedSearchScope> {
+    let paths = ranges
+        .iter()
+        .map(|range| range.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let relevant_queries = searches
+        .iter()
+        .filter(|search| {
+            search
+                .candidates
+                .iter()
+                .any(|candidate| paths.contains(candidate.path.as_str()))
+        })
+        .map(|search| search.query_sha256.as_str())
+        .collect::<BTreeSet<_>>();
+    searches
+        .iter()
+        .filter(|search| relevant_queries.contains(search.query_sha256.as_str()))
+        .cloned()
         .collect()
 }
 
@@ -1092,7 +1147,22 @@ impl Answer {
 
     fn supports_checkpoint(&self, checkpoint: u32) -> bool {
         self.schema_version == NARRATION_ANSWER_VERSION
-            && checkpoint == NARRATION_CHECKPOINT_VERSION
+            && matches!(
+                checkpoint,
+                PRE_SEARCH_SCOPE_CHECKPOINT_VERSION | NARRATION_CHECKPOINT_VERSION
+            )
+    }
+
+    fn supports_checkpoint_record(&self, checkpoint: u32, ledger_schema: u32) -> bool {
+        self.supports_checkpoint(checkpoint)
+            && matches!(
+                (checkpoint, ledger_schema),
+                (PRE_SEARCH_SCOPE_CHECKPOINT_VERSION, 5)
+                    | (
+                        NARRATION_CHECKPOINT_VERSION,
+                        crate::evidence_ledger::LEDGER_SCHEMA_VERSION
+                    )
+            )
     }
 
     /// Final responses cannot select, omit or replace native publications.
@@ -1469,12 +1539,37 @@ impl ActiveAnswer {
                                                     let checkpoint = checkpoint(ledger)?;
                                                     let checkpoint_sha256 =
                                                         context::digest(&encode(&checkpoint)?);
+                                                    let section = revision
+                                                        .sections
+                                                        .first()
+                                                        .ok_or("The generated section is unavailable.")?;
+                                                    let section_ranges = section_retrieval_ranges(
+                                                        section,
+                                                        &record_ranges(&checkpoint),
+                                                    );
+                                                    let section_searches =
+                                                        section_retrieval_searches(
+                                                            &section_ranges,
+                                                            &checkpoint.delivered_search_scopes(),
+                                                        );
+                                                    let section_sources = sources
+                                                        .iter()
+                                                        .filter(|source| {
+                                                            section_ranges.iter().any(|range| {
+                                                                range.path == source.path
+                                                                    && range.source_sha256
+                                                                        == source.sha256
+                                                            })
+                                                        })
+                                                        .cloned()
+                                                        .collect::<Vec<_>>();
                                                     revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
                                                         &self.value.binding.operation_id, &self.value.request_sha256,
                                                         &checkpoint_sha256, &self.value.binding.model,
-                                                        &self.value.binding.effort, record_ranges(&checkpoint),
+                                                        &self.value.binding.effort, section_ranges,
+                                                        section_searches,
                                                         syntax.as_ref(),
-                                                        &sources, &revision,
+                                                        &section_sources, &revision,
                                                     )?);
                                                     revision.validation_status =
                                                         chapters::ValidationStatus::Valid;
@@ -1867,8 +1962,7 @@ fn replay_answer_value(
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if !value.supports_checkpoint(section.checkpoint_version)
-            || checkpoint.schema_version != crate::evidence_ledger::LEDGER_SCHEMA_VERSION
+        if !value.supports_checkpoint_record(section.checkpoint_version, checkpoint.schema_version)
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
             || checkpoint
@@ -1996,15 +2090,32 @@ fn replay_answer_value(
             .ok_or("The section lacks its native origin.")?;
         let origin_json =
             serde_json::to_value(origin).map_err(|_| "The section origin is unavailable.")?;
-        if origin.schema_version != 6
+        let expected_ranges =
+            if origin.schema_version == crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION {
+                let section_revision = &section.preview.revision;
+                let section = section_revision
+                    .sections
+                    .first()
+                    .ok_or("The saved section has no source evidence.")?;
+                section_retrieval_ranges(section, &record_ranges(checkpoint))
+            } else {
+                record_ranges(checkpoint)
+            };
+        let expected_searches =
+            section_retrieval_searches(&expected_ranges, &checkpoint.delivered_search_scopes());
+        if !crate::chapter_origin::supports_schema_version(origin.schema_version)
             || origin.contract_version != PROGRESSIVE_CONTRACT
             || !origin.matches_content(&section.preview.revision)
             || origin.request_id != operation
             || origin.request_body_sha256 != value.request_sha256
             || origin_json["retrieval"]["ledgerSha256"] != section.checkpoint_sha256
             || origin_json["retrieval"]["ranges"]
-                != serde_json::to_value(record_ranges(checkpoint))
+                != serde_json::to_value(expected_ranges)
                     .map_err(|_| "The section ranges are unavailable.")?
+            || (origin.schema_version == crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION
+                && origin_json["retrieval"]["searches"]
+                    != serde_json::to_value(expected_searches)
+                        .map_err(|_| "The section search scope is unavailable.")?)
         {
             return Err("The section origin does not match its evidence checkpoint.".into());
         }

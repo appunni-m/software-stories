@@ -514,6 +514,15 @@ fn owned_mcp_search_read_and_result_events_share_native_evidence() {
     let result: Value = serde_json::from_str(&text).unwrap();
     let range = &result["context"]["result"]["matches"][0]["range"];
     assert_eq!(range["path"], SIMPLE_PATH);
+    let scopes = s.ledger.delivered_search_scopes();
+    assert_eq!(scopes.len(), 1);
+    assert_eq!(scopes[0].candidates.len(), 1);
+    assert_eq!(scopes[0].candidates[0].path, SIMPLE_PATH);
+    assert_eq!(
+        scopes[0].candidates[0].source_sha256,
+        range["sourceSha256"].as_str().unwrap()
+    );
+    assert_eq!(scopes[0].query_sha256.len(), 64);
     assert!(
         result["context"]["result"]["matches"][0]
             .get("text")

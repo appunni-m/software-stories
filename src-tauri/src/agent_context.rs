@@ -97,6 +97,25 @@ fn search_key(
     }))
 }
 
+fn search_scope_key(
+    query: &str,
+    scope: Option<&str>,
+    limit: usize,
+    result_kind: SearchResultKind,
+) -> Result<String, String> {
+    let kind = match result_kind {
+        SearchResultKind::Files => "files",
+        SearchResultKind::Auto | SearchResultKind::Ranges => "ranges",
+    };
+    let query = query.split_whitespace().collect::<Vec<_>>().join(" ");
+    arguments_digest(&json!({
+        "query": query,
+        "scope": scope,
+        "limit": limit.clamp(1, mcp::MAX_SEARCH_PAGE_SIZE),
+        "resultKind": kind,
+    }))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Read {
@@ -1000,11 +1019,28 @@ impl Session {
                 match execution.result {
                     Ok(result) => {
                         let include_repository_coverage = !self.search_coverage_delivered;
+                        let search_scope = crate::chapter_origin::RecordedSearchScope::from_result(
+                            search_scope_key(
+                                &input.query,
+                                input.path.as_deref(),
+                                limit,
+                                result_kind,
+                            )?,
+                            input.path.clone(),
+                            match result_kind {
+                                SearchResultKind::Files => "files",
+                                SearchResultKind::Auto | SearchResultKind::Ranges => "ranges",
+                            },
+                            limit,
+                            input.offset,
+                            &result,
+                        );
                         let delivered = self.ledger.deliver_with_local_stages(
                             token,
                             Context::Search(crate::evidence_ledger::SearchMetadata::from_result(
                                 &result,
                                 include_repository_coverage,
+                                Some(search_scope),
                             )),
                             &[],
                             &fresh,

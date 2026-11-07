@@ -249,12 +249,10 @@ pub(crate) fn classify_guide_draft_freshness(
         RevisionLifecycle::Draft,
         true,
     )?;
-    if revision
-        .generation_origin
-        .as_ref()
-        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges)
-        .is_some()
-    {
+    let has_recorded_retrieval_scope = revision.generation_origin.as_ref().is_some_and(|origin| {
+        origin.retrieval_ranges().is_some() && origin.retrieval_search_scopes().is_some()
+    });
+    if has_recorded_retrieval_scope {
         return Ok(report);
     }
 
@@ -265,8 +263,10 @@ pub(crate) fn classify_guide_draft_freshness(
         .sections
         .into_iter()
         .map(|mut section| {
-            section.status = SectionFreshnessStatus::NeedsReview;
-            section.evidence_state = EvidenceState::Partial;
+            if section.status != SectionFreshnessStatus::Stale {
+                section.status = SectionFreshnessStatus::NeedsReview;
+                section.evidence_state = EvidenceState::Partial;
+            }
             section.reasons.push(FreshnessReason {
                 code: "retrievalScopeUnavailable".to_owned(),
                 message: "The Guide slide has no complete saved retrieval scope, so its source impact cannot be confirmed.".to_owned(),
@@ -327,11 +327,12 @@ fn classify_revision_freshness(
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_ranges);
-    let enriched_retrieval_ranges = guide_draft.then(|| {
-        saved_retrieval_ranges.map(|ranges| {
-            guide_retrieval_index_context(from_manifest, from_index, ranges)
+    let enriched_retrieval_ranges = guide_draft
+        .then(|| {
+            saved_retrieval_ranges
+                .map(|ranges| guide_retrieval_index_context(from_manifest, from_index, ranges))
         })
-    }).flatten();
+        .flatten();
     let retrieval_ranges = enriched_retrieval_ranges
         .as_deref()
         .or(saved_retrieval_ranges);
@@ -339,12 +340,12 @@ fn classify_revision_freshness(
         .generation_origin
         .as_ref()
         .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_index_identity);
-    let retrieval_index_dependencies = retrieved_index_dependencies(
-        revision,
-        from_manifest,
-        from_index,
-        retrieval_ranges,
-    );
+    let retrieval_search_scopes = revision
+        .generation_origin
+        .as_ref()
+        .and_then(crate::chapter_origin::ChapterGenerationOrigin::retrieval_search_scopes);
+    let retrieval_index_dependencies =
+        retrieved_index_dependencies(revision, from_manifest, from_index, retrieval_ranges);
 
     let sections = revision
         .sections
@@ -359,6 +360,7 @@ fn classify_revision_freshness(
                 section,
                 retrieval_ranges,
                 retrieval_index_identity.as_deref(),
+                retrieval_search_scopes,
                 &retrieval_index_dependencies,
             );
             assessment.finish(section)
@@ -425,18 +427,20 @@ fn guide_retrieval_index_context(
         .iter()
         .map(|source_range| {
             let mut range = source_range.clone();
-            let captured = manifest.files.iter().any(|file| {
-                file.path == range.path && file.sha256 == range.source_sha256
-            });
+            let captured = manifest
+                .files
+                .iter()
+                .any(|file| file.path == range.path && file.sha256 == range.source_sha256);
             if !captured {
                 return range;
             }
             let Some(index) = index else {
                 return range;
             };
-            let indexed_file = index.files.iter().find(|file| {
-                file.path == range.path && file.source_sha256 == range.source_sha256
-            });
+            let indexed_file = index
+                .files
+                .iter()
+                .find(|file| file.path == range.path && file.source_sha256 == range.source_sha256);
             if range.parser.is_none() {
                 range.parser = indexed_file.and_then(|file| file.parser.clone());
             }
@@ -451,7 +455,10 @@ fn guide_retrieval_index_context(
                             && symbol.anchor.end_byte >= range.end_byte
                     })
                     .min_by_key(|symbol| {
-                        symbol.anchor.end_byte.saturating_sub(symbol.anchor.start_byte)
+                        symbol
+                            .anchor
+                            .end_byte
+                            .saturating_sub(symbol.anchor.start_byte)
                     })
                 {
                     range.enclosing = Some(crate::repository_context::SymbolContext {
@@ -477,6 +484,7 @@ fn assess_section(
     section: &ChapterSection,
     retrieval_ranges: Option<&[crate::repository_context::CodeRange]>,
     retrieval_index_identity: Option<&str>,
+    retrieval_search_scopes: Option<&[crate::chapter_origin::RecordedSearchScope]>,
     retrieval_index_dependencies: &[SectionDependency],
 ) -> SectionAssessment {
     let mut result = SectionAssessment::default();
@@ -563,6 +571,19 @@ fn assess_section(
                     Some(&range.path),
                 );
             }
+        }
+    }
+    if from_manifest.summary.snapshot_id != to_manifest.summary.snapshot_id {
+        match retrieval_search_scopes {
+            Some(searches) if !searches.is_empty() => assess_retrieval_candidates(
+                storage_dir,
+                from_manifest,
+                to_manifest,
+                searches,
+                &mut result,
+            ),
+            Some(_) => {}
+            None => {}
         }
     }
 
@@ -983,6 +1004,108 @@ fn assess_file_dependency(
             }),
         }),
     );
+}
+
+fn recorded_search_pages_complete(searches: &[crate::chapter_origin::RecordedSearchScope]) -> bool {
+    let mut by_query = BTreeMap::<&str, Vec<&crate::chapter_origin::RecordedSearchScope>>::new();
+    for search in searches {
+        by_query
+            .entry(search.query_sha256.as_str())
+            .or_default()
+            .push(search);
+    }
+    by_query.values_mut().all(|pages| {
+        pages.sort_by_key(|page| page.offset);
+        let mut expected_offset = 0;
+        for (index, page) in pages.iter().enumerate() {
+            if page.offset != expected_offset || !page.candidates_complete {
+                return false;
+            }
+            match page.next_offset {
+                Some(next) if page.limited && next > page.offset && index + 1 < pages.len() => {
+                    expected_offset = next;
+                }
+                None if !page.limited && index + 1 == pages.len() => {}
+                _ => return false,
+            }
+        }
+        true
+    })
+}
+
+fn assess_retrieval_candidates(
+    storage_dir: &Path,
+    from_manifest: &SnapshotManifest,
+    to_manifest: &SnapshotManifest,
+    searches: &[crate::chapter_origin::RecordedSearchScope],
+    result: &mut SectionAssessment,
+) {
+    if !recorded_search_pages_complete(searches) {
+        result.unknown(
+            "retrievalCandidatePagesIncomplete",
+            "The saved candidate search did not retain a complete sequence of result pages, so changes to its discovery scope need review.",
+            None,
+        );
+    }
+
+    let mut candidates = BTreeMap::<String, String>::new();
+    for search in searches {
+        for candidate in &search.candidates {
+            if candidates
+                .insert(candidate.path.clone(), candidate.source_sha256.clone())
+                .is_some_and(|previous| previous != candidate.source_sha256)
+            {
+                result.unknown(
+                    "retrievalCandidateConflict",
+                    "The saved candidate searches identify conflicting versions of one source path.",
+                    Some(&candidate.path),
+                );
+            }
+        }
+    }
+
+    for (path, source_sha256) in candidates {
+        let Some(old_file) = from_manifest.files.iter().find(|file| file.path == path) else {
+            result.unknown(
+                "retrievalCandidateUnavailable",
+                "A saved search candidate is missing from the original snapshot manifest.",
+                Some(&path),
+            );
+            continue;
+        };
+        if old_file.sha256 != source_sha256 {
+            result.unknown(
+                "retrievalCandidateHashMismatch",
+                "A saved search candidate hash does not match the original snapshot.",
+                Some(&path),
+            );
+            continue;
+        }
+        let Some(new_file) = to_manifest.files.iter().find(|file| file.path == path) else {
+            result.unknown(
+                "retrievalCandidateNotCaptured",
+                "A previous search candidate is absent from the comparison snapshot, so its effect needs review.",
+                Some(&path),
+            );
+            continue;
+        };
+        if new_file.sha256 != source_sha256 {
+            result.unknown(
+                "retrievalCandidateChanged",
+                "A source file that appeared in the original search results changed; review whether it changes this section's discovery or behavior.",
+                Some(&path),
+            );
+            continue;
+        }
+        match read_source(storage_dir, to_manifest, &path) {
+            Ok(source) if source.sha256 == source_sha256 => result.current(),
+            _ => result.unknown(
+                "retrievalCandidateUnavailable",
+                "The unchanged search candidate could not be verified in the comparison snapshot.",
+                Some(&path),
+            ),
+        }
+    }
 }
 
 fn assess_retrieval_range_dependency(
@@ -4487,6 +4610,9 @@ mod tests {
             "sym-entry",
             "run()",
         )]);
+        guide_draft.chapter_id = "chapter:overview".into();
+        guide_draft.target.target_id = "target:overview".into();
+        guide_draft.target.scope = ChapterTargetScope::Overview;
         guide_draft.lifecycle = RevisionLifecycle::Draft;
 
         let report = classify_guide_draft_freshness(
@@ -4509,6 +4635,161 @@ mod tests {
                 .iter()
                 .any(|reason| reason.code == "retrievalScopeUnavailable")
         );
+    }
+
+    #[test]
+    fn guide_search_candidate_changes_need_review_even_when_its_citation_is_unchanged() {
+        let storage = TempStorage::new();
+        let entry_text = "fn entry() { run(); }\n";
+        let old_candidate_text = "fn helper() { 1 }\n";
+        let new_candidate_text = "fn helper() { 2 }\n";
+        let old_candidate = put_file(&storage.0, "src/helper.rs", old_candidate_text);
+        let old_manifest = manifest(
+            "old",
+            vec![
+                put_file(&storage.0, "src/entry.rs", entry_text),
+                old_candidate.clone(),
+            ],
+        );
+        let new_manifest = manifest(
+            "new",
+            vec![
+                put_file(&storage.0, "src/entry.rs", entry_text),
+                put_file(&storage.0, "src/helper.rs", new_candidate_text),
+            ],
+        );
+        let old_index = index(
+            "old",
+            &old_manifest,
+            vec![
+                symbol("src/entry.rs", "sym-entry", "entry", entry_text, false),
+                symbol(
+                    "src/helper.rs",
+                    "sym-helper",
+                    "helper",
+                    old_candidate_text,
+                    false,
+                ),
+            ],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let new_index = index(
+            "new",
+            &new_manifest,
+            vec![
+                symbol("src/entry.rs", "sym-entry", "entry", entry_text, false),
+                symbol(
+                    "src/helper.rs",
+                    "sym-helper",
+                    "helper",
+                    new_candidate_text,
+                    false,
+                ),
+            ],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let mut guide_draft = revision(vec![anchored_section(
+            "guide-slide",
+            "src/entry.rs",
+            entry_text,
+            "sym-entry",
+            "run()",
+        )]);
+        guide_draft.chapter_id = "chapter:overview".into();
+        guide_draft.target.target_id = "target:overview".into();
+        guide_draft.target.scope = ChapterTargetScope::Overview;
+        guide_draft.lifecycle = RevisionLifecycle::Draft;
+        guide_draft.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+        let entry_source =
+            crate::repository_context::source(&storage.0, &old_manifest, "src/entry.rs").unwrap();
+        let range = crate::repository_context::range_from_source(
+            &entry_source,
+            0,
+            entry_source.contents.len(),
+        )
+        .unwrap()
+        .range;
+        guide_draft.generation_origin = Some(
+            crate::chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
+                &Uuid::new_v4().to_string(),
+                &"a".repeat(64),
+                &"b".repeat(64),
+                "gpt-6-luna",
+                "max",
+                vec![range],
+                vec![crate::chapter_origin::RecordedSearchScope {
+                    query_sha256: "c".repeat(64),
+                    scope: None,
+                    result_kind: "files".into(),
+                    limit: 8,
+                    offset: 0,
+                    candidates: vec![crate::chapter_origin::RecordedSearchCandidate {
+                        path: "src/helper.rs".into(),
+                        source_sha256: old_candidate.sha256,
+                    }],
+                    candidates_complete: true,
+                    limited: false,
+                    next_offset: None,
+                }],
+                Some(&old_index),
+                &[entry_source],
+                &guide_draft,
+            )
+            .unwrap(),
+        );
+
+        let report = classify_guide_draft_freshness(
+            &storage.0,
+            &old_manifest,
+            Some(&old_index),
+            &new_manifest,
+            Some(&new_index),
+            &guide_draft,
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.sections[0].status,
+            SectionFreshnessStatus::NeedsReview
+        );
+        assert!(report.sections[0].reasons.iter().any(|reason| {
+            reason.code == "retrievalCandidateChanged"
+                && reason.path.as_deref() == Some("src/helper.rs")
+        }));
+    }
+
+    #[test]
+    fn recorded_search_pages_require_a_complete_contiguous_sequence() {
+        let page = |offset, limited, next_offset| crate::chapter_origin::RecordedSearchScope {
+            query_sha256: "c".repeat(64),
+            scope: None,
+            result_kind: "files".into(),
+            limit: 2,
+            offset,
+            candidates: Vec::new(),
+            candidates_complete: true,
+            limited,
+            next_offset,
+        };
+        let first = page(0, true, Some(2));
+        let last = page(2, false, None);
+
+        assert!(recorded_search_pages_complete(&[
+            first.clone(),
+            last.clone()
+        ]));
+        assert!(!recorded_search_pages_complete(&[first.clone()]));
+        let mut gap = last;
+        gap.offset = 4;
+        assert!(!recorded_search_pages_complete(&[first.clone(), gap]));
+        let mut incomplete = first;
+        incomplete.candidates_complete = false;
+        assert!(!recorded_search_pages_complete(&[
+            incomplete,
+            page(2, false, None)
+        ]));
     }
 
     #[test]
@@ -4546,11 +4827,8 @@ mod tests {
             parser: None,
         };
 
-        let enriched = guide_retrieval_index_context(
-            &source_manifest,
-            Some(&source_index),
-            &[range],
-        );
+        let enriched =
+            guide_retrieval_index_context(&source_manifest, Some(&source_index), &[range]);
 
         assert_eq!(
             enriched[0]

@@ -886,6 +886,7 @@ mod tests {
                 "gpt-6-luna",
                 "max",
                 vec![range],
+                vec![],
                 None,
                 &sources,
                 &revision,

@@ -19,8 +19,10 @@ use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
-pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 5;
-const MAX_CALLS: usize = 64;
+pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 6;
+pub(crate) const MAX_CALLS: usize = 64;
+pub(crate) const MAX_RECORDED_SEARCH_CANDIDATES: usize = 160;
+const PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION: u32 = 5;
 pub(crate) const REPOSITORY_PLAN_CALL_LIMIT: usize = 12;
 pub(crate) const REPOSITORY_GUIDE_SLIDE_CALL_LIMIT: usize = 18;
 const FINALIZATION_CALL_RESERVE: usize = 6;
@@ -146,6 +148,8 @@ pub(crate) struct SearchMetadata<'a> {
     coverage: Option<&'a context::Coverage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     index_limit_omissions: Option<&'a context::IndexLimitOmissions>,
+    #[serde(skip)]
+    retrieval_scope: Option<crate::chapter_origin::RecordedSearchScope>,
 }
 
 #[derive(Serialize)]
@@ -161,7 +165,7 @@ struct SearchCandidate<'a> {
 
 impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
     fn from(result: &'a context::SearchResult) -> Self {
-        Self::from_result(result, true)
+        Self::from_result(result, true, None)
     }
 }
 
@@ -169,6 +173,7 @@ impl<'a> SearchMetadata<'a> {
     pub(crate) fn from_result(
         result: &'a context::SearchResult,
         include_repository_coverage: bool,
+        retrieval_scope: Option<crate::chapter_origin::RecordedSearchScope>,
     ) -> Self {
         Self {
             matches: result
@@ -187,6 +192,7 @@ impl<'a> SearchMetadata<'a> {
             coverage: include_repository_coverage.then_some(&result.coverage),
             index_limit_omissions: include_repository_coverage
                 .then_some(&result.index_limit_omissions),
+            retrieval_scope,
         }
     }
 }
@@ -320,6 +326,8 @@ struct Call {
     timing: CallTiming,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rejection_code: Option<RejectionCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    retrieval_scope: Option<crate::chapter_origin::RecordedSearchScope>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -341,6 +349,18 @@ pub(crate) struct Record {
     calls: Vec<Call>,
     evidence: Vec<Evidence>,
     context_clock: ContextClock,
+}
+
+impl Record {
+    pub(crate) fn delivered_search_scopes(
+        &self,
+    ) -> Vec<crate::chapter_origin::RecordedSearchScope> {
+        self.calls
+            .iter()
+            .filter(|call| call.state == CallState::Delivered)
+            .filter_map(|call| call.retrieval_scope.clone())
+            .collect()
+    }
 }
 
 /// A token owns exactly one started attempt; callers cannot forge an ordinal.
@@ -646,6 +666,7 @@ impl Ledger {
                 local_stages: Vec::new(),
             },
             rejection_code: None,
+            retrieval_scope: None,
         });
         self.save(next)?;
         Ok(CallToken { id })
@@ -1183,6 +1204,28 @@ impl Ledger {
                     "The context response exceeds this operation's evidence budget.".into(),
                 );
             }
+            let mut retrieval_scope = if response.budget_stop.is_none() {
+                match &context {
+                    Context::Search(metadata) => metadata.retrieval_scope.clone(),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            if let Some(scope) = retrieval_scope.as_mut() {
+                let already_recorded = self
+                    .record
+                    .calls
+                    .iter()
+                    .filter_map(|call| call.retrieval_scope.as_ref())
+                    .map(|scope| scope.candidates.len())
+                    .sum::<usize>();
+                let remaining = MAX_RECORDED_SEARCH_CANDIDATES.saturating_sub(already_recorded);
+                if scope.candidates.len() > remaining {
+                    scope.candidates.truncate(remaining);
+                    scope.candidates_complete = false;
+                }
+            }
             let mut next = self.record.clone();
             let call = next
                 .calls
@@ -1192,6 +1235,7 @@ impl Ledger {
             call.timing.prepared_ms = Some(self.context_elapsed_ms());
             call.timing.local_stages = local_stages;
             call.budget_stop = response.budget_stop;
+            call.retrieval_scope = retrieval_scope;
             call.evidence_ids = response.evidence_ids.clone();
             for fragment in response.added {
                 call.evidence_ids.push(fragment.evidence_id.clone());
@@ -1358,6 +1402,12 @@ impl Ledger {
             })
             .map(|e| e.range.clone())
             .collect()
+    }
+
+    pub(crate) fn delivered_search_scopes(
+        &self,
+    ) -> Vec<crate::chapter_origin::RecordedSearchScope> {
+        self.record.delivered_search_scopes()
     }
 
     pub(crate) fn delivered_call(
@@ -1586,7 +1636,10 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
 
 fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
     if !canonical_uuid(operation_id)
-        || record.schema_version != LEDGER_SCHEMA_VERSION
+        || !matches!(
+            record.schema_version,
+            PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION | LEDGER_SCHEMA_VERSION
+        )
         || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
@@ -1636,7 +1689,19 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                 || c.evidence_ids
                     .iter()
                     .any(|id| !record.evidence.iter().any(|e| &e.id == id))
+                || c.retrieval_scope.as_ref().is_some_and(|scope| {
+                    record.schema_version != LEDGER_SCHEMA_VERSION
+                        || c.tool != Tool::Search
+                        || !scope.valid()
+                })
         })
+        || record
+            .calls
+            .iter()
+            .filter_map(|call| call.retrieval_scope.as_ref())
+            .map(|scope| scope.candidates.len())
+            .sum::<usize>()
+            > MAX_RECORDED_SEARCH_CANDIDATES
         || record
             .calls
             .iter()
