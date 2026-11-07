@@ -3241,10 +3241,10 @@ mod chapter_pipeline_tests {
         assert_eq!(old_visual_assets.len(), 1);
         let old_unrelated_audio = narration::audio_cache_key_for_script(
             &old_unrelated_section.spoken_text,
-            "gemini-tts-test",
-            "Kore",
-            "plain",
-            "wav",
+            crate::pocket_tts::MODEL_ID,
+            crate::pocket_tts::VOICE,
+            "",
+            "audio/wav",
         );
 
         let multiple_stale_source = chapter_generation::tests::SIMPLE_SOURCE
@@ -3785,27 +3785,27 @@ mod chapter_pipeline_tests {
         assert_eq!(
             narration::audio_cache_key_for_script(
                 &next_unrelated.spoken_text,
-                "gemini-tts-test",
-                "Kore",
-                "plain",
-                "wav"
+                crate::pocket_tts::MODEL_ID,
+                crate::pocket_tts::VOICE,
+                "",
+                "audio/wav"
             ),
             old_unrelated_audio,
         );
         assert_ne!(
             narration::audio_cache_key_for_script(
                 &next_selected.spoken_text,
-                "gemini-tts-test",
-                "Kore",
-                "plain",
-                "wav"
+                crate::pocket_tts::MODEL_ID,
+                crate::pocket_tts::VOICE,
+                "",
+                "audio/wav"
             ),
             narration::audio_cache_key_for_script(
                 &old_selected_section.spoken_text,
-                "gemini-tts-test",
-                "Kore",
-                "plain",
-                "wav"
+                crate::pocket_tts::MODEL_ID,
+                crate::pocket_tts::VOICE,
+                "",
+                "audio/wav"
             ),
         );
         assert_eq!(
