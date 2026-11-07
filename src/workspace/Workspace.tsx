@@ -32,7 +32,7 @@ import { ensureWorkspaceIndex } from './indexManager';
 import { useConnectionState } from '../lib/connectionStore';
 import { codexSelectionIsSupported } from '../lib/codexConnection';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
-import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, guideUnitFailureMessage } from '../lib/errorMessage';
+import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, guideUnitFailureMessage, workspaceQuestionRetryLabel } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
 import { featuredGuideTurnId, groupUnavailablePublishedSections, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
@@ -1603,7 +1603,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   const failureMessage=(knownEvidenceError?readableError:undefined)??explanationFailureMessage(turn.failureCode);
   const terminalStatus=turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped';
   const terminalMessage=turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':failureMessage??(knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.');
-  const terminalNotice=terminalStatus&&<><p className="dw-error" role="status">{terminalMessage}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<AppButton size="1" intent="secondary" onClick={onRetry}>Try this question again</AppButton></>;
+  const terminalNotice=terminalStatus&&<><p className="dw-error" role="status">{terminalMessage}</p>{turn.error&&!knownEvidenceError&&!failureMessage&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<AppButton size="1" intent="secondary" onClick={onRetry}>{workspaceQuestionRetryLabel(turn.error)}</AppButton></>;
   const progressText=questionProgressText(turn);
   const contexts=section?.claims.flatMap((c)=>c.anchors).slice(0,3).map((a)=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine}))??turn.context;
   return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} data-focus-key={!hideQuestion?`workspace-answer:${turn.id}`:undefined} tabIndex={hideQuestion?undefined:-1} aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${plainInlineCodeText(questionSummaryText(turn.question))}`}>

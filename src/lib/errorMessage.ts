@@ -12,6 +12,16 @@ export function errorMessageOr(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const STALE_WORKSPACE_GRANT_ERROR = 'The snapshot or Codex account changed. Allow exploration again.';
+
+export function isStaleWorkspaceGrantError(error: string | undefined): boolean {
+  return error === STALE_WORKSPACE_GRANT_ERROR;
+}
+
+export function workspaceQuestionRetryLabel(error: string | undefined): string {
+  return isStaleWorkspaceGrantError(error) ? 'Review access' : 'Try this question again';
+}
+
 /** Keep provider request failures actionable and consistent across workflows. */
 export function providerFailureMessage(failure: ProviderFailure): string {
   // Only native-authored rejection instructions are safe to display verbatim.
@@ -45,6 +55,9 @@ export function providerFailureMessage(failure: ProviderFailure): string {
 /** Keep current source-validation identifiers out of the reading workspace. */
 export function explanationErrorMessage(error: string): string {
   if (error === 'The answer did not publish any sections.') return explanationFailureMessage('noPublishedSections')!;
+  if (isStaleWorkspaceGrantError(error)) {
+    return 'This snapshot permission no longer matches the current Codex account. No repository code was sent. Review access to allow a fresh permission before trying again.';
+  }
   if (error === 'The Codex account or runtime changed or is unavailable. Reconnect, load models and prepare a fresh review before sending source.') {
     return 'Code Atlas could not send this request because the Codex session changed. Reconnect in the header, refresh models, and try again. No source was sent.';
   }

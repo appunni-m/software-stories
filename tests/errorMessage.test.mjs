@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { errorMessageOr, explanationErrorMessage, explanationFailureMessage } from '../src/lib/errorMessage.ts';
+import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, isStaleWorkspaceGrantError, workspaceQuestionRetryLabel } from '../src/lib/errorMessage.ts';
 
 describe('native and frontend error messages', () => {
   it('preserves string rejections returned by Rust commands', () => {
@@ -52,6 +52,18 @@ it('shows the Codex runtime recovery directly when a Code Lens request is reject
   assert.match(message, /Reconnect in the header/u);
   assert.match(message, /No source was sent/u);
   assert.doesNotMatch(message, /runtime changed or is unavailable|prepare a fresh review/u);
+});
+
+it('turns a stale snapshot grant into an explicit permission-recovery action', () => {
+  const error = 'The snapshot or Codex account changed. Allow exploration again.';
+  assert.equal(isStaleWorkspaceGrantError(error), true);
+  const message = explanationErrorMessage(error);
+  assert.match(message, /No repository code was sent/u);
+  assert.match(message, /Review access/u);
+  assert.match(message, /fresh permission/u);
+  assert.equal(isStaleWorkspaceGrantError('Codex account access expired.'), false);
+  assert.equal(workspaceQuestionRetryLabel(error), 'Review access');
+  assert.equal(workspaceQuestionRetryLabel(undefined), 'Try this question again');
 });
 
 it('turns a rejected empty answer into a useful, private retry hint', () => {
