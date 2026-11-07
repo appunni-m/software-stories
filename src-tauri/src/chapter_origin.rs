@@ -586,6 +586,7 @@ impl ChapterGenerationOrigin {
             || !retrieval_ok
             || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id
+            || self.snapshot_id != revision.snapshot_id
             || !text(&self.project_id, 4096)
             || !text(&self.snapshot_id, 256)
             || !settings_ok
@@ -789,6 +790,12 @@ mod tests {
         .review;
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
         assert_eq!(origin.schema_version, CHAPTER_ORIGIN_SCHEMA_VERSION);
+        let mut wrong_snapshot_origin = origin.clone();
+        wrong_snapshot_origin.snapshot_id.push_str("-other");
+        assert!(
+            wrong_snapshot_origin.validate(&revision).is_err(),
+            "an agent origin must belong to the chapter's immutable snapshot"
+        );
         assert_eq!(
             origin.settings,
             RecordedAgentSettings::Codex {

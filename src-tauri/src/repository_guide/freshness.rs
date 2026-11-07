@@ -315,10 +315,11 @@ fn assess_notices<'a>(
         };
         if revision.project_id != notice.project_id
             || revision.snapshot_id != notice.snapshot_id
-            || !revision
-                .generation_origin
-                .as_ref()
-                .is_some_and(|origin| origin.request_id == notice.run_id)
+            || !revision.generation_origin.as_ref().is_some_and(|origin| {
+                origin.request_id == notice.run_id
+                    && origin.project_id == notice.project_id
+                    && origin.snapshot_id == notice.snapshot_id
+            })
         {
             assessed.push(GuideSectionFreshness {
                 revision_id: notice.revision_id.clone(),
