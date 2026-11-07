@@ -313,6 +313,27 @@ fn assess_notices<'a>(
             });
             continue;
         };
+        if revision.project_id != notice.project_id
+            || revision.snapshot_id != notice.snapshot_id
+            || !revision
+                .generation_origin
+                .as_ref()
+                .is_some_and(|origin| origin.request_id == notice.run_id)
+        {
+            assessed.push(GuideSectionFreshness {
+                revision_id: notice.revision_id.clone(),
+                section_id: None,
+                section_revision_id: None,
+                status: SectionFreshnessStatus::NeedsReview,
+                evidence_state: EvidenceState::Unavailable,
+                source_changes: Vec::new(),
+                reasons: vec![
+                    "The saved source-linked slide does not match this Guide's publication receipt."
+                        .into(),
+                ],
+            });
+            continue;
+        }
         match chapter_freshness::classify_guide_draft_freshness(
             storage,
             from_manifest,
@@ -556,6 +577,51 @@ mod tests {
         assert_eq!(report.opening.key, "opening");
         assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
         assert!(report.units.is_empty());
+    }
+
+    #[test]
+    fn freshness_rejects_a_revision_without_matching_guide_publication_lineage() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let guide = crate::repository_guide::tests::fresh_record(&fixture);
+        let attempt =
+            crate::repository_guide::tests::attempt(&guide, super::super::Outcome::Complete);
+        let notice = attempt.summary.unwrap().sections.remove(0);
+        let revision = ChapterRevision {
+            schema_version: crate::chapters::CHAPTER_SCHEMA_VERSION,
+            chapter_id: "chapter:test".into(),
+            revision_id: notice.revision_id.clone(),
+            revision_number: 1,
+            project_id: notice.project_id.clone(),
+            snapshot_id: notice.snapshot_id.clone(),
+            target: crate::chapters::ChapterTarget {
+                target_id: "target:test".into(),
+                scope: crate::chapters::ChapterTargetScope::Overview,
+            },
+            title: "Synthetic unmatched revision".into(),
+            lifecycle: crate::chapters::RevisionLifecycle::Draft,
+            validation_status: crate::chapters::ValidationStatus::Valid,
+            created_at_unix_ms: 1,
+            based_on_revision_id: None,
+            decision_note: None,
+            generation_origin: None,
+            sections: Vec::new(),
+        };
+        let revisions = HashMap::from([(revision.revision_id.clone(), revision)]);
+
+        let assessed = assess_notices(
+            &fixture.storage,
+            &fixture.manifest,
+            None,
+            &fixture.manifest,
+            None,
+            std::iter::once(&notice),
+            &revisions,
+        );
+
+        assert_eq!(assessed.len(), 1);
+        assert_eq!(assessed[0].status, SectionFreshnessStatus::NeedsReview);
+        assert_eq!(assessed[0].evidence_state, EvidenceState::Unavailable);
+        assert!(assessed[0].reasons[0].contains("publication receipt"));
     }
 
     #[test]
