@@ -19,10 +19,11 @@ use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
-pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 6;
+pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 7;
 pub(crate) const MAX_CALLS: usize = 64;
 pub(crate) const MAX_RECORDED_SEARCH_CANDIDATES: usize = 160;
-const PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION: u32 = 5;
+pub(crate) const PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION: u32 = 5;
+pub(crate) const PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION: u32 = 6;
 pub(crate) const REPOSITORY_PLAN_CALL_LIMIT: usize = 12;
 pub(crate) const REPOSITORY_GUIDE_SLIDE_CALL_LIMIT: usize = 18;
 const FINALIZATION_CALL_RESERVE: usize = 6;
@@ -1638,7 +1639,9 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
     if !canonical_uuid(operation_id)
         || !matches!(
             record.schema_version,
-            PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION | LEDGER_SCHEMA_VERSION
+            PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION
+                | PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION
+                | LEDGER_SCHEMA_VERSION
         )
         || !valid_context_timings(&record)
         || record.policy != POLICY
@@ -1690,7 +1693,11 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                     .iter()
                     .any(|id| !record.evidence.iter().any(|e| &e.id == id))
                 || c.retrieval_scope.as_ref().is_some_and(|scope| {
-                    record.schema_version != LEDGER_SCHEMA_VERSION
+                    !matches!(
+                        (record.schema_version, scope.query.is_some()),
+                        (PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION, false)
+                            | (LEDGER_SCHEMA_VERSION, true)
+                    )
                         || c.tool != Tool::Search
                         || !scope.valid()
                 })

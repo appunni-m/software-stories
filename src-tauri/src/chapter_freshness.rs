@@ -579,6 +579,7 @@ fn assess_section(
                 storage_dir,
                 from_manifest,
                 to_manifest,
+                to_index,
                 searches,
                 &mut result,
             ),
@@ -1016,6 +1017,20 @@ fn recorded_search_pages_complete(searches: &[crate::chapter_origin::RecordedSea
     }
     by_query.values_mut().all(|pages| {
         pages.sort_by_key(|page| page.offset);
+        let Some(first) = pages.first() else {
+            return false;
+        };
+        let Some(query) = first.query.as_deref() else {
+            return false;
+        };
+        if pages.iter().any(|page| {
+            page.query.as_deref() != Some(query)
+                || page.scope != first.scope
+                || page.result_kind != first.result_kind
+                || page.limit != first.limit
+        }) {
+            return false;
+        }
         let mut expected_offset = 0;
         for (index, page) in pages.iter().enumerate() {
             if page.offset != expected_offset || !page.candidates_complete {
@@ -1037,15 +1052,97 @@ fn assess_retrieval_candidates(
     storage_dir: &Path,
     from_manifest: &SnapshotManifest,
     to_manifest: &SnapshotManifest,
+    to_index: Option<&SnapshotIndex>,
     searches: &[crate::chapter_origin::RecordedSearchScope],
     result: &mut SectionAssessment,
 ) {
-    if !recorded_search_pages_complete(searches) {
+    let pages_complete = recorded_search_pages_complete(searches);
+    if !pages_complete {
         result.unknown(
             "retrievalCandidatePagesIncomplete",
             "The saved candidate search did not retain a complete sequence of result pages, so changes to its discovery scope need review.",
             None,
         );
+    }
+
+    if pages_complete {
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let budget = crate::repository_context::Budget::new(&cancelled);
+        let mut by_query =
+            BTreeMap::<&str, Vec<&crate::chapter_origin::RecordedSearchScope>>::new();
+        for search in searches {
+            by_query
+                .entry(search.query_sha256.as_str())
+                .or_default()
+                .push(search);
+        }
+        for pages in by_query.values_mut() {
+            pages.sort_by_key(|page| page.offset);
+            let Some(first) = pages.first() else {
+                continue;
+            };
+            let Some(query) = first.query.as_deref() else {
+                result.unknown(
+                    "retrievalSearchQueryUnavailable",
+                    "The saved search cannot be replayed against the comparison snapshot, so its discovery scope needs review.",
+                    first.scope.as_deref(),
+                );
+                continue;
+            };
+            let file_discovery = first.result_kind == "files";
+            let mut changed = false;
+            for page in pages.iter() {
+                let current = crate::repository_context::search_cached_page(
+                    storage_dir,
+                    to_manifest,
+                    to_index,
+                    query,
+                    page.scope.as_deref(),
+                    page.limit,
+                    page.offset,
+                    &budget,
+                    crate::repository_context::SearchMode::Code,
+                    file_discovery,
+                );
+                let current = match current {
+                    Ok(Some(current)) => current,
+                    Ok(None) | Err(_) => {
+                        result.unknown(
+                            "retrievalSearchIndexUnavailable",
+                            "The comparison snapshot has no matching published search index, so the saved query cannot be checked yet.",
+                            page.scope.as_deref(),
+                        );
+                        changed = true;
+                        break;
+                    }
+                };
+                let replayed = crate::chapter_origin::RecordedSearchScope::from_result(
+                    page.query_sha256.clone(),
+                    query.to_owned(),
+                    page.scope.clone(),
+                    &page.result_kind,
+                    page.limit,
+                    page.offset,
+                    &current,
+                );
+                if !replayed.candidates_complete
+                    || replayed.candidates != page.candidates
+                    || replayed.limited != page.limited
+                    || replayed.next_offset != page.next_offset
+                {
+                    result.unknown(
+                        "retrievalCandidateSetChanged",
+                        "Replaying this saved search against the comparison snapshot found a changed result page or pagination boundary.",
+                        page.scope.as_deref(),
+                    );
+                    changed = true;
+                    break;
+                }
+            }
+            if !changed {
+                result.current();
+            }
+        }
     }
 
     let mut candidates = BTreeMap::<String, String>::new();
@@ -2932,6 +3029,44 @@ mod tests {
         }
     }
 
+    fn indexed_file_search(
+        storage: &Path,
+        manifest: &SnapshotManifest,
+        syntax: &SnapshotIndex,
+        query: &str,
+    ) -> crate::chapter_origin::RecordedSearchScope {
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let budget = crate::repository_context::Budget::new(&cancelled);
+        let prepared = crate::repository_context::prepare(
+            storage,
+            manifest,
+            Some(syntax),
+            &budget,
+        )
+        .unwrap();
+        let result = crate::repository_context::search_files_with_mode_page(
+            storage,
+            manifest,
+            &prepared,
+            query,
+            None,
+            8,
+            0,
+            &budget,
+            crate::repository_context::SearchMode::Code,
+        )
+        .unwrap();
+        crate::chapter_origin::RecordedSearchScope::from_result(
+            "c".repeat(64),
+            query.to_owned(),
+            None,
+            "files",
+            8,
+            0,
+            &result,
+        )
+    }
+
     fn position(text: &str, byte: usize) -> (usize, usize) {
         let bytes = text.as_bytes();
         let prefix = &bytes[..byte.min(bytes.len())];
@@ -4721,6 +4856,7 @@ mod tests {
                 vec![range],
                 vec![crate::chapter_origin::RecordedSearchScope {
                     query_sha256: "c".repeat(64),
+                    query: Some("related behavior".into()),
                     scope: None,
                     result_kind: "files".into(),
                     limit: 8,
@@ -4761,9 +4897,127 @@ mod tests {
     }
 
     #[test]
+    fn guide_search_replay_detects_a_new_matching_file() {
+        let storage = TempStorage::new();
+        let entry_text = "pub fn process_input_behavior() {}\n";
+        let added_text = "pub fn process_input_behavior_helper() {}\n";
+        let old_manifest = manifest(
+            "old",
+            vec![put_file(&storage.0, "src/entry.rs", entry_text)],
+        );
+        let new_manifest = manifest(
+            "new",
+            vec![
+                put_file(&storage.0, "src/entry.rs", entry_text),
+                put_file(&storage.0, "src/helper.rs", added_text),
+            ],
+        );
+        let old_index = index(
+            "old",
+            &old_manifest,
+            vec![symbol(
+                "src/entry.rs",
+                "sym-entry",
+                "process_input_behavior",
+                entry_text,
+                false,
+            )],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let new_index = index(
+            "new",
+            &new_manifest,
+            vec![
+                symbol(
+                    "src/entry.rs",
+                    "sym-entry",
+                    "process_input_behavior",
+                    entry_text,
+                    false,
+                ),
+                symbol(
+                    "src/helper.rs",
+                    "sym-helper",
+                    "process_input_behavior_helper",
+                    added_text,
+                    false,
+                ),
+            ],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let query = "process input behavior";
+        let saved_search = indexed_file_search(&storage.0, &old_manifest, &old_index, query);
+        assert_eq!(saved_search.candidates.len(), 1);
+        assert_eq!(saved_search.candidates[0].path, "src/entry.rs");
+        let current_search = indexed_file_search(&storage.0, &new_manifest, &new_index, query);
+        assert!(current_search.candidates.iter().any(|candidate| {
+            candidate.path == "src/helper.rs"
+        }));
+
+        let entry_source =
+            crate::repository_context::source(&storage.0, &old_manifest, "src/entry.rs").unwrap();
+        let range = crate::repository_context::range_from_source(
+            &entry_source,
+            0,
+            entry_source.contents.len(),
+        )
+        .unwrap()
+        .range;
+        let mut guide_draft = revision(vec![anchored_section(
+            "guide-slide",
+            "src/entry.rs",
+            entry_text,
+            "sym-entry",
+            "process_input_behavior",
+        )]);
+        guide_draft.chapter_id = "chapter:overview".into();
+        guide_draft.target.target_id = "target:overview".into();
+        guide_draft.target.scope = ChapterTargetScope::Overview;
+        guide_draft.lifecycle = RevisionLifecycle::Draft;
+        guide_draft.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+        guide_draft.generation_origin = Some(
+            crate::chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
+                &Uuid::new_v4().to_string(),
+                &"a".repeat(64),
+                &"b".repeat(64),
+                "gpt-6-luna",
+                "max",
+                vec![range],
+                vec![saved_search],
+                Some(&old_index),
+                &[entry_source],
+                &guide_draft,
+            )
+            .unwrap(),
+        );
+
+        let report = classify_guide_draft_freshness(
+            &storage.0,
+            &old_manifest,
+            Some(&old_index),
+            &new_manifest,
+            Some(&new_index),
+            &guide_draft,
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.sections[0].status,
+            SectionFreshnessStatus::NeedsReview
+        );
+        assert!(report.sections[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.code == "retrievalCandidateSetChanged"));
+    }
+
+    #[test]
     fn recorded_search_pages_require_a_complete_contiguous_sequence() {
         let page = |offset, limited, next_offset| crate::chapter_origin::RecordedSearchScope {
             query_sha256: "c".repeat(64),
+            query: Some("entry behavior".into()),
             scope: None,
             result_kind: "files".into(),
             limit: 2,

@@ -11,13 +11,16 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
-pub(crate) const CHAPTER_ORIGIN_SCHEMA_VERSION: u32 = 7;
+pub(crate) const CHAPTER_ORIGIN_SCHEMA_VERSION: u32 = 8;
 const PRE_SEARCH_SCOPE_SCHEMA_VERSION: u32 = 6;
+const PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION: u32 = 7;
 
 pub(crate) fn supports_schema_version(version: u32) -> bool {
     matches!(
         version,
-        PRE_SEARCH_SCOPE_SCHEMA_VERSION | CHAPTER_ORIGIN_SCHEMA_VERSION
+        PRE_SEARCH_SCOPE_SCHEMA_VERSION
+            | PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION
+            | CHAPTER_ORIGIN_SCHEMA_VERSION
     )
 }
 
@@ -86,13 +89,16 @@ pub(crate) struct RecordedSearchCandidate {
     pub(crate) source_sha256: String,
 }
 
-/// One successful local code-search page. The query itself is not retained;
-/// its digest binds query, scope, result kind and limit, while the candidate
-/// paths and hashes make the discovered source boundary auditable.
+/// One successful local code-search page. The normalized query is retained in
+/// local provenance, but omitted from the model-visible tool result, so a later
+/// snapshot can replay the same search. Its digest binds query, scope, result
+/// kind and limit; candidate paths and hashes record the original result set.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RecordedSearchScope {
     pub(crate) query_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) query: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) result_kind: String,
     pub(crate) limit: usize,
@@ -106,6 +112,7 @@ pub(crate) struct RecordedSearchScope {
 impl RecordedSearchScope {
     pub(crate) fn from_result(
         query_sha256: String,
+        query: String,
         scope: Option<String>,
         result_kind: &str,
         limit: usize,
@@ -140,6 +147,7 @@ impl RecordedSearchScope {
         }
         Self {
             query_sha256,
+            query: Some(query.split_whitespace().collect::<Vec<_>>().join(" ")),
             scope,
             result_kind: result_kind.to_owned(),
             limit,
@@ -167,6 +175,11 @@ impl RecordedSearchScope {
             return false;
         };
         digest(&self.query_sha256)
+            && self.query.as_deref().is_none_or(|query| {
+                (2..=240).contains(&query.chars().count())
+                    && !query.chars().any(char::is_control)
+                    && query.split_whitespace().collect::<Vec<_>>().join(" ") == query
+            })
             && self
                 .scope
                 .as_deref()
@@ -463,9 +476,20 @@ impl ChapterGenerationOrigin {
                 );
             let search_scope_valid = match (self.schema_version, &retrieval.searches) {
                 (PRE_SEARCH_SCOPE_SCHEMA_VERSION, None) => true,
+                (PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION, Some(searches)) => {
+                    searches.len() <= crate::evidence_ledger::MAX_CALLS
+                        && searches.iter().all(RecordedSearchScope::valid)
+                        && searches.iter().all(|search| search.query.is_none())
+                        && searches
+                            .iter()
+                            .map(|search| search.candidates.len())
+                            .sum::<usize>()
+                            <= crate::evidence_ledger::MAX_RECORDED_SEARCH_CANDIDATES
+                }
                 (CHAPTER_ORIGIN_SCHEMA_VERSION, Some(searches)) => {
                     searches.len() <= crate::evidence_ledger::MAX_CALLS
                         && searches.iter().all(RecordedSearchScope::valid)
+                        && searches.iter().all(|search| search.query.is_some())
                         && searches
                             .iter()
                             .map(|search| search.candidates.len())
@@ -481,13 +505,15 @@ impl ChapterGenerationOrigin {
                     &retrieval.index_identity,
                     &self.settings,
                 ))),
-                CHAPTER_ORIGIN_SCHEMA_VERSION => Some(serde_json::to_vec(&(
-                    &self.request_body_sha256,
-                    &retrieval.ledger_sha256,
-                    &retrieval.index_identity,
-                    &retrieval.searches,
-                    &self.settings,
-                ))),
+                PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION | CHAPTER_ORIGIN_SCHEMA_VERSION => {
+                    Some(serde_json::to_vec(&(
+                        &self.request_body_sha256,
+                        &retrieval.ledger_sha256,
+                        &retrieval.index_identity,
+                        &retrieval.searches,
+                        &self.settings,
+                    )))
+                }
                 _ => None,
             };
             let fingerprint_valid = current_retrieval
@@ -762,7 +788,7 @@ mod tests {
         .unwrap()
         .review;
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
-        assert_eq!(origin.schema_version, 7);
+        assert_eq!(origin.schema_version, CHAPTER_ORIGIN_SCHEMA_VERSION);
         assert_eq!(
             origin.settings,
             RecordedAgentSettings::Codex {
@@ -837,6 +863,7 @@ mod tests {
             vec![range],
             vec![RecordedSearchScope {
                 query_sha256: "c".repeat(64),
+                query: Some("entry behavior".into()),
                 scope: None,
                 result_kind: "files".into(),
                 limit: 8,
@@ -854,7 +881,7 @@ mod tests {
             &revision,
         )
         .unwrap();
-        assert_eq!(origin.schema_version, 7);
+        assert_eq!(origin.schema_version, CHAPTER_ORIGIN_SCHEMA_VERSION);
         assert_eq!(
             origin.contract_version,
             crate::evidence_ledger::PROGRESSIVE_CONTRACT
@@ -900,6 +927,69 @@ mod tests {
     }
 
     #[test]
+    fn schema_seven_search_scopes_remain_readable_without_replay_queries() {
+        let f = Fixture::new();
+        let mut revision = chapter(&f);
+        revision.chapter_id = "chapter:overview".into();
+        revision.target.target_id = "target:overview".into();
+        revision.target.scope = ChapterTargetScope::Overview;
+        revision.sections.truncate(1);
+        let sources = f.sources(&[SIMPLE_PATH]);
+        let range =
+            crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
+                .unwrap()
+                .range;
+        let mut origin = ChapterGenerationOrigin::from_answer_checkpoint(
+            &Uuid::new_v4().to_string(),
+            &"a".repeat(64),
+            &"b".repeat(64),
+            "gpt-6-luna",
+            "max",
+            vec![range],
+            vec![RecordedSearchScope {
+                query_sha256: "c".repeat(64),
+                query: Some("entry behavior".into()),
+                scope: None,
+                result_kind: "files".into(),
+                limit: 8,
+                offset: 0,
+                candidates: vec![RecordedSearchCandidate {
+                    path: SIMPLE_PATH.into(),
+                    source_sha256: sources[0].sha256.clone(),
+                }],
+                candidates_complete: true,
+                limited: false,
+                next_offset: None,
+            }],
+            None,
+            &sources,
+            &revision,
+        )
+        .unwrap();
+        origin.schema_version = PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION;
+        origin
+            .retrieval
+            .as_mut()
+            .unwrap()
+            .searches
+            .as_mut()
+            .unwrap()[0]
+            .query = None;
+        origin.request_fingerprint = crate::repository_context::digest(
+            &serde_json::to_vec(&(
+                &origin.request_body_sha256,
+                &origin.retrieval.as_ref().unwrap().ledger_sha256,
+                &origin.retrieval.as_ref().unwrap().index_identity,
+                &origin.retrieval.as_ref().unwrap().searches,
+                &origin.settings,
+            ))
+            .unwrap(),
+        );
+
+        assert!(origin.validate(&revision).is_ok());
+    }
+
+    #[test]
     fn search_scope_is_incomplete_when_the_index_omitted_source_files() {
         let result = crate::repository_context::SearchResult {
             matches: Vec::new(),
@@ -917,7 +1007,15 @@ mod tests {
             rank_trace: Vec::new(),
         };
 
-        let scope = RecordedSearchScope::from_result("c".repeat(64), None, "files", 8, 0, &result);
+        let scope = RecordedSearchScope::from_result(
+            "c".repeat(64),
+            "entry behavior".into(),
+            None,
+            "files",
+            8,
+            0,
+            &result,
+        );
 
         assert!(!scope.candidates_complete);
         assert!(scope.valid());

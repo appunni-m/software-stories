@@ -970,6 +970,52 @@ pub(crate) fn search_cached_files(
     .map(Some)
 }
 
+/// Re-evaluate one bounded page against an already-published snapshot index.
+/// Freshness checks must not build a new search generation as a side effect;
+/// a missing generation is reported to the caller as unavailable evidence.
+pub(crate) fn search_cached_page(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    syntax: Option<&index::SnapshotIndex>,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    offset: usize,
+    budget: &Budget<'_>,
+    mode: SearchMode,
+    file_discovery: bool,
+) -> Result<Option<SearchResult>, String> {
+    budget.check()?;
+    if manifest.files.len() > 25_000 {
+        return Err("This snapshot exceeds the local code index path limit.".to_owned());
+    }
+    let fingerprint = fingerprint(manifest, syntax)?;
+    let Some(cache) = cache::Cache::open_reader(
+        storage,
+        &manifest.summary.project_id,
+        &manifest.summary.snapshot_id,
+        budget,
+    )?
+    else {
+        return Ok(None);
+    };
+    let Some(prepared) = load_generation(&cache, &cache.directory, Some(&fingerprint), budget)
+    else {
+        return Ok(None);
+    };
+    if file_discovery {
+        search_files_with_mode_page(
+            storage, manifest, &prepared, query, path, limit, offset, budget, mode,
+        )
+        .map(Some)
+    } else {
+        search_with_mode_page(
+            storage, manifest, &prepared, query, path, limit, offset, budget, mode,
+        )
+        .map(Some)
+    }
+}
+
 fn prepare_cached(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,

@@ -9,8 +9,9 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const NARRATION_PROPOSAL_VERSION: &str = "answerSectionV6";
 pub(crate) const NARRATION_ANSWER_VERSION: u32 = 7;
-pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 10;
+pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 11;
 const PRE_SEARCH_SCOPE_CHECKPOINT_VERSION: u32 = 9;
+const PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION: u32 = 10;
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;
@@ -1149,7 +1150,9 @@ impl Answer {
         self.schema_version == NARRATION_ANSWER_VERSION
             && matches!(
                 checkpoint,
-                PRE_SEARCH_SCOPE_CHECKPOINT_VERSION | NARRATION_CHECKPOINT_VERSION
+                PRE_SEARCH_SCOPE_CHECKPOINT_VERSION
+                    | PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION
+                    | NARRATION_CHECKPOINT_VERSION
             )
     }
 
@@ -1157,7 +1160,14 @@ impl Answer {
         self.supports_checkpoint(checkpoint)
             && matches!(
                 (checkpoint, ledger_schema),
-                (PRE_SEARCH_SCOPE_CHECKPOINT_VERSION, 5)
+                (
+                    PRE_SEARCH_SCOPE_CHECKPOINT_VERSION,
+                    crate::evidence_ledger::PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION
+                )
+                    | (
+                        PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION,
+                        crate::evidence_ledger::PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION
+                    )
                     | (
                         NARRATION_CHECKPOINT_VERSION,
                         crate::evidence_ledger::LEDGER_SCHEMA_VERSION

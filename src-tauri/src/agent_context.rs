@@ -1026,6 +1026,7 @@ impl Session {
                                 limit,
                                 result_kind,
                             )?,
+                            input.query.clone(),
                             input.path.clone(),
                             match result_kind {
                                 SearchResultKind::Files => "files",
