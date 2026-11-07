@@ -44,12 +44,15 @@ The app still has separate quality and release gates for narrative depth, diagra
 
 Saved routes keep their original accepted revision, source snapshot and step
 links. The reader independently checks captured code and claims locally. It
-supports the three known planning request contracts across instruction/schema
-changes and preserves both historical schema-1 record encodings; new records
-use schema 2. Opening history starts no model request. Unsupported contracts or
-changed/unavailable evidence produce distinct errors and preserve the record.
-Older app binaries are not qualified to read new schema-2 records.
+revalidates saved plans against the current planning contract; it does not replay
+historical prompt/schema contracts. A mismatched or unsupported plan stays
+preserved and unavailable. Current section-answer receipts use schema 7 and
+must pass strict request, operation, source and evidence checks. Older or
+unsupported receipts remain preserved and count toward the storage limit; they
+are not interpreted, migrated or deleted. Opening history starts no model
+request. The [17 October saved-route qualification](acceptance/2026-10-17-saved-route-replay.md)
+records a past run and does not establish the current contract or packaged
+acceptance. Older app binaries are not qualified to read records created by the
+current release.
 
-The [saved-route qualification](acceptance/2026-10-17-saved-route-replay.md)
-contains the real saved fixture, simulated upgrade boundaries and pending
-packaged-app acceptance. It does not qualify whole-repository orchestration.
+The historical fixture does not qualify whole-repository orchestration.
