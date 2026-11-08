@@ -175,7 +175,7 @@ describe('desktop shell acceptance contract', () => {
     assert.doesNotMatch(source, /aria-label="Open workspace settings"/);
     assert.match(source, /<ConnectionHeader onOpen=\{openProviderSettings\} \/>/);
     const narration = await readFile(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
-    assert.match(narration, /Set up Gemini for narration/);
+    assert.doesNotMatch(narration, /Gemini|Google AI Studio|apiKeyConfigured/);
     assert.match(source.slice(source.indexOf('function ProviderDialog')), /provider-key-card/);
   });
 

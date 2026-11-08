@@ -7124,10 +7124,6 @@ pub fn remove_api_key_for(provider_id: &str) -> ProviderCommandResult<ProviderCr
     )
 }
 
-pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
-    load_api_key_for(GEMINI_PROVIDER_ID)
-}
-
 pub fn load_api_key_for(provider_id: &str) -> Result<Zeroizing<String>, ProviderFailure> {
     let provider_name = disclosure_for(provider_id)
         .map(|provider| provider.display_name)

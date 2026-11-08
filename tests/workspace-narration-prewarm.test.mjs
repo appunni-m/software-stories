@@ -64,7 +64,7 @@ test('newly published explanation sections enqueue local narration without waiti
     native: true,
     ensureCodexConnection: async () => {},
     readCodexSelection: () => ({ modelId: 'gpt-6-luna', effort: 'max' }),
-    readVoiceConnection: () => ({ backend: 'pocket-tts', googleVoice: 'Kore', googleStyle: '' }),
+    readVoiceConnection: () => ({ backend: 'pocket-tts' }),
     localNarrationPrewarmInputs: (candidate, connection) => {
       assert.equal(candidate.revisionId, revision.revisionId);
       assert.equal(connection.backend, 'pocket-tts');

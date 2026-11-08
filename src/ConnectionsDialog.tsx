@@ -46,7 +46,7 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
   const [message, setMessage] = useState<string | null>(null);
   const setupId = useRef<string | null>(null);
   const alive = useRef(false);
-  useEffect(() => { setError(readVoiceConnectionIssue()); }, [settings.backend, settings.googleVoice, settings.googleStyle]);
+  useEffect(() => { setError(readVoiceConnectionIssue()); }, [settings.backend]);
   useEffect(() => { alive.current = true; return () => { alive.current = false; if (setupId.current) void cancelProviderRequest(setupId.current).catch(() => {}); }; }, []);
   useEffect(() => { onBusyChange(busy); }, [busy, onBusyChange]);
   useEffect(() => {

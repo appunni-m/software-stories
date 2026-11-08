@@ -919,16 +919,6 @@ fn get_provider_catalog() -> Vec<provider::ProviderDisclosure> {
 }
 
 #[tauri::command]
-fn get_narration_disclosure() -> narration::NarrationDisclosure {
-    narration::disclosure()
-}
-
-#[tauri::command]
-fn get_local_narration_disclosure() -> narration::NarrationDisclosure {
-    narration::local_disclosure()
-}
-
-#[tauri::command]
 fn get_pocket_tts_status(app: AppHandle) -> Result<pocket_tts::PocketTtsStatus, String> {
     Ok(pocket_tts::status(&app_data_directory(&app)?))
 }
@@ -1028,24 +1018,6 @@ fn get_local_narration_preparation_status(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn build_narration_request_review(
-    app: AppHandle,
-    reviews: State<'_, narration::PendingNarrationReviews>,
-    input: narration::BuildNarrationReviewInput,
-) -> provider::ProviderCommandResult<narration::NarrationRequestReview> {
-    let storage_dir = match app_data_directory(&app) {
-        Ok(path) => path,
-        Err(_) => {
-            return provider::ProviderCommandResult::error(
-                provider::ProviderFailureKind::LocalStorageUnavailable,
-                "Code Atlas local audio storage is unavailable. No narration request was sent.",
-            );
-        }
-    };
-    narration::build_request_review(&storage_dir, &reviews, input)
-}
-
-#[tauri::command(rename_all = "camelCase")]
 fn discard_narration_request_review(
     reviews: State<'_, narration::PendingNarrationReviews>,
     review_id: String,
@@ -1080,7 +1052,6 @@ async fn synthesize_reviewed_narration_audio(
     cancellations: State<'_, provider::ProviderRequestCancellations>,
     review_id: String,
     fingerprint: String,
-    consent: narration::NarrationConsent,
 ) -> Result<provider::ProviderCommandResult<narration::NarrationAudio>, String> {
     let storage_dir = match app_data_directory(&app) {
         Ok(path) => path,
@@ -1113,7 +1084,6 @@ async fn synthesize_reviewed_narration_audio(
         &reviews,
         &review_id,
         &fingerprint,
-        &consent,
         &mut cancellation,
     )
     .await;
@@ -2602,8 +2572,6 @@ pub fn run() {
             accept_pr_guide_draft,
             reject_pr_guide_draft,
             get_provider_catalog,
-            get_narration_disclosure,
-            get_local_narration_disclosure,
             get_pocket_tts_status,
             setup_pocket_tts,
             remove_pocket_tts_runtime,
@@ -2611,7 +2579,6 @@ pub fn run() {
             prewarm_local_narration,
             cancel_pending_local_narration,
             get_local_narration_preparation_status,
-            build_narration_request_review,
             discard_narration_request_review,
             load_reviewed_narration_audio,
             synthesize_reviewed_narration_audio,
@@ -3238,13 +3205,8 @@ mod chapter_pipeline_tests {
             .filter(|asset| asset.starts_with("visual:"))
             .collect::<Vec<_>>();
         assert_eq!(old_visual_assets.len(), 1);
-        let old_unrelated_audio = narration::audio_cache_key_for_script(
-            &old_unrelated_section.spoken_text,
-            crate::pocket_tts::MODEL_ID,
-            crate::pocket_tts::VOICE,
-            "",
-            "audio/wav",
-        );
+        let old_unrelated_audio =
+            narration::audio_cache_key_for_script(&old_unrelated_section.spoken_text);
 
         let multiple_stale_source = chapter_generation::tests::SIMPLE_SOURCE
             .replace(
@@ -3782,30 +3744,12 @@ mod chapter_pipeline_tests {
             old_visual_assets,
         );
         assert_eq!(
-            narration::audio_cache_key_for_script(
-                &next_unrelated.spoken_text,
-                crate::pocket_tts::MODEL_ID,
-                crate::pocket_tts::VOICE,
-                "",
-                "audio/wav"
-            ),
+            narration::audio_cache_key_for_script(&next_unrelated.spoken_text,),
             old_unrelated_audio,
         );
         assert_ne!(
-            narration::audio_cache_key_for_script(
-                &next_selected.spoken_text,
-                crate::pocket_tts::MODEL_ID,
-                crate::pocket_tts::VOICE,
-                "",
-                "audio/wav"
-            ),
-            narration::audio_cache_key_for_script(
-                &old_selected_section.spoken_text,
-                crate::pocket_tts::MODEL_ID,
-                crate::pocket_tts::VOICE,
-                "",
-                "audio/wav"
-            ),
+            narration::audio_cache_key_for_script(&next_selected.spoken_text,),
+            narration::audio_cache_key_for_script(&old_selected_section.spoken_text,),
         );
         assert_eq!(
             chapters::encode_chapter_revision(&accepted).unwrap(),

@@ -26,8 +26,7 @@ const revision = {
     },
   }],
 };
-const local = { backend: 'pocket-tts', googleVoice: 'Kore', googleStyle: '' };
-const cloud = { backend: 'gemini', googleVoice: 'Charon', googleStyle: 'Calm' };
+const local = { backend: 'pocket-tts' };
 const read = values => key => values[key] ?? null;
 
 it('prewarms the same authored scene scripts and saved pronunciation edits as the player', () => {
@@ -120,9 +119,9 @@ it('retries native cancellation when identity changes before prewarm admission s
   assert.equal(prepared.length, 2, 'the new-identity job should run after the old job exits');
 });
 
-it('never builds automatic narration work for a cloud Voice connection', () => {
-  const inputs = localNarrationPrewarmInputs(revision, cloud, () => {
-    throw new Error('cloud selection must skip local storage and synthesis');
+it('never builds narration work for an unsupported connection value', () => {
+  const inputs = localNarrationPrewarmInputs(revision, { backend: 'gemini' }, () => {
+    throw new Error('unsupported connection values must skip storage and synthesis');
   });
   assert.deepEqual(inputs, []);
 });

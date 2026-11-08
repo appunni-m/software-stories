@@ -785,27 +785,6 @@ export interface ProviderConsent {
   adultSupportedRegionAcknowledged: boolean;
 }
 
-export interface NarrationDisclosure {
-  version: string;
-  checkedDate: string;
-  provider: string;
-  modelId: string;
-  modelName: string;
-  freeTierTerms: string;
-  paidTierTerms: string;
-  dataUseTerms: string;
-  paidDataUseTerms: string;
-  regionalDataUseTerms: string;
-  eligibilityTerms: string;
-  billingUncertainty: string;
-  termsUrl: string;
-  pricingUrl: string;
-  regionsUrl: string;
-  apiKeyUrl: string;
-  requestScope: string;
-  voices: string[];
-}
-
 export interface NarrationPronunciationEntry {
   name: string;
   sayAs: string;
@@ -833,10 +812,6 @@ export interface NarrationAudio {
   mimeType: string;
   audioBase64: string;
   cacheHit: boolean;
-}
-
-export interface NarrationConsent {
-  termsAndRequestAcknowledged: boolean;
 }
 
 export interface ProviderRequestFile {
@@ -1447,7 +1422,7 @@ export async function sendCodeLensProviderRequest(input: {
   return invoke<ProviderCommandResult<CodeLensExplanationPreview>>('send_code_lens_provider_request', input);
 }
 
-export type NarrationBackend = 'pocket-tts' | 'gemini';
+export type NarrationBackend = 'pocket-tts';
 
 export type NarrationPrewarmState = 'idle' | 'preparing' | 'ready' | 'unavailable';
 
@@ -1488,10 +1463,6 @@ export async function removePocketTtsRuntime(): Promise<ProviderCommandResult<Po
   return invoke<ProviderCommandResult<PocketTtsStatus>>('remove_pocket_tts_runtime');
 }
 
-export async function getNarrationDisclosure(backend: NarrationBackend = 'pocket-tts'): Promise<NarrationDisclosure> {
-  return invoke<NarrationDisclosure>(backend === 'pocket-tts' ? 'get_local_narration_disclosure' : 'get_narration_disclosure');
-}
-
 export async function prewarmLocalNarration(input: NarrationSynthesisInput): Promise<ProviderCommandResult<NarrationPrewarmStatus>> {
   return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('prewarm_local_narration', { input });
 }
@@ -1504,12 +1475,9 @@ export async function getLocalNarrationPreparationStatus(input: NarrationSynthes
   return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('get_local_narration_preparation_status', { input });
 }
 
-export async function buildNarrationRequestReview(input: NarrationSynthesisInput & {
-  backend?: NarrationBackend;
-}): Promise<ProviderCommandResult<NarrationRequestReview>> {
-  const { backend = 'pocket-tts', ...request } = input;
+export async function buildNarrationRequestReview(input: NarrationSynthesisInput): Promise<ProviderCommandResult<NarrationRequestReview>> {
   return invoke<ProviderCommandResult<NarrationRequestReview>>(
-    backend === 'pocket-tts' ? 'build_local_narration_request_review' : 'build_narration_request_review', { input: request });
+    'build_local_narration_request_review', { input });
 }
 
 export async function discardNarrationRequestReview(reviewId: string): Promise<void> {
@@ -1526,7 +1494,6 @@ export async function loadReviewedNarrationAudio(input: {
 export async function synthesizeReviewedNarrationAudio(input: {
   reviewId: string;
   fingerprint: string;
-  consent: NarrationConsent;
 }): Promise<ProviderCommandResult<NarrationAudio>> {
   return invoke<ProviderCommandResult<NarrationAudio>>('synthesize_reviewed_narration_audio', input);
 }

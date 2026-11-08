@@ -67,8 +67,8 @@ export function parseNarrationPreferences(
   if (Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key))) {
     throw new Error('Saved narration preferences use an unsupported format. The accepted transcript remains available.');
   }
-  if (value.backend !== 'pocket-tts' && value.backend !== 'gemini') {
-    throw new Error('Saved narration settings use an unsupported voice engine. Choose Pocket TTS or Gemini in Connections.');
+  if (value.backend !== 'pocket-tts') {
+    throw new Error('Saved narration settings use an unsupported voice engine. Pocket TTS is the only available voice.');
   }
   if (typeof value.spokenText !== 'string' || new TextEncoder().encode(value.spokenText).byteLength > 16_000
     || typeof value.voice !== 'string' || typeof value.style !== 'string'
@@ -76,12 +76,10 @@ export function parseNarrationPreferences(
     || !value.lexicon.every(isPronunciationEntry)) {
     throw new Error('Saved narration preferences are malformed. The accepted transcript remains available.');
   }
-  if (value.backend === 'pocket-tts'
-    ? value.voice !== DEFAULT_NARRATION_VOICE || value.style !== DEFAULT_NARRATION_STYLE
-    : !/^[A-Za-z]{1,40}$/u.test(value.voice) || new TextEncoder().encode(value.style).byteLength > 160) {
-    throw new Error('Saved narration preferences do not match the selected voice engine. Choose a supported voice in Connections.');
+  if (value.voice !== DEFAULT_NARRATION_VOICE || value.style !== DEFAULT_NARRATION_STYLE) {
+    throw new Error('Saved narration preferences do not match the fixed Pocket TTS voice.');
   }
-  return { backend: value.backend as NarrationBackend, spokenText: value.spokenText,
+  return { backend: 'pocket-tts', spokenText: value.spokenText,
     voice: value.voice, style: value.style, lexicon: value.lexicon as NarrationPreferencesSnapshot['lexicon'] };
 }
 
@@ -156,11 +154,6 @@ export function narrationTrackMatchesPreferences(
     style: track.style,
     lexicon: track.lexicon,
   }, preferences);
-}
-
-/** Local Pocket speech needs no consent gate: play a hit or synthesize on the first click. */
-export function localNarrationAction(cachedAudioAvailable: boolean): 'play-cache' | 'synthesize' {
-  return cachedAudioAvailable ? 'play-cache' : 'synthesize';
 }
 
 export function narrationAvailabilityLabel(state: NarrationPrewarmState | 'checking'): string {

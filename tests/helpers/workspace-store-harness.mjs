@@ -62,7 +62,7 @@ export function workspaceStoreHarness(invoke,options={}) {
     },
     '../lib/connectionStore': { ensureCodexConnection: options.ensureCodexConnection??unexpected, readCodexSelection: options.readCodexSelection??unexpected },
     '../lib/voiceConnectionStore': {
-      readVoiceConnection: options.readVoiceConnection ?? (() => ({ backend: 'pocket-tts', googleVoice: 'Kore', googleStyle: '' })),
+      readVoiceConnection: options.readVoiceConnection ?? (() => ({ backend: 'pocket-tts' })),
       readVoiceConnectionIssue: options.readVoiceConnectionIssue ?? (() => null),
     },
     './narrationPrewarm': {
