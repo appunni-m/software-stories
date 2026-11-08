@@ -2452,9 +2452,9 @@ pub(crate) mod tests {
                 {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ],"edges":[],"presentation":{"schemaVersion":3,"scenes":[{
                 "claimIndex":0,"title":"Put the name into the greeting","narration":"The template formats the supplied name and returns the resulting greeting.","mode":"composition","elements":[
-                    {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+                    {"kind":"transform","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
                     {"kind":"code","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"Hello, ${name}","valueOrigin":"source"},
-                    {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+                    {"kind":"text","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"Insert the supplied name in the greeting","valueOrigin":"explanation"},
                     {"kind":"token","parentIndex":0,"nodeIndex":1,"tone":"positive","value":"Hello, Ada","valueOrigin":"illustration"}
                 ]
             }]}

@@ -72,8 +72,9 @@ export function sceneRevision(){
   section.visual.presentation={schemaVersion:3,scenes:[{
     claimIndex:0,title:'A request arrives',narration:'A request arrives at the route before it reaches the handler.',mode:'composition',
     elements:[
-      {kind:'panel',parentIndex:null,nodeIndex:null,tone:'neutral',value:'',valueOrigin:'none'},
+      {kind:'timeline',parentIndex:null,nodeIndex:null,tone:'neutral',value:'',valueOrigin:'none'},
       {kind:'code',parentIndex:0,nodeIndex:0,tone:'accent',value:'SOURCE_VALUE_OLD',valueOrigin:'source'},
+      {kind:'text',parentIndex:0,nodeIndex:0,tone:'neutral',value:'The handler receives the request.',valueOrigin:'explanation'},
     ],
   }]};
   return revision;

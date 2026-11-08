@@ -536,6 +536,7 @@ mod tests {
             chapter_diagnostics(&text).unwrap(),
             vec![
                 json!({"location":"/sections/0/visual/presentation/scenes/1/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}),
+                json!({"location":"/sections/0/visual/presentation/scenes/1/elements/2/nodeIndex","sceneProblem":"sceneEvidence"}),
                 json!({"location":"/sections/0/visual/presentation/scenes/1/elements/3/nodeIndex","sceneProblem":"sceneEvidence"}),
             ]
         );
@@ -698,12 +699,17 @@ mod tests {
             ))
         };
         let findings = diagnose(&proposal.to_string()).unwrap().unwrap();
-        assert_eq!(findings.len(), 2);
-        assert_eq!(findings[0]["sceneProblem"], "sceneEvidence");
+        assert_eq!(findings.len(), 3);
         assert_eq!(
-            findings[1],
-            json!({"location":"/sections/0/claims/0/evidence/0","quoteProblem":"quoteNotExact"})
+            findings
+                .iter()
+                .filter(|finding| finding["sceneProblem"] == "sceneEvidence")
+                .count(),
+            2
         );
+        assert!(findings.contains(
+            &json!({"location":"/sections/0/claims/0/evidence/0","quoteProblem":"quoteNotExact"})
+        ));
         let output = correct_once_checked(
             true,
             proposal.to_string(),
@@ -726,7 +732,11 @@ mod tests {
         let selected = proposal["sections"][0].to_string();
         let issues =
             fixed_source_chapter_diagnostics(&selected, [(SIMPLE_PATH, SIMPLE_SOURCE)]).unwrap();
-        assert_eq!(issues[1]["location"], "/claims/0/evidence/0");
+        let quote_issue = issues
+            .iter()
+            .find(|issue| issue["quoteProblem"] == "quoteNotExact")
+            .expect("the exact-quote diagnostic remains present");
+        assert_eq!(quote_issue["location"], "/claims/0/evidence/0");
         let issues = fixed_source_chapter_diagnostics(&output, std::iter::empty()).unwrap();
         assert_eq!(issues[0]["quoteProblem"], "pathNotAdmitted");
         let repeated = format!("{SIMPLE_SOURCE}\n{SIMPLE_SOURCE}");
@@ -806,7 +816,8 @@ mod tests {
         ))
         .unwrap();
         let scene = json!({"claimIndex":0,"title":"not copied into diagnostics","narration":"This scene describes the selected operation.","mode":"composition","elements":[
-            {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"neutral","value":"private source payload","valueOrigin":"illustration"},
+            {"kind":"panel","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"card","parentIndex":0,"nodeIndex":0,"tone":"neutral","value":"private source payload","valueOrigin":"illustration"},
             {"kind":"token","parentIndex":0,"nodeIndex":0,"tone":"neutral","value":"private source payload","valueOrigin":"illustration"}
         ]});
         response["sections"][0]["visual"] =

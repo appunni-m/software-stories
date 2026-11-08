@@ -136,8 +136,9 @@ const sceneChapter = () => {
   first.prose = first.spokenText = first.claims.map(claim => claim.prose).join(' ');
   first.visual.presentation = { schemaVersion: 3, scenes: first.claims.map((_claim, claimIndex) => ({
     claimIndex, title: claimIndex === 0 ? 'Incoming call' : 'Returned result', narration: first.claims[claimIndex].prose, mode: 'composition', elements: [
-      { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+      { kind: 'timeline', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
       { kind: 'code', parentIndex: 0, nodeIndex: claimIndex, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+      { kind: 'token', parentIndex: 0, nodeIndex: claimIndex, tone: 'positive', value: 'The result returns', valueOrigin: 'explanation' },
     ],
   })) };
   return chapter({ sections: [first] });
@@ -231,8 +232,9 @@ describe('offline chapter export', () => {
     const visual = typedVisual();
     visual.presentation = { schemaVersion: 3, scenes: [{
       claimIndex: 0, title: 'Request input', narration: 'The request input reaches the route before the worker handles it.', mode: 'composition', elements: [
-        { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+        { kind: 'timeline', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
         { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+        { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'Worker receives the call', valueOrigin: 'explanation' },
       ],
     }] };
     const revisions = [chapter({ sections: [section({ visual })] })];
@@ -262,8 +264,9 @@ describe('offline chapter export', () => {
     visual.presentation = { schemaVersion: 3, scenes: [{
       claimIndex: 0, title: 'Call the worker', narration: 'The entry point calls the worker.', mode: 'composition',
       elements: [
-        { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+        { kind: 'timeline', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
         { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+        { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'Worker result', valueOrigin: 'explanation' },
       ],
     }] };
     const anchors = [

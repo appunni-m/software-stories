@@ -267,7 +267,7 @@ pub(crate) mod tests {
         assert!(normalized_reference.contains(&format!(
             "up to {sentence_limit} short sentences and {byte_limit} UTF-8 bytes"
         )));
-        assert!(normalized_reference.contains("Visual design method `v66`"));
+        assert!(normalized_reference.contains("Visual design method and composition review `v67`"));
         assert!(normalized_reference.contains(
             "Every narrated graph scene must include a node citing its own claim and at least one labeled edge connecting that focused node to another node."
         ));

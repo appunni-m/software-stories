@@ -15,8 +15,9 @@ function section(){
   s.visual.edges[0].evidenceAnchorIds=['anchor:route'];
   s.hotspots.push({hotspotId:'hotspot:second',label:'Open second',destination:{kind:'codeLens',anchorId:'anchor:second'}});
   s.visual.presentation.scenes.push({claimIndex:1,title:'Second step',narration:'The second route returns its own value.',mode:'composition',elements:[
-    {kind:'panel',parentIndex:null,nodeIndex:null,tone:'neutral',value:'',valueOrigin:'none'},
+    {kind:'timeline',parentIndex:null,nodeIndex:null,tone:'neutral',value:'',valueOrigin:'none'},
     {kind:'code',parentIndex:0,nodeIndex:1,tone:'accent',value:'return second();',valueOrigin:'source'},
+    {kind:'text',parentIndex:0,nodeIndex:1,tone:'positive',value:'The caller receives the returned value.',valueOrigin:'explanation'},
   ]});
   return s;
 }

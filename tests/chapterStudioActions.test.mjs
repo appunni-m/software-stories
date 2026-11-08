@@ -6,6 +6,7 @@ import ts from 'typescript';
 import {baseRevision} from './helpers/revision-history-fixture.mjs';
 import {removeClaimAndReferences} from '../src/lib/chapterEditing.ts';
 import {chapterIssueFeedback} from '../src/lib/chapterValidationPresentation.ts';
+import {chapterStudioOperationIsCurrent} from '../src/lib/chapterStudioOperation.ts';
 
 // Execute the production callbacks with deterministic native/event boundaries.
 // This does not emulate rendering, focus or native storage validation.
@@ -32,7 +33,9 @@ function setup(){
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
     pendingDraft:null,preservedDraftReason:null,historyAvailability:'ready',selectedRevisionPassesValidation:true,
     validationScopeRef:{current:{projectId:'p',snapshotId:'s',targetKey:'target:one',revisionId:before.revisionId,editing:false,candidate:null}},
+    operationIdentityRef:{current:{projectId:'p',snapshotId:'s',targetKey:'target:one',selectedRevisionId:before.revisionId,routeChapterId:null,routeRevisionId:null,routeSectionId:null,editing:false,candidate:null}},
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
+    chapterStudioOperationIsCurrent,
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
     setLoading:change('loading'),setLoadError:change('loadError'),
@@ -44,6 +47,8 @@ function setup(){
     errorMessageOr:(error,fallback)=>error?.message??fallback,
     chapterIssueFeedback,
   };
+  bindings.captureOperationIdentity=callback('captureOperationIdentity',bindings);
+  bindings.isCurrentOperation=callback('isCurrentOperation',bindings);
   bindings.recordSavedRevision=callback('recordSavedRevision',bindings);
   bindings.window.addEventListener('code-atlas:chapters-changed',event=>state.publications.push(event.detail));
   return {before,saved,state,bindings};

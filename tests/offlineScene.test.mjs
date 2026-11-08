@@ -10,9 +10,11 @@ const visual = { nodes: [
 ] };
 const claims = [{ anchors: [anchor] }];
 const scene = (kind, value, parentKind = 'row') => ({ claimIndex: 0, title: 'How an input becomes an outcome', narration: 'The source-backed input leads to a distinct result through this operation.', mode: 'composition', elements: [
-  { kind: parentKind, parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
-  { kind, parentIndex: 0, nodeIndex: 0, tone: 'accent', value, valueOrigin: 'illustration' },
-  { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'supporting outcome', valueOrigin: 'illustration' },
+  { kind: 'timeline', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+  { kind: parentKind, parentIndex: 0, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+  { kind, parentIndex: 1, nodeIndex: 0, tone: 'accent', value, valueOrigin: 'illustration' },
+  { kind: 'token', parentIndex: 1, nodeIndex: 1, tone: 'positive', value: 'supporting outcome', valueOrigin: 'illustration' },
+  { kind: 'token', parentIndex: 0, nodeIndex: 1, tone: 'positive', value: 'Result follows', valueOrigin: 'explanation' },
 ] });
 
 it('offline composition preserves every supported data and layout primitive', () => {
@@ -100,7 +102,7 @@ it('offline pointFlow scenes show point symbols without implying coordinates', (
 
 it('offline scenes do not badge grounded explanatory copy as a hypothetical example', () => {
   const authored = scene('text', 'The first matching format selects this decoder');
-  authored.elements[1].valueOrigin = 'explanation';
+  authored.elements[2].valueOrigin = 'explanation';
   assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
   const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
   assert.match(markup, /The first matching format selects this decoder/);

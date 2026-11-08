@@ -491,7 +491,8 @@ mod tests {
         assert_eq!(
             data["diagnostics"],
             json!([
-                {"location":"/sections/0/visual/presentation/scenes/0/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}
+                {"location":"/sections/0/visual/presentation/scenes/0/elements/1/nodeIndex","sceneProblem":"sceneEvidence"},
+                {"location":"/sections/0/visual/presentation/scenes/0/elements/2/nodeIndex","sceneProblem":"sceneEvidence"}
             ])
         );
         assert!(!data["diagnostics"].to_string().contains("Hello"));
