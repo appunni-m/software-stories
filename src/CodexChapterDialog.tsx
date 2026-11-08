@@ -20,13 +20,14 @@ import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type Pr
 import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
-  getCodexAgentStatus, resumeCodexConnection, listChapterRevisions, listCodexModels, loadSnapshotManifest,
+  acceptChapterDraft, getCodexAgentStatus, resumeCodexConnection, listChapterRevisions, listCodexModels, loadSnapshotManifest,
   logoutCodexAgent, pickAgentInstallationFile, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, sendCodexPrGuideRequest, sendCodexPrChangeRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
   type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
   type CodeLensExplanationTarget, type CodeLensExplanationPreview, type CodeLensExplanationCitation,
   type PrChangeExplanationTarget, type PrChangeExplanationPreview, type PrChangeExplanationCitation,
   type PrGuidePreview, type SelectedGitChangeIdentity,
+  validateSavedChapterRevision,
 } from './lib/commands';
 
 export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & {
@@ -608,9 +609,91 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
         if (lifetime.current === epoch) setNote('Cancellation requested. The returned draft was discarded. Account quota may already have been used.');
         return;
       }
-      resources.current.draft = result.data.generationId;
-      setPreview(result.data);
-      finishRecovery();
+      if (sectionUpdate) {
+        const candidate = result.data;
+        resources.current.draft = candidate.generationId;
+        activeBusy.current = 'save';
+        setBusy('save');
+        setProgress((current) => current ? { ...current, message: 'Publishing the validated section…' } : null);
+        let draft: ChapterRevision | null = null;
+        try {
+          try {
+            draft = await saveGeneratedChapterDraft(candidate.generationId);
+          } catch (saveFailure) {
+            draft = await listChapterRevisions(candidate.revision.projectId, candidate.revision.snapshotId)
+              .then((revisions) => revisions.find((revision) => revision.revisionId === candidate.revision.revisionId) ?? null)
+              .catch(() => null);
+            if (!draft) throw saveFailure;
+            await discardGeneratedChapterDraft(candidate.generationId).catch(() => {});
+          }
+          resources.current.draft = null;
+          if (draft.lifecycle !== 'draft' || draft.validationStatus !== 'valid'
+            || draft.projectId !== candidate.revision.projectId || draft.snapshotId !== candidate.revision.snapshotId
+            || draft.chapterId !== candidate.revision.chapterId || draft.sections.length !== candidate.revision.sections.length
+            || draft.sections.some((section, index) => section.sectionId !== candidate.revision.sections[index]?.sectionId
+              || section.sectionRevisionId !== candidate.revision.sections[index]?.sectionRevisionId)) {
+            throw new Error('The saved repair draft did not match the validated section response.');
+          }
+
+          let accepted: ChapterRevision;
+          try {
+            const result = await acceptChapterDraft(draft.projectId, draft.revisionId);
+            if (result.revision.lifecycle !== 'accepted' || result.revision.validationStatus !== 'valid'
+              || result.validation.status !== 'valid' || result.revision.basedOnRevisionId !== draft.revisionId) {
+              throw new Error('The published section revision did not pass its final local validation.');
+            }
+            accepted = result.revision;
+          } catch (acceptFailure) {
+            const existing = await listChapterRevisions(draft.projectId, draft.snapshotId)
+              .then((revisions) => revisions.find((revision) => revision.lifecycle === 'accepted'
+                && revision.validationStatus === 'valid' && revision.basedOnRevisionId === draft?.revisionId) ?? null)
+              .catch(() => null);
+            if (!existing || (await validateSavedChapterRevision(existing.projectId, existing.revisionId)).status !== 'valid') {
+              throw acceptFailure;
+            }
+            accepted = existing;
+          }
+          const repairedSection = accepted.sections.find((section) => section.sectionId === sectionUpdate.sectionId);
+          if (accepted.projectId !== draft.projectId || accepted.snapshotId !== draft.snapshotId
+            || accepted.chapterId !== draft.chapterId || accepted.sections.length !== draft.sections.length
+            || accepted.sections.some((section, index) => section.sectionId !== draft?.sections[index]?.sectionId
+              || section.sectionRevisionId !== draft?.sections[index]?.sectionRevisionId)
+            || !repairedSection || repairedSection.sectionRevisionId === sectionUpdate.sectionRevisionId) {
+            throw new Error('The published revision did not preserve the reviewed section scope.');
+          }
+          if (lifetime.current === epoch) {
+            setPreview(candidate);
+            setSaved(accepted);
+            setNote(`Updated ${sectionTitle ?? 'the selected section'} in a new immutable revision. Earlier history is preserved.`);
+          }
+          finishRecovery();
+          onSaved?.(accepted);
+          window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision: accepted } }));
+          window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
+        } catch (publishFailure) {
+          if (lifetime.current === epoch) {
+            if (!draft) {
+              draft = await listChapterRevisions(candidate.revision.projectId, candidate.revision.snapshotId)
+                .then((revisions) => revisions.find((revision) => revision.revisionId === candidate.revision.revisionId) ?? null)
+                .catch(() => null);
+            }
+            if (draft) {
+              resources.current.draft = null;
+              setSaved(draft);
+              window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision: draft } }));
+              window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
+              setError(`The repair draft is saved, but publication could not be confirmed. The previous accepted version remains available. ${errorMessageOr(publishFailure, 'Open chapter history before retrying.')}`);
+            } else {
+              setError(`The section was generated but could not be published. The accepted version remains unchanged. ${errorMessageOr(publishFailure, 'You can retry from this section after checking its history.')}`);
+            }
+            setPreview(candidate);
+          }
+        }
+      } else {
+        resources.current.draft = result.data.generationId;
+        setPreview(result.data);
+        finishRecovery();
+      }
     } catch (failure) {
       if (lifetime.current === epoch) {
         if (planning) setError('The plan reply could not be confirmed. Check Learning plans and recovery before generating again; an unaccepted plan may already be saved.');
@@ -816,7 +899,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
               </div>}
               {!overviewNeedsAutomaticDiscovery && !automaticSectionRepair && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p></>}
-              {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? 'Section repair needs attention.' : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? 'Codex is regenerating the selected section…' : 'Preparing the section repair…'}</p>}
+              {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? 'Section repair needs attention.' : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? 'Codex is regenerating the selected section…' : busy === 'save' ? 'Publishing the validated section…' : 'Preparing the section repair…'}</p>}
               {review && !automaticSectionRepair && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>{gitOperation ? 'Comparison identity' : 'Source snapshot'}</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
@@ -862,9 +945,9 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
               </section>}
               {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4><InlineCodeText text={planResult.plan.title}/></h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Review the cited rationale, then accept or discard it.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p>{onOpenRepositoryPlans&&<AppButton intent="secondary" onClick={()=>onOpenRepositoryPlans(planResult.plan.draftId)}>Review this route</AppButton>}</section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
-                <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
+                <div><span>{saved?.lifecycle === 'accepted' ? 'PUBLISHED · ACCEPTED REVISION' : saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title"><InlineCodeText text={preview.revision.title}/></h4></div>
                 <GenerationRecord origin={preview.revision.generationOrigin} />
-                <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing before saving discards the preview.'}</p>
+                <p>{saved?.lifecycle === 'accepted' ? `Section published as revision ${saved.revisionNumber}. Earlier accepted history remains available.` : saved ? `Repair draft revision ${saved.revisionNumber} is saved locally but was not published.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing before saving discards the preview.'}</p>
                 {preview.updateNotes.length > 0 && <div className="provider-status-note" role="status"><strong>Generation notes</strong><ul>{preview.updateNotes.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
                 {preview.validation.issues.length > 0 && <div className="provider-error-text" role="alert"><strong>Evidence validation issues</strong><ul>{preview.validation.issues.map((issue, index) => <li key={index}>{issue.code}{issue.path ? ` · ${issue.path}` : ''}{issue.sectionId ? ` · ${issue.sectionId}` : ''}</li>)}</ul></div>}
                 <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}>
@@ -886,8 +969,8 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
             : codeLensResult || prChangeResult ? <AppButton intent="secondary" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</AppButton>
-            : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</AppButton></div>
-              : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? 'Repair needs attention' : busy === 'build' ? 'Checking section…' : review ? 'Starting repair…' : 'Preparing repair…'}</span>
+            : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> {saved.lifecycle === 'accepted' ? `Section published · r${saved.revisionNumber}` : 'Repair draft saved'}</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : sectionUpdate ? 'Save repair draft' : 'Save unaccepted draft'}</AppButton></div>
+              : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? 'Repair needs attention' : busy === 'build' ? 'Checking section…' : busy === 'save' ? 'Publishing section…' : review ? 'Starting repair…' : 'Preparing repair…'}</span>
               : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
         </footer>}
       </section>
