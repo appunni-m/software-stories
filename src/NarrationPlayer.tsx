@@ -49,7 +49,7 @@ import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
 import {appCloseCoordinator} from './lib/closeCoordinator';
-import { playbackPositionToPersist } from './lib/narrationPlayback';
+import { cancelPendingAutoplay, playbackPositionToPersist, takePendingAutoplay } from './lib/narrationPlayback';
 
 interface NarrationPlayerProps {
   projectId: string;
@@ -610,8 +610,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
   const stop = () => {
     // Stop is an explicit position choice. It supersedes a saved position
-    // waiting for loadedmetadata, which would otherwise jump the player back.
+    // waiting for loadedmetadata and any deferred autoplay waiting for canplay.
     restoreTimeRef.current = null;
+    cancelPendingAutoplay(autoPlayRef);
+    completionArmed.current = false;
     const player = audioRef.current;
     if (player) {
       player.pause();
@@ -644,6 +646,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     const next = Math.max(0, Math.min(value, Number.isFinite(player.duration) ? player.duration : value));
     // A deliberate seek takes precedence over any not-yet-applied restore.
     restoreTimeRef.current = null;
+    cancelPendingAutoplay(autoPlayRef);
     player.currentTime = next;
     setCurrentTime(next);
     persistPlaybackPosition(next);
@@ -722,8 +725,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           }
         }}
         onCanPlay={(event) => {
-          if (!autoPlayRef.current) return;
-          autoPlayRef.current = false;
+          if (!takePendingAutoplay(autoPlayRef)) return;
           void event.currentTarget.play().catch(() => {
             if (mountedRef.current) setError('Audio playback could not start on this device. The transcript remains available.');
           });
