@@ -98,33 +98,14 @@ fn fresh_opening_starts_with_the_users_question() {
 }
 
 #[test]
-fn legacy_opening_question_keeps_its_v3_context_binding() {
+fn separate_historical_opening_question_is_rejected_even_with_a_current_binding() {
     let f = Fixture::new();
     let mut r = pending(&f);
-    let opening = r.opening.as_mut().unwrap();
-    opening.question = LEGACY_LEARNING_QUESTION.into();
+    r.opening.as_mut().unwrap().question = "An older separate opening intent.".into();
+    r.opening_context_sha256 = Some(context_sha256(&r).unwrap());
 
-    let old_binding = context::digest(
-        &serde_json::to_vec(&serde_json::json!({
-            "policy":"first-transition-with-separate-learning-intent-v3",
-            "guideId":r.id,
-            "runId":opening.run_id,
-            "projectId":r.project_id,
-            "snapshotId":r.snapshot_id,
-            "guideQuestion":r.question,
-            "openingQuestion":LEGACY_LEARNING_QUESTION,
-            "model":r.model_id,
-            "effort":r.reasoning_effort,
-        }))
-        .unwrap(),
-    );
-    assert_eq!(context_sha256(&r).unwrap(), old_binding);
-    r.opening_context_sha256 = Some(old_binding);
-    assert_eq!(question(&r).unwrap(), LEGACY_LEARNING_QUESTION);
-
-    store::create(&f.storage, &r).unwrap();
-    let reopened = store::read(&f.storage, &r.id).unwrap();
-    assert_eq!(question(&reopened).unwrap(), LEGACY_LEARNING_QUESTION);
+    assert!(question(&r).is_err());
+    assert!(store::create(&f.storage, &r).is_err());
 }
 
 #[test]

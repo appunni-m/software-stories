@@ -277,14 +277,12 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert!(instructions.contains("The app fixes the opening's placement and question"));
     assert!(instructions.contains("do not call `propose_answer_section`"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
-    let mut legacy = r.clone();
-    legacy.opening.as_mut().unwrap().question = opening::LEGACY_LEARNING_QUESTION.into();
-    legacy.opening_context_sha256 = Some(opening::context_sha256(&legacy).unwrap());
-    let (legacy_prompt, _, _, _) = request(&legacy).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Value>(&legacy_prompt).unwrap()["guideContext"]["openingQuestion"],
-        opening::LEGACY_LEARNING_QUESTION
-    );
+    let mut separate_opening = r.clone();
+    separate_opening.opening.as_mut().unwrap().question =
+        "An older separate opening intent.".into();
+    separate_opening.opening_context_sha256 =
+        Some(opening::context_sha256(&separate_opening).unwrap());
+    assert!(request(&separate_opening).is_err());
     let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
     assert!(!contract.to_string().contains("propose_answer_section"));
     r.question.push_str(" Preserve downstream ownership.");
