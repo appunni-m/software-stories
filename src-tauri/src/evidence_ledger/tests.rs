@@ -333,7 +333,7 @@ fn current_ledger_records_bind_luna_max_and_require_current_wire_versions() {
             .contains(SIMPLE_SOURCE)
     );
 
-    for version in [1, 2] {
+    for version in [1, 2, 5, 6] {
         let mut old = current.clone();
         old.schema_version = version;
         fs::write(&ledger.path, serde_json::to_vec(&old).unwrap()).unwrap();

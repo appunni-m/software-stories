@@ -10,8 +10,6 @@ pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const NARRATION_PROPOSAL_VERSION: &str = "answerSectionV6";
 pub(crate) const NARRATION_ANSWER_VERSION: u32 = 7;
 pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 11;
-const PRE_SEARCH_SCOPE_CHECKPOINT_VERSION: u32 = 9;
-const PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION: u32 = 10;
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;
@@ -1150,29 +1148,12 @@ impl Answer {
 
     fn supports_checkpoint(&self, checkpoint: u32) -> bool {
         self.schema_version == NARRATION_ANSWER_VERSION
-            && matches!(
-                checkpoint,
-                PRE_SEARCH_SCOPE_CHECKPOINT_VERSION
-                    | PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION
-                    | NARRATION_CHECKPOINT_VERSION
-            )
+            && checkpoint == NARRATION_CHECKPOINT_VERSION
     }
 
     fn supports_checkpoint_record(&self, checkpoint: u32, ledger_schema: u32) -> bool {
         self.supports_checkpoint(checkpoint)
-            && matches!(
-                (checkpoint, ledger_schema),
-                (
-                    PRE_SEARCH_SCOPE_CHECKPOINT_VERSION,
-                    crate::evidence_ledger::PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION
-                ) | (
-                    PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION,
-                    crate::evidence_ledger::PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION
-                ) | (
-                    NARRATION_CHECKPOINT_VERSION,
-                    crate::evidence_ledger::LEDGER_SCHEMA_VERSION
-                )
-            )
+            && ledger_schema == crate::evidence_ledger::LEDGER_SCHEMA_VERSION
     }
 
     /// Final responses cannot select, omit or replace native publications.

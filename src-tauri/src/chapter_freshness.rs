@@ -1020,11 +1020,9 @@ fn recorded_search_pages_complete(searches: &[crate::chapter_origin::RecordedSea
         let Some(first) = pages.first() else {
             return false;
         };
-        let Some(query) = first.query.as_deref() else {
-            return false;
-        };
+        let query = first.query.as_str();
         if pages.iter().any(|page| {
-            page.query.as_deref() != Some(query)
+            page.query != query
                 || page.scope != first.scope
                 || page.result_kind != first.result_kind
                 || page.limit != first.limit
@@ -1081,14 +1079,7 @@ fn assess_retrieval_candidates(
             let Some(first) = pages.first() else {
                 continue;
             };
-            let Some(query) = first.query.as_deref() else {
-                result.unknown(
-                    "retrievalSearchQueryUnavailable",
-                    "The saved search cannot be replayed against the comparison snapshot, so its discovery scope needs review.",
-                    first.scope.as_deref(),
-                );
-                continue;
-            };
+            let query = first.query.as_str();
             let file_discovery = first.result_kind == "files";
             let mut changed = false;
             for page in pages.iter() {
@@ -4852,7 +4843,7 @@ mod tests {
                 vec![range],
                 vec![crate::chapter_origin::RecordedSearchScope {
                     query_sha256: "c".repeat(64),
-                    query: Some("related behavior".into()),
+                    query: "related behavior".into(),
                     scope: None,
                     result_kind: "files".into(),
                     limit: 8,
@@ -5018,7 +5009,7 @@ mod tests {
     fn recorded_search_pages_require_a_complete_contiguous_sequence() {
         let page = |offset, limited, next_offset| crate::chapter_origin::RecordedSearchScope {
             query_sha256: "c".repeat(64),
-            query: Some("entry behavior".into()),
+            query: "entry behavior".into(),
             scope: None,
             result_kind: "files".into(),
             limit: 2,

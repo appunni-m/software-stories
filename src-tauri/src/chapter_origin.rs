@@ -88,8 +88,7 @@ pub(crate) struct RecordedSearchCandidate {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RecordedSearchScope {
     pub(crate) query_sha256: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) query: Option<String>,
+    pub(crate) query: String,
     pub(crate) scope: Option<String>,
     pub(crate) result_kind: String,
     pub(crate) limit: usize,
@@ -138,7 +137,7 @@ impl RecordedSearchScope {
         }
         Self {
             query_sha256,
-            query: Some(query.split_whitespace().collect::<Vec<_>>().join(" ")),
+            query: query.split_whitespace().collect::<Vec<_>>().join(" "),
             scope,
             result_kind: result_kind.to_owned(),
             limit,
@@ -166,11 +165,9 @@ impl RecordedSearchScope {
             return false;
         };
         digest(&self.query_sha256)
-            && self.query.as_deref().is_none_or(|query| {
-                (2..=240).contains(&query.chars().count())
-                    && !query.chars().any(char::is_control)
-                    && query.split_whitespace().collect::<Vec<_>>().join(" ") == query
-            })
+            && (2..=240).contains(&self.query.chars().count())
+            && !self.query.chars().any(char::is_control)
+            && self.query.split_whitespace().collect::<Vec<_>>().join(" ") == self.query
             && self
                 .scope
                 .as_deref()
@@ -620,7 +617,6 @@ impl ChapterGenerationOrigin {
                 (CHAPTER_ORIGIN_SCHEMA_VERSION, Some(searches)) => {
                     searches.len() <= crate::evidence_ledger::MAX_CALLS
                         && searches.iter().all(RecordedSearchScope::valid)
-                        && searches.iter().all(|search| search.query.is_some())
                         && searches
                             .iter()
                             .map(|search| search.candidates.len())
@@ -1140,7 +1136,7 @@ mod tests {
             vec![range],
             vec![RecordedSearchScope {
                 query_sha256: "c".repeat(64),
-                query: Some("entry behavior".into()),
+                query: "entry behavior".into(),
                 scope: None,
                 result_kind: "files".into(),
                 limit: 8,

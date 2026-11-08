@@ -517,7 +517,7 @@ fn owned_mcp_search_read_and_result_events_share_native_evidence() {
         range["sourceSha256"].as_str().unwrap()
     );
     assert_eq!(scopes[0].query_sha256.len(), 64);
-    assert_eq!(scopes[0].query.as_deref(), Some("greeting"));
+    assert_eq!(scopes[0].query, "greeting");
     assert!(result["context"]["result"].get("retrievalScope").is_none());
     assert!(
         result["context"]["result"]["matches"][0]

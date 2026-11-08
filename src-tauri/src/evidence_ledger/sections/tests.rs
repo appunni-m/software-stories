@@ -101,7 +101,7 @@ fn search(ledger: &mut Ledger, f: &Fixture, runtime: &CodexReviewRuntime, cancel
     };
     let scope = chapter_origin::RecordedSearchScope {
         query_sha256: "a".repeat(64),
-        query: Some("entry behavior".into()),
+        query: "entry behavior".into(),
         scope: None,
         result_kind: "ranges".into(),
         limit: 4,
@@ -566,7 +566,7 @@ fn each_published_section_keeps_only_its_cited_retrieval_scope() {
         |query_sha256: &str, offset, path: &str, source_sha256: &str, limited, next_offset| {
             chapter_origin::RecordedSearchScope {
                 query_sha256: query_sha256.to_owned(),
-                query: Some("entry behavior".into()),
+                query: "entry behavior".into(),
                 scope: None,
                 result_kind: "files".into(),
                 limit: 1,
@@ -785,17 +785,12 @@ fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
             .unwrap();
     }
 
-    assert!((1..NARRATION_CHECKPOINT_VERSION).all(|version| {
-        answer.value.supports_checkpoint(version)
-            == matches!(
-                version,
-                super::PRE_SEARCH_SCOPE_CHECKPOINT_VERSION
-                    | super::PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION
-            )
-    }));
-    assert!(answer.value.supports_checkpoint_record(9, 5));
-    assert!(answer.value.supports_checkpoint_record(10, 6));
+    assert!(
+        (1..NARRATION_CHECKPOINT_VERSION).all(|version| !answer.value.supports_checkpoint(version))
+    );
     assert!(answer.value.supports_checkpoint_record(11, 7));
+    assert!(!answer.value.supports_checkpoint_record(9, 5));
+    assert!(!answer.value.supports_checkpoint_record(10, 6));
     assert!(!answer.value.supports_checkpoint_record(9, 6));
     assert!(!answer.value.supports_checkpoint_record(10, 7));
     assert!(!answer.value.supports_checkpoint_record(11, 6));
