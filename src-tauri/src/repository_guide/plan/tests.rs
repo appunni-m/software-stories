@@ -366,6 +366,18 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
         "creating a face from memory and loading a glyph into an existing face are separate topics"
     ));
     assert!(instructions.contains("Plan the initial five slides in source-grounded reading order"));
+    assert!(instructions.contains(
+        "the first follow-on unit must continue the same evidenced user journey as the opening"
+    ));
+    assert!(
+        instructions
+            .contains("the opening orients the reader and the first unit advances the flow")
+    );
+    assert!(
+        instructions.contains(
+            "Finish the central path before moving to materially different caller surfaces"
+        )
+    );
     assert!(instructions.contains("Never imply that a pending omission is covered"));
     assert!(
         instructions.contains("Never present one representative path as whole-project coverage")
