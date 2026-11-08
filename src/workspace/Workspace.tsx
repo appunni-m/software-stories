@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type FormEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type FormEvent, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Badge, Dialog, Flex, IconButton, Tabs, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -54,6 +54,7 @@ import { readGenerationBackend } from '../lib/generationPreferences';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import { readRepositorySearchContext, rememberRepositorySearchContext } from './searchContext';
 import { filterExplorations } from './explorationFilter';
+import { EMPTY_INLINE_SECTION_EDIT_ENTRY, updateInlineSectionEditEntries, type InlineSectionEditEntries, type InlineSectionEditEntry } from './inlineSectionEditState';
 import './workspace.css';
 
 interface Props {
@@ -1143,7 +1144,7 @@ export function DeveloperWorkspace(props:Props) {
     catch(failure){setConflictResolutionError(errorMessageOr(failure,'The conversation could not be saved. Your current and saved copies remain available.'));}
     finally{setConflictResolutionBusy(false);}
   };
-  return <ReaderProgressContext.Provider value={{
+  return <InlineSectionEditProvider><ReaderProgressContext.Provider value={{
     story:(identity)=>{const owner=presentationOwner(current,identity.revisionId);return owner?{progress:owner.presentation?.stories.find(p=>sameSection(p,identity)),onProgressChange:(progress)=>savePresentation(owner.id,'stories',progress)}:undefined;},
     section:(revisionId)=>{const owner=presentationOwner(current,revisionId);const revision=chapters.find((candidate)=>candidate.revisionId===revisionId);return owner&&revision?{sectionId:answerReadingPosition(owner,'guide',revisionId,revision.sections)?.sectionId,onSectionChange:(sectionId)=>{if(revision.sections.some((section)=>section.sectionId===sectionId))saveSection(owner.id,'guide',revisionId,sectionId);}}:undefined;},
   }}><Theme accentColor="blue" grayColor="slate" radius="medium" className={`developer-workspace dw-narrow-${narrowPane}`}>
@@ -1340,78 +1341,94 @@ export function DeveloperWorkspace(props:Props) {
       </Dialog.Content>
     </Dialog.Root>
     <Dialog.Root open={props.sharingOpen} onOpenChange={props.onSharingOpenChange}><Dialog.Content maxWidth="460px"><Dialog.Title>Repository sharing</Dialog.Title><Dialog.Description size="2">{state.grantId?'Codex can explore captured code in this snapshot when you ask a question. Your live working copy is not included.':'Codex has no workspace sharing permission for this snapshot.'}</Dialog.Description>{state.grantId&&<AppButton mt="4" intent="danger" color="red" onClick={()=>{void revokeWorkspace(projectId,snapshotId).then(()=>props.onSharingOpenChange(false)).catch((failure)=>setConsentError(errorMessageOr(failure,'Permission could not be revoked.')));}}>Revoke permission and stop questions</AppButton>}{consentError&&<p role="alert">{consentError}</p>}<Flex justify="end" mt="4"><Dialog.Close><AppButton intent="secondary" color="gray">Done</AppButton></Dialog.Close></Flex></Dialog.Content></Dialog.Root>
-  </Theme></ReaderProgressContext.Provider>;
+  </Theme></ReaderProgressContext.Provider></InlineSectionEditProvider>;
 }
 
 interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onSaveSection?:SaveInlineSection;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 interface InlineSectionSaveResult {revision:ChapterRevision;validation:ChapterValidationReport;saved:boolean;accepted:boolean;message?:string}
 type SaveInlineSection=(originalRevisionId:string,selectedRevisionId:string,baseRevisionId:string,candidate:ChapterRevision)=>Promise<InlineSectionSaveResult>;
+interface InlineSectionEditStore {
+  entries: InlineSectionEditEntries;
+  update: (key:string, update:(previous:InlineSectionEditEntry)=>InlineSectionEditEntry)=>void;
+}
+const InlineSectionEditContext=createContext<InlineSectionEditStore|null>(null);
+function InlineSectionEditProvider({children}:{children:ReactNode}){
+  const [entries,setEntries]=useState<InlineSectionEditEntries>({});
+  const store=useMemo<InlineSectionEditStore>(()=>({
+    entries,
+    update:(key,update)=>setEntries(previous=>updateInlineSectionEditEntries(previous,key,update)),
+  }),[entries]);
+  return <InlineSectionEditContext.Provider value={store}>{children}</InlineSectionEditContext.Provider>;
+}
 function QuestionDisclosure({question}:{question:string}){
   return <details className="dw-user-question"><summary><MessageSquare size={14}/><span><InlineCodeText text={questionSummaryText(question)}/></span><ChevronRight size={13}/></summary><p><InlineCodeText text={question}/></p></details>;
 }
-interface InlineSectionDraft {key:string;baseRevisionId:string;selectedRevisionId:string;title:string;prose:string;spokenText:string}
 function useInlineSectionEdit(
   revision:ChapterRevision|null|undefined,
   section:ChapterSection|null|undefined,
   originalRevisionId:string|null|undefined,
   onSave:SaveInlineSection|undefined,
 ) {
-  const [draft,setDraft]=useState<InlineSectionDraft|null>(null);
-  const [busy,setBusy]=useState(false);
-  const [feedback,setFeedback]=useState<{key:string;text:string;tone:'success'|'error'}|null>(null);
-  const [issues,setIssues]=useState<{key:string;items:string[]}|null>(null);
+  const store=useContext(InlineSectionEditContext);
+  if(!store)throw new Error('Inline section editing requires the workspace editor state.');
   const key=revision&&section?`${revision.revisionId}:${section.sectionId}:${section.sectionRevisionId}`:'';
-  const activeDraft=draft?.key===key?draft:null;
+  const entry=store.entries[key]??EMPTY_INLINE_SECTION_EDIT_ENTRY;
+  const activeDraft=entry.draft?.key===key?entry.draft:null;
   const trigger=revision&&section&&originalRevisionId&&onSave
-    ? <Tooltip content="Edit this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(section.title)}`} aria-pressed={Boolean(activeDraft)} disabled={busy} onClick={()=>{
-      setDraft({key,baseRevisionId:revision.revisionId,selectedRevisionId:revision.revisionId,title:section.title,prose:section.prose,spokenText:section.spokenText});
-      setFeedback(null);setIssues(null);
+    ? <Tooltip content="Edit this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(section.title)}`} aria-pressed={Boolean(activeDraft)} disabled={entry.busy} onClick={()=>{
+      store.update(key,previous=>({...previous,
+        draft:previous.draft?.key===key?previous.draft:{key,baseRevisionId:revision.revisionId,selectedRevisionId:revision.revisionId,title:section.title,prose:section.prose,spokenText:section.spokenText},
+        feedback:null,issues:null,
+      }));
     }}><Pencil size={13}/></IconButton></Tooltip>
     :null;
   const update=(field:'title'|'prose'|'spokenText',value:string)=>{
-    setDraft((previous)=>previous?.key===key?{...previous,[field]:value}:previous);
-    setFeedback(null);setIssues(null);
+    store.update(key,previous=>previous.draft?.key===key?{...previous,draft:{...previous.draft,[field]:value},feedback:null,issues:null}:previous);
   };
   const submit=async(event:FormEvent<HTMLFormElement>)=>{
     event.preventDefault();
-    if(!revision||!section||!originalRevisionId||!onSave||!activeDraft||busy)return;
+    if(!revision||!section||!originalRevisionId||!onSave||!activeDraft||entry.busy)return;
     const editingKey=activeDraft.key;
     const candidate:ChapterRevision={...revision,sections:revision.sections.map((item)=>item.sectionId===section.sectionId
       ?{...item,title:activeDraft.title.trim(),prose:activeDraft.prose,spokenText:activeDraft.spokenText}
       :item)};
-    setBusy(true);setFeedback(null);setIssues(null);
+    store.update(editingKey,previous=>({...previous,busy:true,feedback:null,issues:null}));
     try{
       const result=await onSave(originalRevisionId,activeDraft.selectedRevisionId,activeDraft.baseRevisionId,candidate);
       if(result.validation.status==='invalid'){
-        if(result.saved)setDraft((previous)=>previous?.key===editingKey?{...previous,baseRevisionId:result.revision.revisionId}:previous);
-        setIssues({key:editingKey,items:result.validation.issues.map((issue)=>issue.message)});
-        setFeedback({key:editingKey,text:'The source check found issues. Review them before saving.',tone:'error'});
+        store.update(editingKey,previous=>({...previous,
+          draft:result.saved&&previous.draft?.key===editingKey?{...previous.draft,baseRevisionId:result.revision.revisionId}:previous.draft,
+          issues:{key:editingKey,items:result.validation.issues.map((issue)=>issue.message)},
+          feedback:{key:editingKey,text:'The source check found issues. Review them before saving.',tone:'error'},
+        }));
         return;
       }
       if(result.accepted){
         const savedSection=result.revision.sections.find((item)=>item.sectionId===section.sectionId);
         const savedKey=savedSection?`${result.revision.revisionId}:${savedSection.sectionId}:${savedSection.sectionRevisionId}`:editingKey;
-        setDraft((previous)=>previous?.key===editingKey?null:previous);
-        setFeedback({key:savedKey,text:`Saved as revision ${result.revision.revisionNumber} and applied to this answer.`,tone:'success'});
+        store.update(editingKey,previous=>({...previous,draft:previous.draft?.key===editingKey?null:previous.draft,feedback:null,issues:null}));
+        store.update(savedKey,previous=>({...previous,feedback:{key:savedKey,text:`Saved as revision ${result.revision.revisionNumber} and applied to this answer.`,tone:'success'},issues:null}));
       }else if(result.saved){
-        setDraft((previous)=>previous?.key===editingKey?{...previous,baseRevisionId:result.revision.revisionId}:previous);
-        setFeedback({key:editingKey,text:result.message??'Saved as a draft, but it was not applied. Try Check & save again.',tone:'error'});
+        store.update(editingKey,previous=>({...previous,
+          draft:previous.draft?.key===editingKey?{...previous.draft,baseRevisionId:result.revision.revisionId}:previous.draft,
+          feedback:{key:editingKey,text:result.message??'Saved as a draft, but it was not applied. Try Check & save again.',tone:'error'},
+        }));
       }
     }catch(error){
-      setFeedback({key:editingKey,text:errorMessageOr(error,'This section could not be saved. Your original answer is unchanged.'),tone:'error'});
-    }finally{setBusy(false);}
+      store.update(editingKey,previous=>({...previous,feedback:{key:editingKey,text:errorMessageOr(error,'This section could not be saved. Your original answer is unchanged.'),tone:'error'}}));
+    }finally{store.update(editingKey,previous=>previous.busy?{...previous,busy:false}:previous);}
   };
-  const visibleFeedback=feedback?.key===key?feedback:null;
-  const visibleIssues=issues?.key===key?issues.items:null;
+  const visibleFeedback=entry.feedback?.key===key?entry.feedback:null;
+  const visibleIssues=entry.issues?.key===key?entry.issues.items:null;
   const form=activeDraft&&<form className="dw-inline-section-editor" onSubmit={(event)=>void submit(event)}>
     <h4>Edit this section</h4>
-    <label className="dw-inline-section-field">Heading<AppTextField ariaLabel="Section heading" value={activeDraft.title} onValueChange={(value)=>update('title',value)} maxLength={240} required disabled={busy}/></label>
-    <label className="dw-inline-section-field">On-screen text<AppTextArea ariaLabel="On-screen explanation" value={activeDraft.prose} onChange={(event)=>update('prose',event.target.value)} rows={4} disabled={busy}/></label>
-    <label className="dw-inline-section-field">Narration<AppTextArea ariaLabel="Narration" value={activeDraft.spokenText} onChange={(event)=>update('spokenText',event.target.value)} rows={4} disabled={busy}/></label>
+    <label className="dw-inline-section-field">Heading<AppTextField ariaLabel="Section heading" value={activeDraft.title} onValueChange={(value)=>update('title',value)} maxLength={240} required disabled={entry.busy}/></label>
+    <label className="dw-inline-section-field">On-screen text<AppTextArea ariaLabel="On-screen explanation" value={activeDraft.prose} onChange={(event)=>update('prose',event.target.value)} rows={4} disabled={entry.busy}/></label>
+    <label className="dw-inline-section-field">Narration<AppTextArea ariaLabel="Narration" value={activeDraft.spokenText} onChange={(event)=>update('spokenText',event.target.value)} rows={4} disabled={entry.busy}/></label>
     <p className="dw-inline-section-note">Citations and the visual stay attached. Saving checks their source ranges against this snapshot.</p>
     {visibleIssues&&visibleIssues.length>0&&<details className="dw-inline-section-issues" open><summary>{visibleIssues.length} source issue{visibleIssues.length===1?'':'s'}</summary><ul>{visibleIssues.slice(0,8).map((message,index)=><li key={`${index}:${message}`}>{message}</li>)}</ul></details>}
     {visibleFeedback&&<p className={`dw-inline-section-feedback is-${visibleFeedback.tone}`} role={visibleFeedback.tone==='error'?'alert':'status'}>{visibleFeedback.text}</p>}
-    <div className="dw-inline-section-actions"><AppButton size="1" intent="quiet" disabled={busy} onClick={()=>{setDraft((previous)=>previous?.key===key?null:previous);setFeedback(null);setIssues(null);}}>Cancel</AppButton><AppButton size="1" intent="primary" type="submit" disabled={busy||!activeDraft.title.trim()}>{busy?'Checking source…':'Check & save'}</AppButton></div>
+    <div className="dw-inline-section-actions"><AppButton size="1" intent="quiet" disabled={entry.busy} onClick={()=>{store.update(key,previous=>({...previous,draft:null,feedback:null,issues:null}));}}>Cancel</AppButton><AppButton size="1" intent="primary" type="submit" disabled={entry.busy||!activeDraft.title.trim()}>{entry.busy?'Checking source…':'Check & save'}</AppButton></div>
   </form>;
   return {trigger,form,editing:Boolean(activeDraft)};
 }
