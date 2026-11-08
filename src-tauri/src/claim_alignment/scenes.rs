@@ -32,6 +32,12 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             continue;
         }
         let claims = section.get("claims").and_then(Value::as_array);
+        for (scene, element) in crate::scene_presentation::generic_layout_positions(&presentation) {
+            if issues.len() >= super::MAX_ISSUES {
+                return;
+            }
+            issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{element}"),"sceneProblem":"semanticComposition"}));
+        }
         for (scene, element) in crate::scene_presentation::foreign_claim_positions(section) {
             if issues.len() >= super::MAX_ISSUES {
                 return;
@@ -311,11 +317,10 @@ mod tests {
         );
 
         let mut mixed = supported;
-        mixed["visual"]["edges"]
-            .as_array_mut()
-            .unwrap()
-            .push(json!({"fromNodeIndex":0,"toNodeIndex":1,"label":"unrelated",
-                "evidence":[{"claimIndex":1,"evidenceIndex":0}]}));
+        mixed["visual"]["edges"].as_array_mut().unwrap().push(
+            json!({"fromNodeIndex":0,"toNodeIndex":1,"label":"unrelated",
+                "evidence":[{"claimIndex":1,"evidenceIndex":0}]}),
+        );
         assert_eq!(
             graph_scene_needs_focus_or_density_repair(&mixed, 0),
             Some(true)

@@ -81,8 +81,8 @@ pub(crate) fn visible_graph_node_count(
 mod quality;
 pub(crate) mod tree;
 pub(crate) use quality::{
-    generic_singleton_positions, repeated_selector_outcome_positions, repetition_positions,
-    selector_multiple_outcome_positions,
+    generic_layout_positions, generic_singleton_positions, repeated_selector_outcome_positions,
+    repetition_positions, selector_multiple_outcome_positions,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -185,6 +185,19 @@ pub(crate) fn validate_semantic_layouts(
         return Err(
             "Each selector branch needs one guard and its one matching outcome; the rendered miss path already continues to the next candidate. Use a branch for one guard with multiple outcomes, or split independent checks into separate scenes."
                 .into(),
+        );
+    }
+    Ok(())
+}
+
+/// Reject block-only AI compositions at creation time. This is deliberately
+/// separate from `validate`, which is also used to replay saved user content.
+pub(crate) fn validate_authored_composition_quality(
+    presentation: &ScenePresentation,
+) -> Result<(), String> {
+    if !generic_layout_positions(presentation).is_empty() {
+        return Err(
+            "This scene only arranges generic blocks. Choose a behavior-specific form such as a branch, timeline, transformation, state comparison, data shape, or justified graph; use narration only when no honest visual helps.".into(),
         );
     }
     Ok(())
@@ -748,9 +761,11 @@ mod tests {
 
         let (nodes, edges, claims, presentation) = make(7);
         assert_eq!(presentation.scenes[0].claim_index, 0);
-        assert!(nodes[0]
-            .evidence_anchor_ids
-            .contains(&claims[0].anchors[0].anchor_id));
+        assert!(
+            nodes[0]
+                .evidence_anchor_ids
+                .contains(&claims[0].anchors[0].anchor_id)
+        );
         validate_graph_density(&presentation, &nodes, &edges, &claims)
             .unwrap_or_else(|error| panic!("eight-node focused graph should pass: {error}"));
         let (nodes, edges, claims, presentation) = make(8);
@@ -1453,6 +1468,80 @@ mod tests {
             },
         ];
         assert!(validate(&presentation, &nodes, &claims).is_ok());
+    }
+
+    #[test]
+    fn new_compositions_need_a_semantic_form_without_invalidating_saved_layouts() {
+        let (nodes, claims, mut presentation) = fixture();
+        presentation.scenes[0].elements = vec![
+            SceneElement {
+                kind: ElementKind::Row,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            SceneElement {
+                kind: ElementKind::Card,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Accent,
+                value: "Input value".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+            SceneElement {
+                kind: ElementKind::Token,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Positive,
+                value: "Result value".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+        ];
+        validate(&presentation, &nodes, &claims).unwrap();
+        assert!(
+            validate_authored_composition_quality(&presentation)
+                .unwrap_err()
+                .contains("only arranges generic blocks")
+        );
+
+        presentation.scenes[0].elements = vec![
+            SceneElement {
+                kind: ElementKind::Transform,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            SceneElement {
+                kind: ElementKind::Token,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Neutral,
+                value: "input".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+            SceneElement {
+                kind: ElementKind::Text,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Accent,
+                value: "normalize the value".into(),
+                value_origin: ValueOrigin::Explanation,
+            },
+            SceneElement {
+                kind: ElementKind::Token,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Positive,
+                value: "normalized result".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+        ];
+        validate(&presentation, &nodes, &claims).unwrap();
+        validate_authored_composition_quality(&presentation).unwrap();
     }
 
     #[test]

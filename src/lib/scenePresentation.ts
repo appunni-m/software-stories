@@ -21,6 +21,10 @@ export interface PresentationScene {
 export interface ScenePresentation { schemaVersion: 3; scenes: PresentationScene[] }
 export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'pointFlow', 'tree', 'queue', 'selector']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
+const semanticCompositionKinds = new Set<string>([
+  'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'pointFlow', 'tree', 'queue', 'selector',
+  'metric', 'bytes', 'matrix', 'table',
+]);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
@@ -153,6 +157,10 @@ function isGenericSingleton(elements: SceneElement[]): boolean {
   return content.length === 1 && (content[0].kind === 'card' || content[0].kind === 'text');
 }
 
+function hasSemanticComposition(elements: SceneElement[]): boolean {
+  return elements.some(element => semanticCompositionKinds.has(element.kind));
+}
+
 /** Reject the entire presentation on unknown fields, foreign evidence or an
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
@@ -238,7 +246,8 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
       }
       return true;
     })
-      && (!enforceCurrentQuality || (!repeatsTransformation(elements as SceneElement[], nodes)
+      && (!enforceCurrentQuality || (hasSemanticComposition(elements as SceneElement[])
+        && !repeatsTransformation(elements as SceneElement[], nodes)
         && !isGenericSingleton(elements as SceneElement[])));
   });
   return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;

@@ -667,6 +667,7 @@ fn guide_scene_findings(response: &str) -> Vec<Value> {
                 "selectorRequired" => "selectorRequired",
                 "selectorShape" => "selectorShape",
                 "selectorOutcomeLabel" => "sceneBranchLabels",
+                "semanticComposition" => "sceneSemanticComposition",
                 "transformShape" => "transformShape",
                 "sceneEvidence" => "sceneEvidence",
                 "narrationRequired" | "narrationLength" | "narrationConciseness" => {
@@ -948,6 +949,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneNarration"
                             | "sceneSpeechRole"
                             | "sceneRepetition"
+                            | "sceneSemanticComposition"
                             | "sceneBranchLabels"
                             | "sceneSourceValue"
                             | "scenePresentationLimit"
@@ -1163,15 +1165,13 @@ impl Answer {
                 (
                     PRE_SEARCH_SCOPE_CHECKPOINT_VERSION,
                     crate::evidence_ledger::PRE_SEARCH_SCOPE_LEDGER_SCHEMA_VERSION
+                ) | (
+                    PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION,
+                    crate::evidence_ledger::PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION
+                ) | (
+                    NARRATION_CHECKPOINT_VERSION,
+                    crate::evidence_ledger::LEDGER_SCHEMA_VERSION
                 )
-                    | (
-                        PRE_REPLAYABLE_SEARCH_CHECKPOINT_VERSION,
-                        crate::evidence_ledger::PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION
-                    )
-                    | (
-                        NARRATION_CHECKPOINT_VERSION,
-                        crate::evidence_ledger::LEDGER_SCHEMA_VERSION
-                    )
             )
     }
 
@@ -1301,8 +1301,7 @@ impl ActiveAnswer {
     }
 
     pub(crate) fn remaining_corrections_with_limit(&self, section_limit: usize) -> usize {
-        self.value
-            .remaining_corrections_with_limit(section_limit)
+        self.value.remaining_corrections_with_limit(section_limit)
     }
 
     pub(crate) fn next_new_section_order(&self) -> Option<usize> {

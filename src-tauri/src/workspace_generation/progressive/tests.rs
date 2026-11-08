@@ -870,6 +870,13 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         "Transform has exactly three direct children in input, operation, result order; each child's parentKey names the transform key. A direct child may be a nonempty group when that slot needs internal visual structure; keep its content source-linked. PointFlow has exactly three direct source-linked content children and is reserved for a source-proved point or vector mapping; it shows symbolic point markers only, with no fabricated coordinates."
     ));
     assert!(instructions.contains(
+        "A composition must use a source-appropriate semantic form: branch, selector, timeline, lanes, transform"
+    ));
+    assert!(
+        instructions
+            .contains("sceneSemanticComposition means the scene only arranges generic blocks")
+    );
+    assert!(instructions.contains(
         "sceneAuthoringShape/Key/Reference means inspect the named claim-owned elements and repair the actual authored shape"
     ));
     assert!(instructions.contains(
@@ -969,9 +976,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(system_instructions().contains(
         "Choose the visual mode independently for each claim scene; a visual section may mix composition and graph scenes"
     ));
-    assert!(system_instructions().contains(
-        "Every other edge touching a focused node must also cite that same claim"
-    ));
+    assert!(
+        system_instructions()
+            .contains("Every other edge touching a focused node must also cite that same claim")
+    );
     assert!(
         system_instructions()
             .contains("Follow a real input through source-grounded changes and outcomes")

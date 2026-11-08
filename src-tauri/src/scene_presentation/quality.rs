@@ -148,6 +148,46 @@ pub(crate) fn generic_singleton_positions(presentation: &ScenePresentation) -> V
         .collect()
 }
 
+/// New compositions must use a visual form that explains behavior or data,
+/// rather than arranging generic cards in a row, grid or column. Keep this as
+/// proposal-only policy so previously saved scenes continue to replay.
+pub(crate) fn generic_layout_positions(presentation: &ScenePresentation) -> Vec<(usize, usize)> {
+    if presentation.schema_version != 3 || presentation.scenes.len() > 20 {
+        return vec![];
+    }
+    presentation
+        .scenes
+        .iter()
+        .enumerate()
+        .filter(|(_, scene)| {
+            scene.mode == SceneMode::Composition
+                && has_layout_tree(scene)
+                && !scene.elements.iter().any(|element| {
+                    matches!(
+                        &element.kind,
+                        ElementKind::Compare
+                            | ElementKind::Stack
+                            | ElementKind::Timeline
+                            | ElementKind::Lanes
+                            | ElementKind::Branch
+                            | ElementKind::BeforeAfter
+                            | ElementKind::Transform
+                            | ElementKind::PointFlow
+                            | ElementKind::Tree
+                            | ElementKind::Queue
+                            | ElementKind::Selector
+                            | ElementKind::Metric
+                            | ElementKind::Bytes
+                            | ElementKind::Matrix
+                            | ElementKind::Table
+                    )
+                })
+        })
+        .map(|(scene_index, _)| (scene_index, 0))
+        .take(64)
+        .collect()
+}
+
 /// Find repeated visible labels among outcomes in separate selector branches.
 /// The first direct item in each branch is its guard; only outcomes are
 /// compared. Findings contain positions only, never model-authored labels.

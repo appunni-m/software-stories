@@ -9,9 +9,7 @@ fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     };
@@ -307,6 +305,22 @@ fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
             .unwrap()
             .contains("first matching flag")
     );
+
+    let mut generic = crate::provider::visual_scenes::tests::composed_proposal(3);
+    generic["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([
+        {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"card","parentIndex":0,"nodeIndex":0,"tone":"neutral","value":"Input","valueOrigin":"illustration"},
+        {"kind":"token","parentIndex":0,"nodeIndex":1,"tone":"accent","value":"Result","valueOrigin":"illustration"}
+    ]);
+    let findings = guide_scene_findings(&generic.to_string());
+    assert_eq!(
+        findings,
+        vec![json!({
+            "location":"/section/visual/presentation/scenes/0/elements/0",
+            "code":"sceneSemanticComposition"
+        })]
+    );
+    assert!(valid_findings(&findings));
 
     let mut malformed = crate::provider::visual_scenes::tests::composed_proposal(3);
     let scene = &mut malformed["sections"][0]["visual"]["presentation"]["scenes"][0];

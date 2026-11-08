@@ -7,7 +7,12 @@ import { storyScenes } from '../src/lib/visualStory.ts';
 const claims = [{ claimId: 'claim:one', anchors: [{ anchorId: 'anchor:one', excerpt: 'return `Hello, ${name}`;' }] }];
 const nodes = [{ nodeId: 'node:one', label: 'Greeting', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:one'] }];
 const element = (kind, value = '', valueOrigin = 'none', parentIndex = null) => ({ kind, parentIndex, nodeIndex: 0, tone: 'accent', value, valueOrigin });
-const presentation = (elements = [element('code', 'Hello, ${name}', 'source')]) => ({ schemaVersion: 3, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', narration: 'A name becomes a greeting with the same prefix for every input.', mode: 'composition', elements }] });
+const presentation = (elements = [
+  { ...element('transform'), nodeIndex: null },
+  element('token', 'incoming name', 'illustration', 0),
+  element('text', 'insert into greeting', 'explanation', 0),
+  element('token', 'greeting result', 'illustration', 0),
+]) => ({ schemaVersion: 3, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', narration: 'A name becomes a greeting with the same prefix for every input.', mode: 'composition', elements }] });
 
 describe('AI-authored HTML scene contract', () => {
   it('orders stack children top-first for visual and assistive-technology reading', () => {
@@ -69,7 +74,7 @@ describe('AI-authored HTML scene contract', () => {
   });
 
   it('current scenes allow meaningful values and roles while rejecting presentation-only changes', () => {
-    const root = { ...element('row'), nodeIndex: null };
+    const root = { ...element('compare'), nodeIndex: null };
     const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };
     const same = presentation([root, element('card', '', 'none', 0), arrow, { ...element('code', '', 'none', 0), tone: 'positive' }]);
     assert.equal(validScenePresentation(same, nodes, claims), false);
@@ -100,12 +105,19 @@ describe('AI-authored HTML scene contract', () => {
       assert.equal(validScenePresentation(lone, nodes, claims), false);
       assert.equal(validStoredScenePresentation(lone, nodes, claims), true);
     }
-    const composed = presentation([
+    const genericBoxes = presentation([
       { ...element('row'), nodeIndex: null },
       element('card', 'Incoming bytes', 'illustration', 0),
       element('token', 'format marker', 'illustration', 0),
     ]);
-    assert.equal(validScenePresentation(composed, nodes, claims), true);
+    assert.equal(validScenePresentation(genericBoxes, nodes, claims), false);
+    assert.equal(validStoredScenePresentation(genericBoxes, nodes, claims), true);
+    const semantic = presentation([
+      { ...element('branch'), nodeIndex: null },
+      element('text', 'Format marker matches?', 'illustration', 0),
+      element('token', 'continue to parser', 'explanation', 0),
+    ]);
+    assert.equal(validScenePresentation(semantic, nodes, claims), true);
   });
   it('keeps new narration short while preserving previously saved scene scripts', () => {
     const concise = presentation();
@@ -135,7 +147,7 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(validScenePresentation(tree, duplicated, claims), false);
   });
   it('rejects a repeated transformation in the current scene contract', () => {
-    const root = { ...element('row'), nodeIndex: null };
+    const root = { ...element('compare'), nodeIndex: null };
     const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };
     const repeated = presentation([root, element('card', 'same', 'illustration', 0), arrow,
       { ...element('token', 'same', 'illustration', 0), nodeIndex: 0 }]);
@@ -330,9 +342,17 @@ describe('AI-authored HTML scene contract', () => {
   });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name']]) {
-      assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);
+      const elements = [
+        { ...element('branch'), nodeIndex: null },
+        element(kind, value, value ? 'illustration' : 'none', 0),
+        element('token', 'supported result', 'illustration', 0),
+      ];
+      assert.ok(validScenePresentation(presentation(elements), nodes, claims), kind);
     }
-    for (const kind of ['card', 'text']) {
+    for (const [kind, value] of [['metric', '3'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada']]) {
+      assert.ok(validScenePresentation(presentation([element(kind, value, 'illustration')]), nodes, claims), kind);
+    }
+    for (const kind of ['card', 'text', 'code', 'token']) {
       assert.equal(validScenePresentation(presentation([element(kind)]), nodes, claims), false, kind);
     }
   });
