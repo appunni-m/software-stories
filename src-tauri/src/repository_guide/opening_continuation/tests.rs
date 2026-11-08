@@ -137,6 +137,32 @@ fn automatic_recovery_precedes_one_explicit_follow_up() {
 }
 
 #[test]
+fn opening_retries_receive_the_visual_forms_from_the_previous_opening() {
+    let f = Fixture::new();
+    let mut record = partial_with_published_opening_section(&f);
+    record
+        .opening
+        .as_mut()
+        .unwrap()
+        .summary
+        .as_mut()
+        .unwrap()
+        .sections[0]
+        .visual_forms = vec![crate::chapters::SceneVisualForm::Transform];
+
+    let intent = intent(&record).unwrap();
+    assert_eq!(
+        intent.prior_visual_forms,
+        vec![
+            super::super::workspace_generation::progressive::VisualFormCount {
+                form: crate::chapters::SceneVisualForm::Transform,
+                count: 1,
+            }
+        ]
+    );
+}
+
+#[test]
 fn a_failed_explicit_follow_up_does_not_trigger_an_automatic_third_investigation() {
     let f = Fixture::new();
     let record = partial_with_published_opening_section(&f);

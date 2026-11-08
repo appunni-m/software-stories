@@ -368,6 +368,7 @@ mod tests {
         assert_eq!(validation.status, chapters::ValidationReportStatus::Valid);
         revision.validation_status = chapters::ValidationStatus::Valid;
         let revision = chapter_store::save_new_draft(&fixture.storage, revision).unwrap();
+        let visual_forms = revision.visual_forms();
         let notice = SectionNotice {
             run_id: run_id.clone(),
             project_id: guide.project_id.clone(),
@@ -377,6 +378,7 @@ mod tests {
             generation_id,
             revision_id: revision.revision_id,
             supersedes: None,
+            visual_forms,
             context_elapsed_ms: 1,
             run_elapsed_ms: Some(2),
         };

@@ -1,6 +1,7 @@
 use crate::index::{
     IndexFileStatus, IndexedSymbol, SnapshotIndex, SourceAnchor as IndexedSourceAnchor,
 };
+use crate::scene_presentation::{ElementKind, SceneMode};
 use crate::snapshot::{self, SnapshotManifest, SnapshotSource};
 use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
@@ -60,6 +61,16 @@ pub struct ChapterRevision {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guide_carry_forward: Option<crate::chapter_origin::GuideCarryForwardOrigin>,
     pub sections: Vec<ChapterSection>,
+}
+
+impl ChapterRevision {
+    pub(crate) fn visual_forms(&self) -> Vec<SceneVisualForm> {
+        self.sections
+            .iter()
+            .flat_map(ChapterSection::visual_forms)
+            .take(12)
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -293,6 +304,62 @@ pub struct ChapterSection {
     #[serde(deserialize_with = "required_nullable_chapter_field")]
     pub visual: Option<ChapterVisualPayload>,
     pub hotspots: Vec<ChapterHotspot>,
+}
+
+impl ChapterSection {
+    pub(crate) fn visual_forms(&self) -> Vec<SceneVisualForm> {
+        let Some(visual) = self
+            .visual
+            .as_ref()
+            .and_then(ChapterVisualPayload::typed_visual)
+        else {
+            return Vec::new();
+        };
+        visual
+            .presentation
+            .scenes
+            .iter()
+            .take(12)
+            .map(scene_visual_form)
+            .collect()
+    }
+}
+
+fn scene_visual_form(scene: &crate::scene_presentation::PresentationScene) -> SceneVisualForm {
+    if matches!(&scene.mode, SceneMode::Graph) {
+        return SceneVisualForm::Graph;
+    }
+    let semantic_group = scene
+        .elements
+        .iter()
+        .find_map(|element| match &element.kind {
+            ElementKind::Branch => Some(SceneVisualForm::Branch),
+            ElementKind::Selector => Some(SceneVisualForm::Selector),
+            ElementKind::Transform => Some(SceneVisualForm::Transform),
+            ElementKind::PointFlow => Some(SceneVisualForm::PointFlow),
+            ElementKind::BeforeAfter => Some(SceneVisualForm::BeforeAfter),
+            ElementKind::Compare => Some(SceneVisualForm::Compare),
+            ElementKind::Timeline => Some(SceneVisualForm::Timeline),
+            ElementKind::Lanes => Some(SceneVisualForm::Lanes),
+            ElementKind::Tree => Some(SceneVisualForm::Tree),
+            ElementKind::Queue => Some(SceneVisualForm::Queue),
+            ElementKind::Stack => Some(SceneVisualForm::Stack),
+            _ => None,
+        });
+    if let Some(form) = semantic_group {
+        return form;
+    }
+    scene
+        .elements
+        .iter()
+        .find_map(|element| match &element.kind {
+            ElementKind::Bytes => Some(SceneVisualForm::Bytes),
+            ElementKind::Matrix => Some(SceneVisualForm::Matrix),
+            ElementKind::Table => Some(SceneVisualForm::Table),
+            ElementKind::Metric => Some(SceneVisualForm::Metric),
+            _ => None,
+        })
+        .unwrap_or(SceneVisualForm::Cards)
 }
 
 fn required_nullable_chapter_field<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -666,6 +733,30 @@ pub enum VisualKind {
     DataFlow,
     Sequence,
     Hierarchy,
+}
+
+/// A compact, source-free description of a scene's primary visual form.
+/// Repository Guides use this history to vary equivalent visual choices.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum SceneVisualForm {
+    Graph,
+    Branch,
+    Selector,
+    Transform,
+    PointFlow,
+    BeforeAfter,
+    Compare,
+    Timeline,
+    Lanes,
+    Tree,
+    Queue,
+    Stack,
+    Bytes,
+    Matrix,
+    Table,
+    Metric,
+    Cards,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2684,12 +2775,100 @@ mod tests {
     use super::*;
     use crate::index::{self, RelationshipKind};
     use crate::project::{AccessStatus, RecentProject};
+    use crate::scene_presentation::{
+        ElementTone, PresentationScene, SceneElement, ScenePresentation, ValueOrigin,
+    };
     use crate::snapshot::CaptureLimits;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
     use std::sync::atomic::AtomicBool;
     use uuid::Uuid;
+
+    #[test]
+    fn chapter_sections_expose_compact_source_free_visual_forms() {
+        let element = |kind, parent_index, node_index| SceneElement {
+            kind,
+            parent_index,
+            node_index,
+            tone: ElementTone::Neutral,
+            value: String::new(),
+            value_origin: ValueOrigin::None,
+        };
+        let visual = VisualSpec {
+            presentation: ScenePresentation {
+                schema_version: 3,
+                scenes: vec![
+                    PresentationScene {
+                        claim_index: 0,
+                        title: "A request chooses a handler".into(),
+                        narration: "The caller checks each source-backed condition.".into(),
+                        mode: SceneMode::Composition,
+                        elements: vec![
+                            element(ElementKind::Row, None, None),
+                            element(ElementKind::Branch, Some(0), None),
+                        ],
+                    },
+                    PresentationScene {
+                        claim_index: 1,
+                        title: "The bytes reach a parser".into(),
+                        narration: "The parser receives the bounded bytes.".into(),
+                        mode: SceneMode::Graph,
+                        elements: vec![],
+                    },
+                    PresentationScene {
+                        claim_index: 2,
+                        title: "The header fields stay visible".into(),
+                        narration: "Each field retains its original position.".into(),
+                        mode: SceneMode::Composition,
+                        elements: vec![element(ElementKind::Table, None, Some(0))],
+                    },
+                    PresentationScene {
+                        claim_index: 3,
+                        title: "Two states use different outcomes".into(),
+                        narration:
+                            "The earlier card arranges the states; comparison is the behavior."
+                                .into(),
+                        mode: SceneMode::Composition,
+                        elements: vec![
+                            element(ElementKind::Row, None, None),
+                            element(ElementKind::Card, Some(0), Some(0)),
+                            element(ElementKind::Compare, Some(0), None),
+                            element(ElementKind::Table, Some(2), Some(1)),
+                        ],
+                    },
+                ],
+            },
+            schema_version: VISUAL_SCHEMA_VERSION,
+            kind: VisualKind::DataFlow,
+            title: "Source choice and parsed header".into(),
+            layout_hint: None,
+            nodes: vec![],
+            edges: vec![],
+        };
+        let section = ChapterSection {
+            section_id: "section:forms".into(),
+            section_revision_id: "section-revision:forms".into(),
+            order: 0,
+            title: "How the request becomes parsed data".into(),
+            prose: "The source-backed decisions stay visible.".into(),
+            spoken_text: "The source-backed decisions stay visible.".into(),
+            claims: vec![],
+            dependencies: vec![],
+            visual: Some(ChapterVisualPayload::Typed(visual)),
+            hotspots: vec![],
+        };
+
+        assert_eq!(
+            section.visual_forms(),
+            vec![
+                SceneVisualForm::Branch,
+                SceneVisualForm::Graph,
+                SceneVisualForm::Table,
+                SceneVisualForm::Compare
+            ]
+        );
+    }
 
     #[test]
     fn line_citations_use_exact_utf8_crlf_and_final_line_bytes() {

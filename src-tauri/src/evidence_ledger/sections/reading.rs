@@ -56,6 +56,7 @@ impl Answer {
                     generation_id: section.preview.generation_id.clone(),
                     revision_id: section.preview.revision.revision_id.clone(),
                     supersedes: section.supersedes.clone(),
+                    visual_forms: section.preview.revision.visual_forms(),
                     context_elapsed_ms: section.published_elapsed_ms,
                     run_elapsed_ms: section.published_run_elapsed_ms,
                 })

@@ -14,6 +14,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::{BTreeMap, HashSet},
     path::Path,
     sync::{Arc, Mutex},
     time::Instant,
@@ -1207,6 +1208,13 @@ fn unit_intent(
         .units
         .get(index)
         .ok_or("The guide unit is unavailable.")?;
+    let prior_visual_forms = guide_visual_history(
+        opening_continuation::latest(record).into_iter().chain(
+            record.units[..=index]
+                .iter()
+                .flat_map(|unit| &unit.attempts),
+        ),
+    );
     Ok(workspace_generation::progressive::GuideIntent {
         guide_id: record.id.clone(),
         question: record.question.clone(),
@@ -1214,8 +1222,39 @@ fn unit_intent(
         unit_number: index + 2,
         unit_count: plan.units.len() + 1,
         research_boundaries: guide_research_boundaries(&plan.omissions),
+        prior_visual_forms,
         opening_continuation: None,
     })
+}
+
+fn guide_visual_history<'a>(
+    attempts: impl IntoIterator<Item = &'a Attempt>,
+) -> Vec<workspace_generation::progressive::VisualFormCount> {
+    let mut seen_revisions = HashSet::new();
+    let mut counts = BTreeMap::new();
+    for section in attempts
+        .into_iter()
+        .filter_map(|attempt| attempt.summary.as_ref())
+        .flat_map(|summary| &summary.sections)
+    {
+        if !seen_revisions.insert(section.revision_id.as_str()) {
+            continue;
+        }
+        for form in &section.visual_forms {
+            let count = counts.entry(*form).or_insert(0_u32);
+            *count = count.saturating_add(1).min(200);
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(form, count)| workspace_generation::progressive::VisualFormCount { form, count })
+        .collect()
+}
+
+fn opening_visual_history(
+    record: &Record,
+) -> Vec<workspace_generation::progressive::VisualFormCount> {
+    guide_visual_history(record.opening.iter().chain(&record.opening_continuations))
 }
 fn save_outline(
     storage: &Path,
@@ -1356,6 +1395,7 @@ fn run_initial_opening(
         unit_number: 1,
         unit_count: plan.units.len() + 1,
         research_boundaries: guide_research_boundaries(&plan.omissions),
+        prior_visual_forms: Vec::new(),
         opening_continuation: None,
     };
     let run_id = opening.run_id.clone();

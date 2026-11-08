@@ -96,6 +96,10 @@ pub(super) fn request_for(
     if guide_intent.is_some() {
         instructions.push_str(&format!("\n\n{CALLEE_TRACE_INSTRUCTIONS}"));
         instructions.push_str(&format!("\n\n{}", guide_intent::INSTRUCTIONS));
+        instructions.push_str(&format!(
+            "\n\n{}",
+            guide_intent::VISUAL_HISTORY_INSTRUCTIONS
+        ));
     }
     if guide_intent.is_some_and(|intent| intent.unit_key == "opening") {
         instructions.push_str(&format!("\n\n{}", guide_intent::OPENING_INSTRUCTIONS));
@@ -197,6 +201,7 @@ mod tests {
             unit_number: 1,
             unit_count: 2,
             research_boundaries: vec!["Runtime execution was not observed.".into()],
+            prior_visual_forms: Vec::new(),
             opening_continuation: None,
         }
     }
@@ -362,6 +367,7 @@ mod tests {
         let ordinary = request(&f.storage, &input, &f.manifest, &[range], None).unwrap();
         assert_ne!(fingerprint, ordinary.2);
         assert!(instructions.contains("guideContext"));
+        assert!(instructions.contains(guide_intent::VISUAL_HISTORY_INSTRUCTIONS));
         assert!(instructions.contains("two to four focused claims/scenes"));
         assert!(instructions.contains("at most eight distinct evidence nodes"));
         assert!(!prompt.contains(SIMPLE_SOURCE));
@@ -394,7 +400,15 @@ mod tests {
         let original = guide_intent();
         let ranges = [range];
         let previous = request(&f.storage, &input, &f.manifest, &ranges, Some(&original)).unwrap();
-        for field in ["guide", "question", "key", "number", "count", "boundaries"] {
+        for field in [
+            "guide",
+            "question",
+            "key",
+            "number",
+            "count",
+            "boundaries",
+            "visuals",
+        ] {
             let mut changed = original.clone();
             match field {
                 "guide" => changed.guide_id = Uuid::new_v4().to_string(),
@@ -407,6 +421,10 @@ mod tests {
                 "boundaries" => changed
                     .research_boundaries
                     .push("No downstream caller was executed.".into()),
+                "visuals" => changed.prior_visual_forms.push(VisualFormCount {
+                    form: crate::chapters::SceneVisualForm::Branch,
+                    count: 2,
+                }),
                 _ => unreachable!(),
             }
             let next = request(&f.storage, &input, &f.manifest, &ranges, Some(&changed)).unwrap();
@@ -444,6 +462,7 @@ mod tests {
             "count",
             "boundaries",
             "boundary",
+            "visuals",
         ] {
             let mut changed = original.clone();
             match field {
@@ -456,6 +475,12 @@ mod tests {
                 "count" => changed.unit_count = crate::repository_guide::MAX_GUIDE_SLIDES + 1,
                 "boundaries" => changed.research_boundaries = vec!["boundary".into(); 9],
                 "boundary" => changed.research_boundaries = vec!["é".repeat(121)],
+                "visuals" => {
+                    changed.prior_visual_forms = vec![VisualFormCount {
+                        form: crate::chapters::SceneVisualForm::Branch,
+                        count: 0,
+                    }]
+                }
                 _ => unreachable!(),
             }
             let error = request(&f.storage, &input, &f.manifest, &[], Some(&changed)).unwrap_err();

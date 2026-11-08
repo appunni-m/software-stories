@@ -11,7 +11,7 @@ use tauri::Manager;
 
 mod guide_intent;
 mod starting_ranges;
-pub(crate) use guide_intent::{GuideIntent, OpeningContinuation};
+pub(crate) use guide_intent::{GuideIntent, OpeningContinuation, VisualFormCount};
 
 // A live answer can record eight proposal attempts and one terminal update
 // while a snapshot is being replayed. Keep one bounded read for the final

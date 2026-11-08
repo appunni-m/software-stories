@@ -193,7 +193,7 @@ pub(crate) struct PreparedSection {
     pub(crate) findings: Vec<Value>,
 }
 
-/// Source-free event identity. Draft contents stay behind native inspection.
+/// Source-free event identity and scene-style metadata. Draft contents stay behind native inspection.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SectionNotice {
@@ -205,6 +205,9 @@ pub(crate) struct SectionNotice {
     pub(crate) generation_id: String,
     pub(crate) revision_id: String,
     pub(crate) supersedes: Option<String>,
+    /// Source-free scene archetypes used to keep a repository Guide visually varied.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) visual_forms: Vec<chapters::SceneVisualForm>,
     /// Preparation checkpoint on the captured-code clock; excludes earlier setup.
     pub(crate) context_elapsed_ms: u64,
     /// Observed after durable commit on the owning run's original clock.
@@ -1314,6 +1317,7 @@ impl ActiveAnswer {
                 generation_id: s.preview.generation_id.clone(),
                 revision_id: s.preview.revision.revision_id.clone(),
                 supersedes: s.supersedes.clone(),
+                visual_forms: s.preview.revision.visual_forms(),
                 context_elapsed_ms: s.published_elapsed_ms,
                 run_elapsed_ms: s.published_run_elapsed_ms,
             })

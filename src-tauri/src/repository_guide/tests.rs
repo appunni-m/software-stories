@@ -101,6 +101,7 @@ pub(super) fn attempt_for_unit(record: &Record, unit_index: usize, outcome: Outc
             generation_id: format!("generation:{}", Uuid::new_v4()),
             revision_id: format!("revision:{}", Uuid::new_v4()),
             supersedes: None,
+            visual_forms: Vec::new(),
             context_elapsed_ms: 1,
             run_elapsed_ms: Some(2),
         }]
@@ -1049,6 +1050,46 @@ fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_questio
     record.plan = None;
     assert!(unit_intent(&record, 0).is_err());
 }
+
+#[test]
+fn guide_intents_receive_prior_visual_form_counts_but_not_future_units() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    let mut opening = attempt(&record, Outcome::Complete);
+    opening.summary.as_mut().unwrap().sections[0].visual_forms = vec![
+        crate::chapters::SceneVisualForm::Branch,
+        crate::chapters::SceneVisualForm::Branch,
+    ];
+    record.opening = Some(opening);
+
+    let mut first_unit = attempt_for_unit(&record, 0, Outcome::Complete);
+    first_unit.summary.as_mut().unwrap().sections[0].visual_forms = vec![
+        crate::chapters::SceneVisualForm::Transform,
+        crate::chapters::SceneVisualForm::Branch,
+    ];
+    record.units[0].attempts.push(first_unit);
+
+    let mut second_unit = attempt_for_unit(&record, 1, Outcome::Complete);
+    second_unit.summary.as_mut().unwrap().sections[0].visual_forms =
+        vec![crate::chapters::SceneVisualForm::Matrix];
+    record.units[1].attempts.push(second_unit);
+
+    let intent = unit_intent(&record, 0).unwrap();
+    assert_eq!(
+        intent.prior_visual_forms,
+        vec![
+            workspace_generation::progressive::VisualFormCount {
+                form: crate::chapters::SceneVisualForm::Branch,
+                count: 3,
+            },
+            workspace_generation::progressive::VisualFormCount {
+                form: crate::chapters::SceneVisualForm::Transform,
+                count: 1,
+            },
+        ]
+    );
+}
+
 #[test]
 fn guide_reopens_without_research_and_source_scope_is_revalidated() {
     let f = Fixture::new();

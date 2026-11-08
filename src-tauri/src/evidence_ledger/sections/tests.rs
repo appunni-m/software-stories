@@ -534,6 +534,43 @@ fn greenfield_current_format_answer_requires_update_notes() {
 }
 
 #[test]
+fn publication_notices_capture_bounded_visual_forms_and_read_older_records() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let proposal = authoring::tests::proposal(&reference, "visual-entry", 0);
+    let prepared = answer
+        .prepare(
+            &ledger,
+            &proposal.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
+        .unwrap();
+    assert!(prepared.findings.is_empty(), "{:?}", prepared.findings);
+    let generation_id = prepared.generation_id.clone().unwrap();
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+
+    let notice = answer.notice(&generation_id).unwrap();
+    assert_eq!(
+        notice.visual_forms,
+        vec![chapters::SceneVisualForm::Transform]
+    );
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    let summary = saved.summary();
+    assert_eq!(summary.sections[0].visual_forms, notice.visual_forms);
+
+    let mut old_notice = serde_json::to_value(&notice).unwrap();
+    old_notice.as_object_mut().unwrap().remove("visualForms");
+    let decoded: SectionNotice = serde_json::from_value(old_notice).unwrap();
+    assert!(decoded.visual_forms.is_empty());
+}
+
+#[test]
 fn each_published_section_keeps_only_its_cited_retrieval_scope() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

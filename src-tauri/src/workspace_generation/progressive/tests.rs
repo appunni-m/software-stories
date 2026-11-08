@@ -302,6 +302,7 @@ fn application_timing_carries_terminal_outcome_and_first_section_without_crossin
         generation_id: format!("generation-{order}"),
         revision_id: format!("revision-{order}"),
         supersedes: None,
+        visual_forms: Vec::new(),
         context_elapsed_ms: 20,
         run_elapsed_ms,
     };
