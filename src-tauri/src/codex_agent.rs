@@ -181,6 +181,7 @@ pub(crate) struct CodexResultAccess<'a> {
     run_id: &'a str,
     fingerprint: &'a str,
     runtime: &'a CodexReviewRuntime,
+    scope_epoch: Arc<AtomicU64>,
     shutdown: &'a AtomicBool,
     cancelled: &'a AtomicBool,
     started_at: Instant,
@@ -207,6 +208,9 @@ impl CodexResultAccess<'_> {
             || executable_path != self.runtime.executable_path
         {
             return Err("The Codex result belongs to a different reviewed operation. Prepare a fresh review.".to_owned());
+        }
+        if self.scope_epoch.load(Ordering::Acquire) != self.runtime.account_revision {
+            return Err(codex_identity::changed());
         }
         check_cancelled(self.shutdown, Some(self.cancelled))?;
         if self.run_deadline.exceeded(self.started_at) {
@@ -255,6 +259,7 @@ pub(crate) struct SectionPublicationOwner {
     run_id: String,
     fingerprint: String,
     runtime: CodexReviewRuntime,
+    scope_epoch: Arc<AtomicU64>,
     cancelled: Arc<AtomicBool>,
     started_at: Instant,
     run_deadline: RunDeadline,
@@ -296,6 +301,7 @@ impl SectionPublicationOwner {
             run_id: &self.run_id,
             fingerprint: &self.fingerprint,
             runtime: &self.runtime,
+            scope_epoch: Arc::clone(&self.scope_epoch),
             shutdown: &self.inner.shutdown,
             cancelled: &self.cancelled,
             started_at: self.started_at,
@@ -347,6 +353,7 @@ pub(crate) fn section_owner_for_test(
         run_id: run_id.into(),
         fingerprint: fingerprint.into(),
         runtime: runtime.clone(),
+        scope_epoch: Arc::new(AtomicU64::new(runtime.account_revision)),
         cancelled: Arc::clone(&cancelled),
         started_at: Instant::now(),
         run_deadline: RunDeadline::BoundedProbe,
@@ -517,6 +524,9 @@ impl CodexAgentManager {
             run_deadline,
         )?;
         self.remember_account(&account);
+        if process.scope_epoch.load(Ordering::Acquire) != process.account_revision {
+            return Err(codex_identity::changed());
+        }
         CodexReviewRuntime::from_observation(
             &process.connection_id,
             &process.executable,
@@ -923,6 +933,7 @@ impl CodexAgentManager {
                         run_id: input.run_id.clone(),
                         fingerprint: fingerprint.into(),
                         runtime: input.expected_runtime.clone(),
+                        scope_epoch: Arc::clone(&process.scope_epoch),
                         cancelled: Arc::clone(&cancelled),
                         started_at,
                         run_deadline: input.run_deadline,
@@ -957,10 +968,15 @@ impl CodexAgentManager {
         if let Some(process) = slot.as_mut() {
             process.cancelled = None;
         }
+        let scope_epoch = slot.as_ref().map_or_else(
+            || Arc::new(AtomicU64::new(input.expected_runtime.account_revision)),
+            |process| Arc::clone(&process.scope_epoch),
+        );
         let access = CodexResultAccess {
             run_id: &input.run_id,
             fingerprint,
             runtime: &input.expected_runtime,
+            scope_epoch,
             shutdown: &self.0.shutdown,
             cancelled: &cancelled,
             started_at,
@@ -1192,7 +1208,10 @@ struct ServerProcess {
     runtime_version: String,
     runtime_version_source: Option<CodexRuntimeVersionSource>,
     connection_id: String,
+    /// Revision of account and model-routing events that invalidate reviews.
     account_revision: u64,
+    /// Reader-thread epoch advances before runtime-change notifications enter
+    /// the bounded response queue, so publication can reject a late event.
     scope_epoch: Arc<AtomicU64>,
     reaped: bool,
     disabled_mcp: Value,
@@ -1692,6 +1711,9 @@ impl ServerProcess {
         if self.account_revision != input.expected_runtime.account_revision {
             return Err(codex_identity::changed());
         }
+        if self.scope_epoch.load(Ordering::Acquire) != input.expected_runtime.account_revision {
+            return Err(codex_identity::changed());
+        }
         progress(progress_event(
             &input.run_id,
             "starting",
@@ -1715,6 +1737,9 @@ impl ServerProcess {
         loop {
             if self.shutdown.load(Ordering::Acquire) {
                 return Err("Codex stopped because Code Atlas is closing.".to_owned());
+            }
+            if self.scope_epoch.load(Ordering::Acquire) != expected_epoch {
+                return Err(codex_identity::changed());
             }
             if input.run_deadline.exceeded(started_at) {
                 return Err(
@@ -2072,9 +2097,10 @@ impl ServerProcess {
         {
             Ok(Ok(value)) => {
                 account_operation_bytes(total, value.wire_bytes)?;
-                if value.value.get("method").and_then(Value::as_str)
-                    == Some("account/updated")
-                {
+                if matches!(
+                    value.value.get("method").and_then(Value::as_str),
+                    Some("account/updated" | "model/rerouted")
+                ) {
                     self.account_revision = self
                         .account_revision
                         .checked_add(1)
@@ -3117,9 +3143,9 @@ fn valid_codex_version(version: &str) -> bool {
     let core = version.split(['-', '+']).next().unwrap_or_default();
     let mut components = core.split('.');
     let valid_core = (0..3).all(|_| {
-        components
-            .next()
-            .is_some_and(|component| !component.is_empty() && component.bytes().all(|b| b.is_ascii_digit()))
+        components.next().is_some_and(|component| {
+            !component.is_empty() && component.bytes().all(|b| b.is_ascii_digit())
+        })
     }) && components.next().is_none();
     valid_core
         && version
@@ -3205,8 +3231,10 @@ fn completed_response_text(
         && !crate::strict_json::from_slice(response_text.as_bytes())
             .is_ok_and(|value| value.is_object())
     {
-        return Err("Codex completed without a complete JSON response. No response was accepted."
-            .to_owned());
+        return Err(
+            "Codex completed without a complete JSON response. No response was accepted."
+                .to_owned(),
+        );
     }
     Ok(response_text.to_owned())
 }
@@ -3808,6 +3836,7 @@ mod section_publication_tests {
             "deadline",
             "shutdown",
             "retired",
+            "runtime_scope",
         ] {
             let id = Uuid::new_v4().to_string();
             let fingerprint = "d".repeat(64);
@@ -3828,6 +3857,9 @@ mod section_publication_tests {
                 "stop" => assert!(manager.cancel(&id)),
                 "deadline" => owner.started_at = Instant::now() - ACCOUNT_PROBE_TIMEOUT,
                 "shutdown" => manager.0.shutdown.store(true, Ordering::Release),
+                "runtime_scope" => {
+                    owner.scope_epoch.fetch_add(1, Ordering::AcqRel);
+                }
                 "retired" => {
                     *manager.0.active.lock().unwrap() = Some(ActiveRun {
                         id: id.clone(),
@@ -3869,6 +3901,7 @@ mod section_publication_tests {
             run_id: &run_id,
             fingerprint: &fingerprint,
             runtime: &runtime,
+            scope_epoch: Arc::new(AtomicU64::new(runtime.account_revision)),
             shutdown: &shutdown,
             cancelled: &cancelled,
             started_at: Instant::now() - Duration::from_secs(11 * 60),
@@ -3878,6 +3911,89 @@ mod section_publication_tests {
             access
                 .check_review(&run_id, &fingerprint, &runtime.executable_path)
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn account_and_model_notifications_advance_the_runtime_review_revision() {
+        for method in ["account/updated", "model/rerouted"] {
+            let child = Command::new(std::env::current_exe().unwrap())
+                .arg("--list")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap();
+            let (sender, receiver) = mpsc::sync_channel(1);
+            sender
+                .send(Ok(ProtocolFrame {
+                    value: json!({"method": method}),
+                    wire_bytes: 1,
+                }))
+                .unwrap();
+            let mut process = ServerProcess {
+                child,
+                writer_sender: None,
+                writer: None,
+                receiver: Some(receiver),
+                reader: None,
+                next_id: 1,
+                process_id: Arc::new(AtomicU32::new(0)),
+                shutdown: Arc::new(AtomicBool::new(false)),
+                cancelled: None,
+                executable: PathBuf::from("/unused/codex"),
+                executable_sha256: "a".repeat(64),
+                runtime_version: "fixture-runtime-1".into(),
+                runtime_version_source: Some(
+                    crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
+                ),
+                connection_id: Uuid::new_v4().to_string(),
+                account_revision: 0,
+                scope_epoch: Arc::new(AtomicU64::new(1)),
+                reaped: false,
+                disabled_mcp: json!({}),
+            };
+            let mut total = 0;
+            assert_eq!(
+                process
+                    .receive(Duration::from_millis(1), &mut total)
+                    .unwrap()
+                    .unwrap()["method"],
+                method
+            );
+            assert_eq!(process.account_revision, 1, "{method}");
+            assert_eq!(process.scope_epoch.load(Ordering::Acquire), 1, "{method}");
+        }
+    }
+
+    #[test]
+    fn result_validation_rejects_a_runtime_change_after_turn_completion() {
+        let run_id = Uuid::new_v4().to_string();
+        let fingerprint = "d".repeat(64);
+        let runtime = runtime();
+        let scope_epoch = Arc::new(AtomicU64::new(runtime.account_revision));
+        let shutdown = AtomicBool::new(false);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let access = CodexResultAccess {
+            run_id: &run_id,
+            fingerprint: &fingerprint,
+            runtime: &runtime,
+            scope_epoch: Arc::clone(&scope_epoch),
+            shutdown: &shutdown,
+            cancelled: &cancelled,
+            started_at: Instant::now(),
+            run_deadline: RunDeadline::UserControlled,
+        };
+        assert!(
+            access
+                .check_review(&run_id, &fingerprint, &runtime.executable_path)
+                .is_ok()
+        );
+        scope_epoch.fetch_add(1, Ordering::AcqRel);
+        assert!(
+            access
+                .check_review(&run_id, &fingerprint, &runtime.executable_path)
+                .is_err()
         );
     }
 
