@@ -118,6 +118,7 @@ const SEMANTIC_COMPOSITION_REPAIR_INSTRUCTIONS: &str = "sceneSemanticComposition
 const SPEECH_ROLE_REPAIR_INSTRUCTIONS: &str = "sceneSpeechRole means spoken narration contains compact source syntax, an all-caps abbreviation or a format token. Replace it with ordinary spoken words for the behavior (for example, say 'the method returns' rather than 'the API returns'); keep exact spelling in the visible claim and clickable source link. Then submit the corrected section with the same key and order while corrections remain. Do not delete the affected behavior or claim.";
 const CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS: &str = "chapter... findings are fixed native chapter-validator categories; issue messages and source paths are withheld. Correct a chapterInvalidVisual or chapterInvalidClaim in this section without dropping its supported behavior. visualField names the exact visual field to repair; when no visual helps, set section.visual:null and keep the complete narration in section.spokenText. Every non-null visual requires the current schema-version-3 presentation; represent a graph-only diagram with graph-mode scenes. Preserve the selected visual kind and make all required visual fields match it. chapterWrongSnapshot, chapterHashMismatch, chapterIndexUnavailable and chapterSourceUnavailable indicate snapshot/integrity boundaries: do not change citations to evade them; stop retrying that section and state the boundary in incompleteTopics. Correct chapterMissingPath, chapterRangeMismatch, chapterExcerptMismatch, chapterAmbiguousRemap, chapterMissingSymbol and chapterInvalidDependency only against references already delivered; do not broaden files or invent evidence. Other chapter... codes identify their named validator category. A generic sectionValidation means no safe category was available; do not repeat the same proposal.";
 
+#[cfg(test)]
 fn system_instructions() -> String {
     system_instructions_for(false)
 }
@@ -150,6 +151,7 @@ pub(crate) fn schema() -> Value {
         "incompleteTopics":{"type":"array","maxItems":6,"items":{"type":"string","maxLength":240}}}})
 }
 
+#[cfg(test)]
 fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Value, String> {
     generation_contract_for(input, prompt, schema, false)
 }
@@ -187,6 +189,7 @@ fn generation_contract_for(
     }))
 }
 
+#[cfg(test)]
 fn request(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,

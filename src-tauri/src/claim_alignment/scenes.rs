@@ -167,6 +167,7 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
 /// Match the reader's focused graph: claim-linked nodes plus one edge of
 /// context. Return None for an unknown proposal shape and leave it to full
 /// admission.
+#[cfg(test)]
 pub(super) fn graph_scene_node_count(section: &Value, claim_index: usize) -> Option<usize> {
     graph_scene_metrics(section, claim_index).map(|(count, _, _)| count)
 }

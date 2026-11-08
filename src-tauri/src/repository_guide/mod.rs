@@ -1398,9 +1398,9 @@ fn run_initial_opening(
     let operation_error = result.as_ref().err().cloned();
     let answer = match result {
         Ok(answer) => answer,
-        Err(error) => {
+        Err(_error) => {
             #[cfg(test)]
-            eprintln!("GUIDE_OPENING_FAILURE {run_id}: {error}");
+            eprintln!("GUIDE_OPENING_FAILURE {run_id}: {_error}");
             if reading::exists(storage, &run_id)? {
                 reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?
                     .summary()
@@ -1764,9 +1764,9 @@ fn build_inner(
                 let operation_error = result.as_ref().err().cloned();
                 let answer = match result {
                     Ok(answer) => answer,
-                    Err(error) => {
+                    Err(_error) => {
                         #[cfg(test)]
-                        eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
+                        eprintln!("GUIDE_UNIT_FAILURE {run_id}: {_error}");
                         if reading::exists(storage, &run_id)? {
                             reading::scoped(
                                 storage,
