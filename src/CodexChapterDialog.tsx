@@ -114,6 +114,8 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const targetPath = mode === 'settings' || mode.kind === 'overview' || mode.kind === 'pr-guide' || mode.kind === 'pr-change' || mode.kind === 'repository-plan' ? null
     : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
+  const sectionTitle = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionTitle ?? 'Selected section' : null;
+  const automaticSectionRepair = mode !== 'settings' && mode.kind === 'section-update' && !mode.recoveryOperationId;
   const initialSelectedPaths = mode !== 'settings' && 'selectedPaths' in mode ? mode.selectedPaths : undefined;
   const overviewNeedsAutomaticDiscovery = mode !== 'settings' && mode.kind === 'overview'
     && !discoveryResult && !initialSelectedPaths?.length;
@@ -133,13 +135,13 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const [paths, setPaths] = useState<string[]>(() => [...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])]);
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
+  const [consent, setConsent] = useState(false);
   const [preview, setPreview] = useState<ChapterDraftPreview | null>(null);
   const [codeLensResult, setCodeLensResult] = useState<CodeLensExplanationPreview | null>(null);
   const [prGuideResult, setPrGuideResult] = useState<PrGuidePreview | null>(null);
   const [prChangeResult, setPrChangeResult] = useState<PrChangeExplanationPreview | null>(null);
   const [planResult, setPlanResult] = useState<RepositoryPlanPreview | null>(null);
   const [saved, setSaved] = useState<ChapterRevision | null>(null);
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<Busy | null>(native ? 'status' : null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -150,6 +152,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const lifetime = useRef(0);
   const activeBusy = useRef<Busy | null>(null);
   const automaticReviewKey = useRef<string | null>(null);
+  const automaticSectionRunKey = useRef<string | null>(null);
   const resources = useRef<{ login: string | null; review: string | null; draft: string | null; run: string | null; submittedPrGuide: boolean }>({ login: null, review: null, draft: null, run: null, submittedPrGuide: false });
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const cancelRequested = useRef(false);
@@ -176,7 +179,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
     : gitChange ? Boolean(gitChange.comparisonId && Number.isInteger(gitChange.hunkIndex) && gitChange.hunkIndex >= 0)
     : Boolean(manifest && paths.length > 0 && paths.length <= 12
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
-    && (mode === 'settings' || mode.kind === 'overview' || planning || targetPath));
+    && (mode === 'settings' || mode.kind === 'overview' || planning || Boolean(sectionUpdate) || targetPath));
   const retrievalLimits = review?.generationConfig.codexSnapshotRetrieval as { maxFiles?: number; maxSourceBytes?: number } | undefined;
   const hasResult = preview !== null || codeLensResult !== null || prGuideResult !== null || prChangeResult !== null || planResult !== null;
   const locked = busy !== null || hasResult;
@@ -508,7 +511,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   };
 
   const generate = async () => {
-    if (!review || !consent || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
+    if (!review || (!automaticSectionRepair && !consent) || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
     if (Date.now() >= review.expiresAtUnixMs) { releaseReview(); setError('This review expired. Build a new review and confirm it again.'); return; }
     const epoch = begin('send');
     if (epoch === null) return;
@@ -695,15 +698,27 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   };
 
   // Prepare an AI-selected request locally as soon as the account is ready.
-  // This does not send source or reuse consent. An invalid review is not retried in a loop.
+  // A fresh, explicit section-repair action also starts that one repair after
+  // the fixed source scope has passed the local review. Recovery stays manual.
   useEffect(() => {
-    if (mode === 'settings' || (mode.kind !== 'repository-plan' && !((mode.kind === 'review' && targetPath) || (mode.kind === 'overview' && discoveryResult))) || chapterRecovery || plannedChapter
+    const automaticRequest = mode !== 'settings' && (mode.kind === 'review' && Boolean(targetPath)
+      || mode.kind === 'overview' && Boolean(discoveryResult) || automaticSectionRepair);
+    if (!automaticRequest || chapterRecovery || plannedChapter
       || !native || busy || review || hasResult || error || !status?.authenticated || !sourceReady || !modelReady || !recoveryReady || otherRun || login) return;
-    const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, chapterQuestion, paths, selection.modelId, selection.effort]);
+    const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, chapterQuestion,
+      automaticSectionRepair ? sectionUpdate : null, paths, selection.modelId, selection.effort]);
     if (automaticReviewKey.current === key) return;
     automaticReviewKey.current = key;
     void buildReview();
-  }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, chapterQuestion, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+  }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, chapterQuestion, automaticSectionRepair, sectionUpdate, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+
+  useEffect(() => {
+    if (!automaticSectionRepair || !review || busy || hasResult || error || !native || !status?.authenticated
+      || !modelReady || !recoveryReady || otherRun || login) return;
+    if (automaticSectionRunKey.current === review.reviewId) return;
+    automaticSectionRunKey.current = review.reviewId;
+    void generate();
+  }, [automaticSectionRepair, review, busy, hasResult, error, native, status?.authenticated, modelReady, recoveryReady, otherRun, login, generate]);
 
   return (
     <div className={embeddedSettings ? "connections-embedded" : "provider-overlay"}>
@@ -711,7 +726,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
         {!embeddedSettings && <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
             <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
-            <p>Use your ChatGPT account through Codex. Generation shares only the reviewed source context and uses your account’s plan quota.</p></div>
+            <p>Use your saved Codex account. Each explanation is grounded in captured code and may use your plan quota.</p></div>
           <AppButton intent="icon" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></AppButton>
         </header>}
         <div className="provider-dialog-content">
@@ -745,8 +760,8 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<AppSelect ariaLabel="Codex model" size="1" value={selectedModel ? selection.modelId : ''} disabled={locked || !models.length} clearLabel={models.length ? 'Choose a model…' : 'Load models first…'} options={models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={changeModel}/></label>
               <label className="provider-model-select">Reasoning effort<AppSelect ariaLabel="Codex reasoning effort" size="1" value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} disabled={locked || !selectedModel} clearLabel="Choose a supported effort…" options={(selectedModel?.supportedReasoningEfforts??[]).map((effort)=>({value:effort,label:effort}))} onValueChange={changeEffort}/></label>
-              <p><strong>Access is always read-only.</strong> Codex can inspect only the reviewed {gitOperation ? 'changes' : 'snapshot files'}. It cannot edit files, run commands, or browse the web.</p>
-              <p className="provider-small-note">Model and reasoning defaults are saved on this Mac when storage is available. Source review and consent apply separately to each generation.</p>
+              <p><strong>Access is read-only.</strong> Codex reads captured source only. It cannot edit files, run commands, or browse the web.</p>
+              <p className="provider-small-note">Your saved Codex connection and model preferences are reused. Requests use captured source from the repository you are exploring.</p>
               {selectionSaveFailed && <p className="provider-status-note" role="status">This model and reasoning choice is active for this session, but could not be saved on this Mac. Reselect it after restarting Code Atlas.</p>}
             </section></details>}
               </div>
@@ -754,8 +769,11 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
             {status?.authenticated && modelAvailabilityMessage && <p className="provider-status-note" role="status">{modelAvailabilityMessage}</p>}
             {otherRun && <p className="provider-status-note" role="status">Another Codex operation is active. Wait for it to finish, then refresh account status.</p>}
             {mode !== 'settings' && <section className="provider-review-card" aria-labelledby="codex-source-title">
-              <div className="provider-section-heading"><div><span>{gitOperation ? 'GIT COMPARISON' : 'IMMUTABLE SNAPSHOT'} · {comparisonId ?? snapshotId}</span><h3 id="codex-source-title">{gitOperation ? 'Review the selected changes' : codeLensTarget ? 'Review the selected code' : planning ? 'Code for your route' : 'Code for this explanation'}</h3></div></div>
-              {gitOperation ? <div className="provider-context-picker">
+              <div className="provider-section-heading"><div><span>{gitOperation ? 'GIT COMPARISON' : 'IMMUTABLE SNAPSHOT'} · {comparisonId ?? snapshotId}</span><h3 id="codex-source-title">{sectionUpdate ? 'Selected section' : gitOperation ? 'Review the selected changes' : codeLensTarget ? 'Review the selected code' : planning ? 'Code for your route' : 'Code for this explanation'}</h3></div></div>
+              {automaticSectionRepair ? <div className="provider-context-picker" role="status">
+                <strong>{sectionTitle}</strong>
+                <p>Updating only this section with your saved Codex connection. Its previous revision stays available; unaffected sections and assets are retained when their inputs are unchanged.</p>
+              </div> : gitOperation ? <div className="provider-context-picker">
                 <strong><code>{gitGuide?.baseRef ?? gitChange?.baseRef} → {gitGuide?.headRef ?? gitChange?.headRef}</code></strong>
                 {gitGuide ? <><p>Only the selected changes are included. Each claim must cite an exact base or head hunk. The validated result is saved as an unaccepted PR Guide draft for a separate review.</p>
                   <ul>{gitGuide.selectedChanges.map((change, index) => <li key={index}><code>{change.basePath ?? '(added)'} → {change.headPath ?? '(deleted)'}</code></li>)}</ul></>
@@ -796,9 +814,10 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
                 </>}
                 <p className="provider-small-note">{snapshotRetrievalRoute ? 'These are starting points. After consent, Codex reads only relevant ranges from this captured snapshot; your live working files are excluded.' : 'Review the captured code above before sending. Files that look private or cannot be read are left out.'}</p>
               </div>}
-              {!overviewNeedsAutomaticDiscovery && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
+              {!overviewNeedsAutomaticDiscovery && !automaticSectionRepair && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p></>}
-              {review && <>
+              {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? 'Section repair needs attention.' : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? 'Codex is regenerating the selected section…' : 'Preparing the section repair…'}</p>}
+              {review && !automaticSectionRepair && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>{gitOperation ? 'Comparison identity' : 'Source snapshot'}</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
                   <div><span>Reasoning effort</span><strong>{String(review.generationConfig.effort)}</strong></div><div><span>Access</span><strong>Read-only · fixed</strong></div>
@@ -868,6 +887,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
             : codeLensResult || prChangeResult ? <AppButton intent="secondary" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</AppButton>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</AppButton></div>
+              : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? 'Repair needs attention' : busy === 'build' ? 'Checking section…' : review ? 'Starting repair…' : 'Preparing repair…'}</span>
               : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
         </footer>}
       </section>
