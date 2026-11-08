@@ -570,12 +570,10 @@ mod tests {
         let request = json!({"protocolVersion":1,"action":"metadata","profile":profile()});
         let first = run(&request).unwrap();
         assert_eq!(first, run(&request).unwrap());
-        assert!(
-            first["systemInstruction"]
-                .as_str()
-                .unwrap()
-                .contains("Teaching policy v32:")
-        );
+        assert!(first["systemInstruction"]
+            .as_str()
+            .unwrap()
+            .contains("explain every source-supported outcome"));
         assert!(
             first["systemInstruction"]
                 .as_str()

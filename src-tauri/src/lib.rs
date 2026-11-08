@@ -1987,7 +1987,9 @@ mod chapter_pipeline_tests {
                 .user_prompt
                 .contains("sentences copied verbatim from that section's anchored claims")
         );
-        assert!(review.system_instruction.contains("Teaching policy v32:"));
+        assert!(review
+            .system_instruction
+            .contains(crate::provider::visual_scenes::STORY_POLICY_VERSION));
         assert!(
             review
                 .system_instruction

@@ -802,7 +802,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v32:"));
+    assert!(instructions.contains("explain every source-supported outcome"));
     assert!(instructions.contains(
         "For a broad question without a supplied file or symbol, start with one focused search_code call using resultKind:\"files\""
     ));
@@ -897,7 +897,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("Pair every alternative with its actual guard"));
     assert!(instructions.contains("Narrate a visible cue in natural speech"));
     assert!(instructions.contains("State the decision rule before examples"));
-    assert!(instructions.contains("explain every outcome"));
+    assert!(instructions.contains("explain every source-supported outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
     assert!(
         instructions.contains(
@@ -1175,7 +1175,7 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     assert!(instructions.contains("preserve every guard and outcome"));
     assert!(instructions.contains("Never claim measured timings"));
     assert!(instructions.contains("State the decision rule before examples"));
-    assert!(instructions.contains("explain every outcome"));
+    assert!(instructions.contains("explain every source-supported outcome"));
     assert_eq!(contract["systemInstructions"], instructions);
     assert_eq!(
         fingerprint,
