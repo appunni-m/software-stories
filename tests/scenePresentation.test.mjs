@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { sceneChildIndices, sceneNodeAccessibleLabel, validScenePresentation, validStoredScenePresentation } from '../src/lib/scenePresentation.ts';
+import { sceneChildIndices, sceneNodeAccessibleLabel, validScenePresentation } from '../src/lib/scenePresentation.ts';
 import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
 import { storyScenes } from '../src/lib/visualStory.ts';
 
@@ -99,11 +99,11 @@ describe('AI-authored HTML scene contract', () => {
       assert.equal(validScenePresentation(same, nodes, claims), false);
     }
   });
-  it('rejects a lone card or prose label but preserves legacy saved scenes', () => {
+  it('rejects generic block-only compositions under the current contract', () => {
     for (const kind of ['card', 'text']) {
       const lone = presentation([element(kind, 'A generic explanation card', 'illustration')]);
       assert.equal(validScenePresentation(lone, nodes, claims), false);
-      assert.equal(validStoredScenePresentation(lone, nodes, claims), true);
+      assert.equal(validScenePresentation(lone, nodes, claims), false);
     }
     const genericBoxes = presentation([
       { ...element('row'), nodeIndex: null },
@@ -111,7 +111,7 @@ describe('AI-authored HTML scene contract', () => {
       element('token', 'format marker', 'illustration', 0),
     ]);
     assert.equal(validScenePresentation(genericBoxes, nodes, claims), false);
-    assert.equal(validStoredScenePresentation(genericBoxes, nodes, claims), true);
+    assert.equal(validScenePresentation(genericBoxes, nodes, claims), false);
     const semantic = presentation([
       { ...element('branch'), nodeIndex: null },
       element('text', 'Format marker matches?', 'illustration', 0),
@@ -119,7 +119,7 @@ describe('AI-authored HTML scene contract', () => {
     ]);
     assert.equal(validScenePresentation(semantic, nodes, claims), true);
   });
-  it('keeps new narration short while preserving previously saved scene scripts', () => {
+  it('requires concise narration for saved and newly authored scenes', () => {
     const concise = presentation();
     concise.scenes[0].narration = 'The parser checks the marker. It follows the matching branch. The caller receives the parsed face.';
     assert.equal(validScenePresentation(concise, nodes, claims), true);
@@ -127,12 +127,12 @@ describe('AI-authored HTML scene contract', () => {
     const tooLong = presentation();
     tooLong.scenes[0].narration = 'x'.repeat(421);
     assert.equal(validScenePresentation(tooLong, nodes, claims), false);
-    assert.equal(validStoredScenePresentation(tooLong, nodes, claims), true);
+    assert.equal(validScenePresentation(tooLong, nodes, claims), false);
 
     const tooManySentences = presentation();
     tooManySentences.scenes[0].narration = 'First. Second. Third. Fourth.';
     assert.equal(validScenePresentation(tooManySentences, nodes, claims), false);
-    assert.equal(validStoredScenePresentation(tooManySentences, nodes, claims), true);
+    assert.equal(validScenePresentation(tooManySentences, nodes, claims), false);
   });
   it('compares nested content rather than wrappers, tones or node IDs', () => {
     const tree = presentation([
@@ -270,9 +270,9 @@ describe('AI-authored HTML scene contract', () => {
       claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
     }] };
     assert.equal(validScenePresentation(firstMatchGraph, nodes, firstMatchClaims), false);
-    assert.equal(validStoredScenePresentation(firstMatchGraph, nodes, firstMatchClaims), true);
+    assert.equal(validScenePresentation(firstMatchGraph, nodes, firstMatchClaims), false);
   });
-  it('replays structurally safe saved scenes when newer proposal-quality rules reject their layout', () => {
+  it('rejects saved scenes that do not satisfy the current authored visual policy', () => {
     const narration = 'The parser checks signatures in order. The first match selects a constructor; a miss continues to the next probe.';
     const claim = {
       claimId: 'claim:dispatch', category: { kind: 'codeBehavior' },
@@ -296,27 +296,27 @@ describe('AI-authored HTML scene contract', () => {
     const revision = { sections: [section] };
 
     assert.equal(validScenePresentation(oldComposition, dispatchNodes, [claim]), false);
-    assert.equal(validStoredScenePresentation(oldComposition, dispatchNodes, [claim]), true);
+    assert.equal(validScenePresentation(oldComposition, dispatchNodes, [claim]), false);
     const inspection = inspectInteractiveVisual(revision, section);
-    assert.equal(inspection.status, 'available');
-    assert.deepEqual(storyScenes(section, inspection.visual), [{
-      id: claim.claimId, title: oldComposition.scenes[0].title, narration,
-      anchorIds: ['anchor:dispatch'], nodeIds: dispatchNodes.map((node) => node.nodeId),
+    assert.deepEqual(inspection, { status: 'unavailable', reason: 'malformed' });
+    assert.deepEqual(storyScenes(section), [{
+      id: section.sectionId, title: section.title, narration,
+      anchorIds: ['anchor:dispatch'], nodeIds: [],
     }]);
   });
-  it('keeps stored-scene replay strict about inert fields and claim-owned evidence', () => {
+  it('keeps current-scene replay strict about inert fields and claim-owned evidence', () => {
     const safe = presentation();
-    assert.equal(validStoredScenePresentation(safe, nodes, claims), true);
+    assert.equal(validScenePresentation(safe, nodes, claims), true);
 
     const executableMarkup = presentation();
     executableMarkup.scenes[0].elements[0].html = '<script>run()</script>';
-    assert.equal(validStoredScenePresentation(executableMarkup, nodes, claims), false);
+    assert.equal(validScenePresentation(executableMarkup, nodes, claims), false);
 
     const unknownSceneField = presentation();
     unknownSceneField.scenes[0].source = 'outside the scene contract';
-    assert.equal(validStoredScenePresentation(unknownSceneField, nodes, claims), false);
+    assert.equal(validScenePresentation(unknownSceneField, nodes, claims), false);
 
-    assert.equal(validStoredScenePresentation(safe, [{
+    assert.equal(validScenePresentation(safe, [{
       ...nodes[0], evidenceAnchorIds: ['anchor:foreign'],
     }], claims), false);
   });

@@ -161,39 +161,27 @@ function hasSemanticComposition(elements: SceneElement[]): boolean {
   return elements.some(element => semanticCompositionKinds.has(element.kind));
 }
 
-/** Reject the entire presentation on unknown fields, foreign evidence or an
- * oversized tree. Strings are always text; the renderer never interprets HTML.
- */
-/** Validate a newly authored scene against the current proposal-quality rules.
- * This is intentionally stricter than stored-scene replay: quality-policy
- * changes must not retroactively hide previously admitted user content.
+/** Validate a scene against the one supported contract, whether it was just
+ * authored or loaded from storage. Strings are always text; HTML is never run.
  */
 export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
-  return validateScenePresentation(raw, nodes, claims, true);
+  return validateScenePresentation(raw, nodes, claims);
 }
 
-/** Validate the inert scene structure needed to safely replay an admitted
- * scene. New semantic quality rules belong to validScenePresentation(), not
- * here, because old saved scenes retain their original rendering contract.
- */
-export function validStoredScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
-  return validateScenePresentation(raw, nodes, claims, false);
-}
-
-function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[], enforceCurrentQuality: boolean): raw is ScenePresentation {
+function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
   if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || raw.schemaVersion !== 3 || !Array.isArray(raw.scenes)
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
   const valid = raw.scenes.every((scene, claimIndex) => {
     if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', 'narration']) || scene.claimIndex !== claimIndex
       || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120 || typeof scene.narration !== 'string'
-      || (enforceCurrentQuality && !sceneNarrationIsConcise(scene.narration))
+      || !sceneNarrationIsConcise(scene.narration)
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
-    const orderedSelector = enforceCurrentQuality && requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration);
+    const orderedSelector = requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration);
     const selectorRoot = scene.mode === 'composition' && record(scene.elements[0]) && scene.elements[0].kind === 'selector';
     if (scene.mode === 'graph') return scene.elements.length === 0 && !orderedSelector;
     const elements = scene.elements;
     if (!elements.length || elements.length > 48) return false;
-    if (enforceCurrentQuality && orderedSelector !== selectorRoot) return false;
+    if (orderedSelector !== selectorRoot) return false;
     const depths: number[] = [];
     const counts = elements.map(() => 0);
     let leaves = 0;
@@ -240,15 +228,15 @@ function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], clai
         if (checks.length < 2 || checks.some(check => elements[check].kind !== 'branch')) return false;
         return checks.every(check => {
           const branchChildren = elements.filter(child => child.parentIndex === check);
-          return branchChildren.length >= 2 && (!enforceCurrentQuality || branchChildren.length === 2)
+          return branchChildren.length === 2
             && branchChildren.every(child => !containerKinds.has(child.kind) && child.kind !== 'arrow' && child.kind !== 'divider');
         });
       }
       return true;
     })
-      && (!enforceCurrentQuality || (hasSemanticComposition(elements as SceneElement[])
-        && !repeatsTransformation(elements as SceneElement[], nodes)
-        && !isGenericSingleton(elements as SceneElement[])));
+      && hasSemanticComposition(elements as SceneElement[])
+      && !repeatsTransformation(elements as SceneElement[], nodes)
+      && !isGenericSingleton(elements as SceneElement[]);
   });
   return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;
 }

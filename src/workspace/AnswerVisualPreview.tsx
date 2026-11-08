@@ -4,7 +4,7 @@ import { AppButton } from '../design/AppButton';
 import { HtmlScene } from '../HtmlScene';
 import { InlineCodeText } from '../InlineCodeText';
 import type { ChapterRevision, ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec } from '../lib/commands';
-import { validStoredScenePresentation } from '../lib/scenePresentation';
+import { validScenePresentation } from '../lib/scenePresentation';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import { sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNodeInScene } from '../lib/visualStory';
 import { plainInlineCodeText } from '../lib/inlineCode';
@@ -20,7 +20,7 @@ export function AnswerVisualPreview({ revision, section, onOpenAnchor, onRefresh
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const anchorsById = inspection.status === 'available' ? inspection.anchorsById : undefined;
-  const firstScene = visual && validStoredScenePresentation(visual.presentation, visual.nodes, section.claims)
+  const firstScene = visual && validScenePresentation(visual.presentation, visual.nodes, section.claims)
     ? visual.presentation.scenes[0]
     : undefined;
   const anchors = anchorsById ? [...anchorsById.values()] : [];
