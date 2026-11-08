@@ -5,7 +5,6 @@ import { ChapterValidationIssues } from './ChapterValidationIssues';
 import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { AppSelect } from './design/AppSelect';
 import { AppButton } from './design/AppButton';
-import { AppCheckbox } from './design/AppCheckbox';
 import { AppSearchField } from './design/AppSearchField';
 import { AppTextField } from './design/AppTextField';
 import { AppTextArea } from './design/AppTextArea';
@@ -32,13 +31,10 @@ import { GenerationRecord } from './GenerationRecord';
 import { InlineCodeText } from './InlineCodeText';
 import { plainInlineCodeText } from './lib/inlineCode';
 import { FileFlow } from './FileFlow';
-import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, rememberDirectApiSelection, rememberGenerationBackend, rememberHandoffAgent, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject, type UIEvent as ReactUIEvent } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { type CodexChapterDialogMode } from './CodexChapterDialog';
 import { CodexContextDialog } from './CodexContextDialog';
-import { AgentHandoffDialog } from './AgentHandoffDialog';
-import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlanHistoryDialog } from './RepositoryPlanHistoryDialog';
 import type { PlannedChapterScope } from './lib/plannedChapters';
@@ -118,28 +114,15 @@ import {
   type SectionUpdateReviewTarget,
   type CodeLensExplanationTarget,
   type CodeLensExplanationCitation,
-  type CodeLensExplanationPreview,
   type SnapshotIndex,
   type RelationshipKind,
   type GitComparisonResult,
-  type HandoffAgent,
 } from './lib/commands';
 import { scrollBehaviorForMotionPreference } from './lib/motion';
-import { errorMessageOr, providerFailureMessage } from './lib/errorMessage';
+import { errorMessageOr } from './lib/errorMessage';
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
-  buildCodeLensProviderRequestReview,
-  buildProviderRequestReview,
-  buildProviderSourceDiscoveryRequestReview,
-  cancelProviderRequest,
-  discardProviderRequestReview,
   discardGeneratedChapterDraft,
-  getProviderCredentialStatus,
-  getProviderCatalog,
-  removeProviderApiKey,
-  sendProviderRequest,
-  sendProviderSourceDiscoveryRequest,
-  sendCodeLensProviderRequest,
   saveGeneratedChapterDraft,
   listChapterRevisions,
   listProjectChapterRevisions,
@@ -149,14 +132,6 @@ import {
   restoreChapterRevision,
   acceptChapterDraft,
   rejectChapterDraft,
-  storeProviderApiKey,
-  type ProviderCommandResult,
-  type ProviderConsent,
-  type ProviderCredentialStatus,
-  type ProviderDisclosure,
-  type ProviderFailure,
-  type ProviderRequestReview,
-  type ProviderSourceSelectionResult,
   type ChapterDraftPreview,
   type ChapterRevision,
 } from './lib/commands';
@@ -206,12 +181,12 @@ import {
 } from './lib/navigation';
 
 type ProviderDialogMode = (
-  | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
+  | { kind: 'settings'; section?: 'explanations' | 'voice' }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
-) & { recoveryBackend?: 'codex' | 'claude-agent' };
+);
 
 
 const projectResultTitles: Record<ProjectOpenStatus, string> = {
@@ -732,17 +707,24 @@ function App() {
     try {
       const recordedRequest = operation.providerRequest;
       if (!recordedRequest) throw new Error('The current interruption record is missing its request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
-      if (!['codex', 'claude-agent', 'gemini', 'openai', 'anthropic'].includes(recordedRequest.providerId)) throw new Error('The original backend is not connected to interruption recovery. Its scope stays in this notice; no API request was opened.');
+      if (recordedRequest.providerId !== 'codex') {
+        setNotice({ projectId: operation.projectId, snapshotId: operation.snapshotId,
+          title: 'This interrupted request uses an unavailable connection',
+          message: 'Its original provider is outside this Codex-first release. The saved request and answer history stay unchanged. Open a saved answer or start a new question with Codex.',
+          tone: 'warning',
+        });
+        return;
+      }
       const opened = await openRecentProject(operation.projectId);
       if (!current()) return;
       if (!opened.project || (opened.status !== 'opened' && opened.status !== 'storageError')) {
         handleProjectOpenResult(opened);
         return;
       }
-      const recoveryBackend = recordedRequest.providerId === 'codex' ? 'codex' : recordedRequest.providerId === 'claude-agent' ? 'claude-agent' : undefined;
-      // Both agents restore native journal-owned evidence. This reads local
-      // source/Git only; it restores neither runtime settings nor consent.
-      const recovered = recoveryBackend ? await loadInterruptedGenerationScope(operation.operationId) : null;
+      const recoveryBackend = 'codex' as const;
+      // Restore native journal-owned evidence without restoring runtime
+      // settings or consent.
+      const recovered = await loadInterruptedGenerationScope(operation.operationId);
       if (!current()) return;
       const request = recovered ? recovered.operation.providerRequest : recordedRequest;
       if (!request) throw new Error('The interrupted request scope is unavailable. Select the original evidence again.');
@@ -757,7 +739,7 @@ function App() {
         }
       }
       if (request.purpose === 'repositoryPlan') {
-        if (!recovered || !recoveryBackend || !request.repositoryPlan) throw new Error('The original planning question or native source scope is unavailable. The recovery notice was preserved.');
+        if (!recovered || !request.repositoryPlan) throw new Error('The original planning question or native source scope is unavailable. The recovery notice was preserved.');
         handleProjectOpenResult(opened);
         setNavigation((state) => navigateToRoute(state, { workspace: 'guide-plan', projectId: operation.projectId,
           snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
@@ -767,7 +749,7 @@ function App() {
         return;
       }
       if (request.plannedChapter) {
-        if (!recovered || !recoveryBackend || request.purpose !== 'fileChapter') throw new Error('The accepted reading step cannot be restored with this backend. Its recovery notice was preserved.');
+        if (!recovered || request.purpose !== 'fileChapter') throw new Error('The accepted reading step cannot be restored with this backend. Its recovery notice was preserved.');
         const scope = request.plannedChapter;
         if (scope.snapshotId !== operation.snapshotId || scope.primaryPath !== operation.targetPath) throw new Error('The accepted step differs from the interrupted chapter. No broader request was opened.');
         handleProjectOpenResult(opened);
@@ -795,7 +777,7 @@ function App() {
       let rangeTarget: CodeLensExplanationTarget | null = null;
       let recoveredGitRefs: { baseRef: string; headRef: string } | null = null;
       let recoveredComparison: GitComparisonResult | null = null;
-      if (recovered && recoveryBackend && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
+      if (recovered && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
         if (request.purpose === 'codeLensExplanation') {
           if (!request.codeLens) throw new Error('This older notice has no exact range. Select the original range again.');
           rangeTarget = request.codeLens;
@@ -831,18 +813,18 @@ function App() {
       }));
       if (rangeTarget) {
         setProviderDialog({ kind: 'code-lens-range', projectId: operation.projectId, snapshotId: operation.snapshotId,
-          target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend });
+          target: rangeTarget, recoveryOperationId: operation.operationId });
       } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget) {
         setProviderDialog({ kind: 'section-update', projectId: operation.projectId, snapshotId: operation.snapshotId,
           targetPath: operation.targetPath, selectedPaths: request.selectedPaths, baseRevision: sectionBase, sectionUpdate: sectionTarget,
-          recoveryOperationId: operation.operationId, recoveryBackend });
+          recoveryOperationId: operation.operationId });
       } else if (request.purpose === 'fileChapter' && operation.targetPath) {
         setProviderDialog({ kind: 'review', projectId: operation.projectId, snapshotId: operation.snapshotId,
           targetPath: operation.targetPath, selectedPaths: request.selectedPaths,
-          recoveryOperationId: operation.operationId, recoveryBackend });
+          recoveryOperationId: operation.operationId });
       } else if (request.purpose === 'repositoryOverview') {
         setProviderDialog({ kind: 'overview', projectId: operation.projectId, snapshotId: operation.snapshotId,
-          selectedPaths: request.selectedPaths, recoveryOperationId: operation.operationId, recoveryBackend });
+          selectedPaths: request.selectedPaths, recoveryOperationId: operation.operationId });
       } else {
         setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId, title: 'Select the original evidence again', message: request.purpose === 'codeLensExplanation'
           ? 'This was a source-range explanation. Select its exact range in the source pane and review a fresh request; a whole-file request was not opened.'
@@ -2334,7 +2316,6 @@ function App() {
           mode={providerDialog}
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
-          onOpenConnections={openProviderSettings}
           onLargeFileDiscovered={openDiscoveredLargeFile}
           onRecoveryReviewReady={completeRecoveredProviderReview}
           onOpenPendingPreview={(generationId) => { closeProviderDialog(); setRecoveredPreviewId(generationId); }}
@@ -2374,17 +2355,10 @@ function App() {
   );
 }
 
-const noProviderConsent: ProviderConsent = {
-  privacyAndDataUseAcknowledged: false,
-  billingUncertaintyAcknowledged: false,
-  adultSupportedRegionAcknowledged: false,
-};
-
 interface ProviderDialogProps {
   mode: ProviderDialogMode;
   native: boolean;
   onClose: () => void;
-  onOpenConnections: () => void;
   onLargeFileDiscovered: (handoff: LargeFileDiscoveryHandoff) => void;
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
@@ -2392,876 +2366,23 @@ interface ProviderDialogProps {
 }
 
 function ProviderDialog(props: ProviderDialogProps) {
-  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range';
-  const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
-  const [backend, setBackend] = useState<'choose' | GenerationBackend>(() => {
-    if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
-    if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
-    if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
-    return readGenerationBackend() ?? 'choose';
-  });
-  const [handoffAgent, setHandoffAgent] = useState<HandoffAgent>(() => readHandoffAgent());
-  const chooseHandoffAgent = (agent: HandoffAgent) => {
-    setHandoffAgent(agent);
-    rememberHandoffAgent(agent);
-  };
-  const selectedConnectionSupportsOperation = backend === 'api' || backend === 'claude-setup'
-    || backend === 'codex' && agentOperation || backend === 'handoff' && handoffOperation;
-  const connectionUnavailable = props.mode.kind !== 'settings' && !selectedConnectionSupportsOperation;
-  const chooserRef = useRef<HTMLElement>(null);
-  useModalFocusTrap(chooserRef);
-  useEffect(() => {
-    if (backend !== 'choose' && !connectionUnavailable) return;
-    chooserRef.current?.focus();
-    const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); props.onClose(); }
-    };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [backend, connectionUnavailable, props.onClose]);
-  const choose = (next: GenerationBackend) => { rememberGenerationBackend(next); setBackend(next); };
-  const openConnections = () => { props.onClose(); requestAnimationFrame(props.onOpenConnections); };
-  const chooseConnection = () => {
-    if (props.mode.kind === 'settings') setBackend('choose');
-    else openConnections();
-  };
-  if (props.mode.kind === 'settings' && backend === 'codex') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose}/>;
-  if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={chooseConnection} />;
-  if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
-    reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
-    onClose={props.onClose} onChooseBackend={chooseConnection}
-    onRecoveryResultReady={props.onRecoveryReviewReady}
+  if (props.mode.kind === 'settings') {
+    return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose}/>;
+  }
+  const selectedMode = props.mode;
+  let mode: CodexChapterDialogMode;
+  if (selectedMode.kind === 'section-update') {
+    const sectionId = selectedMode.sectionUpdate.sectionId;
+    const sectionTitle = selectedMode.baseRevision.sections.find((section) => section.sectionId === sectionId)?.title;
+    mode = { ...selectedMode, sectionTitle };
+  } else {
+    mode = selectedMode;
+  }
+  return <CodexContextDialog mode={mode}
+    native={props.native} onClose={props.onClose}
+    onLargeFileDiscovered={props.onLargeFileDiscovered}
     onOpenPendingPreview={props.onOpenPendingPreview}
-    onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
-  if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
-    return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
-      initialAgent={handoffAgent} onAgentChange={chooseHandoffAgent} onClose={props.onClose} onChooseBackend={chooseConnection} />;
-  }
-  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range')) {
-    const selectedMode = props.mode;
-    const mode: CodexChapterDialogMode = selectedMode.kind === 'settings' ? 'settings' : selectedMode.kind === 'section-update'
-      ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
-      : selectedMode;
-    return <CodexContextDialog mode={mode}
-      native={props.native} onClose={props.onClose}
-      onLargeFileDiscovered={props.onLargeFileDiscovered}
-      onOpenPendingPreview={props.onOpenPendingPreview}
-      onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
-  }
-  if (props.mode.kind !== 'settings') return <div className="provider-overlay">
-    <section className="provider-dialog" ref={chooserRef} role="dialog" aria-modal="true" aria-labelledby="connection-unavailable-title" tabIndex={-1}>
-      <header className="provider-dialog-header"><div><h2 id="connection-unavailable-title">This connection can’t do this action yet</h2>
-        <p>Change your AI connection once from Connections in the header. The current request has not been sent.</p></div>
-        <AppButton intent="icon" onClick={props.onClose} aria-label="Close connection notice"><X size={17} /></AppButton></header>
-      <div className="provider-dialog-content"><AppButton intent="primary" onClick={openConnections}>Open Connections</AppButton></div>
-    </section>
-  </div>;
-  return <div className="provider-overlay">
-    <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
-      <header className="provider-dialog-header">
-        <div>
-          <h2 id="backend-choice-title">Connect with Codex</h2>
-          <p>Use the Codex account already signed in on this Mac. No API key is needed.</p></div>
-        <AppButton intent="icon" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></AppButton>
-      </header>
-      <div className="provider-dialog-content">
-        <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
-          <p>Use the Codex account already signed in on this Mac. Your model and reasoning preference are remembered; no API key is needed.</p>
-          <AppButton intent="primary" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</AppButton>
-          {!agentOperation && <p role="status">Codex isn’t available for this kind of explanation yet.</p>}
-        </section>
-      </div>
-    </section>
-  </div>;
-}
-
-function DirectApiDialog({ mode, native, onClose, onOpenConnections, onRecoveryReviewReady, onOpenCodeLensCitation, onChooseBackend }: ProviderDialogProps & { onChooseBackend: () => void }) {
-  const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
-  const [providerId, setProviderId] = useState(() => readDirectApiSelection().providerId);
-  const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
-  const [credential, setCredential] = useState<ProviderCommandResult<ProviderCredentialStatus> | null>(null);
-  const [informationLoading, setInformationLoading] = useState(native);
-  const [informationError, setInformationError] = useState<string | null>(null);
-  const [keyDraft, setKeyDraft] = useState('');
-  const [keyBusy, setKeyBusy] = useState(false);
-  const [keyMessage, setKeyMessage] = useState<string | null>(null);
-  const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
-  const [directApiSelectionIssue, setDirectApiSelectionIssue] = useState<DirectApiSelectionIssue | null>(() => readDirectApiSelectionIssue());
-  const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
-  const [sourceDiscoveryResult, setSourceDiscoveryResult] = useState<ProviderSourceSelectionResult | null>(null);
-  const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
-  const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
-  const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review'
-    ? [...new Set([mode.targetPath, ...(mode.selectedPaths ?? [])])]
-    : mode.kind === 'section-update' ? mode.selectedPaths : mode.kind === 'overview' ? mode.selectedPaths ?? [] : []);
-  const [contextQuery, setContextQuery] = useState('');
-  const [requestBuilding, setRequestBuilding] = useState(false);
-  const [requestBuildError, setRequestBuildError] = useState<ProviderFailure | null>(null);
-  const [requestError, setRequestError] = useState<ProviderFailure | null>(null);
-  const [sendResult, setSendResult] = useState<ChapterDraftPreview | null>(null);
-  const [codeLensResult, setCodeLensResult] = useState<CodeLensExplanationPreview | null>(null);
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [savedRevision, setSavedRevision] = useState<ChapterRevision | null>(null);
-  const [consent, setConsent] = useState<ProviderConsent>(noProviderConsent);
-  const [sending, setSending] = useState(false);
-  const [cancelConfirmation, setCancelConfirmation] = useState(false);
-  const [cancelBusy, setCancelBusy] = useState(false);
-  const [cancelStatus, setCancelStatus] = useState<string | null>(null);
-  const cancelRequested = useRef(false);
-  const dialogMounted = useRef(true);
-  const providerDialogRef = useRef<HTMLElement>(null);
-  const requestSummaryRef = useRef<HTMLDivElement>(null);
-  useModalFocusTrap(providerDialogRef);
-  const [reviewGeneration, setReviewGeneration] = useState(0);
-  const [unavailableModel, setUnavailableModel] = useState<string | null>(null);
-  const credentialInfo = credential?.status === 'ok' ? credential.data : null;
-  const credentialError = credential?.status === 'error' ? credential.error.message : null;
-  const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
-  const reviewMode = mode.kind !== 'settings';
-  const selectedModel = disclosure?.models.find((model) => model.modelId === modelId) ?? null;
-  const connectionProblem = directApiSelectionIssue ? 'The saved API provider selection could not be read. Choose a provider in Connections to replace it.'
-    : !providerId ? 'Choose an AI provider in Connections.'
-    : !disclosure ? 'The saved provider is unavailable. Choose another provider in Connections.'
-      : !selectedModel ? 'Choose a model in Connections.'
-        : credentialError ? 'Code Atlas could not check the saved API key. Open Connections to review it.'
-          : credentialInfo?.apiKeyConfigured === false ? 'Add an API key in Connections to use this provider.' : null;
-  const openConnections = () => { onClose(); requestAnimationFrame(onOpenConnections); };
-  const overviewMode = mode.kind === 'overview';
-  const sourceDiscoveryUnavailable = overviewMode && selectedPaths.length === 0
-    && (sourceDiscoveryResult !== null || requestBuildError !== null);
-  const needsSourceDiscovery = overviewMode && selectedPaths.length === 0 && !sourceDiscoveryUnavailable;
-  const sectionUpdateMode = mode.kind === 'section-update';
-  const codeLensRangeMode = mode.kind === 'code-lens-range';
-  const sectionUpdateTitle = mode.kind === 'section-update'
-    ? mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? 'Selected section'
-    : null;
-  const requestIntent = mode.kind === 'code-lens-range'
-    ? `Explain ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine}`
-    : mode.kind === 'section-update'
-      ? `Update “${sectionUpdateTitle}”`
-      : mode.kind === 'overview'
-        ? (needsSourceDiscovery ? 'Find code for the repository overview' : 'Map the repository from selected code')
-        : mode.kind === 'review'
-          ? `Explain ${mode.targetPath}`
-          : null;
-  const recoveryOperationId = !mode.recoveryBackend && 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
-  const availableContextFiles = useMemo(() => (snapshotManifest?.files ?? [])
-    .filter((file) => file.kind === 'file' && (file.contentKind === 'text' || file.contentKind === 'unknown')
-      && !file.secretLike && file.sizeBytes <= 250_000)
-    .filter((file) => file.path.toLowerCase().includes(contextQuery.trim().toLowerCase()))
-    .sort((left, right) => left.path.localeCompare(right.path)), [contextQuery, snapshotManifest]);
-
-  useEffect(() => {
-    dialogMounted.current = true;
-    providerDialogRef.current?.focus();
-    return () => { dialogMounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (requestReview) requestSummaryRef.current?.focus();
-  }, [requestReview]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (saveBusy || keyBusy) return;
-      if (sending) {
-        setCancelConfirmation(true);
-        return;
-      }
-      if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-      onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [keyBusy, onClose, requestReview, saveBusy, sending]);
-
-  useEffect(() => {
-    if (!reviewMode || !native) return;
-    let active = true;
-    setSnapshotManifestLoading(true);
-    setSnapshotManifestError(null);
-    void loadSnapshotManifest(mode.projectId, mode.snapshotId)
-      .then((manifest) => { if (active) setSnapshotManifest(manifest); })
-      .catch((error) => { if (active) setSnapshotManifestError(errorMessageOr(error, 'The captured file list could not be loaded. Select source files again after reopening the snapshot.')); })
-      .finally(() => { if (active) setSnapshotManifestLoading(false); });
-    return () => { active = false; };
-  }, [mode, native, reviewMode]);
-
-  useEffect(() => {
-    if (!native) {
-      setInformationLoading(false);
-      return;
-    }
-    let active = true;
-    setInformationLoading(true);
-    setInformationError(null);
-    getProviderCatalog()
-      .then((catalog) => {
-        if (!active) return;
-        setProviderCatalog(catalog);
-      })
-      .catch(() => {
-        if (active) setInformationError('Code Atlas could not load local provider settings. No model request was sent.');
-      })
-      .finally(() => { if (active) setInformationLoading(false); });
-    return () => { active = false; };
-  }, [native]);
-
-  useEffect(() => {
-    const refreshSelection = () => {
-      const saved = readDirectApiSelection();
-      setProviderId(saved.providerId);
-      setModelId(saved.modelId);
-      setDirectApiSelectionIssue(readDirectApiSelectionIssue());
-    };
-    window.addEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
-    return () => window.removeEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
-  }, []);
-
-  useEffect(() => {
-    if (!native || !providerId) {
-      setDisclosure(null);
-      setCredential(null);
-      return;
-    }
-    const selected = providerCatalog.find((provider) => provider.providerId === providerId) ?? null;
-    setDisclosure(selected);
-    // Invalidate any earlier status read while Keychain is being changed.
-    if (keyBusy) return;
-    setCredential(null);
-    if (!selected) return;
-    let active = true;
-    void getProviderCredentialStatus(providerId)
-      .then((status) => { if (active) setCredential(status); })
-      .catch(() => { if (active) setCredential(null); });
-    return () => { active = false; };
-  }, [keyBusy, native, providerCatalog, providerId]);
-
-  useEffect(() => {
-    if (!reviewMode || !native || !disclosure || !modelId) return;
-    if (mode.kind === 'overview' && selectedPaths.length === 0 && sourceDiscoveryResult !== null) {
-      setRequestReview(null);
-      setRequestBuildError(null);
-      setRequestBuilding(false);
-      setConsent(noProviderConsent);
-      return;
-    }
-    if (mode.kind === 'overview' && selectedPaths.length === 0 && requestBuildError !== null) {
-      setRequestReview(null);
-      setRequestBuilding(false);
-      setConsent(noProviderConsent);
-      return;
-    }
-    let active = true;
-    let createdReviewId: string | null = null;
-    setRequestBuilding(true);
-    setRequestBuildError(null);
-    setRequestReview(null);
-    setConsent(noProviderConsent);
-    setSendResult(null);
-    setCodeLensResult(null);
-    setSavedRevision(null);
-    setSaveError(null);
-    const requestBuild = mode.kind === 'overview' && needsSourceDiscovery
-      ? buildProviderSourceDiscoveryRequestReview(providerId, {
-        projectId: mode.projectId,
-        snapshotId: mode.snapshotId,
-        modelId,
-      })
-      : mode.kind === 'code-lens-range'
-      ? buildCodeLensProviderRequestReview(providerId, {
-        projectId: mode.projectId,
-        snapshotId: mode.snapshotId,
-        target: mode.target,
-        modelId,
-      })
-      : buildProviderRequestReview(providerId, {
-        projectId: mode.projectId,
-        snapshotId: mode.snapshotId,
-        targetPath: mode.kind === 'review' || mode.kind === 'section-update' ? mode.targetPath : null,
-        selectedPaths,
-        modelId,
-        sectionUpdate: mode.kind === 'section-update' ? mode.sectionUpdate : null,
-      });
-    void requestBuild.then((result) => {
-      if (result.status === 'error') {
-        if (active) setRequestBuildError(result.error);
-        return;
-      }
-      createdReviewId = result.data.reviewId;
-      if (active) {
-        setRequestReview(result.data);
-        if (recoveryOperationId) onRecoveryReviewReady(recoveryOperationId);
-      }
-      else void discardProviderRequestReview(result.data.reviewId);
-    }).catch(() => {
-      if (active) setRequestBuildError({
-        kind: 'invalidReview',
-        message: 'Code Atlas could not build a local request preview. No model request was sent.',
-      });
-    }).finally(() => { if (active) setRequestBuilding(false); });
-    return () => {
-      active = false;
-      if (createdReviewId) void discardProviderRequestReview(createdReviewId);
-    };
-  }, [disclosure, mode, modelId, native, onRecoveryReviewReady, providerId, requestBuildError, reviewGeneration, reviewMode, selectedPaths, sourceDiscoveryResult, needsSourceDiscovery]);
-
-  const updateConsent = (key: keyof ProviderConsent, checked: boolean) => {
-    setConsent((current) => ({ ...current, [key]: checked }));
-    setRequestError(null);
-  };
-
-  const handleSaveKey = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!providerId || keyBusy) return;
-    setKeyMessage(null);
-    setKeyBusy(true);
-    try {
-      const result = await storeProviderApiKey(providerId, keyDraft);
-      setCredential(result);
-      window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
-      if (result.status === 'ok' && result.data.apiKeyConfigured) {
-        setKeyDraft('');
-        setKeyMessage('Key saved to macOS Keychain. Code Atlas does not retain it in app settings.');
-      } else if (result.status === 'error') {
-        setKeyMessage(result.error.message);
-      }
-    } catch {
-      setKeyMessage('Code Atlas could not save the key to macOS Keychain. It was not written to a file.');
-    } finally {
-      setKeyBusy(false);
-    }
-  };
-
-  const handleRemoveKey = async () => {
-    if (!providerId || keyBusy) return;
-    setKeyMessage(null);
-    setKeyBusy(true);
-    try {
-      const result = await removeProviderApiKey(providerId);
-      setCredential(result);
-      window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
-      setKeyMessage(result.status === 'ok' ? result.data.explanation : result.error.message);
-    } catch {
-      setKeyMessage('Code Atlas could not remove the key from macOS Keychain.');
-    } finally {
-      setKeyBusy(false);
-    }
-  };
-
-  const handleModelChange = (nextModelId: string) => {
-    if (sending || saveBusy || sendResult || codeLensResult) return;
-    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-    setConsent(noProviderConsent);
-    setRequestReview(null);
-    setSendResult(null);
-    setCodeLensResult(null);
-    setUnavailableModel(null);
-    setRequestError(null);
-    if (overviewMode) {
-      setSourceDiscoveryResult(null);
-      setSelectedPaths([]);
-    }
-    setModelId(nextModelId);
-    rememberDirectApiSelection({ providerId, modelId: nextModelId });
-  };
-
-  const handleProviderChange = (nextProviderId: string) => {
-    if (keyBusy || sending || saveBusy || sendResult || codeLensResult) return;
-    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-    setConsent(noProviderConsent);
-    setRequestReview(null);
-    setSendResult(null);
-    setCodeLensResult(null);
-    setUnavailableModel(null);
-    setRequestError(null);
-    if (overviewMode) {
-      setSourceDiscoveryResult(null);
-      setSelectedPaths([]);
-    }
-    setKeyDraft('');
-    setKeyMessage(null);
-    setCredential(null);
-    setModelId('');
-    setProviderId(nextProviderId);
-    rememberDirectApiSelection({ providerId: nextProviderId, modelId: '' });
-  };
-
-  const handleContextFileChange = (path: string, checked: boolean) => {
-    if (sending || saveBusy || sendResult || codeLensResult) return;
-    setRequestError(null);
-    setSelectedPaths((current) => {
-      if (checked) {
-        if (current.includes(path) || current.length >= 12) return current;
-        return [...current, path];
-      }
-      if (mode.kind === 'review' && path === mode.targetPath) return current;
-      return current.filter((selected) => selected !== path);
-    });
-  };
-
-  const handleSend = async () => {
-    if (!providerId || !modelId || !requestReview || keyBusy || sending || saveBusy || sendResult || codeLensResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
-      || !consent.billingUncertaintyAcknowledged || !consent.adultSupportedRegionAcknowledged
-      || unavailableModel === modelId) return;
-    setSending(true);
-    cancelRequested.current = false;
-    setCancelConfirmation(false);
-    setCancelStatus(null);
-    setRequestError(null);
-    try {
-      if (needsSourceDiscovery) {
-        const result = await sendProviderSourceDiscoveryRequest({
-          reviewId: requestReview.reviewId,
-          fingerprint: requestReview.fingerprint,
-          consent,
-        });
-        if (result.status === 'ok') {
-          if (!dialogMounted.current) return;
-          if (cancelRequested.current) {
-            setRequestError({
-              kind: 'requestCancelled',
-              message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The file selection was discarded. The provider has already received repository index metadata, not source contents.`,
-            });
-            setRequestReview(null);
-            setConsent(noProviderConsent);
-            setReviewGeneration((generation) => generation + 1);
-            return;
-          }
-          setSourceDiscoveryResult(result.data);
-          setSelectedPaths(result.data.selectedFiles.map((file) => file.path));
-          setRequestReview(null);
-          setConsent(noProviderConsent);
-          setRequestError(null);
-          return;
-        }
-        setRequestError(result.error);
-        if (result.error.kind === 'unavailableModel') setUnavailableModel(modelId);
-        if (!['missingApiKey', 'keychainUnavailable', 'keychainOperationFailed', 'consentRequired'].includes(result.error.kind)) {
-          setRequestReview(null);
-          setConsent(noProviderConsent);
-          setReviewGeneration((generation) => generation + 1);
-        }
-        return;
-      }
-      if (mode.kind === 'code-lens-range') {
-        const result = await sendCodeLensProviderRequest({
-          reviewId: requestReview.reviewId,
-          fingerprint: requestReview.fingerprint,
-          consent,
-        });
-        if (result.status === 'ok') {
-          if (!dialogMounted.current) return;
-          if (cancelRequested.current) {
-            setRequestError({
-              kind: 'requestCancelled',
-              message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The transient explanation was discarded. The provider has already received the selected source.`,
-            });
-            setRequestReview(null);
-            setConsent(noProviderConsent);
-            setReviewGeneration((generation) => generation + 1);
-            return;
-          }
-          setCodeLensResult(result.data);
-          return;
-        }
-        setRequestError(result.error);
-        if (result.error.kind === 'unavailableModel') setUnavailableModel(modelId);
-        if (!['missingApiKey', 'keychainUnavailable', 'keychainOperationFailed', 'consentRequired'].includes(result.error.kind)) {
-          setRequestReview(null);
-          setConsent(noProviderConsent);
-          setReviewGeneration((generation) => generation + 1);
-        }
-        return;
-      }
-      const result = await sendProviderRequest({
-        reviewId: requestReview.reviewId,
-        fingerprint: requestReview.fingerprint,
-        consent,
-      });
-      if (result.status === 'ok') {
-        if (!dialogMounted.current) {
-          await discardGeneratedChapterDraft(result.data.generationId);
-          return;
-        }
-        if (cancelRequested.current) {
-          await discardGeneratedChapterDraft(result.data.generationId);
-          setRequestError({
-            kind: 'requestCancelled',
-            message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The response was discarded and not accepted. The provider has already received the selected source.`,
-          });
-          setRequestReview(null);
-          setConsent(noProviderConsent);
-          setReviewGeneration((generation) => generation + 1);
-          return;
-        }
-        setSendResult(result.data);
-        window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
-        return;
-      }
-      setRequestError(result.error);
-      window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
-      if (result.error.kind === 'unavailableModel') setUnavailableModel(modelId);
-      if (!['missingApiKey', 'keychainUnavailable', 'keychainOperationFailed', 'consentRequired'].includes(result.error.kind)) {
-        setRequestReview(null);
-        setConsent(noProviderConsent);
-        setReviewGeneration((generation) => generation + 1);
-      }
-    } catch {
-      setRequestError({
-        kind: 'networkUnavailable',
-        message: 'The send did not return a result. Treat it as used, inspect the refreshed fingerprint, and confirm a new request before retrying.',
-      });
-      setRequestReview(null);
-      setConsent(noProviderConsent);
-      setReviewGeneration((generation) => generation + 1);
-    } finally {
-      setSending(false);
-      setCancelConfirmation(false);
-      setCancelBusy(false);
-    }
-  };
-
-  const handleConfirmCancel = async () => {
-    if (!requestReview || !sending || cancelBusy) return;
-    cancelRequested.current = true;
-    setCancelBusy(true);
-    setCancelConfirmation(false);
-    setCancelStatus(null);
-    try {
-      const stopped = await cancelProviderRequest(requestReview.reviewId);
-      const cancelledData = requestReview.purpose === 'repositoryOverviewSourceDiscovery'
-        ? 'the repository index metadata'
-        : 'the selected source';
-      setCancelStatus(stopped
-        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received ${cancelledData}; no response will be accepted.`
-        : 'The request had already finished locally. Its response will be discarded because you chose Cancel.');
-    } catch {
-      const cancelledData = requestReview.purpose === 'repositoryOverviewSourceDiscovery'
-        ? 'the repository index metadata'
-        : 'the selected source';
-      setCancelStatus(`The app could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received ${cancelledData}; any returned response will be discarded.`);
-    } finally {
-      setCancelBusy(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (keyBusy || sending || saveBusy) return;
-    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-    onClose();
-  };
-
-  const handleSaveDraft = async () => {
-    if (!sendResult || saveBusy || savedRevision) return;
-    setSaveBusy(true);
-    setSaveError(null);
-    try {
-      const revision = await saveGeneratedChapterDraft(sendResult.generationId);
-      setSavedRevision(revision);
-      window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision } }));
-      window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
-    } catch (error) {
-      // A lost command reply can occur after the immutable revision was written.
-      const existing = await listChapterRevisions(sendResult.revision.projectId, sendResult.revision.snapshotId)
-        .then((revisions) => revisions.find((revision) => revision.revisionId === sendResult.revision.revisionId))
-        .catch(() => undefined);
-      if (existing) {
-        await discardGeneratedChapterDraft(sendResult.generationId).catch(() => {});
-        setSavedRevision(existing);
-        window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision: existing } }));
-        window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
-      } else {
-        setSaveError(errorMessageOr(error, 'The draft could not be saved. Existing revisions were preserved.'));
-      }
-    } finally {
-      setSaveBusy(false);
-    }
-  };
-
-  const handleDiscardPreview = async () => {
-    if (saveBusy || !sendResult) return;
-    try {
-      await discardGeneratedChapterDraft(sendResult.generationId);
-    } catch (error) {
-      setSaveError(errorMessageOr(error, 'The local recovery copy could not be discarded.'));
-      return;
-    }
-    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
-    window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
-    setSendResult(null);
-    setSavedRevision(null);
-    setSaveError(null);
-    setRequestReview(null);
-    setConsent(noProviderConsent);
-    setReviewGeneration((generation) => generation + 1);
-  };
-
-  const requestReady = Boolean(
-    !keyBusy && providerId && modelId && disclosure?.models.some((model) => model.modelId === modelId) && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
-      && consent.billingUncertaintyAcknowledged && consent.adultSupportedRegionAcknowledged
-      && unavailableModel !== modelId,
-  );
-
-  return (
-    <div className="provider-overlay">
-      <section ref={providerDialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-dialog-title" tabIndex={-1}>
-        <header className="provider-dialog-header">
-          <div>
-            <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'CONNECTION'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
-            <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'Connections'}</h2>
-            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Uses the saved direct API connection. Inspect the exact snapshot context before sending.') : 'Choose a provider and model once. API keys stay in macOS Keychain.'}</p>
-          </div>
-          <AppButton intent="icon" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></AppButton>
-        </header>
-
-        {!reviewMode && <div className="provider-key-actions">
-          <AppButton intent="secondary" disabled={keyBusy || sending || saveBusy} onClick={onChooseBackend}>Change AI connection</AppButton>
-        </div>}
-
-        {!native ? (
-          <div className="provider-preview-only" role="status">
-            <HardDrive size={18} />
-            <div><strong>Direct model requests run in the macOS app.</strong><p>The desktop preview does not read Keychain or send repository content. No API key or source was requested here.</p></div>
-          </div>
-        ) : informationLoading ? (
-          <div className="provider-loading" role="status"><Sparkles size={17} /> Loading direct API catalog…</div>
-        ) : informationError ? (
-          <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{informationError}</span></div>
-        ) : (
-          <div className="provider-dialog-content">
-            {!reviewMode ? <label className="provider-model-select">Direct API provider
-              <AppSelect ariaLabel="Direct API provider" size="1" value={providerId} clearLabel="Choose a provider…" options={providerCatalog.map((provider)=>({value:provider.providerId,label:provider.displayName}))} onValueChange={handleProviderChange} disabled={keyBusy || sending || saveBusy || Boolean(sendResult || codeLensResult)}/>
-            </label> : <p className="provider-small-note">Connection: <strong>{disclosure?.displayName ?? (providerId || 'not configured')}</strong>{selectedModel ? ` · ${selectedModel.displayName}` : ''}</p>}
-            {!reviewMode && directApiSelectionIssue && <p className="source-warning" role="status">The saved direct API selection is {directApiSelectionIssue === 'invalid' ? 'invalid' : directApiSelectionIssue === 'oversized' ? 'too large' : 'unavailable'}. It has been left untouched; choose a provider to replace it.</p>}
-            {reviewMode && connectionProblem && <section className="provider-review-card" role="status">
-              <p>{connectionProblem}</p><AppButton intent="primary" onClick={openConnections}>Open Connections</AppButton>
-            </section>}
-            {reviewMode && providerId && disclosure && selectedModel && credential === null && <p className="provider-small-note" role="status">Checking the saved API connection…</p>}
-            {disclosure && !reviewMode && <details className="provider-key-card" open={!hasApiKey}>
-              <summary>{disclosure.displayName} API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
-              <div className="provider-key-content">
-                <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open Connections.'}</p>
-                <form className="provider-key-form" onSubmit={(event) => { void handleSaveKey(event); }}>
-                  <label htmlFor="provider-api-key">Your {disclosure.displayName} API key</label>
-                  <AppTextField
-                    id="provider-api-key"
-                    type="password"
-                    value={keyDraft}
-                    onValueChange={setKeyDraft}
-                    className="provider-settings-field"
-                    autoComplete="new-password"
-                    spellCheck={false}
-                    placeholder="Paste a provider API key"
-                    disabled={!credentialInfo?.keychainAvailable || keyBusy}
-                  />
-                  <div className="provider-key-actions">
-                    <AppButton intent="primary" type="submit" disabled={!credentialInfo?.keychainAvailable || keyDraft.length === 0 || keyBusy}>{keyBusy ? 'Saving…' : 'Save to Keychain'}</AppButton>
-                    {hasApiKey && <AppButton intent="secondary" type="button" onClick={() => { void handleRemoveKey(); }} disabled={keyBusy}>Remove saved key</AppButton>}
-                    <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get an API key ↗</a>
-                  </div>
-                </form>
-                {keyMessage && <p className="provider-status-note" role="status">{keyMessage}</p>}
-                {credentialError && <p className="provider-error-text" role="alert">{credentialError}</p>}
-                {disclosure && <p className="provider-small-note">{disclosure.apiKeySecurityNotice}</p>}
-                <p className="provider-small-note">The key is sent only in an HTTPS request header from Rust. It is not returned to the WebView or written to project files, settings, or logs.</p>
-              </div>
-            </details>}
-
-            {disclosure && (
-              <section className="provider-disclosure-card" aria-labelledby="provider-model-title">
-                <div className="provider-section-heading">
-                  <div><span>{disclosure.displayName.toUpperCase()} · CHECKED {disclosure.checkedDate}</span><h3 id="provider-model-title">{reviewMode ? 'Selected model' : 'Models and current terms'}</h3></div>
-                  <code>{disclosure.version}</code>
-                </div>
-                {!reviewMode && (
-                  <label className="provider-model-select">Model
-                    <AppSelect ariaLabel="Direct API model" size="1" value={modelId} clearLabel="Choose a model…" options={disclosure.models.map((model)=>({value:model.modelId,label:`${model.displayName} · ${model.modelId}`}))} onValueChange={handleModelChange} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult) || disclosure.models.length === 0}/>
-                  </label>
-                )}
-                {reviewMode && selectedModel && <article className="provider-model selected">
-                  <div><strong>{selectedModel.displayName}</strong><code>{selectedModel.modelId}</code></div>
-                  <p>{selectedModel.freeTierStatus}</p>
-                  <small>Published paid Standard rate: input {selectedModel.paidInputUsdPerMillionTokens}/1M tokens · output {selectedModel.paidOutputUsdPerMillionTokens}/1M tokens.</small>
-                </article>}
-                {!reviewMode && <div className="provider-model-list">
-                  {disclosure.models.map((model) => (
-                    <article className={`provider-model ${model.modelId === modelId ? 'selected' : ''}`} key={model.modelId}>
-                      <div><strong>{model.displayName}</strong><code>{model.modelId}</code></div>
-                      <p>{model.intendedUse}</p>
-                      <p>{model.freeTierStatus}</p>
-                      <small>Published paid Standard rate: input {model.paidInputUsdPerMillionTokens}/1M tokens · output {model.paidOutputUsdPerMillionTokens}/1M tokens.</small>
-                      <small>{model.supportsStructuredOutput ? 'Structured JSON output supported' : 'Structured output unavailable'} · {model.supportsStreaming ? 'provider streaming available; Code Atlas sends one non-streaming request' : 'provider streaming unavailable'}</small>
-                    </article>
-                  ))}
-                </div>}
-                <div className="provider-source-links">
-                  <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">{disclosure.displayName} pricing ↗</a>
-                  <a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms ↗</a>
-                  <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions ↗</a>
-                </div>
-                <p className="provider-small-note">Code Atlas uses the selected model and has no automatic paid fallback. Provider pricing and availability can change.</p>
-              </section>
-            )}
-
-            {reviewMode && (
-              <section className="provider-review-card" aria-labelledby="provider-review-title">
-                  <div className="provider-section-heading">
-                  <div><span>BEFORE YOU SEND</span><h3 id="provider-review-title">Review this request</h3></div>
-                  {requestReview && <span className="provider-expiry">Expires {new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(requestReview.expiresAtUnixMs))}</span>}
-                </div>
-                {requestBuilding && <div className="provider-loading" role="status"><HardDrive size={16} /> Building a local preview from the selected snapshot. No model request is sent.</div>}
-                {requestBuildError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{providerFailureMessage(requestBuildError)}</span></div>}
-                {cancelConfirmation && sending && (
-                  <div className="provider-cancel-confirm" role="group" aria-labelledby="provider-cancel-title" aria-describedby="provider-cancel-description">
-                    <strong id="provider-cancel-title">Cancel this request?</strong>
-                    <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. {disclosure?.displayName ?? 'The provider'} may already have received {needsSourceDiscovery ? 'repository index metadata' : 'the selected source'}. Any returned response will be discarded.</p>
-                    <div><AppButton intent="secondary" onClick={() => setCancelConfirmation(false)}>Keep waiting</AppButton><AppButton intent="danger" onClick={() => { void handleConfirmCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</AppButton></div>
-                  </div>
-                )}
-                {cancelStatus && <p className="provider-small-note" role="status">{cancelStatus}</p>}
-                {sectionUpdateMode ? <div className="provider-context-picker">
-                  <div className="provider-context-heading"><strong>Selected section evidence</strong><span>{selectedPaths.length} declared files</span></div>
-                  <p>This request regenerates one section only. Code Atlas selected the old section record and the exact declared files captured in snapshot {mode.snapshotId}; the selection cannot be broadened from this dialog.</p>
-                  <ul className="provider-section-path-list">{selectedPaths.map((path) => <li key={path}><code>{path}</code>{path === mode.targetPath && <small>chapter target</small>}</li>)}</ul>
-                  <p className="provider-small-note">Changing the model rebuilds the exact prompt and clears consent. No other section is rewritten or sent as chapter content.</p>
-                </div> : mode.kind === 'code-lens-range' ? <div className="provider-context-picker">
-                  <div className="provider-context-heading"><strong>Fixed source range</strong><span>{mode.target.path}</span></div>
-                  <p>Only this hash-verified range from snapshot {mode.snapshotId} is sent. It cannot be expanded to neighboring lines or other files.</p>
-                  <code>{mode.target.path}:{mode.target.startLine}–{mode.target.endLine}</code>
-                  <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary source-range explanation. It is not added to chapter coverage or revision history.</p>
-                </div> : needsSourceDiscovery ? <div className="provider-context-picker">
-                  <div className="provider-context-heading"><strong>Let AI find the relevant code</strong><span>Index metadata only</span></div>
-                  <p>The selected provider first receives a bounded map of captured file paths, indexed symbols and links, and index coverage. It does not receive source contents in this step. Code Atlas checks every proposed path against this snapshot, then you can inspect and adjust the exact code before asking for the overview.</p>
-                  {requestReview && <details className="provider-source-file">
-                    <summary><span>Inspect the exact metadata request</span><span>{formatBytes(requestReview.requestBodyBytes)} · no code contents</span></summary>
-                    <pre><code>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</code></pre>
-                  </details>}
-                </div> : <div className="provider-context-picker">
-                  {overviewMode && sourceDiscoveryResult && <section className="provider-source-selection-result" aria-label="AI selected source files">
-                    <div className="provider-context-heading"><strong>AI found {sourceDiscoveryResult.selectedFiles.length} relevant {sourceDiscoveryResult.selectedFiles.length === 1 ? 'file' : 'files'}</strong><span>Review before explaining</span></div>
-                    {sourceDiscoveryResult.selectedFiles.length > 0 ? <ul className="provider-section-path-list">
-                      {sourceDiscoveryResult.selectedFiles.map((file) => <li key={file.path}><code>{file.path}</code><small>{file.reason}</small></li>)}
-                    </ul> : <p className="provider-small-note">{sourceDiscoveryResult.limitation || 'The index did not point to a useful shortlist. Choose one or more captured files below to continue.'}</p>}
-                    {sourceDiscoveryResult.selectedFiles.length > 0 && sourceDiscoveryResult.limitation && <p className="provider-small-note">{sourceDiscoveryResult.limitation}</p>}
-                  </section>}
-                  <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
-                  {selectedPaths.length > 12 && <p className="provider-error-text" role="status">This selection exceeds 12 files. Remove supporting files before preparing the request; the app keeps the full requested selection.</p>}
-                  <p>{overviewMode ? sourceDiscoveryResult?.selectedFiles.length ? 'The AI shortlist is ready. Adjust it if needed; changing the selection rebuilds the exact source review and clears consent.' : 'Choose one or more captured files to continue. The exact code will be reviewed before it is sent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
-                  {overviewMode && selectedPaths.length === 0 && <p className="provider-small-note" role="status">Select at least one captured text file to build the overview request preview.</p>}
-                  {snapshotManifestLoading && <div className="provider-loading" role="status"><HardDrive size={15} /> Loading captured file names locally…</div>}
-                  {snapshotManifestError && <p className="provider-small-note" role="status">{snapshotManifestError}</p>}
-                  {snapshotManifest && (
-                    <>
-                      <div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={contextQuery} onValueChange={setContextQuery} placeholder="Search snapshot paths" size="1" /></div>
-                      <div className="provider-context-files">
-                        {availableContextFiles.map((file) => {
-                          const checked = selectedPaths.includes(file.path);
-                          const isTarget = mode.kind === 'review' && file.path === mode.targetPath;
-                          return (
-                            <label key={file.path} className={checked ? 'selected' : ''}>
-                              <AppCheckbox checked={checked} disabled={sending || saveBusy || Boolean(sendResult) || isTarget || (!checked && selectedPaths.length >= 12)} onChange={(event) => handleContextFileChange(file.path, event.target.checked)} />
-                              <code>{file.path}</code><small>{formatBytes(file.sizeBytes)}{isTarget ? ' · target' : ''}</small>
-                            </label>
-                          );
-                        })}
-                        {availableContextFiles.length === 0 && <p className="provider-small-note">No eligible captured text files match this filter.</p>}
-                      </div>
-                      <p className="provider-small-note">Your question and selected code are shared. Files that look private, cannot be read, or are outside this snapshot are left out.</p>
-                    </>
-                  )}
-                </div>}
-                {requestReview && (
-                  <>
-                    <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
-                      <div><span>Request</span><strong>{requestIntent ?? 'Explain the selected code'}</strong></div>
-                      <div><span>AI connection</span><strong>{disclosure?.displayName ?? requestReview.providerId} · {disclosure?.models.find((model) => model.modelId === requestReview.modelId)?.displayName ?? requestReview.modelId}</strong></div>
-                      <div><span>{needsSourceDiscovery ? 'First request' : 'Code to share'}</span><strong>{needsSourceDiscovery ? 'Index metadata only · no source text' : `${requestReview.selectedFiles.length} ${requestReview.selectedFiles.length === 1 ? 'file' : 'files'}${codeLensRangeMode ? ' · selected range' : ''}`}</strong></div>
-                    </div>
-                    <p className="provider-warning-note"><TriangleAlert size={14} /> {needsSourceDiscovery ? 'This request sends only the reviewed snapshot index metadata to the selected provider. No source code is included.' : 'Review the selected code for credentials or private data before sending. The local check may miss secrets. Expand a file below to inspect exactly what will be shared.'}</p>
-                    {requestReview.selectedFiles.map((file) => (
-                      <details className="provider-source-file" key={`${file.path}:${file.sha256}`}>
-                        <summary><code>{file.path}</code><span>{codeLensRangeMode && mode.kind === 'code-lens-range' ? `Lines ${mode.target.startLine}–${mode.target.endLine}` : 'Review code being shared'}</span></summary>
-                        <pre><code>{file.contents}</code></pre>
-                      </details>
-                    ))}
-                  </>
-                )}
-                {requestError?.kind === 'repairProgress'
-                  ? <p className="provider-status-note" role="status"><strong>Section repair saved.</strong> {providerFailureMessage(requestError)}</p>
-                  : requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{providerFailureMessage(requestError)}</span></div></div>}
-                {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
-                {sendResult && (
-                  <section className="provider-response" aria-labelledby="provider-response-title">
-                    <div><span>{savedRevision ? 'DRAFT SAVED' : 'PREVIEW'}</span><h4 id="provider-response-title"><InlineCodeText text={sendResult.revision.title}/></h4></div>
-                    <p>{savedRevision ? 'Draft saved. Your accepted explanation stays unchanged until you accept this draft.' : sectionUpdateMode ? 'Preview for the selected section only. Your accepted explanation stays unchanged until you save and accept it. Any other affected sections are listed below.' : 'Preview only. Review the explanation and its sources, then save it as a draft when you’re ready. Closing keeps this preview in local recovery until you save or discard it.'}</p>
-                    {sectionUpdateMode && <div className="section-update-preview-summary">
-                      <strong>{savedRevision ? 'Draft changes' : 'Preview changes'}</strong>
-                      {sendResult.revision.sections.map((section) => {
-                        const previous = mode.baseRevision.sections.find((item) => item.sectionId === section.sectionId);
-                        const changed = section.sectionId === mode.sectionUpdate.sectionId;
-                        return <div key={section.sectionId}><span>{changed ? 'Selected' : previous?.sectionRevisionId === section.sectionRevisionId ? 'Unchanged' : 'Affected'}</span><InlineCodeText text={section.title}/></div>;
-                      })}
-                      {(sendResult.updateNotes ?? []).map((note) => <p className="provider-small-note" key={note}>{note}</p>)}
-                    </div>}
-                    <GeneratedChapterPreview revision={sendResult.revision} />
-                    {saveError && <p className="provider-error-text" role="alert">{saveError}</p>}
-                  </section>
-                )}
-                {codeLensResult && (
-                  <section className="provider-response" aria-labelledby="code-lens-explanation-title">
-                    <div><span>TRANSIENT · RANGE GROUNDED</span><h4 id="code-lens-explanation-title">What this code does</h4></div>
-                    <p>Each claim is checked against an exact, unique quote inside the selected source range. Nothing was saved to chapter history.</p>
-                    <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => (
-                      <li key={claim.claimId}>
-                        <p><InlineCodeText text={claim.prose}/></p>
-                        <AppButton intent="quiet" onClick={() => onOpenCodeLensCitation(claim.citation)}>
-                          <FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}
-                        </AppButton>
-                        <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
-                      </li>
-                    ))}</ol>
-                    <small>{codeLensResult.modelVersion ?? codeLensResult.modelId} · {codeLensResult.inputTokens ?? '—'} input tokens · {codeLensResult.outputTokens ?? '—'} output tokens</small>
-                  </section>
-                )}
-                {disclosure && (
-                  <div className="provider-consent-list">
-                    <label><AppCheckbox checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
-                    <label><AppCheckbox checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
-                    <label><AppCheckbox checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
-                  </div>
-                )}
-              </section>
-            )}
-          </div>
-        )}
-
-        <footer className="provider-dialog-footer">
-          <AppButton intent="secondary" onClick={handleClose} disabled={keyBusy || sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</AppButton>
-          {reviewMode && (
-            sending ? (
-              <AppButton intent="secondary" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
-                {cancelBusy || cancelRequested.current ? 'Cancelling…' : 'Cancel request'}
-              </AppButton>
-            ) : codeLensResult ? (
-              <span className="provider-saved-status" role="status"><Check size={15} /> Range explanation ready</span>
-            ) : sendResult ? (
-              savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</AppButton></div>
-            ) : (
-              <AppButton intent="primary" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult || codeLensResult)}>
-                <Sparkles size={15} /> {needsSourceDiscovery ? 'Ask AI to find the code' : 'Send this request'}
-              </AppButton>
-            )
-          )}
-        </footer>
-      </section>
-    </div>
-  );
+    onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
 }
 
 function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDiscarded, onRecoveryChanged }: {
@@ -3383,35 +2504,6 @@ function GeneratedChapterPreview({ revision }: { revision: ChapterRevision }) {
       <details className="chapter-spoken-preview"><summary>Narration script</summary><p><InlineCodeText text={section.spokenText}/></p></details>
     </article>)}
   </div>;
-}
-
-function providerFailureTitle(kind: ProviderFailure['kind']): string {
-  const titles: Record<ProviderFailure['kind'], string> = {
-    keychainUnavailable: 'Keychain unavailable',
-    keychainOperationFailed: 'Keychain operation failed',
-    missingApiKey: 'Provider API key required',
-    invalidApiKey: 'Provider API key rejected',
-    consentRequired: 'Review and confirm every disclosure',
-    reviewExpired: 'Request review expired',
-    reviewChanged: 'Request context changed',
-    reviewUnavailable: 'Request review unavailable',
-    localStorageUnavailable: 'Local storage unavailable',
-    invalidReview: 'Request could not be validated',
-    contextTooLarge: 'Request needs a smaller focus',
-    secretLikeContext: 'Secret-like path blocked',
-    unavailableModel: 'Model unavailable',
-    billingRequired: 'Provider requires billing for this key',
-    quotaExceeded: 'Provider quota or rate limit reached',
-    regionUnavailable: 'Provider is unavailable in this region',
-    networkUnavailable: 'Provider could not be reached',
-    requestTimedOut: 'Provider request timed out',
-    requestCancelled: 'Request cancelled',
-    providerRejectedRequest: 'Provider rejected this request',
-    providerResponseTooLarge: 'Response exceeded the size limit',
-    malformedProviderResponse: 'Provider returned an unreadable response',
-    repairProgress: 'Section repair saved',
-  };
-  return titles[kind];
 }
 
 function formatBytes(bytes: number): string {

@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { AppButton } from './design/AppButton';
 import { AppCheckbox } from './design/AppCheckbox';
-import { readGenerationBackend, repositoryPlanningBackend } from './lib/generationPreferences';
+import { readGenerationBackend } from './lib/generationPreferences';
 import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
 import { sourceDiscoveryLimitNotes, type LargeFileDiscoveryHandoff, type SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { CodexChapterDialog } from './CodexChapterDialog';
-import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
@@ -18,7 +17,7 @@ export type RepositoryPlanningScope = PrepareRepositoryPlanInput & ({
   plannedChapter: PlannedChapterScope;
 }) & {
   recoveryOperationId?: string;
-  recoveryBackend?: 'codex' | 'claude-agent';
+  recoveryBackend?: 'codex';
   discoveryResult?: SourceDiscoveryResult;
 };
 
@@ -32,9 +31,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   onRecoveryResultReady?: (operationId: string) => void;
   onOpenPendingPreview?: (generationId: string) => void;
 }) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | null>(() => repositoryPlanningBackend(
-    scope.recoveryOperationId ? scope.recoveryBackend : readGenerationBackend(),
-  ));
+  const [backend, setBackend] = useState<'codex' | null>(() =>
+    scope.recoveryOperationId ? scope.recoveryBackend ?? null : readGenerationBackend() === 'codex' ? 'codex' : null,
+  );
   // Chapter recovery has the existing candidate-preview/history check inside
   // each agent. Planning has its separate saved-plan acknowledgement here.
   const [checkedEarlier, setCheckedEarlier] = useState(!scope.recoveryOperationId || scope.kind === 'planned-chapter');
@@ -42,7 +41,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
   useModalFocusTrap(dialog);
   useEffect(() => {
     if (scope.recoveryOperationId) return;
-    const refresh = () => setBackend(repositoryPlanningBackend(readGenerationBackend()));
+    const refresh = () => setBackend(readGenerationBackend() === 'codex' ? 'codex' : null);
     window.addEventListener('code-atlas:connection-changed', refresh);
     return () => window.removeEventListener('code-atlas:connection-changed', refresh);
   }, [scope.recoveryOperationId]);
@@ -85,39 +84,28 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onOpenConnect
       setDiscovery(result);
     }} persistSuccessfulResult autoDiscover ignoreSavedResult={ignoreSavedDiscovery} />;
   }
-  if (needsRepositoryDiscovery && backend === 'claude-agent') {
-    return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="claude-discovery-title" tabIndex={-1}>
-      <header className="provider-dialog-header"><div><h2 id="claude-discovery-title">Repository discovery isn’t available for Claude yet</h2><p>{scope.question}</p></div>
-        <AppButton intent="icon" onClick={onClose} aria-label="Close planning"><X size={17} /></AppButton></header>
-      <div className="provider-dialog-content"><p>Your question is unchanged. Switch to Codex in Connections to have Code Atlas find the relevant files automatically.</p></div>
-      <footer className="provider-dialog-footer"><AppButton intent="secondary" onClick={onClose}>Close</AppButton><AppButton intent="primary" onClick={openConnections}>Change connection</AppButton></footer>
-    </section></div>;
-  }
   const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
   const savedBackend = readGenerationBackend();
-  const unsupportedSavedConnection = !scope.recoveryOperationId && (savedBackend === null || savedBackend === 'api' || savedBackend === 'handoff');
-  const savedConnectionName = savedBackend === null ? 'The saved AI connection'
-    : savedBackend === 'api' ? 'Direct API' : 'Claude Code handoff';
+  const unsupportedSavedConnection = !scope.recoveryOperationId && savedBackend !== 'codex';
   const planned = scope.kind === 'planned-chapter' ? scope.plannedChapter : null;
   const mode = planned ? { kind: 'review' as const, projectId: scope.projectId, snapshotId: scope.snapshotId,
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,
     recoveryOperationId: scope.recoveryOperationId } : { kind: 'repository-plan' as const, projectId: effectiveScope.projectId,
     snapshotId: effectiveScope.snapshotId, question: effectiveScope.question, selectedPaths: effectiveScope.selectedPaths };
   if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onFindCodeAgain={() => { setDiscovery(null); setIgnoreSavedDiscovery(true); }} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} onOpenRepositoryPlans={onOpenPlanHistory ? (draftId)=>onOpenPlanHistory(scope.projectId,draftId) : undefined} />;
-  if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={openConnections} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} onOpenPlanHistory={onOpenPlanHistory ? (draftId)=>onOpenPlanHistory(scope.projectId,draftId) : undefined} />;
   return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-agent-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="plan-agent-title">Use the connection in your header</h2><p>{scope.question}</p></div>
       <AppButton intent="icon" onClick={onClose} aria-label={planned ? 'Close chapter explanation' : 'Close planning'}><X size={17} /></AppButton></header>
     <div className="provider-dialog-content">
       <p>{scope.selectedPaths.length} captured files. {planned ? 'This action creates one unaccepted chapter for the accepted step.' : 'This action creates an unaccepted reading plan.'} Source review and account consent stay with the selected connection.</p>
-      {unsupportedSavedConnection && <p className="provider-small-note" role="status">{savedConnectionName} is not available for this action. Change the AI connection once from the Connections control in the header.</p>}
+      {unsupportedSavedConnection && <p className="provider-small-note" role="status">Connect Codex once in Connections to continue. Your question stays here.</p>}
       {scope.recoveryOperationId && !planned && <section className="provider-review-card"><h3>Check earlier plans first</h3>
         <p>The original question and files were restored locally. A result may already be saved even if the earlier reply was lost. Close this dialog to inspect Learning plans before another request. Your recovery notice stays available.</p>
         <label className="provider-consent"><AppCheckbox checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>
       </section>}
       {unsupportedSavedConnection && <AppButton intent="primary" disabled={!native || !checkedEarlier} onClick={openConnections}>Open Connections</AppButton>}
       {!native && <p role="status">Coding agents run in the macOS app. This browser preview cannot start an agent or read saved native plans.</p>}
-      {scope.recoveryBackend && <p>The restored request stays with its original agent. Its connection cannot be changed while recovering it.</p>}
+      {scope.recoveryBackend && <p>The restored request stays with its original Codex connection.</p>}
     </div>
   </section></div>;
 }
