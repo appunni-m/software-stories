@@ -149,11 +149,11 @@ test('reopening an exploration focuses its latest question without changing its 
   assert.equal(explicitlyFocused.explorations.find((exploration) => exploration.id === 'child').focusedTurnId, 'first');
 });
 
-test('returning to a legacy parent restores the answer that owns the child exploration', () => {
+test('returning to a parent restores the question that owns the child exploration', () => {
   let state = addTurn(createWorkspace('project', 'snapshot'), turn('origin', 'ready', { revisionId: 'revision:origin' }), 'guide');
   state = rememberSection(state, 'root', 'origin', 'guide', { revisionId: 'revision:origin', sectionId: 'section:second' });
   state = addTurn(state, turn('later', 'ready', { revisionId: 'revision:later' }), 'guide');
-  // Older saved conversations can have branches but no focusedTurnId metadata.
+  // The branch owner is the parent question the reader was following.
   state = {
     ...state,
     explorations: state.explorations.map((exploration) => exploration.id === 'root'
@@ -164,7 +164,7 @@ test('returning to a legacy parent restores the answer that owns the child explo
 
   const returned = openWorkspaceExploration(state, 'root');
   const root = returned.explorations.find((exploration) => exploration.id === 'root');
-  assert.equal(root.focusedTurnId, 'origin', 'the child path identifies the parent answer when legacy focus metadata is absent');
+  assert.equal(root.focusedTurnId, 'origin', 'the child path identifies the question that owns the branch');
   assert.deepEqual(root.turns.find((question) => question.id === 'origin').reading.guide,
     { revisionId: 'revision:origin', sectionId: 'section:second' });
   assert.equal(returned.currentId, 'root');

@@ -125,8 +125,8 @@ export function featuredGuideTurnId(
   return turns.at(-1)?.id ?? null;
 }
 
-/** Reopening an exploration keeps its last question visible when older saved
- * work has no focused-turn metadata. An explicit, valid focus always wins. */
+/** Reopening an exploration restores a valid focus or, on a parent, the
+ * question that owns the child branch. */
 export function openWorkspaceExploration(state: WorkspaceState, explorationId: string): WorkspaceState {
   const target = state.explorations.find((exploration) => exploration.id === explorationId);
   if (!target) return state;

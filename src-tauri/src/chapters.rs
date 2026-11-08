@@ -1967,7 +1967,7 @@ impl Validator<'_> {
         if visual.layout_hint.is_none() {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
-                "A version 2 visual must declare an app-owned layout direction.",
+                "A visual must declare an app-owned layout direction.",
                 section_id,
                 None,
                 None,

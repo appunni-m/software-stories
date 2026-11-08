@@ -1272,11 +1272,11 @@ mod tests {
         let mut wrong = presentation.clone();
         wrong.scenes[0].claim_index = 1;
         assert!(narration(&wrong, &claims).is_err());
-        let mut long_legacy_speech = presentation.clone();
-        long_legacy_speech.scenes[0].narration =
+        let mut long_speech = presentation.clone();
+        long_speech.scenes[0].narration =
             "First outcome. Second outcome. Third outcome. Fourth outcome. Fifth outcome.".into();
-        assert!(validate(&long_legacy_speech, &nodes, &claims).is_err());
-        assert!(narration(&long_legacy_speech, &claims).is_err());
+        assert!(validate(&long_speech, &nodes, &claims).is_err());
+        assert!(narration(&long_speech, &claims).is_err());
         presentation.scenes[0].narration = "é".repeat(600);
         assert!(validate(&presentation, &nodes, &claims).is_err());
         assert!(narration(&presentation, &claims).is_err());
