@@ -138,6 +138,26 @@ export function narrationPreferencesMatch(
     && left.style.trim() === right.style.trim();
 }
 
+/** A cached recording is playable only while its reviewed text and settings match the editor. */
+export function narrationTrackMatchesPreferences(
+  track: {
+    backend: NarrationBackend;
+    sourceText: string;
+    voice: string;
+    style: string;
+    lexicon: NarrationPreferencesSnapshot['lexicon'];
+  } | null,
+  preferences: NarrationPreferencesSnapshot,
+): boolean {
+  return track !== null && narrationPreferencesMatch({
+    backend: track.backend,
+    spokenText: track.sourceText,
+    voice: track.voice,
+    style: track.style,
+    lexicon: track.lexicon,
+  }, preferences);
+}
+
 /** Local Pocket speech needs no consent gate: play a hit or synthesize on the first click. */
 export function localNarrationAction(cachedAudioAvailable: boolean): 'play-cache' | 'synthesize' {
   return cachedAudioAvailable ? 'play-cache' : 'synthesize';

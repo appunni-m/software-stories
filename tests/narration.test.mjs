@@ -10,6 +10,7 @@ import {
   narrationAvailabilityLabel,
   narrationDurationLabel,
   narrationPreferencesMatch,
+  narrationTrackMatchesPreferences,
   parseNarrationPreferences,
   serializeNarrationPreferences,
 } from '../src/lib/narration.ts';
@@ -123,6 +124,16 @@ describe('narration cache request snapshots', () => {
     assert.equal(narrationPreferencesMatch(requested, preferences({
       lexicon: [{ name: 'cacheKey', sayAs: 'cash key', include: true }],
     })), false);
+  });
+
+  it('keeps prior audio tied to its original transcript and settings', () => {
+    const track = { backend: 'gemini', sourceText: 'Explain the cacheKey.', voice: 'Kore', style: 'Warm',
+      lexicon: [{ name: 'cacheKey', sayAs: 'cache key', include: true }] };
+    assert.equal(narrationTrackMatchesPreferences(track, preferences()), true);
+    assert.equal(narrationTrackMatchesPreferences(track, preferences({ spokenText: 'Explain a new path.' })), false);
+    assert.equal(narrationTrackMatchesPreferences(track, preferences({ voice: 'Puck' })), false);
+    assert.equal(narrationTrackMatchesPreferences(track, preferences({ lexicon: [] })), false);
+    assert.equal(narrationTrackMatchesPreferences(null, preferences()), false);
   });
 
   it('matches cached audio by the exact spoken payload, not inactive lexicon metadata', () => {

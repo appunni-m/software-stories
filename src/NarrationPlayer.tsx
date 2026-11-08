@@ -42,6 +42,7 @@ import {
   narrationAvailabilityLabel,
   narrationDurationLabel,
   narrationPreferencesMatch,
+  narrationTrackMatchesPreferences,
   serializeNarrationPreferences,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
@@ -287,14 +288,17 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setReview(null); setReviewBusy(false); setConsent(false); setShowReview(false); setError(null);
   }, [voiceConnection.backend, voiceConnection.googleVoice, voiceConnection.googleStyle]);
 
-  const savedAudioMatchesDraft = Boolean(track
-    && narrationPreferencesMatch({
-      backend: track.backend,
-      spokenText: track.sourceText,
-      voice: track.voice,
-      style: track.style,
-      lexicon: track.lexicon,
-    }, draft));
+  const savedAudioMatchesDraft = narrationTrackMatchesPreferences(track, draft);
+  useEffect(() => {
+    if (!track || savedAudioMatchesDraft) return;
+    // A retained clip belongs to its original transcript. Stop it as soon as
+    // the reader changes the script/settings, and disarm deferred canplay so
+    // an old clip cannot start after the edit.
+    autoPlayRef.current = false;
+    completionArmed.current = false;
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  }, [track, savedAudioMatchesDraft]);
   const localAudioNeedsPreparation = localNarration
     && pocketStatus?.ready === true
     && !savedAudioMatchesDraft
@@ -303,6 +307,14 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const updateDraft = (update: (value: NarrationPreferences) => NarrationPreferences) => {
     const next = update(draftRef.current);
     draftRef.current = next;
+    if (track && !narrationTrackMatchesPreferences(track, next)) {
+      // Do this synchronously with the edit; waiting for a passive effect can
+      // let a queued `canplay` event start the old recording once more.
+      autoPlayRef.current = false;
+      completionArmed.current = false;
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    }
     setDraft(next);
     const serialized = serializeNarrationPreferences(next);
     if (serialized === null) {
