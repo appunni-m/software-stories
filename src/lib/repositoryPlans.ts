@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
-  CaptureStatus, ChapterClaim, ClaudeGenerationSettings, ProviderCommandResult, ProviderRelationshipEvidence,
+  CaptureStatus, ChapterClaim, ProviderCommandResult, ProviderRelationshipEvidence,
   ProviderRequestFile, ProviderRequestReview, ProviderSymbolEvidence,
 } from './commands';
 
@@ -67,10 +67,6 @@ export interface CodexRepositoryPlanInput extends PrepareRepositoryPlanInput {
   approvalPolicy: 'never';
 }
 
-export interface ClaudeRepositoryPlanInput extends PrepareRepositoryPlanInput {
-  settings: ClaudeGenerationSettings;
-}
-
 /** Native validated plan data. This type alone carries no acceptance or persistence. */
 export interface RepositoryPlanDraft {
   schemaVersion: 1;
@@ -102,7 +98,7 @@ export interface RepositoryPlanPreview {
   reviewId: string;
   recoveryOperationId: string;
   fingerprint: string;
-  providerId: 'codex' | 'claude-agent';
+  providerId: 'codex';
   modelId: string;
   modelVersion: string | null;
   inputTokens: number | null;
@@ -111,9 +107,7 @@ export interface RepositoryPlanPreview {
   plan: RepositoryPlanDraft;
 }
 
-export type SavedPlanAgentSettings =
-  | { backend: 'codex'; effort: string; approvalPolicy: 'never' }
-  | { backend: 'claude-agent'; effort: ClaudeGenerationSettings['effort']; approvalPolicy: 'dontAsk'; maxTurns: number };
+export type SavedPlanAgentSettings = { backend: 'codex'; effort: string; approvalPolicy: 'never' };
 
 /** Metadata only. A successful listing does not validate source evidence. */
 export interface RepositoryPlanDraftSummary {
@@ -122,7 +116,7 @@ export interface RepositoryPlanDraftSummary {
   question: string | null;
   snapshotId: string | null;
   reviewId: string | null;
-  providerId: 'codex' | 'claude-agent' | null;
+  providerId: 'codex' | null;
   modelId: string | null;
   createdAtUnixMs: number | null;
   unavailableReason: string | null;
@@ -149,7 +143,7 @@ export interface RepositoryPlanRevision {
   title: string;
   question: string;
   snapshotId: string;
-  providerId: 'codex' | 'claude-agent';
+  providerId: 'codex';
   modelId: string;
 }
 
@@ -192,17 +186,7 @@ export function buildCodexRepositoryPlanReview(input: CodexRepositoryPlanInput):
   return invoke('build_codex_repository_plan_review', { input });
 }
 
-/** Local preparation only; the opaque native connection supplies account/runtime identity. */
-export function buildClaudeRepositoryPlanReview(connectionId: string, input: ClaudeRepositoryPlanInput): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_repository_plan_review', { connectionId, input });
-}
-
 /** Native account-backed execution; model/settings/source stay bound to the review. */
 export function sendCodexRepositoryPlanRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<RepositoryPlanPreview>> {
   return invoke('send_codex_repository_plan_request', { input: { reviewId, fingerprint, consent } });
-}
-
-/** Native release qualification and the original observed connection remain required. */
-export function sendClaudeRepositoryPlanRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<RepositoryPlanPreview>> {
-  return invoke('send_claude_repository_plan_request', { input: { reviewId, fingerprint, consent } });
 }

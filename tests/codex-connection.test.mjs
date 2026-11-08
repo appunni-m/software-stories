@@ -118,6 +118,6 @@ describe('one-time Codex connection', () => {
     assert.match(source, /if \(!value.length\) setNote\('This account returned no supported models\./);
     assert.match(source, /\{!status\?\.authenticated && <AppButton intent="primary"/);
     assert.doesNotMatch(source, /hidden=\{Boolean\(status\?\.authenticated\)\}/);
-    assert.match(source, /Source review and consent apply separately/);
+    assert.match(source, /Reviewing prepares the exact request locally\. Generation starts only after your consent below\./);
   });
 });

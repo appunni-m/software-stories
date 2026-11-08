@@ -1098,63 +1098,6 @@ export async function compareLocalGitRevisions(
   return gitComparisons.compare(projectId, baseRef, headRef, signal);
 }
 
-export async function buildProviderPrGuideRequestReview(providerId: string, input: {
-  projectId: string;
-  baseRef: string;
-  headRef: string;
-  comparisonId: string;
-  selectedChanges: SelectedGitChangeIdentity[];
-  modelId: string;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_pr_guide_request_review', { providerId, input });
-}
-
-export async function buildProviderPrChangeExplanationRequestReview(providerId: string, input: {
-  projectId: string;
-  target: PrChangeExplanationTarget;
-  modelId: string;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_pr_change_explanation_request_review', { providerId, input });
-}
-
-export async function sendProviderPrGuideRequest(input: {
-  reviewId: string;
-  fingerprint: string;
-  consent: ProviderConsent;
-}): Promise<ProviderCommandResult<PrGuidePreview>> {
-  return invoke<ProviderCommandResult<PrGuidePreview>>('send_provider_pr_guide_request', input);
-}
-
-export async function sendProviderPrChangeExplanationRequest(input: {
-  reviewId: string;
-  fingerprint: string;
-  consent: ProviderConsent;
-}): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
-  return invoke<ProviderCommandResult<PrChangeExplanationPreview>>('send_provider_pr_change_explanation_request', input);
-}
-
-export async function listPrGuideRevisions(projectId: string, comparisonId: string): Promise<PrGuideRevision[]> {
-  return invoke<PrGuideRevision[]>('list_pr_guide_revisions', { projectId, comparisonId });
-}
-
-export async function acceptPrGuideDraft(input: {
-  projectId: string;
-  comparisonId: string;
-  revisionId: string;
-  includedClaimIds: string[];
-}): Promise<PrGuideRevision> {
-  return invoke<PrGuideRevision>('accept_pr_guide_draft', input);
-}
-
-export async function rejectPrGuideDraft(input: {
-  projectId: string;
-  comparisonId: string;
-  revisionId: string;
-  reason: string;
-}): Promise<PrGuideRevision> {
-  return invoke<PrGuideRevision>('reject_pr_guide_draft', input);
-}
-
 export async function removeRecentProject(projectId: string): Promise<RecentProject[]> {
   return invoke<RecentProject[]>('remove_recent_project', { projectId });
 }
@@ -1340,50 +1283,6 @@ export async function startSectionRepairSession(
   });
 }
 
-export async function getProviderCatalog(): Promise<ProviderDisclosure[]> {
-  return invoke<ProviderDisclosure[]>('get_provider_catalog');
-}
-
-export async function getProviderCredentialStatus(providerId: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('get_provider_credential_status', { providerId });
-}
-
-export async function storeProviderApiKey(providerId: string, apiKey: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('store_provider_api_key', { providerId, apiKey });
-}
-
-export async function removeProviderApiKey(providerId: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('remove_provider_api_key', { providerId });
-}
-
-export async function buildProviderRequestReview(providerId: string, input: {
-  projectId: string;
-  snapshotId: string;
-  targetPath: string | null;
-  selectedPaths: string[];
-  modelId: string;
-  sectionUpdate?: SectionUpdateReviewTarget | null;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_request_review', { providerId, input });
-}
-
-export async function buildProviderSourceDiscoveryRequestReview(providerId: string, input: {
-  projectId: string;
-  snapshotId: string;
-  modelId: string;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_source_discovery_request_review', { providerId, input });
-}
-
-export async function buildCodeLensProviderRequestReview(providerId: string, input: {
-  projectId: string;
-  snapshotId: string;
-  target: CodeLensExplanationTarget;
-  modelId: string;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_code_lens_provider_request_review', { providerId, input });
-}
-
 export async function discardProviderRequestReview(reviewId: string): Promise<void> {
   await invoke<void>('discard_provider_request_review', { reviewId });
 }
@@ -1396,30 +1295,6 @@ export async function cancelProviderRequest(
     reviewId,
     cancelLocalPreparation: options.cancelLocalPreparation ?? false,
   });
-}
-
-export async function sendProviderRequest(input: {
-  reviewId: string;
-  fingerprint: string;
-  consent: ProviderConsent;
-}): Promise<ProviderCommandResult<ChapterDraftPreview>> {
-  return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_provider_request', input);
-}
-
-export async function sendProviderSourceDiscoveryRequest(input: {
-  reviewId: string;
-  fingerprint: string;
-  consent: ProviderConsent;
-}): Promise<ProviderCommandResult<ProviderSourceSelectionResult>> {
-  return invoke<ProviderCommandResult<ProviderSourceSelectionResult>>('send_provider_source_discovery_request', input);
-}
-
-export async function sendCodeLensProviderRequest(input: {
-  reviewId: string;
-  fingerprint: string;
-  consent: ProviderConsent;
-}): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
-  return invoke<ProviderCommandResult<CodeLensExplanationPreview>>('send_code_lens_provider_request', input);
 }
 
 export type NarrationBackend = 'pocket-tts';
@@ -1498,7 +1373,7 @@ export async function synthesizeReviewedNarrationAudio(input: {
   return invoke<ProviderCommandResult<NarrationAudio>>('synthesize_reviewed_narration_audio', input);
 }
 
-export type AgentInstallationFile = 'codexExecutable' | 'claudeExecutable' | 'nodeExecutable' | 'claudeSdkModule';
+export type AgentInstallationFile = 'codexExecutable';
 
 /** A local path hint only; selecting a file starts no agent or account check. */
 export async function pickAgentInstallationFile(kind: AgentInstallationFile): Promise<string | null> {
@@ -1611,147 +1486,4 @@ export function stopWorkspaceGenerationJob(
   rendererQueueWaitMs?: number,
 ): Promise<WorkspaceGenerationJob> {
   return invoke<WorkspaceGenerationJob>('stop_workspace_generation_job', { jobId, projectId, snapshotId, rendererQueueWaitMs: rendererQueueWaitMs ?? null });
-}
-export async function buildCodexPrGuideReview(input: {
-  projectId: string; baseRef: string; headRef: string; comparisonId: string;
-  selectedChanges: { basePath: string | null; headPath: string | null }[];
-  modelId: string; effort: string; approvalPolicy: 'never';
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_codex_pr_guide_review', { input });
-}
-export async function buildCodexPrChangeReview(input: {
-  projectId: string; target: PrChangeExplanationTarget;
-  modelId: string; effort: string; approvalPolicy: 'never';
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_codex_pr_change_review', { input });
-}
-export async function sendCodexPrGuideRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrGuidePreview>> {
-  return invoke('send_codex_pr_guide_request', { reviewId, fingerprint, consent });
-}
-export async function sendCodexPrChangeRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
-  return invoke('send_codex_pr_change_request', { reviewId, fingerprint, consent });
-}
-
-export type ClaudeInspectionFailureKind = 'busy' | 'cancelled' | 'timedOut' | 'runtimeChanged' | 'reviewChanged'
-  | 'preparationFailed' | 'processFailed' | 'protocolRejected' | 'outputLimit' | 'cleanupFailed' | 'unsupportedPlatform';
-export interface ClaudeConnectionObservation {
-  executablePath: string;
-  executableSha256: string;
-  runtimeVersion: string;
-  candidateVersionMatches: boolean;
-  automaticGenerationAvailable: false;
-  account: {
-    loggedIn: boolean;
-    authMethod: 'none' | 'claudeAccount' | 'oauthToken' | 'apiKey' | 'apiKeyHelper' | 'thirdParty' | 'unrecognized';
-    firstPartyProvider: boolean;
-    accountEmail: string | null;
-    subscriptionType: string | null;
-    configDirectory: string | null;
-    accountIdentitySha256: string | null;
-  } | null;
-  message: string;
-}
-export async function inspectClaudeAgentConnection(executablePath: string, runId: string): Promise<ClaudeConnectionObservation> {
-  return invoke('inspect_claude_agent_connection', { executablePath, runId });
-}
-export interface ClaudeModelDiscoveryObservation {
-  reviewConnection: {
-    connectionId: string;
-    expiresAtUnixMs: number;
-    generation: { available: boolean; qualificationId: string | null; adapterSha256: string; message: string };
-  } | null;
-  connection: ClaudeConnectionObservation;
-  catalog: {
-    sdkVersion: string;
-    runtimeVersion: string;
-    models: {
-      modelId: string;
-      displayName: string;
-      aliases: string[];
-      effortSupportAdvertised: boolean;
-      supportedEfforts: ClaudeReasoningEffort[];
-    }[];
-    omittedRows: number;
-  };
-  nodeExecutablePath: string;
-  nodeExecutableSha256: string;
-  nodeVersion: string;
-  sdkModulePath: string;
-  sdkModuleSha256: string;
-}
-export async function inspectClaudeAgentModelCatalog(
-  executablePath: string, nodeExecutablePath: string, sdkModulePath: string, runId: string,
-): Promise<ClaudeModelDiscoveryObservation> {
-  return invoke('inspect_claude_agent_model_catalog', { executablePath, nodeExecutablePath, sdkModulePath, runId });
-}
-export async function cancelClaudeAgentOperation(runId: string): Promise<boolean> {
-  return invoke('cancel_claude_agent_operation', { runId });
-}
-export async function forgetClaudeAgentConnection(connectionId: string): Promise<boolean> {
-  return invoke('forget_claude_agent_connection', { connectionId });
-}
-export type ClaudeReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-export interface ClaudeGenerationSettings {
-  modelId: string;
-  effort: ClaudeReasoningEffort | null;
-  approvalPolicy: 'dontAsk';
-  maxTurns: number;
-}
-/** Offline preparation only. Native identity/capabilities come from the opaque
- * current connection; this does not grant consent or dispatch generation. */
-export async function buildClaudeChapterReview(connectionId: string, input: {
-  projectId: string; snapshotId: string; targetPath: string | null;
-  selectedPaths: string[]; settings: ClaudeGenerationSettings;
-  sectionUpdate?: SectionUpdateReviewTarget | null;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_chapter_review', { connectionId, input });
-}
-
-export async function buildClaudeCodeLensReview(connectionId: string, input: {
-  projectId: string; snapshotId: string; target: CodeLensExplanationTarget;
-  settings: ClaudeGenerationSettings;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_code_lens_review', { connectionId, input });
-}
-
-export async function buildClaudePrGuideReview(connectionId: string, input: {
-  projectId: string; baseRef: string; headRef: string; comparisonId: string;
-  selectedChanges: SelectedGitChangeIdentity[]; settings: ClaudeGenerationSettings;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_pr_guide_review', { connectionId, input });
-}
-
-export async function buildClaudePrChangeReview(connectionId: string, input: {
-  projectId: string; target: PrChangeExplanationTarget; settings: ClaudeGenerationSettings;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_pr_change_review', { connectionId, input });
-}
-
-/** Native admission requires this build's release-owned qualification plus a
- * live exact review and consent. No renderer runtime/model/account overrides. */
-export async function sendClaudeChapterRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<ChapterDraftPreview>> {
-  return invoke('send_claude_chapter_request', { input: { reviewId, fingerprint, consent } });
-}
-export async function sendClaudeCodeLensRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
-  return invoke('send_claude_code_lens_request', { input: { reviewId, fingerprint, consent } });
-}
-export async function sendClaudePrGuideRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrGuidePreview>> {
-  return invoke('send_claude_pr_guide_request', { input: { reviewId, fingerprint, consent } });
-}
-export async function sendClaudePrChangeRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
-  return invoke('send_claude_pr_change_request', { input: { reviewId, fingerprint, consent } });
-}
-
-export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';
-export async function buildAgentHandoffReview(input: {
-  projectId: string; snapshotId: string; targetPath: string | null;
-  selectedPaths: string[]; agentId: HandoffAgent;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_agent_handoff_review', { input });
-}
-export async function exportAgentHandoff(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<string>> {
-  return invoke('export_agent_handoff', { reviewId, fingerprint, consent });
-}
-export async function importAgentHandoffResult(reviewId: string, fingerprint: string, responseText: string): Promise<ProviderCommandResult<ChapterDraftPreview>> {
-  return invoke('import_agent_handoff_result', { reviewId, fingerprint, responseText });
 }

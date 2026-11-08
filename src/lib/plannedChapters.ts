@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ClaudeGenerationSettings, ProviderCommandResult, ProviderRequestReview } from './commands';
+import type { ProviderCommandResult, ProviderRequestReview } from './commands';
 import type { RepositoryPlanReviewScope } from './repositoryPlans';
 
 /** Exact accepted revision and step; never a renderer-authored prompt. */
@@ -31,12 +31,6 @@ export function buildCodexPlannedChapterReview(input: {
   return invoke('build_codex_planned_chapter_review', { input });
 }
 
-export function buildClaudePlannedChapterReview(connectionId: string, input: {
-  projectId: string; target: PlannedChapterTarget; settings: ClaudeGenerationSettings;
-}): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke('build_claude_planned_chapter_review', { connectionId, input });
-}
-
 /** UI guard only. Native preparation, preflight and result validation each
  * reconstruct this scope from accepted history and original captured source. */
 export function matchesPlannedChapterReview(review: ProviderRequestReview, expected: PlannedChapterScope): boolean {
@@ -48,9 +42,8 @@ export function matchesPlannedChapterReview(review: ProviderRequestReview, expec
   const coverage = a?.coverage;
   const target = actual.target;
   const paths = new Set(expected.selectedPaths);
-  const contract = review.providerId === 'codex' ? 'codex-planned-chapter-v1'
-    : review.providerId === 'claude-agent' ? 'claude-planned-chapter-v1' : null;
-  return contract !== null && review.generationConfig.contractVersion === contract
+  const contract = 'codex-planned-chapter-v1';
+  return review.providerId === 'codex' && review.generationConfig.contractVersion === contract
     && review.purpose === 'fileChapter' && review.targetPath === expected.primaryPath
     && review.snapshotId === expected.snapshotId && actual.schemaVersion === 1
     && review.sectionUpdateContext === null && review.codeLensContext === null

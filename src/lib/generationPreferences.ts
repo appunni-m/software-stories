@@ -1,70 +1,7 @@
-import type { HandoffAgent } from './commands';
-
-/** Workspace preferences contain no credentials, source, or consent. */
-export type GenerationBackend = 'codex' | 'claude-setup' | 'handoff' | 'api';
-export type RepositoryPlanningBackend = 'codex' | 'claude-agent';
+export type GenerationBackend = 'codex';
 const key = 'code-atlas:generation-backend';
-const directApiSelectionKey = 'code-atlas:direct-api-selection';
-const handoffAgentKey = 'code-atlas:handoff-agent';
-const MAX_DIRECT_API_SELECTION_BYTES = 8_192;
-
-export interface DirectApiSelection {
-  providerId: string;
-  modelId: string;
-}
-
-export type DirectApiSelectionIssue = 'invalid' | 'oversized' | 'unavailable';
-let directApiSelectionIssue: DirectApiSelectionIssue | null = null;
 let sessionGenerationBackend: GenerationBackend | null = null;
 let generationBackendWriteFailed = false;
-
-function validSelectionId(value: unknown): value is string {
-  return typeof value === 'string' && value.length <= 256
-    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
-}
-
-export function readDirectApiSelection(): DirectApiSelection {
-  try {
-    const raw = localStorage.getItem(directApiSelectionKey);
-    if (raw === null) { directApiSelectionIssue = null; return { providerId: '', modelId: '' }; }
-    if (new TextEncoder().encode(raw).byteLength > MAX_DIRECT_API_SELECTION_BYTES) {
-      directApiSelectionIssue = 'oversized';
-      return { providerId: '', modelId: '' };
-    }
-    let saved: unknown;
-    try { saved = JSON.parse(raw); }
-    catch { directApiSelectionIssue = 'invalid'; return { providerId: '', modelId: '' }; }
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-      directApiSelectionIssue = 'invalid';
-      return { providerId: '', modelId: '' };
-    }
-    const record = saved as Record<string, unknown>;
-    if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'providerId') || !Object.hasOwn(record, 'modelId')
-      || !validSelectionId(record.providerId) || !validSelectionId(record.modelId)
-      || record.modelId.length > 0 && record.providerId.length === 0) {
-      directApiSelectionIssue = 'invalid';
-      return { providerId: '', modelId: '' };
-    }
-    directApiSelectionIssue = null;
-    return {
-      providerId: record.providerId,
-      modelId: record.modelId,
-    };
-  } catch { directApiSelectionIssue = 'unavailable'; }
-  return { providerId: '', modelId: '' };
-}
-
-export function readDirectApiSelectionIssue(): DirectApiSelectionIssue | null {
-  return directApiSelectionIssue;
-}
-
-export function rememberDirectApiSelection(selection: DirectApiSelection): void {
-  if (!validSelectionId(selection.providerId) || !validSelectionId(selection.modelId)
-    || selection.modelId.length > 0 && selection.providerId.length === 0) return;
-  const saved = { providerId: selection.providerId, modelId: selection.modelId };
-  try { localStorage.setItem(directApiSelectionKey, JSON.stringify(saved)); } catch { /* The current session still works. */ }
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:direct-api-selection-changed'));
-}
 
 export function readGenerationBackend(): GenerationBackend | null {
   try {
@@ -73,39 +10,22 @@ export function readGenerationBackend(): GenerationBackend | null {
     if (saved === 'codex' && !generationBackendWriteFailed) return 'codex';
     if (generationBackendWriteFailed) return sessionGenerationBackend;
     return null;
-  } catch { /* An unreadable saved selection must not silently choose another backend. */ }
-  return sessionGenerationBackend;
+  } catch {
+    // An unreadable saved selection must not silently choose another backend.
+    return sessionGenerationBackend;
+  }
 }
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
-  // The current release persists only its connected Codex backend.
+  // The first release persists only the user's connected Codex account.
   if (backend !== 'codex') return;
   sessionGenerationBackend = 'codex';
   try {
     localStorage.setItem(key, 'codex');
     generationBackendWriteFailed = false;
-  } catch { generationBackendWriteFailed = true; /* The current session still works. */ }
+  } catch {
+    generationBackendWriteFailed = true;
+    // The current session still works.
+  }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
-}
-
-export function readHandoffAgent(): HandoffAgent {
-  try {
-    const saved = localStorage.getItem(handoffAgentKey);
-    return saved === 'claude-code' || saved === 'codex' || saved === 'antigravity' || saved === 'other'
-      ? saved : 'codex';
-  } catch { return 'codex'; }
-}
-
-export function rememberHandoffAgent(agent: HandoffAgent): void {
-  if (agent !== 'claude-code' && agent !== 'codex' && agent !== 'antigravity' && agent !== 'other') return;
-  try { localStorage.setItem(handoffAgentKey, agent); } catch { /* The current session still works. */ }
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:handoff-agent-changed'));
-}
-
-/** Repository plans can only use the connected coding agents. Never silently
- * turn a saved API or manual-handoff preference into a Codex request. */
-export function repositoryPlanningBackend(backend: GenerationBackend | RepositoryPlanningBackend | null | undefined): RepositoryPlanningBackend | null {
-  if (backend === 'codex') return 'codex';
-  if (backend === 'claude-setup' || backend === 'claude-agent') return 'claude-agent';
-  return null;
 }

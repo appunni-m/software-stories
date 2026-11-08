@@ -14,18 +14,12 @@ static PICKER: Mutex<()> = Mutex::new(());
 #[serde(rename_all = "camelCase")]
 pub(crate) enum AgentInstallationFile {
     CodexExecutable,
-    ClaudeExecutable,
-    NodeExecutable,
-    ClaudeSdkModule,
 }
 
 impl AgentInstallationFile {
     fn title(self) -> &'static str {
         match self {
             Self::CodexExecutable => "Choose your installed Codex executable",
-            Self::ClaudeExecutable => "Choose your installed Claude executable",
-            Self::NodeExecutable => "Choose your installed Node executable",
-            Self::ClaudeSdkModule => "Choose the installed Claude Agent SDK sdk.mjs file",
         }
     }
 }
@@ -61,11 +55,6 @@ pub(crate) async fn pick_agent_installation_file(
             .ok_or_else(|| "The selected path cannot be used. Choose another file.".to_owned())?;
         if !path.is_absolute() || !fs::metadata(&path).is_ok_and(|metadata| metadata.is_file()) {
             return Err("Choose an available local installation file, not a folder.".to_owned());
-        }
-        if matches!(kind, AgentInstallationFile::ClaudeSdkModule)
-            && path.file_name().is_none_or(|name| name != "sdk.mjs")
-        {
-            return Err("Choose the installed Claude Agent SDK file named sdk.mjs.".to_owned());
         }
         Ok(Some(text.to_owned()))
     })

@@ -157,7 +157,7 @@ describe('desktop shell acceptance contract', () => {
     const commands = await readFile(new URL('../src/lib/commands.ts', import.meta.url), 'utf8');
     assert.match(source, /listPendingGeneratedChapterPreviews/);
     assert.match(source, /label: preview\.unavailableReason \? 'Review recovery' : 'Open explanation'[\s\S]*?setRecoveredPreviewId\(preview.generationId\)/);
-    assert.match(source, /Closing keeps this preview in local recovery/);
+    assert.match(source, /This is saved local work/);
     assert.match(source, /Save unaccepted draft/);
     assert.match(source, /No provider request will be sent when you review or save it/);
     assert.match(commands, /loadPendingGeneratedChapterPreview[\s\S]*?load_pending_generated_chapter_preview/);
@@ -176,7 +176,12 @@ describe('desktop shell acceptance contract', () => {
     assert.match(source, /<ConnectionHeader onOpen=\{openProviderSettings\} \/>/);
     const narration = await readFile(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     assert.doesNotMatch(narration, /Gemini|Google AI Studio|apiKeyConfigured/);
-    assert.match(source.slice(source.indexOf('function ProviderDialog')), /provider-key-card/);
+    const providerStart = source.indexOf('function ProviderDialog');
+    const providerEnd = source.indexOf('function RecoveredGeneratedPreviewDialog', providerStart);
+    const providerDialog = source.slice(providerStart, providerEnd);
+    assert.match(providerDialog, /props\.mode\.kind === 'settings'/);
+    assert.match(providerDialog, /<ConnectionsDialog/);
+    assert.doesNotMatch(providerDialog, /<CodexChapterDialog/);
   });
 
   it('keeps App startup behind the shell bootstrap rather than invoking repo or provider commands directly', async () => {

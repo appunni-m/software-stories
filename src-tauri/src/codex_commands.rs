@@ -2,9 +2,8 @@
 //! local validators are shared with API workflows; authentication is separate.
 
 use super::{
-    PreviewPublication, ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
-    provider, publish_chapter_candidate, publish_pr_guide_candidate, recovery,
-    validate_chapter_draft_preview, validate_pr_guide_preview,
+    PreviewPublication, ProjectSessions, app_data_directory, chapters, codex_agent, provider,
+    publish_chapter_candidate, recovery, validate_chapter_draft_preview,
     validate_retrieved_codex_chapter_draft_preview,
 };
 use crate::generation_timing::{Preparation, PreparationKind, PreparationStage};
@@ -253,86 +252,6 @@ pub(crate) async fn build_codex_code_lens_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn build_codex_pr_guide_review(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    manager: State<'_, codex_agent::CodexAgentManager>,
-    reviews: State<'_, provider::PendingProviderReviews>,
-    input: provider::BuildCodexPrGuideInput,
-) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
-    build_git_review(
-        app,
-        &sessions,
-        &manager,
-        &reviews,
-        GitReviewInput::Guide(input),
-    )
-    .await
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn build_codex_pr_change_review(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    manager: State<'_, codex_agent::CodexAgentManager>,
-    reviews: State<'_, provider::PendingProviderReviews>,
-    input: provider::BuildCodexPrChangeInput,
-) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
-    build_git_review(
-        app,
-        &sessions,
-        &manager,
-        &reviews,
-        GitReviewInput::Change(input),
-    )
-    .await
-}
-
-enum GitReviewInput {
-    Guide(provider::BuildCodexPrGuideInput),
-    Change(provider::BuildCodexPrChangeInput),
-}
-
-async fn build_git_review(
-    app: AppHandle,
-    sessions: &ProjectSessions,
-    manager: &codex_agent::CodexAgentManager,
-    reviews: &provider::PendingProviderReviews,
-    input: GitReviewInput,
-) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
-    let project_id = match &input {
-        GitReviewInput::Guide(input) => &input.project_id,
-        GitReviewInput::Change(input) => &input.project_id,
-    };
-    let project = sessions.get(project_id)?;
-    let storage = app_data_directory(&app)?;
-    let runtime = manager.clone();
-    let pending = tauri::async_runtime::spawn_blocking(move || {
-        let identity = runtime.review_runtime(&storage).map_err(|message| {
-            command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
-        })?;
-        match input {
-            GitReviewInput::Guide(input) => provider::build_codex_pr_guide_review(
-                Path::new(&project.repository_root),
-                &input,
-                &identity,
-            ),
-            GitReviewInput::Change(input) => provider::build_codex_pr_change_review(
-                Path::new(&project.repository_root),
-                &input,
-                &identity,
-            ),
-        }
-    })
-    .await
-    .map_err(|_| "The Codex Git-change review could not be prepared.".to_owned())?;
-    Ok(match pending.and_then(|pending| reviews.insert(pending)) {
-        Ok(review) => provider::ProviderCommandResult::ok(review),
-        Err(error) => provider::ProviderCommandResult::failed(error),
-    })
-}
-
-#[tauri::command(rename_all = "camelCase")]
 pub(crate) fn cancel_codex_chapter_request(
     manager: State<'_, codex_agent::CodexAgentManager>,
     run_id: String,
@@ -559,121 +478,11 @@ pub(crate) async fn send_codex_repository_plan_request(
     })
 }
 
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn send_codex_pr_guide_request(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    manager: State<'_, codex_agent::CodexAgentManager>,
-    reviews: State<'_, provider::PendingProviderReviews>,
-    interruptions: State<'_, recovery::InterruptionJournal>,
-    review_id: String,
-    fingerprint: String,
-    consent: bool,
-) -> Result<provider::ProviderCommandResult<pr_guide::PrGuidePreview>, String> {
-    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
-    let completed = match execute_codex_operation(
-        app,
-        &sessions,
-        &manager,
-        &reviews,
-        &interruptions,
-        &review_id,
-        &fingerprint,
-        consent,
-        CodexOperation::PrGuide,
-        None,
-        |_, _, review, response, _, _| validate_pr_guide_preview(review, response),
-        |storage, candidate| {
-            publish_pr_guide_candidate(storage, candidate, PreviewPublication::AgentOwned)
-        },
-    )
-    .await
-    {
-        Ok(completed) => completed,
-        Err(error) => return Ok(Envelope::failed(error)),
-    };
-    // A guide remains in its separate unaccepted revision family.
-    let result = completed.result;
-    if completed.clear_interruption
-        && interruptions
-            .discard(&completed.storage, &review_id)
-            .is_err()
-    {
-        return Ok(Envelope::error(
-            Kind::LocalStorageUnavailable,
-            if result.is_ok() {
-                "The validated PR Guide draft is saved in PR Guide history, but its interruption notice could not be cleared. Open that draft before considering another generation."
-            } else {
-                "Codex stopped, but its interruption notice could not be cleared. Check recovery state and select the exact Git comparison before preparing another request."
-            },
-        ));
-    }
-    Ok(match result {
-        Ok(preview) => Envelope::ok(preview),
-        Err(error) => Envelope::failed(error),
-    })
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn send_codex_pr_change_request(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    manager: State<'_, codex_agent::CodexAgentManager>,
-    reviews: State<'_, provider::PendingProviderReviews>,
-    interruptions: State<'_, recovery::InterruptionJournal>,
-    review_id: String,
-    fingerprint: String,
-    consent: bool,
-) -> Result<provider::ProviderCommandResult<provider::PrChangeExplanationPreview>, String> {
-    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
-    let completed = match execute_codex_operation(
-        app,
-        &sessions,
-        &manager,
-        &reviews,
-        &interruptions,
-        &review_id,
-        &fingerprint,
-        consent,
-        CodexOperation::PrChange,
-        None,
-        |storage, repository, review, response, access, _| {
-            provider::canonicalize_codex_pr_change_explanation(
-                storage, repository, review, &response, access,
-            )
-        },
-        |_, preview| Ok(preview),
-    )
-    .await
-    {
-        Ok(completed) => completed,
-        Err(error) => return Ok(Envelope::failed(error)),
-    };
-    let result = completed.result;
-    if completed.clear_interruption
-        && interruptions
-            .discard(&completed.storage, &review_id)
-            .is_err()
-    {
-        return Ok(Envelope::error(
-            Kind::LocalStorageUnavailable,
-            "Codex stopped, but its interruption notice could not be cleared. Select the exact Git comparison and hunk before preparing another request.",
-        ));
-    }
-    // Hunk claims remain transient. No chapter or PR Guide draft is written.
-    Ok(match result {
-        Ok(preview) => Envelope::ok(preview),
-        Err(error) => Envelope::failed(error),
-    })
-}
-
 #[derive(Clone, Copy)]
 enum CodexOperation {
     Chapter,
     RepositoryPlan,
     CodeLens,
-    PrGuide,
-    PrChange,
 }
 impl CodexOperation {
     fn run_deadline(self) -> codex_agent::RunDeadline {
@@ -682,9 +491,7 @@ impl CodexOperation {
         match self {
             Self::Chapter
             | Self::RepositoryPlan
-            | Self::CodeLens
-            | Self::PrGuide
-            | Self::PrChange => codex_agent::RunDeadline::UserControlled,
+            | Self::CodeLens => codex_agent::RunDeadline::UserControlled,
         }
     }
 
@@ -704,22 +511,6 @@ impl CodexOperation {
                     && review.code_lens_context.is_some()
                     && review.section_update_context.is_none()
                     && no_git
-            }
-            Self::PrGuide => {
-                review.purpose == "prGuide"
-                    && review.pr_guide_context.is_some()
-                    && review.pr_change_context.is_none()
-                    && review.target_path.is_none()
-                    && review.code_lens_context.is_none()
-                    && review.section_update_context.is_none()
-            }
-            Self::PrChange => {
-                review.purpose == "prChangeExplanation"
-                    && review.pr_change_context.is_some()
-                    && review.pr_guide_context.is_none()
-                    && review.target_path.is_some()
-                    && review.code_lens_context.is_none()
-                    && review.section_update_context.is_none()
             }
         }
     }
@@ -823,7 +614,6 @@ async fn prepare_codex_operation(
     let runtime_for_context = manager.clone();
     let reviewed = pending.review.clone();
     let storage_for_review = storage.clone();
-    let repository_for_review = repository.clone();
     if let Err(error) = preparation
         .run_async_stage(PreparationKind::RuntimeReview, || async move {
             tauri::async_runtime::spawn_blocking(move || {
@@ -834,14 +624,6 @@ async fn prepare_codex_operation(
                     CodexOperation::RepositoryPlan => {
                         provider::rebuild_codex_repository_plan_review(
                             &storage_for_review,
-                            &reviewed,
-                            &identity,
-                        )
-                        .map(|_| ())
-                    }
-                    CodexOperation::PrGuide | CodexOperation::PrChange => {
-                        provider::revalidate_codex_git_review(
-                            &repository_for_review,
                             &reviewed,
                             &identity,
                         )
@@ -990,16 +772,8 @@ async fn prepare_codex_operation(
                 review
                     .selected_files
                     .iter()
-                    .enumerate()
-                    .map(|(index, file)| codex_agent::CodexSourceFile {
-                        path: if matches!(
-                            operation,
-                            CodexOperation::PrGuide | CodexOperation::PrChange
-                        ) {
-                            provider::agent_diff_source_name(index)
-                        } else {
-                            file.path.clone()
-                        },
+                    .map(|file| codex_agent::CodexSourceFile {
+                        path: file.path.clone(),
                         // Code Lens stages only the reviewed excerpt. Its integrity digest
                         // differs from the original file identity retained in the review.
                         sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
@@ -1187,8 +961,6 @@ mod tests {
             CodexOperation::Chapter,
             CodexOperation::RepositoryPlan,
             CodexOperation::CodeLens,
-            CodexOperation::PrGuide,
-            CodexOperation::PrChange,
         ] {
             assert_eq!(operation.run_deadline(), RunDeadline::UserControlled);
         }

@@ -15,7 +15,6 @@ import { FileFlow } from '../FileFlow';
 import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { AnswerVisualPreview } from './AnswerVisualPreview';
-import { OfflineExport } from '../OfflineExport';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { bindSelectionToDisplayedSource } from '../lib/codeSelection';
 import { capturedSourceLineIndex } from '../lib/codeLens';
@@ -420,14 +419,8 @@ export function DeveloperWorkspace(props:Props) {
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const requireCodexConnection=()=>{
     if(generationBackend!=='codex'){
-      const selected=generationBackend===null?'saved AI connection':generationBackend==='api'?'Direct API':generationBackend==='handoff'?'manual agent handoff':'Claude Agent';
-      setConnectionNotice(generationBackend===null
-        ? `The ${selected} could not be read. Choose a connection in Connections to continue. Your question stays here.`
-        : `Workspace answers currently use Codex. Your ${selected} connection is saved; switch once in Connections to continue. Your question stays here.`);
-      // A configured non-Codex backend is a deliberate choice. Keep the
-      // question in place and offer the existing inline Connections action
-      // instead of reopening setup on every Explain/Explore attempt.
-      if(generationBackend===null)onSettings();
+      setConnectionNotice('Connect Codex in Connections to continue. Your question stays here.');
+      onSettings();
       return false;
     }
     if(connection.checking){
@@ -1285,7 +1278,6 @@ export function DeveloperWorkspace(props:Props) {
                   {!historySearchTerm&&!path.some((exploration)=>exploration.turns.length>0)&&chapters.length===0&&<p>Your questions and explanations will appear here.</p>}
                   {!historySearchTerm&&chapters.length>0&&<details className="dw-library"><summary>Saved explanations <span>{chapters.length}</span></summary>{chapters.slice().sort((a,b)=>b.createdAtUnixMs-a.createdAtUnixMs).map((revision)=><AppButton intent="custom" key={revision.revisionId} onClick={()=>{update((s)=>openWorkspaceRevision(s,revision.revisionId,revision.title,chapters));setNarrowPane('explanation');onWorkspace('guide-plan');}}><BookOpen size={13}/><span><InlineCodeText text={revision.title}/></span><small>{revision.lifecycle}</small></AppButton>)}</details>}
                 </div>
-                {chapters.some((revision)=>revision.lifecycle==='accepted'&&revision.sections.length>0)&&<div className="dw-history-export"><OfflineExport projectId={projectId} revisions={chapters}/></div>}
               </Tabs.Content>
             </div>
           </Tabs.Root></Panel>
