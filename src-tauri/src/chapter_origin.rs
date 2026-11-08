@@ -12,16 +12,9 @@ use std::collections::BTreeSet;
 use uuid::Uuid;
 
 pub(crate) const CHAPTER_ORIGIN_SCHEMA_VERSION: u32 = 8;
-const PRE_SEARCH_SCOPE_SCHEMA_VERSION: u32 = 6;
-const PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION: u32 = 7;
 
 pub(crate) fn supports_schema_version(version: u32) -> bool {
-    matches!(
-        version,
-        PRE_SEARCH_SCOPE_SCHEMA_VERSION
-            | PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION
-            | CHAPTER_ORIGIN_SCHEMA_VERSION
-    )
+    version == CHAPTER_ORIGIN_SCHEMA_VERSION
 }
 
 /// Current lineage records serialize nullable values explicitly as null.
@@ -624,17 +617,6 @@ impl ChapterGenerationOrigin {
                     RecordedIndexIdentity::Available { .. } | RecordedIndexIdentity::Unavailable
                 );
             let search_scope_valid = match (self.schema_version, &retrieval.searches) {
-                (PRE_SEARCH_SCOPE_SCHEMA_VERSION, None) => true,
-                (PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION, Some(searches)) => {
-                    searches.len() <= crate::evidence_ledger::MAX_CALLS
-                        && searches.iter().all(RecordedSearchScope::valid)
-                        && searches.iter().all(|search| search.query.is_none())
-                        && searches
-                            .iter()
-                            .map(|search| search.candidates.len())
-                            .sum::<usize>()
-                            <= crate::evidence_ledger::MAX_RECORDED_SEARCH_CANDIDATES
-                }
                 (CHAPTER_ORIGIN_SCHEMA_VERSION, Some(searches)) => {
                     searches.len() <= crate::evidence_ledger::MAX_CALLS
                         && searches.iter().all(RecordedSearchScope::valid)
@@ -648,21 +630,13 @@ impl ChapterGenerationOrigin {
                 _ => false,
             };
             let fingerprint_bytes = match self.schema_version {
-                PRE_SEARCH_SCOPE_SCHEMA_VERSION => Some(serde_json::to_vec(&(
+                CHAPTER_ORIGIN_SCHEMA_VERSION => Some(serde_json::to_vec(&(
                     &self.request_body_sha256,
                     &retrieval.ledger_sha256,
                     &retrieval.index_identity,
+                    &retrieval.searches,
                     &self.settings,
                 ))),
-                PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION | CHAPTER_ORIGIN_SCHEMA_VERSION => {
-                    Some(serde_json::to_vec(&(
-                        &self.request_body_sha256,
-                        &retrieval.ledger_sha256,
-                        &retrieval.index_identity,
-                        &retrieval.searches,
-                        &self.settings,
-                    )))
-                }
                 _ => None,
             };
             let fingerprint_valid = current_retrieval
@@ -1131,7 +1105,7 @@ mod tests {
         });
         incomplete_claude.as_object_mut().unwrap().remove("effort");
         assert!(serde_json::from_value::<RecordedAgentSettings>(incomplete_claude).is_err());
-        for version in [0, 1, 2, 3, 4, 5] {
+        for version in [0, 1, 2, 3, 4, 5, 6, 7, 9] {
             let mut unsupported = origin.clone();
             unsupported.schema_version = version;
             assert!(unsupported.validate(&revision).is_err());
@@ -1230,69 +1204,6 @@ mod tests {
     }
 
     #[test]
-    fn schema_seven_search_scopes_remain_readable_without_replay_queries() {
-        let f = Fixture::new();
-        let mut revision = chapter(&f);
-        revision.chapter_id = "chapter:overview".into();
-        revision.target.target_id = "target:overview".into();
-        revision.target.scope = ChapterTargetScope::Overview;
-        revision.sections.truncate(1);
-        let sources = f.sources(&[SIMPLE_PATH]);
-        let range =
-            crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
-                .unwrap()
-                .range;
-        let mut origin = ChapterGenerationOrigin::from_answer_checkpoint(
-            &Uuid::new_v4().to_string(),
-            &"a".repeat(64),
-            &"b".repeat(64),
-            "gpt-6-luna",
-            "max",
-            vec![range],
-            vec![RecordedSearchScope {
-                query_sha256: "c".repeat(64),
-                query: Some("entry behavior".into()),
-                scope: None,
-                result_kind: "files".into(),
-                limit: 8,
-                offset: 0,
-                candidates: vec![RecordedSearchCandidate {
-                    path: SIMPLE_PATH.into(),
-                    source_sha256: sources[0].sha256.clone(),
-                }],
-                candidates_complete: true,
-                limited: false,
-                next_offset: None,
-            }],
-            None,
-            &sources,
-            &revision,
-        )
-        .unwrap();
-        origin.schema_version = PRE_REPLAYABLE_SEARCH_SCHEMA_VERSION;
-        origin
-            .retrieval
-            .as_mut()
-            .unwrap()
-            .searches
-            .as_mut()
-            .unwrap()[0]
-            .query = None;
-        origin.request_fingerprint = crate::repository_context::digest(
-            &serde_json::to_vec(&(
-                &origin.request_body_sha256,
-                &origin.retrieval.as_ref().unwrap().ledger_sha256,
-                &origin.retrieval.as_ref().unwrap().index_identity,
-                &origin.retrieval.as_ref().unwrap().searches,
-                &origin.settings,
-            ))
-            .unwrap(),
-        );
-
-        assert!(origin.validate(&revision).is_ok());
-    }
-
-    #[test]
     fn search_scope_is_incomplete_when_the_index_omitted_source_files() {
         let result = crate::repository_context::SearchResult {
             matches: Vec::new(),
@@ -1322,55 +1233,5 @@ mod tests {
 
         assert!(!scope.candidates_complete);
         assert!(scope.valid());
-    }
-
-    #[test]
-    fn schema_six_repository_origin_remains_readable_without_search_scope() {
-        let f = Fixture::new();
-        let mut revision = chapter(&f);
-        revision.chapter_id = "chapter:overview".into();
-        revision.target.target_id = "target:overview".into();
-        revision.target.scope = ChapterTargetScope::Overview;
-        revision.sections.truncate(1);
-        let sources = f.sources(&[SIMPLE_PATH]);
-        let range =
-            crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
-                .unwrap()
-                .range;
-        let mut origin = ChapterGenerationOrigin::from_answer_checkpoint(
-            &Uuid::new_v4().to_string(),
-            &"a".repeat(64),
-            &"b".repeat(64),
-            "gpt-6-luna",
-            "max",
-            vec![range],
-            vec![],
-            None,
-            &sources,
-            &revision,
-        )
-        .unwrap();
-        origin.schema_version = PRE_SEARCH_SCOPE_SCHEMA_VERSION;
-        origin.retrieval.as_mut().unwrap().searches = None;
-        origin.request_fingerprint = crate::repository_context::digest(
-            &serde_json::to_vec(&(
-                &origin.request_body_sha256,
-                &origin.retrieval.as_ref().unwrap().ledger_sha256,
-                &origin.retrieval.as_ref().unwrap().index_identity,
-                &origin.settings,
-            ))
-            .unwrap(),
-        );
-        assert!(origin.validate(&revision).is_ok());
-
-        let mut old_wire = serde_json::to_value(&origin).unwrap();
-        old_wire["retrieval"]
-            .as_object_mut()
-            .unwrap()
-            .remove("indexIdentity");
-        assert!(
-            serde_json::from_value::<ChapterGenerationOrigin>(old_wire).is_err(),
-            "a missing index identity is not treated as an implicit supported value"
-        );
     }
 }
