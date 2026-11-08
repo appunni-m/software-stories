@@ -8,13 +8,16 @@ pub(crate) fn section(reference: &str) -> Value {
         "scene":{"title":"From name to message","narration":"Start with a person's name. The function places it inside a greeting, so that name appears in the returned message.",
         "mode":"composition","nodes":[
             {"key":"input","label":"Name","detail":"","references":[reference],"source":null},
+            {"key":"operation","label":"Greeting template","detail":"","references":[reference],"source":null},
             {"key":"result","label":"Message","detail":"","references":[reference],"source":null}],
-        "edges":[{"fromKey":"input","toKey":"result","label":"format","references":[reference]}],
+        "edges":[
+            {"fromKey":"input","toKey":"operation","label":"used in","references":[reference]},
+            {"fromKey":"operation","toKey":"result","label":"produces","references":[reference]}],
         "elements":[
-            {"key":"layout","kind":"row","parentKey":null,"nodeKey":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"key":"layout","kind":"transform","parentKey":null,"nodeKey":null,"tone":"neutral","value":"","valueOrigin":"none"},
             {"key":"name","kind":"code","parentKey":"layout","nodeKey":"input","tone":"accent","value":"name","valueOrigin":"source"},
-            {"key":"direction","kind":"arrow","parentKey":"layout","nodeKey":null,"tone":"muted","value":"","valueOrigin":"none"},
-            {"key":"message","kind":"token","parentKey":"layout","nodeKey":"result","tone":"positive","value":"","valueOrigin":"none"}]}
+            {"key":"template","kind":"text","parentKey":"layout","nodeKey":"operation","tone":"neutral","value":"Place inside greeting template","valueOrigin":"explanation"},
+            {"key":"message","kind":"token","parentKey":"layout","nodeKey":"result","tone":"positive","value":"Hello, Mira","valueOrigin":"illustration"}]}
     }],"visual":{"kind":"dataFlow","title":"Format the greeting","direction":"leftToRight"}})
 }
 
@@ -91,7 +94,7 @@ fn local_keys_compile_to_exact_canonical_references_without_rewriting_content() 
     assert_eq!(scene["narration"], raw["claims"][0]["scene"]["narration"]);
     assert_eq!(scene["elements"][1]["parentIndex"], 0);
     assert_eq!(scene["elements"][1]["nodeIndex"], 0);
-    assert_eq!(scene["elements"][3]["nodeIndex"], 1);
+    assert_eq!(scene["elements"][3]["nodeIndex"], 2);
     assert_eq!(scene["elements"][1]["value"], "name");
 }
 
@@ -149,7 +152,9 @@ fn identical_keys_in_different_scenes_cannot_cross_claim_or_element_scope() {
     for node in second["scene"]["nodes"].as_array_mut().unwrap() {
         node["references"] = json!(["code:2"]);
     }
-    second["scene"]["edges"][0]["references"] = json!(["code:2"]);
+    for edge in second["scene"]["edges"].as_array_mut().unwrap() {
+        edge["references"] = json!(["code:2"]);
+    }
     raw["claims"].as_array_mut().unwrap().push(second);
     let compiled = compile(&raw).unwrap_or_else(|f| panic!("{f:?}"));
     assert_eq!(
@@ -157,15 +162,15 @@ fn identical_keys_in_different_scenes_cannot_cross_claim_or_element_scope() {
             .as_array()
             .unwrap()
             .len(),
-        4
+        6
     );
     assert_eq!(
-        compiled.section["visual"]["nodes"][2]["evidence"],
+        compiled.section["visual"]["nodes"][3]["evidence"],
         json!([{"claimIndex":1,"evidenceIndex":0}])
     );
     assert_eq!(
         compiled.section["visual"]["presentation"]["scenes"][1]["elements"][3]["nodeIndex"],
-        3
+        5
     );
     assert_eq!(
         compiled.section["visual"]["presentation"]["scenes"][1]["elements"][3]["parentIndex"],

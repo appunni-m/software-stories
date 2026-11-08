@@ -105,13 +105,10 @@ pub(super) fn request_for(
             guide_intent::OPENING_CONTINUATION_INSTRUCTIONS
         ));
     }
-    if guide_intent.is_some_and(|intent| {
-        intent.unit_key == "opening" || intent.opening_continuation.is_some()
-    }) {
-        instructions.push_str(&format!(
-            "\n\n{}",
-            guide_intent::OPENING_SCOPE_INSTRUCTIONS
-        ));
+    if guide_intent
+        .is_some_and(|intent| intent.unit_key == "opening" || intent.opening_continuation.is_some())
+    {
+        instructions.push_str(&format!("\n\n{}", guide_intent::OPENING_SCOPE_INSTRUCTIONS));
     }
     let mut contract = generation_contract_for(input, &prompt, &schema, repository_guide_slide)?;
     contract["systemInstructions"] = json!(instructions);
@@ -204,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn first_opening_slide_binds_the_single_entry_transition_scope() {
+    fn first_opening_slide_answers_the_opening_question_before_deeper_topics() {
         let f = Fixture::new();
         let (input, _) = prepared(&f);
         let mut intent = guide_intent();
@@ -216,6 +213,12 @@ mod tests {
 
         assert!(instructions.contains(guide_intent::OPENING_INSTRUCTIONS));
         assert!(instructions.contains(guide_intent::OPENING_SCOPE_INSTRUCTIONS));
+        assert!(instructions.contains(
+            "Answer the exact opening question supplied by the app in the first narration sentence"
+        ));
+        assert!(instructions.contains(
+            "Do not detour through a generic repository entry point unless the question asks where input enters"
+        ));
     }
 
     #[test]

@@ -17,7 +17,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         snapshot_id: f.manifest.summary.snapshot_id.clone(),
         manifest_sha256: context::digest(&serde_json::to_vec(&f.manifest).unwrap()),
         grant_id: Uuid::new_v4().to_string(),
-        question: "How does this project work?".into(),
+        question: "How does the greeting function format a name?".into(),
         model_id: DEFAULT_MODEL_ID.into(),
         reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
         planning_run_id: Uuid::new_v4().to_string(),
@@ -61,16 +61,17 @@ pub(super) fn record(f: &Fixture) -> Record {
         status: Status::Building,
         active_run_id: None,
     };
+    let opening_question = result.question.clone();
     result.opening = Some(Attempt {
         run_id: result.planning_run_id.clone(),
-        question: opening::LEARNING_QUESTION.into(),
+        question: opening_question.clone(),
         automatic_retry: false,
         prerequisite_fingerprints: None,
         summary: Some(Summary {
             run_id: result.planning_run_id.clone(),
             project_id: result.project_id.clone(),
             snapshot_id: result.snapshot_id.clone(),
-            question: opening::LEARNING_QUESTION.into(),
+            question: opening_question,
             outcome: Outcome::Interrupted,
             failure_code: None,
             sections: vec![],
@@ -324,11 +325,11 @@ fn five_slide_buffer_counts_opening_and_follow_on_sections_by_revision() {
     let mut record = record(&f);
 
     let mut opening = attempt(&record, Outcome::Complete);
-    opening.question = opening::LEARNING_QUESTION.to_owned();
+    opening.question = opening::question(&record).unwrap().to_owned();
     let opening_run_id = opening.run_id.clone();
     let opening_summary = opening.summary.as_mut().unwrap();
     opening_summary.run_id = opening_run_id.clone();
-    opening_summary.question = opening::LEARNING_QUESTION.to_owned();
+    opening_summary.question = opening.question.clone();
     opening_summary.sections[0].run_id = opening_run_id;
     opening_summary.sections[0].key = "opening".into();
     let opening_revision = opening_summary.sections[0].revision_id.clone();
@@ -543,7 +544,7 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
     let f = Fixture::new();
     let mut record = fresh_record(&f);
     let opening_run_id = record.opening.as_ref().unwrap().run_id.clone();
-    let opening_question = opening::LEARNING_QUESTION.to_owned();
+    let opening_question = opening::question(&record).unwrap().to_owned();
     let mut opening = attempt(&record, Outcome::Complete);
     let opening_owner = opening_run_id.clone();
     opening.run_id = opening_run_id.clone();

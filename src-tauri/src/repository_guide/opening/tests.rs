@@ -85,18 +85,46 @@ fn opening_has_a_durable_owner_before_any_outline_or_sections_exist() {
 }
 
 #[test]
-fn fresh_opening_owns_a_separate_learning_question_without_losing_the_guide_question() {
+fn fresh_opening_starts_with_the_users_question() {
     let f = Fixture::new();
     let r = pending(&f);
     let opening = r.opening.as_ref().unwrap();
-    assert_ne!(
-        opening.question, r.question,
-        "the first transition and the entire guide must not share one answer scope"
-    );
+    assert_eq!(opening.question, r.question);
+    assert_eq!(question(&r).unwrap(), r.question);
     store::create(&f.storage, &r).unwrap();
     let reopened = store::read(&f.storage, &r.id).unwrap();
     assert_eq!(reopened.question, r.question);
     assert_eq!(reopened.opening.unwrap().question, opening.question);
+}
+
+#[test]
+fn legacy_opening_question_keeps_its_v3_context_binding() {
+    let f = Fixture::new();
+    let mut r = pending(&f);
+    let opening = r.opening.as_mut().unwrap();
+    opening.question = LEGACY_LEARNING_QUESTION.into();
+
+    let old_binding = context::digest(
+        &serde_json::to_vec(&serde_json::json!({
+            "policy":"first-transition-with-separate-learning-intent-v3",
+            "guideId":r.id,
+            "runId":opening.run_id,
+            "projectId":r.project_id,
+            "snapshotId":r.snapshot_id,
+            "guideQuestion":r.question,
+            "openingQuestion":LEGACY_LEARNING_QUESTION,
+            "model":r.model_id,
+            "effort":r.reasoning_effort,
+        }))
+        .unwrap(),
+    );
+    assert_eq!(context_sha256(&r).unwrap(), old_binding);
+    r.opening_context_sha256 = Some(old_binding);
+    assert_eq!(question(&r).unwrap(), LEGACY_LEARNING_QUESTION);
+
+    store::create(&f.storage, &r).unwrap();
+    let reopened = store::read(&f.storage, &r.id).unwrap();
+    assert_eq!(question(&reopened).unwrap(), LEGACY_LEARNING_QUESTION);
 }
 
 #[test]
@@ -184,9 +212,7 @@ pub(in crate::repository_guide) fn publish_for_question(
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     };

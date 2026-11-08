@@ -6,12 +6,12 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
-const PLAN_OPERATION_VERSION: &str = "repository-guide-plan-initial-outline-v13";
+const PLAN_OPERATION_VERSION: &str = "repository-guide-plan-initial-outline-v14-question-first";
 
 const PLAN_INSTRUCTIONS: &str = r#"
-Create a compact, source-grounded initial outline before slide content is generated. Return the app-authored opening-range lead followed by two to five focused behavior questions for the highest-value path through the requested scope. This initial outline has a five-unit limit so the first useful slide is not blocked on deeply researching every route. For a repository-wide request, start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query. Identify the central input and operation path first, then identify materially different caller-controlled surfaces from captured source, examples and build manifests. Use focused follow-up searches only when a requested stage or caller still lacks a likely path; batch reads for starting evidence. Record every additional route that needs its own explanation as a concise, explicit pending omission; these are later slide topics, not covered explanations. Do not deeply investigate pending routes in this planning operation; each slide gets its own bounded research run. Do not discard a requested or source-observed route to make the initial outline shorter, and never imply that a pending topic is covered. The saved guide can hold up to twenty follow-on units; name any route that cannot fit as an uncovered omission. The reader shows the initial outline and pending topics, publishes validated slides independently, and keeps up to five ready slides buffered. The opening lead must use key `opening`, exactly match the app-provided `openingQuestion`, have no prerequisites, and contain one claim citing one to four delivered code references for the real outermost input boundary. The app authors this opening as a separate slide.
+Create a compact, source-grounded initial outline before slide content is generated. Return a question-first opening item followed by two to five focused behavior questions for the highest-value path through the requested scope. The opening item's key is `opening`, it has no prerequisites, and its single claim cites one to four delivered code references that directly support the opening answer. Its question must exactly match the app-provided opening question: use the top-level user question for a new guide, or `guideContext.openingQuestion` when resuming a legacy guide that already has that separate value. For a broad repository question, use the central supported path to give a concise answer before deeper slides; for a narrow question, start at the requested behavior instead of detouring through a generic repository entry point. The app fixes the opening's placement and question; the generated slide answers it. This initial outline has a five-unit limit so the first useful slide is not blocked on deeply researching every route. For a repository-wide request, start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query. Identify the central input and operation path first, then identify materially different caller-controlled surfaces from captured source, examples and build manifests. Use focused follow-up searches only when a requested stage or caller still lacks a likely path; batch reads for starting evidence. Record every additional route that needs its own explanation as a concise, explicit pending omission; these are later slide topics, not covered explanations. Do not deeply investigate pending routes in this planning operation; each slide gets its own bounded research run. Do not discard a requested or source-observed route to make the initial outline shorter, and never imply that a pending topic is covered. The saved guide can hold up to twenty follow-on units; name any route that cannot fit as an uncovered omission. The reader shows the initial outline and pending topics, publishes validated slides independently, and keeps up to five ready slides buffered.
 
-Scope the opening to one concrete caller-facing entry operation and its first transition. Every cited range must support that same input-to-result path. Do not combine construction, opening or parsing with a later operation on the created object, a different public entry route, or a downstream format/selector gate. Preserve those as separate follow-on units or explicit omissions; do not narrow requested coverage to simplify the opening.
+Scope the opening to a direct answer to the user's question. For a narrow question, keep its cited ranges on the named condition, branch, function, or file and the callers or callees needed to establish its result. For a broad question, give a concise, evidence-backed central behavior; leave adjacent operations and alternate routes to their own follow-on units or explicit omissions. Do not detour through a generic repository entry point unless the question asks where input enters, and do not narrow the requested coverage to simplify the opening.
 
 Implementation code is authoritative for behavior. Documentation is only a discovery hint and may be outdated or deprecated; do not use it alone to establish current code behavior. Identify a document as stale only when a specific statement is contradicted by cited implementation; otherwise label its status unverified.
 
@@ -82,16 +82,30 @@ pub(super) fn schema() -> Value {
             "referenceId":{"type":"string","maxLength":8,"pattern":"^code:[1-9][0-9]{0,2}$"}}}});
     let claims = json!({"type":"array","minItems":1,"maxItems":1,"items":{
         "type":"object","additionalProperties":false,"required":["evidence"],"properties":{"evidence":evidence}}});
+    let follow_on_item = json!({
+        "type":"object","additionalProperties":false,
+        "required":["key","question","prerequisites","claims"],"properties":{
+            "key":{"type":"string","maxLength":80},
+            "question":{"type":"string","minLength":16,"maxLength":800},
+            "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
+            "claims":claims
+        }
+    });
+    let opening_item = json!({
+        "type":"object","additionalProperties":false,
+        "required":["key","question","prerequisites","claims"],"properties":{
+            "key":{"type":"string","maxLength":80},
+            "question":{"type":"string","minLength":1,"maxLength":12000},
+            "prerequisites":{"type":"array","maxItems":0},
+            "claims":claims
+        }
+    });
     json!({"type":"object","additionalProperties":false,
       "required":["citationVersion","planVersion","title","sections","omissions"],"properties":{
         "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
-      "sections":{"type":"array","minItems":3,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Item zero is the app-authored opening range lead; the remaining two to five items are the initial detailed slide outline. Additional discovered routes are explicit pending topics and are appended as later slide units up to the twenty-unit guide capacity.","items":{
-          "type":"object","additionalProperties":false,"required":["key","question","prerequisites","claims"],"properties":{
-            "key":{"type":"string","maxLength":80},"question":{"type":"string","minLength":16,"maxLength":800},
-            "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
-            "claims":claims}}},
+      "sections":{"type":"array","minItems":3,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Item zero is the question-first opening answer; the remaining two to five items are the initial detailed slide outline. Additional discovered routes are explicit pending topics and are appended as later slide units up to the twenty-unit guide capacity.","prefixItems":[opening_item],"items":follow_on_item},
         "omissions":{"type":"array","maxItems":MAX_OMISSIONS,"items":{"type":"string","maxLength":MAX_OMISSION_BYTES}}}})
 }
 
@@ -124,7 +138,10 @@ fn starting_ranges(
     Ok(ranges)
 }
 
-fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
+fn canonicalize(
+    resolved: &native_citations::Resolved,
+    expected_opening_question: &str,
+) -> Result<Plan, String> {
     let proposal: Proposal = serde_json::from_str(resolved.text())
         .map_err(|_| "The guide outline has an invalid structure.")?;
     if proposal.plan_version != "repositoryGuidePlanV1"
@@ -140,7 +157,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
         .next()
         .ok_or("The guide outline has no opening range lead.")?;
     if opening.key != "opening"
-        || opening.question != opening::LEARNING_QUESTION
+        || opening.question != expected_opening_question
         || !opening.prerequisites.is_empty()
         || opening.claims.len() != 1
     {
@@ -221,10 +238,14 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
 }
 
 pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), String> {
-    opening::question(job)?;
+    let opening_question = opening::question(job)?;
+    let mut guide_context = json!({"guideId":job.id});
+    if opening_question != job.question {
+        guide_context["openingQuestion"] = json!(opening_question);
+    }
     let prompt = serde_json::to_string(&json!({"question":job.question,"snapshotId":job.snapshot_id,
         "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission",
-        "guideContext":{"guideId":job.id,"question":job.question,"openingQuestion":opening::LEARNING_QUESTION}}))
+        "guideContext":guide_context}))
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
     let instructions = format!(
@@ -389,7 +410,7 @@ pub(super) fn run(
                     );
                 }
             };
-            canonicalize(&resolved)
+            canonicalize(&resolved, opening::question(job)?)
         },
         |result| {
             session

@@ -1898,6 +1898,7 @@ fn bounded_renderer_queue_wait_ms(value: Option<u64>) -> Option<u64> {
 fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Record, String> {
     let planning_run_id = input.id.clone();
     let opening_run_id = Uuid::new_v4().to_string();
+    let opening_question = input.question.clone();
     let mut record = Record {
         revision: 0,
         schema_version: RECORD_SCHEMA_VERSION,
@@ -1913,7 +1914,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         reasoning_effort: input.reasoning_effort,
         opening: Some(Attempt {
             run_id: opening_run_id,
-            question: opening::LEARNING_QUESTION.into(),
+            question: opening_question,
             automatic_retry: false,
             prerequisite_fingerprints: None,
             summary: None,

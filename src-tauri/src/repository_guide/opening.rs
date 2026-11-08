@@ -3,18 +3,24 @@
 use super::*;
 use serde_json::json;
 
-const SCOPED_POLICY: &str = "first-transition-with-separate-learning-intent-v3";
-pub(super) const LEARNING_QUESTION: &str = "How does the repository's real entry point accept its input, make the first consequential decision, and return or propagate that transition's result?";
+const QUESTION_FIRST_POLICY: &str = "question-first-opening-v4";
+const LEGACY_SCOPED_POLICY: &str = "first-transition-with-separate-learning-intent-v3";
+pub(super) const LEGACY_LEARNING_QUESTION: &str = "How does the repository's real entry point accept its input, make the first consequential decision, and return or propagate that transition's result?";
 
 pub(super) fn context_sha256(job: &Record) -> Result<String, String> {
     let opening = job
         .opening
         .as_ref()
         .ok_or("The guide has no opening owner.")?;
+    let policy = if opening.question == LEGACY_LEARNING_QUESTION {
+        LEGACY_SCOPED_POLICY
+    } else {
+        QUESTION_FIRST_POLICY
+    };
     let bytes = serde_json::to_vec(&json!({
-        "policy":SCOPED_POLICY,"guideId":job.id,"runId":opening.run_id,
+        "policy":policy,"guideId":job.id,"runId":opening.run_id,
         "projectId":job.project_id,"snapshotId":job.snapshot_id,
-        "guideQuestion":job.question,"openingQuestion":LEARNING_QUESTION,
+        "guideQuestion":job.question,"openingQuestion":opening.question,
         "model":job.model_id,"effort":job.reasoning_effort,
     }))
     .map_err(|_| "The opening learning intent could not be encoded.")?;
@@ -26,7 +32,7 @@ pub(super) fn question(job: &Record) -> Result<&str, String> {
         .opening
         .as_ref()
         .ok_or("The guide has no opening owner.")?;
-    if opening.question != LEARNING_QUESTION
+    if (opening.question != job.question && opening.question != LEGACY_LEARNING_QUESTION)
         || job.opening_context_sha256.as_deref() != Some(context_sha256(job)?.as_str())
     {
         return Err("The guide opening changed its owner or learning intent.".into());

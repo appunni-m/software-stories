@@ -85,9 +85,11 @@ fn schema_nine_guide_without_prerequisite_receipts_remains_readable() {
     save(&f.storage, &guide, true).unwrap();
 
     let reopened = read(&f.storage, &guide.id).unwrap();
-    assert!(reopened.units[1].attempts[0]
-        .prerequisite_fingerprints
-        .is_none());
+    assert!(
+        reopened.units[1].attempts[0]
+            .prerequisite_fingerprints
+            .is_none()
+    );
 }
 
 #[test]
@@ -366,7 +368,14 @@ fn opening_binding_rejects_changed_context() {
             "digest" => invalid.opening_context_sha256 = Some("a".repeat(64)),
             "guideQuestion" => invalid.question.push_str(" Changed intent."),
             "openingQuestion" => {
-                invalid.opening.as_mut().unwrap().question = invalid.question.clone()
+                invalid
+                    .opening
+                    .as_mut()
+                    .unwrap()
+                    .question
+                    .push_str(" Changed intent.");
+                invalid.opening_context_sha256 =
+                    Some(crate::repository_guide::opening::context_sha256(&invalid).unwrap());
             }
             "project" => invalid.project_id.push_str("-other"),
             "snapshot" => invalid.snapshot_id.push_str("-other"),

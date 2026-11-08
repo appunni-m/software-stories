@@ -1,6 +1,8 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
+const GUIDE_QUESTION: &str = "How does a greeting turn an incoming name into output?";
+
 fn proposal() -> Value {
     let mut proposal = json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1","title":"Follow the greeting journey",
     "sections":[
@@ -8,9 +10,14 @@ fn proposal() -> Value {
         {"key":"input","question":"How does the incoming name enter the greeting?","prerequisites":[],"claims":[{"evidence":[{"referenceId":"code:2"}]}]},
         {"key":"output","question":"How does the greeting turn into the returned output?","prerequisites":["input"],"claims":[{"evidence":[{"referenceId":"code:3"}]}]}
     ],"omissions":["Runtime execution was not observed."]});
-    proposal["sections"][0]["question"] = json!(opening::LEARNING_QUESTION);
+    proposal["sections"][0]["question"] = json!(GUIDE_QUESTION);
     proposal
 }
+
+fn canonicalize_proposal(value: Value) -> Result<Plan, String> {
+    canonicalize(&resolve(value), GUIDE_QUESTION)
+}
+
 fn resolve(value: Value) -> native_citations::Resolved {
     let f = Fixture::new();
     let source = context::source(&f.storage, &f.manifest, SIMPLE_PATH).unwrap();
@@ -45,7 +52,7 @@ fn resolve(value: Value) -> native_citations::Resolved {
 }
 #[test]
 fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanations() {
-    let result = canonicalize(&resolve(proposal())).unwrap();
+    let result = canonicalize_proposal(proposal()).unwrap();
     assert_eq!(result.units.len(), 2);
     assert_eq!(result.opening_ranges[0].start_line, 1);
     assert_eq!(result.units[0].starting_ranges[0].path, SIMPLE_PATH);
@@ -61,13 +68,39 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
         MAX_INITIAL_UNITS + 1
     );
     assert_eq!(schema["properties"]["sections"]["minItems"], 3);
+    assert_eq!(
+        schema["properties"]["sections"]["prefixItems"][0]["properties"]["question"]["minLength"],
+        1
+    );
+    assert_eq!(
+        schema["properties"]["sections"]["prefixItems"][0]["properties"]["question"]["maxLength"],
+        12000
+    );
+    assert_eq!(
+        schema["properties"]["sections"]["items"]["properties"]["question"]["minLength"],
+        16
+    );
+    assert_eq!(
+        schema["properties"]["sections"]["items"]["properties"]["question"]["maxLength"],
+        800
+    );
     assert!(
         schema["properties"]["sections"]["description"]
             .as_str()
             .unwrap()
-            .contains("Item zero is the app-authored opening range lead")
+            .contains("Item zero is the question-first opening answer")
     );
-    assert!(opening::LEARNING_QUESTION.contains("entry point"));
+}
+
+#[test]
+fn opening_question_can_match_short_or_maximum_length_user_input() {
+    let validator = jsonschema::validator_for(&schema()).unwrap();
+    for opening_question in ["What is X?".to_owned(), "x".repeat(12000)] {
+        let mut candidate = proposal();
+        candidate["sections"][0]["question"] = json!(opening_question.clone());
+        assert!(validator.is_valid(&candidate));
+        assert!(canonicalize(&resolve(candidate), &opening_question).is_ok());
+    }
 }
 
 #[test]
@@ -86,7 +119,7 @@ fn initial_outline_accepts_five_detailed_units_and_rejects_overflow() {
         MAX_INITIAL_UNITS + 1
     );
     assert_eq!(
-        canonicalize(&resolve(full.clone())).unwrap().units.len(),
+        canonicalize_proposal(full.clone()).unwrap().units.len(),
         MAX_INITIAL_UNITS
     );
 
@@ -96,12 +129,12 @@ fn initial_outline_accepts_five_detailed_units_and_rejects_overflow() {
         "prerequisites": [],
         "claims": [{"evidence":[{"referenceId":"code:2"}]}]
     }));
-    assert!(canonicalize(&resolve(full)).is_err());
+    assert!(canonicalize_proposal(full).is_err());
 }
 
 #[test]
 fn saved_outlines_missing_required_opening_ranges_are_rejected() {
-    let plan = canonicalize(&resolve(proposal())).unwrap();
+    let plan = canonicalize_proposal(proposal()).unwrap();
     let mut stored = serde_json::to_value(plan).unwrap();
     stored.as_object_mut().unwrap().remove("openingRanges");
     assert!(serde_json::from_value::<Plan>(stored).is_err());
@@ -137,7 +170,7 @@ fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
             }
             _ => unreachable!(),
         }
-        assert!(canonicalize(&resolve(p)).is_err(), "{kind}");
+        assert!(canonicalize_proposal(p).is_err(), "{kind}");
     }
 }
 
@@ -152,7 +185,7 @@ fn opening_lead_must_match_app_intent_and_cannot_be_a_follow_on_dependency() {
     for mutate in mutations {
         let mut invalid = proposal();
         mutate(&mut invalid);
-        assert!(canonicalize(&resolve(invalid)).is_err());
+        assert!(canonicalize(&resolve(invalid), GUIDE_QUESTION).is_err());
     }
 }
 
@@ -198,7 +231,7 @@ fn outline_rejections_report_fixed_structural_findings() {
             "unknownPrerequisite" => p["sections"][2]["prerequisites"] = json!(["missing"]),
             _ => unreachable!(),
         }
-        assert_eq!(canonicalize(&resolve(p)).unwrap_err(), expected, "{kind}");
+        assert_eq!(canonicalize_proposal(p).unwrap_err(), expected, "{kind}");
     }
 
     let mut repeated_prerequisite = proposal();
@@ -209,7 +242,7 @@ fn outline_rejections_report_fixed_structural_findings() {
         .unwrap()
         .push(third);
     assert_eq!(
-        canonicalize(&resolve(repeated_prerequisite)).unwrap_err(),
+        canonicalize_proposal(repeated_prerequisite).unwrap_err(),
         "Guide section prerequisites must be unique."
     );
 }
@@ -228,24 +261,30 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     r.question =
         "How do café 🦀 bytes reach output, including every requested alternate and failure?"
             .into();
+    r.opening.as_mut().unwrap().question = r.question.clone();
     r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
     let (prompt, output, fingerprint, instructions) = request(&r).unwrap();
     let intent: Value = serde_json::from_str(&prompt).unwrap();
     assert_eq!(intent["question"], r.question);
-    assert_eq!(intent["guideContext"]["question"], r.question);
-    assert_eq!(
-        intent["guideContext"]["openingQuestion"],
-        opening::LEARNING_QUESTION
-    );
+    assert!(intent["guideContext"].get("question").is_none());
+    assert!(intent["guideContext"].get("openingQuestion").is_none());
     assert_eq!(intent["guideContext"]["guideId"], r.id);
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
     assert!(instructions.contains("Create a compact, source-grounded initial outline"));
     assert!(instructions.contains("Do not write explanations, narration, or slide content"));
-    assert!(instructions.contains("Return the app-authored opening-range lead followed"));
-    assert!(instructions.contains("The app authors this opening as a separate slide"));
+    assert!(instructions.contains("Return a question-first opening item"));
+    assert!(instructions.contains("The app fixes the opening's placement and question"));
     assert!(instructions.contains("do not call `propose_answer_section`"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+    let mut legacy = r.clone();
+    legacy.opening.as_mut().unwrap().question = opening::LEGACY_LEARNING_QUESTION.into();
+    legacy.opening_context_sha256 = Some(opening::context_sha256(&legacy).unwrap());
+    let (legacy_prompt, _, _, _) = request(&legacy).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&legacy_prompt).unwrap()["guideContext"]["openingQuestion"],
+        opening::LEGACY_LEARNING_QUESTION
+    );
     let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
     assert!(!contract.to_string().contains("propose_answer_section"));
     r.question.push_str(" Preserve downstream ownership.");
@@ -253,18 +292,25 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
         request(&r).is_err(),
         "an unchanged binding cannot admit a changed guide question"
     );
+    r.opening.as_mut().unwrap().question = r.question.clone();
     r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
     assert_ne!(request(&r).unwrap().2, fingerprint);
     let mut wrong_opening = r.clone();
-    wrong_opening.opening.as_mut().unwrap().question = wrong_opening.question.clone();
+    wrong_opening
+        .opening
+        .as_mut()
+        .unwrap()
+        .question
+        .push_str(" unrelated");
+    wrong_opening.opening_context_sha256 = Some(opening::context_sha256(&wrong_opening).unwrap());
     assert!(request(&wrong_opening).is_err());
     r.question = "\"".repeat(12000);
+    r.opening.as_mut().unwrap().question = r.question.clone();
     r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
     let (prompt, _, _, _) = request(&r).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Value>(&prompt).unwrap()["guideContext"]["question"],
-        r.question
-    );
+    let intent: Value = serde_json::from_str(&prompt).unwrap();
+    assert_eq!(intent["question"], r.question);
+    assert!(intent["guideContext"].get("openingQuestion").is_none());
     assert!(prompt.len() < 128 * 1024);
     assert_eq!(MAX_INITIAL_UNITS, 5);
     assert_eq!(MAX_TOTAL_UNITS, 20);
@@ -297,8 +343,10 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
         "Record every additional route that needs its own explanation as a concise, explicit pending omission"
     ));
     assert!(instructions.contains("the highest-value path through the requested scope"));
-    assert!(instructions.contains("Return the app-authored opening-range lead followed"));
-    assert!(instructions.contains("key `opening`"));
+    assert!(instructions.contains("Return a question-first opening item"));
+    assert!(instructions.contains("The opening item's key is `opening`"));
+    assert!(instructions.contains("Scope the opening to a direct answer to the user's question"));
+    assert!(instructions.contains("Do not detour through a generic repository entry point"));
     assert!(instructions.contains("internal helper that receives an already constructed object"));
     assert!(instructions.contains("unique lowercase key using only letters, digits, and hyphens"));
     assert!(instructions.contains("one distinct, trimmed question ending in `?`"));
@@ -427,7 +475,7 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     let binding = opening::context_sha256(&r).unwrap();
     let (prompt, schema, fingerprint, instructions) = request(&r).unwrap();
     assert_eq!(
-        serde_json::from_str::<Value>(&prompt).unwrap()["guideContext"]["question"],
+        serde_json::from_str::<Value>(&prompt).unwrap()["question"],
         r.question
     );
     assert_eq!(schema, super::schema());
@@ -451,9 +499,7 @@ fn production_plan_session_has_no_answer_receipt_or_publication_tool() {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     };

@@ -104,7 +104,7 @@ pub(crate) fn assess(
     let opening_question = if guide.opening.is_some() {
         super::opening::question(guide)?
     } else {
-        super::opening::LEARNING_QUESTION
+        guide.question.as_str()
     };
     let opening = assess_opening(
         storage,
@@ -590,10 +590,7 @@ mod tests {
         assert_eq!(report.from_snapshot_id, guide.snapshot_id);
         assert_eq!(report.to_snapshot_id, guide.snapshot_id);
         assert_eq!(report.opening.key, "opening");
-        assert_eq!(
-            report.opening.question,
-            super::super::opening::LEARNING_QUESTION
-        );
+        assert_eq!(report.opening.question, guide.question);
         assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
         assert_eq!(report.units.len(), guide.units.len());
         assert!(
@@ -616,6 +613,19 @@ mod tests {
         assert_eq!(report.opening.key, "opening");
         assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Incomplete);
         assert!(report.units.is_empty());
+    }
+
+    #[test]
+    fn opening_freshness_without_an_attempt_uses_the_guide_question() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let mut guide = crate::repository_guide::tests::fresh_record(&fixture);
+        guide.opening = None;
+        guide.opening_context_sha256 = None;
+
+        let report = assess(&fixture.storage, &guide, &guide.snapshot_id).unwrap();
+
+        assert_eq!(report.opening.question, guide.question);
+        assert_eq!(report.opening.status, GuideUnitFreshnessStatus::Pending);
     }
 
     #[test]
@@ -671,14 +681,17 @@ mod tests {
         let mut guide = crate::repository_guide::tests::fresh_record(&fixture);
         let mut partial =
             crate::repository_guide::tests::attempt(&guide, super::super::Outcome::Complete);
+        partial.question = super::super::opening::question(&guide).unwrap().to_owned();
+        partial.summary.as_mut().unwrap().question = partial.question.clone();
         partial.summary.as_mut().unwrap().outcome = super::super::Outcome::Partial;
+        let opening_question = partial.question.clone();
         guide.opening = Some(partial);
-        guide
-            .opening_continuations
-            .push(crate::repository_guide::tests::attempt(
-                &guide,
-                super::super::Outcome::Complete,
-            ));
+        guide.opening_context_sha256 = Some(super::super::opening::context_sha256(&guide).unwrap());
+        let mut continuation =
+            crate::repository_guide::tests::attempt(&guide, super::super::Outcome::Complete);
+        continuation.question = opening_question.clone();
+        continuation.summary.as_mut().unwrap().question = continuation.question.clone();
+        guide.opening_continuations.push(continuation);
 
         let report = assess_opening(
             &fixture.storage,
@@ -687,7 +700,7 @@ mod tests {
             &fixture.manifest,
             None,
             &guide,
-            super::super::opening::LEARNING_QUESTION,
+            &opening_question,
             &HashMap::new(),
             &HashMap::new(),
         );
