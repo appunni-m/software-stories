@@ -666,6 +666,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   }, [connectionVersion, disclosure, localNarration, pocketStatus, voiceConnectionIssue]);
 
   const stop = () => {
+    // Stop is an explicit position choice. It supersedes a saved position
+    // waiting for loadedmetadata, which would otherwise jump the player back.
+    restoreTimeRef.current = null;
     const player = audioRef.current;
     if (player) {
       player.pause();
@@ -677,6 +680,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
   const replay = async () => {
     if (voiceConnectionIssue) { setError(voiceConnectionIssue); return; }
+    // Replay always starts at zero, including while a restored position is
+    // still waiting for the audio metadata event.
+    restoreTimeRef.current = null;
     const player = audioRef.current;
     if (!track) {
       await playOrPause();
@@ -693,6 +699,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     const player = audioRef.current;
     if (!player || !Number.isFinite(value)) return;
     const next = Math.max(0, Math.min(value, Number.isFinite(player.duration) ? player.duration : value));
+    // A deliberate seek takes precedence over any not-yet-applied restore.
+    restoreTimeRef.current = null;
     player.currentTime = next;
     setCurrentTime(next);
     persistPlaybackPosition(next);

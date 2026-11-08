@@ -272,6 +272,15 @@ test('real reading components bind scoped progress without persisting an autopla
   assert.ok(sourceCleanup.indexOf('persistPlaybackPosition(position)')<sourceCleanup.indexOf("player.removeAttribute('src')"),
     'source changes cannot discard the final playback time');
   assert.doesNotMatch(sourceCleanup,/\.play\(/,'source cleanup never resumes narration');
+  const stop=narration.match(/const stop = \(\) => \{([\s\S]*?)\n  \};/u)?.[1]??'';
+  assert.match(stop,/restoreTimeRef\.current = null;[\s\S]*?player\.currentTime = 0;[\s\S]*?persistPlaybackPosition\(0\)/,
+    'Stop cancels a delayed restore before saving its explicit zero position');
+  const replay=narration.match(/const replay = async \(\) => \{([\s\S]*?)\n  \};/u)?.[1]??'';
+  assert.match(replay,/restoreTimeRef\.current = null;[\s\S]*?if \(!track\)/,
+    'Replay cancels a delayed restore even when it must load a clip first');
+  const seek=narration.match(/const seek = \(value: number\) => \{([\s\S]*?)\n  \};/u)?.[1]??'';
+  assert.match(seek,/if \(!player \|\| !Number\.isFinite\(value\)\) return;[\s\S]*?restoreTimeRef\.current = null;[\s\S]*?player\.currentTime = next/,
+    'a valid explicit seek supersedes the pending restore; invalid seeks leave it alone');
   assert.equal(playbackPositionToPersist({readyState:4,currentTime:18.25},false),18.25);
   assert.equal(playbackPositionToPersist({readyState:4,currentTime:0},false),0,'an explicit zero is a saved position');
   assert.equal(playbackPositionToPersist({readyState:0,currentTime:0},false),undefined,'an unloaded audio element cannot overwrite progress');
