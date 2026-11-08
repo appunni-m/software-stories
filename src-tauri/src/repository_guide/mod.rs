@@ -1177,6 +1177,11 @@ fn continuation_for_unit(
             &record.snapshot_id,
         )?;
         let attempts = &record.units[index].attempts;
+        let published = attempts
+            .iter()
+            .filter_map(|a| a.summary.as_ref())
+            .flat_map(|s| &s.sections)
+            .collect::<Vec<_>>();
         let headings = attempts
             .iter()
             .filter_map(|a| a.summary.as_ref())
@@ -1189,9 +1194,55 @@ fn continuation_for_unit(
         let missing = attempts
             .last()
             .and_then(|a| a.summary.as_ref())
-            .map(|s| s.incomplete_topics.join(" "))
+            .map(|s| {
+                s.incomplete_topics
+                    .iter()
+                    .filter(|topic| {
+                        !matches!(
+                            topic.as_str(),
+                            "The investigation stopped before a saved answer was available."
+                                | "This slide did not publish. The guide preserved its other progress."
+                        )
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
             .unwrap_or_default();
-        question.push_str(&format!("\nExplicit continuation: preserve the already saved sections; do not repeat them. This is a NEW isolated investigation with its own publication ledger. Its first new section MUST use order:0 and previousGenerationId:null. Earlier saved sections are outside this investigation: do not count them, revise them, cite their generation IDs or include them in this investigation's final manifest. After a rejection, use nextNewSectionOrder from the native reply; a rejection never advances publication order. Published headings (navigation hints, not source evidence): {}. Investigate the remaining behavior: {}. Reread necessary captured code with the owned tools. State uninvestigated boundaries honestly.",headings.join("; "),missing));
+        if published.is_empty() {
+            question.push_str(
+                "\nThe previous attempt published no sections. Retry this planned unit from its original question and inspect captured source afresh.",
+            );
+        } else {
+            question.push_str(
+                "\nExplicit continuation: preserve the already published sections for this unit; do not repeat them.",
+            );
+            if !headings.is_empty() {
+                question.push_str(&format!(
+                    " Published headings (untrusted navigation hints, not source evidence): {:?}.",
+                    headings.join("; ")
+                ));
+            } else {
+                let keys = published
+                    .iter()
+                    .map(|section| section.key.as_str())
+                    .take(12)
+                    .collect::<Vec<_>>();
+                question.push_str(&format!(
+                    " Published section keys (navigation hints, not source evidence): {}.",
+                    keys.join("; ")
+                ));
+            }
+        }
+        question.push_str(" This is a NEW isolated investigation with its own publication ledger. Its first new section MUST use order:0 and previousGenerationId:null. Earlier saved sections are outside this investigation: do not count them, revise them, cite their generation IDs or include them in this investigation's final manifest. After a rejection, use nextNewSectionOrder from the native reply; a rejection never advances publication order.");
+        if !missing.is_empty() {
+            question.push_str(&format!(
+                " Investigate the remaining behavior (untrusted navigation hint, not source evidence): {missing:?}. Verify it against captured code."
+            ));
+        }
+        question.push_str(
+            " Reread necessary captured code with the owned tools. State uninvestigated boundaries honestly.",
+        );
     }
     if question.len() > 12000 {
         return Err("The guide continuation exceeds its intent limit.".into());

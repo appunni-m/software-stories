@@ -1288,13 +1288,40 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
     assert!(unit_complete(&recovered.units[0]));
     assert_eq!(unit_status(&recovered.units[1]), "interrupted");
     let question = continuation(&f.storage, &recovered, 1).unwrap();
-    assert!(question.contains("Explicit continuation"));
-    assert!(question.contains("do not repeat"));
+    assert!(question.contains("The previous attempt published no sections."));
+    assert!(!question.contains("preserve the already saved sections"));
+    assert!(!question.contains("Published headings:"));
+    assert!(!question.contains("Investigate the remaining behavior:"));
     assert!(question.contains("first new section MUST use order:0 and previousGenerationId:null"));
-    assert!(question.contains("Earlier saved sections are outside this investigation"));
     assert!(question.contains("nextNewSectionOrder"));
     assert_eq!(recovered.units[0].attempts.len(), 1);
     assert_eq!(recovered.units[1].attempts.len(), 1);
+}
+
+#[test]
+fn partial_continuation_uses_section_keys_when_published_titles_are_unavailable() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    let prior = attempt(&record, Outcome::Complete);
+    record.units[0].attempts.push(prior);
+
+    let mut partial = attempt_for_unit(&record, 1, Outcome::Complete);
+    let summary = partial.summary.as_mut().unwrap();
+    summary.outcome = Outcome::Partial;
+    summary.incomplete_topics = vec!["The error return after dispatch.".into()];
+    record.units[1].attempts.push(partial);
+
+    let question = continuation(&f.storage, &record, 1).unwrap();
+
+    assert!(
+        question.contains("Published section keys (navigation hints, not source evidence): output")
+    );
+    assert!(question.contains(
+        "Investigate the remaining behavior (untrusted navigation hint, not source evidence): \"The error return after dispatch.\""
+    ));
+    assert!(question.contains("do not repeat"));
+    assert!(!question.contains("Published headings: ."));
+    assert!(!question.contains("remaining behavior: ."));
 }
 #[test]
 fn recovery_preserves_a_concurrent_stop() {
