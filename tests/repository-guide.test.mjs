@@ -103,6 +103,10 @@ test('explicit project-wide guide asks use the durable pipeline from every explo
     assert.equal(isRepositoryGuideIntent(question),true,question);
   for(const question of ['Explain what this project does','What does this repository do?','Tell me what the codebase provides'])
     assert.equal(isRepositoryGuideIntent(question),true,question);
+  for(const question of ['Create a reading plan for this repository','Make a learning route through this codebase','Plan how to understand this project'])
+    assert.equal(isRepositoryGuideIntent(question),true,question);
+  for(const question of ['Do not create a reading plan for this repository; explain one function instead.','Create a reading plan for one function in this repository.'])
+    assert.equal(isRepositoryGuideIntent(question),false,question);
   for(const question of [
     'Create exactly one new Guide section (one teaching scene, not a repository overview) about TableDirectory::find in src/tt/mod.rs.',
     'Explain only one function in this repository, not a full project guide.',

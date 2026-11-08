@@ -2139,12 +2139,6 @@ function App() {
                 endLine: range.endLine,
                 sourceSha256: range.sourceSha256,
               })}
-              onPlanRoute={(question,selectedPaths)=>{
-                if(!currentProject||!selectedSnapshot)return;
-                const projectId=currentProject.projectId;const snapshotId=selectedSnapshot.snapshotId;
-                setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId,snapshotId,focusTarget:'heading:guide-plan'}));
-                openPlanningDialog({projectId,snapshotId,question,selectedPaths});
-              }}
               onOpenPlanHistory={()=>{
                 if(!currentProject||!selectedSnapshot)return;
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId,focusTarget:'heading:guide-plan'}));

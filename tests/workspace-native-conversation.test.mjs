@@ -730,8 +730,9 @@ test('an unavailable conversation leaves the production source workspace readabl
   assert.match(workspace,/<BookOpen size=\{14\}\/>Guide me/);assert.doesNotMatch(workspace,/Build repository guide/);
   assert.match(workspace,/const action=contextualGuideAction\(query,attachments,!!current\.parentId\);/);
   assert.match(workspace,/isRepositoryPlanHistoryIntent\(action\.intent\)&&props\.onOpenPlanHistory/);
-  assert.match(workspace,/isRepositoryPlanIntent\(action\.intent\)&&props\.onPlanRoute/);
+  assert.doesNotMatch(workspace,/onPlanRoute|isRepositoryPlanIntent/);
   assert.match(workspace,/else if\(action\.kind==='repository-guide'\)startRepositoryGuide\(action\.intent\);else ask\(action\.intent,'guide'\)/);
+  assert.doesNotMatch(app,/onPlanRoute=/);
   assert.match(store,/if\(persistence!\.availability==='ready'\)persistence!\.enqueue\(next\)/);
   assert.match(store,/await prepareWorkspaceConversation\(project,snapshot\)/);
   for(const [start,end,command] of [['export async function runRepositoryGuide','export async function runQuestion',"'start_repository_guide'"],['export async function runQuestion',null,"'generate_progressive_workspace_answer'"]]){const code=store.slice(store.indexOf(start),end?store.indexOf(end):undefined);const save=code.indexOf('await flushWorkspaceConversation'),dispatch=code.indexOf(command);assert.ok(save>=0&&dispatch>save,'the question/run reference must be durable before dispatch');}

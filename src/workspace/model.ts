@@ -502,6 +502,10 @@ export function isRepositoryGuideIntent(question: string): boolean {
   const oneUnit = /\b(?:exactly\s+one|one|single|only|just)\s+(?:(?:new|fresh)\s+)?(?:guide\s+)?(?:section|slide|scene|file|function|method|branch|symbol)\b/i;
   const completeScope = /\b(?:whole|entire|full|all|every|each|complete|comprehensive|end[ -]to[ -]end)\b/i;
   if (oneUnit.test(query) && !completeScope.test(affirmativeQuery)) return false;
+  // A repository learning/reading route is the same user outcome as a Guide.
+  // Keep it in the progressive Guide flow instead of opening a separate
+  // planning wizard with its own source-selection and review steps.
+  if (isRepositoryPlanIntent(affirmativeQuery)) return true;
   // Treat completeness language as a guide request even when the user does not
   // say "guide". This preserves the outline-and-slide experience for natural
   // requests such as "generate it for the Fontdone project entirely".
@@ -526,6 +530,7 @@ export function isRepositoryGuideIntent(question: string): boolean {
 export function isRepositoryPlanIntent(question: string): boolean {
   const query = question.trim().toLocaleLowerCase();
   if (!query) return false;
+  if (/\b(?:no|not|without|rather\s+than|instead\s+of|never|do\s+not|don't)\b.{0,48}\b(?:learning|reading)\s+(?:route|plan|path)\b/u.test(query)) return false;
   return /\b(?:create|make|build|generate|start|design|want|need)\b.{0,48}\b(?:learning|reading)\s+(?:route|plan|path)\b/u.test(query)
     || /\b(?:learning|reading)\s+(?:route|plan|path)\b.{0,48}\b(?:for|through)\s+(?:this\s+|the\s+)?(?:repo(?:sitory)?|code\s*base|codebase|project)\b/u.test(query)
     || /\b(?:plan|map\s+out)\b.{0,48}\b(?:how\s+to\s+)?(?:learn|understand|read)\b.{0,48}\b(?:repo(?:sitory)?|code\s*base|codebase|project)\b/u.test(query)
