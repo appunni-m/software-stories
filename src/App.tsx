@@ -231,7 +231,9 @@ function captureOutcomeNotice(progress: SnapshotProgress, loadLatestChanges = fa
     },
     failed: {
       title: 'Repository update failed',
-      message: 'Your previous snapshots remain unchanged. Try another update from Files.',
+      message: loadLatestChanges
+        ? 'Your previous snapshots remain unchanged. Retry Load latest changes from the project header.'
+        : 'Your previous snapshots remain unchanged. You can start a new capture when ready.',
       tone: 'warning',
     },
   };

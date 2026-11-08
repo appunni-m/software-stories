@@ -100,6 +100,12 @@ test('the Guide renders saved chapter receipts as soon as a read succeeds or a n
   assert.match(store, /detail:\{projectId:project,revision\}/);
 });
 
+test('a failed latest-changes capture points back to the persistent project header', () => {
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /failed:\s*\{\s*title:\s*'Repository update failed',\s*message:\s*loadLatestChanges\s*\?\s*'Your previous snapshots remain unchanged\. Retry Load latest changes from the project header\.'/);
+  assert.doesNotMatch(app, /Try another update from Files/);
+});
+
 test('progressive cards stop loading when a completed history read cannot find their saved revision', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.equal(savedAnswerAvailability(true, false), 'loading');
