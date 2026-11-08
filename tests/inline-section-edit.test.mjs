@@ -8,14 +8,16 @@ import {
 
 const workspaceSource = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
 
-test('inline edits live above the Guide and Flow tabs so unmounting a view keeps the draft', () => {
+test('inline edits live above the workspace panes so source and Guide/Flow switches keep the draft', () => {
   const providerStart = workspaceSource.indexOf('<InlineSectionEditProvider>');
   const readerContextStart = workspaceSource.indexOf('<ReaderProgressContext.Provider', providerStart);
   const providerEnd = workspaceSource.indexOf('</InlineSectionEditProvider>', readerContextStart);
   const tabRoot = workspaceSource.indexOf('<Tabs.Root', readerContextStart);
+  const sourcePaneUse = workspaceSource.indexOf('{sourcePane}', providerStart);
 
   assert.ok(providerStart >= 0 && readerContextStart > providerStart);
   assert.ok(tabRoot > readerContextStart && providerEnd > tabRoot);
+  assert.ok(sourcePaneUse > readerContextStart && providerEnd > sourcePaneUse, 'the source pane stays under the same edit-state provider');
 
   const hookStart = workspaceSource.indexOf('function useInlineSectionEdit(');
   const hookEnd = workspaceSource.indexOf('\nfunction WorkspaceSharingDetails', hookStart);
@@ -50,6 +52,10 @@ test('dirty drafts and validation status stay keyed to their section across view
     busy: true,
     issues: { key: sectionKey, items: ['Awaiting source validation'] },
   });
+  workspace = { ...workspace, view: 'source' };
+  assert.equal(workspace.view, 'source');
+  assert.equal(workspace.edits[sectionKey].busy, true, 'pending validation stays attached while source is active');
+  assert.equal(workspace.edits[sectionKey].draft.prose, 'Unsaved explanation');
   workspace = { ...workspace, view: 'guide' };
   assert.equal(workspace.edits[sectionKey].draft.prose, 'Unsaved explanation');
 });
