@@ -17,13 +17,21 @@ describe('generation backend preference', () => {
     withStorage({ getItem: () => null }, () => assert.equal(readGenerationBackend(), 'codex'));
   });
 
-  it('remembers each supported backend without storing credentials or consent', () => {
+  it('only remembers Codex and leaves legacy backend preferences for an explicit choice', () => {
+    for (const legacy of ['api', 'claude-setup', 'handoff']) {
+      const legacyStorage = new Map([['code-atlas:generation-backend', legacy]]);
+      withStorage({ getItem: (key) => legacyStorage.get(key), setItem: (key, value) => legacyStorage.set(key, value) }, () => {
+        assert.equal(readGenerationBackend(), null, `${legacy} must require an explicit Codex choice`);
+        rememberGenerationBackend(legacy);
+        assert.equal(readGenerationBackend(), null, `${legacy} cannot be selected by current UI`);
+        assert.equal(legacyStorage.get('code-atlas:generation-backend'), legacy, 'legacy preference is not silently rewritten');
+      });
+    }
+
     const saved = new Map();
     withStorage({ getItem: (key) => saved.get(key), setItem: (key, value) => saved.set(key, value) }, () => {
-      for (const backend of ['codex', 'api', 'claude-setup', 'handoff']) {
-        rememberGenerationBackend(backend);
-        assert.equal(readGenerationBackend(), backend);
-      }
+      rememberGenerationBackend('codex');
+      assert.equal(readGenerationBackend(), 'codex');
       assert.deepEqual([...saved.keys()], ['code-atlas:generation-backend']);
     });
   });
@@ -45,13 +53,6 @@ describe('generation backend preference', () => {
       rememberGenerationBackend('codex');
     });
 
-    const cleared = new Map();
-    withStorage({ getItem: (key) => cleared.get(key) ?? null, setItem: (key, value) => cleared.set(key, value) }, () => {
-      rememberGenerationBackend('api');
-      cleared.delete('code-atlas:generation-backend');
-      assert.equal(readGenerationBackend(), 'api', 'clearing storage must not override an explicit session selection');
-    });
-
     const finalPersisted = new Map();
     withStorage({ getItem: (key) => finalPersisted.get(key) ?? null, setItem: (key, value) => finalPersisted.set(key, value) }, () => {
       rememberGenerationBackend('codex');
@@ -63,8 +64,8 @@ describe('generation backend preference', () => {
     withStorage({ getItem: () => 'unknown' }, () => assert.equal(readGenerationBackend(), null));
     withStorage({ getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }, () => {
       assert.equal(readGenerationBackend(), 'codex');
-      assert.doesNotThrow(() => rememberGenerationBackend('api'));
-      assert.equal(readGenerationBackend(), 'api');
+      assert.doesNotThrow(() => rememberGenerationBackend('handoff'));
+      assert.equal(readGenerationBackend(), 'codex', 'unsupported choices cannot replace the session Codex selection');
     });
 
     const persisted = new Map();
@@ -144,12 +145,13 @@ describe('generation backend preference', () => {
     assert.match(header, /const codexNeedsAttention = codexSelected && Boolean\(connection\.error\)/);
     assert.match(header, /codexNeedsAttention \? 'Retry Codex'/);
     assert.match(header, /Could not refresh Codex right now\. Open Connections to retry; your saved account and model choice are unchanged\./);
-    assert.match(header, /backend === 'api'\s*\? apiSelectionIssue \? 'Review AI connection'/);
-    assert.match(header, /The saved AI connection needs attention\. Choose a provider in Connections\./);
+    assert.match(header, /backend === null \? 'Connect Codex'/);
+    assert.match(header, /Connect your Codex account once in Connections\./);
+    assert.doesNotMatch(header, /Direct API|Claude Agent|handoff|Anthropic|Gemini|OpenAI/);
     assert.match(app, /The saved direct API selection is \{directApiSelectionIssue === 'invalid' \? 'invalid' : directApiSelectionIssue === 'oversized' \? 'too large'/);
     assert.match(prGuide, /The saved direct API selection is \{directApiSelectionIssue === 'invalid' \? 'invalid' : directApiSelectionIssue === 'oversized' \? 'too large'/);
     assert.match(prGuide, /window\.addEventListener\('code-atlas:connection-changed'/);
-    assert.match(header, /code-atlas:direct-api-selection-changed/);
+    assert.doesNotMatch(header, /code-atlas:direct-api-selection-changed|code-atlas:handoff-agent-changed/);
     assert.match(app, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);
     assert.match(prGuide, /onClick=\{onOpenProviderSettings\}/);
     assert.doesNotMatch(prGuide, /<select value=\{providerId\}|<select value=\{modelId\}/);

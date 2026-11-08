@@ -70,18 +70,20 @@ export function readGenerationBackend(): GenerationBackend | null {
   try {
     const saved = localStorage.getItem(key);
     if (saved === null) return sessionGenerationBackend ?? 'codex';
-    if (saved === 'codex' || saved === 'claude-setup' || saved === 'handoff' || saved === 'api') {
-      return generationBackendWriteFailed ? sessionGenerationBackend : saved;
-    }
+    if (saved === 'codex') return generationBackendWriteFailed ? sessionGenerationBackend : 'codex';
+    if (saved === 'claude-setup' || saved === 'handoff' || saved === 'api') return sessionGenerationBackend;
     return null;
   } catch { /* An unreadable saved selection must not silently choose another backend. */ }
   return sessionGenerationBackend;
 }
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
-  sessionGenerationBackend = backend;
+  // First release generation is Codex-first. Keep compatibility types for
+  // reading old records, but only an explicit Codex choice is persisted.
+  if (backend !== 'codex') return;
+  sessionGenerationBackend = 'codex';
   try {
-    localStorage.setItem(key, backend);
+    localStorage.setItem(key, 'codex');
     generationBackendWriteFailed = false;
   } catch { generationBackendWriteFailed = true; /* The current session still works. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
