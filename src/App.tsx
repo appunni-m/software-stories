@@ -188,6 +188,7 @@ import { loadShellStartupData, workspaceHeading, WORKSPACE_LABEL } from './lib/s
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStaleRevisionGuidance, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import { buildChapterStudioTargets, chapterStudioHasReadableCurrentSource } from './lib/chapterStudioTargets';
+import { chapterStudioOperationIsCurrent, type ChapterStudioOperationIdentity } from './lib/chapterStudioOperation';
 import { readChapterStudioDraft, type ChapterStudioDraftCheckpoint } from './lib/chapterStudioDraft';
 import { readGitComparisonPreference, rememberGitComparisonPreference, restoreGitComparisonPreference } from './lib/gitComparisonPreferences';
 import {
@@ -4626,6 +4627,28 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     ?? selectedTarget?.latestCurrent
     ?? selectedTarget?.latestAny
     ?? null;
+  const operationIdentity: ChapterStudioOperationIdentity = {
+    projectId,
+    snapshotId,
+    targetKey: selectedTargetKey,
+    selectedRevisionId: selectedRevision?.revisionId ?? null,
+    routeChapterId,
+    routeRevisionId,
+    routeSectionId,
+    editing,
+    candidate: editing ? candidate : null,
+  };
+  const operationIdentityRef = useRef(operationIdentity);
+  operationIdentityRef.current = operationIdentity;
+  const captureOperationIdentity = () => operationIdentityRef.current;
+  const isCurrentOperation = (started: ChapterStudioOperationIdentity) =>
+    studioMounted.current
+    && chapterStudioOperationIsCurrent(started, operationIdentityRef.current);
+  const refreshOperationProjectHistory = (started: ChapterStudioOperationIdentity) => {
+    if (started.projectId === operationIdentityRef.current.projectId) {
+      void chapterHistory.current?.refresh();
+    }
+  };
   const pendingDraftBase = pendingDraft
     ? revisions.find((revision) => revision.revisionId === pendingDraft.baseRevisionId
       && revision.chapterId === pendingDraft.candidate.chapterId
@@ -4712,9 +4735,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     }) : current);
     setValidation(null);
   };
-  const recordSavedRevision = (revision: ChapterRevision) => {
+  const recordSavedRevision = (revision: ChapterRevision, select = true) => {
     chapterHistory.current?.record(revision);
-    setSelectedRevisionId(revision.revisionId);
+    if (select) setSelectedRevisionId(revision.revisionId);
     window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { projectId } }));
   };
   const beginEditing = () => {
@@ -4772,17 +4795,18 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const validateCurrent = async () => {
     const validationScope = validationScopeRef.current;
     if (!activeDocument || busy || !validationScope) return;
+    const operationScope = captureOperationIdentity();
     const validatedRevisionId = activeDocument.revisionId;
-    const isCurrentValidation = () => {
+    const isCurrentValidation = () => isCurrentOperation(operationScope) && (() => {
       const current = validationScopeRef.current;
-      return studioMounted.current && current !== null
+      return current !== null
         && current.projectId === validationScope.projectId
         && current.snapshotId === validationScope.snapshotId
         && current.targetKey === validationScope.targetKey
         && current.revisionId === validationScope.revisionId
         && current.editing === validationScope.editing
         && current.candidate === validationScope.candidate;
-    };
+    })();
     setBusy(true);
     setFeedback(null);
     try {
@@ -4828,6 +4852,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     selectedPaths: string[],
   ) => {
     if (!nativeRuntime || busy) return;
+    const operationScope = captureOperationIdentity();
     setBusy(true);
     setFeedback({ message: 'Preparing this section’s local repair session…', tone: 'info' });
     try {
@@ -4838,7 +4863,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         section.sectionId,
         section.sectionRevisionId,
       );
-      if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) return;
       const selected = session.sections.find((item) => item.sectionId === section.sectionId);
       if (!selected || !['stale', 'needsReview', 'replaced'].includes(selected.state)) {
         setFeedback({ message: 'This section no longer matches the saved repair session. Reassess freshness before sending.', tone: 'error' });
@@ -4847,6 +4872,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       onRegenerateSection(revision, section, selectedPaths, session.sessionId);
     } catch (error) {
       if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) return;
       setFeedback({ message: errorMessageOr(error, 'The local repair session could not be prepared.'), tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
@@ -4874,13 +4900,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFeedback({ message: 'A newer revision is available. Your unsaved edit is preserved; review the newer version before creating another draft.', tone: 'info' });
       return;
     }
+    const operationScope = captureOperationIdentity();
     setBusy(true);
     setFeedback(null);
     try {
       const saved = await saveChapterEdits(projectId, selectedRevision.revisionId, candidate);
       if (!studioMounted.current) return;
+      const applyToCurrentView = isCurrentOperation(operationScope);
+      recordSavedRevision(saved.revision, applyToCurrentView);
+      if (!applyToCurrentView) return;
       setValidation({ revisionId: saved.revision.revisionId, report: saved.validation });
-      recordSavedRevision(saved.revision);
       setCandidate(null);
       setEditing(false);
       setRebasing(false);
@@ -4893,6 +4922,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       selectMutationRevision(saved.revision);
     } catch (error) {
       if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) {
+        refreshOperationProjectHistory(operationScope);
+        return;
+      }
       const message = errorMessageOr(error, 'The draft could not be saved.');
       if (/chapter changed since it was opened|no longer the latest revision/iu.test(message)) {
         const history = chapterHistory.current;
@@ -4919,6 +4952,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       }
       return;
     }
+    const operationScope = captureOperationIdentity();
     setBusy(true);
     setFeedback(null);
     try {
@@ -4928,12 +4962,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         selectedRevision.revisionId,
       );
       if (!studioMounted.current) return;
+      const applyToCurrentView = isCurrentOperation(operationScope);
+      recordSavedRevision(restored.revision, applyToCurrentView);
+      if (!applyToCurrentView) return;
       setValidation({ revisionId: restored.revision.revisionId, report: restored.validation });
       setEditing(false);
       setCandidate(null);
       setRebasing(false);
       setRejecting(false);
-      recordSavedRevision(restored.revision);
       selectMutationRevision(restored.revision);
       setFeedback({
         message: restored.validation.status === 'valid'
@@ -4943,6 +4979,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       });
     } catch (error) {
       if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) {
+        refreshOperationProjectHistory(operationScope);
+        return;
+      }
       setFeedback({ message: errorMessageOr(error, 'The selected revision could not be restored.'), tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
@@ -4960,17 +5000,24 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFeedback({ message: 'Validate this saved draft and resolve any evidence issues before accepting it.', tone: 'info' });
       return;
     }
+    const operationScope = captureOperationIdentity();
     setBusy(true);
     setFeedback(null);
     try {
       const accepted = await acceptChapterDraft(projectId, selectedRevision.revisionId);
       if (!studioMounted.current) return;
+      const applyToCurrentView = isCurrentOperation(operationScope);
+      recordSavedRevision(accepted.revision, applyToCurrentView);
+      if (!applyToCurrentView) return;
       setValidation({ revisionId: accepted.revision.revisionId, report: accepted.validation });
-      recordSavedRevision(accepted.revision);
       selectMutationRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
     } catch (error) {
       if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) {
+        refreshOperationProjectHistory(operationScope);
+        return;
+      }
       setFeedback({ message: errorMessageOr(error, 'The chapter could not be accepted.'), tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
@@ -4989,18 +5036,25 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFeedback({ message: 'Keep the rejection reason within 4,000 UTF-8 bytes.', tone: 'info' });
       return;
     }
+    const operationScope = captureOperationIdentity();
     setBusy(true);
     setFeedback(null);
     try {
       const rejected = await rejectChapterDraft(projectId, selectedRevision.revisionId, rejectReason);
       if (!studioMounted.current) return;
-      recordSavedRevision(rejected);
+      const applyToCurrentView = isCurrentOperation(operationScope);
+      recordSavedRevision(rejected, applyToCurrentView);
+      if (!applyToCurrentView) return;
       selectMutationRevision(rejected);
       setRejecting(false);
       setRejectReason('');
       setFeedback({ message: 'Rejected with reason recorded. The draft payload is still available in history.', tone: 'success' });
     } catch (error) {
       if (!studioMounted.current) return;
+      if (!isCurrentOperation(operationScope)) {
+        refreshOperationProjectHistory(operationScope);
+        return;
+      }
       setFeedback({ message: errorMessageOr(error, 'The draft could not be rejected.'), tone: 'error' });
     } finally {
       if (studioMounted.current) setBusy(false);
