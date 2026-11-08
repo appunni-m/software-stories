@@ -44,14 +44,6 @@ pub enum RecordedAgentSettings {
         effort: String,
         approval_policy: String,
     },
-    #[serde(rename = "claude-agent", rename_all = "camelCase")]
-    Claude {
-        model_id: String,
-        #[serde(deserialize_with = "required_nullable")]
-        effort: Option<String>,
-        approval_policy: String,
-        max_turns: u32,
-    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -420,21 +412,8 @@ impl ChapterGenerationOrigin {
                 effort: string("effort")?,
                 approval_policy: string("approvalPolicy")?,
             },
-            ("claude-agent", "claude-agent-cli://stdio") => {
-                let settings =
-                    provider::claude_settings_from_review(review).map_err(|error| error.message)?;
-                RecordedAgentSettings::Claude {
-                    model_id: settings.model_id,
-                    effort: settings.effort,
-                    approval_policy: settings.approval_policy,
-                    max_turns: settings.max_turns,
-                }
-            }
             _ => {
-                return Err(
-                    "Only native Codex or Claude dispatch can record agent generation lineage."
-                        .to_owned(),
-                );
+                return Err("Only Codex dispatch can record generation lineage.".to_owned());
             }
         };
         let planned_chapter = config
@@ -558,28 +537,14 @@ impl ChapterGenerationOrigin {
             .map(|file| &file.path)
             .collect::<BTreeSet<_>>();
         let model_ok = |model: &str| text(model, 512);
-        let (backend, settings_ok) = match &self.settings {
+        let settings_ok = match &self.settings {
             RecordedAgentSettings::Codex {
                 model_id,
                 effort,
                 approval_policy,
-            } => (
-                "codex",
-                model_ok(model_id) && text(effort, 32) && approval_policy == "never",
-            ),
-            RecordedAgentSettings::Claude {
-                model_id,
-                effort,
-                approval_policy,
-                max_turns,
-            } => (
-                "claude",
-                model_ok(model_id)
-                    && effort.as_deref().is_none_or(|value| text(value, 32))
-                    && approval_policy == "dontAsk"
-                    && (1..=8).contains(max_turns),
-            ),
+            } => model_ok(model_id) && text(effort, 32) && approval_policy == "never",
         };
+        let backend = "codex";
         let section_update_ok = || {
             self.section_update.as_ref().is_some_and(|target| {
                 text(&target.chapter_revision_id, 256)
@@ -767,8 +732,7 @@ impl ChapterGenerationOrigin {
 
     pub(crate) fn model_id(&self) -> &str {
         match &self.settings {
-            RecordedAgentSettings::Codex { model_id, .. }
-            | RecordedAgentSettings::Claude { model_id, .. } => model_id,
+            RecordedAgentSettings::Codex { model_id, .. } => model_id,
         }
     }
 }
@@ -788,8 +752,8 @@ pub(crate) fn validate_revision_origin(revision: &ChapterRevision) -> Result<(),
     Ok(())
 }
 
-/// Direct API and manual drafts may omit metadata. Present null is invalid rather
-/// than silently losing the generation identity during recovery/import.
+/// Manually authored drafts may omit metadata. Present null is invalid rather
+/// than silently losing generation identity during recovery.
 pub(crate) fn deserialize_origin<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<ChapterGenerationOrigin>, D::Error> {
@@ -1057,6 +1021,12 @@ mod tests {
         )
         .unwrap()
         .review;
+        let mut unsupported_review = review.clone();
+        unsupported_review.provider_id = "claude-agent".into();
+        unsupported_review.endpoint_url = "claude-agent-cli://stdio".into();
+        assert!(
+            ChapterGenerationOrigin::from_agent_review(&unsupported_review, &revision).is_err()
+        );
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
         assert_eq!(origin.schema_version, CHAPTER_ORIGIN_SCHEMA_VERSION);
         let mut wrong_snapshot_origin = origin.clone();
@@ -1092,15 +1062,14 @@ mod tests {
         let mut null_retrieval = wire;
         null_retrieval["retrieval"] = serde_json::Value::Null;
         assert!(serde_json::from_value::<ChapterGenerationOrigin>(null_retrieval).is_err());
-        let mut incomplete_claude = serde_json::json!({
+        let unsupported_claude = serde_json::json!({
             "backend": "claude-agent",
             "modelId": "claude-test",
             "effort": null,
             "approvalPolicy": "dontAsk",
             "maxTurns": 2
         });
-        incomplete_claude.as_object_mut().unwrap().remove("effort");
-        assert!(serde_json::from_value::<RecordedAgentSettings>(incomplete_claude).is_err());
+        assert!(serde_json::from_value::<RecordedAgentSettings>(unsupported_claude).is_err());
         for version in [0, 1, 2, 3, 4, 5, 6, 7, 9] {
             let mut unsupported = origin.clone();
             unsupported.schema_version = version;

@@ -48,6 +48,16 @@ struct RevisionHeader {
 #[serde(rename_all = "camelCase")]
 struct OriginHeader {
     schema_version: u32,
+    settings: OriginBackendHeader,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "backend")]
+enum OriginBackendHeader {
+    #[serde(rename = "codex")]
+    Codex,
+    #[serde(other)]
+    Unsupported,
 }
 
 pub fn list_for_snapshot(
@@ -601,17 +611,19 @@ fn read_revision_bytes(path: &Path, remaining_bytes: usize) -> Result<Vec<u8>, S
     Ok(bytes)
 }
 
-/// Keep records with an unsupported lineage schema opaque and untouched. Only
-/// the current chapter envelope is inspected so unsupported receipts cannot
-/// prevent supported revisions from loading or being saved.
+/// Keep records with an unsupported lineage schema or backend opaque and
+/// untouched. Only the current chapter envelope is inspected so unsupported
+/// receipts cannot prevent supported revisions from loading or being saved.
 fn unsupported_revision_identity(bytes: &[u8]) -> Option<UnsupportedRevisionIdentity> {
     let value = crate::strict_json::from_slice(bytes).ok()?;
     let header: RevisionHeader = serde_json::from_value(value).ok()?;
-    if header.schema_version != chapters::CHAPTER_SCHEMA_VERSION
-        || crate::chapter_origin::supports_schema_version(
-            header.generation_origin.as_ref()?.schema_version,
-        )
-    {
+    if header.schema_version != chapters::CHAPTER_SCHEMA_VERSION {
+        return None;
+    }
+    let origin = header.generation_origin.as_ref()?;
+    let current_origin = crate::chapter_origin::supports_schema_version(origin.schema_version)
+        && matches!(origin.settings, OriginBackendHeader::Codex);
+    if current_origin {
         return None;
     }
     Some(UnsupportedRevisionIdentity {
@@ -1070,6 +1082,42 @@ mod tests {
             chapters::encode_chapter_revision(&current).unwrap(),
         );
         assert_eq!(fs::read(&legacy).unwrap(), legacy_bytes);
+    }
+
+    #[test]
+    fn unsupported_agent_origin_is_preserved_without_blocking_current_chapters() {
+        let temp = TempDir::new();
+        create_storage_directories(&temp.0, "project-test", "target:file:test").unwrap();
+        let mut unsupported =
+            serde_json::to_value(draft("snapshot-old", "revision:claude")).unwrap();
+        unsupported["generationOrigin"] = serde_json::json!({
+            "schemaVersion": crate::chapter_origin::CHAPTER_ORIGIN_SCHEMA_VERSION,
+            "settings": {
+                "backend": "claude-agent",
+                "modelId": "claude-test",
+                "effort": null,
+                "approvalPolicy": "dontAsk",
+                "maxTurns": 2
+            }
+        });
+        let bytes = serde_json::to_vec(&unsupported).unwrap();
+        let unsupported_path = target_directory(&temp.0, "project-test", "target:file:test")
+            .join("revision:claude.json");
+        fs::write(&unsupported_path, &bytes).unwrap();
+
+        assert!(
+            list_for_project(&temp.0, "project-test")
+                .unwrap()
+                .is_empty()
+        );
+        let current =
+            save_new_draft(&temp.0, draft("snapshot-current", "revision:current")).unwrap();
+        assert_eq!(current.revision_number, 2);
+        assert_eq!(
+            list_for_project(&temp.0, "project-test").unwrap(),
+            vec![current]
+        );
+        assert_eq!(fs::read(unsupported_path).unwrap(), bytes);
     }
 
     #[test]
