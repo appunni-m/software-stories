@@ -449,6 +449,7 @@ fn validate(record: &Record) -> Result<(), String> {
     let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     if let Some(opening) = &record.opening {
         if opening.automatic_retry
+            || !opening.prerequisite_fingerprints.is_empty()
             || !uuid(&opening.run_id)
             || (opening.run_id != record.planning_run_id && !runs.insert(&opening.run_id))
         {
@@ -461,6 +462,7 @@ fn validate(record: &Record) -> Result<(), String> {
     }
     for attempt in &record.opening_continuations {
         if record.plan.is_none()
+            || !attempt.prerequisite_fingerprints.is_empty()
             || record
                 .opening
                 .as_ref()
@@ -645,11 +647,7 @@ fn validate_prerequisite_fingerprints(
     unit: &plan::UnitPlan,
     attempt: &Attempt,
 ) -> Result<(), String> {
-    let Some(fingerprints) = &attempt.prerequisite_fingerprints else {
-        // Schema-9 Guides saved before this receipt was added remain readable,
-        // but freshness treats their prerequisite dependencies as unknown.
-        return Ok(());
-    };
+    let fingerprints = &attempt.prerequisite_fingerprints;
     if fingerprints.len() != unit.prerequisites.len() {
         return Err("The Guide attempt's prerequisite receipt is incomplete.".into());
     }

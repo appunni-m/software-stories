@@ -43,10 +43,10 @@ fn prerequisite_receipt_must_reference_a_saved_complete_prerequisite_version() {
         run_id: Uuid::new_v4().to_string(),
         question: guide.plan.as_ref().unwrap().units[1].question.clone(),
         automatic_retry: false,
-        prerequisite_fingerprints: Some(vec![PrerequisiteFingerprint {
+        prerequisite_fingerprints: vec![PrerequisiteFingerprint {
             key: "input".into(),
             revision_ids: vec![prerequisite_revision],
-        }]),
+        }],
         summary: None,
     };
     validate_prerequisite_fingerprints(
@@ -56,11 +56,7 @@ fn prerequisite_receipt_must_reference_a_saved_complete_prerequisite_version() {
     )
     .unwrap();
 
-    dependent_attempt
-        .prerequisite_fingerprints
-        .as_mut()
-        .unwrap()[0]
-        .revision_ids[0] = "revision:foreign".into();
+    dependent_attempt.prerequisite_fingerprints[0].revision_ids[0] = "revision:foreign".into();
     assert!(
         validate_prerequisite_fingerprints(
             &guide,
@@ -72,24 +68,44 @@ fn prerequisite_receipt_must_reference_a_saved_complete_prerequisite_version() {
 }
 
 #[test]
-fn schema_nine_guide_without_prerequisite_receipts_remains_readable() {
+fn missing_current_prerequisite_receipt_is_rejected_without_rewriting_saved_bytes() {
     let f = Fixture::new();
     let mut guide = record(&f);
+    let prerequisite_fingerprints = unit_prerequisite_fingerprints(&guide, 1).unwrap();
     guide.units[1].attempts.push(Attempt {
         run_id: Uuid::new_v4().to_string(),
         question: guide.plan.as_ref().unwrap().units[1].question.clone(),
         automatic_retry: false,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints,
         summary: None,
     });
     save(&f.storage, &guide, true).unwrap();
 
-    let reopened = read(&f.storage, &guide.id).unwrap();
-    assert!(
-        reopened.units[1].attempts[0]
-            .prerequisite_fingerprints
-            .is_none()
-    );
+    let location = path(&f.storage, &guide.id).unwrap();
+    let current = serde_json::to_value(&guide).unwrap();
+    for (version, contract) in [
+        (9, "repository-guide-v10-five-initial-units"),
+        (
+            RECORD_SCHEMA_VERSION,
+            "repository-guide-v11-five-initial-units",
+        ),
+    ] {
+        let mut incompatible = current.clone();
+        incompatible["schemaVersion"] = serde_json::json!(version);
+        incompatible["contract"] = serde_json::json!(contract);
+        incompatible["units"][1]["attempts"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("prerequisiteFingerprints");
+        let bytes = serde_json::to_vec(&incompatible).unwrap();
+        std::fs::write(&location, &bytes).unwrap();
+
+        let error = read(&f.storage, &guide.id)
+            .err()
+            .expect("a missing prerequisite receipt is incompatible");
+        assert!(error.contains("damaged or incompatible"), "{error}");
+        assert_eq!(std::fs::read(&location).unwrap(), bytes);
+    }
 }
 
 #[test]
@@ -200,7 +216,8 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
     let next = attempt(&r, Outcome::Complete);
     r.units[0].attempts.push(next);
     assert!(validate(&r).is_ok());
-    let a = r.units[0].attempts[0].clone();
+    let mut a = r.units[0].attempts[0].clone();
+    a.prerequisite_fingerprints = unit_prerequisite_fingerprints(&r, 1).unwrap();
     r.units[1].attempts.push(a);
     assert!(validate(&r).is_err());
     r.units[1].attempts.clear();
@@ -232,7 +249,8 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
         (6, CONTRACT),
         (7, CONTRACT),
         (8, CONTRACT),
-        (10, CONTRACT),
+        (9, CONTRACT),
+        (11, CONTRACT),
     ] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
@@ -264,7 +282,7 @@ fn automatic_retry_markers_cannot_replace_the_original_slide_attempt() {
             .question
             .clone(),
         automatic_retry: true,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints: vec![],
         summary: None,
     });
     assert!(validate(&invalid_topic).is_err());
@@ -459,7 +477,7 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
     create(&f.storage, &record).unwrap();
     let location = path(&f.storage, &record.id).unwrap();
     let current = serde_json::to_value(&record).unwrap();
-    for version in [0, 1, 2, 3, 4, 5, 6, 7, 8, 10] {
+    for version in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11] {
         let mut unsupported = current.clone();
         unsupported["schemaVersion"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&unsupported).unwrap();

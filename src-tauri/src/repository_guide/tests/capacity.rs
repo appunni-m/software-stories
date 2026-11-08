@@ -118,21 +118,25 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
             run_id: Uuid::new_v4().to_string(),
             question: opening::question(&guide).unwrap().into(),
             automatic_retry,
-            prerequisite_fingerprints: None,
+            prerequisite_fingerprints: Vec::new(),
             summary: None,
         });
     }
-    for (unit, plan) in guide
+    let prerequisite_receipts = (0..guide.units.len())
+        .map(|index| super::super::unit_prerequisite_fingerprints(&guide, index).unwrap())
+        .collect::<Vec<_>>();
+    for ((unit, plan), prerequisite_fingerprints) in guide
         .units
         .iter_mut()
         .zip(&guide.plan.as_ref().unwrap().units)
+        .zip(prerequisite_receipts)
     {
         for _ in 0..MAX_ATTEMPTS {
             unit.attempts.push(Attempt {
                 run_id: Uuid::new_v4().to_string(),
                 question: plan.question.clone(),
                 automatic_retry: false,
-                prerequisite_fingerprints: None,
+                prerequisite_fingerprints: prerequisite_fingerprints.clone(),
                 summary: None,
             });
         }
@@ -227,7 +231,7 @@ fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
         run_id: retry_id.clone(),
         question: retry_question.clone(),
         automatic_retry: true,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints: Vec::new(),
         summary: Some(Summary {
             run_id: retry_id,
             project_id: next.project_id.clone(),

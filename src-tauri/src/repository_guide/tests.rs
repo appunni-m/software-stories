@@ -66,7 +66,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         run_id: result.planning_run_id.clone(),
         question: opening_question.clone(),
         automatic_retry: false,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints: Vec::new(),
         summary: Some(Summary {
             run_id: result.planning_run_id.clone(),
             project_id: result.project_id.clone(),
@@ -82,8 +82,13 @@ pub(super) fn record(f: &Fixture) -> Record {
     result
 }
 pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
+    attempt_for_unit(record, 0, outcome)
+}
+
+pub(super) fn attempt_for_unit(record: &Record, unit_index: usize, outcome: Outcome) -> Attempt {
     let run_id = Uuid::new_v4().to_string();
-    let question = "How does the name enter the greeting?".to_owned();
+    let unit = &record.plan.as_ref().unwrap().units[unit_index];
+    let question = unit.question.clone();
     // Synthetic identity metadata for state-machine tests, never a published
     // or accepted chapter. Real results are independently admitted by Codex.
     let sections = if outcome == Outcome::Complete {
@@ -91,7 +96,7 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
             run_id: run_id.clone(),
             project_id: record.project_id.clone(),
             snapshot_id: record.snapshot_id.clone(),
-            key: "input".into(),
+            key: unit.key.clone(),
             order: 0,
             generation_id: format!("generation:{}", Uuid::new_v4()),
             revision_id: format!("revision:{}", Uuid::new_v4()),
@@ -106,7 +111,7 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
         run_id: run_id.clone(),
         question: question.clone(),
         automatic_retry: false,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints: unit_prerequisite_fingerprints(record, unit_index).unwrap(),
         summary: Some(Summary {
             run_id,
             question,
@@ -555,21 +560,9 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
     summary.sections[0].run_id = opening_owner;
     record.opening = Some(opening);
     record.opening_context_sha256 = Some(opening::context_sha256(&record).unwrap());
-    let completed_units = record
-        .plan
-        .as_ref()
-        .unwrap()
-        .units
-        .iter()
-        .map(|unit| {
-            let mut completed = attempt(&record, Outcome::Complete);
-            completed.question = unit.question.clone();
-            completed.summary.as_mut().unwrap().question = unit.question.clone();
-            completed
-        })
-        .collect::<Vec<_>>();
-    for (unit, completed) in record.units.iter_mut().zip(completed_units) {
-        unit.attempts.push(completed);
+    for index in 0..record.units.len() {
+        let completed = attempt_for_unit(&record, index, Outcome::Complete);
+        record.units[index].attempts.push(completed);
     }
     let omitted_topic_count = MAX_TOTAL_UNITS.saturating_sub(record.units.len());
     record.plan.as_mut().unwrap().omissions =
@@ -1233,11 +1226,12 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
     let mut record = record(&f);
     let next = attempt(&record, Outcome::Complete);
     record.units[0].attempts.push(next);
+    let prerequisite_fingerprints = unit_prerequisite_fingerprints(&record, 1).unwrap();
     record.units[1].attempts.push(Attempt {
         run_id: Uuid::new_v4().to_string(),
         question: "Which output remains unexplored?".into(),
         automatic_retry: false,
-        prerequisite_fingerprints: None,
+        prerequisite_fingerprints,
         summary: None,
     });
     record.active_run_id = Some(record.units[1].attempts[0].run_id.clone());

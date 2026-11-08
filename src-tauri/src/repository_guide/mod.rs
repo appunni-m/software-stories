@@ -31,8 +31,8 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v10-five-initial-units";
-const RECORD_SCHEMA_VERSION: u32 = 9;
+const CONTRACT: &str = "repository-guide-v11-five-initial-units";
+const RECORD_SCHEMA_VERSION: u32 = 10;
 #[cfg(test)]
 const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 #[cfg(test)]
@@ -120,8 +120,7 @@ struct Attempt {
     run_id: String,
     question: String,
     automatic_retry: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    prerequisite_fingerprints: Option<Vec<PrerequisiteFingerprint>>,
+    prerequisite_fingerprints: Vec<PrerequisiteFingerprint>,
     summary: Option<Summary>,
 }
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -828,7 +827,7 @@ fn begin_unit_attempt(
             run_id: run_id.into(),
             question: question.into(),
             automatic_retry,
-            prerequisite_fingerprints: Some(prerequisite_fingerprints),
+            prerequisite_fingerprints,
             summary: None,
         });
         Ok(())
@@ -1916,7 +1915,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
             run_id: opening_run_id,
             question: opening_question,
             automatic_retry: false,
-            prerequisite_fingerprints: None,
+            prerequisite_fingerprints: Vec::new(),
             summary: None,
         }),
         opening_context_sha256: None,

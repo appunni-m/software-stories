@@ -387,7 +387,7 @@ mod tests {
             run_id: run_id.clone(),
             question: "How does the name enter the greeting?".into(),
             automatic_retry: false,
-            prerequisite_fingerprints: None,
+            prerequisite_fingerprints: Vec::new(),
             summary: Some(Summary {
                 run_id,
                 project_id,

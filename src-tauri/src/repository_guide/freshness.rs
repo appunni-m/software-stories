@@ -485,7 +485,7 @@ fn apply_attempt_prerequisite_freshness(units: &mut [GuideUnitFreshness], guide:
             })
             .collect::<Option<Vec<_>>>();
         let status = current.map_or(GuideUnitFreshnessStatus::NeedsReview, |current| {
-            prerequisite_fingerprint_status(attempt.prerequisite_fingerprints.as_deref(), &current)
+            prerequisite_fingerprint_status(&attempt.prerequisite_fingerprints, &current)
         });
         match status {
             GuideUnitFreshnessStatus::Stale => {
@@ -501,7 +501,9 @@ fn apply_attempt_prerequisite_freshness(units: &mut [GuideUnitFreshness], guide:
                 ) =>
             {
                 freshness.status = GuideUnitFreshnessStatus::NeedsReview;
-                freshness.reasons.push("This saved attempt predates prerequisite tracking, so its earlier topic dependencies are unknown.".into());
+                freshness.reasons.push(
+                    "A saved prerequisite could not be compared with the current Guide.".into(),
+                );
             }
             _ => {}
         }
@@ -509,13 +511,13 @@ fn apply_attempt_prerequisite_freshness(units: &mut [GuideUnitFreshness], guide:
 }
 
 fn prerequisite_fingerprint_status(
-    saved: Option<&[super::PrerequisiteFingerprint]>,
+    saved: &[super::PrerequisiteFingerprint],
     current: &[super::PrerequisiteFingerprint],
 ) -> GuideUnitFreshnessStatus {
-    match saved {
-        None => GuideUnitFreshnessStatus::NeedsReview,
-        Some(saved) if saved == current => GuideUnitFreshnessStatus::Current,
-        Some(_) => GuideUnitFreshnessStatus::Stale,
+    if saved == current {
+        GuideUnitFreshnessStatus::Current
+    } else {
+        GuideUnitFreshnessStatus::Stale
     }
 }
 
@@ -761,12 +763,12 @@ mod tests {
             revision_ids: vec!["revision:new".into()],
         }];
         assert_eq!(
-            prerequisite_fingerprint_status(Some(&saved), &current),
+            prerequisite_fingerprint_status(&saved, &current),
             GuideUnitFreshnessStatus::Stale
         );
         assert_eq!(
-            prerequisite_fingerprint_status(None, &current),
-            GuideUnitFreshnessStatus::NeedsReview
+            prerequisite_fingerprint_status(&[], &current),
+            GuideUnitFreshnessStatus::Stale
         );
     }
 }

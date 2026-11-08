@@ -1,6 +1,6 @@
 use super::*;
 use crate::chapter_generation::tests::Fixture;
-use crate::repository_guide::tests::{attempt, fresh_record};
+use crate::repository_guide::tests::{attempt, attempt_for_unit, fresh_record};
 
 fn partial(f: &Fixture) -> Record {
     let mut record = fresh_record(f);
@@ -14,7 +14,7 @@ fn partial(f: &Fixture) -> Record {
         vec!["The first transition's rejection result remains unverified.".into()];
     record.opening = Some(opening);
     for index in 0..record.units.len() {
-        let complete = attempt(&record, Outcome::Complete);
+        let complete = attempt_for_unit(&record, index, Outcome::Complete);
         record.units[index].attempts.push(complete);
     }
     record.status = Status::Partial;

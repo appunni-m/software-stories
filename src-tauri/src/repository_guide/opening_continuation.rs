@@ -164,7 +164,7 @@ fn begin_with_retry(
             run_id: run_id.into(),
             question,
             automatic_retry,
-            prerequisite_fingerprints: None,
+            prerequisite_fingerprints: Vec::new(),
             summary: None,
         });
         Ok(())
