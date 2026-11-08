@@ -70,16 +70,15 @@ export function readGenerationBackend(): GenerationBackend | null {
   try {
     const saved = localStorage.getItem(key);
     if (saved === null) return sessionGenerationBackend ?? 'codex';
-    if (saved === 'codex') return generationBackendWriteFailed ? sessionGenerationBackend : 'codex';
-    if (saved === 'claude-setup' || saved === 'handoff' || saved === 'api') return sessionGenerationBackend;
+    if (saved === 'codex' && !generationBackendWriteFailed) return 'codex';
+    if (generationBackendWriteFailed) return sessionGenerationBackend;
     return null;
   } catch { /* An unreadable saved selection must not silently choose another backend. */ }
   return sessionGenerationBackend;
 }
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
-  // First release generation is Codex-first. Keep compatibility types for
-  // reading old records, but only an explicit Codex choice is persisted.
+  // The current release persists only its connected Codex backend.
   if (backend !== 'codex') return;
   sessionGenerationBackend = 'codex';
   try {

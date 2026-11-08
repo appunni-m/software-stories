@@ -17,14 +17,14 @@ describe('generation backend preference', () => {
     withStorage({ getItem: () => null }, () => assert.equal(readGenerationBackend(), 'codex'));
   });
 
-  it('only remembers Codex and leaves legacy backend preferences for an explicit choice', () => {
-    for (const legacy of ['api', 'claude-setup', 'handoff']) {
-      const legacyStorage = new Map([['code-atlas:generation-backend', legacy]]);
-      withStorage({ getItem: (key) => legacyStorage.get(key), setItem: (key, value) => legacyStorage.set(key, value) }, () => {
-        assert.equal(readGenerationBackend(), null, `${legacy} must require an explicit Codex choice`);
-        rememberGenerationBackend(legacy);
-        assert.equal(readGenerationBackend(), null, `${legacy} cannot be selected by current UI`);
-        assert.equal(legacyStorage.get('code-atlas:generation-backend'), legacy, 'legacy preference is not silently rewritten');
+  it('only persists Codex and leaves unsupported stored values untouched', () => {
+    for (const unsupported of ['api', 'claude-setup', 'handoff', 'unknown-backend']) {
+      const savedValue = new Map([['code-atlas:generation-backend', unsupported]]);
+      withStorage({ getItem: (key) => savedValue.get(key), setItem: (key, value) => savedValue.set(key, value) }, () => {
+        assert.equal(readGenerationBackend(), null, `${unsupported} is not a current backend choice`);
+        rememberGenerationBackend(unsupported);
+        assert.equal(readGenerationBackend(), null, `${unsupported} cannot be selected by current UI`);
+        assert.equal(savedValue.get('code-atlas:generation-backend'), unsupported, 'unsupported preferences are not silently rewritten');
       });
     }
 
