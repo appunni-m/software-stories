@@ -27,7 +27,6 @@ interface Props {
   onExploreDetail?: (title: string, anchors: readonly ChapterSourceAnchor[]) => void;
   onFollowHotspot?: (hotspot: ChapterHotspot, focusTarget?: string) => void;
   activeFocusTarget?: string;
-  restorePosition?: number;
   onPlaybackPositionChange?: (position: number) => void;
   onTranscriptPositionChange?: (position: number) => void;
   onSectionPlaybackStarted?: () => void;
@@ -71,7 +70,7 @@ const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 /** One narrated, evidence-backed scene at a time. Audio completion, not guessed
  * elapsed-time percentages, advances the story. Sections always advance manually.
  */
-export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, onExploreDetail, onFollowHotspot, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
+export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, onExploreDetail, onFollowHotspot, activeFocusTarget, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackStarted, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const savedVisualNeedsRefresh = inspection.status === 'unavailable' && inspection.reason === 'unsupportedVersion';
@@ -103,10 +102,10 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       : readFailed ? { status: 'unavailable' as const } : readStoryProgressRecord(stored, identity, scenes);
     const browserProgress = browserRecord.status === 'available' ? browserRecord.progress : undefined;
     return {
-      position: readSectionStoryProgress(nativeProgress ?? browserProgress, identity, scenes, restorePosition),
+      position: readSectionStoryProgress(nativeProgress ?? browserProgress, identity, scenes),
       unavailable: !nativeProgress && !isNativeRuntime() && browserRecord.status === 'unavailable',
     };
-  }, [sceneKey, scenes, nativeProgress, identity.revisionId, identity.sectionId, identity.sectionRevisionId, restorePosition]);
+  }, [sceneKey, scenes, nativeProgress, identity.revisionId, identity.sectionId, identity.sectionRevisionId]);
   const savedPosition = savedPositionRead.position;
   const browserProgressScopeKey = JSON.stringify([sceneKey, scenes.map((item) => item.id)]);
   const unavailableBrowserProgressRef = useRef(savedPositionRead.unavailable);
@@ -544,7 +543,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onRefreshVisual, 
       <NarrationPlayer key={`${section.sectionRevisionId}:${scene.id}:${manualVisit}`} compact
         projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section}
         clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
-        restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
+        restorePosition={positions.current.get(scene.id) ?? 0} transcriptPosition={0}
         onPlaybackPositionChange={(position) => { savePosition(scene.id, position, undefined, true); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
         onPlaybackStarted={onSectionPlaybackStarted} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
     </div>

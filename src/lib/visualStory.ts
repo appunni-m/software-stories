@@ -433,11 +433,10 @@ function sectionStoryProgress(progress: StoryProgress | undefined, scenes: Story
 
 /** Restore only the one current, section-scoped record. Unknown or previous
  * shapes start at the first scene without carrying guessed playback state. */
-export function readSectionStoryProgress(progress:StoryProgress|undefined,identity:SectionIdentity,scenes:StoryScene[],fallbackPosition=0) {
+export function readSectionStoryProgress(progress:StoryProgress|undefined,identity:SectionIdentity,scenes:StoryScene[]) {
   const clean = cleanStoryProgress(progress);
   const matching = clean && sameSection(clean, identity) && scenes.some(scene => scene.id === clean.sceneId) ? clean : undefined;
   const result = sectionStoryProgress(matching, scenes);
-  if(scenes.length===1&&(!matching||!Object.hasOwn(matching.positions,scenes[0].id))&&Number.isFinite(fallbackPosition)&&fallbackPosition>0&&fallbackPosition<=3600)result.positions[0][1]=fallbackPosition;
   result.viewport = matching?.sceneId===scenes[result.index]?.id?matching.viewport:undefined;
   return result;
 }

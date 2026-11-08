@@ -36,8 +36,8 @@ test('native zero and scene selection restore without autoplay or unscoped fallb
   const unscoped=JSON.stringify({sceneId:'claim:second',positions:{'claim:second':12}});
   assert.equal(readStoryProgressRecord(unscoped,identity,scenes).status,'unavailable');
   const whole=[{id:'claim:second'}];
-  assert.equal(readSectionStoryProgress(undefined,identity,whole,19.5).positions[0][1],19.5);
-  assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
+  assert.equal(readSectionStoryProgress(undefined,identity,whole).positions[0][1],0,'a new section has no route-level playback fallback');
+  assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole).positions[0][1],0,'exact section progress restores its saved zero');
 });
 
 test('focused graph progress keeps its current layout and exact section position',()=>{
