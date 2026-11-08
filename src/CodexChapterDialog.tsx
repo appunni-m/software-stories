@@ -8,7 +8,6 @@ import { InlineCodeText } from './InlineCodeText';
 import { AppButton } from './design/AppButton';
 import { AppCheckbox } from './design/AppCheckbox';
 import { AppSelect } from './design/AppSelect';
-import { AppSearchField } from './design/AppSearchField';
 import { AppTextField } from './design/AppTextField';
 import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
@@ -113,7 +112,6 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestError, setManifestError] = useState<string | null>(null);
   const [paths, setPaths] = useState<string[]>(() => [...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])]);
-  const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
   const [consent, setConsent] = useState(false);
   const [preview, setPreview] = useState<ChapterDraftPreview | null>(null);
@@ -141,8 +139,6 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const eligibleFiles = useMemo(() => (manifest?.files ?? []).filter((file) => file.kind === 'file'
     && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && (snapshotRetrievalRoute || Boolean(codeLensTarget) || file.sizeBytes <= 250_000))
     .sort((left, right) => left.path.localeCompare(right.path)), [manifest, codeLensTarget, snapshotRetrievalRoute]);
-  const filteredFiles = eligibleFiles.filter((file) => (!sectionUpdate || paths.includes(file.path))
-    && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(selection.effort));
   const modelAvailabilityMessage = models.length === 0
@@ -422,14 +418,6 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
     const next = { ...selection, effort };
     setSelection(next);
     setSelectionSaveFailed(!remember(next.modelId, next.effort));
-  };
-
-  const changePath = (path: string, checked: boolean) => {
-    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget || planning || plannedChapter) return;
-    releaseReview();
-    setPaths((current) => checked
-      ? current.includes(path) || current.length >= 12 ? current : [...current, path]
-      : current.filter((selected) => selected !== path));
   };
 
   const buildReview = async () => {
@@ -803,11 +791,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-                {manifest && <>{!planning && !targetPath && !initialSelectedPaths?.length && !overviewNeedsAutomaticDiscovery && <details className="codex-supporting-files" open={!discoveryResult}><summary>{discoveryResult ? 'Review selected files' : 'Choose files'} ({paths.length})</summary><div className="provider-context-search"><span>Filter captured files</span><AppSearchField className="provider-context-search-field" ariaLabel="Filter captured files" value={query} onValueChange={setQuery} placeholder="Search snapshot paths" size="1" /></div>
-                  <div className="provider-context-files">{filteredFiles.map((file) => {
-                    const checked = paths.includes(file.path);
-                    return <label key={file.path} className={checked ? 'selected' : ''}><AppCheckbox checked={checked} disabled={locked || Boolean(planning) || Boolean(plannedChapter) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
-                  })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div></details>}
+                {manifest && <>
                   <details><summary>{discoveryResult ? 'Why Codex chose this code' : 'Included code'} ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code>{discoveryResult?.selectedFiles.find((file) => file.path === path)?.reason && <p>{discoveryResult.selectedFiles.find((file) => file.path === path)?.reason}</p>}</li>)}</ul><p className="provider-small-note">Selection reasons are AI suggestions. Behavior still requires code citations.</p></details>
                   {discoveryResult?.limitation && <p className="source-warning">{discoveryResult.limitation}</p>}
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">{paths.length > 12

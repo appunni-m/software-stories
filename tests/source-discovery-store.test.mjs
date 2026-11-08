@@ -242,7 +242,8 @@ describe('saved source discovery scope', () => {
     assert.match(context, /discovery\?\.scopeKey === discoveryScopeKey/);
     assert.match(dialog, /overviewNeedsAutomaticDiscovery = mode !== 'settings' && mode\.kind === 'overview'[\s\S]*?!discoveryResult && !initialSelectedPaths\?\.length/);
     assert.match(dialog, /Find the code automatically[\s\S]*?Return to the workspace and ask again so Code Atlas can find relevant code for you/);
-    assert.match(dialog, /!initialSelectedPaths\?\.length && !overviewNeedsAutomaticDiscovery/);
+    assert.doesNotMatch(dialog, /codex-supporting-files|Review selected files|Choose files|changePath/);
+    assert.match(dialog, /Why Codex chose this code/);
     assert.doesNotMatch(dialog, /Choose 1–12 files that ground the repository overview/);
   });
 });

@@ -896,17 +896,6 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .provider-context-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--text); font-size: 12px; }
 .provider-context-heading span { color: var(--muted); font: 12px var(--mono); }
 .provider-context-picker > p { margin: 6px 0 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.provider-context-search { display: grid; gap: 5px; margin: 8px 0; color: var(--muted); font-size: 12px; }
-.provider-context-search-field { height: 36px; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text); padding: 0 9px; }
-.provider-context-search-field input { font: 12px var(--mono); }
-.provider-context-files { max-height: 190px; overflow: auto; border: 1px solid var(--blue-border); border-radius: 5px; }
-.provider-context-files > label { display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 30px; padding: 5px 8px; border-bottom: 1px solid var(--blue-border); color: var(--muted); cursor: pointer; }
-.provider-context-files > label:last-child { border-bottom: 0; }
-.provider-context-files > label.selected { background: var(--surface-raised); }
-.provider-context-files .app-checkbox { margin: 0; }
-.provider-context-files code { overflow-wrap: anywhere; color: var(--muted); font: 12px var(--mono); }
-.provider-context-files small { color: var(--muted); font: 12px var(--mono); }
-.provider-context-files > p { padding: 0 9px; }
 .provider-context-picker > .provider-small-note { margin-bottom: 0; }
 .provider-section-path-list { display: grid; gap: 4px; margin: 7px 0; padding-left: 16px; }
 .provider-section-path-list li { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
