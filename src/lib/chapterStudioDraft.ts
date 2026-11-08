@@ -1,5 +1,5 @@
 import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
-import { isCurrentChapterGenerationOrigin } from './chapterOrigin.ts';
+import { CHAPTER_ORIGIN_SCHEMA_VERSION, isCurrentChapterGenerationOrigin } from './chapterOrigin.ts';
 import { inspectInteractiveVisual } from './visuals.ts';
 import type { ChapterRevision, ChapterSection } from './commands.ts';
 
@@ -146,7 +146,7 @@ export function readChapterStudioDraft(
     return { status: 'preserved', reason: 'unsupported' };
   }
   if (isRecord(value.candidate) && isRecord(value.candidate.generationOrigin)
-    && value.candidate.generationOrigin.schemaVersion !== 6) return { status: 'preserved', reason: 'unsupported' };
+    && value.candidate.generationOrigin.schemaVersion !== CHAPTER_ORIGIN_SCHEMA_VERSION) return { status: 'preserved', reason: 'unsupported' };
   if (!hasExactKeys(value, ['version','projectId','snapshotId','targetKey','baseRevisionId','candidate'])) {
     return { status: 'preserved', reason: 'invalid' };
   }

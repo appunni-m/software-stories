@@ -1,6 +1,9 @@
 import type { SectionUpdateReviewTarget } from './commands';
 import type { PlannedChapterScope, PlannedChapterTarget } from './plannedChapters';
 
+export const CHAPTER_ORIGIN_SCHEMA_VERSION = 8 as const;
+const RUST_WHITESPACE_RE = /[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/u;
+
 export type RecordedAgentSettings = { backend: 'codex'; modelId: string; effort: string; approvalPolicy: 'never' }
   | { backend: 'claude-agent'; modelId: string; effort: string | null; approvalPolicy: 'dontAsk'; maxTurns: number };
 
@@ -23,6 +26,19 @@ type RecordedCodeRange = {
   parent: SymbolContext | null; parser: ParserVersion | null;
 };
 
+type RecordedSearchScope = {
+  querySha256: string;
+  query: string;
+  scope: string | null;
+  resultKind: 'files' | 'ranges';
+  limit: number;
+  offset: number;
+  candidates: { path: string; sourceSha256: string }[];
+  candidatesComplete: boolean;
+  limited: boolean;
+  nextOffset: number | null;
+};
+
 interface ChapterGenerationOriginFields {
   projectId: string;
   snapshotId: string;
@@ -41,8 +57,14 @@ interface ChapterGenerationOriginFields {
 
 /** Local dispatch lineage. This is not a cryptographic account attestation. */
 export type ChapterGenerationOrigin = ChapterGenerationOriginFields & {
-  schemaVersion: 6;
-  retrieval?: { policy: string; ledgerSha256: string; indexIdentity: RecordedIndexIdentity; ranges: RecordedCodeRange[] };
+  schemaVersion: typeof CHAPTER_ORIGIN_SCHEMA_VERSION;
+  retrieval?: {
+    policy: string;
+    ledgerSha256: string;
+    indexIdentity: RecordedIndexIdentity;
+    ranges: RecordedCodeRange[];
+    searches: RecordedSearchScope[];
+  };
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,6 +85,13 @@ function boundedText(value: unknown, maxBytes: number): value is string {
 
 function digest(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function safeRepositoryPath(value: unknown, maxBytes: number): value is string {
+  return typeof value === 'string' && value.length > 0
+    && new TextEncoder().encode(value).byteLength <= maxBytes
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(value) && !value.includes('\\')
+    && value.split('/').every((part) => part !== '' && part !== '.' && part !== '..' && !part.includes(':'));
 }
 
 function count(value: unknown): value is number {
@@ -117,15 +146,38 @@ function validSymbolContext(value: unknown): boolean {
 }
 
 function validRetrieval(value: unknown): boolean {
-  if (!exactKeys(value, ['policy','ledgerSha256','indexIdentity','ranges'])
+  if (!exactKeys(value, ['policy','ledgerSha256','indexIdentity','ranges','searches'])
     || !boundedText(value.policy, 128) || !digest(value.ledgerSha256) || !Array.isArray(value.ranges)
-    || value.ranges.length < 1 || value.ranges.length > 512) return false;
+    || value.ranges.length < 1 || value.ranges.length > 512
+    || !Array.isArray(value.searches) || value.searches.length > 64) return false;
   const indexIdentity = value.indexIdentity;
   const validIndex = exactKeys(indexIdentity, ['status','schemaVersion','indexerVersion'])
     ? indexIdentity.status === 'available' && Number.isSafeInteger(indexIdentity.schemaVersion)
       && Number(indexIdentity.schemaVersion) > 0 && boundedText(indexIdentity.indexerVersion, 128)
     : exactKeys(indexIdentity, ['status']) && indexIdentity.status === 'unavailable';
   if (!validIndex) return false;
+  const searches = value.searches as unknown[];
+  const validSearches = searches.every((search) => {
+    if (!exactKeys(search, ['querySha256','query','scope','resultKind','limit','offset','candidates','candidatesComplete','limited','nextOffset'])
+      || !digest(search.querySha256) || !boundedText(search.query, 960)
+      || Array.from(search.query).length < 2 || Array.from(search.query).length > 240
+      || /[\u0000-\u001f\u007f-\u009f]/u.test(search.query)
+      || search.query.split(RUST_WHITESPACE_RE).filter(Boolean).join(' ') !== search.query
+      || !(search.scope === null || safeRepositoryPath(search.scope, 1024))
+      || !['files','ranges'].includes(String(search.resultKind))
+      || !count(search.limit) || Number(search.limit) < 1 || Number(search.limit) > 32
+      || !count(search.offset) || Number(search.offset) + Number(search.limit) > 256
+      || !Array.isArray(search.candidates) || search.candidates.length > 32
+      || typeof search.candidatesComplete !== 'boolean' || typeof search.limited !== 'boolean'
+      || !(search.nextOffset === null || count(search.nextOffset))) return false;
+    const pageEnd = Number(search.offset) + Number(search.limit);
+    return search.candidates.every((candidate) => exactKeys(candidate, ['path','sourceSha256'])
+      && safeRepositoryPath(candidate.path, 512) && digest(candidate.sourceSha256))
+      && (search.nextOffset === null || search.limited === true && pageEnd === Number(search.nextOffset));
+  });
+  const candidateCount = searches.reduce<number>((total, search) =>
+    total + (isRecord(search) && Array.isArray(search.candidates) ? search.candidates.length : 0), 0);
+  if (!validSearches || candidateCount > 160) return false;
   return value.ranges.every((range) => {
     if (!exactKeys(range, ['snapshotId','path','sourceSha256','startByte','endByte','startLine','endLine','chunkSha256','enclosing','parent','parser'])
       || !boundedText(range.snapshotId, 256) || !boundedText(range.path, 4096)
@@ -146,7 +198,7 @@ export function isCurrentChapterGenerationOrigin(value: unknown): value is Chapt
   const required = ['schemaVersion','projectId','snapshotId','targetPath','purpose','requestId','requestFingerprint','requestBodySha256','contractVersion','settings','sourceFiles','sectionUpdate','plannedChapter','contentSha256'];
   if (!exactKeys(value, required, ['retrieval'])) return false;
   const schemaVersion = value.schemaVersion;
-  if (schemaVersion !== 6
+  if (schemaVersion !== CHAPTER_ORIGIN_SCHEMA_VERSION
     || !boundedText(value.projectId, 4096) || !boundedText(value.snapshotId, 256)
     || !(value.targetPath === null || boundedText(value.targetPath, 4096))
     || !['fileChapter','repositoryOverview','sectionUpdate'].includes(String(value.purpose))
