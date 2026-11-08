@@ -2555,7 +2555,6 @@ pub fn run() {
             claude_commands::send_claude_pr_change_request,
             repository_plan_commands::prepare_repository_plan_context,
             repository_plan_commands::prepare_planned_chapter_scope,
-            repository_plan_commands::prepare_planned_chapter_batch,
             repository_plan_commands::list_repository_plan_drafts,
             repository_plan_commands::load_repository_plan_draft,
             repository_plan_commands::discard_repository_plan_draft,

@@ -5,8 +5,6 @@ use crate::{repository_plan, repository_plan_history, repository_plan_store};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::Path};
 
-const MAX_PLANNED_CHAPTERS: usize = 24;
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PlannedChapterTarget {
@@ -26,61 +24,6 @@ impl PlannedChapterTarget {
             && !self.step_id.is_empty()
             && self.step_id.len() <= 256
             && !self.step_id.chars().any(char::is_control)
-    }
-}
-
-/// The accepted route identity used to prepare its complete ordered chapter
-/// batch. Step IDs and prompts remain native-derived from that immutable route.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct PlannedChapterBatchTarget {
-    pub revision_id: String,
-    pub record_sha256: String,
-}
-
-/// Native review scope for every accepted route step, in original plan order.
-/// Preparing this value reads no agent runtime and starts no provider request.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct PlannedChapterBatchScope {
-    pub schema_version: u32,
-    pub project_id: String,
-    pub revision_id: String,
-    pub record_sha256: String,
-    pub snapshot_id: String,
-    pub steps: Vec<PlannedChapterScope>,
-}
-
-impl PlannedChapterBatchScope {
-    /// Structural guard for the renderer's whole-route review. The accepted
-    /// record remains authoritative when each provider request is rebuilt.
-    pub(crate) fn valid_recorded_shape(&self) -> bool {
-        let digest = |value: &str| {
-            value.len() == 64
-                && value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        };
-        let project = !self.project_id.trim().is_empty()
-            && self.project_id.len() <= 4096
-            && !self.project_id.chars().any(char::is_control);
-        let snapshot = !self.snapshot_id.trim().is_empty()
-            && self.snapshot_id.len() <= 256
-            && !self.snapshot_id.chars().any(char::is_control);
-        let mut step_ids = BTreeSet::new();
-        self.schema_version == 1
-            && project
-            && snapshot
-            && repository_plan::canonical_uuid_id(&self.revision_id, "plan-revision")
-            && digest(&self.record_sha256)
-            && (1..=MAX_PLANNED_CHAPTERS).contains(&self.steps.len())
-            && self.steps.iter().all(|step| {
-                step.target.revision_id == self.revision_id
-                    && step.target.record_sha256 == self.record_sha256
-                    && step.snapshot_id == self.snapshot_id
-                    && step.valid_recorded_shape()
-                    && step_ids.insert(step.target.step_id.as_str())
-            })
     }
 }
 
@@ -158,56 +101,6 @@ pub(crate) fn prepare(
         &target.record_sha256,
     )?;
     prepare_from_record(&record, project_id, target)
-}
-
-/// Replays one accepted record once and prepares every step in its saved
-/// order. A single unavailable or over-limit step rejects the batch before
-/// any provider request can be built or sent.
-pub(crate) fn prepare_batch(
-    storage: &Path,
-    project_id: &str,
-    target: &PlannedChapterBatchTarget,
-) -> Result<PlannedChapterBatchScope, String> {
-    if !repository_plan::canonical_uuid_id(&target.revision_id, "plan-revision")
-        || target.record_sha256.len() != 64
-        || !target
-            .record_sha256
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
-        return Err("Open the exact accepted route before preparing its chapters.".to_owned());
-    }
-    let record = repository_plan_history::load_accepted_record(
-        storage,
-        project_id,
-        &target.revision_id,
-        &target.record_sha256,
-    )?;
-    let plan = &record.preview.plan;
-    if plan.steps.is_empty() || plan.steps.len() > MAX_PLANNED_CHAPTERS {
-        return Err("The accepted route has no buildable steps or exceeds the chapter limit.".to_owned());
-    }
-    let mut steps = Vec::with_capacity(plan.steps.len());
-    for step in &plan.steps {
-        let step_target = PlannedChapterTarget {
-            revision_id: target.revision_id.clone(),
-            record_sha256: target.record_sha256.clone(),
-            step_id: step.step_id.clone(),
-        };
-        steps.push(prepare_from_record(&record, project_id, &step_target)?);
-    }
-    let batch = PlannedChapterBatchScope {
-        schema_version: 1,
-        project_id: project_id.to_owned(),
-        revision_id: target.revision_id.clone(),
-        record_sha256: target.record_sha256.clone(),
-        snapshot_id: plan.snapshot_id.clone(),
-        steps,
-    };
-    if !batch.valid_recorded_shape() {
-        return Err("The accepted route's chapter batch could not be verified.".to_owned());
-    }
-    Ok(batch)
 }
 
 fn prepare_from_record(

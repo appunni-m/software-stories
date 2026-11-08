@@ -1034,37 +1034,6 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .repository-plan-detail > .provider-small-note { margin-top: 14px; }
 .repository-plan-footer { justify-content: flex-end; }
 .repository-plan-footer > :first-child { margin-right: auto; }
-.repository-plan-batch-entry { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--accent-border); border-radius: 8px; background: var(--blue-soft); }
-.repository-plan-batch-entry > div { display: grid; gap: 3px; min-width: 0; }
-.repository-plan-batch-entry strong { color: var(--text); font-size: 13px; }
-.repository-plan-batch-entry span { color: var(--muted); font-size: 12px; line-height: 1.45; }
-.repository-plan-batch-dialog { width: min(1000px, 100%); height: min(860px, 93vh); max-height: 93vh; }
-.repository-plan-batch-dialog .provider-dialog-header .eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font: 600 11px var(--mono); letter-spacing: .12em; }
-.repository-plan-batch-content { flex: 1; min-height: 0; }
-.repository-plan-batch-connection { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--accent-border); border-radius: 7px; background: var(--blue-soft); color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
-.repository-plan-batch-connection svg { flex: 0 0 auto; color: var(--accent); }
-.repository-plan-batch-steps { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
-.repository-plan-batch-step { min-width: 0; padding: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); }
-.repository-plan-batch-step.is-saved, .repository-plan-batch-step.is-accepted { border-color: var(--accent-border); }
-.repository-plan-batch-step.is-failed { border-color: var(--danger-border); }
-.repository-plan-batch-step-heading { display: grid; grid-template-columns: 22px auto minmax(0, 1fr); align-items: center; gap: 8px; }
-.repository-plan-batch-step-heading > span { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--muted); font: 11px var(--mono); }
-.repository-plan-batch-step.is-saved .repository-plan-batch-step-heading > span, .repository-plan-batch-step.is-accepted .repository-plan-batch-step-heading > span { color: var(--accent); border-color: var(--accent-border); }
-.repository-plan-batch-step-heading > div { display: grid; gap: 2px; }
-.repository-plan-batch-step-heading strong { color: var(--text); font-size: 12px; }
-.repository-plan-batch-step-heading small { color: var(--muted); font-size: 11px; }
-.repository-plan-batch-step-heading code { justify-self: end; max-width: 100%; color: var(--muted); font: 11px var(--mono); overflow-wrap: anywhere; text-align: right; }
-.repository-plan-batch-step h3 { margin: 10px 0 8px 30px; color: var(--text); font-size: 13px; line-height: 1.5; }
-.repository-plan-batch-step > .rt-Button { margin-left: 30px; }
-.repository-plan-batch-request { margin: 9px 0 0 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.repository-plan-batch-request > summary, .repository-plan-batch-request details > summary { padding: 8px 10px; color: var(--muted); font-size: 11px; cursor: pointer; }
-.repository-plan-batch-request > details { margin: 0 9px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--canvas); }
-.repository-plan-batch-request > details > pre { max-height: 280px; overflow: auto; margin: 0; padding: 9px; border-top: 1px solid var(--border); color: var(--muted); font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.repository-plan-batch-recovery { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 12px; padding: 10px; border: 1px solid var(--warning-border); border-radius: 7px; background: var(--surface-raised); }
-.repository-plan-batch-recovery strong { color: var(--warning); font-size: 12px; }
-.repository-plan-batch-recovery span { flex: 1 1 220px; color: var(--muted); font-size: 12px; }
-.repository-plan-batch-footer { justify-content: flex-end; flex-wrap: wrap; }
-.repository-plan-batch-footer > :first-child { margin-right: auto; }
 
 @media (max-width: 760px) {
   .provider-overlay { padding: 0; }
@@ -1076,11 +1045,6 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
   .repository-plan-browser { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(130px, 32%) minmax(0,1fr); }
   .repository-plan-list { border-right: 0; border-bottom: 1px solid var(--border); }
   .repository-plan-detail { padding: 15px; }
-  .repository-plan-batch-entry { align-items: stretch; flex-direction: column; }
-  .repository-plan-batch-step-heading { grid-template-columns: 22px minmax(0, 1fr); }
-  .repository-plan-batch-step-heading code { grid-column: 2; justify-self: start; text-align: left; }
-  .repository-plan-batch-step h3, .repository-plan-batch-request, .repository-plan-batch-step > .rt-Button { margin-left: 0; }
-  .repository-plan-batch-dialog { height: 100%; max-height: 100%; }
   .provider-model-list, .provider-request-summary { grid-template-columns: 1fr; }
   .source-view-actions { justify-content: flex-end; }
 }

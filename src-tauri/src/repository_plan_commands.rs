@@ -160,24 +160,3 @@ pub(crate) async fn prepare_planned_chapter_scope(
         "The accepted reading step could not be prepared. Open the exact plan again.".to_owned()
     })?
 }
-
-/// Rebuild every source-bounded chapter scope from one exact accepted route.
-/// This is local preparation only; the renderer still reviews all requests and
-/// each later dispatch independently replays its accepted step.
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn prepare_planned_chapter_batch(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    project_id: String,
-    target: crate::planned_chapter::PlannedChapterBatchTarget,
-) -> Result<crate::planned_chapter::PlannedChapterBatchScope, String> {
-    sessions.get(&project_id)?;
-    let storage = app_data_directory(&app)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::planned_chapter::prepare_batch(&storage, &project_id, &target)
-    })
-    .await
-    .map_err(|_| {
-        "Preparing the accepted route's chapters stopped unexpectedly. No agent request was sent.".to_owned()
-    })?
-}

@@ -42,8 +42,7 @@ import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlanHistoryDialog } from './RepositoryPlanHistoryDialog';
-import { RepositoryPlanBatchDialog } from './RepositoryPlanBatchDialog';
-import type { PlannedChapterBatchTarget, PlannedChapterScope } from './lib/plannedChapters';
+import type { PlannedChapterScope } from './lib/plannedChapters';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
@@ -376,7 +375,6 @@ function App() {
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
   const [planHistoryProjectId, setPlanHistoryProjectId] = useState<string | null>(null);
   const [planHistoryDraftId, setPlanHistoryDraftId] = useState<string | undefined>(undefined);
-  const [planBatch, setPlanBatch] = useState<{ projectId: string; target: PlannedChapterBatchTarget } | null>(null);
   const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
   const [pendingCodeLensQuestion, setPendingCodeLensQuestion] = useState<PendingCodeLensQuestion | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
@@ -394,7 +392,6 @@ function App() {
     setPlanHistoryProjectId(projectId);
   }, []);
   const closePlanHistory = useCallback(() => {
-    setPlanBatch(null);
     setPlanHistoryProjectId(null);
     setPlanHistoryDraftId(undefined);
   }, []);
@@ -2348,24 +2345,7 @@ function App() {
           openPlanningDialog({kind:'planned-chapter',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,
             question:scope.question,selectedPaths:scope.selectedPaths,plannedChapter:scope});
         }}
-        onBuildAllChapters={(target)=>{
-          if (planHistoryProjectId) setPlanBatch({projectId:planHistoryProjectId,target});
-        }} />}
-      {planBatch && <RepositoryPlanBatchDialog
-        key={`${planBatch.projectId}:${planBatch.target.revisionId}:${planBatch.target.recordSha256}`}
-        projectId={planBatch.projectId}
-        target={planBatch.target}
-        native={runtime?.native ?? isNativeRuntime()}
-        onClose={()=>setPlanBatch(null)}
-        onReviewDraft={(revision)=>{
-          setPlanBatch(null);
-          closePlanHistory();
-          reviewGuideRevision(revision);
-        }}
-        onOpenPendingPreview={(generationId)=>{
-          setPlanBatch(null);
-          setRecoveredPreviewId(generationId);
-        }} />}
+      />}
       {providerDialog && (
         <ProviderDialog
           key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
