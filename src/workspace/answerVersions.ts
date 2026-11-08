@@ -114,3 +114,20 @@ export function rememberAnswerVersion(state: WorkspaceState, explorationId: stri
   };
   return {...state, explorations:state.explorations.map(e => e.id !== explorationId ? e : {...e, turns:e.turns.map(t => t.id !== turnId ? t : next)})};
 }
+
+/** Apply an async revision only while the reader is still on the version that started it. */
+export function rememberAnswerVersionIfCurrent(
+  state: WorkspaceState,
+  explorationId: string,
+  turnId: string,
+  originalRevisionId: string,
+  expectedRevisionId: string,
+  revisionId: string,
+  chapters: readonly ChapterRevision[],
+): WorkspaceState {
+  const turn=state.explorations.find((exploration)=>exploration.id===explorationId)?.turns.find((item)=>item.id===turnId);
+  const original=chapters.find((revision)=>revision.revisionId===originalRevisionId
+    &&revision.projectId===state.projectId&&revision.snapshotId===state.snapshotId);
+  if(!turn||!original||resolveAnswerRevision(original,turn,chapters).revisionId!==expectedRevisionId)return state;
+  return rememberAnswerVersion(state,explorationId,turnId,originalRevisionId,revisionId,chapters);
+}

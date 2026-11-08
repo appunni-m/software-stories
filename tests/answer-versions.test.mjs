@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FLOW_DIAGRAM_LAYOUT_VERSION} from '../src/lib/readerProgress.ts';
-import {answerReadingPosition, answerRevisionOptions, cleanAnswerVersions, rememberAnswerVersion, resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
+import {answerReadingPosition, answerRevisionOptions, cleanAnswerVersions, rememberAnswerVersion, rememberAnswerVersionIfCurrent, resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 import {addTurn, createWorkspace, decodeWorkspace, mergePublishedSections, presentationOwner, rememberPresentation, rememberSection} from '../src/workspace/model.ts';
 
 const revision=(n,parent=null,more={})=>({schemaVersion:5,projectId:'project',snapshotId:'snapshot',chapterId:'chapter:cart',target:{targetId:'target:cart',scope:{kind:'file',path:'src/cart.ts'}},revisionId:`revision:${n}`,revisionNumber:n,basedOnRevisionId:parent,lifecycle:'draft',validationStatus:'valid',title:'Cart',sections:[{sectionId:'section:one',sectionRevisionId:`section-revision:${n}`}],...more});
@@ -43,6 +43,18 @@ test('selections preserve immutable receipts, original reading, and revised read
   const restored=decodeWorkspace(JSON.stringify(s),'project','snapshot');
   assert.equal(resolveAnswerRevision(original,turn(restored),history),accepted);
   assert.equal(answerReadingPosition(turn(restored),'guide',accepted.revisionId).sectionId,'section:edited-last');
+});
+
+test('a late inline revision does not replace a version selected while the save was pending',()=>{
+  let s=select(workspace(),accepted.revisionId);
+  const latest=revision(8,accepted.revisionId,{lifecycle:'accepted'});
+  const revisions=[...history,latest];
+  const ignored=rememberAnswerVersionIfCurrent(s,'root',questionId,original.revisionId,original.revisionId,latest.revisionId,revisions);
+  assert.equal(ignored,s,'a late completion leaves the newly selected version untouched');
+  assert.equal(resolveAnswerRevision(original,turn(ignored),revisions),accepted);
+
+  const applied=rememberAnswerVersionIfCurrent(s,'root',questionId,original.revisionId,accepted.revisionId,latest.revisionId,revisions);
+  assert.equal(resolveAnswerRevision(original,turn(applied),revisions),latest,'the result applies when its starting version remains selected');
 });
 
 test('invalid current section falls back to a valid saved position for the same revision',()=>{

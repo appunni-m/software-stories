@@ -39,7 +39,7 @@ import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory
 import { featuredGuideTurnId, groupUnavailablePublishedSections, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
-import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
+import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, rememberAnswerVersionIfCurrent, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode, type IndexLimitOmissions } from './codeSearch';
 import { linearFlowSteps, unlinkedFlowNodes } from './flowPresentation';
@@ -481,12 +481,7 @@ export function DeveloperWorkspace(props:Props) {
       refreshChapters();
     }
     if(accepted&&refreshed){
-      update((state)=>{
-        const turn=state.explorations.find((exploration)=>exploration.id===explorationId)?.turns.find((item)=>item.id===turnId);
-        const original=refreshed?.find((item)=>item.revisionId===originalRevisionId);
-        if(!turn||!original||resolveAnswerRevision(original,turn,refreshed).revisionId!==selectedRevisionId)return state;
-        return rememberAnswerVersion(state,explorationId,turnId,originalRevisionId,revision.revisionId,refreshed);
-      });
+      update((state)=>rememberAnswerVersionIfCurrent(state,explorationId,turnId,originalRevisionId,selectedRevisionId,revision.revisionId,refreshed));
     }
     return {revision,validation:finalValidation,saved:true,accepted,...(acceptanceIssue?{message:`Saved as a draft. It could not be applied: ${acceptanceIssue}`}:!accepted&&finalValidation.status==='valid'?{message:'The validated draft was saved but is not active yet. Try Check & save again.'}:{})};
   };
