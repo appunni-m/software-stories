@@ -1,7 +1,5 @@
-import { lazy, Suspense, useContext, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { Tabs } from '@radix-ui/themes';
+import { useContext, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, FileCode2, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
-import type { AgentGitRecovery } from './lib/agentRecovery';
 import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
 import { GitHistoryEmptyContext } from './workspace/gitHistoryContext';
 import { AppButton } from './design/AppButton';
@@ -18,8 +16,6 @@ import {
   type GitSourceAnchor,
 } from './lib/commands';
 
-const PrGuideStudio = lazy(() => import('./PrGuideStudio').then((module) => ({ default: module.PrGuideStudio })));
-
 interface GitChangesScreenProps {
   compact?: boolean;
   projectId: string | null;
@@ -31,9 +27,6 @@ interface GitChangesScreenProps {
   onSelectChange: (path: string | undefined) => void;
   onComparison: (projectId: string, baseRef: string, headRef: string, result: GitComparisonResult) => void;
   onOpenRepository: () => void;
-  onOpenProviderSettings: () => void;
-  recovery?: AgentGitRecovery | null;
-  onRecoveryReviewReady?: (operationId: string) => void;
   capturedSource?: CapturedGitSourceSnapshot | null;
   onOpenCapturedSource?: (path: string, snapshotId: string) => void;
 }
@@ -49,9 +42,6 @@ export function GitChangesScreen({
   onSelectChange,
   onComparison,
   onOpenRepository,
-  onOpenProviderSettings,
-  recovery,
-  onRecoveryReviewReady,
   capturedSource,
   onOpenCapturedSource,
 }: GitChangesScreenProps) {
@@ -221,14 +211,8 @@ export function GitChangesScreen({
       {matchingComparison && <ComparisonResults compact={compact}
         key={`${projectId}:${matchingComparison.result.comparisonId ?? `${matchingComparison.baseRef}:${matchingComparison.headRef}`}`}
         comparison={matchingComparison.result}
-        projectId={projectId}
-        baseRef={matchingComparison.baseRef}
-        headRef={matchingComparison.headRef}
         selectedChangePath={selectedChangePath}
         onSelectChange={onSelectChange}
-        onOpenProviderSettings={onOpenProviderSettings}
-        recovery={recovery}
-        onRecoveryReviewReady={onRecoveryReviewReady}
         capturedSource={capturedSource}
         onOpenCapturedSource={onOpenCapturedSource}
       />}
@@ -239,32 +223,19 @@ export function GitChangesScreen({
 function ComparisonResults({
   compact,
   comparison,
-  projectId,
-  baseRef,
-  headRef,
   selectedChangePath,
   onSelectChange,
-  onOpenProviderSettings,
-  recovery,
-  onRecoveryReviewReady,
   capturedSource,
   onOpenCapturedSource,
 }: {
   compact?: boolean;
   comparison: GitComparisonResult;
-  projectId: string;
-  baseRef: string;
-  headRef: string;
   selectedChangePath?: string;
   onSelectChange: (path: string | undefined) => void;
-  onOpenProviderSettings: () => void;
-  recovery?: AgentGitRecovery | null;
-  onRecoveryReviewReady?: (operationId: string) => void;
   capturedSource?: CapturedGitSourceSnapshot | null;
   onOpenCapturedSource?: (path: string, snapshotId: string) => void;
 }) {
   const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
-  const [compactSurface, setCompactSurface] = useState<'diff' | 'pr-guide'>('diff');
   const isPartial = comparison.status === 'limited';
   const resultLabel = comparison.status === 'ready'
     ? `${comparison.changes.length} changed ${comparison.changes.length === 1 ? 'file' : 'files'}`
@@ -276,72 +247,47 @@ function ComparisonResults({
   const activeChange = comparison.changes.find((change) => changeIdentity(change) === selectedChangePath) ?? comparison.changes[0];
   const activeIdentity = activeChange ? changeIdentity(activeChange) : undefined;
   const activePath = activeChange?.headPath ?? activeChange?.basePath ?? 'Unknown path';
-  const prGuide = <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
-    <PrGuideStudio accountOnly={compact}
-      key={JSON.stringify([projectId, baseRef, headRef, comparison.comparisonId])}
-      projectId={projectId}
-      baseRef={baseRef}
-      headRef={headRef}
-      comparison={comparison}
-      onFocusChange={(identity, hunkIndex) => {
-        if (identity && hunkIndex !== undefined) setFocusedCitation({ identity, hunkIndex });
-        if (compact) setCompactSurface('diff');
-        onSelectChange(identity);
-      }}
-      onOpenProviderSettings={onOpenProviderSettings}
-      recovery={recovery}
-      onRecoveryReviewReady={onRecoveryReviewReady}
-    />
-  </Suspense>;
-  const hasCompactTabs = compact && comparison.changes.length > 0;
-  const compactViews = hasCompactTabs ? (
-    <>
-      <Tabs.Content forceMount value="diff" className="git-compact-browser">
-        <nav className="git-compact-files" aria-label="Changed files">
-          <header><strong>Files changed</strong><span>{comparison.changes.length}</span></header>
-          {comparison.changes.map((change) => {
-            const identity = changeIdentity(change);
-            const path = change.headPath ?? change.basePath ?? 'Unknown path';
-            const selected = identity === activeIdentity;
-            return <AppButton intent="custom" type="button" key={identity} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { setFocusedCitation(null); onSelectChange(identity); }}>
-              <span className={`git-change-kind kind-${change.kind.toLowerCase()}`}>{change.kind}</span>
-              <code title={path}>{path}</code>
-              <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'} · {formatClassification(change.classification)}</small>
-            </AppButton>;
-          })}
-        </nav>
-        <section className="git-compact-detail" aria-label={`Diff for ${activePath}`}>
-          {activeChange ? <ChangeDisclosure
-            change={activeChange}
-            relationshipImpact={comparison.relationshipImpact}
-            canOpenCapturedSource={canOpenCapturedSource(activeChange, comparison, capturedSource, onOpenCapturedSource)}
-            capturedHeadMatches={matchesCapturedHead(comparison, capturedSource)}
-            capturedSnapshotId={capturedSource?.snapshotId}
-            onOpenCapturedSource={onOpenCapturedSource}
-            expanded
-            interactive={false}
-            focusedHunkIndex={focusedCitation && focusedCitation.identity === activeIdentity ? focusedCitation.hunkIndex : undefined}
-            onToggle={() => undefined}
-          /> : <p className="git-no-changes">Select a changed file to inspect its diff.</p>}
-        </section>
-      </Tabs.Content>
-      <Tabs.Content forceMount value="pr-guide" className="git-compact-pr-guide">{prGuide}</Tabs.Content>
-    </>
+  const compactView = compact && comparison.changes.length > 0 ? (
+    <div className="git-compact-browser">
+      <nav className="git-compact-files" aria-label="Changed files">
+        <header><strong>Files changed</strong><span>{comparison.changes.length}</span></header>
+        {comparison.changes.map((change) => {
+          const identity = changeIdentity(change);
+          const path = change.headPath ?? change.basePath ?? 'Unknown path';
+          const selected = identity === activeIdentity;
+          return <AppButton intent="custom" type="button" key={identity} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { setFocusedCitation(null); onSelectChange(identity); }}>
+            <span className={`git-change-kind kind-${change.kind.toLowerCase()}`}>{change.kind}</span>
+            <code title={path}>{path}</code>
+            <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'} · {formatClassification(change.classification)}</small>
+          </AppButton>;
+        })}
+      </nav>
+      <section className="git-compact-detail" aria-label={`Diff for ${activePath}`}>
+        {activeChange ? <ChangeDisclosure
+          change={activeChange}
+          relationshipImpact={comparison.relationshipImpact}
+          canOpenCapturedSource={canOpenCapturedSource(activeChange, comparison, capturedSource, onOpenCapturedSource)}
+          capturedHeadMatches={matchesCapturedHead(comparison, capturedSource)}
+          capturedSnapshotId={capturedSource?.snapshotId}
+          onOpenCapturedSource={onOpenCapturedSource}
+          expanded
+          interactive={false}
+          focusedHunkIndex={focusedCitation && focusedCitation.identity === activeIdentity ? focusedCitation.hunkIndex : undefined}
+          onToggle={() => undefined}
+        /> : <p className="git-no-changes">Select a changed file to inspect its diff.</p>}
+      </section>
+    </div>
   ) : null;
 
-  const renderResults = (showCompactTabs: boolean) => (
+  const renderResults = () => (
     <section className={`git-comparison-results${compact && comparison.changes.length > 0 ? ' git-comparison-results-compact' : ''}`} aria-labelledby="git-results-title">
       <header className="git-results-header">
         <div>
           <span className="git-changes-kicker">{isPartial ? 'PARTIAL RESULT' : 'COMPARE RESULTS'}</span>
           <h2 id="git-results-title">{resultLabel}</h2>
         </div>
-        {showCompactTabs && <Tabs.List className="git-compact-surfaces" aria-label="Change views">
-          <Tabs.Trigger value="diff">Diff</Tabs.Trigger>
-          <Tabs.Trigger value="pr-guide">PR Guide</Tabs.Trigger>
-        </Tabs.List>}
       </header>
-      {compactViews}
+      {compactView}
       {(comparison.comparisonId || (comparison.base && comparison.head)) && <details className="git-version-details">
         <summary>Version details</summary>
         {comparison.comparisonId && <code className="git-comparison-id" title="Stable identity derived from both requested versions and resolved commits">{comparison.comparisonId}</code>}
@@ -381,15 +327,10 @@ function ComparisonResults({
           })}
         </div>
       ) : null}
-      {compact && comparison.changes.length > 0 ? null : prGuide}
     </section>
   );
 
-  return hasCompactTabs ? (
-    <Tabs.Root className="git-compact-comparison" value={compactSurface} onValueChange={(value) => setCompactSurface(value as 'diff' | 'pr-guide')}>
-      {renderResults(true)}
-    </Tabs.Root>
-  ) : renderResults(false);
+  return renderResults();
 }
 
 function CommitIdentity({ label, ref }: { label: string; ref: { requested: string; objectId: string } }) {

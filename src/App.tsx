@@ -33,7 +33,6 @@ import { InlineCodeText } from './InlineCodeText';
 import { plainInlineCodeText } from './lib/inlineCode';
 import { FileFlow } from './FileFlow';
 import { readDirectApiSelection, readDirectApiSelectionIssue, readGenerationBackend, readHandoffAgent, rememberDirectApiSelection, rememberGenerationBackend, rememberHandoffAgent, type DirectApiSelectionIssue, type GenerationBackend } from './lib/generationPreferences';
-import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject, type UIEvent as ReactUIEvent } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { type CodexChapterDialogMode } from './CodexChapterDialog';
@@ -368,7 +367,6 @@ function App() {
   }>>({});
   const [recoveredPreviewId, setRecoveredPreviewId] = useState<string | null>(null);
   const [recoveryBusyId, setRecoveryBusyId] = useState<string | null>(null);
-  const [recoveredGitRequest, setRecoveredGitRequest] = useState<AgentGitRecovery | null>(null);
   const [sourceDocument, setSourceDocument] = useState<SnapshotSource | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -638,7 +636,6 @@ function App() {
       await discardInterruptedOperation(operationId);
       setInterruptedOperations((current) => current.filter((operation) => operation.operationId !== operationId));
       void refreshInterruptedOperations();
-      setRecoveredGitRequest((current) => current?.operationId === operationId ? null : current);
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
@@ -675,7 +672,6 @@ function App() {
       await discardInterruptedOperation(operation.operationId);
       setInterruptedOperations((current) => current.filter((item) => item.operationId !== operation.operationId));
       void refreshInterruptedOperations();
-      setRecoveredGitRequest((current) => current?.operationId === operation.operationId ? null : current);
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
@@ -733,7 +729,6 @@ function App() {
     const originRoute = navigationRef.current.current;
     const current = () => interruptedReviewToken.current === token && navigationRef.current.current === originRoute;
     setRecoveryBusyId(operation.operationId);
-    setRecoveredGitRequest(null);
     try {
       const recordedRequest = operation.providerRequest;
       if (!recordedRequest) throw new Error('The current interruption record is missing its request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
@@ -798,7 +793,7 @@ function App() {
         sectionBase = base;
       }
       let rangeTarget: CodeLensExplanationTarget | null = null;
-      let gitRecovery: AgentGitRecovery | null = null;
+      let recoveredGitRefs: { baseRef: string; headRef: string } | null = null;
       let recoveredComparison: GitComparisonResult | null = null;
       if (recovered && recoveryBackend && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
         if (request.purpose === 'codeLensExplanation') {
@@ -809,43 +804,32 @@ function App() {
           if (!git || !recovered.comparison || recovered.comparison.comparisonId !== git.comparisonId) {
             throw new Error('This notice has no recoverable Git selection. Select the original comparison again.');
           }
-          recoveredComparison = recovered.comparison;
-          if (request.purpose === 'prGuide') {
-            gitRecovery = { operationId: operation.operationId, backend: recoveryBackend,
-              mode: { kind: 'pr-guide', projectId: operation.projectId,
-                baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
-                selectedChanges: git.selectedChanges, recoveryOperationId: operation.operationId } };
-          } else {
-            if (git.hunkIndex === null || git.selectedChanges.length !== 1) throw new Error('The exact interrupted hunk is unavailable. Select it again.');
-            gitRecovery = { operationId: operation.operationId, backend: recoveryBackend,
-              mode: { kind: 'pr-change', projectId: operation.projectId,
-                target: { baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
-                  selectedChange: git.selectedChanges[0], hunkIndex: git.hunkIndex }, recoveryOperationId: operation.operationId } };
+          if (request.purpose === 'prChangeExplanation' && (git.hunkIndex === null || git.selectedChanges.length !== 1)) {
+            throw new Error('The exact interrupted hunk is unavailable. Select it again.');
           }
+          recoveredComparison = recovered.comparison;
+          recoveredGitRefs = { baseRef: git.baseRef, headRef: git.headRef };
         }
       }
       handleProjectOpenResult(opened);
       const chapterRequest = ['fileChapter', 'repositoryOverview', 'sectionUpdate'].includes(request.purpose);
-      const recoveredRefs = !gitRecovery ? null : gitRecovery.mode.kind === 'pr-guide' ? gitRecovery.mode : gitRecovery.mode.target;
-      if (recoveredRefs && recoveredComparison) {
+      if (recoveredGitRefs && recoveredComparison) {
         const result = recoveredComparison;
         setGitComparisonsByProject((state) => ({ ...state, [operation.projectId]: {
-          baseRef: recoveredRefs.baseRef, headRef: recoveredRefs.headRef, result,
+          baseRef: recoveredGitRefs.baseRef, headRef: recoveredGitRefs.headRef, result,
         } }));
       }
       setNavigation((state) => navigateToRoute(state, {
         workspace: chapterRequest ? 'chapter-studio' : request.purpose === 'codeLensExplanation' ? 'atlas' : 'changes',
         projectId: operation.projectId,
         snapshotId: request.purpose === 'prGuide' || request.purpose === 'prChangeExplanation' ? null : operation.snapshotId,
-        baseRef: recoveredRefs?.baseRef, headRef: recoveredRefs?.headRef,
+        baseRef: recoveredGitRefs?.baseRef, headRef: recoveredGitRefs?.headRef,
         relativePath: rangeTarget?.path ?? (request.purpose === 'codeLensExplanation' ? operation.targetPath ?? undefined : undefined),
         sourceRange: rangeTarget ? { startLine: rangeTarget.startLine, endLine: rangeTarget.endLine, sourceSha256: rangeTarget.sourceSha256,
           ...(rangeTarget.startByte === null || rangeTarget.endByteExclusive === null ? {} : { startByte: rangeTarget.startByte, endByteExclusive: rangeTarget.endByteExclusive }) } : undefined,
         focusTarget: chapterRequest ? 'heading:chapter-studio' : request.purpose === 'codeLensExplanation' ? 'heading:atlas' : 'heading:changes',
       }));
-      if (gitRecovery) {
-        setRecoveredGitRequest(gitRecovery);
-      } else if (rangeTarget) {
+      if (rangeTarget) {
         setProviderDialog({ kind: 'code-lens-range', projectId: operation.projectId, snapshotId: operation.snapshotId,
           target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend });
       } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget) {
@@ -2294,9 +2278,6 @@ function App() {
                     [projectId]: { baseRef, headRef, result },
                   }))}
                   onOpenRepository={() => { void openLocalRepository(); }}
-                  onOpenProviderSettings={openProviderSettings}
-                  recovery={recoveredGitRequest}
-                  onRecoveryReviewReady={completeRecoveredProviderReview}
                   capturedSource={snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId ? {
                     snapshotId: snapshotManifest.summary.snapshotId,
                     head: snapshotManifest.summary.head,
