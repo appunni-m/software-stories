@@ -126,7 +126,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const transcriptRef = useRef<HTMLDivElement>(null);
   const autoPlayRef = useRef(false);
   const completionArmed = useRef(false);
-  const cancelRequested = useRef(false);
   const mountedRef = useRef(false);
   const reviewGenerationRef = useRef(0);
   const makeReviewRef = useRef<(restoreCache?: boolean) => Promise<NarrationRequestReview | null>>(async () => null);
@@ -235,7 +234,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       // which has already started generating the reviewed narration.
       const synthesisReviewId = synthesisReviewIdRef.current;
       if (synthesisReviewId) {
-        cancelRequested.current = true;
         void cancelProviderRequest(synthesisReviewId).catch(() => {});
         void discardNarrationRequestReview(synthesisReviewId).catch(() => {});
       }
@@ -248,7 +246,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     const currentReview = reviewRef.current;
     if (currentReview) void discardNarrationRequestReview(currentReview.reviewId).catch(() => {});
     const running = synthesisReviewIdRef.current;
-    if (running) { cancelRequested.current = true; void cancelProviderRequest(running).catch(() => {}); }
+    if (running) void cancelProviderRequest(running).catch(() => {});
     audioRef.current?.pause();
     setDraft((value) => applyVoiceConnection(value, voiceConnection));
     setTrack(null); setCurrentTime(0); setDuration(0); setIsPlaying(false);
@@ -510,7 +508,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setRequestBusy(true);
     setProviderRequestBusy(true);
     synthesisReviewIdRef.current = currentReview.reviewId;
-    cancelRequested.current = false;
     setCancelConfirmation(false);
     setCancelBusy(false);
     setCancelStatus(null);
@@ -526,11 +523,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         setError(result.error.message);
         // The native command consumes its reviewed request before checking the
         // provider response. Require a fresh local review before any retry.
-        setReview(null);
-        return;
-      }
-      if (cancelRequested.current) {
-        setError('Local synthesis was cancelled. The returned audio was discarded; the transcript and previous audio remain available.');
         setReview(null);
         return;
       }
@@ -558,7 +550,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
   const confirmCancelSynthesis = async () => {
     if (!review || !providerRequestBusy || cancelBusy) return;
-    cancelRequested.current = true;
     setCancelBusy(true);
     setCancelConfirmation(false);
     setCancelStatus(null);
@@ -569,7 +560,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (!mountedRef.current) return;
       setCancelStatus(stopped
         ? 'Cancellation requested. Waiting for local synthesis to stop; no returned audio will be accepted.'
-        : 'The request had already finished locally. Its audio will be discarded because you chose Cancel.');
+        : 'Audio finished before cancellation. It is ready to play.');
     } catch {
       if (mountedRef.current) setCancelStatus('The local abort could not be confirmed; any returned audio will be discarded.');
     } finally {

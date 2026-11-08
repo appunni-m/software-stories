@@ -13,7 +13,8 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::future::Future;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::oneshot;
 use uuid::Uuid;
@@ -728,18 +729,69 @@ pub struct PendingProviderReviews(Mutex<HashMap<String, PendingProviderRequest>>
 #[derive(Default)]
 pub struct ProviderRequestCancellations(Mutex<CancellationState>);
 
+const CANCELLATION_ACTIVE: u8 = 0;
+const CANCELLATION_CANCELLED: u8 = 1;
+const CANCELLATION_COMMITTED: u8 = 2;
+
+/// Linearizes cancellation against accepting a completed local result.
+#[derive(Clone, Default)]
+pub struct CancellationCommit(Arc<AtomicU8>);
+
+impl CancellationCommit {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn try_commit(&self) -> bool {
+        self.0
+            .compare_exchange(
+                CANCELLATION_ACTIVE,
+                CANCELLATION_COMMITTED,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_ok()
+    }
+
+    pub(crate) fn cancel(&self) -> bool {
+        self.0
+            .compare_exchange(
+                CANCELLATION_ACTIVE,
+                CANCELLATION_CANCELLED,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_ok()
+    }
+
+    fn is_committed(&self) -> bool {
+        self.0.load(Ordering::Acquire) == CANCELLATION_COMMITTED
+    }
+}
+
+struct PendingRequestCancellation {
+    sender: oneshot::Sender<()>,
+    completion: CancellationCommit,
+    tracks_completion: bool,
+}
+
 #[derive(Default)]
 struct CancellationState {
-    pending: HashMap<String, oneshot::Sender<()>>,
+    pending: HashMap<String, PendingRequestCancellation>,
     // Remember bounded early cancellation so a queued native command cannot
     // start work after its originating view has already been closed.
     cancelled: HashMap<String, u64>,
+    // Transactional local operations remain distinguishable briefly after
+    // completion while their caller receives the final IPC response.
+    completed: HashMap<String, u64>,
 }
 
 impl CancellationState {
     fn prune(&mut self) {
         let now = unix_time_ms();
         self.cancelled
+            .retain(|_, at| now.saturating_sub(*at) < 300_000);
+        self.completed
             .retain(|_, at| now.saturating_sub(*at) < 300_000);
         while self.cancelled.len() >= 512 {
             let oldest = self
@@ -753,11 +805,39 @@ impl CancellationState {
                 break;
             }
         }
+        while self.completed.len() >= 512 {
+            let oldest = self
+                .completed
+                .iter()
+                .min_by_key(|(_, at)| *at)
+                .map(|(id, _)| id.clone());
+            if let Some(id) = oldest {
+                self.completed.remove(&id);
+            } else {
+                break;
+            }
+        }
     }
 }
 
 impl ProviderRequestCancellations {
     pub fn begin(&self, review_id: &str) -> Result<oneshot::Receiver<()>, ProviderFailure> {
+        self.begin_inner(review_id, false)
+            .map(|(receiver, _)| receiver)
+    }
+
+    pub fn begin_with_commit(
+        &self,
+        review_id: &str,
+    ) -> Result<(oneshot::Receiver<()>, CancellationCommit), ProviderFailure> {
+        self.begin_inner(review_id, true)
+    }
+
+    fn begin_inner(
+        &self,
+        review_id: &str,
+        tracks_completion: bool,
+    ) -> Result<(oneshot::Receiver<()>, CancellationCommit), ProviderFailure> {
         let mut state = self.0.lock().map_err(|_| {
             failure(
                 ProviderFailureKind::ReviewUnavailable,
@@ -771,6 +851,12 @@ impl ProviderRequestCancellations {
                 "This operation was cancelled before it started. Start a new operation when ready.",
             ));
         }
+        if state.completed.contains_key(review_id) {
+            return Err(failure(
+                ProviderFailureKind::ReviewUnavailable,
+                "This operation has already completed. Start a new operation when ready.",
+            ));
+        }
         if state.pending.contains_key(review_id) {
             return Err(failure(
                 ProviderFailureKind::ReviewUnavailable,
@@ -778,8 +864,16 @@ impl ProviderRequestCancellations {
             ));
         }
         let (sender, receiver) = oneshot::channel();
-        state.pending.insert(review_id.to_owned(), sender);
-        Ok(receiver)
+        let completion = CancellationCommit::new();
+        state.pending.insert(
+            review_id.to_owned(),
+            PendingRequestCancellation {
+                sender,
+                completion: completion.clone(),
+                tracks_completion,
+            },
+        );
+        Ok((receiver, completion))
     }
 
     pub fn cancel(&self, review_id: &str) -> bool {
@@ -790,19 +884,32 @@ impl ProviderRequestCancellations {
             return false;
         };
         state.prune();
-        if state.cancelled.contains_key(review_id) {
+        if state.cancelled.contains_key(review_id) || state.completed.contains_key(review_id) {
             return false;
         }
-        state.cancelled.insert(review_id.to_owned(), unix_time_ms());
-        if let Some(sender) = state.pending.remove(review_id) {
-            let _ = sender.send(());
+        if let Some(pending) = state.pending.get(review_id) {
+            if !pending.completion.cancel() {
+                return false;
+            }
+            if let Some(pending) = state.pending.remove(review_id) {
+                state.cancelled.insert(review_id.to_owned(), unix_time_ms());
+                let _ = pending.sender.send(());
+            }
+            return true;
         }
+        state.cancelled.insert(review_id.to_owned(), unix_time_ms());
         true
     }
 
     pub fn finish(&self, review_id: &str) {
         if let Ok(mut state) = self.0.lock() {
-            state.pending.remove(review_id);
+            if let Some(pending) = state.pending.remove(review_id)
+                && pending.tracks_completion
+                && pending.completion.is_committed()
+            {
+                state.completed.insert(review_id.to_owned(), unix_time_ms());
+                state.prune();
+            }
         }
     }
 }
@@ -8877,6 +8984,42 @@ mod tests {
         ));
         cancellations.finish("review-cancel");
         assert!(!cancellations.cancel("review-cancel"));
+    }
+
+    #[test]
+    fn committed_local_result_wins_against_a_late_cancel() {
+        let cancellations = ProviderRequestCancellations::default();
+        let (mut receiver, completion) = cancellations
+            .begin_with_commit("local-audio-committed")
+            .unwrap();
+
+        assert!(completion.try_commit());
+        assert!(!cancellations.cancel("local-audio-committed"));
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        ));
+
+        cancellations.finish("local-audio-committed");
+        assert!(!cancellations.cancel("local-audio-committed"));
+        assert!(
+            cancellations
+                .begin_with_commit("local-audio-committed")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn cancellation_winning_the_commit_race_prevents_result_acceptance() {
+        let cancellations = ProviderRequestCancellations::default();
+        let (mut receiver, completion) = cancellations
+            .begin_with_commit("local-audio-cancelled")
+            .unwrap();
+
+        assert!(cancellations.cancel("local-audio-cancelled"));
+        assert!(!completion.try_commit());
+        assert!(matches!(receiver.try_recv(), Ok(())));
+        cancellations.finish("local-audio-cancelled");
     }
 
     #[tokio::test]

@@ -1054,8 +1054,8 @@ async fn synthesize_reviewed_narration_audio(
             ));
         }
     };
-    let mut cancellation = match cancellations.begin(&review_id) {
-        Ok(cancellation) => cancellation,
+    let (mut cancellation, completion) = match cancellations.begin_with_commit(&review_id) {
+        Ok(operation) => operation,
         Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
     if let Some(result) = narration::load_prewarmed_audio_for_playback(
@@ -1068,15 +1068,21 @@ async fn synthesize_reviewed_narration_audio(
     )
     .await
     {
+        let result = if completion.try_commit() {
+            result
+        } else {
+            provider::ProviderCommandResult::failed(provider::request_cancelled_failure())
+        };
         cancellations.finish(&review_id);
         return Ok(result);
     }
-    let result = narration::synthesize_reviewed_audio(
+    let result = narration::synthesize_reviewed_audio_with_commit(
         &storage_dir,
         &reviews,
         &review_id,
         &fingerprint,
         &mut cancellation,
+        Some(&completion),
     )
     .await;
     cancellations.finish(&review_id);

@@ -1,6 +1,8 @@
 //! Reviewed per-section narration using the managed local Pocket TTS runtime.
 
-use crate::provider::{ProviderCommandResult, ProviderFailure, ProviderFailureKind};
+use crate::provider::{
+    CancellationCommit, ProviderCommandResult, ProviderFailure, ProviderFailureKind,
+};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -112,6 +114,7 @@ type PrewarmWork = Pin<Box<dyn Future<Output = bool> + Send + 'static>>;
 struct PrewarmQueueEntry {
     state: NarrationPrewarmState,
     cancellation: Option<oneshot::Sender<()>>,
+    completion: CancellationCommit,
     updates: watch::Sender<NarrationPrewarmState>,
     work: Option<PrewarmWork>,
 }
@@ -131,9 +134,24 @@ impl NarrationPrewarmQueue {
         F: FnOnce(oneshot::Receiver<()>) -> Fut + Send + 'static,
         Fut: Future<Output = bool> + Send + 'static,
     {
+        self.schedule_with_commit(cache_key, move |cancellation, _completion| {
+            work(cancellation)
+        })
+    }
+
+    fn schedule_with_commit<F, Fut>(
+        &self,
+        cache_key: String,
+        work: F,
+    ) -> Result<PrewarmSchedule, ProviderFailure>
+    where
+        F: FnOnce(oneshot::Receiver<()>, CancellationCommit) -> Fut + Send + 'static,
+        Fut: Future<Output = bool> + Send + 'static,
+    {
         let (cancel_sender, cancel_receiver) = oneshot::channel();
+        let completion = CancellationCommit::new();
         let (updates, _) = watch::channel(NarrationPrewarmState::Preparing);
-        let work: PrewarmWork = Box::pin(work(cancel_receiver));
+        let work: PrewarmWork = Box::pin(work(cancel_receiver, completion.clone()));
         let mut start_worker = false;
         {
             let mut queue = self.0.lock().map_err(|_| {
@@ -175,6 +193,7 @@ impl NarrationPrewarmQueue {
                 PrewarmQueueEntry {
                     state: NarrationPrewarmState::Preparing,
                     cancellation: Some(cancel_sender),
+                    completion,
                     updates,
                     work: Some(work),
                 },
@@ -256,6 +275,9 @@ impl NarrationPrewarmQueue {
             if let Some(entry) = queue.entries.get_mut(cache_key)
                 && entry.state == NarrationPrewarmState::Preparing
             {
+                if !entry.completion.cancel() {
+                    return false;
+                }
                 entry.state = NarrationPrewarmState::Unavailable;
                 entry
                     .updates
@@ -292,6 +314,9 @@ impl NarrationPrewarmQueue {
             let Some(entry) = queue.entries.get_mut(cache_key) else {
                 return false;
             };
+            if !entry.completion.cancel() {
+                return false;
+            }
             entry.state = NarrationPrewarmState::Unavailable;
             entry
                 .updates
@@ -375,6 +400,9 @@ impl NarrationPrewarmQueue {
             queue.pending.clear();
             for entry in queue.entries.values_mut() {
                 if entry.state == NarrationPrewarmState::Preparing {
+                    if !entry.completion.cancel() {
+                        continue;
+                    }
                     entry.state = NarrationPrewarmState::Unavailable;
                     entry
                         .updates
@@ -418,6 +446,7 @@ fn remember_prewarm_state(
         PrewarmQueueEntry {
             state,
             cancellation: None,
+            completion: CancellationCommit::new(),
             updates,
             work: None,
         },
@@ -611,27 +640,31 @@ pub fn prewarm_local_audio(
     let task_reviews = reviews.clone();
     let task_key = cache_key.clone();
     let task_model_id = review.model_id.clone();
-    let schedule = queue.schedule(cache_key.clone(), move |mut cancellation| async move {
-        if task_reviews
-            .insert(PendingNarrationReview {
-                review: task_review,
-            })
-            .is_err()
-        {
-            return false;
-        }
-        matches!(
-            synthesize_reviewed_audio(
-                &storage,
-                &task_reviews,
-                &review_id,
-                &fingerprint,
-                &mut cancellation,
-            )
-            .await,
-            ProviderCommandResult::Ok { .. }
-        ) && read_cached_audio(&storage, &task_key, &task_model_id).is_some()
-    });
+    let schedule = queue.schedule_with_commit(
+        cache_key.clone(),
+        move |mut cancellation, completion| async move {
+            if task_reviews
+                .insert(PendingNarrationReview {
+                    review: task_review,
+                })
+                .is_err()
+            {
+                return false;
+            }
+            matches!(
+                synthesize_reviewed_audio_with_commit(
+                    &storage,
+                    &task_reviews,
+                    &review_id,
+                    &fingerprint,
+                    &mut cancellation,
+                    Some(&completion),
+                )
+                .await,
+                ProviderCommandResult::Ok { .. }
+            ) && read_cached_audio(&storage, &task_key, &task_model_id).is_some()
+        },
+    );
     let schedule = match schedule {
         Ok(schedule) => schedule,
         Err(error) => return ProviderCommandResult::failed(error),
@@ -814,9 +847,9 @@ pub async fn load_prewarmed_audio_for_playback(
         let task_segments = review.request_segments.clone();
         let task_storage = storage_dir.to_path_buf();
         if queue
-            .schedule(
+            .schedule_with_commit(
                 cache_key.clone(),
-                move |mut queue_cancellation| async move {
+                move |mut queue_cancellation, completion| async move {
                     let Ok(bytes) = crate::pocket_tts::synthesize_segments(
                         &task_storage,
                         &task_segments,
@@ -827,12 +860,14 @@ pub async fn load_prewarmed_audio_for_playback(
                         return false;
                     };
                     if check_audio_request_cancellation(&mut queue_cancellation).is_err()
-                        || write_cached_audio(
-                            &task_storage,
-                            &task_cache_key,
-                            &task_model_id,
-                            &bytes,
-                        )
+                        || commit_audio_cache(&completion, || {
+                            write_cached_audio(
+                                &task_storage,
+                                &task_cache_key,
+                                &task_model_id,
+                                &bytes,
+                            )
+                        })
                         .is_err()
                     {
                         return false;
@@ -870,6 +905,25 @@ pub async fn synthesize_reviewed_audio(
     fingerprint: &str,
     cancellation: &mut oneshot::Receiver<()>,
 ) -> ProviderCommandResult<NarrationAudio> {
+    synthesize_reviewed_audio_with_commit(
+        storage_dir,
+        reviews,
+        review_id,
+        fingerprint,
+        cancellation,
+        None,
+    )
+    .await
+}
+
+pub async fn synthesize_reviewed_audio_with_commit(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    review_id: &str,
+    fingerprint: &str,
+    cancellation: &mut oneshot::Receiver<()>,
+    completion: Option<&CancellationCommit>,
+) -> ProviderCommandResult<NarrationAudio> {
     let current = match reviews.get(review_id, fingerprint) {
         Ok(pending) => pending,
         Err(error) => return ProviderCommandResult::failed(error),
@@ -895,6 +949,9 @@ pub async fn synthesize_reviewed_audio(
         if let Err(error) = check_audio_request_cancellation(cancellation) {
             return ProviderCommandResult::failed(error);
         }
+        if completion.is_some_and(|gate| !gate.try_commit()) {
+            return ProviderCommandResult::failed(crate::provider::request_cancelled_failure());
+        }
         return ProviderCommandResult::ok(audio_result(&pending.review, bytes, true));
     }
     let bytes = match crate::pocket_tts::synthesize_segments(
@@ -910,12 +967,27 @@ pub async fn synthesize_reviewed_audio(
     if let Err(error) = check_audio_request_cancellation(cancellation) {
         return ProviderCommandResult::failed(error);
     }
-    if let Err(_error) = write_cached_audio(
-        storage_dir,
-        &pending.review.cache_key,
-        &pending.review.model_id,
-        &bytes,
-    ) {
+    let cache_result = if let Some(gate) = completion {
+        commit_audio_cache(gate, || {
+            write_cached_audio(
+                storage_dir,
+                &pending.review.cache_key,
+                &pending.review.model_id,
+                &bytes,
+            )
+        })
+    } else {
+        write_cached_audio(
+            storage_dir,
+            &pending.review.cache_key,
+            &pending.review.model_id,
+            &bytes,
+        )
+    };
+    if let Err(error) = cache_result {
+        if error.kind == ProviderFailureKind::RequestCancelled {
+            return ProviderCommandResult::failed(error);
+        }
         // The successfully generated bytes still reach the player if local cache
         // storage is unavailable; a future replay will require a new request.
     }
@@ -935,6 +1007,16 @@ fn check_audio_request_cancellation(
         ));
     }
     Ok(())
+}
+
+fn commit_audio_cache(
+    completion: &CancellationCommit,
+    write: impl FnOnce() -> Result<(), ProviderFailure>,
+) -> Result<(), ProviderFailure> {
+    if !completion.try_commit() {
+        return Err(crate::provider::request_cancelled_failure());
+    }
+    write()
 }
 
 fn consume_review(
@@ -1622,6 +1704,47 @@ mod tests {
         })
         .await
         .expect("shutdown should wait for active work to observe cancellation and exit");
+    }
+
+    #[tokio::test]
+    async fn a_completed_audio_commit_cannot_be_reclassified_as_cancelled() {
+        let queue = NarrationPrewarmQueue::default();
+        let (committed_tx, committed_rx) = oneshot::channel();
+        let (release_tx, release_rx) = oneshot::channel();
+        queue
+            .schedule_with_commit(
+                "committed-clip".into(),
+                move |_cancellation, completion| async move {
+                    assert!(completion.try_commit());
+                    let _ = committed_tx.send(());
+                    let _ = release_rx.await;
+                    true
+                },
+            )
+            .expect("the selected clip should enter the queue");
+
+        committed_rx
+            .await
+            .expect("the worker should reach its result commit");
+        assert!(!queue.cancel_preparation("committed-clip"));
+        assert_eq!(
+            queue.status("committed-clip"),
+            Some(NarrationPrewarmState::Preparing),
+            "a late cancel must not relabel committed audio as unavailable"
+        );
+        release_tx
+            .send(())
+            .expect("the test should release the worker");
+
+        let (_keep_open, mut cancellation) = oneshot::channel();
+        let state = tokio::time::timeout(
+            Duration::from_secs(2),
+            queue.wait_for("committed-clip", &mut cancellation),
+        )
+        .await
+        .expect("the completed audio status should become visible")
+        .expect("status lookup should remain available");
+        assert_eq!(state, Some(NarrationPrewarmState::Ready));
     }
 
     #[tokio::test]
@@ -2623,6 +2746,53 @@ mod tests {
         assert_eq!(
             read_cached_audio(storage.path(), &review.cache_key, &review.model_id),
             Some(previous)
+        );
+    }
+
+    #[test]
+    fn cancellation_before_audio_cache_commit_preserves_the_previous_clip() {
+        let storage = TestStorage::new();
+        let review = create_review(
+            storage.path(),
+            BuildNarrationReviewInput {
+                spoken_text: "The new script is cancelled before cache commit.".to_owned(),
+                voice: "alba".to_owned(),
+                style: String::new(),
+                lexicon: vec![],
+            },
+        )
+        .expect("a bounded narration review should be built");
+        let previous = valid_test_wav(23);
+        write_cached_audio(
+            storage.path(),
+            &review.cache_key,
+            &review.model_id,
+            &previous,
+        )
+        .expect("the prior clip should be cached");
+        let completion = CancellationCommit::new();
+        assert!(completion.cancel());
+        let mut writer_called = false;
+
+        let result = commit_audio_cache(&completion, || {
+            writer_called = true;
+            write_cached_audio(
+                storage.path(),
+                &review.cache_key,
+                &review.model_id,
+                &valid_test_wav(42),
+            )
+        });
+
+        assert_eq!(
+            result.expect_err("cancelled audio must not commit").kind,
+            ProviderFailureKind::RequestCancelled
+        );
+        assert!(!writer_called, "cancel must win before any cache write");
+        assert_eq!(
+            read_cached_audio(storage.path(), &review.cache_key, &review.model_id),
+            Some(previous),
+            "a cancelled update must leave the prior audio untouched"
         );
     }
 
