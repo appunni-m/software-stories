@@ -3037,13 +3037,8 @@ mod tests {
     ) -> crate::chapter_origin::RecordedSearchScope {
         let cancelled = std::sync::atomic::AtomicBool::new(false);
         let budget = crate::repository_context::Budget::new(&cancelled);
-        let prepared = crate::repository_context::prepare(
-            storage,
-            manifest,
-            Some(syntax),
-            &budget,
-        )
-        .unwrap();
+        let prepared =
+            crate::repository_context::prepare(storage, manifest, Some(syntax), &budget).unwrap();
         let result = crate::repository_context::search_files_with_mode_page(
             storage,
             manifest,
@@ -4953,9 +4948,12 @@ mod tests {
         assert_eq!(saved_search.candidates.len(), 1);
         assert_eq!(saved_search.candidates[0].path, "src/entry.rs");
         let current_search = indexed_file_search(&storage.0, &new_manifest, &new_index, query);
-        assert!(current_search.candidates.iter().any(|candidate| {
-            candidate.path == "src/helper.rs"
-        }));
+        assert!(
+            current_search
+                .candidates
+                .iter()
+                .any(|candidate| { candidate.path == "src/helper.rs" })
+        );
 
         let entry_source =
             crate::repository_context::source(&storage.0, &old_manifest, "src/entry.rs").unwrap();
@@ -5008,10 +5006,12 @@ mod tests {
             report.sections[0].status,
             SectionFreshnessStatus::NeedsReview
         );
-        assert!(report.sections[0]
-            .reasons
-            .iter()
-            .any(|reason| reason.code == "retrievalCandidateSetChanged"));
+        assert!(
+            report.sections[0]
+                .reasons
+                .iter()
+                .any(|reason| reason.code == "retrievalCandidateSetChanged")
+        );
     }
 
     #[test]

@@ -430,7 +430,10 @@ mod tests {
             "begin file discovery with 2–5 distinctive terms about the central mechanism"
         ));
         assert!(search_description.contains("do not pack every requested stage into one query"));
-        assert!(search_description.contains("search concrete operations separately within likely files"));
+        assert!(
+            search_description
+                .contains("search concrete operations separately within likely files")
+        );
         assert!(search_description.contains("global range page is not repository coverage"));
         assert!(search_description.contains("one bounded root listing"));
         assert!(search_description.contains("queryCoverage.matchedTerms and totalTerms"));

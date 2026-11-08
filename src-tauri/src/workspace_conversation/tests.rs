@@ -308,7 +308,11 @@ fn opening_v6_guide_layout_is_rejected_without_rewriting_the_conversation() {
     let original_bytes = fs::read(f.path()).unwrap();
 
     assert!(load(&f.0, "project", "snapshot").is_err());
-    assert_eq!(fs::read(f.path()).unwrap(), original_bytes, "unsupported layouts are not rewritten");
+    assert_eq!(
+        fs::read(f.path()).unwrap(),
+        original_bytes,
+        "unsupported layouts are not rewritten"
+    );
 }
 
 #[test]
@@ -423,14 +427,7 @@ fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() 
 #[test]
 fn opening_reader_positions_with_unknown_fields_preserves_valid_positions_and_answer() {
     let f = Fixture::new();
-    save(
-        &f.0,
-        "project",
-        "snapshot",
-        None,
-        presentation_state(),
-    )
-    .unwrap();
+    save(&f.0, "project", "snapshot", None, presentation_state()).unwrap();
 
     let mut stored: Value = serde_json::from_slice(&fs::read(f.path()).unwrap()).unwrap();
     let presentation = &mut stored["state"]["explorations"][0]["turns"][0]["presentation"];
@@ -452,7 +449,10 @@ fn opening_reader_positions_with_unknown_fields_preserves_valid_positions_and_an
     assert_eq!(diagram["focusedEdgeId"], "edge:subtotal");
     assert_eq!(diagram["viewport"], json!({"x":250,"y":-91,"zoom":1.7}));
     assert!(diagram.get("futureReaderField").is_none());
-    assert_eq!(turn["question"], "What happens to the font bytes?\nShow the failure path.");
+    assert_eq!(
+        turn["question"],
+        "What happens to the font bytes?\nShow the failure path."
+    );
     assert_eq!(fs::read(f.path()).unwrap(), original_bytes);
 }
 

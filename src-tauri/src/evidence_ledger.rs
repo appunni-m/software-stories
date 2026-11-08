@@ -961,8 +961,7 @@ impl Ledger {
                     .ok_or("Source verification exceeded its local byte limit.")?;
                 let source = {
                     let mut check_read = || {
-                        if cancelled.load(Ordering::Acquire)
-                            || self.record.status != Status::Active
+                        if cancelled.load(Ordering::Acquire) || self.record.status != Status::Active
                         {
                             Err("This evidence operation has stopped.".to_owned())
                         } else if self
@@ -1697,8 +1696,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                         (record.schema_version, scope.query.is_some()),
                         (PRE_REPLAYABLE_SEARCH_LEDGER_SCHEMA_VERSION, false)
                             | (LEDGER_SCHEMA_VERSION, true)
-                    )
-                        || c.tool != Tool::Search
+                    ) || c.tool != Tool::Search
                         || !scope.valid()
                 })
         })

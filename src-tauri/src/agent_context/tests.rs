@@ -139,9 +139,7 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };
@@ -183,9 +181,7 @@ fn progressive_session_uses_the_syntax_index_loaded_by_timed_preparation() {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };
@@ -235,9 +231,7 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };
@@ -291,7 +285,9 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
 
     let broad_answer = session(&f);
     let instructions = broad_answer.base_instructions();
-    assert!(instructions.contains("inspect queryCoverage.matchedTerms, unscoredTerms when present, and nextOffset"));
+    assert!(instructions.contains(
+        "inspect queryCoverage.matchedTerms, unscoredTerms when present, and nextOffset"
+    ));
     assert!(instructions.contains("use a distinct focused search for that missing stage/caller"));
     assert!(instructions.contains(
         "Never treat the first file page or one matching file as complete repository coverage"
@@ -306,9 +302,7 @@ fn one_slide_tool_result_exposes_its_larger_bounded_correction_budget() {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 0,
     };

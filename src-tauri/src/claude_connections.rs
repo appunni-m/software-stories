@@ -168,10 +168,7 @@ impl ClaudeOperationAccess {
             })?;
         // Record one-time consumption before launching the worker. Keeping a
         // marker instead of a deadline lets an agent finish at its own pace.
-        self.identity
-            .dispatched
-            .set(())
-            .map_err(|_| changed())?;
+        self.identity.dispatched.set(()).map_err(|_| changed())?;
         Ok(pending)
     }
 

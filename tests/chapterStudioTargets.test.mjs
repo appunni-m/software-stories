@@ -3,14 +3,42 @@ import assert from 'node:assert/strict';
 import { buildChapterStudioTargets, chapterStudioHasReadableCurrentSource } from '../src/lib/chapterStudioTargets.ts';
 import { chapterStudioCanGenerate, chapterStudioStatus } from '../src/lib/chapterStudioStatus.ts';
 
-const revision = (path, snapshotId, revisionNumber = 1, scope = { kind: 'file', path }) => ({
-  chapterId: `chapter:${path}`,
-  revisionId: `revision:${path}:${snapshotId}:${revisionNumber}`,
-  revisionNumber,
-  snapshotId,
-  lifecycle: 'accepted',
-  target: { targetId: `target:${path}`, scope },
-});
+const revision = (path, snapshotId, revisionNumber = 1, scope = { kind: 'file', path }) => {
+  const anchor = {
+    anchorId: `anchor:${path}`,
+    path,
+    symbolId: null,
+    snapshotId,
+    sourceSha256: 'a'.repeat(64),
+    startByte: 0,
+    endByteInclusive: 0,
+    startLine: 1,
+    endLine: 1,
+    startColumn: 0,
+    endColumn: 0,
+    excerpt: 'x',
+  };
+  return {
+    chapterId: `chapter:${path}`,
+    revisionId: `revision:${path}:${snapshotId}:${revisionNumber}`,
+    revisionNumber,
+    snapshotId,
+    lifecycle: 'accepted',
+    target: { targetId: `target:${path}`, scope },
+    sections: [{
+      sectionId: `section:${path}`,
+      sectionRevisionId: `section-revision:${path}:${snapshotId}:${revisionNumber}`,
+      order: 1,
+      title: 'Original explanation',
+      prose: 'Original source-grounded claim.',
+      spokenText: 'Original narration.',
+      claims: [{ claimId: `claim:${path}`, category: 'codeBehavior', prose: 'Original claim.', anchors: [anchor], dependencies: [] }],
+      dependencies: [],
+      visual: null,
+      hotspots: [],
+    }],
+  };
+};
 
 const row = (path, disposition = 'captured', contentKind = 'text') => ({
   path, disposition, kind: 'file', contentKind,
@@ -41,18 +69,18 @@ test('old file chapters stay reviewable when their current path is deleted, skip
     assert.equal(target.latestAny.snapshotId, 'snapshot-before');
     assert.equal(target.missing, false);
     assert.equal(chapterStudioStatus('ready', true, target.latestAny, currentSnapshot, target.latestCurrent), 'stale');
+    assert.deepEqual(target.latestAny.sections[0].claims[0].anchors[0], old.sections[0].claims[0].anchors[0]);
   }
 
-  assert.equal(chapterStudioHasReadableCurrentSource('src/deleted.rs', rows), false);
-  assert.equal(chapterStudioHasReadableCurrentSource('src/skipped.rs', rows), false);
-  assert.equal(chapterStudioHasReadableCurrentSource('src/excluded.rs', rows), false);
-  assert.equal(chapterStudioHasReadableCurrentSource('src/binary.rs', rows), false);
+  for (const path of ['src/deleted.rs', 'src/skipped.rs', 'src/excluded.rs', 'src/binary.rs']) {
+    assert.equal(chapterStudioHasReadableCurrentSource(path, rows), false);
+    assert.equal(
+      chapterStudioCanGenerate('ready', 'stale') && chapterStudioHasReadableCurrentSource(path, rows),
+      false,
+      `${path} stays review-only when it is unavailable in the current snapshot`,
+    );
+  }
   assert.equal(chapterStudioHasReadableCurrentSource('src/readable.rs', rows), true);
-  assert.equal(
-    chapterStudioCanGenerate('ready', 'stale') && chapterStudioHasReadableCurrentSource('src/deleted.rs', rows),
-    false,
-    'stale history alone does not offer generation without readable current source',
-  );
 });
 
 test('new captured text targets remain available for generation without prior history', () => {

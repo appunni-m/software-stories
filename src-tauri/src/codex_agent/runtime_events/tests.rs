@@ -151,9 +151,7 @@ fn process(events: Vec<Value>, before_ack: Vec<Value>) -> (ServerProcess, Arc<Mu
         executable: "/unused/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: "test".into(),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         connection_id: Uuid::new_v4().to_string(),
         account_revision: 1,
         scope_epoch: Arc::new(AtomicU64::new(1)),

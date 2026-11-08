@@ -387,7 +387,9 @@ pub(crate) fn provider_source_discovery_metadata(
     let bytes = serde_json::to_vec(&metadata)
         .map_err(|_| "The captured code index could not be encoded.".to_owned())?;
     if bytes.len() > MAX_PROVIDER_DISCOVERY_METADATA || code_files.is_empty() {
-        return Err("The captured code index is too large for a bounded direct API request.".to_owned());
+        return Err(
+            "The captured code index is too large for a bounded direct API request.".to_owned(),
+        );
     }
     let selected_paths = code_files
         .iter()
@@ -837,8 +839,8 @@ fn question_requests_configuration(words: &[String]) -> bool {
                 | "release"
         )
     });
-    let asks_about_package_manifest = words.iter().any(|word| word == "package")
-        && words.iter().any(|word| word == "json");
+    let asks_about_package_manifest =
+        words.iter().any(|word| word == "package") && words.iter().any(|word| word == "json");
     asks_about_configuration || asks_about_package_manifest
 }
 

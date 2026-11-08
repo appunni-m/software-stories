@@ -2272,6 +2272,95 @@ mod tests {
         assert_eq!(reader.reads, 1, "the second source chunk is never read");
     }
 
+    #[test]
+    fn captured_source_reader_accepts_the_limit_and_reads_only_one_oversize_sentinel() {
+        struct CountingReader {
+            remaining: u64,
+            bytes_read: u64,
+        }
+
+        impl Read for CountingReader {
+            fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+                let count = output.len().min(self.remaining as usize);
+                output[..count].fill(b'x');
+                self.remaining -= count as u64;
+                self.bytes_read += count as u64;
+                Ok(count)
+            }
+        }
+
+        let mut exact = CountingReader {
+            remaining: MAX_FILE_BYTES,
+            bytes_read: 0,
+        };
+        let bytes = read_checked_source_bytes(&mut exact, MAX_FILE_BYTES, &mut || Ok(()))
+            .expect("an exact-limit source object is supported");
+        assert_eq!(bytes.len() as u64, MAX_FILE_BYTES);
+        assert_eq!(exact.bytes_read, MAX_FILE_BYTES);
+
+        let mut oversized = CountingReader {
+            remaining: MAX_FILE_BYTES + 100,
+            bytes_read: 0,
+        };
+        let error = read_checked_source_bytes(&mut oversized, MAX_FILE_BYTES, &mut || Ok(()))
+            .expect_err("one byte beyond the recorded limit must fail");
+        assert!(error.contains("size or SHA-256 integrity check"));
+        assert_eq!(oversized.bytes_read, MAX_FILE_BYTES + 1);
+    }
+
+    #[test]
+    fn snapshot_source_rejects_an_oversized_manifest_record_before_opening_its_object() {
+        let temporary = TestDirectory::new("recorded-source-size-limit");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository, &[("src/main.rs", b"fn main() {}\n")]);
+        let project = project(&repository);
+        let manifest = default_capture(&storage, &project);
+        let captured = manifest
+            .files
+            .iter()
+            .find(|file| file.path == "src/main.rs")
+            .unwrap();
+        let object_path = blob_absolute_path(&storage, &captured.sha256);
+
+        let mut recorded_manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(manifest_path(
+                &storage,
+                &project.project_id,
+                &manifest.summary.snapshot_id,
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let recorded_file = recorded_manifest["files"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|file| file["path"] == "src/main.rs")
+            .unwrap();
+        recorded_file["sizeBytes"] = serde_json::json!(MAX_FILE_BYTES + 1);
+        fs::write(
+            manifest_path(&storage, &project.project_id, &manifest.summary.snapshot_id),
+            serde_json::to_vec(&recorded_manifest).unwrap(),
+        )
+        .unwrap();
+        fs::remove_file(&object_path).unwrap();
+
+        let error = read_snapshot_source(
+            &storage,
+            &project.project_id,
+            &manifest.summary.snapshot_id,
+            "src/main.rs",
+        )
+        .expect_err(
+            "a manifest-recorded size above the cap must be rejected before opening the object",
+        );
+        assert_eq!(
+            error,
+            "Captured source exceeds the supported per-file size limit."
+        );
+    }
+
     fn git(root: &Path, args: &[&str]) -> std::process::Output {
         Command::new("git")
             .args(args)

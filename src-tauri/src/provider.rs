@@ -7290,7 +7290,9 @@ mod tests {
                 effort: "max".to_owned(),
                 approval_policy: "never".to_owned(),
                 section_update: None,
-                question: Some("How does this large implementation transform its input?".to_owned()),
+                question: Some(
+                    "How does this large implementation transform its input?".to_owned(),
+                ),
                 focus: Vec::new(),
                 workspace_grant: None,
             },
@@ -7310,12 +7312,18 @@ mod tests {
             review.generation_config["codexSnapshotRetrieval"]["maxSourceBytes"],
             crate::evidence_ledger::MAX_SOURCE_BYTES
         );
-        assert!(review.user_prompt.contains("private search_code and read_code tools"));
+        assert!(
+            review
+                .user_prompt
+                .contains("private search_code and read_code tools")
+        );
         assert!(!review.user_prompt.contains(SENTINEL));
         assert!(review.request_body_bytes < MAX_REQUEST_BODY_BYTES);
-        assert!(!serde_json::to_string(&review.request_body_preview)
-            .unwrap()
-            .contains(SENTINEL));
+        assert!(
+            !serde_json::to_string(&review.request_body_preview)
+                .unwrap()
+                .contains(SENTINEL)
+        );
     }
 
     #[test]

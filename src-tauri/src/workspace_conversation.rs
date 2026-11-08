@@ -820,7 +820,11 @@ fn validate_reader_layout_versions(state: &Value) -> Result<(), String> {
                 continue;
             };
             for (collection, version_field, current_version) in [
-                ("stories", "focusLayoutVersion", FOCUSED_STORY_LAYOUT_VERSION),
+                (
+                    "stories",
+                    "focusLayoutVersion",
+                    FOCUSED_STORY_LAYOUT_VERSION,
+                ),
                 ("diagrams", "layoutVersion", FLOW_DIAGRAM_LAYOUT_VERSION),
             ] {
                 let Some(entries) = presentation.get(collection).and_then(Value::as_array) else {
@@ -843,8 +847,7 @@ fn validate_reader_layout_versions(state: &Value) -> Result<(), String> {
 fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
     let story = story.as_object_mut()?;
     story.retain(|key, _| STORY_POSITION_FIELDS.contains(&key.as_str()));
-    if story.get("focusLayoutVersion").and_then(Value::as_u64)
-        != Some(FOCUSED_STORY_LAYOUT_VERSION)
+    if story.get("focusLayoutVersion").and_then(Value::as_u64) != Some(FOCUSED_STORY_LAYOUT_VERSION)
     {
         return None;
     }

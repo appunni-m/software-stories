@@ -261,9 +261,11 @@ mod tests {
             element("arrow", Some(0)),
             element("token", Some(0)),
         ];
-        assert!(findings(&transform_with_decoration)
-            .iter()
-            .any(|finding| finding.code == "transformShape" && finding.element == Some(0)));
+        assert!(
+            findings(&transform_with_decoration)
+                .iter()
+                .any(|finding| finding.code == "transformShape" && finding.element == Some(0))
+        );
 
         let transform_with_nested_slot = vec![
             element("transform", None),
@@ -272,9 +274,11 @@ mod tests {
             element("token", Some(0)),
             element("token", Some(2)),
         ];
-        assert!(findings(&transform_with_nested_slot)
-            .iter()
-            .any(|finding| finding.code == "transformShape" && finding.element == Some(0)));
+        assert!(
+            findings(&transform_with_nested_slot)
+                .iter()
+                .any(|finding| finding.code == "transformShape" && finding.element == Some(0))
+        );
 
         for child_count in [2, 4] {
             let mut elements = vec![element("pointFlow", None)];

@@ -410,13 +410,16 @@ fn rank_for_target<T>(
     ranges: &[CodeRange],
     target: &SearchRankTarget,
 ) -> Option<usize> {
-    ranked.iter().position(|(range_id, _)| {
-        ranges.get(*range_id).is_some_and(|range| {
-            range.path == target.path
-                && range.start_byte <= target.start_byte
-                && range.end_byte >= target.end_byte
+    ranked
+        .iter()
+        .position(|(range_id, _)| {
+            ranges.get(*range_id).is_some_and(|range| {
+                range.path == target.path
+                    && range.start_byte <= target.start_byte
+                    && range.end_byte >= target.end_byte
+            })
         })
-    }).map(|rank| rank + 1)
+        .map(|rank| rank + 1)
 }
 
 #[derive(Serialize)]
@@ -597,11 +600,7 @@ fn terms(text: &str) -> Vec<String> {
 
 /// Keep broad natural-language relevance focused on repository terms instead
 /// of question scaffolding. Exact search still uses every original term.
-fn coverage_terms(
-    query: &str,
-    scope: Option<&str>,
-    words: &[String],
-) -> Vec<String> {
+fn coverage_terms(query: &str, scope: Option<&str>, words: &[String]) -> Vec<String> {
     if !should_discover_files(query, scope) {
         return words.to_vec();
     }
@@ -631,9 +630,7 @@ fn scored_coverage_terms(
     }
     let mut candidates = Vec::new();
     let mut seen = BTreeSet::new();
-    for token in query
-        .split(|character: char| !character.is_alphanumeric() && character != '_')
-    {
+    for token in query.split(|character: char| !character.is_alphanumeric() && character != '_') {
         for word in terms(token) {
             if !is_coverage_term(&word) || !seen.insert(word.clone()) {
                 continue;
@@ -1916,13 +1913,7 @@ fn collect_identifier_declarations_from_source(
     let starts = line_starts(&source.contents);
     let mut cursor = 0;
     loop {
-        let Some(found) = find_pattern_at(
-            matcher,
-            &source.contents,
-            cursor,
-            match_width,
-            budget,
-        )?
+        let Some(found) = find_pattern_at(matcher, &source.contents, cursor, match_width, budget)?
         else {
             return Ok(false);
         };
@@ -2876,8 +2867,7 @@ fn search_ranked(
     // signal. Keep paths and identifier lookups on their established ranking,
     // and cap the content terms (after prompt scaffolding is removed) so
     // coverage work stays bounded for long questions too.
-    let (coverage_words, unscored_coverage_words) =
-        scored_coverage_terms(query, path, &words);
+    let (coverage_words, unscored_coverage_words) = scored_coverage_terms(query, path, &words);
     let natural_query_coverage = identifier_key.is_none()
         && !query.contains('/')
         && !query.contains('\\')
@@ -3308,11 +3298,15 @@ fn search_ranked(
                     selected_window_rank: selected
                         .iter()
                         .position(|(range_id, _)| {
-                            prepared.metadata.ranges.get(*range_id).is_some_and(|range| {
-                                range.path == target.path
-                                    && range.start_byte <= target.start_byte
-                                    && range.end_byte >= target.end_byte
-                            })
+                            prepared
+                                .metadata
+                                .ranges
+                                .get(*range_id)
+                                .is_some_and(|range| {
+                                    range.path == target.path
+                                        && range.start_byte <= target.start_byte
+                                        && range.end_byte >= target.end_byte
+                                })
                         })
                         .map(|rank| rank + 1),
                 })

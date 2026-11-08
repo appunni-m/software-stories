@@ -352,7 +352,9 @@ mod native {
     }
     impl InspectionBudget {
         fn new() -> Self {
-            Self { started: Instant::now() }
+            Self {
+                started: Instant::now(),
+            }
         }
     }
 
@@ -1236,8 +1238,9 @@ mod native {
         runtime: &ClaudeReviewRuntime,
         cancelled: &AtomicBool,
     ) -> Result<(), ClaudeWorkerFailure> {
-        let (path, digest) =
-            inspect_executable(&runtime.executable_path, || check_cancelled(manager, cancelled))?;
+        let (path, digest) = inspect_executable(&runtime.executable_path, || {
+            check_cancelled(manager, cancelled)
+        })?;
         if path != runtime.executable_path || digest != runtime.executable_sha256 {
             return Err(failure(
                 ClaudeWorkerFailureKind::RuntimeChanged,

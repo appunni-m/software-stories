@@ -8,9 +8,7 @@ fn runtime() -> CodexReviewRuntime {
         executable_path: "/usr/local/bin/codex".into(),
         executable_sha256: "a".repeat(64),
         runtime_version: Some("fixture-runtime-1".to_owned()),
-        runtime_version_source: Some(
-            crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
-        ),
+        runtime_version_source: Some(crate::codex_identity::CodexRuntimeVersionSource::UserAgent),
         account_identity_sha256: "b".repeat(64),
         account_revision: 1,
     }
@@ -150,7 +148,10 @@ fn guide_slide_research_stop_preserves_reserved_proposal_calls() {
             std::slice::from_ref(&range),
         );
     }
-    assert_eq!(last_response["budget"]["remaining"]["calls"], FINALIZATION_CALL_RESERVE);
+    assert_eq!(
+        last_response["budget"]["remaining"]["calls"],
+        FINALIZATION_CALL_RESERVE
+    );
     assert_eq!(last_response["budget"]["stopResearch"], true);
     assert!(last_response["budget"].get("finishNow").is_none());
     slide
@@ -162,7 +163,10 @@ fn guide_slide_research_stop_preserves_reserved_proposal_calls() {
             &cancelled,
         )
         .expect("a guide may publish its slide with reserved proposal calls");
-    assert_eq!(slide.response_budget().remaining.calls, FINALIZATION_CALL_RESERVE - 1);
+    assert_eq!(
+        slide.response_budget().remaining.calls,
+        FINALIZATION_CALL_RESERVE - 1
+    );
 
     let findings = [];
     let proposal_result = Context::SectionProposal {

@@ -1174,8 +1174,7 @@ mod tests {
         // still holds its editor candidate. This appends through the real
         // immutable draft store, not a mocked history callback.
         let concurrent_publication = first_saved_draft(&fixture);
-        let concurrent_bytes =
-            chapters::encode_chapter_revision(&concurrent_publication).unwrap();
+        let concurrent_bytes = chapters::encode_chapter_revision(&concurrent_publication).unwrap();
         assert_ne!(concurrent_publication.revision_id, original.revision_id);
         assert!(concurrent_publication.revision_number > original.revision_number);
 
@@ -1194,9 +1193,12 @@ mod tests {
             "Unsaved title that must survive a concurrent publication"
         );
 
-        let history = chapter_store::list_for_project(&fixture.storage, &original.project_id)
-            .unwrap();
-        assert_eq!(history, vec![original.clone(), concurrent_publication.clone()]);
+        let history =
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap();
+        assert_eq!(
+            history,
+            vec![original.clone(), concurrent_publication.clone()]
+        );
         assert_eq!(
             chapters::encode_chapter_revision(&history[0]).unwrap(),
             original_bytes,
@@ -1207,9 +1209,11 @@ mod tests {
             concurrent_bytes,
             "the background publication remains intact after the stale editor save"
         );
-        assert!(history
-            .iter()
-            .all(|revision| revision.title != unsaved_candidate.title));
+        assert!(
+            history
+                .iter()
+                .all(|revision| revision.title != unsaved_candidate.title)
+        );
     }
 
     #[test]

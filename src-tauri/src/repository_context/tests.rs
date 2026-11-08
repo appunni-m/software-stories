@@ -39,16 +39,9 @@ fn bounded_pattern_scans_are_cancellable_and_keep_window_crossing_hits() {
     let matcher = pattern_matcher(query, SearchMode::Code).unwrap();
     let match_width = bounded_pattern_width(query, SearchMode::Code);
     let source = "xKa and more";
-    let found = find_pattern_at_with_check(
-        &matcher,
-        source,
-        0,
-        match_width,
-        2,
-        || Ok(()),
-    )
-    .unwrap()
-    .unwrap();
+    let found = find_pattern_at_with_check(&matcher, source, 0, match_width, 2, || Ok(()))
+        .unwrap()
+        .unwrap();
     assert_eq!((found.start(), found.end()), (1, 5));
 
     let query = "missing";
@@ -256,7 +249,10 @@ fn unicode_compound_identifier_search_does_not_combine_separate_names() {
         .unwrap();
 
         assert_eq!(result.matches.len(), 1, "query: {query}");
-        assert_eq!(result.matches[0].range.path, expected_path, "query: {query}");
+        assert_eq!(
+            result.matches[0].range.path, expected_path,
+            "query: {query}"
+        );
         assert!(result.matches[0].exact_identifier, "query: {query}");
     }
 }
@@ -1397,7 +1393,10 @@ fn current_range_cache_requires_nullable_fields() {
         .unwrap()
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .find(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .find(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
         .unwrap();
     let chunk_cache: serde_json::Value =
         serde_json::from_slice(&fs::read(&chunk_path).unwrap()).unwrap();
@@ -1439,8 +1438,7 @@ fn omitted_coverage_field_invalidates_cached_generation() {
         &fixture.manifest.summary.snapshot_id,
     );
     let pointer_path = cache_root.join("current.json");
-    let mut pointer: Pointer =
-        serde_json::from_slice(&fs::read(&pointer_path).unwrap()).unwrap();
+    let mut pointer: Pointer = serde_json::from_slice(&fs::read(&pointer_path).unwrap()).unwrap();
     let metadata_path = cache_root.join(&pointer.generation).join("ranges.json");
     let mut metadata: serde_json::Value =
         serde_json::from_slice(&fs::read(&metadata_path).unwrap()).unwrap();
@@ -2699,7 +2697,10 @@ fn regex_match_at_chunk_edge_uses_only_context_that_fits_the_range_limit() {
     assert_eq!(result.matches.len(), 1);
     let hit = &result.matches[0];
     assert_eq!(hit.range.start_byte, CHUNK_BYTES + 3);
-    assert_eq!(hit.range.end_byte - hit.range.start_byte, MAX_RANGE_BYTES - 1);
+    assert_eq!(
+        hit.range.end_byte - hit.range.start_byte,
+        MAX_RANGE_BYTES - 1
+    );
     let read = read_range(
         &fixture.storage,
         &fixture.manifest,
