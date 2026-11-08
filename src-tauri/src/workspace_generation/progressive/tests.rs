@@ -51,6 +51,18 @@ fn guide_slide_prompt_keeps_recoverable_speech_findings_inside_the_correction_lo
 }
 
 #[test]
+fn progressive_visual_guidance_does_not_turn_every_guard_into_a_branch() {
+    let instructions = system_instructions();
+    assert!(instructions.contains("Use branch when choosing among outcomes is central"));
+    assert!(instructions.contains("If a guard only protects a transformation, show it as a condition"));
+    assert!(instructions.contains("A single if/else uses branch when choosing an outcome is the focal lesson"));
+    assert!(instructions.contains("when a guard only protects a transformation, show it as a condition"));
+    assert!(!instructions.contains("Use a branch for one guard with its success and failure outcomes"));
+    assert!(!instructions.contains("A single if/else with multiple outcomes uses branch"));
+    assert!(!instructions.contains("Use a branch for one guard with multiple outcomes"));
+}
+
+#[test]
 fn timing_report_names_the_first_native_validated_publication_by_section_order() {
     let publications = vec![
         PublicationTiming {
