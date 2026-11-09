@@ -9,6 +9,22 @@ labels: navigation, workspace, ux
 
 > **Scope update — 7 November 2026:** formal accessibility audits are not part of this task. It covers preserving the reader's answer, source, and view position across ordinary navigation; older audit references below are historical.
 
+## Current restoration regression check — 9 November 2026
+
+The current workspace stores Guide/Flow section identity and visual position
+against the exact answer revision in each exploration. It restores the saved
+Guide offset after answer data loads, uses a one-shot reveal only for an
+explicitly focused answer, and does not persist or restart playback during
+restoration. Focused current-checkout regressions pass **41/41**:
+
+`node --experimental-strip-types --test tests/reader-progress.test.mjs tests/workspace-answer-restoration.test.mjs`
+
+This covers nested and sibling reading positions, Guide/Flow/History state,
+focused visual metadata, revision fallback, corrupt state, and native answer
+restoration events. It is deterministic source/test evidence only. The packaged
+multi-section, nested, restart, exact-scroll and visual-focus matrix remains
+open; keep `erzc` open.
+
 ## User outcome
 
 The reader can follow a detail and return to the explanation they were reading without finding the section again.
