@@ -24,7 +24,7 @@ Use the current design contract in docs/design/WORKSPACE_EXPLORATION.md and the 
 The explorer stays mounted in Guide, Flow and history. Chat stays visible during independent code/content scrolling. Opening/closing a source pane does not reset explanation state. Full-width content is possible by closing source. Settings only open on demand. At 1280x800 the majority of space is real code/content; no workflow hero, phase checklist or permanent metadata column. Light/dark themes share readable tokens and a 4/8/12/16/24/32 spacing scale. Verify keyboard split resizing and large explorer responsiveness. Record packaged screenshots against the same preview; relabeled navigation alone does not pass. Formal zoom and assistive-technology audits are out of scope.
 
 ## Current status
-The production app now uses a persistent activity-bar workspace with captured Explorer source, Search, Changes and nested Explorations; Guide, Flow and chat history are views within each exploration. The interactive preview remains illustrative. Shared controls are only partly migrated, and packaged layout parity plus core interaction acceptance remain unqualified.
+The production app uses a persistent activity-bar workspace with captured Explorer source, Search, Changes and nested Explorations; Guide, Flow and chat history are views within each exploration. A source audit on `main@f8d61bb` found no literal `<button>`, `<select>`, or `<textarea>` controls outside the design preview. Native `<input>` primitives remain inside the shared radio and checkbox wrappers. The preview remains illustrative. Packaged layout parity, the shared spacing scale, panel resizing, and core interaction acceptance remain unqualified.
 
 ## 16 October workspace migration
 
