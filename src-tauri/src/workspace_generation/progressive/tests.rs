@@ -54,10 +54,20 @@ fn guide_slide_prompt_keeps_recoverable_speech_findings_inside_the_correction_lo
 fn progressive_visual_guidance_does_not_turn_every_guard_into_a_branch() {
     let instructions = system_instructions();
     assert!(instructions.contains("Use branch when choosing among outcomes is central"));
-    assert!(instructions.contains("If a guard only protects a transformation, show it as a condition"));
-    assert!(instructions.contains("A single if/else uses branch when choosing an outcome is the focal lesson"));
-    assert!(instructions.contains("when a guard only protects a transformation, show it as a condition"));
-    assert!(!instructions.contains("Use a branch for one guard with its success and failure outcomes"));
+    assert!(
+        instructions.contains("If a guard only protects a transformation, show it as a condition")
+    );
+    assert!(
+        instructions
+            .contains("A single if/else uses branch when choosing an outcome is the focal lesson")
+    );
+    assert!(
+        instructions
+            .contains("when a guard only protects a transformation, show it as a condition")
+    );
+    assert!(
+        !instructions.contains("Use a branch for one guard with its success and failure outcomes")
+    );
     assert!(!instructions.contains("A single if/else with multiple outcomes uses branch"));
     assert!(!instructions.contains("Use a branch for one guard with multiple outcomes"));
 }
@@ -833,6 +843,15 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         instructions.contains("Do not page the whole repository before reading implementation")
     );
     assert!(instructions.contains("visible cue"));
+    assert!(
+        instructions.contains(
+            "Follow the production runtime or public entry path that answers the question"
+        )
+    );
+    assert!(instructions.contains("never substitute for an available production path"));
+    assert!(
+        instructions.contains("Label any test/example helper and state what it does not establish")
+    );
     assert!(instructions.contains("Tell the behavior in cause-and-effect order"));
     assert!(instructions.contains("Explain what the result means to the caller or next step"));
     assert!(instructions.starts_with(ANSWER_ROLE));
