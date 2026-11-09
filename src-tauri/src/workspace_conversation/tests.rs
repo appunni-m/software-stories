@@ -65,6 +65,43 @@ fn finite_answer_failure_codes_are_preserved_but_unknown_values_are_rejected() {
 }
 
 #[test]
+fn source_discovery_notes_survive_native_save_and_invalid_notes_preserve_the_record() {
+    let f = Fixture::new();
+    let notes = json!([
+        "`src/font.rs` contains the captured memory-face implementation.",
+        "`src/api.rs` exposes the public entry point."
+    ]);
+    let mut current = state();
+    current["explorations"][0]["turns"][0]["sourceDiscoveryNotes"] = notes.clone();
+
+    let saved = save(&f.0, "project", "snapshot", None, current).unwrap();
+    assert_eq!(
+        saved.state["explorations"][0]["turns"][0]["sourceDiscoveryNotes"],
+        notes
+    );
+    let loaded = load(&f.0, "project", "snapshot").unwrap().unwrap();
+    assert_eq!(
+        loaded.state["explorations"][0]["turns"][0]["sourceDiscoveryNotes"],
+        notes
+    );
+    let before_invalid = fs::read(f.path()).unwrap();
+
+    let invalid_notes = [
+        json!(vec!["note"; 15]),
+        json!([42]),
+        json!(["  "]),
+        json!(["x".repeat(1_501)]),
+        json!(["bad\u{0001}note"]),
+    ];
+    for invalid in invalid_notes {
+        let mut candidate = loaded.state.clone();
+        candidate["explorations"][0]["turns"][0]["sourceDiscoveryNotes"] = invalid;
+        assert!(save(&f.0, "project", "snapshot", Some(saved.revision), candidate).is_err());
+        assert_eq!(fs::read(f.path()).unwrap(), before_invalid);
+    }
+}
+
+#[test]
 fn absent_read_creates_nothing_and_scope_keys_are_unambiguous() {
     let f = Fixture::new();
     assert_eq!(load(&f.0, "project", "snapshot").unwrap(), None);
