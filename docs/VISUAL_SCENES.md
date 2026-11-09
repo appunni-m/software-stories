@@ -64,11 +64,11 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v77`, Visual design method and composition review `v67`, teaching policy
+`ai-html-compositions-v79`, Visual design method and composition review `v69`, teaching policy
 `meaning-first-v36`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
-reference stays synchronized with the implementation. The v76 authoring prompt
+reference stays synchronized with the implementation. The v79 authoring prompt
 uses a compact behavior-to-visual selector and removes repeated narration and
 layout rules; the typed schema and source-evidence checks remain the enforcement
 boundary. The teaching contract starts

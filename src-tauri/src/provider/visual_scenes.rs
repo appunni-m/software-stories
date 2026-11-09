@@ -269,6 +269,7 @@ pub(crate) mod tests {
         let reference = include_str!("../../../docs/VISUAL_SCENES.md");
         let normalized_reference = reference.split_whitespace().collect::<Vec<_>>().join(" ");
         for version in [
+            STORY_POLICY_VERSION,
             TEACHING_POLICY_VERSION,
             READER_LANGUAGE_POLICY_VERSION,
         ] {
@@ -282,7 +283,7 @@ pub(crate) mod tests {
         assert!(normalized_reference.contains(&format!(
             "up to {sentence_limit} short sentences and {byte_limit} UTF-8 bytes"
         )));
-        assert!(normalized_reference.contains("Visual design method and composition review `v67`"));
+        assert!(normalized_reference.contains("Visual design method and composition review `v69`"));
         assert!(normalized_reference.contains(
             "Every narrated graph scene must include a node citing its own claim and at least one labeled edge connecting that focused node to another node."
         ));
