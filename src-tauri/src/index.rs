@@ -1,9 +1,10 @@
 use crate::snapshot::{self, CapturedContentKind, CapturedFile, SnapshotManifest, SnapshotSource};
+use lz4_flex::frame::{FrameDecoder, FrameEncoder, FrameInfo};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{self, Read, Write};
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,7 +14,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v8";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v9";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -24,10 +25,10 @@ const MAX_INDEXED_SYMBOLS: usize = 50_000;
 const MAX_INDEXED_RELATIONSHIPS: usize = 100_000;
 const MAX_INDEXED_IMPORT_BINDINGS: usize = 50_000;
 const MAX_IMPORT_BINDINGS_PER_FILE: usize = 10_000;
-// A 50 MiB source snapshot can produce more than 32 MiB of bounded symbols
-// and relationships. Keep persisted metadata bounded while allowing the
-// measured Fontdone index (about 42 MiB) to be saved and reused.
-const MAX_INDEX_JSON_BYTES: usize = 64 * 1024 * 1024;
+// Symbol and relationship metadata repeats paths, names and anchors. Store the
+// JSON as an LZ4 frame so large repositories fit the same bounded disk budget.
+const MAX_INDEX_STORED_BYTES: usize = 64 * 1024 * 1024;
+const MAX_INDEX_EXPANDED_BYTES: usize = 256 * 1024 * 1024;
 const MAX_PARSE_TIME: Duration = Duration::from_millis(1_500);
 const MAX_RETAINED_JOBS: usize = 32;
 
@@ -3891,10 +3892,50 @@ mod tests {
     }
 
     #[test]
-    fn saved_snapshot_index_accepts_64_mib_and_rejects_the_next_byte() {
+    fn bounded_index_writer_rejects_the_first_byte_over_its_limit() {
+        let mut writer = BoundedWriter::new(Vec::new(), 3);
+        writer.write_all(b"abc").unwrap();
+        assert!(writer.write_all(b"d").is_err());
+        assert!(writer.limit_exceeded);
+        assert_eq!(writer.written, 3);
+        assert_eq!(writer.into_inner(), b"abc");
+    }
+
+    #[test]
+    fn compressed_snapshot_index_roundtrips_large_metadata_and_rejects_bad_files() {
         let directory = TestDirectory::new();
         let project_id = "fixture-project";
         let snapshot_id = "snapshot-a";
+        let long_name = "x".repeat(1_000);
+        let symbols = (0..24_000)
+            .map(|ordinal| {
+                let name = format!("symbol_{ordinal:05}_{long_name}");
+                let qualified_name = format!("module::{name}");
+                let declaration_identity = qualified_name.clone();
+                IndexedSymbol {
+                    symbol_id: format!("symbol-id-{ordinal:05}"),
+                    path: "src/generated.ts".to_owned(),
+                    language: "typescript".to_owned(),
+                    kind: SymbolKind::Function,
+                    name,
+                    qualified_name,
+                    declaration_identity,
+                    signature_sha256: "a".repeat(64),
+                    is_exported: true,
+                    is_test: false,
+                    anchor: SourceAnchor {
+                        path: "src/generated.ts".to_owned(),
+                        source_sha256: "b".repeat(64),
+                        start_byte: ordinal,
+                        end_byte: ordinal + 1,
+                        start_line: ordinal + 1,
+                        end_line: ordinal + 1,
+                        start_column: 1,
+                        end_column: 2,
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
         let index = SnapshotIndex {
             schema_version: INDEX_SCHEMA_VERSION,
             indexer_version: INDEXER_VERSION.to_owned(),
@@ -3903,31 +3944,41 @@ mod tests {
             status: SnapshotIndexStatus::Partial,
             parsers: Vec::new(),
             files: Vec::new(),
-            symbols: Vec::new(),
+            symbols,
             relationships: Vec::new(),
         };
-        let mut bytes = serde_json::to_vec(&index).unwrap();
-        bytes.resize(MAX_INDEX_JSON_BYTES, b' ');
+        assert!(index.symbols.len() <= MAX_INDEXED_SYMBOLS);
+
+        struct ByteCounter(usize);
+        impl Write for ByteCounter {
+            fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+                self.0 += buffer.len();
+                Ok(buffer.len())
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut json_size = ByteCounter(0);
+        serde_json::to_writer(&mut json_size, &index).unwrap();
+        assert!(json_size.0 > MAX_INDEX_STORED_BYTES);
+        assert!(json_size.0 <= MAX_INDEX_EXPANDED_BYTES);
 
         let path = relationship_path(directory.path(), project_id, snapshot_id).unwrap();
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(&path, &bytes).unwrap();
+        save_snapshot_index(directory.path(), &index).unwrap();
+        assert!(fs::metadata(&path).unwrap().len() <= MAX_INDEX_STORED_BYTES as u64);
         assert_eq!(
             load_snapshot_index(directory.path(), project_id, snapshot_id).unwrap(),
-            Some(index.clone())
+            Some(index)
         );
 
-        bytes.push(b' ');
-        fs::write(&path, &bytes).unwrap();
-        assert!(
-            load_snapshot_index(directory.path(), project_id, snapshot_id)
-                .unwrap_err()
-                .contains("exceeds the supported size")
-        );
-
-        let mut truncated = serde_json::to_vec(&index).unwrap();
-        truncated.pop();
-        for invalid in [Vec::new(), truncated, b"{ broken".to_vec()] {
+        let valid_frame = fs::read(&path).unwrap();
+        for invalid in [
+            Vec::new(),
+            valid_frame[..valid_frame.len() - 1].to_vec(),
+            b"{ broken".to_vec(),
+        ] {
             fs::write(&path, &invalid).unwrap();
             assert!(
                 load_snapshot_index(directory.path(), project_id, snapshot_id)
@@ -3936,6 +3987,20 @@ mod tests {
             );
             assert_eq!(fs::read(&path).unwrap(), invalid);
         }
+
+        let oversized = std::fs::File::create(&path).unwrap();
+        oversized
+            .set_len(MAX_INDEX_STORED_BYTES as u64 + 1)
+            .unwrap();
+        assert!(
+            load_snapshot_index(directory.path(), project_id, snapshot_id)
+                .unwrap_err()
+                .contains("supported storage size")
+        );
+        assert_eq!(
+            fs::metadata(&path).unwrap().len(),
+            MAX_INDEX_STORED_BYTES as u64 + 1
+        );
     }
 
     fn relationship_for<'a>(
@@ -4104,7 +4169,12 @@ mod tests {
             load_snapshot_index(&storage, &project.project_id, &manifest.summary.snapshot_id)
                 .unwrap()
                 .is_none(),
-            "v1 cache entries must not be reused under indexer v2"
+            "older cache entries must not be reused under the current indexer"
+        );
+        save_snapshot_index(&storage, &index).unwrap();
+        assert!(
+            !legacy_path.exists(),
+            "a successful current index write should retire obsolete project index caches"
         );
 
         let imported = index
@@ -4691,6 +4761,20 @@ mod tests {
 
         let manifest = final_manifest.unwrap();
         let index = final_index.unwrap();
+        let index_storage_bytes = fs::metadata(
+            relationship_path(&storage, &index.project_id, &index.snapshot_id)
+                .expect("profile index path should be valid"),
+        )
+        .expect("profile index should be saved")
+        .len();
+        let started = Instant::now();
+        let persisted_index = load_snapshot_index(&storage, &index.project_id, &index.snapshot_id)
+            .expect("saved large-repository index should load")
+            .expect("saved large-repository index should exist");
+        let index_load_ms = started.elapsed().as_millis();
+        assert_eq!(persisted_index, index);
+        drop(index);
+        let index = persisted_index;
         if external_root.is_some() {
             assert!(!manifest.files.is_empty());
         } else {
@@ -4786,7 +4870,7 @@ mod tests {
         }
 
         eprintln!(
-            "ATLAS_PERF repo={} os={} arch={} captured_files={} source_bytes={} index_status={} indexed_files={} file_statuses={:?} symbols={} relationships={} context_prepare_ms={:?} context_prepare_median_ms={} query_chars={} search_hits={} search_result_bytes={} warmup=1 samples=3 capture_ms={:?} capture_median_ms={} index_ms={:?} index_median_ms={} save_ms={:?} save_median_ms={} search_us={:?} search_median_us={}",
+            "ATLAS_PERF repo={} os={} arch={} captured_files={} source_bytes={} index_status={} indexed_files={} file_statuses={:?} symbols={} relationships={} index_storage_bytes={} index_load_ms={} context_prepare_ms={:?} context_prepare_median_ms={} query_chars={} search_hits={} search_result_bytes={} warmup=1 samples=3 capture_ms={:?} capture_median_ms={} index_ms={:?} index_median_ms={} save_ms={:?} save_median_ms={} search_us={:?} search_median_us={}",
             label,
             std::env::consts::OS,
             std::env::consts::ARCH,
@@ -4797,6 +4881,8 @@ mod tests {
             file_status_counts,
             index.symbols.len(),
             index.relationships.len(),
+            index_storage_bytes,
+            index_load_ms,
             context_prepare_ms,
             median(&context_prepare_ms),
             query.chars().count(),
@@ -4882,7 +4968,67 @@ fn relationship_path(
         .join("indexes")
         .join(digest(project_id.as_bytes()))
         .join(INDEXER_VERSION)
-        .join(format!("{snapshot_id}.json")))
+        .join(format!("{snapshot_id}.lz4")))
+}
+
+fn prune_obsolete_indexer_caches(storage_dir: &Path, project_id: &str) {
+    let project_index_dir = storage_dir
+        .join("indexes")
+        .join(digest(project_id.as_bytes()));
+    let Ok(entries) = fs::read_dir(project_index_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let is_old_indexer = name
+            .to_str()
+            .and_then(|name| name.strip_prefix("atlas-symbol-index-v"))
+            .and_then(|version| version.parse::<u32>().ok())
+            .is_some_and(|_| name != INDEXER_VERSION);
+        if is_old_indexer && entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            // Indexes are derived from captured snapshots; keep one cache format
+            // per project rather than retaining every obsolete parser version.
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+struct BoundedWriter<W> {
+    inner: W,
+    written: usize,
+    limit: usize,
+    limit_exceeded: bool,
+}
+
+impl<W> BoundedWriter<W> {
+    fn new(inner: W, limit: usize) -> Self {
+        Self {
+            inner,
+            written: 0,
+            limit,
+            limit_exceeded: false,
+        }
+    }
+
+    fn into_inner(self) -> W {
+        self.inner
+    }
+}
+
+impl<W: Write> Write for BoundedWriter<W> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        if buffer.len() > self.limit.saturating_sub(self.written) {
+            self.limit_exceeded = true;
+            return Err(io::Error::other("snapshot index size limit exceeded"));
+        }
+        let written = self.inner.write(buffer)?;
+        self.written += written;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
 }
 
 pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<(), String> {
@@ -4892,11 +5038,6 @@ pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<
     if index.status == SnapshotIndexStatus::Cancelled {
         return Err("A cancelled snapshot index cannot replace a saved index.".to_owned());
     }
-    let bytes = serde_json::to_vec(index)
-        .map_err(|_| "The snapshot index could not be serialized.".to_owned())?;
-    if bytes.len() > MAX_INDEX_JSON_BYTES {
-        return Err("The snapshot index exceeded its 64 MiB storage limit.".to_owned());
-    }
     let path = relationship_path(storage_dir, &index.project_id, &index.snapshot_id)?;
     let parent = path
         .parent()
@@ -4905,13 +5046,37 @@ pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<
         .map_err(|_| "The local index folder could not be created.".to_owned())?;
     let temporary = parent.join(format!(".index-{}.tmp", Uuid::new_v4()));
     let result = (|| {
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&temporary)
             .map_err(|_| "The local index could not be written.".to_owned())?;
-        file.write_all(&bytes)
-            .map_err(|_| "The local index could not be written.".to_owned())?;
+
+        let mut frame_info = FrameInfo::new();
+        frame_info.block_checksums = true;
+        frame_info.content_checksum = true;
+        let compressed = BoundedWriter::new(file, MAX_INDEX_STORED_BYTES);
+        let encoder = FrameEncoder::with_frame_info(frame_info, compressed);
+        let mut expanded = BoundedWriter::new(encoder, MAX_INDEX_EXPANDED_BYTES);
+        if serde_json::to_writer(&mut expanded, index).is_err() {
+            if expanded.limit_exceeded {
+                return Err(
+                    "The snapshot index exceeded its 256 MiB expanded metadata limit.".to_owned(),
+                );
+            }
+            if expanded.inner.get_ref().limit_exceeded {
+                return Err(
+                    "The compressed snapshot index exceeded its 64 MiB storage limit.".to_owned(),
+                );
+            }
+            return Err("The snapshot index could not be serialized.".to_owned());
+        }
+        let encoder = expanded.into_inner();
+        let compressed = encoder.finish().map_err(|_| {
+            "The compressed snapshot index could not be finalized within its 64 MiB storage limit."
+                .to_owned()
+        })?;
+        let file = compressed.into_inner();
         file.sync_all()
             .map_err(|_| "The local index could not be synced.".to_owned())?;
         fs::rename(&temporary, &path)
@@ -4919,6 +5084,8 @@ pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
+    } else {
+        prune_obsolete_indexer_caches(storage_dir, &index.project_id);
     }
     result
 }
@@ -4939,21 +5106,30 @@ pub fn load_snapshot_index(
     snapshot_id: &str,
 ) -> Result<Option<SnapshotIndex>, String> {
     let path = relationship_path(storage_dir, project_id, snapshot_id)?;
-    let bytes = match crate::bounded_file::read(&path, MAX_INDEX_JSON_BYTES) {
-        Ok(bytes) => bytes,
-        Err(crate::bounded_file::ReadError::Io(error))
-            if error.kind() == std::io::ErrorKind::NotFound =>
-        {
-            return Ok(None);
-        }
-        Err(crate::bounded_file::ReadError::Io(_)) => {
+    let file = match std::fs::File::open(&path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => {
             return Err("The saved snapshot index could not be read.".to_owned());
         }
-        Err(crate::bounded_file::ReadError::TooLarge) => {
-            return Err("The saved snapshot index exceeds the supported size.".to_owned());
-        }
     };
-    let index: SnapshotIndex = serde_json::from_slice(&bytes).map_err(|_| {
+    let stored_bytes = file
+        .metadata()
+        .map_err(|_| "The saved snapshot index could not be read.".to_owned())?
+        .len();
+    if stored_bytes > MAX_INDEX_STORED_BYTES as u64 {
+        return Err("The saved snapshot index exceeds the supported storage size.".to_owned());
+    }
+    let expanded_limit = MAX_INDEX_EXPANDED_BYTES as u64 + 1;
+    let compressed_limit = MAX_INDEX_STORED_BYTES as u64 + 1;
+    let decoder = FrameDecoder::new(file.take(compressed_limit));
+    let mut expanded = decoder.take(expanded_limit);
+    let parsed = serde_json::from_reader::<_, SnapshotIndex>(&mut expanded);
+    let expanded_bytes = expanded_limit - expanded.limit();
+    if expanded_bytes > MAX_INDEX_EXPANDED_BYTES as u64 {
+        return Err("The saved snapshot index exceeds the supported expanded size.".to_owned());
+    }
+    let index = parsed.map_err(|_| {
         "The saved snapshot index is invalid. Rebuild the index for this snapshot.".to_owned()
     })?;
     if index.schema_version != INDEX_SCHEMA_VERSION
