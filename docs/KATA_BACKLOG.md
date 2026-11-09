@@ -3,8 +3,11 @@
 **Snapshot: 9 November 2026.** The live `code-atlas-rebuild` project has 82 records: 32 open, 32 closed, and 18 soft-deleted. Twenty-one open issues are ready and 11 are blocked; Kata is authoritative for current status, priority, ownership, comments, and dependency state.
 
 > **Scope update — 9 November 2026:** first release is Codex-first. Formal
-> accessibility audit matrices are out of scope; ordinary keyboard use,
-> readable labels, and light/dark layouts remain baseline usability. PR
+> VoiceOver/screen-reader, 200% zoom/reflow, contrast-preference, and reduced-
+> motion audit matrices are out of scope. This supersedes dated notes below
+> that list those checks as pending; they are historical records, not open
+> tasks or release gates. Ordinary keyboard use, readable labels, and clear
+> light/dark layouts remain baseline usability. PR
 > explanations, standalone offline export, the direct-API catalog, non-Codex
 > agent integrations, full revision compare/restore, and generation-time audio
 > prewarming are post-1.0. Their task definitions are preserved in [post-1.0

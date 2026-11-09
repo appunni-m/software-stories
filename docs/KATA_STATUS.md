@@ -1,8 +1,21 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot refreshed: **9 November 2026**, from live Kata project `code-atlas-rebuild`. The project has **82 records: 32 open, 32 closed, and 18 soft-deleted**; **21 open issues are ready and 11 are blocked**. The active and closed task table below was reconciled against the live project export. First-release scope is Codex-first; formal accessibility audits, standalone export, full revision compare/restore, generation-time narration prewarming, and a fixed first-answer timing target are not release gates. PR, direct-API, non-Codex backend definitions, and the standalone timing task are archived outside the active backlog. The duplicate workspace audit `na54` is soft-deleted; its unique latest-snapshot requirement is now in `13yp`. The duplicate narration wrapper `70x5` is retired; runtime setup and playback/cache remain tracked by `q6g3` and `dbmd`. The post-1.0 revision/prewarming issues `gace` and `tp6r` are soft-deleted. Dated checkpoints below are historical; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, or release acceptance.
+Snapshot refreshed: **9 November 2026**, from live Kata project `code-atlas-rebuild`. The project has **82 records: 32 open, 32 closed, and 18 soft-deleted**; **21 open issues are ready and 11 are blocked**. The active and closed task table below was reconciled against the live project export. First-release scope is Codex-first; formal VoiceOver/screen-reader, 200% zoom/reflow, contrast-preference, and reduced-motion audit matrices, standalone export, full revision compare/restore, generation-time narration prewarming, and a fixed first-answer timing target are not release gates. Any dated note below listing a formal accessibility audit as pending is historical, not an open task. Ordinary keyboard behavior and readable presentation remain usability expectations. PR, direct-API, non-Codex backend definitions, and the standalone timing task are archived outside the active backlog. The duplicate workspace audit `na54` is soft-deleted; its unique latest-snapshot requirement is now in `13yp`. The duplicate narration wrapper `70x5` is retired; runtime setup and playback/cache remain tracked by `q6g3` and `dbmd`. The post-1.0 revision/prewarming issues `gace` and `tp6r` are soft-deleted. Dated checkpoints below are historical; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, or release acceptance.
 
-> **Scope update — 9 November 2026:** formal accessibility audit matrices are out of scope. Normal keyboard navigation, readable labels, and clear light/dark layouts remain product UX requirements. Guide work has no elapsed-time SLA; sections publish when ready and jobs continue until stopped or a real runtime/resource boundary. The first release is Codex-first. PR Guide, standalone offline export, full revision compare/restore, generation-time narration prewarming, the direct-API catalog, Claude, Antigravity, and the wider multi-backend milestone have been removed from the active backlog and preserved under [post-1.0 history](history/post-1.0/README.md). The dedicated repository task covers safety, cancellation, and responsiveness. Older notes below are historical evidence, not current gates.
+> **Scope update — 9 November 2026:** formal VoiceOver/screen-reader,
+> 200% zoom/reflow, contrast-preference, and reduced-motion audit matrices are
+> out of scope. Dated notes below that list these audits as pending are
+> historical evidence, not current gates. Normal keyboard navigation,
+> readable labels, and clear light/dark layouts remain product UX
+> requirements. Guide work has no elapsed-time SLA; sections publish when
+> ready and jobs continue until stopped or a real runtime/resource boundary.
+> The first release is Codex-first. PR Guide, standalone offline export, full
+> revision compare/restore, generation-time narration prewarming, the direct-
+> API catalog, Claude, Antigravity, and the wider multi-backend milestone have
+> been removed from the active backlog and preserved under [post-1.0
+> history](history/post-1.0/README.md). The dedicated repository task covers
+> safety, cancellation, and responsiveness. Older notes below are historical
+> evidence, not current gates.
 
 ## Frozen broad-retrieval trace — 6 November 2026
 

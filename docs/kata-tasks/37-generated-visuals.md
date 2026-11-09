@@ -10,7 +10,12 @@ blocked_by: parser-binding-resolution
 
 ## Scope update — 7 November 2026
 
-Formal accessibility audit matrices are out of scope at the user's direction.
+Formal VoiceOver/screen-reader, 200% zoom/reflow, contrast-preference, and
+reduced-motion audit matrices are out of first-release scope at the user's
+direction. Dated entries below that list these audits as pending are historical
+evidence, not open acceptance gates. Keep ordinary keyboard interaction,
+readable labels, and source-linked controls because they are part of the core
+visual-explanation workflow.
 Do not repeat VoiceOver/screen-reader, 200% zoom, contrast-preference, or
 reduced-motion checks as acceptance gates. Dated observations below are
 historical evidence only. Keep ordinary keyboard interaction and readable
