@@ -241,3 +241,20 @@ cancel/restart/failure behavior remain open. Keep `tbsh` open.
 ### Confirm the Pocket cache-key regression on the current checkout — 2026-11-08
 
 Re-ran `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib selected_stale_section_regenerates_without_changing_other_section_or_asset_ids` on `main@8b20924` with the current fixture change: **1 passed**. The unchanged section retains its narration cache identity under the shipped Pocket model/voice/format values, while the regenerated section gets a different key. This does not synthesize or listen to audio, qualify packaged cache reuse, or complete selective-repair acceptance. Keep `tbsh` open.
+
+### Verify one-action repair publication wiring — 9 November 2026
+
+The packaged UI's selected-section action prepares the fixed review automatically,
+uses the saved Codex connection and snapshot grant, and submits without a second
+source-review or consent action. After a locally validated response, it saves
+the candidate and publishes an accepted immutable revision automatically. It
+checks the accepted revision is valid, based on the saved candidate, preserves
+all section identities/revisions, and changes the selected section revision.
+If the local save response is uncertain, it looks up the same immutable revision
+before deciding whether to continue or report recovery.
+
+Added `tests/section-repair-publication.test.mjs` to guard this automatic path
+and its preservation checks; the focused test passes **2/2**. This is a source
+contract regression only. No installed-app repair, real Codex response, Pocket
+audio generation/reuse, restart, cancellation or provider-failure acceptance
+was run. Keep `tbsh` open.
