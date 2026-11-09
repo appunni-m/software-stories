@@ -275,6 +275,14 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert!(instructions.contains("Do not write explanations, narration, or slide content"));
     assert!(instructions.contains("Return a question-first opening item"));
     assert!(instructions.contains("The app fixes the opening's placement and question"));
+    assert!(instructions.contains(
+        "the first follow-on unit must continue the same evidenced user journey as the opening at its next real code handoff"
+    ));
+    assert!(instructions.contains(
+        "later initial units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
+    ));
+    assert!(instructions.contains("Explain setup once before its first dependent behavior"));
+    assert!(instructions.contains("replace duplicate coverage with a distinct requested behavior"));
     assert!(instructions.contains("do not call `propose_answer_section`"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     let mut separate_opening = r.clone();
@@ -375,7 +383,7 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
     );
     assert!(
         instructions.contains(
-            "Finish the central path before moving to materially different caller surfaces"
+            "later initial units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
         )
     );
     assert!(instructions.contains("Never imply that a pending omission is covered"));

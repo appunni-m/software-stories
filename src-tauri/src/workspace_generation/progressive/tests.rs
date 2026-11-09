@@ -938,7 +938,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v36");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v37");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no scene benefits from a visual, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim"
@@ -962,16 +962,19 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
             .contains("claim or narration must say that a miss tries the next candidate")
     );
     assert!(
-        system_instructions().contains("independent validation guards belong in separate scenes")
+        system_instructions()
+            .contains("Separate independent validation guards into separate scenes")
     );
-    assert!(system_instructions().contains(
-        "Let the cited behavior choose the smallest app-supported visual form for each claim."
-    ));
+    assert!(
+        system_instructions()
+            .contains("Let cited behavior choose the smallest app-supported form for each claim.")
+    );
     assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-"));
     assert!(system_instructions().contains("Visual composition review v"));
-    assert!(system_instructions().contains(
-        "Before composing, name the mechanism and the one focal point the reader should understand."
-    ));
+    assert!(
+        system_instructions()
+            .contains("Before composing, name the behavior and its best teaching form.")
+    );
     assert!(
         system_instructions().contains(
             "Use the actual source variable or field as a symbolic input/result when it clarifies static code"
@@ -991,7 +994,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     ));
     assert!(
         system_instructions()
-            .contains("Every other edge touching a focused node must also cite that same claim")
+            .contains("Every other edge touching a focused node must cite the same claim")
     );
     assert!(
         system_instructions()
@@ -1139,7 +1142,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     assert!(instructions.contains("Use a three-part transform only when one cited operation maps a named input value or state to a distinct result"));
     assert!(instructions.contains("Do not use transform as the generic layout for call paths, collection behavior, or chains of decisions"));
     assert!(instructions.contains("pointFlow takes precedence and keeps a symbolic point visible on both sides of the operation"));
-    assert!(instructions.contains("Do not choose by file type or a favorite template."));
+    assert!(instructions.contains("Do not choose by file type or favorite template."));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));

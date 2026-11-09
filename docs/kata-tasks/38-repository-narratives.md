@@ -61,6 +61,17 @@ comprehension. A bounded Guide can still have uncovered routes, and a saved
 outline or first slide does not prove the later topics. Large-repository,
 representative whole-project and comprehension qualification remain open.
 
+### Continuous-path prompt progress — 9 November 2026
+
+The plan prompt now continues the opening at its next real code handoff, keeps
+the core caller-to-engine path ahead of alternate callers/languages, explains
+setup once, and compares topic coverage before returning the outline. The
+research prompt carries those same rules into independent source investigations
+and preserves uncovered behavior as pending. Focused native tests pass: Guide
+plan 13/13 and progressive Guide 22/22 (two explicit account probes ignored).
+No repository Guide or model request was generated. This is source/test evidence,
+not proof of Fontdone coverage, narrative quality, or reader comprehension.
+
 ### Incremental execution audit — 2026-11-07
 
 The current source uses `RunDeadline::UserControlled` for both repository-guide planning and progressive section generation; the ten-minute timeout is no longer applied to these operations. The initial plan is limited to five follow-on units, and the native worker publishes the initial batch incrementally while maintaining a five-slide ready buffer. Later refill calls request one slide at a time. The stored guide supports up to twenty follow-on units; additional routes remain explicit uncovered omissions instead of being presented as complete. See `src-tauri/src/repository_guide/plan.rs`, `src-tauri/src/repository_guide/mod.rs`, and the deadline/buffer assertions in `src-tauri/src/repository_guide/plan/tests.rs`.

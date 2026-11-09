@@ -64,20 +64,20 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v79`, Visual design method and composition review `v69`, teaching policy
-`meaning-first-v36`, and reader language policy `reader-language-v1`. These
+`ai-html-compositions-v80`, Visual design method and composition review `v70`, teaching policy
+`meaning-first-v37`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
-reference stays synchronized with the implementation. The v79 authoring prompt
+reference stays synchronized with the implementation. The v80 authoring prompt
 uses a compact behavior-to-visual selector and removes repeated narration and
 layout rules; the typed schema and source-evidence checks remain the enforcement
 boundary. The teaching contract starts
 from a real input or situation, follows only source-supported changes and
 outcomes, and gives each scene one behavior to make visible. Section and scene
 titles name that behavior or learning question in plain language rather than
-using a bare format tag or terse classification. Scene narration keeps simple
-behavior to one or two short sentences and allows up to 3 short sentences
-and 420 UTF-8 bytes when the real path needs room to connect its input, decision
+using a bare format tag or terse classification. Scene narration targets 20–35 spoken words, keeps simple behavior to one or two
+short sentences, and allows up to 3 short sentences and 420 UTF-8 bytes when the
+real path needs room to connect its input, decision
 or change, visible cue, and caller-visible consequence. Native admission rejects
 longer speech and offers a bounded correction. If a behavior needs more room,
 split it into ordered claims/scenes without omitting outcomes. At first spoken
@@ -92,8 +92,12 @@ modes when the behavior warrants it. Narration-only mode applies only when the
 entire section has no useful visual. Layout follows the
 behavior: one guard with alternatives uses a branch; independent validation
 guards become separate scenes; first-match candidate dispatch uses a selector.
-For a branch, show the guard once and give each outcome a distinct, specific
-label and result. A mutually exclusive enum, match, switch, or pattern match
+Before using a branch, name its central decision and mutually exclusive,
+source-backed outcomes; do not use branch to lay out sequential checks, ordered
+steps or a transformation. Repeated branch roots in a long Guide are a signal
+to re-evaluate each focal behavior, not a target distribution. For a valid
+branch, show the guard once and give each outcome a distinct, specific label and
+result. A mutually exclusive enum, match, switch, or pattern match
 uses a branch of matched cases and results; it does not imply candidate
 fall-through. A compact table may show a dense mapping. Use a selector only for
 source-ordered candidates where a miss proceeds to the next candidate. Keep

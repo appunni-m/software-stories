@@ -27,6 +27,24 @@ reviewed narration/audio, and human confirmation that each representation
 helps explain the behavior. Standalone offline export is outside this release;
 its archived definition is [here](../history/post-1.0/22-offline-export.md).
 
+For 0.1, visual generation uses the connected Codex path. References below to
+direct APIs or other agent runtimes are historical, not visual-generation
+acceptance gates. The agent chooses a safe supported composition or graph per
+behavior; graph rendering is available but is not the default visual.
+
+## Prompt continuity progress — 9 November 2026
+
+Versioned scene guidance now asks for 20–35 narration words per scene, a
+behavior-specific representation, and a branch only for a focal choice among
+source-backed outcomes. Repository Guide planning and research now preserve one
+caller-to-engine path across the opening and first topics, explain setup once,
+and flag duplicate coverage instead of silently re-explaining it. Focused native
+checks pass: visual scene 12/12, Guide plan 13/13, and progressive Guide 22/22
+(two explicit account probes ignored); targeted rustfmt check passes. No real
+chapter was generated and no account request was sent. This is prompt and source
+validation only; real generated visuals, listening, source clicks, and human
+comprehension remain unqualified.
+
 ## Source regression checkpoint — 7 November 2026
 
 At source revision `6e17994`, `npm run check` passes: 803 frontend tests, 940
@@ -65,10 +83,10 @@ The existing player renders clickable source citations for node and edge evidenc
 This is partial source progress, not acceptance evidence. No tests or builds were run. There is not yet a generated example with a source-click walkthrough, visual review at supported window sizes, exercised offline export, or a human comprehension review. Generation uses the shared structured chapter contract and canonicalizer in the direct-provider and native agent source paths. That shared source wiring does not establish accepted Codex/Claude runtime support, visual quality or production readiness.
 
 ## Contract
-Add a reviewed structured visual-planning step using the selected API or coding-agent backend. Choose an appropriate diagram from validated source claims: request/data flow, call sequence or component hierarchy. Resolve model-proposed references to app-owned exact anchors and typed destinations locally; validate every behavior node/edge. Use the existing app-owned renderer; never execute generated scripts/HTML. Plan bounded scenes and deliberate transitions so readers can follow one behavior at a time. Preserve text-only use when a diagram adds no explanatory value.
+For 0.1, the connected Codex agent proposes a bounded scene composition alongside each validated claim. It chooses an app-supported semantic form for the behavior; use a graph only for source-backed relationships that a focused composition cannot show more clearly. Native code resolves evidence references to exact captured source, validates the proposal and renders it with the app-owned HTML components. Never execute generated scripts, markup, styles, URLs, or handlers. Keep visual scenes bounded, source-linked, and paced with narration; allow narration-only only where no honest visual adds meaning.
 
 ## Acceptance criteria
-- Ordinary chapter generation produces useful diagrams on suitable fixtures without hand-inserting visual JSON.
+- Ordinary connected-Codex generation produces useful, behavior-specific scenes on suitable fixtures without hand-inserting visual JSON; the visual form fits the focal behavior and graphs are not the default.
 - A route example shows input, relevant calls, state/data changes, success and failure branches supported by exact code; a structural-only graph is labeled accordingly.
 - Each behavior node/edge opens its exact supporting snapshot range; Back preserves section, focus and playback position.
 - Unknown references, invented control/data flow and unsupported runtime claims are rejected or visibly marked uncertain.
