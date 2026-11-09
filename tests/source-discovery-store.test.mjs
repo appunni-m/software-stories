@@ -202,10 +202,11 @@ describe('saved source discovery scope', () => {
   });
 
   it('reuses an exact saved scope and offers an explicit rediscovery action', async () => {
-    const [discovery, planning, dialog, app] = await Promise.all([
+    const [discovery, planning, dialog, context, app] = await Promise.all([
       readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/RepositoryPlanningDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/CodexContextDialog.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
     ]);
     assert.match(discovery, /readSourceDiscoveryResult\(scope,availablePaths\)/);
@@ -214,7 +215,9 @@ describe('saved source discovery scope', () => {
     assert.match(planning, /onFindCodeAgain=\{\(\) => \{ setDiscovery\(null\); setIgnoreSavedDiscovery\(true\); \}\}/);
     assert.match(dialog, /discoveryResult && onFindCodeAgain && <AppButton[^>]*>Find code again<\/AppButton>/);
     assert.match(planning, /discoveryResult=\{discovery \?\? undefined\}/);
-    assert.match(app, /planningDialog\.discoveryResult \?\? null/);
+    assert.match(context, /discoveryScopeKey !== null && discovery\?\.scopeKey === discoveryScopeKey \? discovery\.result : null/);
+    assert.match(context, /discoveryResult=\{scopedDiscovery \?\? undefined\}/);
+    assert.match(app, /return <CodexContextDialog mode=\{mode\}/);
   });
 
   it('routes documentation targets through code discovery instead of a documentation chapter', async () => {
@@ -224,7 +227,7 @@ describe('saved source discovery scope', () => {
     ]);
     assert.match(context, /documentationTargetPath[\s\S]*?targetPath: documentationTargetPath \? null : mode\.targetPath/);
     assert.match(context, /documentationTargetPath[\s\S]*?kind: 'overview'[\s\S]*?question: sourceDiscoveryQuestion\(documentationTargetPath\)/);
-    assert.match(dialog, /const chapterQuestion = mode !== 'settings' && \(mode\.kind === 'review' \|\| mode\.kind === 'overview'\) \? mode\.question : undefined/);
+    assert.match(dialog, /const chapterQuestion = mode !== 'settings' && \(mode\.kind === 'review' \|\| mode\.kind === 'overview' \|\| mode\.kind === 'section-update'\) \? mode\.question : undefined/);
     assert.match(dialog, /question: chapterQuestion,/);
   });
 

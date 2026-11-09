@@ -36,10 +36,13 @@ test('dirty drafts and validation status stay keyed to their section across view
     prose: 'Unsaved explanation',
     spokenText: 'Unsaved narration',
   };
+  const reviseQuestion = 'Explain the failure path with a concrete example.';
   let workspace = { view: 'guide', edits: {} };
   workspace = { ...workspace, edits: updateInlineSectionEditEntries(workspace.edits, sectionKey, (previous) => ({
     ...previous,
     draft,
+    reviseQuestion,
+    reviseOpen: true,
     busy: true,
     issues: { key: sectionKey, items: ['Awaiting source validation'] },
   })) };
@@ -49,6 +52,8 @@ test('dirty drafts and validation status stay keyed to their section across view
   assert.deepEqual(workspace.edits[sectionKey], {
     ...EMPTY_INLINE_SECTION_EDIT_ENTRY,
     draft,
+    reviseQuestion,
+    reviseOpen: true,
     busy: true,
     issues: { key: sectionKey, items: ['Awaiting source validation'] },
   });
@@ -56,6 +61,8 @@ test('dirty drafts and validation status stay keyed to their section across view
   assert.equal(workspace.view, 'source');
   assert.equal(workspace.edits[sectionKey].busy, true, 'pending validation stays attached while source is active');
   assert.equal(workspace.edits[sectionKey].draft.prose, 'Unsaved explanation');
+  assert.equal(workspace.edits[sectionKey].reviseQuestion, reviseQuestion);
+  assert.equal(workspace.edits[sectionKey].reviseOpen, true);
   workspace = { ...workspace, view: 'guide' };
   assert.equal(workspace.edits[sectionKey].draft.prose, 'Unsaved explanation');
 });

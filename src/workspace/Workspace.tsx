@@ -1408,8 +1408,6 @@ function useInlineSectionEdit(
   const key=revision&&section?`${revision.revisionId}:${section.sectionId}:${section.sectionRevisionId}`:'';
   const entry=store.entries[key]??EMPTY_INLINE_SECTION_EDIT_ENTRY;
   const activeDraft=entry.draft?.key===key?entry.draft:null;
-  const [aiQuestion,setAIQuestion]=useState('');
-  const [aiRequestOpen,setAIRequestOpen]=useState(false);
   const trigger=revision&&section&&originalRevisionId&&onSave
     ? <Tooltip content="Edit this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(section.title)}`} aria-pressed={Boolean(activeDraft)} disabled={entry.busy} onClick={()=>{
       store.update(key,previous=>({...previous,
@@ -1419,7 +1417,7 @@ function useInlineSectionEdit(
     }}><Pencil size={13}/></IconButton></Tooltip>
     :null;
   const reviseTrigger=revision&&section&&originalRevisionId&&onRevise
-    ? <Tooltip content="Ask Codex to revise this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Ask Codex to revise ${plainInlineCodeText(section.title)}`} aria-expanded={aiRequestOpen} disabled={entry.busy} onClick={()=>setAIRequestOpen((open)=>!open)}><Sparkles size={13}/></IconButton></Tooltip>
+    ? <Tooltip content="Ask Codex to revise this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Ask Codex to revise ${plainInlineCodeText(section.title)}`} aria-expanded={entry.reviseOpen} disabled={entry.busy} onClick={()=>store.update(key,previous=>({...previous,reviseOpen:!previous.reviseOpen}))}><Sparkles size={13}/></IconButton></Tooltip>
     :null;
   const update=(field:'title'|'prose'|'spokenText',value:string)=>{
     store.update(key,previous=>previous.draft?.key===key?{...previous,draft:{...previous.draft,[field]:value},feedback:null,issues:null}:previous);
@@ -1459,10 +1457,10 @@ function useInlineSectionEdit(
   };
   const visibleFeedback=entry.feedback?.key===key?entry.feedback:null;
   const visibleIssues=entry.issues?.key===key?entry.issues.items:null;
-  const reviseForm=aiRequestOpen&&revision&&section&&originalRevisionId&&onRevise&&<div className="dw-inline-section-ai">
-    <label className="dw-inline-section-field">What should change?<AppTextArea ariaLabel="What should Codex change in this section?" value={aiQuestion} onChange={(event)=>setAIQuestion(event.target.value)} rows={3} maxLength={1200} placeholder="For example: explain the early-return path more clearly."/></label>
+  const reviseForm=entry.reviseOpen&&revision&&section&&originalRevisionId&&onRevise&&<div className="dw-inline-section-ai">
+    <label className="dw-inline-section-field">What should change?<AppTextArea ariaLabel="What should Codex change in this section?" value={entry.reviseQuestion} onChange={(event)=>store.update(key,previous=>({...previous,reviseQuestion:event.target.value}))} rows={3} maxLength={1200} placeholder="For example: explain the early-return path more clearly."/></label>
     <p className="dw-inline-section-note">Codex will revise only this section using its captured source. The result is checked before it replaces this answer.</p>
-    <div className="dw-inline-section-actions"><AppButton type="button" size="1" intent="quiet" onClick={()=>{setAIRequestOpen(false);setAIQuestion('');}}>Cancel</AppButton><AppButton type="button" size="1" intent="primary" disabled={aiQuestion.trim().length<8} onClick={()=>{onRevise(aiQuestion.trim(),revision,section,originalRevisionId,revision.revisionId);setAIRequestOpen(false);setAIQuestion('');}}>Revise with AI</AppButton></div>
+    <div className="dw-inline-section-actions"><AppButton type="button" size="1" intent="quiet" onClick={()=>store.update(key,previous=>({...previous,reviseOpen:false,reviseQuestion:''}))}>Cancel</AppButton><AppButton type="button" size="1" intent="primary" disabled={entry.reviseQuestion.trim().length<8} onClick={()=>{onRevise(entry.reviseQuestion.trim(),revision,section,originalRevisionId,revision.revisionId);store.update(key,previous=>({...previous,reviseOpen:false,reviseQuestion:''}));}}>Revise with AI</AppButton></div>
   </div>;
   const form=activeDraft&&<form className="dw-inline-section-editor" onSubmit={(event)=>void submit(event)}>
     <h4>Edit this section</h4>
