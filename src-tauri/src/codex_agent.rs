@@ -3302,6 +3302,16 @@ mod tests {
             CodexRuntimeVersionSource::ServerInfoVersion
         );
 
+        let installed_desktop_runtime = codex_runtime_version(&json!({
+            "userAgent": "Codex Desktop/0.149.1 (Mac OS 15.7.7; arm64) dumb (code_atlas_acceptance; 0.1.0)"
+        }))
+        .unwrap();
+        assert_eq!(installed_desktop_runtime.version, "0.149.1");
+        assert_eq!(
+            installed_desktop_runtime.source,
+            CodexRuntimeVersionSource::UserAgent
+        );
+
         for initialize in [
             json!({"userAgent": "code_atlas_acceptance/0.166.0-alpha.5.1 (macOS 15 arm64)"}),
             json!({
