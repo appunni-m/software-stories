@@ -1907,7 +1907,10 @@ where
             file_contents.extend_from_slice(&buffer[..count]);
             after_chunk(&candidate.absolute_path, file_bytes);
         }
-        output.sync_all().map_err(|error| {
+        // Staged blobs are immutable source data. Flush their bytes and size
+        // before publishing the object path; timestamps and other metadata do
+        // not need a separate full sync for each captured file.
+        output.sync_data().map_err(|error| {
             CaptureError::Failed(format!(
                 "Snapshot staging bytes could not be synced: {error}"
             ))
