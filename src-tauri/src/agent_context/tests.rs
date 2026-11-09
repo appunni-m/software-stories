@@ -374,6 +374,10 @@ fn session_exposes_only_the_current_progressive_tool_contract() {
     assert_eq!(config["args"][0], "--atlas-answer-mcp");
     assert_eq!(config["enabled_tools"], json!(mcp::tool_names()));
     assert_eq!(config["enabled_tools"].as_array().unwrap().len(), 6);
+    assert_eq!(
+        config["tool_timeout_sec"],
+        json!(mcp::CODEX_TOOL_TIMEOUT_SEC)
+    );
     assert!(s.checked_tool(mcp::PROPOSAL_TOOL).is_ok());
 }
 

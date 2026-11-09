@@ -162,7 +162,7 @@ impl Request {
     }
 
     pub(crate) fn budget(&self) -> context::Budget<'_> {
-        context::Budget::new(&self.cancelled)
+        context::Budget::user_controlled(&self.cancelled)
     }
 }
 
@@ -274,7 +274,7 @@ fn search_snapshot_kind(
                 context::validate_search_page(input.limit, input.offset)
             },
         )?;
-        let budget = context::Budget::new(&request.cancelled);
+        let budget = request.budget();
         let mut work = run_search_stage(
             origin,
             crate::generation_timing::ContextStageKind::SearchCacheLock,
@@ -556,9 +556,13 @@ mod tests {
         assert!(jobs.begin(&id).is_err());
         let id = Uuid::new_v4().to_string();
         let request = jobs.begin(&id).unwrap();
+        let budget = request.budget();
+        budget.check().unwrap();
         assert!(jobs.begin(&id).is_err());
         jobs.cancel(&id).unwrap();
         assert!(request.cancelled.load(Ordering::Acquire));
+        assert_eq!(budget.check().unwrap_err(), "Code search stopped.");
+        drop(budget);
         drop(request);
         assert!(!jobs.0.requests.lock().unwrap().contains_key(&id));
     }

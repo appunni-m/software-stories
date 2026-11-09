@@ -647,7 +647,7 @@ impl Session {
         Ok(
             json!({"command":executable,"args":["--atlas-answer-mcp",self.directory.join("context.sock")],
             "env":{"CODE_ATLAS_CONTEXT_TOKEN":self.token},"enabled":true,"required":true,
-        "enabled_tools":if self.progressive.allow_sections { mcp::tool_names() } else { mcp::research_tool_names() },"startup_timeout_sec":20,"tool_timeout_sec":95,"default_tools_approval_mode":"approve"}),
+        "enabled_tools":if self.progressive.allow_sections { mcp::tool_names() } else { mcp::research_tool_names() },"startup_timeout_sec":20,"tool_timeout_sec":mcp::CODEX_TOOL_TIMEOUT_SEC,"default_tools_approval_mode":"approve"}),
         )
     }
 

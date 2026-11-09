@@ -53,6 +53,18 @@ fn sorted_symbol_boundaries_choose_the_latest_safe_chunk_split() {
 }
 
 #[test]
+fn user_controlled_budget_has_no_elapsed_deadline_and_still_observes_stop() {
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::user_controlled(&cancelled);
+
+    assert!(budget.deadline.is_none());
+    budget.check().unwrap();
+
+    cancelled.store(true, Ordering::Release);
+    assert_eq!(budget.check().unwrap_err(), "Code search stopped.");
+}
+
+#[test]
 fn large_file_symbol_buckets_preserve_exact_chunk_boundaries_and_order() {
     let chunks = [chunk_span(0, 5), chunk_span(5, 10), chunk_span(10, 15)];
     let symbols = [
@@ -2068,7 +2080,7 @@ fn literal_fallback_retains_snapshot_filtering_cancellation_deadline_and_hash_ch
     cancelled.store(false, Ordering::Release);
     let expired = Budget {
         cancelled: &cancelled,
-        deadline: Instant::now() - Duration::from_secs(1),
+        deadline: Some(Instant::now() - Duration::from_secs(1)),
     };
     assert_eq!(
         search(
@@ -2340,7 +2352,7 @@ fn corrupt_tantivy_data_is_rebuilt_and_expired_deadlines_do_not_start_builds() {
     let cancelled = AtomicBool::new(false);
     let expired = Budget {
         cancelled: &cancelled,
-        deadline: Instant::now() - Duration::from_millis(1),
+        deadline: Some(Instant::now() - Duration::from_millis(1)),
     };
     assert!(
         prepare(
@@ -3047,7 +3059,7 @@ fn regex_search_retains_exclusions_cancellation_deadlines_snapshot_and_object_in
     cancelled.store(false, Ordering::Release);
     let expired = Budget {
         cancelled: &cancelled,
-        deadline: Instant::now() - Duration::from_secs(1),
+        deadline: Some(Instant::now() - Duration::from_secs(1)),
     };
     assert!(
         search_with_mode(

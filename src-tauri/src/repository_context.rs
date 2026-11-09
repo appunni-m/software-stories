@@ -81,21 +81,33 @@ pub(crate) fn digest(bytes: &[u8]) -> String {
 
 pub(crate) struct Budget<'a> {
     cancelled: &'a AtomicBool,
-    deadline: Instant,
+    deadline: Option<Instant>,
 }
 
 impl<'a> Budget<'a> {
     pub(crate) fn new(cancelled: &'a AtomicBool) -> Self {
         Self {
             cancelled,
-            deadline: Instant::now() + Duration::from_secs(90),
+            deadline: Some(Instant::now() + Duration::from_secs(90)),
+        }
+    }
+
+    /// User-owned retrieval runs until the user stops it or fixed resource
+    /// bounds are reached; elapsed time alone does not discard the work.
+    pub(crate) fn user_controlled(cancelled: &'a AtomicBool) -> Self {
+        Self {
+            cancelled,
+            deadline: None,
         }
     }
 
     pub(crate) fn check(&self) -> Result<(), String> {
         if self.cancelled.load(Ordering::Acquire) {
             Err("Code search stopped.".to_owned())
-        } else if Instant::now() >= self.deadline {
+        } else if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
             Err("Code search reached its local time limit.".to_owned())
         } else {
             Ok(())

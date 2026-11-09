@@ -45,6 +45,10 @@ pub(crate) fn research_tool_names() -> Vec<&'static str> {
     RESEARCH_TOOL_NAMES.to_vec()
 }
 pub(crate) const MAX_REPLY: usize = 128_000;
+// Codex requires a numeric MCP tool timeout (default 60 seconds). Keep its
+// per-call ceiling far beyond ordinary Guide work; the user's Stop action is
+// the intended end condition for long-running retrieval.
+pub(crate) const CODEX_TOOL_TIMEOUT_SEC: u64 = 24 * 60 * 60;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -284,7 +288,7 @@ impl Adapter {
         let mut stream = UnixStream::connect(&self.socket)
             .map_err(|_| "The context operation is no longer available.")?;
         stream
-            .set_read_timeout(Some(Duration::from_secs(95)))
+            .set_read_timeout(Some(Duration::from_secs(CODEX_TOOL_TIMEOUT_SEC)))
             .map_err(|_| "Context transport is unavailable.")?;
         stream
             .set_write_timeout(Some(Duration::from_secs(2)))

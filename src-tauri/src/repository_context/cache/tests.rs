@@ -306,7 +306,7 @@ fn maintenance_wait_obeys_deadline_and_cancellation_without_removing_the_owner()
     ));
     let timed = Budget {
         cancelled: &cancelled,
-        deadline: std::time::Instant::now() + Duration::from_millis(30),
+        deadline: Some(std::time::Instant::now() + Duration::from_millis(30)),
     };
     assert!(
         Cache::open(&fixture.storage, "other", "waiting", &timed)
