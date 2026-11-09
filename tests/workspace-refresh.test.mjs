@@ -106,6 +106,26 @@ test('a failed latest-changes capture points back to the persistent project head
   assert.doesNotMatch(app, /Try another update from Files/);
 });
 
+test('Load latest changes switches snapshots only after capture succeeds and keeps the open file', () => {
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const captureStart = app.indexOf('const createSnapshot = async');
+  const captureEnd = app.indexOf('const cancelCapture', captureStart);
+  assert.ok(captureStart >= 0 && captureEnd > captureStart);
+  const capture = app.slice(captureStart, captureEnd);
+  assert.match(capture, /snapshotId:\s*state\.current\.projectId === projectId \? state\.current\.snapshotId : null/);
+  assert.match(capture, /relativePath:\s*pathToKeep/);
+  assert.match(capture, /const start = await startSnapshot\(projectId\)/);
+
+  const completionStart = app.indexOf('if (isRequestedLatest && payload.status !== \'running\')');
+  const completionEnd = app.indexOf('if (payload.summary)', completionStart);
+  assert.ok(completionStart >= 0 && completionEnd > completionStart);
+  const completion = app.slice(completionStart, completionEnd);
+  assert.match(completion, /if \(\(payload\.status === \'complete\' \|\| payload\.status === \'partial\'\) && payload\.summary\)/);
+  assert.match(completion, /snapshotId:\s*payload\.summary!\.snapshotId/);
+  assert.match(completion, /relativePath:\s*state\.current\.relativePath/);
+  assert.doesNotMatch(completion, /sourceRange:|atlasSelection:|mapViewport:/);
+});
+
 test('progressive cards stop loading when a completed history read cannot find their saved revision', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.equal(savedAnswerAvailability(true, false), 'loading');
