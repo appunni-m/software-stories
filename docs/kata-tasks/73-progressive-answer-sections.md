@@ -7,7 +7,7 @@ priority: 1
 labels: agents, reliability, performance, ux
 ---
 
-> **Scope update — 9 November 2026:** formal accessibility audits are not release gates; normal reader controls and readable layouts remain baseline usability. Do not require a fixed five-slide look-ahead or generation-time narration prewarming. Publish the outline and each locally validated section immediately. Any small bounded look-ahead is an implementation choice and must never gate the first section or playback; synthesize narration on playback and reuse the local cache.
+> **Scope update — 9 November 2026:** formal accessibility audits are not release gates; any older dated note listing them as pending is historical. Normal reader controls and readable layouts remain baseline usability. Do not require a fixed five-slide look-ahead or generation-time narration prewarming. Publish the outline and each locally validated section immediately. Any small bounded look-ahead is an implementation choice and must never gate the first section or playback; synthesize narration on playback and reuse the local cache.
 
 > **Scope update — 8 November 2026:** no elapsed-time SLA or timeout is an acceptance gate for Guide work. Publish each validated section when ready and let the agent continue until the user stops it or a real runtime/resource boundary ends it. Timings may be recorded as diagnostic observations, never as a pass/fail threshold.
 

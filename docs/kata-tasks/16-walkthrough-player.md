@@ -15,7 +15,7 @@ The reader can understand one code-backed idea at a time and decide when to stop
 Show chapter list, section list, current section question/title, explanation, evidence panel, visual slot, transcript, and Previous/Continue controls. Continue is a deliberate action; there is no timer-based advance. Support section selection, pause/resume, replay, captions/transcript, and keyboard controls. Entering Code Lens preserves section ID and playback position; returning restores both.
 
 ## Acceptance criteria
-- Every section has an explicit start and completion boundary and accessible Previous/Continue labels.
+- Every section has an explicit start and completion boundary and clearly named Previous/Continue controls.
 - Playback never auto-advances or hides source while narration runs.
 - Selecting a section updates code highlights, visual, transcript, and narration to that section's revision.
 - Back from source, Atlas, or related chapter restores the same reader context.
