@@ -13,8 +13,9 @@ The current graph layout and workspace navigation remain available.
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
 | How a code-proven point or vector is mapped | Coordinate-free point-flow: symbolic point markers around the actual operation, with no invented positions |
 | How mutually exclusive enum/match arms choose a result | Branch showing the input once and each matched case beside its result; use a table for many cases |
-| Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
-| One guard decides success or failure | Branch showing the guard and each supported outcome |
+| Which route is selected | Branch with source-backed outcomes when choosing the route is the behavior to learn |
+| A guard permits a value or state change | Three-part transform, with the guard in the operation label and distinct source-backed input/result |
+| Why success differs from failure | Branch only when comparing those outcomes is the focal question; otherwise show the supported change and cover the failure in its own scene |
 | Independent validation guards run in a function | Separate scenes, one guard at a time; narration explains that passing lets the input continue |
 | Competing ordered candidates or parser signatures | Selector ladder with one matched outcome per guard and the reader's visible miss-and-continue handoff |
 | How state is organized | LIFO stack, FIFO queue, nested tree, or before/after state |
@@ -64,11 +65,11 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v80`, Visual design method and composition review `v70`, teaching policy
+`ai-html-compositions-v81`, Visual design method and composition review `v71`, teaching policy
 `meaning-first-v37`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
-reference stays synchronized with the implementation. The v80 authoring prompt
+reference stays synchronized with the implementation. The v81 authoring prompt
 uses a compact behavior-to-visual selector and removes repeated narration and
 layout rules; the typed schema and source-evidence checks remain the enforcement
 boundary. The teaching contract starts
@@ -90,12 +91,19 @@ quality or listener comprehension. Each claim scene
 selects composition or graph independently, so one visual section can mix those
 modes when the behavior warrants it. Narration-only mode applies only when the
 entire section has no useful visual. Layout follows the
-behavior: one guard with alternatives uses a branch; independent validation
-guards become separate scenes; first-match candidate dispatch uses a selector.
+behavior: a source-backed choice among mutually exclusive outcomes uses a
+branch; a guard that permits a data/state transformation stays with that
+transformation; independent validation guards become separate scenes;
+first-match candidate dispatch uses a selector.
 Before using a branch, name its central decision and mutually exclusive,
-source-backed outcomes; do not use branch to lay out sequential checks, ordered
-steps or a transformation. Repeated branch roots in a long Guide are a signal
-to re-evaluate each focal behavior, not a target distribution. For a valid
+source-backed outcomes; control-flow syntax such as `if`, `match`, or an early
+return does not by itself justify a branch root. When a guard gates a source-
+backed value or state transformation, keep the transform as the root, show the
+guard in its operation label, and make the actual result visible instead of
+leaving the change to narration. Do not use branch to lay out sequential checks,
+ordered steps or a transformation. Repeated branch roots in a long Guide are a
+signal to re-evaluate scenes where the code changes or advances data/state, not
+a target distribution. For a valid
 branch, show the guard once and give each outcome a distinct, specific label and
 result. A mutually exclusive enum, match, switch, or pattern match
 uses a branch of matched cases and results; it does not imply candidate

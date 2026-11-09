@@ -6,6 +6,18 @@ Snapshot refreshed: **9 November 2026**, from live Kata project `code-atlas-rebu
 
 Scanned the titles and audit references in all 32 live open issues. None is a standalone accessibility feature or audit task. Formal VoiceOver/screen-reader, 200% zoom/reflow, contrast-preference, and reduced-motion audit checklists are explicitly removed from first-release acceptance; older pending mentions are historical evidence only. Retained keyboard operation, clear control labels, and readable light/dark layouts as normal usability for code navigation and explanations. Other deferred scope already removed from the live backlog includes standalone export, PR explanations, non-Codex providers/direct API catalogs, Learning Plans, full compare/restore, narration prewarming, and fixed generation-time targets.
 
+## Visual-form correction — 9 November 2026
+
+A saved Fontdone Guide review found branch layouts in 31 of 44 scenes and noted
+that some complex data changes were explained only in narration. Story policy
+v81 now reserves branch roots for source-backed choices that are the behavior
+being taught. An `if`, `match`, or early return alone does not select that form;
+a guarded data/state change should show its input, operation, and result in a
+transform. The `visual_scenes` prompt-size check and the focused layout-selection
+regression pass. No fresh Codex request or Pocket synthesis ran; generated visual
+quality, playback, comprehension, and packaged interaction remain open in
+`j53m`.
+
 > **Scope update — 9 November 2026:** formal VoiceOver/screen-reader,
 > 200% zoom/reflow, contrast-preference, and reduced-motion audit matrices are
 > out of scope. Dated notes below that list these audits as pending are
