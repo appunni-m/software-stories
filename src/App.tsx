@@ -18,7 +18,7 @@ import { workspaceViewForShortcut } from './lib/workspaceShortcuts';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { discardUnavailableBrowserPreview, getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useLoadedWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, openWorkspaceRevision, withSavedAnswerAvailability } from './workspace/outcomes';
-import { WorkspaceFrame, type PendingCodeLensQuestion } from './workspace/Workspace';
+import { WorkspaceFrame, type PendingCodeLensQuestion, type WorkspaceSectionRevisionRequest } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
@@ -184,7 +184,7 @@ type ProviderDialogMode = (
   | { kind: 'settings'; section?: 'explanations' | 'voice' }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
-  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
+  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; question?: string; returnTo?: WorkspaceSectionRevisionRequest; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
 );
 
@@ -2134,6 +2134,13 @@ function App() {
                 sidebarActivity: sidebarActivity === 'changes' ? 'files' : sidebarActivity,
               }))}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision}
+              onReviseSection={(request)=>{
+                if(!currentProject||!selectedSnapshot||request.baseRevision.projectId!==currentProject.projectId||request.baseRevision.snapshotId!==selectedSnapshot.snapshotId)return;
+                providerReturnFocusRef.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+                setProviderDialog({kind:'section-update',projectId:request.baseRevision.projectId,snapshotId:request.baseRevision.snapshotId,
+                  targetPath:request.targetPath,selectedPaths:request.selectedPaths,baseRevision:request.baseRevision,
+                  sectionUpdate:request.sectionUpdate,question:request.question,returnTo:request});
+              }}
               onOpenFreshnessRange={(range) => openCapturedFile(range.path, range.snapshotId, {
                 startLine: range.startLine,
                 endLine: range.endLine,
@@ -2325,6 +2332,9 @@ function App() {
               endByteExclusive: citation.endByteExclusive,
             });
           }}
+          onSectionRevisionSaved={(revision,returnTo)=>{
+            window.dispatchEvent(new CustomEvent('code-atlas:workspace-section-revised',{detail:{revision,returnTo}}));
+          }}
         />
       )}
       {recoveredPreviewId && (
@@ -2359,6 +2369,7 @@ interface ProviderDialogProps {
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
   onOpenPendingPreview: (generationId: string) => void;
+  onSectionRevisionSaved:(revision:ChapterRevision,returnTo:WorkspaceSectionRevisionRequest)=>void;
 }
 
 function ProviderDialog(props: ProviderDialogProps) {
@@ -2370,12 +2381,16 @@ function ProviderDialog(props: ProviderDialogProps) {
   if (selectedMode.kind === 'section-update') {
     const sectionId = selectedMode.sectionUpdate.sectionId;
     const sectionTitle = selectedMode.baseRevision.sections.find((section) => section.sectionId === sectionId)?.title;
-    mode = { ...selectedMode, sectionTitle };
+    const {returnTo:_returnTo,...dialogMode}=selectedMode;
+    mode = { ...dialogMode, sectionTitle };
   } else {
     mode = selectedMode;
   }
   return <CodexContextDialog mode={mode}
     native={props.native} onClose={props.onClose}
+    onSaved={selectedMode.kind==='section-update'&&selectedMode.returnTo
+      ?(revision)=>{if(revision.lifecycle==='accepted'&&revision.validationStatus==='valid')props.onSectionRevisionSaved(revision,selectedMode.returnTo!);props.onClose();}
+      :undefined}
     onLargeFileDiscovered={props.onLargeFileDiscovered}
     onOpenPendingPreview={props.onOpenPendingPreview}
     onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;

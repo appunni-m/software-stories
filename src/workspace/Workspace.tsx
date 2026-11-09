@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Badge, Dialog, Flex, IconButton, Tabs, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, MarkerType, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, Square, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Search, Sparkles, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { CodeDetail } from '../design/CodeDetail';
 import { AppButton } from '../design/AppButton';
@@ -22,7 +22,7 @@ import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visu
 import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory, languageSupportLabel, languageSupportNote, languageSupportTier, recommendedEntryPoint } from '../lib/inventory';
-import { acceptChapterDraft, assessRepositoryGuideFreshness, carryRepositoryGuideSafeSections, isNativeRuntime, listChapterRevisions, readSnapshotSource, saveChapterEdits, validateChapterRevision, type ChapterFreshnessLineRange, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor, type ChapterValidationReport, type RepositoryGuideCarryResult, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
+import { acceptChapterDraft, assessRepositoryGuideFreshness, carryRepositoryGuideSafeSections, isNativeRuntime, listChapterRevisions, readSnapshotSource, saveChapterEdits, validateChapterRevision, type ChapterFreshnessLineRange, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor, type ChapterValidationReport, type RepositoryGuideCarryResult, type RepositoryGuideFreshness, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination, type SectionUpdateReviewTarget } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual, visualRefreshQuestion } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
@@ -73,6 +73,19 @@ interface Props {
   conversationAvailability?:'ready'|'unavailable';
   pendingCodeLensQuestion?:PendingCodeLensQuestion|null;
   onPendingCodeLensQuestionConsumed?:(id:string)=>void;
+  onReviseSection?:(request:WorkspaceSectionRevisionRequest)=>void;
+}
+export interface WorkspaceSectionRevisionRequest {
+  question:string;
+  explorationId:string;
+  turnId:string;
+  originalRevisionId:string;
+  selectedRevisionId:string;
+  baseRevision:ChapterRevision;
+  section:ChapterSection;
+  targetPath:string|null;
+  selectedPaths:string[];
+  sectionUpdate:SectionUpdateReviewTarget;
 }
 export interface PendingCodeLensQuestion {
   id:string; projectId:string; snapshotId:string; path:string; sourceSha256:string; startLine:number; endLine:number;
@@ -444,6 +457,18 @@ export function DeveloperWorkspace(props:Props) {
   const savePresentation = (turnId:string,kind:'stories'|'diagrams',progress:StoryProgress|DiagramProgress) => update((s)=>rememberPresentation(s,current.id,turnId,kind,progress));
   const selectVersion = (turnId:string,originalRevisionId:string,revisionId:string) => update(s=>rememberAnswerVersion(s,current.id,turnId,originalRevisionId,revisionId,chapters));
   const refreshChapters = () => chapterRefresh.current?.refresh();
+  const startAISectionRevision=(turnId:string,question:string,revision:ChapterRevision,section:ChapterSection,originalRevisionId:string,selectedRevisionId:string)=>{
+    const declaredPaths=new Set<string>();
+    for(const claim of section.claims){
+      for(const anchor of claim.anchors)declaredPaths.add(anchor.path);
+      for(const dependency of claim.dependencies)declaredPaths.add(dependency.path);
+    }
+    for(const dependency of section.dependencies)declaredPaths.add(dependency.path);
+    const selectedPaths=[...declaredPaths].filter((path)=>manifest.files.some((file)=>file.path===path)).sort((left,right)=>left.localeCompare(right));
+    const targetPath=revision.target.scope.kind==='file'?revision.target.scope.path:null;
+    props.onReviseSection?.({question,explorationId:current.id,turnId,originalRevisionId,selectedRevisionId,baseRevision:revision,section,targetPath,selectedPaths,
+      sectionUpdate:{chapterRevisionId:revision.revisionId,sectionId:section.sectionId,sectionRevisionId:section.sectionRevisionId}});
+  };
   const saveInlineSectionRevision=async(explorationId:string,turnId:string,originalRevisionId:string,selectedRevisionId:string,baseRevisionId:string,candidate:ChapterRevision):Promise<InlineSectionSaveResult>=>{
     if(!isNativeRuntime())throw new Error('Section editing is available in the desktop app.');
     if(candidate.projectId!==projectId||candidate.snapshotId!==snapshotId)throw new Error('This answer belongs to a different repository snapshot. Reopen it before editing.');
@@ -505,6 +530,24 @@ export function DeveloperWorkspace(props:Props) {
     window.addEventListener('code-atlas:chapters-changed',changed);
     return()=>{queue.dispose();if(chapterRefresh.current===queue)chapterRefresh.current=null;window.removeEventListener('code-atlas:chapters-changed',changed);};
   },[projectId,snapshotId]);
+  useEffect(()=>{
+    const revised=(event:Event)=>{
+      const detail=(event as CustomEvent<{revision?:ChapterRevision;returnTo?:WorkspaceSectionRevisionRequest}>).detail;
+      const revision=detail?.revision;
+      const route=detail?.returnTo;
+      if(!revision||!route||revision.projectId!==projectId||revision.snapshotId!==snapshotId
+        ||revision.lifecycle!=='accepted'||revision.validationStatus!=='valid'
+        ||revision.chapterId!==route.baseRevision.chapterId||revision.sections.length!==route.baseRevision.sections.length)return;
+      const section=revision.sections.find((item)=>item.sectionId===route.section.sectionId);
+      if(!section||section.sectionRevisionId===route.section.sectionRevisionId
+        ||revision.sections.some((item,index)=>item.sectionId!==route.baseRevision.sections[index]?.sectionId))return;
+      updateWorkspace(projectId,snapshotId,(state)=>rememberAnswerVersionIfCurrent(
+        state,route.explorationId,route.turnId,route.originalRevisionId,route.selectedRevisionId,revision.revisionId,[...chapters,revision],
+      ));
+    };
+    window.addEventListener('code-atlas:workspace-section-revised',revised);
+    return()=>window.removeEventListener('code-atlas:workspace-section-revised',revised);
+  },[projectId,snapshotId,chapters]);
   useEffect(()=>{
     let closed=false;let unlisten:(()=>void)|undefined;
     if(isNativeRuntime()) {
@@ -1023,6 +1066,7 @@ export function DeveloperWorkspace(props:Props) {
     onRetryGuideUnit={retryGuideUnit}
     onRegenerateGuideUnit={regenerateGuideUnit}
     onSaveSection={(originalRevisionId,selectedRevisionId,baseRevisionId,candidate)=>saveInlineSectionRevision(current.id,turn.id,originalRevisionId,selectedRevisionId,baseRevisionId,candidate)}
+    onReviseSection={(question,revision,section,originalRevisionId,selectedRevisionId)=>startAISectionRevision(turn.id,question,revision,section,originalRevisionId,selectedRevisionId)}
     onReview={onReview} onFocus={(revisionId,sectionId)=>focusAnswer(turn.id,revisionId,sectionId)}
     onSection={(revisionId,sectionId)=>saveSection(turn.id,'guide',revisionId,sectionId)}
     onStoryProgress={(progress)=>savePresentation(turn.id,'stories',progress)}
@@ -1232,7 +1276,7 @@ export function DeveloperWorkspace(props:Props) {
                   </section>
                 )}
               </Tabs.Content>
-              <Tabs.Content value="flow">{flowRequestStatus&&!source&&<div className="dw-conversation-warning dw-flow-request-state" role="group" aria-label="Question status"><MessageSquare size={15}/><p><strong>{questionSummaryText(flowRequestStatus.question)}</strong><span role="status" aria-live="polite">{flowRequestMessage}</span></p><AppButton size="1" intent="secondary" onClick={()=>setView('guide')}>Open in Guide</AppButton></div>}{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Answer part</label><AppSelect id="answer-flow-section" ariaLabel="Answer part" size="1" value={latestRevision?.revisionId??''} clearLabel="Choose an answer part…" options={flowRevisions.map((revision,index)=>({value:revision.revisionId,label:`Part ${index+1} · ${plainInlineCodeText(revision.sections[0]?.title??revision.title)}`}))} onValueChange={(revisionId)=>{const revision=flowRevisions.find((r)=>r.revisionId===revisionId);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}/></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} originalRevisionId={latestFlowOriginal?.revisionId} onSaveSection={selectedTurn?((originalRevisionId,selectedRevisionId,baseRevisionId,candidate)=>saveInlineSectionRevision(current.id,selectedTurn.id,originalRevisionId,selectedRevisionId,baseRevisionId,candidate)):undefined} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId,latestRevision.sections):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))} onOpenGuide={(sectionId)=>{if(selectedTurn&&sectionId)saveSection(selectedTurn.id,'guide',latestRevision.revisionId,sectionId);setView('guide');}}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask about a file to explore its flow.</p>}</Tabs.Content>
+              <Tabs.Content value="flow">{flowRequestStatus&&!source&&<div className="dw-conversation-warning dw-flow-request-state" role="group" aria-label="Question status"><MessageSquare size={15}/><p><strong>{questionSummaryText(flowRequestStatus.question)}</strong><span role="status" aria-live="polite">{flowRequestMessage}</span></p><AppButton size="1" intent="secondary" onClick={()=>setView('guide')}>Open in Guide</AppButton></div>}{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Answer part</label><AppSelect id="answer-flow-section" ariaLabel="Answer part" size="1" value={latestRevision?.revisionId??''} clearLabel="Choose an answer part…" options={flowRevisions.map((revision,index)=>({value:revision.revisionId,label:`Part ${index+1} · ${plainInlineCodeText(revision.sections[0]?.title??revision.title)}`}))} onValueChange={(revisionId)=>{const revision=flowRevisions.find((r)=>r.revisionId===revisionId);if(selectedTurn&&revision?.sections[0])saveSection(selectedTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}/></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} originalRevisionId={latestFlowOriginal?.revisionId} onSaveSection={selectedTurn?((originalRevisionId,selectedRevisionId,baseRevisionId,candidate)=>saveInlineSectionRevision(current.id,selectedTurn.id,originalRevisionId,selectedRevisionId,baseRevisionId,candidate)):undefined} onReviseSection={selectedTurn?((question,revision,section,originalRevisionId,selectedRevisionId)=>startAISectionRevision(selectedTurn.id,question,revision,section,originalRevisionId,selectedRevisionId)):undefined} saved={selectedTurn?answerReadingPosition(selectedTurn,'flow',latestRevision.revisionId,latestRevision.sections):undefined} progress={selectedTurn?.presentation?.diagrams} onProgress={(progress)=>{if(selectedTurn)savePresentation(selectedTurn.id,'diagrams',progress);}} onSection={(sectionId)=>{if(selectedTurn)saveSection(selectedTurn.id,'flow',latestRevision.revisionId,sectionId);}} onBranch={(question,context)=>{if(selectedTurn)branch(selectedTurn,question,context);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))} onOpenGuide={(sectionId)=>{if(selectedTurn&&sectionId)saveSection(selectedTurn.id,'guide',latestRevision.revisionId,sectionId);setView('guide');}}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} focus={reveal?.path===source.path&&(!reveal.sha256||reveal.sha256===source.sha256)?reveal:null} showAll={current.fileFlow?.path===source.path&&current.fileFlow.showAll} onShowAllChange={(showAll)=>update((s)=>rememberFileFlow(s,current.id,source.path,showAll))} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask about a file to explore its flow.</p>}</Tabs.Content>
               <Tabs.Content value="history">
                 <div className="dw-history">
                   <div className="dw-history-search-sticky">
@@ -1335,9 +1379,10 @@ export function DeveloperWorkspace(props:Props) {
   </Theme></ReaderProgressContext.Provider></InlineSectionEditProvider>;
 }
 
-interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onSaveSection?:SaveInlineSection;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
+interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean; latestSnapshotId?:string | null; onAssessGuideFreshness?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideFreshness>; onCarryGuideSections?:(guideId:string,targetSnapshotId:string)=>Promise<RepositoryGuideCarryResult>; onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void; onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onExploreOmissions:(turn:Turn)=>void;onStop:()=>void;onRetry:()=>void;onRestoreSaved?:(guideId:string)=>Promise<void>;onRetryGuideUnit?:(turnId:string,unitKey:string)=>void;onRegenerateGuideUnit?:(turnId:string,unitKey:string)=>void;onReview:(r:ChapterRevision)=>void;onSaveSection?:SaveInlineSection;onReviseSection?:ReviseInlineSection;onFocus:(revisionId:string,sectionId:string)=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void;onGuideSlideConsumed?:(revisionId:string)=>void;branchLabel?:string;coverageSummary?:string}
 interface InlineSectionSaveResult {revision:ChapterRevision;validation:ChapterValidationReport;saved:boolean;accepted:boolean;message?:string}
 type SaveInlineSection=(originalRevisionId:string,selectedRevisionId:string,baseRevisionId:string,candidate:ChapterRevision)=>Promise<InlineSectionSaveResult>;
+type ReviseInlineSection=(question:string,revision:ChapterRevision,section:ChapterSection,originalRevisionId:string,selectedRevisionId:string)=>void;
 interface InlineSectionEditStore {
   entries: InlineSectionEditEntries;
   update: (key:string, update:(previous:InlineSectionEditEntry)=>InlineSectionEditEntry)=>void;
@@ -1359,12 +1404,15 @@ function useInlineSectionEdit(
   section:ChapterSection|null|undefined,
   originalRevisionId:string|null|undefined,
   onSave:SaveInlineSection|undefined,
+  onRevise:ReviseInlineSection|undefined,
 ) {
   const store=useContext(InlineSectionEditContext);
   if(!store)throw new Error('Inline section editing requires the workspace editor state.');
   const key=revision&&section?`${revision.revisionId}:${section.sectionId}:${section.sectionRevisionId}`:'';
   const entry=store.entries[key]??EMPTY_INLINE_SECTION_EDIT_ENTRY;
   const activeDraft=entry.draft?.key===key?entry.draft:null;
+  const [aiQuestion,setAIQuestion]=useState('');
+  const [aiRequestOpen,setAIRequestOpen]=useState(false);
   const trigger=revision&&section&&originalRevisionId&&onSave
     ? <Tooltip content="Edit this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Edit ${plainInlineCodeText(section.title)}`} aria-pressed={Boolean(activeDraft)} disabled={entry.busy} onClick={()=>{
       store.update(key,previous=>({...previous,
@@ -1372,6 +1420,9 @@ function useInlineSectionEdit(
         feedback:null,issues:null,
       }));
     }}><Pencil size={13}/></IconButton></Tooltip>
+    :null;
+  const reviseTrigger=revision&&section&&originalRevisionId&&onRevise
+    ? <Tooltip content="Ask Codex to revise this section"><IconButton type="button" size="1" variant="ghost" color="gray" aria-label={`Ask Codex to revise ${plainInlineCodeText(section.title)}`} aria-expanded={aiRequestOpen} disabled={entry.busy} onClick={()=>setAIRequestOpen((open)=>!open)}><Sparkles size={13}/></IconButton></Tooltip>
     :null;
   const update=(field:'title'|'prose'|'spokenText',value:string)=>{
     store.update(key,previous=>previous.draft?.key===key?{...previous,draft:{...previous.draft,[field]:value},feedback:null,issues:null}:previous);
@@ -1411,6 +1462,11 @@ function useInlineSectionEdit(
   };
   const visibleFeedback=entry.feedback?.key===key?entry.feedback:null;
   const visibleIssues=entry.issues?.key===key?entry.issues.items:null;
+  const reviseForm=aiRequestOpen&&revision&&section&&originalRevisionId&&onRevise&&<div className="dw-inline-section-ai">
+    <label className="dw-inline-section-field">What should change?<AppTextArea ariaLabel="What should Codex change in this section?" value={aiQuestion} onChange={(event)=>setAIQuestion(event.target.value)} rows={3} maxLength={1200} placeholder="For example: explain the early-return path more clearly."/></label>
+    <p className="dw-inline-section-note">Codex will revise only this section using its captured source. The result is checked before it replaces this answer.</p>
+    <div className="dw-inline-section-actions"><AppButton type="button" size="1" intent="quiet" onClick={()=>{setAIRequestOpen(false);setAIQuestion('');}}>Cancel</AppButton><AppButton type="button" size="1" intent="primary" disabled={aiQuestion.trim().length<8} onClick={()=>{onRevise(aiQuestion.trim(),revision,section,originalRevisionId,revision.revisionId);setAIRequestOpen(false);setAIQuestion('');}}>Revise with AI</AppButton></div>
+  </div>;
   const form=activeDraft&&<form className="dw-inline-section-editor" onSubmit={(event)=>void submit(event)}>
     <h4>Edit this section</h4>
     <label className="dw-inline-section-field">Heading<AppTextField ariaLabel="Section heading" value={activeDraft.title} onValueChange={(value)=>update('title',value)} maxLength={240} required disabled={entry.busy}/></label>
@@ -1421,7 +1477,7 @@ function useInlineSectionEdit(
     {visibleFeedback&&<p className={`dw-inline-section-feedback is-${visibleFeedback.tone}`} role={visibleFeedback.tone==='error'?'alert':'status'}>{visibleFeedback.text}</p>}
     <div className="dw-inline-section-actions"><AppButton size="1" intent="quiet" disabled={entry.busy} onClick={()=>{store.update(key,previous=>({...previous,draft:null,feedback:null,issues:null}));}}>Cancel</AppButton><AppButton size="1" intent="primary" type="submit" disabled={entry.busy||!activeDraft.title.trim()}>{entry.busy?'Checking source…':'Check & save'}</AppButton></div>
   </form>;
-  return {trigger,form,editing:Boolean(activeDraft)};
+  return {trigger,reviseTrigger,reviseForm,form,editing:Boolean(activeDraft)};
 }
 function WorkspaceSharingDetails({kind}:{kind:'question'|'guide'}) {
   return <details className="dw-error-details"><summary>What can be shared</summary><p className="dw-permission-note">Relevant captured code, file names and documentation hints from this snapshot may be sent to your connected assistant. Each {kind==='guide'?'guide slide':'question'} is limited to 250 KB across 12 files; large files can be read in portions. Secret-like paths and excluded files stay blocked. Your account quota applies. The live working copy is not sent. Manage or revoke this snapshot's permission in Repository sharing. Code Atlas does not run repository code.</p></details>;
@@ -1778,14 +1834,14 @@ function ExplorationBranchLinks({branches,onGo}:{branches:Exploration[];onGo:(id
   };
   return <>{recent.map(renderLink)}{earlier.length>0&&<details className="dw-branch-archive"><summary>Show {earlier.length} earlier explorations</summary><div>{earlier.map(renderLink)}</div></details>}</>;
 }
-function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onSaveSection,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
+function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onSaveSection,onReviseSection,onDestination,onSection,onStoryProgress,onVersion,onFocus,onGuideSlideConsumed,branchLabel,coverageSummary}:AnswerProps){
   const versions=original?answerRevisionOptions(original,chapters):[];
   const revision=original?resolveAnswerRevision(original,turn,chapters):undefined;
   const availability=savedAnswerAvailability(Boolean(loading),Boolean(revision));
   const unavailable=!revision&&availability==='unavailable';
   const position=revision?sectionPosition(revision.revisionId,revision.sections,answerReadingPosition(turn,'guide',revision.revisionId,revision.sections)):0;
   const section=revision?.sections[position];
-  const inlineEdit=useInlineSectionEdit(revision,section,original?.revisionId??revision?.revisionId,onSaveSection);
+  const inlineEdit=useInlineSectionEdit(revision,section,original?.revisionId??revision?.revisionId,onSaveSection,onReviseSection);
   const selectSection=(index:number)=>{
     const next=revision?.sections[index];if(!revision||!next)return;
     onSection(revision.revisionId,next.sectionId);
@@ -1812,7 +1868,8 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
       <>
       {!hideQuestion&&progressText&&<div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><AppButton size="1" intent="quiet" color="gray" onClick={onStop}><Square size={12}/>Stop</AppButton></div>}
       {terminalStatus&&terminalNotice}
-      <div className="dw-answer-heading">{compact?<span>Explanation</span>:revision.sections.length>1&&<span>Section {position+1} of {revision.sections.length}</span>}{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div>{inlineEdit.trigger}</div></div>
+      <div className="dw-answer-heading">{compact?<span>Explanation</span>:revision.sections.length>1&&<span>Section {position+1} of {revision.sections.length}</span>}{workspaceAnswerLifecycleBadge(revision.lifecycle)&&<Badge size="1" color="gray">{workspaceAnswerLifecycleBadge(revision.lifecycle)}</Badge>}<div>{inlineEdit.trigger}{inlineEdit.reviseTrigger}</div></div>
+      {inlineEdit.reviseForm}
       {inlineEdit.form}
       {versions.length>1&&original&&<div className="dw-answer-version"><span>Version</span><AppSelect ariaLabel={`Answer version for ${plainInlineCodeText(original.title)}`} size="1" value={revision.revisionId} options={versions.map((r,index)=>({value:r.revisionId,label:`${index===0?'Original':'Accepted'} · r${r.revisionNumber}${index===versions.length-1?' · latest accepted':''}`}))} onValueChange={(revisionId)=>onVersion(original.revisionId,revisionId)}/>{revision.revisionId!==versions.at(-1)?.revisionId&&<span className="dw-answer-version-status">Updated version available</span>}</div>}
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
@@ -1858,7 +1915,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
     ) : <p>This saved explanation has no sections.</p>}
   </div></article>;
 }
-function EvidenceFlow({revision,originalRevisionId,onSaveSection,saved,progress,onProgress,onSection,onBranch,theme,onOpen,onOpenGuide}:{revision:ChapterRevision;originalRevisionId?:string;onSaveSection?:SaveInlineSection;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void;onOpenGuide:(sectionId:string|null)=>void}){
+function EvidenceFlow({revision,originalRevisionId,onSaveSection,onReviseSection,saved,progress,onProgress,onSection,onBranch,theme,onOpen,onOpenGuide}:{revision:ChapterRevision;originalRevisionId?:string;onSaveSection?:SaveInlineSection;onReviseSection?:ReviseInlineSection;saved?:ReadingPosition;progress?:DiagramProgress[];onProgress:(progress:DiagramProgress)=>void;onSection:(sectionId:string)=>void;onBranch?:(question:string,context:Context[])=>void;theme:'dark'|'light';onOpen:(a:ChapterSourceAnchor)=>void;onOpenGuide:(sectionId:string|null)=>void}){
   const diagrams=revision.sections.map((s)=>inspectInteractiveVisual(revision,s));
   const availableDiagramCount=diagrams.filter((diagram)=>diagram.status==='available').length;
   const remembered=sectionPosition(revision.revisionId,revision.sections,saved);
@@ -1866,7 +1923,7 @@ function EvidenceFlow({revision,originalRevisionId,onSaveSection,saved,progress,
   const selected=diagrams[remembered]?.status==='available'?remembered:firstAvailable>=0?firstAvailable:remembered;
   const result=diagrams[selected];
   const section=revision.sections[selected]??revision.sections[0];
-  const inlineEdit=useInlineSectionEdit(revision,section,originalRevisionId,onSaveSection);
+  const inlineEdit=useInlineSectionEdit(revision,section,originalRevisionId,onSaveSection,onReviseSection);
   const available=diagrams.some((d)=>d.status==='available');
   if(!available){
     return <section className="dw-flow-empty" aria-labelledby="dw-flow-empty-title">
@@ -1878,7 +1935,7 @@ function EvidenceFlow({revision,originalRevisionId,onSaveSection,saved,progress,
           <p>This section has no source-validated visual. Open its cited code below, or read the narration in Guide.</p>
         </div>
       </div>
-      {inlineEdit.form}
+      {inlineEdit.reviseForm}{inlineEdit.form}
       {section&&section.claims.length>0&&<details className="dw-flow-empty-evidence">
         <summary>Show source-backed details · {section.claims.length}</summary>
         <ol>
@@ -1894,7 +1951,7 @@ function EvidenceFlow({revision,originalRevisionId,onSaveSection,saved,progress,
         </ol>
       </details>}
       <div className="dw-flow-empty-actions">
-        {inlineEdit.trigger}
+        {inlineEdit.trigger}{inlineEdit.reviseTrigger}
         <AppButton size="2" intent="secondary" onClick={()=>onOpenGuide(section?.sectionId??null)}>
           <BookOpen size={14} aria-hidden="true"/>Read this section in Guide
         </AppButton>
@@ -1956,8 +2013,8 @@ function EvidenceFlow({revision,originalRevisionId,onSaveSection,saved,progress,
     data:{labelPosition:labelPositions.get(e.edgeId),focused:selectedEdge?.edgeId===e.edgeId,accessibleLabel,onSelect:()=>selectEdge(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
     markerEnd:{type:MarkerType.ArrowClosed}};
   });
-  return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{inlineEdit.trigger}{availableDiagramCount>1&&<label className="dw-flow-section-select">Section<AppSelect ariaLabel="Visual section" size="1" value={String(selected)} options={diagrams.flatMap((diagram,index)=>diagram.status==='available'?[{value:String(index),label:`${index+1} · ${plainInlineCodeText(revision.sections[index].title)}`}]:[])} onValueChange={(value)=>{const section=revision.sections[Number(value)];if(section)onSection(section.sectionId);}}/></label>}</div>
-    {inlineEdit.form}
+  return <section className="dw-flow-panel" aria-label={plainInlineCodeText(visual.title)}><div className="dw-flow-heading"><h2><InlineCodeText text={visual.title}/></h2>{inlineEdit.trigger}{inlineEdit.reviseTrigger}{availableDiagramCount>1&&<label className="dw-flow-section-select">Section<AppSelect ariaLabel="Visual section" size="1" value={String(selected)} options={diagrams.flatMap((diagram,index)=>diagram.status==='available'?[{value:String(index),label:`${index+1} · ${plainInlineCodeText(revision.sections[index].title)}`}]:[])} onValueChange={(value)=>{const section=revision.sections[Number(value)];if(section)onSection(section.sectionId);}}/></label>}</div>
+    {inlineEdit.reviseForm}{inlineEdit.form}
     {linearSteps ? <>
       {selectionGuidance('Choose a step to see what the cited code does.')}
       <ol className="dw-linear-flow" aria-label={`Steps in ${plainInlineCodeText(visual.title)}`}>

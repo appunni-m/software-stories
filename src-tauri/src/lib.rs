@@ -2128,6 +2128,176 @@ mod chapter_pipeline_tests {
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
+    #[test]
+    fn same_snapshot_section_revision_preserves_siblings_and_accepted_history() {
+        let fixture = Fixture::new();
+        let mut proposal = simple_proposal();
+        let mut sibling = proposal.sections[0].clone();
+        sibling.title = "The returned greeting".to_owned();
+        sibling.prose = "greeting returns the template literal using the supplied name without changing other state.".to_owned();
+        sibling.spoken_text =
+            "The function places the supplied name after the Hello prefix.".to_owned();
+        sibling.claims[0].prose = sibling.prose.clone();
+        proposal.sections.push(sibling);
+        let mut proposal_value = serde_json::to_value(&proposal).unwrap();
+        for section in proposal_value["sections"].as_array_mut().unwrap() {
+            section["visual"] = serde_json::Value::Null;
+        }
+        let mut base = chapter_generation::canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &std::collections::HashSet::new(),
+            &proposal_value.to_string(),
+        )
+        .unwrap();
+        let validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &base,
+        );
+        assert_eq!(
+            validation.status,
+            chapters::ValidationReportStatus::Valid,
+            "{validation:#?}"
+        );
+        base.validation_status = chapters::ValidationStatus::Valid;
+        let saved = chapter_store::save_new_draft(&fixture.storage, base).unwrap();
+        let accepted = chapter_review::accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &saved.project_id,
+            &saved.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let original_bytes = chapters::encode_chapter_revision(&accepted).unwrap();
+        let selected = accepted.sections[0].clone();
+        let unrelated = accepted.sections[1].clone();
+        let target = provider::SectionUpdateReviewTarget {
+            chapter_revision_id: accepted.revision_id.clone(),
+            section_id: selected.section_id.clone(),
+            section_revision_id: selected.section_revision_id.clone(),
+            repair_session_id: None,
+        };
+        let review = provider::build_request_review(
+            &fixture.storage,
+            &provider::BuildProviderReviewInput {
+                project_id: accepted.project_id.clone(),
+                snapshot_id: accepted.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gemini-3.8-flash".to_owned(),
+                section_update: Some(target.clone()),
+            },
+        )
+        .unwrap();
+        assert_eq!(review.review.purpose, "sectionUpdate");
+        assert_eq!(review.review.selected_files.len(), 1);
+        let revision_question = "Explain the return path more clearly.";
+        let codex_runtime = codex_identity::CodexReviewRuntime {
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            executable_path: "/usr/local/bin/codex".into(),
+            executable_sha256: "a".repeat(64),
+            runtime_version: Some("fixture-runtime-1".to_owned()),
+            runtime_version_source: Some(
+                crate::codex_identity::CodexRuntimeVersionSource::UserAgent,
+            ),
+            account_identity_sha256: "b".repeat(64),
+            account_revision: 1,
+        };
+        let codex_review = provider::build_codex_chapter_review(
+            &fixture.storage,
+            &provider::BuildCodexReviewInput {
+                project_id: accepted.project_id.clone(),
+                snapshot_id: accepted.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gpt-6-luna".to_owned(),
+                effort: "max".to_owned(),
+                approval_policy: "never".to_owned(),
+                section_update: Some(target.clone()),
+                question: Some(revision_question.to_owned()),
+                focus: Vec::new(),
+                workspace_grant: None,
+            },
+            &codex_runtime,
+        )
+        .unwrap()
+        .review;
+        assert_eq!(codex_review.purpose, "sectionUpdate");
+        assert!(codex_review.user_prompt.contains(revision_question));
+        assert!(
+            codex_review
+                .system_instruction
+                .contains("focused revision of this one existing section")
+        );
+        assert_eq!(
+            codex_review.generation_config["workspaceQuestion"],
+            revision_question
+        );
+
+        let prose = "greeting places the supplied name after the Hello prefix and returns the resulting string.";
+        let response = serde_json::json!({
+            "title": "Place the name into the greeting",
+            "prose": prose,
+            "spokenText": "The function places the supplied name after Hello and returns that greeting.",
+            "claims": [{
+                "category": "codeBehavior",
+                "aspect": "execution",
+                "prose": prose,
+                "inferenceBasis": "",
+                "identifiers": ["greeting", "name"],
+                "evidence": [{"path": SIMPLE_PATH, "quote": "export function greeting(name: string): string {\n    return `Hello, ${name}`;\n}"}],
+                "relationshipIds": []
+            }],
+            "visual": null
+        }).to_string();
+        let (revised, _) = chapter_generation::canonicalize_section_update(
+            &fixture.storage,
+            &accepted,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &fixture.sources(&[SIMPLE_PATH]),
+            &selected.section_id,
+            &selected.section_revision_id,
+            None,
+            &std::collections::HashSet::new(),
+            &response,
+        )
+        .unwrap();
+        assert_eq!(revised.lifecycle, chapters::RevisionLifecycle::Draft);
+        assert_eq!(revised.snapshot_id, accepted.snapshot_id);
+        assert_eq!(
+            revised.based_on_revision_id.as_deref(),
+            Some(accepted.revision_id.as_str())
+        );
+        assert_eq!(revised.sections.len(), accepted.sections.len());
+        assert_ne!(
+            revised.sections[0].section_revision_id,
+            selected.section_revision_id
+        );
+        assert_eq!(revised.sections[1], unrelated);
+        assert_eq!(
+            chapters::encode_chapter_revision(&accepted).unwrap(),
+            original_bytes
+        );
+        let revised_validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revised,
+        );
+        assert_eq!(
+            revised_validation.status,
+            chapters::ValidationReportStatus::Valid,
+            "{revised_validation:#?}"
+        );
+    }
+
     #[tokio::test]
     async fn selected_stale_section_regenerates_without_changing_other_section_or_asset_ids() {
         let mut fixture = Fixture::new();

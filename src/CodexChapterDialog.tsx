@@ -46,6 +46,7 @@ export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & 
   selectedPaths: string[];
   sectionUpdate: SectionUpdateReviewTarget;
   sectionTitle?: string;
+  question?: string;
   recoveryOperationId?: string;
 } | {
   kind: 'code-lens-range';
@@ -89,7 +90,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const plannedChapter = mode !== 'settings' && mode.kind === 'review' ? mode.plannedChapter : null;
   const snapshotId = mode !== 'settings' && 'snapshotId' in mode ? mode.snapshotId : null;
   const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
-  const chapterQuestion = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview') ? mode.question : undefined;
+  const chapterQuestion = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update') ? mode.question : undefined;
   const targetPath = mode === 'settings' || mode.kind === 'overview' || mode.kind === 'repository-plan' ? null
     : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
@@ -722,8 +723,8 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
       <section ref={dialogRef} className={embeddedSettings ? "connections-account" : "provider-dialog"} role={embeddedSettings ? undefined : "dialog"} aria-modal={embeddedSettings ? undefined : true} aria-labelledby={embeddedSettings ? undefined : "codex-dialog-title"} tabIndex={-1}>
         {!embeddedSettings && <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
-            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
-            <p>Use your saved Codex account. Each explanation is grounded in captured code and may use your plan quota.</p></div>
+            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? chapterQuestion ? 'Revise this section' : 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
+            <p>{chapterQuestion ? 'Using this section’s captured source. Earlier versions remain available.' : 'Use your saved Codex account. Each explanation is grounded in captured code and may use your plan quota.'}</p></div>
           <AppButton intent="icon" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></AppButton>
         </header>}
         <div className="provider-dialog-content">
@@ -769,7 +770,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
               <div className="provider-section-heading"><div><span>IMMUTABLE SNAPSHOT · {snapshotId}</span><h3 id="codex-source-title">{sectionUpdate ? 'Selected section' : codeLensTarget ? 'Review the selected code' : planning ? 'Code for your route' : 'Code for this explanation'}</h3></div></div>
               {automaticSectionRepair ? <div className="provider-context-picker" role="status">
                 <strong>{sectionTitle}</strong>
-                <p>Updating only this section with your saved Codex connection. Its previous revision stays available; unaffected sections and assets are retained when their inputs are unchanged.</p>
+                <p>{chapterQuestion ? 'Revising only this section from its captured source. Other sections stay unchanged.' : 'Updating only this section with your saved Codex connection. Its previous revision stays available; unaffected sections and assets are retained when their inputs are unchanged.'}</p>
               </div> : codeLensTarget ? <div className="provider-context-picker">
                 <strong><code>{codeLensTarget.path}:{codeLensTarget.startLine}–{codeLensTarget.endLine}</code></strong>
                 <p>Only this exact selection is shared. Supporting files and code outside the range are excluded. The explanation is temporary and is not saved to chapter history.</p>
@@ -802,7 +803,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
               </div>}
               {!overviewNeedsAutomaticDiscovery && !automaticSectionRepair && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p></>}
-              {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? 'Section repair needs attention.' : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? 'Codex is regenerating the selected section…' : busy === 'save' ? 'Publishing the validated section…' : 'Preparing the section repair…'}</p>}
+              {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? (chapterQuestion ? 'Section revision needs attention.' : 'Section repair needs attention.') : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? (chapterQuestion ? 'Revising this section…' : 'Codex is regenerating the selected section…') : busy === 'save' ? 'Publishing the validated section…' : chapterQuestion ? 'Preparing the section revision…' : 'Preparing the section repair…'}</p>}
               {review && !automaticSectionRepair && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>Source snapshot</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
@@ -856,7 +857,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
             : codeLensResult ? <AppButton intent="secondary" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</AppButton>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> {saved.lifecycle === 'accepted' ? `Section published · r${saved.revisionNumber}` : 'Repair draft saved'}</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : sectionUpdate ? 'Save repair draft' : 'Save unaccepted draft'}</AppButton></div>
-              : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? 'Repair needs attention' : busy === 'build' ? 'Checking section…' : busy === 'save' ? 'Publishing section…' : review ? 'Starting repair…' : 'Preparing repair…'}</span>
+              : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? (chapterQuestion ? 'Revision needs attention' : 'Repair needs attention') : busy === 'build' ? 'Checking section…' : busy === 'save' ? 'Publishing section…' : review ? (chapterQuestion ? 'Starting revision…' : 'Starting repair…') : (chapterQuestion ? 'Preparing revision…' : 'Preparing repair…')}</span>
               : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
         </footer>}
       </section>

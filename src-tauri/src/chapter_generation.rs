@@ -308,9 +308,17 @@ pub fn canonicalize_section_update(
     }
     if base.lifecycle != RevisionLifecycle::Accepted
         || base.project_id != current_manifest.summary.project_id
-        || base.snapshot_id == current_manifest.summary.snapshot_id
     {
-        return Err("Section updates require an accepted source chapter and a distinct current snapshot from the same project.".to_owned());
+        return Err(
+            "Section updates require an accepted source chapter from the same project.".to_owned(),
+        );
+    }
+    let same_snapshot = base.snapshot_id == current_manifest.summary.snapshot_id;
+    if same_snapshot && repair_session_id.is_some() {
+        return Err(
+            "A stale-source repair session cannot be used to revise an unchanged snapshot."
+                .to_owned(),
+        );
     }
     let (old_manifest, old_index) = (
         crate::snapshot::load_snapshot_manifest(storage_dir, &base.project_id, &base.snapshot_id)?,
@@ -339,9 +347,13 @@ pub fn canonicalize_section_update(
         .iter()
         .find(|item| item.section_id == selected_section_id)
         .ok_or_else(|| "The selected section is absent from the freshness report.".to_owned())?;
-    let can_replace_selected = selected_freshness.status == SectionFreshnessStatus::Stale
-        || (repair_session.is_some()
-            && selected_freshness.status == SectionFreshnessStatus::NeedsReview);
+    let can_replace_selected = if same_snapshot {
+        selected_freshness.status == SectionFreshnessStatus::Current
+    } else {
+        selected_freshness.status == SectionFreshnessStatus::Stale
+            || (repair_session.is_some()
+                && selected_freshness.status == SectionFreshnessStatus::NeedsReview)
+    };
     if selected_freshness.section_revision_id != selected_section_revision_id
         || !can_replace_selected
     {
@@ -531,14 +543,18 @@ pub fn canonicalize_section_update(
             updated.order = order as u32;
             sections.push(updated);
         } else {
-            let mut remapped = remap_carried_section(
-                storage_dir,
-                &old_manifest,
-                old_index.as_ref(),
-                current_manifest,
-                current_index,
-                previous,
-            )?;
+            let mut remapped = if same_snapshot {
+                previous.clone()
+            } else {
+                remap_carried_section(
+                    storage_dir,
+                    &old_manifest,
+                    old_index.as_ref(),
+                    current_manifest,
+                    current_index,
+                    previous,
+                )?
+            };
             remapped.order = order as u32;
             sections.push(remapped);
         }
