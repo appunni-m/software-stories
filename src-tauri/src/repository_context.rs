@@ -1093,6 +1093,15 @@ fn prepare_cached(
             .then_with(|| left.path.cmp(&right.path))
     });
     let mut symbols_by_path: HashMap<&str, Vec<&index::IndexedSymbol>> = HashMap::new();
+    let indexed_files_by_path = syntax
+        .map(|syntax| {
+            syntax
+                .files
+                .iter()
+                .map(|file| (file.path.as_str(), file))
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default();
     if let Some(syntax) = syntax {
         for symbol in &syntax.symbols {
             symbols_by_path
@@ -1174,11 +1183,10 @@ fn prepare_cached(
                     && source.contents.is_char_boundary(s.anchor.end_byte)
             })
             .collect::<Vec<_>>();
-        let indexed_file = syntax.and_then(|s| {
-            s.files
-                .iter()
-                .find(|f| f.path == file.path && f.source_sha256 == file.sha256)
-        });
+        let indexed_file = indexed_files_by_path
+            .get(file.path.as_str())
+            .copied()
+            .filter(|indexed| indexed.source_sha256 == file.sha256);
         coverage.parser = indexed_file.and_then(|file| file.parser.clone());
         coverage.status = indexed_file.map(|file| file.status.clone());
         let key = digest(&json(&(
