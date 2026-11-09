@@ -23,7 +23,7 @@ Keep filesystem reads, parsing, indexing, Git subprocesses, and provider payload
 - Boundary and performance evidence identifies the tested source revision, fixture size, configured limits, observed result, and known gaps.
 
 ## Excludes
-Formal VoiceOver/screen-reader, 200% zoom, contrast-preference, and reduced-motion audit matrices. Do not claim universal language support or replace security review with UI validation.
+Do not claim universal language support or replace security review with UI validation.
 
 ## Done evidence
 Attach a representative large-repository responsiveness report and documented adversarial path/content checks. Keep the issue open only for unresolved repository safety, cancellation, or performance requirements.
@@ -45,3 +45,21 @@ The current-source `npm run check` also exercised these existing safety regressi
 - Git subprocesses: `bounded_process::tests::timeout_terminates_the_child`, `cancellation_terminates_a_running_child`, and cleanup-failure cases bound and reap the process group.
 
 These tests prove their local invariants, not every OS race, the real capture/index/search experience on both Rust and TypeScript repositories, or the installed app's cancellation and error UX. Keep `bcn2` open for those broader requirements.
+
+## Reuse validated range identities during broad search — 9 November 2026
+
+Prepared indexes now validate a bounded document-address-to-range map once;
+file discovery and source ranking reuse it instead of repeatedly deserializing
+stored index fields for matching documents. Search ranking, returned evidence,
+and index schema are unchanged. The focused native repository-context suite
+passes 59 tests (1 ignored).
+
+One release-profile run against clean Fontdone `main@5249b72` on macOS arm64,
+Code Atlas source `2e67da6` plus the uncommitted change, measured broad file
+discovery at 16.745 ms and broad range search at 98.795 ms. The previous
+9 November profile recorded 28.815 ms and 134.787 ms respectively on a different
+source revision. Treat this as directional, not a controlled before/after
+claim. The additional address map is bounded by the 50,000-range index cap.
+The earlier 100,000-symbol timeout, representative TypeScript search,
+cancellation-under-load, packaged behavior, and adversarial OS-boundary
+evidence remain open; keep `bcn2` open.

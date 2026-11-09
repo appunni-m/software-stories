@@ -304,6 +304,7 @@ pub(crate) struct PreparedIndex {
     index: Index,
     metadata: Metadata,
     ranges_by_key: HashMap<String, usize>,
+    range_ids_by_address: HashMap<(u32, u32), usize>,
     generation: PathBuf,
     pub(crate) reused_generation: bool,
     // Drop after Index: its directory remains protected for every later reader().
@@ -845,52 +846,126 @@ fn load_generation(
         return None;
     }
     let ranges_by_key = incremental::lookup(&metadata)?;
-    let range_key = field(&index, "range_key").ok()?;
-    let mut seen = BTreeSet::new();
-    for (ordinal, segment) in searcher.segment_readers().iter().enumerate() {
-        let range_keys = segment.fast_fields().str("range_key").ok()??;
-        let paths = segment.fast_fields().str("source_path").ok()??;
-        let starts = segment.fast_fields().u64("start_byte").ok()?;
-        let ends = segment.fast_fields().u64("end_byte").ok()?;
-        let mut path = String::new();
-        let mut fast_range_key = String::new();
-        for doc_id in segment.doc_ids_alive() {
-            budget.check().ok()?;
-            let doc = searcher
-                .doc::<TantivyDocument>(tantivy::DocAddress::new(ordinal as u32, doc_id))
-                .ok()?;
-            let key = doc.get_first(range_key)?.as_str()?;
-            let range = metadata.ranges.get(*ranges_by_key.get(key)?)?;
-            let mut range_key_values = range_keys.ords().values_for_doc(doc_id);
-            let mut path_values = paths.ords().values_for_doc(doc_id);
-            let mut start_values = starts.values_for_doc(doc_id);
-            let mut end_values = ends.values_for_doc(doc_id);
-            if !range_keys
-                .ord_to_str(range_key_values.next()?, &mut fast_range_key)
-                .ok()?
-                || range_key_values.next().is_some()
-                || fast_range_key != key
-                || !paths.ord_to_str(path_values.next()?, &mut path).ok()?
-                || path_values.next().is_some()
-                || start_values.next()? != range.start_byte as u64
-                || start_values.next().is_some()
-                || end_values.next()? != range.end_byte as u64
-                || end_values.next().is_some()
-                || path != range.path
-                || !seen.insert(key.to_owned())
-            {
-                return None;
-            }
-        }
-    }
+    let range_ids_by_address =
+        validated_range_ids_by_address(&index, &searcher, &metadata, &ranges_by_key, budget)
+            .ok()?;
     Some(PreparedIndex {
         index,
         metadata,
         ranges_by_key,
+        range_ids_by_address,
         generation: generation.clone(),
         reused_generation: true,
         _lease: cache.lease(&generation).ok()?,
     })
+}
+
+/// Validate each indexed document against its captured range and retain a
+/// direct lookup for later search hits. Broad natural-language searches can
+/// visit the same document in many term postings; reading its stored fields
+/// repeatedly is avoidable because these stable fields are already fast.
+fn validated_range_ids_by_address(
+    index: &Index,
+    searcher: &tantivy::Searcher,
+    metadata: &Metadata,
+    ranges_by_key: &HashMap<String, usize>,
+    budget: &Budget<'_>,
+) -> Result<HashMap<(u32, u32), usize>, String> {
+    if searcher.num_docs() as usize != metadata.ranges.len() {
+        return Err("The code search index is invalid.".to_owned());
+    }
+    let range_key = field(index, "range_key")?;
+    let mut seen = BTreeSet::new();
+    let mut range_ids_by_address = HashMap::with_capacity(metadata.ranges.len());
+    for (ordinal, segment) in searcher.segment_readers().iter().enumerate() {
+        let range_keys = segment
+            .fast_fields()
+            .str("range_key")
+            .map_err(|_| "The code search index is invalid.".to_owned())?
+            .ok_or("The code search index is invalid.")?;
+        let paths = segment
+            .fast_fields()
+            .str("source_path")
+            .map_err(|_| "The code search index is invalid.".to_owned())?
+            .ok_or("The code search index is invalid.")?;
+        let starts = segment
+            .fast_fields()
+            .u64("start_byte")
+            .map_err(|_| "The code search index is invalid.".to_owned())?;
+        let ends = segment
+            .fast_fields()
+            .u64("end_byte")
+            .map_err(|_| "The code search index is invalid.".to_owned())?;
+        let mut path = String::new();
+        let mut fast_range_key = String::new();
+        for doc_id in segment.doc_ids_alive() {
+            budget.check()?;
+            let doc = searcher
+                .doc::<TantivyDocument>(tantivy::DocAddress::new(ordinal as u32, doc_id))
+                .map_err(|_| "The code search index is invalid.".to_owned())?;
+            let key = doc
+                .get_first(range_key)
+                .and_then(|value| value.as_str())
+                .ok_or("The code search index is invalid.")?;
+            let range_id = *ranges_by_key
+                .get(key)
+                .ok_or("The code search index is invalid.")?;
+            let range = metadata
+                .ranges
+                .get(range_id)
+                .ok_or("The code search index is invalid.")?;
+            let mut range_key_values = range_keys.ords().values_for_doc(doc_id);
+            let mut path_values = paths.ords().values_for_doc(doc_id);
+            let mut start_values = starts.values_for_doc(doc_id);
+            let mut end_values = ends.values_for_doc(doc_id);
+            let range_key_ordinal = range_key_values
+                .next()
+                .ok_or("The code search index is invalid.")?;
+            let path_ordinal = path_values
+                .next()
+                .ok_or("The code search index is invalid.")?;
+            let start_byte = start_values
+                .next()
+                .ok_or("The code search index is invalid.")?;
+            let end_byte = end_values
+                .next()
+                .ok_or("The code search index is invalid.")?;
+            if !range_keys
+                .ord_to_str(range_key_ordinal, &mut fast_range_key)
+                .map_err(|_| "The code search index is invalid.".to_owned())?
+                || range_key_values.next().is_some()
+                || fast_range_key != key
+                || !paths
+                    .ord_to_str(path_ordinal, &mut path)
+                    .map_err(|_| "The code search index is invalid.".to_owned())?
+                || path_values.next().is_some()
+                || start_byte != range.start_byte as u64
+                || start_values.next().is_some()
+                || end_byte != range.end_byte as u64
+                || end_values.next().is_some()
+                || path != range.path
+                || !seen.insert(key.to_owned())
+            {
+                return Err("The code search index is invalid.".to_owned());
+            }
+            range_ids_by_address.insert((ordinal as u32, doc_id), range_id);
+        }
+    }
+    if seen.len() != metadata.ranges.len() || range_ids_by_address.len() != metadata.ranges.len() {
+        return Err("The code search index is invalid.".to_owned());
+    }
+    Ok(range_ids_by_address)
+}
+
+fn range_id_for_address(
+    prepared: &PreparedIndex,
+    address: tantivy::DocAddress,
+) -> Result<usize, String> {
+    prepared
+        .range_ids_by_address
+        .get(&(address.segment_ord, address.doc_id))
+        .copied()
+        .ok_or_else(|| "The code search index is invalid.".to_owned())
 }
 
 struct Staging {
@@ -1429,6 +1504,12 @@ fn prepare_cached(
     staging.path = published.clone();
     let index = Index::open_in_dir(&published)
         .map_err(|_| "Published code index is unavailable.".to_owned())?;
+    let reader = index
+        .reader()
+        .map_err(|_| "Published code index is unavailable.".to_owned())?;
+    let searcher = reader.searcher();
+    let range_ids_by_address =
+        validated_range_ids_by_address(&index, &searcher, &metadata, &ranges_by_key, budget)?;
     let lease = cache.lease(&published)?;
     let temporary = directory.join(format!("pointer-{generation_id}.tmp"));
     if let Err(error) = write_new(&temporary, &encoded_pointer).and_then(|_| {
@@ -1443,6 +1524,7 @@ fn prepare_cached(
     Ok(PreparedIndex {
         index,
         ranges_by_key,
+        range_ids_by_address,
         generation: published,
         metadata,
         reused_generation: false,
@@ -2568,7 +2650,6 @@ fn search_files_with_candidate_window(
         .filter(|file| file.chunks > 0 && in_scope(&file.path))
         .count()
         .max(1);
-    let range_key_field = field(&prepared.index, "range_key")?;
     for (term_index, variants) in term_groups.iter().enumerate() {
         budget.check()?;
         // Raw and stemmed variants contribute to the same logical term. Search
@@ -2590,17 +2671,7 @@ fn search_files_with_candidate_window(
             if index % 128 == 0 {
                 budget.check()?;
             }
-            let document = searcher
-                .doc::<TantivyDocument>(address)
-                .map_err(|_| "A code search result is unavailable.".to_owned())?;
-            let key = document
-                .get_first(range_key_field)
-                .and_then(|value| value.as_str())
-                .ok_or("The code search index is invalid.")?;
-            let range_id = *prepared
-                .ranges_by_key
-                .get(key)
-                .ok_or("The code search index is invalid.")?;
+            let range_id = range_id_for_address(prepared, address)?;
             let range = prepared
                 .metadata
                 .ranges
@@ -2653,17 +2724,7 @@ fn search_files_with_candidate_window(
             if index % 128 == 0 {
                 budget.check()?;
             }
-            let document = searcher
-                .doc::<TantivyDocument>(address)
-                .map_err(|_| "A code search result is unavailable.".to_owned())?;
-            let key = document
-                .get_first(range_key_field)
-                .and_then(|value| value.as_str())
-                .ok_or("The code search index is invalid.")?;
-            let range_id = *prepared
-                .ranges_by_key
-                .get(key)
-                .ok_or("The code search index is invalid.")?;
+            let range_id = range_id_for_address(prepared, address)?;
             let range = prepared
                 .metadata
                 .ranges
@@ -3048,24 +3109,11 @@ fn search_ranked(
         }
     }
     budget.check()?;
-    let range_key = field(&prepared.index, "range_key")?;
     let mut candidates = HashMap::new();
-    let mut candidate_address_ids = HashMap::new();
     for (score, address) in found {
-        let doc = searcher
-            .doc::<TantivyDocument>(address)
-            .map_err(|_| "A code search result is unavailable.".to_owned())?;
-        let id = doc
-            .get_first(range_key)
-            .and_then(|v| v.as_str())
-            .and_then(|key| prepared.ranges_by_key.get(key).copied())
-            .ok_or("The code search index is invalid.")?;
-        if id >= prepared.metadata.ranges.len() {
-            return Err("The code search index is invalid.".to_owned());
-        }
+        let id = range_id_for_address(prepared, address)?;
         let exact = exact_docs.contains(&address);
         let declaration = declaration_docs.contains(&address);
-        candidate_address_ids.insert(address, id);
         candidates
             .entry(id)
             .and_modify(|s: &mut (bool, bool, f32)| {
@@ -3164,23 +3212,7 @@ fn search_ranked(
                 if index % 128 == 0 {
                     budget.check()?;
                 }
-                let range_id = if let Some(range_id) = candidate_address_ids.get(&address) {
-                    *range_id
-                } else {
-                    let doc = searcher
-                        .doc::<TantivyDocument>(address)
-                        .map_err(|_| "A code search result is unavailable.".to_owned())?;
-                    let id = doc
-                        .get_first(range_key)
-                        .and_then(|value| value.as_str())
-                        .and_then(|key| prepared.ranges_by_key.get(key).copied())
-                        .ok_or("The code search index is invalid.")?;
-                    if id >= prepared.metadata.ranges.len() {
-                        return Err("The code search index is invalid.".to_owned());
-                    }
-                    candidate_address_ids.insert(address, id);
-                    id
-                };
+                let range_id = range_id_for_address(prepared, address)?;
                 merge_query_term_candidate(
                     &mut candidates,
                     &mut term_coverage,
@@ -3193,23 +3225,7 @@ fn search_ranked(
                 if index % 128 == 0 {
                     budget.check()?;
                 }
-                let range_id = if let Some(range_id) = candidate_address_ids.get(&address) {
-                    *range_id
-                } else {
-                    let doc = searcher
-                        .doc::<TantivyDocument>(address)
-                        .map_err(|_| "A code search result is unavailable.".to_owned())?;
-                    let id = doc
-                        .get_first(range_key)
-                        .and_then(|value| value.as_str())
-                        .and_then(|key| prepared.ranges_by_key.get(key).copied())
-                        .ok_or("The code search index is invalid.")?;
-                    if id >= prepared.metadata.ranges.len() {
-                        return Err("The code search index is invalid.".to_owned());
-                    }
-                    candidate_address_ids.insert(address, id);
-                    id
-                };
+                let range_id = range_id_for_address(prepared, address)?;
                 *symbol_term_coverage.entry(range_id).or_default() |= term_bit;
                 merge_query_term_candidate(
                     &mut candidates,
