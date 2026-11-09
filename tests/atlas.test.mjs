@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildInventory } from '../src/lib/inventory.ts';
-import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport } from '../src/lib/atlas.ts';
+import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, virtualRowWindow, zoomAtlasViewport } from '../src/lib/atlas.ts';
 
 const sha = (letter) => letter.repeat(64);
 const manifest = {
@@ -173,53 +173,6 @@ describe('Atlas data helpers', () => {
     assert.deepEqual(filterProvenRelationshipEdges(graph.edges, mixedLanguageSymbols, { ...base, language: 'Rust' }), graph.edges);
     assert.deepEqual(filterProvenRelationshipEdges(graph.edges, mixedLanguageSymbols, { ...base, language: 'Python' }), []);
     assert.deepEqual(filterProvenRelationshipEdges(graph.edges, mixedLanguageSymbols, { ...base, folderPath: 'tests', language: 'Rust' }), []);
-  });
-
-  it('reports current per-file indexing state from the selected snapshot index', () => {
-    const rows = buildInventory(manifest);
-    const main = rows.find((row) => row.path === 'src/main.ts');
-    assert.equal(main.indexEligibility, 'pending');
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, null, 'loading')), 'indexing');
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, null, 'pending')), 'index pending');
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, null, 'error')), 'index unavailable');
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, index, 'ready')), 'indexed');
-
-    const partial = {
-      ...index,
-      files: index.files.map((file) => file.path === main.path ? { ...file, status: 'partialParse' } : file),
-    };
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, partial, 'ready')), 'partial parse');
-    const stale = {
-      ...index,
-      files: index.files.map((file) => file.path === main.path ? { ...file, sourceSha256: sha('e') } : file),
-    };
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, stale, 'ready')), 'stale index');
-    const notIndexed = { ...index, files: index.files.filter((file) => file.path !== main.path) };
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(main, notIndexed, 'ready')), 'not indexed');
-    const unsupported = rows.find((row) => row.path === 'src/odd.zzz');
-    const binary = rows.find((row) => row.path === 'assets/image.bin');
-    assert.equal(atlasRowIndexStatusLabel(atlasRowIndexStatus(unsupported, index, 'ready')), 'unsupported');
-    assert.equal(atlasRowIndexStatus(binary, index, 'ready'), null);
-  });
-
-  it('summarizes exact-file and descendant index counts for Atlas details', () => {
-    const files = [
-      { path: 'src/main.ts', symbolCount: 3, relationshipCount: 4 },
-      { path: 'src/nested/helper.ts', symbolCount: 2, relationshipCount: 1 },
-      { path: 'tests/main.test.ts', symbolCount: 1, relationshipCount: 2 },
-    ];
-    assert.deepEqual(summarizeAtlasPathIndexCounts(files, 'src/main.ts', false), {
-      indexedFiles: 1, symbols: 3, relationships: 4,
-    });
-    assert.deepEqual(summarizeAtlasPathIndexCounts(files, 'src', true), {
-      indexedFiles: 2, symbols: 5, relationships: 5,
-    });
-    assert.deepEqual(summarizeAtlasPathIndexCounts(files, '.', true), {
-      indexedFiles: 3, symbols: 6, relationships: 7,
-    });
-    assert.deepEqual(summarizeAtlasPathIndexCounts(files, 'srcx', true), {
-      indexedFiles: 0, symbols: 0, relationships: 0,
-    });
   });
 
   it('normalizes, fits, zooms around a fixed point, and pans the map viewport', () => {

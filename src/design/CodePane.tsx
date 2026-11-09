@@ -196,9 +196,8 @@ function sourceEditorTheme(theme: 'dark' | 'light'): Extension {
   }, { dark: theme === 'dark' });
 }
 
-export function CodePane({ path, contents, sha256, theme, reveal, capability, canExplain = true, onExplain, onAttach, onClose }: {
+export function CodePane({ path, contents, sha256, theme, reveal, canExplain = true, onExplain, onAttach, onClose }: {
   path: string; contents: string; sha256?: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
-  capability?: { label: string; note: string };
   canExplain?: boolean;
   onExplain: (context: CodeContext) => void; onAttach: (context: CodeContext) => void; onClose: () => void;
 }) {
@@ -310,15 +309,7 @@ export function CodePane({ path, contents, sha256, theme, reveal, capability, ca
     </div>
     <div ref={host} className="preview-editor" />
     <footer className="preview-editor-footer">
-      <span className="preview-editor-language">
-        <span>{sourceLanguage(path)}</span>
-        {capability && <>
-          <span aria-hidden="true">·</span>
-          <Tooltip content={capability.note}>
-            <span className="preview-editor-capability" tabIndex={0}>{capability.label}</span>
-          </Tooltip>
-        </>}
-      </span>
+      <span className="preview-editor-language">{sourceLanguage(path)}</span>
       <span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span>
     </footer>
   </section>;

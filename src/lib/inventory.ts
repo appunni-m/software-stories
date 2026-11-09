@@ -2,7 +2,6 @@ import type { SnapshotManifest } from './commands';
 
 export type CaptureDisposition = 'captured' | 'skipped' | 'excluded';
 export type ParserReadiness = 'notReady' | 'unsupported' | 'notApplicable';
-export type LanguageSupportTier = 'partialStructural' | 'textOnly' | 'unavailable';
 export type InventoryCategory = 'config' | 'test' | 'generated' | 'secret';
 
 export interface InventoryRow {
@@ -186,45 +185,6 @@ export function inventoryReasonLabel(reason: string): string {
 function capturedReadiness(contentKind: InventoryRow['contentKind'], language: string): ParserReadiness {
   if (contentKind !== 'text') return 'notApplicable';
   return partialStructuralParserLanguages.has(language) ? 'notReady' : 'unsupported';
-}
-
-export function languageSupportTier(
-  row: Pick<InventoryRow, 'disposition' | 'contentKind' | 'parserReadiness'>,
-): LanguageSupportTier {
-  if (row.disposition !== 'captured' || row.contentKind !== 'text') return 'unavailable';
-  switch (row.parserReadiness) {
-    case 'notReady': return 'partialStructural';
-    case 'unsupported': return 'textOnly';
-    case 'notApplicable': return 'unavailable';
-  }
-}
-
-export function languageSupportLabel(tier: LanguageSupportTier): string {
-  switch (tier) {
-    case 'partialStructural': return 'Partial structural';
-    case 'textOnly': return 'Text only';
-    case 'unavailable': return 'Not analyzed';
-  }
-}
-
-export function languageSupportNote(tier: LanguageSupportTier, language: string): string {
-  switch (tier) {
-    case 'partialStructural':
-      if (language === 'TSX') {
-        return 'TSX files use the local TypeScript React syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.';
-      }
-      if (language === 'Python') {
-        return 'Python indexes declarations and selected calls. An explicit relative import can resolve across files only inside a captured regular package with one matching function; absolute and namespace imports, framework behavior, and explanation quality are not qualified.';
-      }
-      if (language === 'Go') {
-        return 'Go indexes declarations and selected calls. A unique bare-function call can resolve within captured files sharing a directory and package; imported-package calls, framework behavior, and explanation quality are not qualified.';
-      }
-      return `${language} has a local syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.`;
-    case 'textOnly':
-      return `Captured ${language} text and exact citations remain available; the local indexer does not extract symbols or relationships for this language.`;
-    case 'unavailable':
-      return 'This entry was not structurally analyzed. Check its capture disposition and content type before assuming source text is available.';
-  }
 }
 
 const nonImplementationLanguages = new Set([

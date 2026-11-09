@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { buildInventory, emptyInventoryFilters, filterInventory, languageSupportLabel, languageSupportNote, languageSupportTier, paginateInventory } from '../src/lib/inventory.ts';
+import { buildInventory, emptyInventoryFilters, filterInventory, paginateInventory } from '../src/lib/inventory.ts';
 
 const manifest = {
   directories: [
@@ -53,14 +53,12 @@ describe('snapshot inventory', () => {
     assert.equal(byPath.get('linked.rs').kind, 'symlink');
   });
 
-  it('describes Python and Go as partial structural without claiming language qualification', () => {
+  it('keeps parser readiness as internal metadata for language-aware indexing', () => {
     const rows = buildInventory(manifest);
     const python = rows.find((row) => row.path === 'src/utility.py');
     const go = rows.find((row) => row.path === 'src/service.go');
-    assert.equal(languageSupportTier(python), 'partialStructural');
-    assert.match(languageSupportNote('partialStructural', python.language), /explicit relative import/);
-    assert.equal(languageSupportTier(go), 'partialStructural');
-    assert.match(languageSupportNote('partialStructural', go.language), /imported-package calls/);
+    assert.equal(python.parserReadiness, 'notReady');
+    assert.equal(go.parserReadiness, 'notReady');
   });
 
   it('keeps workspace language tiers aligned with the native parser extension catalog', async () => {
@@ -93,21 +91,22 @@ describe('snapshot inventory', () => {
     for (const [index, [extension, expectedLanguage]] of [...parserExtensions].entries()) {
       const row = rows.find((candidate) => candidate.path === `src/language-${index}.${extension}`);
       assert.equal(row?.language, expectedLanguage, `.${extension} should use the matching workspace label`);
-      assert.equal(languageSupportTier(row), 'partialStructural', `.${extension} should disclose its partial parser tier`);
+      assert.equal(row?.parserReadiness, 'notReady', `.${extension} should use its native parser metadata`);
     }
     const java = rows.find((row) => row.path.endsWith('.java'));
     assert.equal(java?.language, 'Java');
-    assert.equal(languageSupportTier(java), 'textOnly');
+    assert.equal(java?.parserReadiness, 'unsupported');
   });
 
-  it('keeps user-facing capability labels consistent for captured unknown text and unavailable bytes', () => {
+  it('keeps captured text and unavailable bytes distinct internally', () => {
     const rows = buildInventory(manifest);
     const unknownText = rows.find((row) => row.path === 'src/unknown.zzz');
     const binary = rows.find((row) => row.path === 'assets/logo.bin');
-    assert.equal(languageSupportTier(unknownText), 'textOnly');
-    assert.equal(languageSupportLabel('textOnly'), 'Text only');
-    assert.equal(languageSupportTier(binary), 'unavailable');
-    assert.equal(languageSupportLabel('unavailable'), 'Not analyzed');
+    assert.equal(unknownText?.disposition, 'captured');
+    assert.equal(unknownText?.contentKind, 'text');
+    assert.equal(unknownText?.parserReadiness, 'unsupported');
+    assert.equal(binary?.contentKind, 'binary');
+    assert.equal(binary?.parserReadiness, 'notApplicable');
   });
 
   it('filters without changing the underlying inventory count or capture state', () => {

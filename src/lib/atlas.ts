@@ -1,4 +1,4 @@
-import type { SnapshotIndex, SnapshotManifest, IndexedFile, IndexedRelationship, IndexedSymbol, IndexFileStatus, RelationshipKind } from './commands';
+import type { SnapshotIndex, SnapshotManifest, IndexedRelationship, IndexedSymbol, RelationshipKind } from './commands';
 import type { InventoryRow } from './inventory';
 
 /** A path segment in the snapshot inventory. Rows belong to the segment matching their path. */
@@ -263,58 +263,6 @@ export function filterProvenRelationshipEdges(
   });
 }
 
-export type AtlasRowIndexStatus = IndexFileStatus | 'indexing' | 'pending' | 'unavailable' | 'notIndexed' | 'stale' | 'unsupported';
-
-/** Resolve a captured inventory file's actual local-index state instead of reusing its initial eligibility. */
-export function atlasRowIndexStatus(
-  row: InventoryRow,
-  index: SnapshotIndex | null,
-  indexState: 'loading' | 'pending' | 'ready' | 'error',
-  staleEvidence = false,
-): AtlasRowIndexStatus | null {
-  if (row.kind !== 'file' || row.disposition !== 'captured' || row.contentKind !== 'text') return null;
-  if (row.parserReadiness === 'unsupported') return 'unsupported';
-  if (indexState === 'loading') return 'indexing';
-  if (indexState === 'pending') return 'pending';
-  if (indexState === 'error') return 'unavailable';
-  if (staleEvidence) return 'stale';
-  const indexedFile = index?.files.find((file) => file.path === row.path);
-  if (!indexedFile) return index?.status === 'cancelled' ? 'cancelled' : 'notIndexed';
-  if (row.sha256 && indexedFile.sourceSha256 !== row.sha256) return 'stale';
-  return indexedFile.status;
-}
-
-export function atlasRowIndexStatusLabel(status: AtlasRowIndexStatus | null): string | null {
-  if (status === null) return null;
-  const labels: Record<AtlasRowIndexStatus, string> = {
-    indexed: 'indexed',
-    partialParse: 'partial parse',
-    parseError: 'parse error',
-    unsupportedLanguage: 'unsupported language',
-    binary: 'binary',
-    invalidEncoding: 'invalid encoding',
-    sourceUnavailable: 'source unavailable',
-    fileTooLarge: 'over limit',
-    indexLimitExceeded: 'index limit',
-    analysisLimitExceeded: 'analysis limit',
-    parserUnavailable: 'parser unavailable',
-    cancelled: 'cancelled',
-    indexing: 'indexing',
-    pending: 'index pending',
-    unavailable: 'index unavailable',
-    notIndexed: 'not indexed',
-    stale: 'stale index',
-    unsupported: 'unsupported',
-  };
-  return labels[status];
-}
-
-export interface AtlasPathIndexCounts {
-  indexedFiles: number;
-  symbols: number;
-  relationships: number;
-}
-
 export interface AtlasViewport {
   x: number;
   y: number;
@@ -356,22 +304,6 @@ export function fitAtlasViewport(contentWidth: number, contentHeight: number, vi
   }
   const scale = Math.max(ATLAS_MIN_ZOOM, Math.min(1, (viewportWidth / contentWidth), (viewportHeight / contentHeight)));
   return { x: 0, y: 0, scale };
-}
-
-/** Summarize observed index counts for one file or all indexed descendants of a folder. */
-export function summarizeAtlasPathIndexCounts(
-  files: readonly IndexedFile[],
-  selectedPath: string,
-  isDirectory: boolean,
-): AtlasPathIndexCounts {
-  const matchingFiles = isDirectory
-    ? files.filter((file) => selectedPath === '.' || file.path.startsWith(`${selectedPath}/`))
-    : files.filter((file) => file.path === selectedPath);
-  return matchingFiles.reduce<AtlasPathIndexCounts>((counts, file) => ({
-    indexedFiles: counts.indexedFiles + 1,
-    symbols: counts.symbols + file.symbolCount,
-    relationships: counts.relationships + file.relationshipCount,
-  }), { indexedFiles: 0, symbols: 0, relationships: 0 });
 }
 
 /**
