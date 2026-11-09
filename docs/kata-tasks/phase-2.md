@@ -17,10 +17,10 @@ Explain selected files and relevant repository behavior with claims grounded in 
 
 ## Gate
 
-- An eligible captured file can be explained on demand, with accepted claims validated against that snapshot's source.
+- An eligible captured file can be explained on demand; valid claims are checked against that snapshot's source before the answer is saved and shown.
 - A repository Guide automatically selects relevant source and explains a supported behavior path; it does not require bulk file-by-file chapter generation or complete per-path chapter coverage.
 - Published Guide sections remain useful while later sections are generated. Failure and cancellation preserve completed work and make remaining coverage clear.
-- Invalid or unsupported claims cannot be accepted, and provider failures do not disable local browsing, search, or source inspection.
+- Invalid or unsupported claims are not published, and provider failures do not disable local browsing, search, or source inspection.
 
 ## Excludes
 

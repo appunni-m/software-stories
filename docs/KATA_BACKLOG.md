@@ -10,7 +10,9 @@
 > light/dark layouts remain baseline usability. PR
 > explanations, standalone offline export, the direct-API catalog, non-Codex
 > agent integrations, full revision compare/restore, and generation-time audio
-> prewarming are post-1.0. Their task definitions are preserved in [post-1.0
+> prewarming, and a separate user-managed Learning Plans workflow are post-1.0.
+> The Guide creates its own outline from the user's question. Their task
+> definitions are preserved in [post-1.0
 > history](history/post-1.0/README.md); restore a Kata issue before scheduling
 > that work. Selective section repair and cached Pocket replay remain in 0.1.0.
 > The duplicate all-pages workspace audit `na54` is soft-deleted; its unique
@@ -18,7 +20,10 @@
 > stream an outline and useful sections; there is no separate accepted-route
 > batch-building wizard or elapsed-time SLA. The duplicate narration wrapper
 > `70x5` is retired; runtime setup and playback/cache remain in `q6g3` and
-> `dbmd`. Prewarming has no active issue.
+> `dbmd`. Prewarming has no active issue. Connect once and grant source sharing
+> once per captured snapshot. The question is the send action: source discovery
+> is automatic and valid answers publish after native validation. A small
+> bounded look-ahead is optional; no fixed slide count is a release gate.
 
 ## Find current work
 

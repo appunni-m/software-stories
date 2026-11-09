@@ -5,17 +5,22 @@ Snapshot refreshed: **9 November 2026**, from live Kata project `code-atlas-rebu
 > **Scope update — 9 November 2026:** formal VoiceOver/screen-reader,
 > 200% zoom/reflow, contrast-preference, and reduced-motion audit matrices are
 > out of scope. Dated notes below that list these audits as pending are
-> historical evidence, not current gates. Normal keyboard navigation,
+> historical evidence, not current gates; no open issue is solely an
+> accessibility audit. Normal keyboard navigation,
 > readable labels, and clear light/dark layouts remain product UX
 > requirements. Guide work has no elapsed-time SLA; sections publish when
 > ready and jobs continue until stopped or a real runtime/resource boundary.
 > The first release is Codex-first. PR Guide, standalone offline export, full
-> revision compare/restore, generation-time narration prewarming, the direct-
-> API catalog, Claude, Antigravity, and the wider multi-backend milestone have
+> revision compare/restore, generation-time narration prewarming, a separate
+> user-managed Learning Plans workflow, the direct-API catalog, Claude,
+> Antigravity, and the wider multi-backend milestone have
 > been removed from the active backlog and preserved under [post-1.0
 > history](history/post-1.0/README.md). The dedicated repository task covers
-> safety, cancellation, and responsiveness. Older notes below are historical
-> evidence, not current gates.
+> safety, cancellation, and responsiveness. Connect and grant snapshot sharing
+> once; submitted questions trigger automatic source discovery and native
+> validation, then valid answers publish without a manual acceptance step. A
+> bounded look-ahead is optional and has no fixed slide count. Older notes
+> below are historical evidence, not current gates.
 
 ## Frozen broad-retrieval trace — 6 November 2026
 

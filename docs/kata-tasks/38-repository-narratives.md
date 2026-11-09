@@ -7,7 +7,7 @@ priority: 0
 labels: product-quality
 ---
 
-> **Scope update — 7 November 2026:** formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope. This task is about a complete, source-grounded repository narrative; ordinary keyboard actions and readable presentation remain product expectations, not separate audit gates.
+> **Scope update — 9 November 2026:** formal accessibility audits are out of scope; ordinary keyboard use and readable presentation remain baseline quality. Connect once and grant each captured snapshot once. The user submits a question; the Guide chooses relevant source automatically and saves each locally validated section without per-request review or manual acceptance. Its outline is AI-generated for orientation; a separate Learning Plans form, manual file/step selection, and plan review/accept/history workflow are deferred beyond 1.0. A small bounded section look-ahead is optional; its exact depth is not a release requirement. Narration is synthesized on Play and cached locally, not prewarmed during guide generation.
 
 ## First-release scope — 8 November 2026
 
@@ -19,8 +19,9 @@ for this task.
 
 Build the Guide incrementally: create a compact outline, begin the opening and
 follow-on sections as separate bounded operations, and publish each validated
-section while work continues. Keep at most five ready sections buffered. Long
-agent work has no arbitrary elapsed-time cutoff or first-answer SLA. Publish
+section while work continues. Use only a small implementation-bounded look-ahead;
+the exact count is not a user-facing feature or release criterion. Long agent
+work has no arbitrary elapsed-time cutoff or first-answer SLA. Publish
 each validated section when ready. A failure leaves completed sections and
 explicit remaining coverage intact; resume without repeating finished work or
 claiming the Guide is complete. Code in the selected immutable snapshot is the
@@ -46,7 +47,8 @@ A newcomer can follow a real feature end to end, understand each relevant file, 
 The current repository Guide starts from the user's question, saves a compact
 source-grounded outline, then investigates its opening and each follow-on topic
 as separate bounded operations. It publishes a validated slide without waiting
-for the whole guide, and keeps up to five ready slides buffered. The native
+for the whole guide. A small bounded look-ahead may be used, but its exact count
+is not a product requirement. The native
 plan allows up to twenty follow-on units and records routes that remain
 uncovered. Research uses captured source ranges; each slide supplies its own
 evidence and passes local claim, citation, visual and storage validation before
@@ -81,7 +83,7 @@ The repository-overview request now frames the optional overview as a short lear
 
 Overview canonicalization now creates app-owned `AtlasFile` hotspots from the exact paths attached to each section's validated claim anchors. This lets the reader move from a story section to one of the cited files without trusting model-invented destinations. The existing walkthrough already has one-step section navigation and clickable evidence citations; the generated file hotspots add the missing file-level drill-down. The selected-source bound and separate per-file coverage remain in place.
 
-The Guide now also contains a bounded local reading planner: choose a learning question, captured file and optional indexed callable declaration. It follows only verified static call edges, records caller prerequisites and exact source anchors, and shows unsupported boundaries, omitted files and truncation. Plans, selected steps and manual reading progress are saved in bounded local browser storage for the project/snapshot; damaged data or a changed stored token prevents silent replacement. Previous, Mark read and continue, Explore source and Inspect call actions preserve the reader's place. Generating a file uses a reviewed bounded selection of that file plus eligible adjacent files, through the chosen Codex, manual-agent or direct API route. Reading progress is separate from accepted chapter coverage.
+An earlier bounded local reading planner was implemented: users could choose a learning question, captured file and optional indexed callable declaration, then track reading progress. This is historical implementation evidence, not a 0.1 release requirement. The current Guide derives its outline and source selection from the user's question; it does not require a separate learning-plan screen, manual route construction, or step acceptance.
 
 This remains source progress, not acceptance evidence. The call-based reading planner does not synthesize an AI narrative or prove runtime ordering, branches, state or cross-language dispatch. Overview generation still selects at most twelve files. Native durable journey storage, multi-request narrative orchestration, selective shared-evidence updates, a representative complete guide and human comprehension review remain pending. Integrated Codex and Claude support has priority under the [agent-first gate](45-agent-first-generation.md). No tests or builds were run.
 
@@ -96,10 +98,10 @@ Codex and Claude now have separate registered native planning review commands an
 Registered native Codex/Claude plan senders now reuse agent dispatch, active source validation and cancellation, retaining the exact interruption notice. Claude remains behind the empty qualification registry. Native plan senders now save unaccepted local drafts with strict evidence replay on load. The new app caller and saved-plan reader remain unaccepted source. Accepted plan/history flow, multi-request orchestration and native acceptance are still pending. Every agent planning cell remains Missing. These concrete integrations, exact question/scope recovery and human narrative review remain required; native reviews or a manual import cannot close them. No tests, builds, launches, runtime probes, logins or model requests ran.
 
 ## Contract
-Create an explicit repository guide plan over the immutable inventory. Identify evidenced entry points and user-relevant behavior journeys, prerequisite concepts, files/relationships, success/failure paths and known unknowns. Plan distinct sections with a concrete learning question, source scope, narration, optional visual and deeper source/file links. Keep the overview optional and preserve per-file coverage. Generate bounded units through the connected Codex account; publish validated sections incrementally and show coverage, omissions, progress and recoverable failures. Do not squeeze a whole repository into one model request.
+From a user's question, automatically build a compact internal outline over the immutable inventory. Identify evidenced entry points, relevant files, prerequisites, behavior paths and known unknowns. Generate bounded sections through the connected Codex account; publish locally validated sections incrementally, with source links and useful visuals/narration. Show meaningful omissions and recoverable failures. Do not require the user to construct or accept a route, and do not squeeze a whole repository into one model request.
 
 ## Acceptance criteria
-- A reader can choose orientation, a behavior journey or any eligible file; every completed section has explicit Next, Back and Explore code actions.
+- A reader can ask about the repository or a behavior and can open any eligible file directly; every completed section has explicit Next, Back and Explore code actions.
 - At least one real feature follows its supported entry point through calls/data/state/error behavior, with each transition tied to source evidence.
 - Plan records prerequisites and explains names before depending on them; no repeated generic introductions or unexplained jumps.
 - Mixed-language boundaries are linked only from supported evidence; unknown dispatch/protocol details remain visible.
@@ -108,7 +110,7 @@ Create an explicit repository guide plan over the immutable inventory. Identify 
 - Human reviewers answer predefined behavior questions after the guide and record source errors, confusion and missing coverage. No whole-repo quality claim from individual file schema success.
 
 ## Excludes
-Autoplay through an entire repository, hidden bulk provider spend, marketing-only intros and replacing per-file explanation with storytelling.
+Autoplay through an entire repository, hidden bulk provider spend, marketing-only intros, a separate user-managed Learning Plans workflow, manual route/file/step selection, plan acceptance/history, and replacing per-file explanation with storytelling.
 
 ## Done evidence
 A complete source-grounded guide on representative repositories, coverage map, incremental-edit demonstration and human comprehension review when validation is authorized.

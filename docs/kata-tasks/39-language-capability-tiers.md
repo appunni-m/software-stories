@@ -27,7 +27,7 @@ Added `docs/LANGUAGE_CAPABILITIES.md` with a dated operation matrix that separat
 This is documentation and UI progress, not language acceptance. Rust, TypeScript, TSX, and JavaScript still need representative source fixtures and human-reviewed file explanations and behavior journeys; framework and cross-language boundaries remain unqualified. No tests or builds were run.
 
 ## Contract
-Publish capability tiers by language and operation: text capture/citations, declarations, imports, calls/tests, framework entry points, cross-language links and generated explanation quality. Separate grammar availability from semantic resolution and narrative quality. Repair the existing parser set first. Add maintained Tree-sitter/LSP/compiler integrations where they fit; do not build a custom parser framework. Choose expansion languages from representative target repos, with Python and Go as initial candidates rather than promises of finished support.
+Publish honest capability tiers for the languages already present in representative repositories: text capture/citations, available declarations/imports/calls/tests, and generated explanation quality. Separate grammar availability from semantic resolution and narrative quality. Repair and qualify the current parser set. The first release requires useful text-backed explanations when a parser is unavailable; it does not require adding language servers, compiler integrations, or new parser adapters.
 
 ## Acceptance criteria
 - UI and documentation distinguish text-only, partial structural and qualified structural support; unresolved relationships retain reasons.
@@ -43,11 +43,9 @@ Advertising all languages from an LLM's general ability to read text, runtime gu
 ## Done evidence
 Dated capability matrix, source-linked fixture outputs and human-reviewed narratives; acceptance remains pending until authorized validation.
 
-## Reuse evaluation from the industry review — 17 October
+## Parser expansion — post-1.0
 
-Before expanding custom semantic resolution, compare Serena's LSP-backed symbol/reference tools and revision-matched SCIP imports with the current native syntax/text fallback. See the [updated research](../research/2026-10-17-repository-context-and-indexing.md). This does not reopen the completed narrow lexical-shadowing correction or imply either adapter is installed.
-
-Record a concrete adapter decision with: pinned component and language-server versions; supported operations and missing-language behaviour; cold/warm startup and memory; required toolchains/build configuration; captured-snapshot versus live-file access; source/hash verification; read-only tool filtering; cancellation/deadlines; and packaging/licence requirements. Qualify representative Rust, TypeScript, Python/Go candidates and a mixed-language boundary only as implemented. The current Serena project declares separate MIT SolidLSP and GPL application components; do not rely on historical blanket licence descriptions. Missing dependencies or unavailable precise navigation must preserve useful text search and honest unresolved labels. This checkpoint adds no installed adapter or broad language-support claim.
+Research into Serena, SCIP, LSP and additional parser adapters is preserved in the [dated repository-context study](../research/2026-10-17-repository-context-and-indexing.md), but new integrations and comparative adapter qualification are outside this first-release task. Keep unsupported relationships honest and preserve text search/citation fallback. Do not add parser frameworks or language servers to 0.1 solely to increase the supported-language count.
 
 ## Scope of recorded validation — 2026-10-16 audit
 

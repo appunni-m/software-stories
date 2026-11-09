@@ -7,29 +7,29 @@ priority: 0
 labels: phase-4, regeneration, revisions
 ---
 
-> **Scope update — 7 November 2026:** formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope. Dated accessibility observations are historical, not open acceptance gates; keep ordinary keyboard actions only where they are part of the section-editing workflow.
+> **Current contract — 9 November 2026:** formal accessibility audits are not first-release gates. Connect once and grant the captured snapshot once. A user request to repair one selected section is sufficient intent; the app rechecks the existing grant and source scope in the background, validates the result locally, then saves and shows a new immutable revision automatically. Do not add per-repair source review or an acceptance dialog. Historical notes below describe earlier draft/review flows and are not current requirements.
 
 ## User outcome
 
 The user can repair one part of a walkthrough without recreating the whole guide, while seeing any other sections affected by shared evidence.
 
 ## Contract
-From the stale-section view, show the source diff, stale reason, dependent sections, and fingerprints for narration/visual assets. The user selects one section and requests a repair using the saved header connection, including Codex account generation where supported. Revalidate the exact request, connection settings and applicable permission before transmission; do not make the user choose the same backend again. Receive a new draft section revision. A prose-only edit can be local. Preserve the accepted section and chapter manifest until explicit acceptance. Reuse unaffected sections and assets by input fingerprint.
+From the stale-section view, show the source change and affected section. The user selects one section and requests a repair using the saved header connection. The app quietly checks the current connection, snapshot-scoped grant, and exact bounded source before transmission; it does not ask the user to select or review files again. Locally validate the result, then save and show that section as a new immutable revision automatically. Keep unrelated sections and their media unchanged unless their declared inputs changed. A prose-only edit can be local.
 
 ## Acceptance criteria
 - Regeneration targets one selected section and its declared evidence; no whole-chapter or whole-guide call is hidden behind the action.
 - If a referenced source change also affects another section, list it separately; do not silently rewrite it.
 - Unchanged sections retain revision IDs; diagrams/audio whose inputs did not change retain cache IDs.
-- Exact per-request consent is revalidated before send; cancellation, rejection, or provider failure leaves accepted history untouched.
-- Accepting a changed section creates a new chapter manifest; it never mutates an accepted revision.
+- The saved project/snapshot grant is validated in the background; cancellation, revoked access, rejection, or provider failure leaves prior history untouched.
+- A valid changed section is published as a new immutable chapter revision without a separate accept action; an invalid section remains unpublished.
 
 ## Excludes
 Background/bulk regeneration, replacing all sections by default, silent asset deletion, and overwriting accepted content.
 
 ## Done evidence
-Change one cited function, regenerate one selected section, accept it, and verify an unrelated section, unchanged diagram/audio assets, and prior accepted manifest retain their IDs and payloads.
+Change one cited function, repair one selected section, and verify the new revision appears automatically while unrelated sections, unchanged visual/audio cache assets, and prior history retain their identities and payloads.
 
-## Pending work — 2026-10-15
+## Historical pending work — 2026-10-15 (superseded by the current contract above)
 
 - [ ] After Pocket cache identity is integrated, change one cited function and review exactly one stale section.
 - [ ] Regenerate/accept only that section using the saved connection and exact applicable request permission. Record new section/chapter IDs without repeated backend setup.
