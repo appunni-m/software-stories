@@ -7,6 +7,12 @@ priority: 1
 labels: performance, agents, diagnostics
 ---
 
+> **Archived — 8 November 2026:** Kata `ps02` is soft-deleted. The timing
+> thresholds, complete stage-trace project, and repeated benchmark requirements
+> below are historical, not first-release work. Guide jobs have no elapsed-time
+> SLA or automatic timeout; publish validated sections when ready and let the
+> user stop a long-running job.
+
 ## User outcome
 
 Questions finish in a useful time, and a slow or failed question can be diagnosed without asking the reader to understand the generation pipeline. Waiting questions are labelled honestly and Stop remains responsive.
@@ -21,12 +27,12 @@ Fontdone's broad explanation was manually stopped at 606 seconds without a valid
 - Record model/reasoning, runtime identity digest, prompt/contract version, request fingerprint, evidence bytes, output bytes, tool counts and cache outcomes. Token usage is nullable and recorded only when reported by the installed runtime. Do not label bytes as tokens.
 - Define first useful answer as the first complete independently validated answer section published for that question; record separately from first model token, partial JSON, completed whole guide and narration readiness. Until independent-section publication exists, report that fact and measure first admitted chapter.
 - Preserve failed, stopped and timed-out attempts. Distinguish native timeout, user Stop, queue cancellation and model failure. Correlate narrow correction turns without hiding their latency or treating them as user retries.
-- Keep traces bounded, versioned and exportable through diagnostics. Exclude source contents, credentials and model reasoning by default. A trace write failure must not lose or duplicate a saved chapter. Restart reconciles active/uncertain state without reissuing inference.
+- Keep traces bounded, versioned and local. Exclude source contents, credentials and model reasoning. A trace write failure must not lose or duplicate a saved chapter. Restart reconciles active/uncertain state without reissuing inference. User-facing diagnostic export is post-1.0.
 - Main UI shows compact queued/working states and existing Stop; detailed process/timing belongs in diagnostics or notifications. One managed runtime and the existing server port are preserved.
 
 ## Acceptance
 
-1. Deterministic regressions cover queued/active cancellation, stage errors, missing runtime usage, clock/event ordering, correction attempts, delayed/lost publication replies, retention limits and safe diagnostic export.
+1. Deterministic regressions cover queued/active cancellation, stage errors, missing runtime usage, clock/event ordering, correction attempts, delayed/lost publication replies, bounded local retention and restart reconciliation.
 2. Run the agreed frozen Fontdone question set with GPT-6 Luna/max, no concurrent build. Separate cold/warm index runs and queue wait from active time; record repeated samples and failures. Report sample count, median and tail only when supported by the samples.
 3. Compare old selection, local range retrieval and agent retrieval using identical questions/evidence expectations. Identify measured bottlenecks and review semantic usefulness separately from schema/citation validity.
 4. Evaluate the proposed first useful answer goal of two minutes for the agreed questions. Record pass/fail without hiding omitted core code, lowering reasoning, truncating valid answers or treating a generic introduction as success.
@@ -47,7 +53,7 @@ Full monotonic stage tracing, bounded export/restart behavior, controlled repeat
 
 ## Packaged focused-section timing — 2026-10-21
 
-One explicitly approved packaged Codex request against Fontdone `main@5249b72371` published a focused `Font::face_count` section after **174,204 ms (2m54s)**, above the proposed two-minute first-useful-answer goal. The run read 10,395 captured source bytes; this is not the total request/context size. A 679,724-byte local Pocket WAV appeared about six seconds after the saved revision, so narration synthesis did not hold up section publication in this sample. The exact sample and observation limits are recorded in [the prewarm acceptance](75-narration-prewarm.md). This is one narrow sample, not a latency distribution. Current traces still cannot assign uncovered time among queue, index/retrieval, runtime preparation, model inference and validation; do not attribute the result to context size or any single stage.
+One explicitly approved packaged Codex request against Fontdone `main@5249b72371` published a focused `Font::face_count` section after **174,204 ms (2m54s)**, above the proposed two-minute first-useful-answer goal. The run read 10,395 captured source bytes; this is not the total request/context size. A 679,724-byte local Pocket WAV appeared about six seconds after the saved revision, so narration synthesis did not hold up section publication in this sample. The exact sample and observation limits are recorded in [the archived prewarm specification](post-1.0/75-narration-prewarm.md). This is one narrow sample, not a latency distribution. Current traces still cannot assign uncovered time among queue, index/retrieval, runtime preparation, model inference and validation; do not attribute the result to context size or any single stage.
 
 ## Safer chapter-validation correction feedback — 2026-10-21
 
@@ -65,12 +71,12 @@ The fourth broad agent investigation took 125.603 seconds in native generation a
 ## Native tool boundary checkpoint — 17 October
 
 - [x] Add a named monotonic clock and start/prepared/finish offsets to newly persisted native retrieval calls. Record rejected and uncertain calls, preserve legacy missing values as unknown, and validate event order/state on inspection. Deterministic regressions cover successful/rejected/uncertain calls, restart inspection, invalid clock/missing/backwards/overlapping offsets and source-free records.
-- [ ] Complete the full stable job/turn trace contract above: queue, connection/index preparation, inference/correction, validation, publication, first useful answer, export/retention and restart reconciliation. Call-level offsets alone cannot attribute gaps to provider/model reasoning.
+- [ ] Complete the full stable job/turn trace contract above: queue, connection/index preparation, inference/correction, validation, publication, first useful answer, bounded retention and restart reconciliation. Call-level offsets alone cannot attribute gaps to provider/model reasoning.
 
 The first attached `memory-face` sample ended after 391.557 seconds without a validated answer because one exact source quote was reflowed. It delivered 29 calls, 69,653 source bytes and 63,143 metadata bytes. Its old ledger has no native call timings, so none were reconstructed. This is one failed sample and fails the two-minute useful-answer target. [Exact candidates and counters](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face.json), [measurement boundaries](../acceptance/2026-10-17-fontdone-quotes-and-tool-timing.md). The new retest records the new native timing fields; repeated cold/warm comparisons remain pending.
 
 
-The separate [attached-function retest](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face-exact-quotes.json) failed after 380.156 seconds with no preview. Its 36 delivered native calls total 12.568 seconds; final native call finish is 113.301 seconds on the context clock. First observed agent-message delta is 286.377 seconds and final validation 379.455 seconds on the outer probe clock. [Native timing companion and explicit clock origins](../acceptance/artifacts/2026-10-17-fontdone-memory-face-native-timing.json) preserve the new observations. Different clock origins and unmeasured gaps prevent a full stage attribution; no model-reasoning or provider-time claim follows. The two-minute gate still fails. The native-reference reliability dependency is [yk6c](72-agent-evidence-references.md); it does not replace this task's complete trace/benchmark contract.
+The separate [attached-function retest](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face-exact-quotes.json) failed after 380.156 seconds with no preview. Its 36 delivered native calls total 12.568 seconds; final native call finish is 113.301 seconds on the context clock. First observed agent-message delta is 286.377 seconds and final validation 379.455 seconds on the outer probe clock. [Native timing companion and explicit clock origins](../acceptance/artifacts/2026-10-17-fontdone-memory-face-native-timing.json) preserve the new observations. Different clock origins and unmeasured gaps prevent a full stage attribution; no model-reasoning or provider-time claim follows. The two-minute gate still fails. The native-reference reliability dependency is [yk6c](../kata-tasks/72-agent-evidence-references.md); it does not replace this task's complete trace/benchmark contract.
 
 ## Syntax-index preparation stage — 25 October 2026
 
@@ -117,7 +123,7 @@ publication, or the two-minute first-useful-answer goal; `ps02` remains open.
 
 Frozen Fontdone operation `da7f3bb9-b3a8-4ce1-973e-e5ccd9916340` failed after 358.714 seconds, publishing no answer. Its 40 native calls totalled 18.542 seconds (longest 1.742); the last finished at 92.239 seconds on the separate captured-context clock. On the outer run clock: first answer delta 229.125, first preflight 258.780, correction start 270.063, correction first delta 323.996 and second preflight 351.580 seconds. [Source-free measurements and interpretation](../acceptance/2026-10-17-native-citation-references.md). These clocks differ in origin; do not attribute all uncovered time to model reasoning or provider latency.
 
-The two-minute gate fails. Full stage tracing and first-section publication remain absent. [Kata 3bz5](73-progressive-answer-sections.md) now specifies the latter. The deterministic suite and a working citation protocol are not a latency pass. The approximately eleven-second first preflight is a bounded profiling opportunity; measure its actual owners before changing runtime identity or source checks.
+The two-minute gate fails. Full stage tracing and first-section publication remain absent. [Kata 3bz5](../kata-tasks/73-progressive-answer-sections.md) now specifies the latter. The deterministic suite and a working citation protocol are not a latency pass. The approximately eleven-second first preflight is a bounded profiling opportunity; measure its actual owners before changing runtime identity or source checks.
 
 ## Fresh version-2 broad timings — 17 October
 

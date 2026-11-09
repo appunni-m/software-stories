@@ -1,4 +1,6 @@
-# Accessibility validation status
+# Historical accessibility validation ledger
+
+> **Retired scope — 7 November 2026:** this document is preserved for historical traceability only. The user removed formal accessibility audits from the product and release backlog. Do not treat the pending VoiceOver, screen-reader, zoom, contrast-preference, or motion-preference checks below as current acceptance gates, and do not run VoiceOver for this project. Core keyboard workflows and readable UI colors remain part of ordinary product behavior.
 
 This is a source and test evidence ledger for the repository-to-walkthrough
 journey. A source inspection or model test does not count as a VoiceOver,
@@ -97,9 +99,9 @@ contrast, zoom, or native-app usability pass.
 - `accessibility.test.mjs` parses the TSX AST and checks that labeled generic
   containers use a role that supports naming. This catches markup regressions;
   it does not test the native accessibility tree.
-- PR Guide citations connect to selected hunks in
-  [GitChanges.tsx](../src/GitChanges.tsx) and
-  [PrGuideStudio.tsx](../src/PrGuideStudio.tsx). Source/build evidence is not a
+- Historical PR Guide citations connected to selected hunks in
+  [GitChanges.tsx](../src/GitChanges.tsx) and the former `PrGuideStudio.tsx`
+  component. PR Guide is deferred beyond 1.0; source/build evidence is not a
   rendered interaction or native-app accessibility pass.
 
 ## Rendered keyboard preview pass

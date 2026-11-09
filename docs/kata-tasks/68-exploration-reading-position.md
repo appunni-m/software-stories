@@ -1,11 +1,13 @@
 ---
 kind: task
 key: exploration-reading-position
-parent: workspace-ui-audit
+parent: design-parity
 title: Restore the exact answer section when returning from an exploration
 priority: 1
 labels: navigation, workspace, ux
 ---
+
+> **Scope update — 7 November 2026:** formal accessibility audits are not part of this task. It covers preserving the reader's answer, source, and view position across ordinary navigation; older audit references below are historical.
 
 ## User outcome
 
@@ -64,7 +66,7 @@ submit a question, and navigation initiated no model or narration request.
 [Manual evidence and limits](../acceptance/2026-10-21-navigation-position-followup.md).
 This covers one parent/child/Back path. It does not exercise a multi-section
 parent, two nested levels, sibling-specific positions, independent Flow
-selection/viewport, restart, revision fallback, corrupt state or accessibility.
+selection/viewport, restart, revision fallback, or corrupt state.
 Keep `erzc` open.
 
 ## Native navigation checkpoint — 17 October
@@ -79,7 +81,7 @@ Guide reader progress now stores the selected node and edge alongside the existi
 
 **Source verification:** `node --experimental-strip-types --test tests/visualStory.test.mjs tests/reader-progress.test.mjs` passes **56/56**; `npm run build` and `git diff --check` pass. The state regression covers workspace serialization and restoration of the focused node and edge, and malformed optional focus metadata does not discard saved narration position.
 
-**Still open:** packaged-app recheck of Guide → another activity → Guide and after restart, plus the broader navigation, viewport, revision-fallback, corrupt-state and accessibility matrix above. This source/build check does not close `erzc`.
+**Still open:** packaged-app recheck of Guide → another activity → Guide and after restart, plus the broader navigation, viewport, revision-fallback, and corrupt-state cases above. This source/build check does not close `erzc`.
 
 ## Native malformed reader-position recovery — 23 October 2026
 
@@ -89,7 +91,7 @@ Native conversation loading now drops malformed optional scroll and section-book
 
 The combined locked native library suite then passes **720 tests, 0 failed, 18 explicitly ignored**.
 
-**Still open:** the complete packaged navigation and accessibility matrix above, including malformed state through the installed app. This focused native regression does not close `erzc`.
+**Still open:** the remaining packaged navigation cases above, including malformed state through the installed app. This focused native regression does not close `erzc`.
 
 ## Packaged saved-answer position spot check — 23 October 2026
 
@@ -104,7 +106,7 @@ was started. The observation was captured from the app accessibility tree.
 [Procedure and limits](../acceptance/2026-10-23-navigation-position.md). This
 same-process spot check does not establish restart, exact scroll, third-level
 navigation, independent Flow viewport, revision fallback, corrupt state through
-the app or accessibility. The installed bundle's source revision was not
+the app. The installed bundle's source revision was not
 verified. Keep `erzc` open.
 
 ## Exact viewport restoration and corrupt-position recovery — 28 October 2026
@@ -128,7 +130,7 @@ explicit reveals, answer focus changes and corrupt optional state. All 15 cases
 passed across the final focused runs; the frontend production build and
 `git diff --check` passed. These are source-level checks. Packaged exact-scroll,
 third-level, independent Flow viewport, restart, revision fallback, malformed
-state and accessibility acceptance remain outstanding; keep `erzc` open.
+state-restoration acceptance remains outstanding; keep `erzc` open.
 
 ## Packaged exact-answer return check — 28 October 2026
 
@@ -146,7 +148,7 @@ This confirms one same-process child/Back restoration path for the exact
 answer, tab, and source file. The running executable revision and a durable
 screenshot were not verified. It does not exercise a multi-section answer,
 exact scroll offset, sibling/nested-level independence, restart, revision
-fallback, corrupt state or accessibility. Keep `erzc` open for the remaining
+fallback or corrupt state. Keep `erzc` open for the remaining
 acceptance matrix.
 
 ## Additional packaged Guide/Flow/child position check — 28 October 2026
@@ -161,7 +163,7 @@ started. The installed executable's source revision was not verified.
 
 This covers one same-process section/tab and child/Back path. Third-level and
 sibling independence, exact scroll, restart, revision fallback, malformed
-state in the packaged app, visual-node/edge restoration and accessibility
+state in the packaged app, visual-node/edge restoration
 remain open. See the combined [navigation acceptance record](../acceptance/2026-10-23-navigation-position.md).
 
 ## Explorer activity preserves saved answer position — 28 October 2026
@@ -177,7 +179,7 @@ revision was not verified.
 This verifies one same-process answer-position restoration across the Explorer
 activity and restores the user's previous reading position. It does not verify
 restart, exact scroll, a return from a child, third-level/sibling state,
-revision fallback, malformed state in the packaged app, or accessibility;
+revision fallback or malformed state in the packaged app;
 keep `erzc` open.
 
 ## Saved child return to its parent Guide — 28 October 2026
@@ -195,7 +197,7 @@ The app remained open. Its executable revision and a durable screenshot were
 not verified. Because the root answer has one section, this does not verify
 multi-section parent-position restoration; third-level/sibling independence,
 exact scroll, restart, revision fallback, malformed state in the packaged app,
-visual-node/edge restoration, and accessibility remain open.
+visual-node/edge restoration remains open.
 
 ## Cross-activity and repository-switch position check — 28 October 2026
 
@@ -211,7 +213,7 @@ The running executable revision was not verified. This adds a same-process
 cross-activity and repository-switch observation; it does not cover app
 restart, exact scroll offset, third-level/sibling positions, revision fallback,
 malformed persisted state, independent Flow viewport, source-linked visual
-focus, or accessibility. Keep `erzc` open.
+focus restoration. Keep `erzc` open.
 
 ## Stale Flow layout no longer hides saved conversations — 28 October 2026
 
@@ -239,7 +241,7 @@ error is gone. Some separate historical answers remain unavailable, which
 this reader-position recovery does not repair. No provider request, snapshot
 refresh, or answer edit was made. The stale-layout regression is confirmed in
 the packaged app; keep `erzc` open for the remaining nested, restart, fallback,
-and accessibility matrix.
+and UI-state recovery.
 
 ## Guide section through Guide / Flow / history round trip — 29 October 2026
 
@@ -255,7 +257,7 @@ current package build and its loaded source revision was not verified. The
 screenshot was inspected live and not retained. This adds a same-process
 multi-section view-switch check only; the original Outline reproducer,
 third-level and sibling isolation, exact scroll, restart, revision fallback,
-malformed-state and accessibility gates remain open. Keep `erzc` open.
+malformed-state UI checks remain open. Keep `erzc` open.
 
 ## Packaged section restore after restart — 29 October 2026
 
@@ -272,7 +274,7 @@ The packaged app was built from the current checkout with the header alignment
 fix. The check establishes one restart path for a multi-section answer in this
 snapshot; it does not exercise nested or sibling branches, exact scroll offset,
 revision fallback, corrupt state through the UI, Flow viewport or visual-focus
-restoration, or accessibility. Keep `erzc` open for those gates.
+restoration. Keep `erzc` open for those gates.
 
 ## Packaged visual-detail return through Search — 29 October 2026
 
@@ -330,5 +332,32 @@ diagram.
 These checks establish serialization and rendering contracts, not packaged-app
 acceptance. Manually select a node and an edge, switch activities and return,
 then quit/reopen with an edge focused and open its citation. Keep `erzc` open
-until that packaged check and the larger navigation/accessibility matrix are
+until that packaged check and the larger navigation matrix are
 recorded.
+
+## Packaged Guide cue through activity and citation — 31 October 2026
+
+In the installed app built from the current checkout (executable SHA-256
+`eb2674ae1e36d2a2eefe4b18d24399402c32049ed159b2c78b1cf9647fb89e86`), the
+existing Fontdone `main@5249b72371` Glyph-loading Guide was on scene 2 of 3.
+Selecting the “Return invalid pixel size” visual cue exposed its cited source
+at `src/api.rs:710–728`. Switching to Search and back to Explorer retained the
+same cue selection and source detail. Clicking its citation still selected
+`src/api.rs:710–728`. The view was restored to the existing Glyph-loading
+exploration and scene 2. No question, provider request, narration, capture, or
+saved-answer edit occurred.
+
+This verifies a same-session Guide cue/activity/citation path. It does not
+verify Flow relationship-edge focus, exact viewport restoration, nested sibling
+isolation, restart with a focused cue, revision fallback, malformed stored
+state through the UI. Keep `erzc` open for those gates.
+
+## Third-level branch availability check — 3 November 2026
+
+The installed Fontdone snapshot's current exploration tree exposed five direct
+children under `fontdone`. The selected “Explain When is_empty returns true in
+more detail” Level 2 child had stopped before saving an answer, and no saved
+Level 3 child was present to open. I left the existing saved Glyph-loading
+answer on scene 2 of 3 with Explorer and `src/font.rs` open; no new Codex
+request was sent. Third-level return behavior remains unqualified. This is an
+availability limit, not a pass; keep `erzc` open.

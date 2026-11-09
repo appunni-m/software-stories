@@ -85,7 +85,7 @@ New evidence ledgers identify `contextClock: "capturedCodeSessionV1"` and store 
 
 Missing preparation/finish boundaries remain null on in-flight calls; interrupted calls retain the last observed boundary. Legacy records omit the clock/timings and remain unknown, never zero. Inspection rejects unknown clocks, inconsistent states, backwards/overlapping call timelines and implausible offsets above one day. Restart reads existing observations without resuming inference. Timing fields contain no code, query, credentials or reasoning.
 
-Gaps between native calls include unmeasured agent/provider/transport/event work; they cannot be labelled model reasoning time. This is the retrieval portion of [Kata ps02](../kata-tasks/71-generation-timing-traces.md), not the required complete queue/preparation/inference/validation/publication trace or its diagnostic export/retention qualification.
+Gaps between native calls include unmeasured agent/provider/transport/event work; they cannot be labelled model reasoning time. These are historical retrieval measurements preserved in the [archived timing proposal](../history/71-generation-timing-traces.md); no complete timing dashboard or elapsed-time gate is required for the first release.
 
 ## Dependencies and qualification
 

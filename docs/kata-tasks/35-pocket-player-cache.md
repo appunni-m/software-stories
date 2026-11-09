@@ -1,22 +1,29 @@
 ---
 kind: task
 key: pocket-player-cache
-parent: t18
+parent: m3
 title: Make Pocket TTS the default narration path with distinct cache identity
 priority: 1
 labels: speech, player, cache
 blocked_by: pocket-runtime
 ---
 
+> **Scope update — 8 November 2026:** formal accessibility audits are out of scope. Standalone guide/audio export is outside the first release; its definition is archived in [post-1.0 history](../history/post-1.0/22-offline-export.md). This task qualifies local Pocket setup, playback, cache reuse, invalidation, and recovery only. Keep ordinary player controls and readable presentation.
+
+> **Task cleanup — 8 November 2026:** dated Google/Gemini implementation notes
+> below are historical. Pocket is the only first-release narration path; the
+> duplicate narration umbrella `70x5` was retired, and this issue owns its
+> playback, cache, recovery, and human-listening acceptance.
+
 ## User outcome
-The reader can review a section script, generate natural local audio and reuse it without configuring Google.
+The reader follows an explanation while Pocket audio prepares and reuses automatically, without choosing a speech engine or entering API details for each answer.
 
 ## Native progress — 2026-10-16
 
-Managed Pocket setup now completed inside the release app. Setup option conflict and streaming-worker context failures were reproduced and fixed; full checks pass (98 frontend, 185 Rust passed, two ignored). Local Play now leads to a simple exact-text review, with editing/audio hashes and runtime metadata collapsed. There is no duplicate local request-review button or Google consent requirement. The final app at `~/Applications/Code Atlas.app` generated/played an 8.85-second accepted section, replayed it, paused at 3.4 seconds, reset to zero with Stop and reused Audio cached after switching sections and returning. It did not advance sections on audio completion. Human listening, invalidation, cancellation, concurrency and offline export acceptance remain open; keep this task open.
+Managed Pocket setup now completed inside the release app. Setup option conflict and streaming-worker context failures were reproduced and fixed; full checks pass (98 frontend, 185 Rust passed, two ignored). The earlier app showed a script review before Play; that extra per-section step is not the first-release workflow. The final app generated and played an 8.85-second accepted section, replayed it, paused at 3.4 seconds, reset to zero with Stop and reused cached audio after section navigation. It did not advance sections on audio completion. Human listening, invalidation, cancellation and concurrency remain open; standalone export is post-1.0.
 
 ## Current evidence
-The player, commands, narration review/cache and preference parser now have distinct local Pocket and explicitly selected Gemini paths. This is implemented source awaiting acceptance; the previous Google-only description no longer applies.
+The player, commands, narration review/cache and preference parser contain historical Gemini paths. They are not selectable first-release behavior. Current acceptance is the single local Pocket path described below.
 
 ## Implementation update — 2026-10-15
 
@@ -26,32 +33,31 @@ Remaining work, with every acceptance criterion still open:
 
 - [ ] Complete the runtime dependency and packaged setup qualification in the runtime child task.
 - [ ] Update setup/help and the narration run sheet for local default, repair, runtime prerequisites, limitations and voice attribution; verify every user-facing recovery action.
-- [ ] Later exercise legacy Google migration and engine round trips, local review without key/network, cache reuse/invalidation after script/lexicon/runtime changes, and invalid/oversized/corrupt cache omission.
+- [ ] Verify local review without a key or network, cache reuse/invalidation after script/lexicon/runtime changes, and invalid/oversized/corrupt cache omission.
 - [ ] Exercise setup/generation cancellation before native registration, section/revision navigation, late results, retry and concurrent windows without accepting stale or partial audio.
-- [ ] Verify playback/seek/captions and cached transcript matching in the native app, then export and play the selected backend's matching audio while disconnected.
+- [ ] Verify local playback/seek/captions and cached transcript matching in the native app while disconnected; missing or corrupt audio must leave the transcript readable.
 - [ ] Record a human listening review of real code explanations, identifiers/acronyms, pronunciation substitutions and pacing.
 
 The October 15 implementation was source-only; the October 16 progress above supersedes that historical restriction.
 
-## Contract
-Add provider-aware narration review/command contracts and select pocket-tts by default. Local setup states are not-installed/downloading/ready/unavailable/generating; explain recovery in product language. Show exact pronunciation-expanded script and deterministic segments before local generation. Remove Gemini key/billing/remote-consent controls from the local flow. Hide unsupported natural-language delivery style instead of silently ignoring it. Keep transcript, pause/resume/replay/seek and deliberate next-section navigation.
+## First-release contract
+Use managed local Pocket TTS as the single first-release speech path, configured once in Connections. Prepare each validated section in the background without blocking reading; playback starts only when the reader presses Play. Keep the transcript collapsed and available to inspect or edit on demand; do not require a review dialog, engine choice, or Generate step for each section. Narration describes code behavior in natural language and does not read source or paths by default. Setup and failures use plain-language recovery.
 
-Cache identity includes backend, pinned runtime/model/config/voice asset identity, final text, segmentation/joining policy and PCM format. Old Google cache entries remain distinct. Code-only changes reuse audio if speech inputs are unchanged; changing speech inputs generates a new key. Export resolves the selected backend's matching cache without triggering synthesis.
+Cache audio by the exact spoken text, Pocket runtime/model/voice, segmentation policy, and audio format. Code changes reuse audio when the spoken text is unchanged. A changed speech input receives a new cache entry. Playback and cancellation stay aligned with the selected section. Standalone export and cloud speech are outside this task.
 
 ## Acceptance criteria
-- A fresh user chooses local narration and reaches script review without an API key or Google request.
-- Only documented Pocket options are selectable; unsupported stored Google style/voice is not silently applied to Pocket.
-- Provider/version/voice/text/lexicon/segmentation/format changes invalidate review/cache identity; unchanged inputs reuse valid audio.
+- After one-time Pocket setup, a fresh user can play a source-grounded answer without an API key, per-answer engine/voice setup, mandatory script review, or a separate Generate action.
+- A new validated answer keeps working while its narration is prepared; Play uses matching cached audio or starts the recoverable local synthesis path when not ready.
+- Pocket voice/runtime, spoken text, lexicon, segmentation, and format changes invalidate review/cache identity; unchanged inputs reuse valid audio.
 - Section/revision navigation cancels or discards obsolete work, does not autoplay late output, and preserves previous audio and transcript.
-- Offline export includes matching local audio with manifest hashes; missing/corrupt audio is explicitly omitted.
 - Human listening review covers actual behavior explanations, identifiers/acronyms and pacing; do not read raw code by default.
-- Update narration setup/help/run sheet to accurately distinguish local synthesis and any retained explicitly selected cloud option.
+- Update Connections/help and the narration run sheet to explain local setup, playback, recovery, and limitations.
 
 ## Excludes
-Removing transcript-only use, automatic whole-guide synthesis, automatic cloud fallback, and silently remapping unsupported controls.
+Cloud speech, paid fallback, per-answer voice setup, mandatory script review, autoplay, automatic section advance, whole-guide synthesis, and silently remapping unsupported controls.
 
 ## Done evidence
-Packaged-app local narration and export walkthrough with recorded cache/cancellation/listening results after runtime integration; no tests run this pass.
+Packaged-app local narration walkthrough with recorded cache/cancellation/listening results after runtime integration; standalone export is outside first-release scope.
 
 
 ## Connections simplification — October 16
@@ -81,10 +87,10 @@ identities](../acceptance/2026-10-17-pocket-whole-script.md).
 - [ ] In the replacement app, verify changed-worker review/cache invalidation,
   unchanged-script reuse, queued and active cancellation, voice switches and
   whole-output preservation across navigation/window close and restart.
-- [ ] Requalify scene/section playback and selected matching export; record a
+- [ ] Requalify scene/section playback and cache matching/invalidation; record a
   human review of real code narration. A valid synthetic WAV does not pass these.
 
-That checkpoint left the task open pending packaged navigation, cache invalidation, cancellation and offline export qualification.
+That checkpoint left the task open pending packaged navigation, cache invalidation, cancellation and human listening. Offline export is deferred post-1.0.
 
 ## Fresh-section prewarm observation — 21 October
 

@@ -3,10 +3,14 @@ kind: task
 key: t22
 parent: m4
 title: Export an accepted interactive guide for offline reading
-priority: 2
-labels: phase-4, export, player
+priority: 3
+labels: phase-4, export, player, post-1.0
 blocked_by: t16, t17, t21
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
+
+> **Scope update — 7 November 2026:** standalone offline export is deferred to post-1.0 and does not gate the first release. Formal VoiceOver/screen-reader, zoom/reflow, contrast-preference, and reduced-motion audits are out of scope. Keep normal keyboard navigation and readable layouts; older audit references below are historical.
 
 ## User outcome
 The user can share or archive an accepted guide and open it without a Code Atlas account, app installation, or network connection.
@@ -54,7 +58,7 @@ and the unsigned app built. These are not actual accepted-chapter/cache or
 browser playback acceptance. The native Fontdone export dialog has no accepted
 revision; saved drafts were not changed to create a pass. Computer-use policy
 blocked opening the local HTML; manual review remains unreported.
-See [scoped evidence](../acceptance/2026-10-17-offline-visual-scenes.md).
+See [scoped evidence](../../acceptance/2026-10-17-offline-visual-scenes.md).
 
 - [ ] Export genuine accepted chapters through the native preview, covering
   scene-scoped clips, custom whole scripts and partial/missing cached audio.
@@ -74,5 +78,5 @@ exact source value shown in the scene. Its link's accessible name includes the
 shown value, node meaning, value origin and the action to open supporting code.
 This fixes source-level parity with the live composition reader. The app's
 native export preview, disconnected-browser navigation, audio combinations,
-keyboard/screen-reader use and manifest/hash checks remain unqualified; keep the
-task open.
+keyboard navigation and manifest/hash checks remain unqualified; keep the task
+open. Formal screen-reader audits are out of scope.

@@ -7,13 +7,13 @@ Code Atlas is an in-progress macOS app for understanding a repository from its c
 ## What works in the current app
 
 - Capture a local repository into a bounded, immutable snapshot and browse its captured files. The working copy is not edited.
-- Ask from the workspace composer. Codex finds supporting code automatically after you grant permission for the selected snapshot. Answers are saved as drafts for you to review.
+- Ask from the workspace composer. Codex finds supporting code automatically after you grant permission for the selected snapshot. Validated sections appear in Guide as they are ready, with citations you can follow into the source.
 - Read a Guide, inspect a Flow, or revisit Chat history within the same exploration. Citations open the captured source. Follow-up questions and **Explore further** keep their place in the exploration tree.
 - Search captured paths, indexed symbols, and bounded captured text without sending a request for each keystroke. Local Git Changes provides a bounded, read-only history and comparison.
 - Prepare Pocket voice once, then synthesize narration locally. Setup currently requires an Apple Silicon Mac, macOS 14 or later, internet access, and additional disk space. Human listening and clean-account release acceptance remain open.
-- Export selected accepted chapters as a self-contained HTML guide. The export includes supported visuals and matching cached narration; it is not a project backup and cannot browse the live repository.
+- Standalone HTML guide export is planned for after 1.0. Saved explanations remain in the local app for the first release.
 
-Some advanced chapter and PR workflows also offer direct model APIs with separate request review and consent. A direct API key and a coding-agent account are different connections. Automatic Claude and Antigravity account integrations have not passed acceptance; see [AI backend status](docs/AGENT_OPERATION_PARITY.md).
+The first release is Codex-first. Direct API provider selection, PR explanations, and Claude or Antigravity account integrations are later work and are not qualified first-release routes; see [AI backend status](docs/AGENT_OPERATION_PARITY.md).
 
 Code is the source of truth when repository documentation conflicts with implementation. Captures, search, supported languages, and large-repository explanations have limits; a citation identifies source but does not prove an explanation is correct. See the [release-readiness draft](docs/releases/0.1.0-draft.md) for known limitations and remaining gates.
 
@@ -29,10 +29,10 @@ This image is from the browser design preview and uses a sample checkout reposit
 - [Documentation map](docs/README.md) — user guides, implementation contracts, design references, and dated evidence.
 - [Workspace contract](docs/design/WORKSPACE_EXPLORATION.md) — current interaction model and the illustrative preview.
 - [Local data and permissions](docs/LOCAL_DATA.md) — captured data, app storage, exports, and removal.
-- [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — what is sent to Codex, direct APIs, and optional cloud speech.
+- [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — what the first release sends to Codex and what stays local with Pocket voice.
 - [Language capabilities](docs/LANGUAGE_CAPABILITIES.md) — implemented parsing and indexing limits by language.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — recovery for repository, connection, chapter, and narration problems.
-- [Offline export](docs/OFFLINE_EXPORT.md) — what an exported guide contains and omits.
+- [Offline export plan](docs/OFFLINE_EXPORT.md) — planned post-1.0 export contents and boundaries.
 - [Security reporting](SECURITY.md) and [Support](SUPPORT.md) — current contact and response limits.
 - [Contributing](CONTRIBUTING.md) — local development and change boundaries.
 
@@ -50,7 +50,7 @@ For contributor changes, `npm run check` runs the project quality checks, fronte
 
 ## Project status and trust
 
-The app is under development. A synthetic Codex path and local Pocket narration have passed focused packaged checks, but the full provider operations, real-repository explanation quality, accessibility, offline export, and release journeys remain under qualification. Do not interpret source code, synthetic checks, or a successful unsigned bundle as production or release acceptance.
+The app is under development. A synthetic Codex path and local Pocket narration have passed focused packaged checks, but the required Codex operations, real-repository explanation quality, Pocket speech quality, and signed release journey remain under qualification. Standalone offline export, direct API providers, PR explanations, and non-Codex agents are post-1.0. Do not interpret source code, synthetic checks, or a successful unsigned bundle as production or release acceptance.
 
 Repository capture and saved explanations stay on this Mac unless you explicitly send reviewed context to a provider. Codex sharing permission is scoped to a captured snapshot and connected account. Local browsing and Pocket synthesis do not require a provider API key. See [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) and [Local data](docs/LOCAL_DATA.md) before using private code.
 

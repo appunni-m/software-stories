@@ -3,9 +3,11 @@ kind: task
 key: antigravity-agent-backend
 parent: t29
 title: Qualify Antigravity account integration and implement the supported adapter
-priority: 1
-labels: agents, provider
+priority: 2
+labels: agents, provider, post-1.0
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## User outcome
 Antigravity is evaluated as its own agent backend, with an honest account/API distinction and working chapter-generation controls on the surface actually supported for Code Atlas.

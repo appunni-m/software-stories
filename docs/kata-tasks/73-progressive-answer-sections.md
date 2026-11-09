@@ -7,6 +7,10 @@ priority: 1
 labels: agents, reliability, performance, ux
 ---
 
+> **Scope update — 7 November 2026:** formal VoiceOver/screen-reader, zoom/reflow, contrast-preference, and reduced-motion audits are not acceptance gates. Keep ordinary reader controls, keyboard navigation, source links, visual quality, narration, and comprehension checks in scope; older audit references below are historical.
+
+> **Scope update — 8 November 2026:** no elapsed-time SLA or timeout is an acceptance gate for Guide work. Publish each validated section when ready and let the agent continue until the user stops it or a real runtime/resource boundary ends it. Timings may be recorded as diagnostic observations, never as a pass/fail threshold.
+
 ## User outcome
 
 Ask once and start reading a useful, cited explanation while the agent investigates the remaining parts. A failure in a later part preserves earlier published draft sections and clearly identifies the unfinished topic. The reader does not manage section generation, source selection or retries.
@@ -29,9 +33,9 @@ The frozen Fontdone native-citation investigation returned three sections after 
 
 - Regressions cover first-section success followed by invalid citation/identifier/visual, malformed or duplicate proposals, key collisions, exhausted proposal and storage limits, lost replies, ledger append/checkpoint tampering, Stop before/after persistence, changed permission/account/runtime, a guide operation continuing past ten minutes through result validation, restart and late delivery. A later failure preserves exactly the already published draft identities and bytes; elapsed time alone never fails or retries a guide job.
 - The current guide schema, saved section receipts and source validators replay successfully. Unsupported superseded records fail closed and remain untouched; no compatibility path silently migrates them or launches inference. Native evidence references prove only exact delivered source, not claim meaning.
-- In the installed app, ask once using the saved connection. Read section one while investigation continues; open a diagram node and source citation, navigate a nested exploration and return to the same section. Exercise a later failure and restart without losing the first section or opening setup again. Verify keyboard/VoiceOver announcements and focus behavior separately.
+- In the installed app, ask once using the saved connection. Read section one while investigation continues; open a diagram node and source citation, navigate a nested exploration and return to the same section. Exercise a later failure and restart without losing the first section or opening setup again. Verify the workflow's keyboard actions and return-to-section behavior.
 - Run a new explicitly authorized frozen Fontdone attached-function and broad-repository qualification. Independently review actual inputs, ordered dispatch, face/index validation, missing-versus-malformed required-table behavior, outputs, important error branches, meaningful diagrams and the actual Pocket script/audio. The failed historical candidate is a regression fixture, not an accepted answer or quality oracle.
-- The timing gate requires a useful independently admitted first section within 120 seconds under the recorded fixture/settings. First token, an unvalidated proposal, a schema pass, a cached unrelated answer or an omitted main answer cannot satisfy it. Keep the task open if this target or the content/navigation gates fail.
+- Publish a complete independently validated section as soon as it is ready. A first token, unvalidated proposal, schema pass, cached unrelated answer, or omitted main answer does not satisfy section publication. Observed elapsed time is diagnostic only and never fails or stops the operation.
 - The outline is shown as soon as its plan-only job passes native citation and scope validation. The first validated slide is shown as soon as it is ready; later slides have explicit pending/working/ready/partial/failed states. Keep a maximum five-slide ready/active look-ahead buffer, fill the next eligible topic while audio plays, and do not wait to accumulate five slides before showing the outline or first ready slide.
 - A single slide's quota error, invalid proposal or provider failure preserves the outline and every earlier/later saved slide. If no section was published, allow one fresh bounded automatic attempt; then record any remaining failure only on that slide and continue with unrelated eligible topics. Elapsed time is never a slide failure. Expose unresolved prerequisite context without treating a prerequisite as permission to block independent source research. A later explicit continuation cannot rerun the outline or ready slides.
 
@@ -217,7 +221,7 @@ The frozen Fontdone GPT-6 Luna/max native probe returned **partial** after 387.5
 - [x] Preserve the whole partial answer, rejected proposals, final manifest and evidence ledger in a fresh isolated qualification; compare captured metadata and all 20 published anchor byte ranges without accepting chapters or modifying the user's live project.
 - [x] Reproduce a cross-claim HTML-scene node rejection and replace its generic tool feedback with fixed `sceneEvidence` at the element's `nodeIndex`. Preserve the failed proposal, native validation and correction within the same answer. Full native suite: 351 passed, 13 explicit probes ignored; frontend: 179 passed. The account artifact predates this diagnostic/prompt change and is not its fresh broad qualification.
 - [ ] Evaluate section-attempt allocation and citation correction using this eight-proposal exhaustion. Define bounded retained storage, per-section correction opportunity and finalization reserves inside the original ownership/call/deadline policy; do not simply increase a cap or reset the investigation. Qualify a new broad run only after the implementation decision, preserving this failed completion check.
-- [ ] Qualify the actual font-bytes-to-pixels narrative, meaningful transformations, original missing-entry/malformed-content distinction, natural complete narration/Pocket playback and installed reader/Stop/restart/accessibility. Repeated node labels, long helper names and a partial manifest do not pass these gates.
+- [ ] Qualify the actual font-bytes-to-pixels narrative, meaningful transformations, original missing-entry/malformed-content distinction, natural complete narration/Pocket playback and installed reader/Stop/restart behavior. Repeated node labels, long helper names and a partial manifest do not pass these gates.
 
 Keep this task open. Native/probe arrival times are not UI-visible useful-answer timing; no human quality/listening pass is claimed.
 
@@ -229,7 +233,7 @@ A deterministic macOS queued-packet regression also exposed the intermittent nat
 
 - [x] Choose the bounded citation-transport correction before changing section-attempt allocation; keep eight proposals/six unique sections/64 calls and retain the failed broad artifact. These structural limits do not impose an elapsed-time deadline.
 - [ ] Qualify this exact implementation in a fresh isolated full Fontdone investigation. Preserve all rejected proposals and partial/terminal results, inspect actual source claims and scenes, and distinguish native arrival from UI-visible useful-answer timing.
-- [ ] Complete the existing installed reader, complete narrated story/Pocket and accessibility gates. Short-reference reliability and local packet tests do not satisfy these.
+- [ ] Complete the existing installed reader and complete narrated story/Pocket. Short-reference reliability and local packet tests do not satisfy these.
 
 Keep this task open. The fresh account run and current-bundle installation are pending.
 
@@ -241,7 +245,7 @@ The worker discarded its actual terminal error when preserving this partial answ
 
 - [ ] Reproduce the actual uncertain-call failure with retained native classification before attributing it to arguments, sockets, context size or a model. Preserve the failed completion; do not reset budgets or rerun automatically.
 - [ ] Correct the missing dispatcher exceptions and repeated empty-card scene through the existing quality/visual tasks; the source-valid draft is not an accepted narrative.
-- [ ] Complete the original broad answer, installed reader/Stop/restart, Pocket and accessibility gates. Keep this task open.
+- [ ] Complete the original broad answer, installed reader/Stop/restart and Pocket gates. Keep this task open.
 
 ## Scene policy checkpoint — 17 October
 

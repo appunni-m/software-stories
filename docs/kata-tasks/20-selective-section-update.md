@@ -5,8 +5,9 @@ parent: m4
 title: Edit or regenerate one selected stale section and reuse unaffected assets
 priority: 0
 labels: phase-4, regeneration, revisions
-blocked_by: t10, t17, t18, t19
 ---
+
+> **Scope update — 7 November 2026:** formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope. Dated accessibility observations are historical, not open acceptance gates; keep ordinary keyboard actions only where they are part of the section-editing workflow.
 
 ## User outcome
 
@@ -210,3 +211,33 @@ ambiguously. The file and project-size bounds remain applied before decoding.
 Source-only correction; no tests, build, provider request, or packaged
 corruption-recovery check ran. Keep `tbsh` open for the full selective-repair
 acceptance.
+
+### Focused native regression rerun — 7 November 2026
+
+The saved-session and selected-section pipeline tests now pass on the current
+checkout:
+
+- `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib section_repair_session::tests::` — **7 passed**.
+- `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib chapter_pipeline_tests::` — **8 passed, 1 explicit live-account probe ignored**.
+
+This covers duplicate-key/corrupt session rejection, persistence of one
+replacement while another section stays pending, changed-freshness rejection,
+`NeedsReview` blocking assembly, and a selected stale-section repair that
+preserves unrelated section and asset IDs. No provider request or packaged app
+run occurred. Real Codex repair/acceptance, Pocket cache identity comparison,
+restart/cancel/failure behavior in the packaged UI, and the remaining suite
+qualification are still open; keep `tbsh` open.
+
+### Match the cache-key fixture to the shipped Pocket voice — 2026-11-07
+
+The focused selective-repair fixture now computes the preserved section's
+audio-cache key with the shipped Pocket model ID, Alba voice, empty style, and
+`audio/wav` format. The selected-section regression passes **1/1** after this
+change. It verifies deterministic cache-key reuse for an unchanged narration
+script under the shipped identity; it does not synthesize audio or qualify the
+packaged Pocket runtime/cache. Real regeneration/acceptance and packaged
+cancel/restart/failure behavior remain open. Keep `tbsh` open.
+
+### Confirm the Pocket cache-key regression on the current checkout — 2026-11-08
+
+Re-ran `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib selected_stale_section_regenerates_without_changing_other_section_or_asset_ids` on `main@8b20924` with the current fixture change: **1 passed**. The unchanged section retains its narration cache identity under the shipped Pocket model/voice/format values, while the regenerated section gets a different key. This does not synthesize or listen to audio, qualify packaged cache reuse, or complete selective-repair acceptance. Keep `tbsh` open.

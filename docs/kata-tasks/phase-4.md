@@ -8,14 +8,16 @@ blocked_by: m3
 ---
 
 ## Goal
-Track guide history independently of source Git, identify affected sections/assets precisely, update selected content, compare/restore, and share a standalone guide.
+Keep accepted guide sections immutable, identify affected sections/assets precisely, and regenerate only selected stale content. Full revision compare/restore and standalone offline export are post-1.0 follow-ups.
 
 ## Gate
-Changing a cited source range stales only its dependent sections and assets. One selected section can be regenerated without rebuilding unrelated guide parts. Prior accepted revisions remain immutable and an offline package is readable without Code Atlas installed.
+Changing a cited source range stales only its dependent sections and assets. One selected section can be regenerated without rebuilding unrelated guide parts. Prior accepted revisions remain immutable. Compare/restore and offline export are not required for release 0.1.0.
 
 ## Child issues
-`19-section-staleness.md`, `20-selective-section-update.md`, `21-revision-history.md`, and `22-offline-export.md`.
+`19-section-staleness.md` and `20-selective-section-update.md`. Full revision compare/restore and standalone export are preserved under [post-1.0 history](../history/post-1.0/README.md).
 
-## Pending work — 2026-10-15
+## Historical pending-work checkpoint — 2026-10-15
 
-Pending leaves: tbsh one-section/asset reuse acceptance, gace revision compare/restore acceptance, 8r4j offline export with local narration. Dependencies remain open.
+At that checkpoint, the list still included revision compare/restore. Current
+first-release work is `tbsh` one-section repair and unaffected-asset reuse;
+revision compare/restore and export are now post-1.0.

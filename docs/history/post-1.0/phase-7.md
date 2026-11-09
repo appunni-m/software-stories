@@ -2,10 +2,12 @@
 kind: milestone
 key: m7
 title: M7 — Selectable AI backends
-priority: 0
-labels: phase-7, ai, providers, agents
+priority: 2
+labels: phase-7, ai, providers, agents, post-1.0
 blocked_by: m6, agent-first-generation, antigravity-agent-backend, claude-agent-backend
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## Current sequencing — 2026-10-16
 
@@ -16,7 +18,7 @@ The user can choose the AI integration that fits the work: a direct model API fo
 
 ## Gate definition
 
-Automatic Codex and Claude Agent coverage is a prerequisite, tracked by `2r6n` and its blocking adapter tasks `z3an` and `8gqw`. The [operation parity contract](../AGENT_OPERATION_PARITY.md) defines each required pair. Direct APIs and manual handoffs cannot satisfy it. The separately requested Antigravity integration `m00g` also blocks M7 until its permitted automatic route is delivered and accepted.
+Automatic Codex and Claude Agent coverage is a prerequisite, tracked by `2r6n` and its blocking adapter tasks `z3an` and `8gqw`. The [operation parity contract](../../AGENT_OPERATION_PARITY.md) defines each required pair. Direct APIs and manual handoffs cannot satisfy it. The separately requested Antigravity integration `m00g` also blocks M7 until its permitted automatic route is delivered and accepted.
 
 Ship a clear backend catalog with separate **Model APIs**, **Agent runtimes**, and modality-specific capabilities such as **Speech**. Direct API calls, agent sessions, and speech synthesis keep their own capabilities, authentication, permissions, data disclosures, cancellation behavior, and usage/billing information. Every AI-enabled feature maps to a supported capability and shows and uses the backend selected for that operation; unavailable features explain why they cannot run on a selected backend. Reuse established maintained clients and official programmatic surfaces where suitable: evaluate a maintained multi-provider client for model APIs, ACP for agent sessions, and MCP only for shared tools/context when needed. Do not create a new general-purpose agent framework or pretend one protocol works for every runtime; record adapter provenance, compatibility, and capability gaps.
 
@@ -34,8 +36,8 @@ Ship a clear backend catalog with separate **Model APIs**, **Agent runtimes**, a
 
 ## Current research artifacts
 
-- [AI backend capability matrix, separating implemented routes from accepted support and missing operations](../research/ai-backend-capability-matrix.md)
-- [Dated Rust model-client comparison, `rig-core` adapter decision, and remaining acceptance evidence](../research/2026-10-13-rust-model-client-comparison.md)
+- [AI backend capability matrix, separating implemented routes from accepted support and missing operations](../../research/ai-backend-capability-matrix.md)
+- [Dated Rust model-client comparison, `rig-core` adapter decision, and remaining acceptance evidence](../../research/2026-10-13-rust-model-client-comparison.md)
 
 ## Excludes
 Building a new model gateway, inventing an agent protocol or tool loop, silent provider routing/fallback, collecting vendor credentials through browser scraping, and treating API providers and agent runtimes as interchangeable.
@@ -54,4 +56,4 @@ Pending: c8nz full direct-operation/provider acceptance and tpta verified suppor
 
 ## Implementation order — October 15
 
-Start Codex account-backed app-server `z3an` first. Claude Agent `8gqw` and Antigravity `m00g` have separate auth-eligibility and runtime tasks under `tpta`. Agent implementation no longer waits for all direct API operations; release acceptance remains explicit. See [the updated evaluation](../research/2026-10-15-agent-backends.md).
+Start Codex account-backed app-server `z3an` first. Claude Agent `8gqw` and Antigravity `m00g` have separate auth-eligibility and runtime tasks under `tpta`. Agent implementation no longer waits for all direct API operations; release acceptance remains explicit. See [the updated evaluation](../../research/2026-10-15-agent-backends.md).

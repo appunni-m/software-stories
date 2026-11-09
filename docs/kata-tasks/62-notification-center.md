@@ -7,6 +7,8 @@ priority: 1
 labels: product, design, ux
 ---
 
+> **Scope update — 7 November 2026:** formal VoiceOver/screen-reader, zoom/reflow, contrast-preference, and reduced-motion audits are not acceptance gates. Keep normal keyboard actions such as Escape, open/close, and focus return where needed for the notification workflow; older audit references below are historical.
+
 ## Outcome
 Background updates do not cover code or push content down. The header bell opens a compact list with plain outcomes and the next useful action.
 
@@ -26,11 +28,12 @@ acknowledgment order and evict the oldest key when needed. This keeps history
 bounded and preserves visible notices and saved explanations; after an old key
 ages out, the exact same notice may be published again. Invalid or oversized
 batches still fail atomically. Source and existing regression expectations were
-updated; tests and the packaged app were not run. Keep the broader notification,
-keyboard, zoom, theme, accessibility and background-job gates open.
+updated; tests and the packaged app were not run. Keep the notification,
+keyboard-interaction, theme and background-job acceptance open; formal audits
+are out of scope.
 
 ## Acceptance
-Check empty/multiple/project-scoped entries, live completion while typing/playing, Escape/outside close, action opens source/guide, disabled missing previews, retry failures, focus into opened dialog and back, restart persistence, resolved dedupe, 200% zoom, dark/light contrast and screen reader announcements. Verify no banner stack in the main reading surface and no implicit save/accept/retry.
+Check empty/multiple/project-scoped entries, live completion while typing/playing, Escape/outside close, action opens source/guide, disabled missing previews, retry failures, keyboard focus into opened dialog and back, restart persistence, resolved dedupe, supported window sizes, and readable dark/light themes. Verify no banner stack in the main reading surface and no implicit save/accept/retry. Formal screen-reader, zoom, contrast-preference, and motion-preference audits are out of scope.
 
 ## 16 October workspace migration
 
@@ -70,8 +73,8 @@ project or snapshot. The feed is capped at the 50 latest unresolved outcomes
 across those loaded scopes; each row retains its owning project/snapshot for
 grouping, opening, read and dismiss actions. Untouched conversations are not
 preloaded. Source-only change; restart discovery for unvisited scopes and the
-packaged, focus, persistence, contrast, zoom and screen-reader gates remain
-open.
+packaged action-navigation, live-completion, persistence, and theme cases
+remain open.
 
 ## Packaged bell and Escape focus-return check — 29 October 2026
 
@@ -83,5 +86,5 @@ items in a collapsed group. The badge remained unchanged while the popover was
 open. Pressing Escape closed the popover and returned accessibility focus to
 the Notifications button. No item was opened, read, or dismissed. This verifies
 one populated state and Escape/focus return only; empty state, outside close,
-action navigation, live completion, restart, zoom, themes, and screen-reader
-announcement acceptance remain open.
+action navigation, live completion, restart, and themes remain open. Formal
+screen-reader, zoom, contrast, and motion audits are out of scope.

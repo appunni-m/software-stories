@@ -253,11 +253,12 @@ Sources: [Codex SDK](https://developers.openai.com/codex/codex-sdk), [Codex app-
 
 ## Speech is a separate modality
 
-TTS remains under [t18 optional narration](../kata-tasks/18-optional-narration.md). The speech catalog has its own provider/model capability record, request review, voice/language limits, key/terms/usage disclosure, cancellation, local cache, and audio validation. A text adapter's support for Gemini/OpenAI/Anthropic does not imply that it can synthesize speech.
+Speech remains a separate modality. For the first release, local Pocket TTS setup is tracked in `q6g3`, while playback/cache/listening acceptance is tracked in `dbmd`. Generation-time prewarming is deferred to post-1.0 and has no active Kata issue. The old `t18`/`70x5` narration umbrella was retired as a duplicate on 8 November 2026. A text adapter does not imply speech synthesis support.
 
 ## Implementation references
 
 - [Direct API client comparison and prototype recommendation](2026-10-13-rust-model-client-comparison.md)
-- [Direct model API provider task](../kata-tasks/28-model-api-providers.md)
-- [Coding-agent runtime task](../kata-tasks/29-agent-runtime-backends.md)
-- [Speech synthesis task](../kata-tasks/18-optional-narration.md)
+- [Direct model API provider task](../history/post-1.0/28-model-api-providers.md)
+- [Coding-agent runtime task](../history/post-1.0/29-agent-runtime-backends.md)
+- [Pocket runtime task](../kata-tasks/34-pocket-runtime.md)
+- [Pocket player/cache task](../kata-tasks/35-pocket-player-cache.md)

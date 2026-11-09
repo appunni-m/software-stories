@@ -5,18 +5,20 @@ parent: m5
 title: Package, sign, notarize, and document the first Mac release
 priority: 1
 labels: phase-5, release, reliability
-blocked_by: t22, t23, t24
+blocked_by: t24
 ---
 
+> **Scope update — 8 November 2026:** the release gate covers signed distribution, clean-account install, local offline browsing and saved guides, permissions, repository safety, and recovery. Standalone offline guide export is outside first-release scope; its specification is preserved in [post-1.0 history](../history/post-1.0/22-offline-export.md). Formal accessibility audit matrices in older dated checkpoints are retired and do not block release; see [the historical ledger](../HISTORICAL_ACCESSIBILITY_VALIDATION.md).
+
 ## User outcome
-The user can install a dependable Mac app, understand its requirements, and use local browsing without a provider key.
+The user can install a dependable Mac app, understand its requirements, and browse a local repository without a provider API key. Generating explanations uses the configured Codex connection.
 
 ## Contract
-Build distributable macOS artifacts using the chosen Tauri packaging path. Define supported macOS versions, signing/notarization, app data and cache locations, backup/export behavior, first-run permission needs, and how users remove local project metadata. Release notes state parser support, repository limits, provider model/disclosure verification date, and known limitations.
+Build distributable macOS artifacts using the chosen Tauri packaging path. Define supported macOS versions, signing/notarization, app data and cache locations, first-run permission needs, and how users remove local project metadata. Release notes state parser support, repository limits, provider model/disclosure verification date, and known limitations.
 
 ## Acceptance criteria
 - A clean Mac account can install and launch the signed/notarized app without a development toolchain.
-- Offline repository browsing, accepted guides, and exported guide reading work before key setup.
+- A previously captured repository and saved guide can be opened without a network connection or provider API key.
 - Keychain permissions and local data locations are explained in product language.
 - Release pipeline verifies artifact identity and bundled schema/migration versions.
 - Failed install, permission denial, and disk-space conditions give recovery guidance.
@@ -25,7 +27,7 @@ Build distributable macOS artifacts using the chosen Tauri packaging path. Defin
 Automatic in-app updates unless separately specified, paid backend services, and claiming provider pricing will remain unchanged.
 
 ## Done evidence
-Install and exercise the release artifact on a clean supported macOS environment; verify signature/notarization, offline journey, Keychain behavior, release notes, and artifact checksums.
+Install and exercise the release artifact on a clean supported macOS environment; verify signature/notarization, offline browsing of a captured repository and saved guide, Keychain behavior, release notes, and artifact checksums.
 
 ## Local packaging baseline
 
@@ -54,7 +56,7 @@ References: [Tauri macOS bundle configuration](https://v2.tauri.app/reference/co
 - [ ] Validate the floor and architectures through supported release workflows and clean-account installation.
 - [ ] Provide Developer ID signing/team and notarization credentials through secure local configuration; current unsigned preflight is not a release.
 - [ ] Produce signed/notarized artifacts and record identity, schema/runtime versions and checksums.
-- [ ] Install on a clean supported account; exercise offline browsing/audio/export, Keychain, permission denial and disk failure recovery.
+- [ ] Install on a clean supported account; exercise offline browsing of a captured repository and saved guide, Keychain, permission denial and disk failure recovery.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
 
@@ -194,7 +196,7 @@ The GitHub releases endpoint has no published release, and `git ls-remote --tags
 origin` returned no tags. The unsigned package workflow is not the signed
 release workflow. A public 0.1.0 release still needs the Apple Developer ID and
 notarization credentials, a signed/notarized artifact, clean-account install
-acceptance, and the remaining product/accessibility gates. This is a live
+acceptance, and the remaining product gates. This is a live
 checkpoint, not release approval.
 
 ## CI and release checkpoint — 2026-10-28 16:34 UTC
@@ -207,7 +209,7 @@ bundles” job passed. The local app/DMG build, metadata inspection, and checksu
 verification also passed for that commit. GitHub's release endpoint returned no
 published releases, and `git ls-remote --tags origin` returned no tags. The
 first release still requires signing, notarization, clean-account installation,
-and product/accessibility acceptance.
+and product acceptance.
 
 ## CI and first-release status — 2026-10-29 08:50 UTC
 
@@ -215,7 +217,7 @@ The current code commit `5ca2f4922207252cd0c04ff81f845ab3ba82cf6a` has package-v
 
 The recent red runs are a mix of actual defects in intermediate revisions and one workflow setup error, not one continuously broken build. Run [#1234](https://github.com/appunni-m/software-stories/actions/runs/40648040451) failed TypeScript compilation when a visual-citation path assumed an optional value; run [#1226](https://github.com/appunni-m/software-stories/actions/runs/40634517834) failed TypeScript compilation on a removed Code Lens callback; and [#1192](https://github.com/appunni-m/software-stories/actions/runs/40606128208) failed before the job because a pinned Rust-cache action revision did not exist. Those defects were corrected and later package runs passed. Other cancelled entries reflect the serialized macOS build lane replacing a pending run; cancellation is distinct from a build failure.
 
-GitHub's releases endpoint currently returns no releases, and the repository has no release tag. The first release is therefore **not published**. CI currently produces unsigned verification bundles only. A public release still needs Apple Developer ID signing and notarization credentials, a signed/notarized artifact, clean-account installation, and the remaining offline, Keychain, product, and accessibility acceptance. This snapshot records status; it does not qualify the release.
+GitHub's releases endpoint currently returns no releases, and the repository has no release tag. The first release is therefore **not published**. CI currently produces unsigned verification bundles only. A public release still needs Apple Developer ID signing and notarization credentials, a signed/notarized artifact, clean-account installation, and the remaining offline, Keychain, and product acceptance. This snapshot records status; it does not qualify the release.
 
 The repository hygiene check found that `.gitignore` already excludes dotenv and direnv files, nested coverage output, Rust `target`, frontend `dist`/`.vite`, and installed `node_modules`. No dotenv or generated coverage files are tracked. Avoid deleting local build or user data based only on directory size; the current tracked large files include source, design references, and acceptance evidence.
 
@@ -235,7 +237,7 @@ completed successfully for `d99e357`. Current `main` is docs-only commit
 At this checkpoint, the GitHub releases endpoint returns no releases and the
 tags endpoint returns no tags. The first release is not published; the active
 CI lane only creates unsigned verification bundles. Signing/notarization,
-clean-account installation, and remaining product/accessibility acceptance
+clean-account installation and remaining product acceptance
 are still required. Do not treat #1351 as passed until GitHub reports its final
 conclusion.
 
@@ -306,5 +308,4 @@ current commit `421ac42` is run [#1505](https://github.com/appunni-m/software-st
 and remains pending behind the active macOS build. Do not mark the current
 source verified until #1505 completes successfully. This does not change the
 first-release gate: there is no signed release artifact, tag or published
-release, and signing, notarization, clean-account installation, and product /
-accessibility acceptance remain open.
+release, and signing, notarization, clean-account installation, and product acceptance remains open.

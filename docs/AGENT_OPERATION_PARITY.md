@@ -1,8 +1,10 @@
-# Required agent generation coverage
+# Future multi-agent generation coverage
+
+> **Release scope — 8 November 2026:** this document preserves the eventual multi-backend operation contract. The first release requires Codex for the repository Guide, file chapters, section repair, source ranges, and repository planning. Claude and the broader agent catalog are later work; AI explanations of PR diffs and hunks are post-1.0. The related task definitions are archived under [post-1.0 history](history/post-1.0/README.md). Local Git history and diff browsing remain in scope.
 
 > **Status — November 1, 2026:** Codex is the only coding-agent backend with automatic dispatch in source; runtime and operation coverage remain unqualified. Claude is deferred. Google prohibits third-party use of a consumer Antigravity account, and the separate SDK/API or Enterprise route is not implemented here. Earlier build, test and provider approvals applied only to their dated runs; they are not current authorization. See [Google's Antigravity FAQ](https://antigravity.google/docs/faq), [Terms](https://antigravity.google/terms), and [SDK overview](https://antigravity.google/docs/sdk/overview).
 
-This is the implementation contract for multi-agent generation, reviewed October 22, 2026. It describes required behavior and current source gaps. Codex file-chapter generation has completed one synthetic native baseline, including draft/acceptance, citation navigation and manual section advance. Other operations and full backend qualification remain pending. See [executed validation](acceptance/2026-10-16-codex-validation.md).
+This is a future implementation contract for multi-agent generation, reviewed October 22, 2026. It describes intended behavior and historical source gaps. For the current release, only the Codex rows are acceptance targets; the Claude and Antigravity rows are not release gates. See [executed validation](acceptance/2026-10-16-codex-validation.md).
 
 ## Product requirement
 
@@ -28,7 +30,7 @@ Codex reviews now bind a native process connection, executable digest and observ
 | Generate a guide for a selected immutable Git comparison | Source | Missing | Missing |
 | Explain one selected base/head diff hunk | Source | Missing | Missing |
 
-Repository Guides, file chapters, section repair, source-range explanations and both Git-change operations are required for Codex and Claude Agent. The older selected-source overview path is recovery-only and does not count as a new operation or substitute for the Guide. Repository planning must also support these agents when the AI narrative planner is implemented; a static call list does not satisfy generated narrative planning. Antigravity remains a separately required M7 integration subject to its exact permitted surface and account route. A direct API result in any row cannot qualify its agent counterpart.
+The eventual multi-backend release requires repository Guides, file chapters, section repair, source-range explanations and Git-change operations for each supported agent. The current first release qualifies Codex only; Claude and Antigravity are archived follow-up proposals. The older selected-source overview path is recovery-only and does not count as a new operation or substitute for the Guide. Repository planning must also support later agents when its narrative planner is implemented. A direct API result cannot qualify an agent integration.
 
 The current matrix intentionally omits the older selected-source overview
 request: existing requests can be recovered and saved revisions remain
@@ -58,7 +60,7 @@ All registered Codex operation senders now retain their original admitted clock 
 
 Use vendor-maintained agent loops: the official Codex app-server, the official Claude Agent SDK or its documented programmatic CLI, and a qualified official Antigravity surface. Evaluate maintained ACP adapters where they fit. Code Atlas owns context review, dispatch, lifecycle and validation; it does not implement a new agent loop, credential system or universal model/effort catalog.
 
-The dated [ACP adapter review](research/2026-10-22-agent-protocol-evaluation.md) records exact registry versions, provenance, current probe observations, and why ACP inclusion does not qualify a runtime. Keep the existing Codex app-server path as the immediate acceptance target; do not enable another ACP candidate from registry metadata alone.
+The dated [ACP adapter review](research/2026-10-22-agent-protocol-evaluation.md) records exact registry versions, provenance, current probe observations, and why ACP inclusion does not qualify a runtime. The [2026-11-05 operation compatibility matrix](research/2026-11-05-agent-operation-compatibility-matrix.md) is the current versioned ledger for account routes, operation coverage and acceptance evidence. Keep the existing Codex app-server path as the immediate acceptance target; do not enable another ACP candidate from registry metadata alone.
 
 Keep operation context and validation independent of transport. Extend the existing shared chapter context rather than building an API request to obtain an agent prompt. Range and PR context builders now have that separation for the Codex source routes; reuse those builders when wiring Claude operations.
 
@@ -66,19 +68,19 @@ Keep operation context and validation independent of transport. Extend the exist
 | --- | --- |
 | [provider.rs](../src-tauri/src/provider.rs) | Immutable chapter/section context, review fingerprints and operation-specific range/PR validators |
 | [codex_commands.rs](../src-tauri/src/codex_commands.rs), [codex_agent.rs](../src-tauri/src/codex_agent.rs) | Existing native Codex dispatch and managed runtime lifecycle |
-| [claude_agent.rs](../src-tauri/src/claude_agent.rs), [claude_worker.rs](../src-tauri/src/claude_worker.rs), [claude_connection.rs](../src-tauri/src/claude_connection.rs), [claude_commands.rs](../src-tauri/src/claude_commands.rs) | Candidate Claude protocol/process supervision, sanitized inspection, offline review and qualification-gated registered send commands; app generation workflow acceptance and runtime qualification remain open |
+| [claude_agent.rs](../src-tauri/src/claude_agent.rs), [claude_worker.rs](../src-tauri/src/claude_worker.rs), [claude_connection.rs](../src-tauri/src/claude_connection.rs) | Historical Claude protocol/process work; Claude is deferred and its first-release UI and generation entry points were removed |
 | [claude_model_discovery.mjs](../src-tauri/resources/claude_model_discovery.mjs), [claude_discovery_worker.mjs](../src-tauri/resources/claude_discovery_worker.mjs), [claude_discovery.rs](../src-tauri/src/claude_discovery.rs), [claude_models.rs](../src-tauri/src/claude_models.rs) | Candidate SDK initialization/projection, native supervision and catalog admission, called by the explicit setup check; qualified installation, generation dispatch and acceptance remain open |
-| [claude_connections.rs](../src-tauri/src/claude_connections.rs), [claude_generation.rs](../src-tauri/src/claude_generation.rs) | Native short-lived observed connection, registered offline operation reviews and internal chapter/range/Git worker/validation pipelines; release-owned admission now gates registered send commands, with no eligible profile; app generation flow and actual qualification remain missing |
+| [claude_connections.rs](../src-tauri/src/claude_connections.rs), [claude_agent.rs](../src-tauri/src/claude_agent.rs) | Deferred source modules retained for post-1.0 evaluation; they are not first-release generation routes |
 | [chapter_generation.rs](../src-tauri/src/chapter_generation.rs), [lib.rs](../src-tauri/src/lib.rs) | Chapter/section preservation and draft preparation; separate PR Guide preparation |
 | [recovery.rs](../src-tauri/src/recovery.rs), [recovery_commands.rs](../src-tauri/src/recovery_commands.rs) | Bounded journal-owned interruption metadata and local exact-evidence restoration without source, credentials or reusable consent |
-| [App.tsx](../src/App.tsx), [CodexChapterDialog.tsx](../src/CodexChapterDialog.tsx), [ClaudeOperationReview.tsx](../src/ClaudeOperationReview.tsx), [ClaudeGenerationPanel.tsx](../src/ClaudeGenerationPanel.tsx), [claudeReview.ts](../src/lib/claudeReview.ts) | Backend chooser, Codex operation/settings flow, and Claude supported-settings/exact offline review; Claude inference UI has source wiring but remains unaccepted |
+| [App.tsx](../src/App.tsx), [CodexChapterDialog.tsx](../src/CodexChapterDialog.tsx) | Current Codex connection and explanation flow. Claude setup and generation panels described in earlier checkpoints are not part of the first-release app. |
 
 ## Implementation order and owners
 
-1. **Codex completion (`z3an`, priority 0):** qualify the progressive Guide, file chapter, section, range, planning and Git-change routes and exact-scope recovery. Preserve section identity and untouched content; keep overview handling limited to recovery of already-reviewed work.
+1. **Codex first-release completion (`z3an`, priority 0):** qualify the progressive Guide, file chapter, section, range and planning routes and exact-scope recovery. Preserve section identity and untouched content; keep overview handling limited to recovery of already-reviewed work. PR/changes explanations are post-1.0 and their definitions are archived.
 2. **Current Codex coverage and UX gate (`2r6n`, priority 0):** require effective supported controls, cancellation and recovery for the Codex operations above. Record exact runtime/adapter versions and dated acceptance before promoting a matrix cell.
-3. **Deferred Claude Agent (`8gqw`, priority 2):** implement and qualify the maintained SDK/CLI adapter, settings, lifecycle, account route and all required operations in later work. A manual handoff or another vendor's API cannot close that task. See [the deferred scope](kata-tasks/41-claude-agent-backend.md).
-4. **Antigravity (`m00g`):** qualify its supported integration and account route independently. An unresolved requested backend keeps M7 open.
+3. **Deferred Claude Agent:** its proposed SDK/CLI adapter, settings, lifecycle and account route are preserved in [the archived definition](history/post-1.0/41-claude-agent-backend.md).
+4. **Antigravity:** its account-route research and proposed adapter are preserved in [the archived definition](history/post-1.0/42-antigravity-agent-backend.md).
 
 Codex range dispatch now shares immutable range context with direct APIs and uses the existing managed runtime and independent citation validator. It stages only the excerpt, returns a transient explanation and never prepares a chapter draft. The full captured-file identity remains in the review; staged-content integrity uses the excerpt digest. Native acceptance, runtime qualification and scope-preserving interruption recovery remain pending.
 

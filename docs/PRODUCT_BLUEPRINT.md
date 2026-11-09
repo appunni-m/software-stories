@@ -1,6 +1,6 @@
 # Code Atlas — product blueprint
 
-> **Developer workspace migration — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) is implemented in the production entry point. A left activity bar opens Explorer, Search, Changes and Explorations; pinned chat owns Guide / Flow / history at each level. Follow-ups stack and explicit branches attach to their originating answers. Native snapshot source, question-specific Codex generation, saved revisions, permission validation and local commit comparisons are wired. Packaged visual/accessibility and broader lifecycle qualification remain open in `na54` / `3rcd`; the separate preview uses sample data. Older navigation descriptions below are historical contracts superseded by this workspace.
+> **Developer workspace migration — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) is implemented in the production entry point. A left activity bar opens Explorer, Search, Changes and Explorations; pinned chat owns Guide / Flow / history at each level. Follow-ups stack and explicit branches attach to their originating answers. Native snapshot source, question-specific Codex generation, saved revisions, permission validation and local commit comparisons are wired. Packaged design acceptance remains open in `13yp`; broader lifecycle work stays in its dedicated tasks. The separate preview uses sample data. Older navigation descriptions below are historical contracts superseded by this workspace.
 
 **Status:** Product contract; implementation status is tracked separately  
 **Plan date:** 13 October 2026  
@@ -208,12 +208,12 @@ Users can preview or edit the narration before speech generation. Audio is optio
 
 - Local repository capture, complete path inventory, supported-language index, and Files source/evidence browsing with an optional relationship map.
 - A substantive individual chapter for every eligible file, with visible disposition for every path.
-- Exact per-request direct API review, local validation, Chapter Studio editing, and explicit acceptance.
+- Codex account-backed generation, local validation, Chapter Studio editing, and explicit acceptance.
 - Section-based interactive walkthrough with clickable diagrams, transcript, manual controls, and optional TTS.
-- Git-like section/chapter history, stale evidence detection, selective regeneration, and offline guide export.
-- Mac onboarding, recovery, accessibility, and signed/notarized packaging.
+- Git-like section/chapter history, stale evidence detection, and selective regeneration. Standalone offline guide export is post-1.0.
+- Mac onboarding, recovery, repository safety, and signed/notarized packaging.
 
-### Local change explanation milestone
+### Post-1.0 local change explanation milestone
 
 - A local read-only comparison viewer for Git base/head refs, a reviewed PR Guide workflow from selected diff evidence, and a transient explanation flow for one selected hunk exist in source. PR Guides have their own claim review and immutable local history; single-hunk explanations are temporary and do not create guide history. Their Kata acceptance evidence remains open. No GitHub login or remote PR fetch is part of these workflows.
 
@@ -225,6 +225,7 @@ Users can preview or edit the narration before speech generation. Audio is optio
 - Editing or committing files inside the selected repository.
 - Claiming complete runtime behavior, full call graphs, or every language without validated parser evidence.
 - Remote GitHub PR fetching, comments, collaboration, or repo write access.
+- Standalone offline guide export, direct API provider selection, PR explanations, and non-Codex agent integrations are post-1.0 follow-ups.
 
 ## Recommended architecture
 
@@ -238,10 +239,10 @@ The more detailed data and trust boundaries are in [Technical plan](TECHNICAL_PL
 |---|---|---|
 | M0 — Product shell | Shared visual language and navigable Mac shell | Explorer, Search, Changes, and Explorations use the approved activity bar; the pinned composer and Guide/Flow/history views work without an AI request. |
 | M1 — Repository truth | Immutable local snapshot, inventory, index, and Files source/explanation view | Offline browsing shows every path/reason and every source link opens the same captured snapshot. |
-| M2 — File-by-file guide | Full coverage accounting, reviewed generation, validation, editing, quality review | Every eligible file can have its own substantive chapter; invalid or uncited claims cannot be accepted; no hidden omission. |
+| M2 — On-demand file explanations and repository Guides | Source-grounded explanations when requested, plus a coherent Guide through relevant code | A useful Guide explains a supported behavior path without bulk-generating a chapter for every file; accepted claims cite captured source and unsupported claims cannot be accepted. |
 | M3 — Interactive explainer | Manual section player, linked visuals, transcript, optional narration | The reader can pause at every section, inspect the cited source, return to the same state, and deliberately continue. |
-| M4 — Git-like guide updates | Fine-grained staleness, section regeneration, history, offline export | Changing one file leaves unrelated sections and assets unchanged; regenerated content is a reviewed new revision. |
-| M5 — Mac release | Onboarding, recovery, accessibility, packaging | A fresh user can open a repo offline, recover from failures, and use the signed app without a key. |
+| M4 — Git-like guide updates | Fine-grained staleness, section regeneration, history; standalone offline export is post-1.0 | Changing one file leaves unrelated sections and assets unchanged; regenerated content is a reviewed new revision. |
+| M5 — Mac release | Onboarding, recovery, repository safety, packaging | A fresh user can open a repo offline, recover from failures, and use the signed app without a key. |
 | M6 — PR Guide follow-up | Local diff explanation with a separate, reviewed guide history | Every claim cites the correct immutable base/head hunk; acceptance decisions do not change repository guide chapters or Git refs. |
 
 The build order and independent issue scopes are tracked in Kata. PR Guide is deliberately not a dependency of the first useful release.

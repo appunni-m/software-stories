@@ -37,6 +37,10 @@ Implement the local retrieval layer recommended by the [industry review](../rese
 
 Partial implementation: native range indexing/search/read commands, structural lookup and workspace search wiring are implemented. See the [interface and limits](../architecture/repository-retrieval.md) and [Fontdone measurements](../acceptance/2026-10-17-range-retrieval.md). In the 31 October fresh-cache Fontdone profile, the 12-span corpus returned all named ranges globally and when scoped. Each broad query found 5/12 expected ranges on its first range page and 10/12 or 7/12 in the full 256-candidate window. File discovery found all seven expected paths on its first page; discovery followed by scoped search recovered all 12 ranges for both queries. This is one local profile, not proof of automatic agent selection or broad answer quality.
 
+### Latest Fontdone retrieval trace — 6 November 2026
+
+The current-source [incremental profile and rank trace](../acceptance/2026-11-06-fontdone-broad-retrieval-rank-trace.md) indexed 1,621 files and 3,462 ranges. All twelve expected spans were indexed and found by their named queries. Each fixed broad range query returned 5/12 expected spans on its first page, while all twelve remained in the per-term candidate set. File discovery found 6/7 expected files on the first broad-query page and 7/7 on the name-free query; discovery followed by scoped reads recovered 12/12 ranges. The single global range page is insufficient for a repository-wide answer, but this fixed-query profile does not qualify or falsify the owned agent's file-discovery-to-scoped-read sequence. No ranker change is justified by this trace. Qualify that actual sequence and review its answer/citations through the dependent `gk46` task.
+
 Remaining acceptance work:
 
 - Structural definition/relationship/module-map native commands are implemented; qualify their full cancellation/corruption and packaged invocation boundaries. Static relationship lookup is not a precise reference resolver. See the [structural checkpoint](../acceptance/2026-10-17-structural-context.md).
@@ -379,6 +383,26 @@ answer quality still need independent qualification. Exact profile details:
 [current-source recheck](../acceptance/2026-10-17-range-retrieval.md#recheck-after-distinct-term-first-range-ordering--29-october-2026). Keep
 `a699`, `0wdn`, and `gk46` open.
 
+## Incremental profile after full-question ranking changes — 2 November 2026
+
+The ignored native one-file profile was rerun on current `main` at
+`d994ed010ebd016dd9957501bbc5aa99a6113a43`, against the same frozen Fontdone
+snapshot and a marked disposable copy. All 12 named implementation ranges
+were found globally and when scoped. Incremental indexing replaced 53 ranges
+in `src/font.rs`, reused 1,620 files and 3,409 documents, and produced the same
+3,462-document single-segment index as a fresh build. The measured incremental
+build was 3,080 ms versus 13,547 ms for a fresh reference build.
+
+The two fixed broad range queries still found only 5/12 expected spans on
+their first page. This confirms that the 1 November discovery-term changes did
+not improve this range-search measure. It does not imply that staged file
+discovery and path-scoped retrieval regressed; this profile tests broad range
+pages and exact named queries, not the agent's multi-stage tool choices. No
+provider request ran. The exact method and limits are in the
+[2 November profile](../acceptance/artifacts/2026-11-02-fontdone-incremental-profile.json).
+Keep `a699`, `0wdn`, and `gk46` open for staged Codex retrieval, cancellation,
+packaged search, and answer-quality acceptance.
+
 ## Full bounded file-discovery window — 30 October 2026
 
 Automatic source discovery can now consume all 256 unique file candidates in
@@ -425,3 +449,17 @@ qualify agent choice, answer quality, packaged offline search, or storage
 pressure. Full observations:
 [fresh-cache profile](../acceptance/2026-10-17-range-retrieval.md#fresh-retrieval-cache-fontdone-profile--31-october-2026). Keep
 `a699`, `0wdn`, and `gk46` open.
+
+## Current-source Fontdone profile — 7 November 2026
+
+The saved Fontdone snapshot was re-profiled on current source after the
+snapshot/cache metadata validation changes. The fresh retrieval index took
+15.565 s; the one-file incremental update took 4.236 s and reused 1,620 files
+and 3,409 documents. The old generation remained unchanged, the new document
+keys matched a fresh reference, and both outputs had 3,462 documents in one
+segment. All twelve named ranges were found globally and scoped. A broad
+first-page query still found only 5/12, while first-page file discovery found
+6/7 paths for the broad query and 7/7 for the name-free query. This does not
+qualify the agent's tool choice or answer quality. See the
+[current-source profile](../acceptance/2026-11-07-fontdone-current-source-index-profile.md).
+Keep `a699`, `0wdn`, `gk46`, and `bcn2` open.

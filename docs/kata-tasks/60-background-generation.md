@@ -31,13 +31,12 @@ Workspace generation routes a sole AI-selected implementation file to the file c
 
 The broad native question had no validated answer after 606 seconds and was manually stopped. Two queued questions then failed because the frontend reused a cached connection after native cancellation reaped the process. The narrow correction checks/restores the actual saved runtime at the queue boundary before preparing a fresh review; [task 67](67-queued-connection-recovery.md), Kata `xs7j`, owns its regression and native cancellation qualification. Preserve the original failed cards.
 
-- [ ] Profile large-repository time to the first useful, validated answer separately from discovery, generation, validation and queue wait; retain exact request/source identities and do not call this single run a performance benchmark.
 - [ ] Distinguish waiting questions from the active question with compact, reader-facing status. In this run every queued card said “Building your explanation…” for the duration of the slow first request.
 - [ ] Complete the wider restart, cancellation/race, durable scheduler and lost-save matrix; the narrow connection correction does not close this parent.
 
 ### Industry review follow-up — October 17
 
-The timing checkbox now has a concrete child contract: [generation timing traces](71-generation-timing-traces.md), Kata `ps02`. Record queue/connection/index/retrieval/inference/validation/publication separately and distinguish first validated answer from first token. The [industry review](../research/2026-10-17-repository-context-and-indexing.md) recommends independently validated section publication and avoiding output the presentation layer discards.
+The [industry review](../research/2026-10-17-repository-context-and-indexing.md) recommended stage timing and a two-minute target; the user removed those as first-release gates on 8 November. Keep progress concise and reader-facing, publish validated sections as soon as they are ready, and do not add an elapsed-time cutoff.
 
 ## Current source state — 31 October 2026
 
@@ -60,10 +59,10 @@ in-flight model turn continued across app restart. The source covers a
 durable lifecycle record, not the complete installed-app journey.
 
 Still open: fresh packaged whole-repository generation, first useful-section
-latency and content quality, queued-question distinctions, Stop and save
+content quality, queued-question distinctions, Stop and save
 failure races, close/reopen recovery, changed account or revoked grant, and
 playback-paced slide refill. No new provider request, build, or test was run
-for this documentation correction. Keep `nw1h`, `3bz5`, `ps02`, and the
+for this documentation correction. Keep `nw1h`, `3bz5`, and the
 dependent repository-narrative task open until their acceptance evidence is
 recorded.
 

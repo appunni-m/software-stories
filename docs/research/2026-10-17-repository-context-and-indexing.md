@@ -2,6 +2,11 @@
 
 Research date: 17 October 2026; expanded review against primary documentation on the same date. Historical app observations distinguish the `be49e35` [Fontdone acceptance run](../acceptance/2026-10-17-fontdone.md) from the `94ff754` [native retrieval checkpoint](../acceptance/2026-10-17-range-retrieval.md). Native structural tools have a [separate checkpoint](../acceptance/2026-10-17-structural-context.md). The subsequent [owned Codex investigation report](../acceptance/2026-10-17-codex-owned-retrieval.md) records implemented tool use, successful synthetic/focused investigations and failed broad attempts. This research is not a broad-generation acceptance pass.
 
+> **Scope update — 8 November 2026:** the proposed two-minute first-answer
+> target and standalone stage-timing task were removed from the first-release
+> backlog. This dated research remains context; Guide jobs have no clock-based
+> stop or pass/fail threshold.
+
 ## Recommendation
 
 Build a shared, local repository context service: an immutable inventory, syntax-aware source ranges, lexical search, and confidence-labelled relationships. Let the existing Codex app-server search and read those ranges through narrowly scoped tools. Generate independently saved explanation sections from the retrieved evidence, then attach visuals and Pocket narration.
@@ -211,14 +216,14 @@ Local searches can run independently without launching multiple Codex processes.
 
 1. [Local range index and retrieval](../kata-tasks/69-local-range-retrieval.md), Kata `a699`: remove large-file discovery blindness while keeping bounded requests.
 2. [Codex retrieval tools](../kata-tasks/70-codex-retrieval-tools.md), Kata `gk46`, blocked by `a699`: qualify the existing account-backed harness with the owned read-only context service.
-3. [Generation timing traces](../kata-tasks/71-generation-timing-traces.md), Kata `ps02`: establish the first useful answer and the slow stage before tuning. This measurement work can proceed independently of the retrieval replacement.
-4. Existing [repository narratives](../kata-tasks/38-repository-narratives.md), [background jobs](../kata-tasks/60-background-generation.md) and [route batches](../kata-tasks/56-route-chapter-batch.md) own progressive whole-guide generation, restart and selective updates. Research does not close these gates.
+3. Historical [generation timing proposal](../history/71-generation-timing-traces.md): an earlier task recommended stage measurements and a two-minute target. Kata `ps02` was soft-deleted on 8 November; it is not current work.
+4. Existing [repository narratives](../kata-tasks/38-repository-narratives.md), [background jobs](../kata-tasks/60-background-generation.md) and [historical route-batch notes](../history/56-route-chapter-batch.md) own progressive whole-guide generation, restart and selective updates. Research does not close these gates.
 5. Fix [reading-position persistence](../kata-tasks/68-exploration-reading-position.md) independently; no indexing change will repair component-local navigation state.
 6. In [language qualification](../kata-tasks/39-language-capability-tiers.md), compare Serena/LSP and SCIP import before expanding custom semantic resolution. Record installation/runtime requirements, language coverage, revision matching, read-only enforcement, cancellation, packaging/licences and a useful fallback. This is an evaluation requirement, not an instruction to install a new dependency now.
 
 Compare the existing selector, lexical ranges, lexical+relationship expansion, agentic retrieval and any later semantic candidate retrieval against the **same frozen question set**. Establish expected source ranges by independent code review, not the retriever's own answers. Include Fontdone's font-bytes-to-bitmap route, `Font::memory_face`, a name-free broad question, files above the parser limit, unsupported syntax, and a TypeScript project.
 
-Measure candidate and evidence recall, citation correctness, answer usefulness, missing branches, first validated answer latency, total time, source/output bytes and index size/update work. Preserve failed runs and partial coverage. Measure warm/cold paths separately with the same model/reasoning and no concurrent build. A proposed product target is a first useful validated answer within two minutes for the agreed Fontdone questions; this is a **target, not a measured capability or industry guarantee**.
+Measure candidate and evidence recall, citation correctness, answer usefulness, missing branches, source/output bytes and index size/update work. Preserve failed runs and partial coverage. Historical timing comparisons may be noted, but there is no current first-answer SLA or Guide timeout.
 
 No new Codex inference, application test or package build was run for the research itself. Subsequent native retrieval tests and measurements are recorded separately in the [implementation checkpoint](../acceptance/2026-10-17-range-retrieval.md). The original broad-answer and navigation failures remain open until their full acceptance contracts pass.
 

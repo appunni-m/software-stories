@@ -8,6 +8,42 @@ labels: product-quality
 blocked_by: parser-binding-resolution
 ---
 
+## Scope update — 7 November 2026
+
+Formal accessibility audit matrices are out of scope at the user's direction.
+Do not repeat VoiceOver/screen-reader, 200% zoom, contrast-preference, or
+reduced-motion checks as acceptance gates. Dated observations below are
+historical evidence only. Keep ordinary keyboard interaction and readable
+light/dark presentation where they support the core Guide workflow.
+
+Current closure evidence remains: a fresh real-code Guide, source-grounded and
+useful per-scene visuals, working source navigation and scene progression,
+reviewed narration/audio, and human confirmation that each representation
+helps explain the behavior. Standalone offline export is outside this release;
+its archived definition is [here](../history/post-1.0/22-offline-export.md).
+
+## Source regression checkpoint — 7 November 2026
+
+At source revision `6e17994`, `npm run check` passes: 803 frontend tests, 940
+native tests (18 explicit live probes ignored), the seven-case chapter-quality
+corpus, the TypeScript/Vite production build, and Cargo check. The build still
+reports 35 unused-code warnings and the existing main-chunk size warning.
+This run made no provider/account request and generated no chapter. It does not
+qualify visual quality, packaged rendering/source clicks, Pocket listening, or
+human comprehension; keep `j53m` open. Offline export is a separate post-1.0
+capability with no active Kata issue.
+
+## Focused visual reader and schema rerun — 8 November 2026
+
+On `main@b8b4163`, the visual reader, presentation safety, and scene navigation
+suites passed **84/84** with
+`node --experimental-strip-types --test tests/visualStory.test.mjs tests/visuals.test.mjs tests/scenePresentation.test.mjs`.
+They cover per-claim composition/graph selection, supported typed layouts,
+executable-content rejection, claim-linked source navigation, scene/audio
+progress restoration, and responsive composition rendering. No new model
+output was generated. Packaged real-code scenes, visual usefulness, Pocket
+listening, and human comprehension remain unqualified; keep `j53m` open.
+
 ## User outcome
 A freshly generated chapter contains a useful visual that explains actual behavior and lets the reader inspect the supporting code.
 
@@ -21,7 +57,7 @@ Selective updates now preserve the prior graph's node, edge, and hotspot IDs onl
 
 The existing player renders clickable source citations for node and edge evidence and routes node hotspots through revision-aware navigation (`src/Walkthrough.tsx`). The offline exporter serializes typed diagrams and links node/edge evidence and Code Lens hotspots to bundled targets (`src/lib/offlineExport.ts`). This is static implementation evidence only.
 
-This is partial source progress, not acceptance evidence. No tests or builds were run. There is not yet a generated example with a source-click walkthrough, visual accessibility/reflow review, exercised offline export, or a human comprehension review. Generation uses the shared structured chapter contract and canonicalizer in the direct-provider and native agent source paths. That shared source wiring does not establish accepted Codex/Claude runtime support, visual quality or production readiness.
+This is partial source progress, not acceptance evidence. No tests or builds were run. There is not yet a generated example with a source-click walkthrough, visual review at supported window sizes, exercised offline export, or a human comprehension review. Generation uses the shared structured chapter contract and canonicalizer in the direct-provider and native agent source paths. That shared source wiring does not establish accepted Codex/Claude runtime support, visual quality or production readiness.
 
 ## Contract
 Add a reviewed structured visual-planning step using the selected API or coding-agent backend. Choose an appropriate diagram from validated source claims: request/data flow, call sequence or component hierarchy. Resolve model-proposed references to app-owned exact anchors and typed destinations locally; validate every behavior node/edge. Use the existing app-owned renderer; never execute generated scripts/HTML. Plan bounded scenes and deliberate transitions so readers can follow one behavior at a time. Preserve text-only use when a diagram adds no explanatory value.
@@ -31,9 +67,8 @@ Add a reviewed structured visual-planning step using the selected API or coding-
 - A route example shows input, relevant calls, state/data changes, success and failure branches supported by exact code; a structural-only graph is labeled accordingly.
 - Each behavior node/edge opens its exact supporting snapshot range; Back preserves section, focus and playback position.
 - Unknown references, invented control/data flow and unsupported runtime claims are rejected or visibly marked uncertain.
-- Labels and layout remain readable in realistic multi-step chapters and at 200% zoom; keyboard and reduced-motion use retain meaning.
+- Labels and layout remain readable in realistic multi-step chapters at supported window sizes; normal keyboard interaction retains meaning.
 - Changing one section invalidates only dependent visuals; unchanged visual inputs retain their IDs.
-- Offline export carries the validated diagram and destinations.
 - Human review compares generated explanations against source and records whether the visual helps someone answer behavior questions; do not claim uniqueness from renderer availability.
 
 ## Excludes
@@ -51,7 +86,7 @@ A real Codex-generated synthetic diagram passed native source validation but the
 
 ## October 17 narrated visual scenes
 
-Apply the [visual story contract](61-guide-flow-detail.md): scenes are authored claim units, linked to their own validated node evidence; narration describes the visual's decisions and meaning. Guide reveals a focused graph with real branching and readable action labels, while full-map inspection remains available. No generated executable HTML, guessed word alignment, invented runtime paths or automatic whole-section replacement. Require fresh generated Rust and TypeScript stories, preserved branches/errors, readable focal nodes, source/return, keyboard/reflow/motion evidence and human comprehension before closure. The older Fontdone dispatch graph can exercise rendering but is not a newly authored story or a complete repository answer.
+Apply the [visual story contract](61-guide-flow-detail.md): scenes are authored claim units, linked to their own validated node evidence; narration describes the visual's decisions and meaning. Guide reveals a focused graph with real branching and readable action labels, while full-map inspection remains available. No generated executable HTML, guessed word alignment, invented runtime paths or automatic whole-section replacement. Require fresh generated Rust and TypeScript stories, preserved branches/errors, readable focal nodes, source/return behavior through the core keyboard workflow, and human comprehension before closure. The older Fontdone dispatch graph can exercise rendering but is not a newly authored story or a complete repository answer.
 
 ## October 17 representation choice and AI-authored HTML
 
@@ -59,7 +94,7 @@ The user's clarified requirement supersedes the graph-only interpretation: prese
 
 The implementation contract is [AI-authored scene compositions](../VISUAL_SCENES.md). The selected account-backed Codex agent authors a bounded HTML component tree via `visual.presentation`; the app renders the HTML. Native and reader validation enforce one scene per claim, same-claim evidence links, exact source values, explicitly labeled illustrative data, a single bounded tree and no executable content. AI chooses layouts and representation per scene, including graph scenes; app-owned rendering controls appearance, source clicks, playback, keyboard use and motion. Legacy graphs remain unchanged. Presentation changes participate in revision comparison and selective visual reuse.
 
-Closure still requires a fresh ordinary Codex-generated HTML composition and a justified graph on real Rust/TypeScript behavior, native display/source clicks, scene/audio lifecycle, readable narrow/light/dark views, preserved failure paths, comprehension/listening review, and equivalent offline export. The new structured contract is generation infrastructure, not proof of visual or semantic quality. Offline export must preserve the actual composition or explicitly disclose its current graph/evidence fallback; it cannot claim full scene fidelity prematurely.
+Closure still requires a fresh ordinary Codex-generated HTML composition and a justified graph on real Rust/TypeScript behavior, native display/source clicks, scene/audio lifecycle, readable narrow/light/dark views, preserved failure paths, and comprehension/listening review. The new structured contract is generation infrastructure, not proof of visual or semantic quality. Standalone offline export is deferred post-1.0; its definition is archived outside the active Kata list.
 
 ## October 17 HTML scene qualification
 
@@ -843,9 +878,10 @@ the visual schema: no proposal reached native validation. The runtime trace
 contains no terminal stage explaining the idle interval. At this 23 October
 checkpoint, source policy was `ai-html-compositions-v37` / teaching policy
 `meaning-first-v27` at `a8a9891`; the installed v30 executable predates those
-prompts and this run cannot qualify them. Preserve `ps02`'s timing gap and
-`3bz5`'s incremental publication gap. Fresh rendered visuals, source-click behavior, narration,
-accessibility and human comprehension still require qualification.
+prompts and this run cannot qualify them. Preserve the historical timing
+observation and `3bz5`'s incremental-publication findings; timing is no longer
+an acceptance threshold. Fresh rendered visuals, source-click behavior,
+narration and human comprehension still require qualification.
 
 ## Current source policy — 24 October 2026
 
@@ -1355,7 +1391,7 @@ stories, pacing or comprehension; keep `j53m` open.
 
 ## Current source contract audit — 3 November 2026
 
-The current source declares `ai-html-compositions-v71`, `meaning-first-v33`,
+The current source declares `ai-html-compositions-v73`, `meaning-first-v36`,
 and `reader-language-v1` in
 [`visual_scenes.rs`](../../src-tauri/src/provider/visual_scenes.rs). The
 versioned prompt chooses a typed composition or graph for each claim scene from
@@ -1370,7 +1406,48 @@ reject unchanged transform scenes (`676fec9`), allow a complete causal narration
 beat (`b2c1991`), and clarify spoken code terms (`4666f54`). The older October
 entries above remain historical observations of the earlier prompt versions.
 
+The 1 November narration expansion to four sentences and 760 UTF-8 bytes was
+subsequently tightened by `dfaac09` on 3 November. The current shared schema,
+native validator, correction guidance and generation prompt allow at most three
+short sentences and 420 UTF-8 bytes per scene. This is a source-contract update;
+it does not establish that generated stories are complete, well paced or easier
+to understand.
+
 No fresh chapter, source-click walkthrough, human comprehension review,
 200%-zoom/keyboard/reduced-motion inspection, Pocket listening, or offline
 export was performed for this audit. Do not infer visual variety or teaching
 quality from the prompt/schema alone; keep `j53m` open.
+
+## Source review of a saved Fontdone visual — 2026-11-04
+
+Inspected one existing local draft bound to the partial Fontdone snapshot
+`main@5249b72371`; no provider request, narration, edit, or snapshot change was
+made. Its two scenes represent the success path as a metrics-only transform
+and the failed-strike outcomes as a branch. The claims and visible cues match
+the captured implementation in `src/api.rs:772–803` and the bitmap-construction
+gate in `src/api.rs:970–979`. The narration describes the missing bitmap and
+distinguishes the strike-only error from a miss that continues to later glyph
+loading. This is one source-faithfulness spot check of stored content; the
+renderer was not captured, and this does not establish visual clarity,
+accessibility, audio quality, or human comprehension. The prompt version of
+this older saved draft is not recorded. Keep `j53m` open for fresh generation
+and the remaining packaged, audio, accessibility, export, and human-review
+gates.
+
+## Graph scene claim-focus correction — 4 November 2026
+
+Current source now declares story policy `ai-html-compositions-v74`, visual
+design method `v64`, teaching policy `meaning-first-v36`, and reader language
+policy `reader-language-v1`. A narrated graph scene must include a node citing
+its own claim. The reader focuses that scene on its claim-linked nodes plus one
+edge of context, capped at eight visible nodes; Full map remains a separate
+inspection view. Native preflight rejects a scene with no claim-linked focus,
+and the versioned one-attempt correction now diagnoses that case and asks the
+agent to add a node tied to the scene's evidence or use a meaningful
+composition. Correction policy advanced from v7 to v8.
+
+Focused Rust regressions passed for the missing-focus diagnostic, native
+claim-linked-node validation, shared visual prompt contract, and correction
+policy version. `git diff --check` passed. No fresh guide, provider request,
+packaged build, audio playback, accessibility check, or human-comprehension
+review ran. This closes a source-validation gap only; keep `j53m` open.

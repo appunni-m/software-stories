@@ -3,13 +3,17 @@ kind: task
 key: t28
 parent: m7
 title: Add selectable direct model API providers
-priority: 1
-labels: phase-7, provider, privacy
+priority: 2
+labels: phase-7, provider, privacy, post-1.0
 blocked_by: t10, t12, t15, t20, t27
 ---
 
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
+
 ## User outcome
 The user can choose a direct model API for every supported text-generation operation and knows which vendor receives the reviewed source context. Google Gemini is one option in an extensible catalog, not the product's only AI path.
+
+> **Scope update — 7 November 2026:** keep this requested provider catalog in the roadmap, but defer it until after the Codex-first 0.1.0 release. It does not block first release acceptance.
 
 ## Contract
 Keep direct model APIs separate from coding-agent runtimes. Provide selectable Gemini, OpenAI, and Anthropic API adapters for every direct text-generation operation in the product: file chapters, optional orientation, selective section regeneration, on-demand Code Lens explanation, PR guides, and PR change explanations. Maintain an operation-to-capability matrix so each operation shows which API adapters support its schema, streaming, cancellation, and other required features. Speech synthesis remains a separate modality owned by t18; this task must not imply a text-generation client can synthesize speech.
@@ -40,7 +44,7 @@ Coding-agent sessions, speech/TTS provider selection, product-hosted gateways, a
 Generate and locally validate fixtures for every operation claimed in the capability matrix through each API adapter using mock transports; verify the selected vendor receives only the reviewed fingerprint, each provider's capability/disclosure UI is accurate, and a failed provider leaves the user on the same explicitly chosen backend without altering accepted guide history. Attach the dated library decision record and adoption evidence.
 
 ## References
-- [Dated Rig `rig-core` vs `genai` comparison and prototype recommendation (2026-10-13)](../research/2026-10-13-rust-model-client-comparison.md)
+- [Dated Rig `rig-core` vs `genai` comparison and prototype recommendation (2026-10-13)](../../research/2026-10-13-rust-model-client-comparison.md)
 - [Rig core concepts](https://rig.rs/docs/concepts/) and [Rig provider integrations](https://docs.rs/rig-core/latest/rig_core/providers/index.html)
 - [`genai` Rust multi-provider client](https://github.com/jeremychone/rust-genai)
 - [LiteLLM overview](https://docs.litellm.ai/docs/) for the optional gateway/service alternative

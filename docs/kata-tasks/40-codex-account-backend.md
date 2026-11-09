@@ -1,11 +1,13 @@
 ---
 kind: task
 key: codex-account-backend
-parent: t29
+parent: m2
 title: Implement Codex app-server chapter generation with account sign-in
 priority: 0
 labels: agents, provider
 ---
+
+> **First-release scope — 7 November 2026:** qualify Codex for the repository Guide, file chapters, section repair, source-range explanations, and bounded repository planning. App restart must recover locally saved results without silently replaying inference. The Codex app-server thread is ephemeral; resuming that remote thread is explicitly deferred. AI explanations of Git comparisons and PR hunks are post-1.0 and do not block the first release; the local Changes/history view remains part of the workspace.
 
 ## One-time connection requirement — 2026-10-16
 
@@ -19,7 +21,7 @@ The packaged app automatically discovered the existing desktop Codex with no sav
 
 `npm run check` passed: corpus, 98 frontend tests, 185 Rust tests passed/two ignored, frontend build and Cargo check. The opt-in installed-account metadata test passed separately. Local unsigned packaging and native file flow were exercised. The synthetic permission probe allowed staged reads and denied outside reads/writes; no network probe ran.
 
-**Still required:** native evidence for every remaining operation; account/runtime/change/cancel/quota/crash/recovery boundaries; bounded repair and actionable diagnostics after invalid chapter output; usable real-repository narratives/visuals; narration, accessibility, clean-account packaging and distribution qualification. One prior native response failed validation; the later success did not prove automatic recovery. Keep this task open. Claude is deferred in `8gqw`.
+**Still required for the first release:** native evidence for the Guide, file, section, source-range and repository-planning operations; account/runtime/change/cancel/quota/crash/recovery boundaries; bounded repair and actionable diagnostics after invalid chapter output; usable real-repository narratives/visuals; narration, clean-account packaging and distribution qualification. PR Guide and hunk acceptance are post-1.0. One prior native response failed validation; the later success did not prove automatic recovery. Keep this task open. Claude is post-1.0.
 
 ## Next reliability requirement: recover an invalid generated chapter
 
@@ -78,11 +80,65 @@ The user connects an eligible ChatGPT account once and generates chapters throug
 ## Research decision — 2026-10-15
 Use official Codex app-server over Rust-managed stdio. The initial local-app implementation uses the runtime's native managed ChatGPT login. OpenAI's separate direct Sign in with ChatGPT documentation remains relevant to a possible qualified distribution; Code Atlas has not implemented direct client registration, PKCE or token sharing. Establish this project's license, exact account/distribution eligibility and pinned runtime contract. An older installed runtime is not evidence that current app-server lacks required controls.
 
+This dated decision is historical. The local/open-source account-route decision
+is recorded below; exact runtime compatibility and packaged acceptance remain
+unresolved.
+
+## Account route and runtime policy (2026-11-02)
+
+OpenAI's current app-server guidance says local and open-source applications
+already using app-server authentication may continue using it, recommends
+migrating to Sign in with ChatGPT for user visibility and control, and says
+app-server authentication is not permitted for commercial or hosted services.
+Code Atlas is an MIT-licensed local macOS application, so the first release
+will keep Codex's managed `account/login/start` route. A separate Code Atlas
+OAuth/token manager is not a prerequisite for that local open-source release.
+Revisit this choice before offering hosted or commercial use. See [OpenAI's
+app-server authentication guidance](https://learn.chatgpt.com/docs/app-server#authentication).
+
+Sign in with ChatGPT remains a possible later migration, not an API-key
+fallback: its open-source flow uses PKCE and dynamic client registration,
+requires Code Atlas to validate and retain account credentials, and passes an
+authorized OAuth access token to app-server as documented in [the ChatGPT-plan
+app-server guide](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
+and [open-source registration guide](https://developers.openai.com/siwc/token-sharing-open-source/sign-in).
+Its `model/list` response is still a catalog, not entitlement proof. This
+migration would add a separate account lifecycle and is not part of the first
+local release decision.
+
+Code Atlas continues to discover the user's installed Codex runtime rather
+than bundling a second Codex installation. A standalone `codex --version` does
+not identify the app-server child selected from the desktop application. The
+current Rust app-server protocol defines `userAgent` in the `initialize`
+response, and the Rust client derives the version from it. The maintained
+Python SDK also models optional `serverInfo.version`, prefers it when supplied,
+and falls back to `userAgent`. Code Atlas follows that order, accepting only a
+validated version; packaged acceptance must record which field the runtime
+returned. No complete supported-version matrix or operation-by-version package
+acceptance exists yet. See the [Codex initialize response
+schema](https://github.com/openai/codex/blob/main/codex-rs/app-server-protocol/src/protocol/v1.rs),
+[Rust client version extraction](https://github.com/openai/codex/blob/main/codex-rs/app-server-client/src/remote.rs),
+and [Python SDK version selection](https://github.com/openai/codex/blob/main/codex/sdk/python/src/openai_codex/client.py).
+
+### Bind the observed runtime version to each new review — source checkpoint, 2026-11-02
+
+`CodexReviewRuntime` now carries the version observed during the current
+app-server handshake. New Codex request reviews and progressive evidence-ledger
+operations require a bounded nonempty version and include it in their local
+runtime identity/fingerprint. A missing field still decodes in older local
+records for read-only inspection, but it cannot authorize a new request.
+`cargo check --locked --manifest-path src-tauri/Cargo.toml` passed with 41
+warnings; no test suite, app launch, sign-in, package or provider request ran.
+This records which runtime an operation reviewed; it does not establish that
+runtime as supported. Full `cargo fmt --check` still reports repository-wide
+formatting drift, including unrelated lines in existing files, so no broad
+format was applied. Keep exact-version packaged operation acceptance open.
+
 ## Historical implementation notes — 2026-10-15
 
 The current native evidence above supersedes earlier protocol, setup and no-test statements in this section.
 
-**Installation selection — source only, 2026-10-16:** the setup form now offers a native **Choose executable…** action alongside absolute-path entry. It uses the existing Tauri dialog library through one typed installation-file command and only fills an unsaved field; **Save executable** retains native validation and runtime change/review invalidation. Selection starts no process, account check or model request. Cancel leaves the previous field intact; superseded replies are ignored. Native dialog/accessibility/adapter acceptance remains pending in `xymb`; no tests or builds ran and this task remains open.
+**Installation selection — source only, 2026-10-16:** the setup form now offers a native **Choose executable…** action alongside absolute-path entry. It uses the existing Tauri dialog library through one typed installation-file command and only fills an unsaved field; **Save executable** retains native validation and runtime change/review invalidation. Selection starts no process, account check or model request. Cancel leaves the previous field intact; superseded replies are ignored. Packaged dialog and adapter acceptance remains pending in `xymb`; no tests or builds ran and this task remains open.
 
 Source now includes the managed runtime in `codex_agent.rs`, native commands in `codex_commands.rs`, shared chapter context/schema/evidence validation, `CodexChapterDialog`, and the app backend picker. The route covers one file chapter with selected supporting files or an overview of 1–12 selected captured files. It includes executable setup, native browser login/cancel/logout, explicit runtime `model/list`, model/effort preferences, fixed `never` approval policy, exact review/consent, staged context, progress/cancel, unaccepted draft save/review and child shutdown.
 
@@ -96,11 +152,12 @@ The source also connects **exact Code Lens selections**. The backend chooser kee
 
 Remaining broader qualification work (the current file baseline above is complete):
 
-- [ ] Pin and package a supported runtime/version, record its license/distribution inventory and confirm the exact native-login route is eligible for this app; separately decide whether a direct SIWC client is needed for distribution.
-- [ ] Qualify account availability and model selection independently of the runtime catalog; qualify the native account/runtime review binding now present in source, including expiry, refresh, logout, same-metadata workspaces, executable changes and restart behavior.
+- [ ] Record and qualify the exact version parsed from the app-server initialize response used by the packaged app for each required operation, including the effective read-only configuration and account lifecycle; record whether it came from `serverInfo.version` or `userAgent`. Do not infer the app-server version from a separately installed `codex --version`, and do not claim general compatibility from schema/configuration checks alone. The app intentionally discovers the user's installed Codex runtime instead of bundling a second Codex installation.
+- [ ] Qualify account availability and actual model entitlement independently of the runtime catalog; qualify the native account/runtime review binding now present in source, including expiry, refresh, logout, same-metadata workspaces, executable changes and restart behavior.
 - [ ] Exercise actual filesystem, command, write, `.git`, instruction/plugin/MCP and tool-egress restrictions; account/provider control traffic must remain possible without granting arbitrary agent egress. Add an OS boundary or keep the route unqualified if runtime controls cannot satisfy the contract.
 - [ ] Record real file/overview generation, structured-output rejection, local citation validation, draft save/accept, quota/error recovery, cancellation/crash/restart and process cleanup on the packaged app.
-- [ ] Implement or explicitly scope persistent resume, qualify exact range/Git-scope recovery and every implemented chapter/section/range/PR route. Current ephemeral runs and source wiring do not satisfy native lifecycle/workflow acceptance.
+- [ ] Verify local restart recovery preserves published results and does not replay inference; persistent remote app-server thread resume is deferred beyond 0.1.0.
+- [ ] Qualify exact Code Lens range recovery and required first-release chapter/section operations. PR, commit, and hunk explanations are post-1.0.
 
 No tests, builds, login, app-server launch, model request or runtime probes ran for this implementation. The selectable source UI does not establish supported-backend acceptance.
 
@@ -111,18 +168,18 @@ Codex now has a registered native `build_codex_repository_plan_review` command a
 A registered native `send_codex_repository_plan_request` now reuses shared consent/scope/source preflight and journal admission, then keeps native operation/process ownership through pure result validation. Its original review/fingerprint/executable and admission clock bind the result access; cancellation, timeout and async owner drop can suppress late output. It returns transient unaccepted plan data and keeps the exact recovery notice. The app planning flow is now connected in source; accepted plan/history workflow and complete planning recovery remain pending; runtime acceptance remains missing and the planning matrix cell stays Missing. Direct API commands now check backend/operation before removing a foreign review or loading credentials. This does not add an API prerequisite or qualify Codex runtime/model/account behavior. No tests, builds, launches, runtime probes, logins or model requests ran.
 
 ## Contract
-Add an Agent runtime category alongside Direct API. Connect/disconnect with the documented browser OAuth flow, app attribution and native token storage/refresh. Read account-entitled models; combine with pinned runtime capability metadata for supported reasoning values. Show effective model, effort, approval policy and immutable source manifest before a run. Launch one managed app-server child, with app-owned configuration and no additional listener/Node daemon. Request the existing chapter output schema and route successful output through local source/citation validation to an unaccepted draft.
+Add an Agent runtime category alongside Direct API. For the first local open-source release, reuse Codex app-server's documented managed browser login and credential storage; identify Code Atlas through `clientInfo`, and keep the user's login outside the WebView and repository. Use `model/list` as the runtime's capability catalog, not account-entitlement proof; the actual generation result determines whether that account can use the selected model. Show effective model, effort, fixed approval policy and immutable source manifest before a run. Launch one managed app-server child, with app-owned configuration and no additional listener/Node daemon. Request the existing chapter output schema and route successful output through local source/citation validation to an unaccepted draft. A later Sign in with ChatGPT implementation would own its PKCE/account/token lifecycle and is a separate migration.
 
-Use restricted read-only staging, explicitly disable command execution and web/unrelated tools, and do not load repository instructions/plugins. Read-only access alone is not a no-command policy. Begin with bounded reviewed evidence passed directly; expand investigation with app-owned read/search tools. Implement progress, turn/interrupt, exit/reap, refresh/restart/resume and late-result guards. No automatic direct API fallback.
+Use restricted read-only staging, explicitly disable command execution and web/unrelated tools, and do not load repository instructions/plugins. Read-only access alone is not a no-command policy. Begin with bounded reviewed evidence passed directly; expand investigation with app-owned read/search tools. Implement progress, turn/interrupt, exit/reap, refresh, local restart recovery, and late-result guards. App restart restores already-saved sections and never resumes or silently replays an ephemeral server thread; the user must explicitly start a new request to continue. No automatic direct API fallback.
 
 ## Acceptance criteria
-- Eligible account login and one real chapter run require no API key; plan limits/eligibility and account route are clear.
-- Account-entitled model discovery controls choices; unsupported effort/approval values cannot be silently ignored.
-- OAuth secrets stay outside WebView, repository files, exports and logs; expiry/logout are recoverable.
+- Eligible account login and one real chapter run require no API key; plan limits, quota errors and the local/open-source account route are clear.
+- Runtime `model/list` controls model/reasoning choices but is not presented as account entitlement; unsupported effort or approval values cannot be silently ignored.
+- Managed runtime credentials stay outside the WebView, repository files, exports and logs; expiry/logout are recoverable without Code Atlas reading or copying credentials.
 - Exact selected context is staged; supported runtime tool controls and sandbox enforce the declared boundary.
 - Structured output is independently validated; invalid claims cannot become accepted chapters.
 - Progress/cancel/quota/refresh/crash states preserve prior history and no orphan process remains.
-- Update matrix from candidate to supported only with pinned-version packaged evidence when testing is authorized.
+- Update a runtime from candidate to supported only after recording the exact app-server initialize version and source field, then passing packaged operation, account and effective-boundary acceptance for that version. A separate CLI version or passing configuration-schema check is insufficient.
 
 ## Excludes
 ACP wrappers without need, token scraping, paid fallback, speech synthesis through this account route and an extra Node server.
@@ -152,7 +209,7 @@ The PR Guide screen now defaults to Codex, keeps Claude Agent visibly pending an
 - Valid guides enter independent unaccepted PR Guide history through the existing citation validator. Done returns to claim review/accept/reject. Hunk claims use the existing exact base/head quote validator and open their selected hunk; no chapter/guide history is written.
 - Progress, cancellation and late-result handling reuse the Codex dialog. A late cancellation or lost reply may follow a saved guide; the UI reloads PR Guide history and tells the user to inspect it before regenerating. A worker panic preserves recovery state and shuts down the manager rather than clearing the notice.
 
-Remaining: automatic repository narrative planning, permitted pinned runtime/account/distribution qualification, effective boundary checks, persistent resume or its explicit scope, exact Git/range interruption recovery, packaged acceptance and all deferred cases in `xymb`. The journal still requires deliberate comparison/hunk reselection. No tests, builds, launches, logins, runtime probes or model calls ran.
+Remaining: automatic repository narrative planning, exact app-server runtime/account qualification, effective boundary checks, persistent resume or its explicit scope, exact Git/range interruption recovery, packaged operation acceptance and all deferred cases in `xymb`. The journal still requires deliberate comparison/hunk reselection. No tests, builds, launches, logins, runtime probes or model calls ran.
 
 
 ## Source progress — exact range and Git interruption recovery
@@ -223,7 +280,7 @@ The complete planned-step scope enters the encoded review/fingerprint before con
 - [ ] Review actual answer quality across representative languages: grounded concrete code behavior, prerequisite recaps, explicit unknowns and useful visuals. Schema/citation validity does not establish that the learning question was answered.
 - [ ] Complete deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates before claiming an entire repository narrative.
 
-No tests, builds, app launches, native agent/SDK probes, login or model requests ran. Changed Rust regions were formatted; this does not establish compilation. Codex remains unaccepted source. The Claude qualification registry remains empty; all automatic Claude cells remain Missing. Official account guidance was rechecked October 16 and still does not resolve this product's subscription integration/distribution route. This task and the multi-agent release gate remain open.
+No tests, builds, app launches, native agent/SDK probes, login or model requests ran. Changed Rust regions were formatted; this does not establish compilation. Codex remains unaccepted source. The Claude qualification registry remains empty; all automatic Claude cells remain Missing. The October 16 account-guidance statement is historical; the local open-source app-server route decision and remaining runtime gates are updated in [Account route and runtime policy (2026-11-02)](#account-route-and-runtime-policy-2026-11-02). This task and the multi-agent release gate remain open.
 
 
 ### Original agent generation and exact step links — source checkpoint, 2026-10-16
@@ -349,3 +406,16 @@ model-unavailable warning before correcting itself. `ConnectionHeader` now
 prioritizes a neutral “Checking your saved Codex connection…” detail until
 that check completes. This is source-only; it has not been rebuilt or
 reinspected. No connection preferences or credentials changed.
+
+### Deterministic Codex runtime checks — 2026-11-04
+
+Ran `cargo test --manifest-path src-tauri/Cargo.toml --lib
+codex_agent::tests`: 12 passed, 2 intentionally ignored because they require
+an explicitly selected installed Codex/ChatGPT login or the opt-in local
+executable timing profile. The passing cases cover app-server version
+identity, explicit reconnect/disconnect state, isolated permission setup,
+reviewed repair candidates, source-read policy, bounded local-file failures,
+and foreign tool metadata rejection. No Codex process, login, source dispatch,
+or model request occurred. These unit checks do not qualify the installed
+account, real generation operations, cancellation/recovery, or packaged
+behavior; keep `z3an` open.

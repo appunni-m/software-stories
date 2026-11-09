@@ -1,5 +1,7 @@
 # Claude native generation admission
 
+> **Archived scope — 8 November 2026:** Claude Agent is not part of the Codex-first first release. This document preserves historical qualification requirements; there is no active Claude Kata issue. See the [post-1.0 archive](history/post-1.0/README.md).
+
 Claude generation is still unavailable. The bundled `src-tauri/resources/claude_generation_qualifications.json` has **zero profiles**. Registered send commands and a valid source preview cannot turn an observed installation into an admitted runtime. This document describes source behavior, not accepted runtime support.
 
 ## Native command boundary
@@ -45,7 +47,7 @@ The fingerprint is displayed in the advanced catalog readiness details. It is a 
 
 Chapter/guide validation now prepares candidates outside final publication ownership, uses nonblocking result-store publishers, and rechecks wanted result admission before any successful notice cleanup. Failed/rejected results retain their original recovery scope. See [the shared source lifecycle](AGENT_RESULT_LIFECYCLE.md); these controls have not been exercised.
 
-The registry remains empty while these requirements are unresolved. App generation controls and inference lifetime/late-reply handling now have source wiring but no runtime acceptance. Exact Claude interruption recovery UI now has source wiring; native acceptance remains pending. The deferred acceptance task `xymb`, Claude task `8gqw` and agent release gate `2r6n` remain open. No tests, builds, app launches, agent/SDK/CLI probes, logins or model requests ran for this source change.
+The registry remains empty while these requirements are unresolved. App generation controls and inference lifetime/late-reply handling now have source wiring but no runtime acceptance. Exact Claude interruption recovery UI now has source wiring; native acceptance remains pending. This historical checkpoint predates the 8 November scope review; Claude's task is now archived post-1.0, while Codex release work remains in `2r6n`. No tests, builds, app launches, agent/SDK/CLI probes, logins or model requests ran for this source change.
 
 
 ## Official account-route recheck — October 16, 2026

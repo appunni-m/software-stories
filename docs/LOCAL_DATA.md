@@ -4,6 +4,8 @@ Code Atlas keeps repository captures and guide history on this Mac. This page
 describes the current source behavior; the project does not yet ship a signed,
 notarized installer.
 
+> **Release scope:** standalone offline HTML export is post-1.0. The details below describe source behavior and do not make it a first-release feature or a complete project backup.
+
 ## Where Code Atlas stores data
 
 The Rust app asks Tauri for its application data directory. With the current

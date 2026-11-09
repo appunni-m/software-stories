@@ -65,9 +65,10 @@ The native summary now carries only its finite failure category into the workspa
 On the packaged app, distinguish these actions and record the exact result for each: open a captured file from Explorer; open a cited range from Guide; select code and choose **Explain this code**; open the legacy **Explain cited range** review if that screen is reachable. For each, record project/snapshot, relative path, inclusive line range, visible error, whether the app stays open, and whether a provider review was created. Start with Fontdone `main@5249b72371` and a captured text file.
 
 ## Contract
-- Validate snapshot identity, captured-file membership, source hash, and range before opening or creating a provider review.
-- A local review failure must stay in the app and explain what the user can do next; no uncaught error or unexplained dead click.
-- Opening source/citations is local and read-only. Do not send code to Codex or another provider until the user explicitly accepts the reviewed request.
+- Validate snapshot identity, captured-file membership, source hash, and range before creating a selected-code question or allowing its context to reach a provider.
+- Selecting code and clicking **Explain this code** is explicit question intent. Reuse an existing snapshot-scoped sharing grant and send the source-bound question in one action; do not add a second per-question review modal.
+- If the snapshot grant does not exist, keep the existing one-time, scope-disclosing consent step. A missing or unsupported connection leaves the question and selected source in the local composer; it does not dispatch when connection setup completes.
+- A local selection failure must stay in the app and explain what the user can do next; no uncaught error, unexplained dead click, or context transmission for stale/invalid source.
 - Preserve the current exploration, Guide section/scene, source selection, and focus when opening and returning.
 - Cover both supported Code Lens entry points, if both remain in the current product, without adding a legacy path solely for this test.
 
@@ -322,3 +323,79 @@ source transmission, or narration started.
 This verifies one current selected-code review/cancel path and does not
 reproduce the original click exception or identify the original control. Keep
 `mhqx` open; no provider request is authorized by this check.
+
+## Current packaged Explorer-to-Code-Lens check — 31 October 2026
+
+On the rebuilt Code Atlas 0.1.0 app (executable SHA-256
+`1d624fb8292e831f1b4940903ad3c5287e121f8d0da3f89fa133669052a2a91e`), Fontdone
+`main@5249b72371`, I filtered Explorer to captured `src/tt/gasp.rs` and opened
+the file. The source pane showed the captured file. Selecting its first line
+and choosing **Explain this code** opened the local review with exact range
+`src/tt/gasp.rs:1–1` and the notice “Nothing is sent until you choose Ask about
+this code.” I canceled. The app stayed open with the same file selected; no
+provider request or source transmission occurred and no error appeared.
+
+This checks the packaged Explorer-file, source-selection and review-cancel
+path on this build. The original click target and exception remain unknown, so
+the user's reported error is still unconfirmed; keep `mhqx` open.
+
+## Current source regression correction — 2 November 2026
+
+While continuing the source-selection audit, clicking **Explain this code**
+for one selected line unexpectedly started a Codex operation. I stopped it
+immediately; whether that line reached Codex is unknown, no answer was saved,
+and no retry was sent. That action was not authorized at the time.
+
+The review-modal correction added a second confirmation and conflicted with
+the one-action contract in `nsfd`; it is superseded below. The Code Lens button
+is explicit user intent when the snapshot already has a grant. A missing grant
+still receives the existing one-time consent flow.
+
+## One-action intent and snapshot grant — 2 November 2026
+
+The source flow validates the captured project/snapshot, path, range, and
+source hash, then creates the source-bound question directly at the current
+exploration level. An existing snapshot-scoped grant is reused. If Codex is
+unavailable, the question and selected source stay as a local composer draft;
+restoring a connection does not send it in the background.
+
+The focused workspace regression passes 12/12, `npm run build` passes, and
+`git diff --check` is clean. No provider request or source transmission was
+performed for this correction. Packaged direct dispatch, first-grant consent,
+disconnected-draft recovery, and original user-error reproduction remain open;
+keep `mhqx` open.
+
+## Defensive source-link validation — 3 November 2026
+
+Commit `b164aa6` on `main` validates a captured source path and canonicalizes an
+optional line range before `openCapturedFile` changes navigation. Malformed
+links now show a local, actionable notice and cannot put invalid source context
+into the route. `npm run build` and `git diff --check` pass. No tests, app
+rebuild, packaged click reproduction, or provider request ran. This guard does
+not identify the original reported exception; keep `mhqx` open.
+
+## Current source trace and focused checks — 7 November 2026
+
+The current `App.tsx` action rejects a missing or mismatched project snapshot,
+file path, source hash, invalid citation range, or selection larger than 32 KB
+with a local notice. A valid range becomes a pending Code Lens question and
+opens the current exploration's Guide composer at the same snapshot and file.
+`Workspace.tsx` waits for the exact source hash, checks the range again, then
+uses the ordinary `ask()` path. That path reuses the snapshot-scoped sharing
+grant or shows the existing one-time consent when no grant exists; a missing
+Codex connection leaves the question local and does not auto-dispatch later.
+The extra per-question review described in the 27 October entry was superseded
+by the one-action snapshot-grant contract on 2 November.
+
+Focused local checks passed **22/22**:
+
+```text
+node --experimental-strip-types --test \
+  tests/code-explanation-one-action.test.mjs \
+  tests/codeLens.test.mjs \
+  tests/codeSelection.test.mjs
+```
+
+These source and helper checks do not reproduce the user's original exception
+or replace the packaged click-through matrix. The exact clicked control and
+exception remain unknown, so `mhqx` stays open. No provider request was made.

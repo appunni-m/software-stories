@@ -7,31 +7,47 @@ priority: 1
 labels: product, design, agents, source
 ---
 
+> **Scope update — 8 November 2026:** automatically select relevant code in the background. Do not ask the reader to pick reference files, approve a route, or review the same source scope for every question. A revocable permission for the selected repository snapshot authorizes bounded source access; re-check that permission, snapshot, account, and source limits before each dispatch. Show the chosen files and ranges as answer evidence, not as a blocking wizard.
+
 ## User outcome
-A reader asks a question such as “How does a font file become pixels?” and gets a short, source-grounded reading path without manually guessing which files to select.
+A reader asks how a behavior works and gets a concise, source-grounded answer without manually guessing which files to select.
 
 ## Required behavior
-- Search the captured inventory and local symbols/relationships to propose relevant entry points and supporting files. Operate against the selected immutable snapshot.
-- Show a compact proposed scope, why each file is relevant, and capture/language gaps. Never present a static link as a proven execution sequence.
-- Default to the remembered supported agent, model and reasoning settings. Opening the planner must not repeatedly ask the reader to choose a backend.
-- Keep the question and selected scope when changing between Files, Flow and Player, or restarting the app. Clearly separate unsent local drafts from sent requests and accepted plans.
-- Prepare the exact bounded source review locally. Require fresh consent before transmission. Respect secret, byte, file-count and source validation limits; explain when a question cannot fit one request.
-- Present accepted steps beside real code. Clicking a step, graph node or citation opens the exact snapshot source and preserves the reading position.
-- An empty or unsupported index must offer a clear fallback; never invent a path or silently broaden what is sent.
+- Search the captured inventory and local index, then let the connected agent retrieve relevant files or bounded ranges automatically. Operate only within the selected immutable snapshot and the user's existing permission.
+- Run discovery and explanation as one background operation. Show a useful answer and quiet progress; do not expose a planner, route approval, reference checklist, or per-request scope confirmation.
+- Keep the saved connection/model choice and repository permission. At dispatch, re-check the exact snapshot, account/runtime, revocation state, and source limits. Never silently expand access beyond the selected snapshot.
+- Keep the question and answer when switching between Files, Flow, and the player or restarting. Cite the actual files/ranges in the answer so the reader can inspect how the agent used them.
+- If the index is missing, partial, or a relevant file exceeds whole-file limits, use safe captured-source fallback or bounded range retrieval. Explain a real coverage limit in plain language; never invent a path or claim an unverified execution sequence.
+- Preserve direct code selection and drag-and-drop as optional ways to narrow a question; neither is required for repository-wide discovery.
 
 ## Acceptance
-Use a Rust multi-crate project, a TypeScript project, a missing-index case, and a question whose relevant source exceeds one request. Record the proposed files, reasons, omissions, consent scope and return-state behavior. Verify backend/model settings survive repeat file requests. User-visible controls must describe the question and code rather than internal request-schema concepts.
+Use a Rust multi-crate project, a TypeScript project, a missing-index case, and a question whose relevant source exceeds one request. Verify automatic source selection reaches the expected implementation, citations open the exact snapshot ranges, no file picker or repeated scope confirmation appears, the existing snapshot permission is enforced, and answer position survives navigation. Verify the saved connection is reused for repeat questions. User-visible controls describe the question and code rather than internal request-schema concepts.
+
+## Workspace-flow regression check — 8 November 2026
+
+On the current working tree based on `8b20924`, focused checks passed: `node --experimental-strip-types --test tests/code-explanation-one-action.test.mjs tests/workspace.test.mjs tests/repository-guide.test.mjs` — **53 passed, 0 failed**. This covers direct selected-code questions, snapshot-bound sharing, AI-selected file routing, existing-grant reuse in the workspace, incremental Guide recovery, and nested/background answer behavior. No provider request, app launch, or full build ran. This source/test evidence does not establish recall quality across the Rust/TypeScript repository fixtures, missing-index fallback, large-file retrieval, or packaged operation; keep the task open for those acceptance cases.
+
+## Empty overview recovery no longer asks for files — 8 November 2026
+
+The normal Guide and file-question paths already run source discovery in the
+background. An empty overview recovery now returns to the workspace and asks
+the reader to resubmit the question so Code Atlas can find the source
+automatically; it no longer exposes a file checklist. Existing saved answers
+remain available. The focused source-discovery suite passes 13/13 and the
+production frontend build passes with the existing large-chunk warning. No
+provider request was sent. Rust/TypeScript retrieval quality, missing-index and
+large-file acceptance, and packaged operation remain open.
 
 ## Exclusions
-No paid service requirement, automatic private-source upload, runtime-trace claims, or automatic acceptance of generated narratives. This task remains open for the broader acceptance matrix; the source implementation below does not establish exhaustive discovery.
+Manual per-question file selection, accepted-route approval, repeated source-scope consent, paid service requirements, automatic access outside the selected snapshot, runtime-trace claims, or automatic acceptance of generated narratives. This task remains open for the broader repository recall and installed-app acceptance matrix.
 
 ## Existing baseline to preserve
-The 16 October workspace iteration already remembers the backend/model, restores a saved source version and last file, and retains an unsent planning question and selected paths locally. These reduce repeated setup; they do not select the relevant source automatically. See the native workspace acceptance record before reimplementing those pieces.
+Keep local search, optional file/code attachments, saved source version, last file, answer history, and repository permission controls. Automatic discovery is the default; manual scope selection is not a prerequisite. See the native workspace acceptance record before reimplementing existing pieces.
 
 ## October 16 implementation delta
-The Codex path now prepares a local index automatically, reviews metadata, asks Codex to select implementation, validates up to 12 code paths/250,000 bytes, then automatically prepares the exact source review. File and overview requests share this discovery path. The workspace header restores and displays the saved connection/model/reasoning. Code-behavior claims backed only by documentation are rejected; explicit deprecated/archive labels and unverified docs are visible in planning. Routes support one reviewed sequential chapter batch with saved-step skipping and independent drafts.
+The Codex path now prepares a local index automatically, reviews metadata, asks Codex to select implementation, validates up to 12 code paths/250,000 bytes, then automatically prepares the exact source review. File and overview requests share this discovery path. The workspace header restores and displays the saved connection/model/reasoning. Code-behavior claims backed only by documentation are rejected; explicit deprecated/archive labels and unverified docs are visible in planning. An accepted-route batch path existed in source but was removed from active product scope on 8 November; the current flow uses progressive Guide slides and file-level exploration.
 
-Remaining: Rust multi-crate and large TypeScript native runs, missing/unreadable index and metadata/source overflow acceptance, persisted discovery scope/reasons across restart, multi-window coverage for large repositories, and deferred non-Codex agent discovery. See [current flow](../AI_GUIDE_FLOW.md) and [batch qualification](56-route-chapter-batch.md).
+Remaining: Rust multi-crate and large TypeScript retrieval, missing/unreadable index and metadata/source overflow, persisted discovery reasons across restart, and multi-window coverage for large repositories. Codex is the only first-release agent backend. See [current flow](../AI_GUIDE_FLOW.md), [progressive answer sections](73-progressive-answer-sections.md), and [bounded large-source retrieval](66-large-source-discovery.md).
 
 ## Fontdone qualification — October 17
 
@@ -43,7 +59,7 @@ The subsequent [industry study](../research/2026-10-17-repository-context-and-in
 
 Discovery now records the local map state as `complete`, `partial`, `cancelled`, `missing`, or `unreadable` in the review metadata. A partial/cancelled map can still contribute the symbols and static links it contains; a missing or unreadable map falls back to eligible paths in the immutable captured inventory. Failure to load, start, or observe the optional indexing job no longer blocks discovery preparation. The dialog uses “captured code files” and gives an explicit limitation message for each incomplete state.
 
-Focused source-discovery coverage passes for complete/partial baseline metadata, missing and corrupt indexes with captured-path fallback, partial/cancelled map labeling, and scope validation (5 tests). `npm run build` also passes. This closes the missing-index fallback implementation gap only; the Rust multi-crate and large TypeScript recall matrix, metadata/source overflow, restart persistence, multi-window behavior, and user-visible consent/return-state checks remain open.
+Focused source-discovery coverage passes for complete/partial baseline metadata, missing and corrupt indexes with captured-path fallback, partial/cancelled map labeling, and scope validation (5 tests). `npm run build` also passes. This closes the missing-index fallback implementation gap only; the Rust multi-crate and large TypeScript recall matrix, metadata/source overflow, restart persistence, and multi-window behavior remain open. The per-question consent requirement was removed by the 8 November scope update above.
 
 ## Fixed-target metadata priority — 27 October 2026
 

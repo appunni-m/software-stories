@@ -38,7 +38,7 @@ After reviewing and accepting a route, choose **Build all chapters**. Code Atlas
 - Errors stop generation without automatic inference retries. Check Edit, pending previews and recovery notices before trying again. A lost save reply is reconciled against the exact revision ID.
 - Reopening the action derives remaining work from saved chapter lineage. It does not persist or automatically resume an active queue across app restarts. Acceptance and playback remain deliberate actions.
 
-The app still has separate quality and release gates for narrative depth, diagrams, language coverage, accessibility and reliability. Passing format/citation checks alone does not establish an excellent explanation.
+The app still has separate quality and release work for narrative depth, diagrams, language coverage and reliability. Passing format/citation checks alone does not establish an excellent explanation.
 
 ## Reopening saved routes
 

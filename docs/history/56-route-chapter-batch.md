@@ -7,6 +7,8 @@ priority: 1
 labels: agents, chapters, recovery, acceptance
 ---
 
+> **Archived 8 November 2026.** This task was soft-deleted from active Kata scope as the accepted-route batch wizard duplicates progressive Guide generation and on-demand file explanations. These notes are preserved for historical implementation evidence only.
+
 ## User outcome
 Choose Build all chapters on an accepted route. The saved connection generates its remaining chapters in order without repeated backend, model or reference selection. Each chapter remains independently editable and unaccepted until reviewed.
 

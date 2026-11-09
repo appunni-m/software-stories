@@ -3,9 +3,11 @@ kind: task
 key: pr-navigation-lifecycle
 parent: t27
 title: Define recoverable PR generation and decisions across navigation
-priority: 2
-labels: pull-request, reliability
+priority: 3
+labels: pull-request, reliability, post-1.0
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## User outcome
 Leaving Changes during an operation never loses a generated draft or changes another comparison's UI.

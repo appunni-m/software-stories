@@ -7,6 +7,13 @@ priority: 1
 labels: product, design, ux
 ---
 
+> **Scope update — 7 November 2026:** formal VoiceOver/screen-reader, zoom/reflow, contrast-preference, and reduced-motion audits are not acceptance gates. Keep ordinary keyboard behavior, clear focus for core interactions, and readable dark/light layouts. Older dated audit notes are historical.
+
+> **First-release scope — 8 November 2026:** this task covers the primary
+> Explorer/Search/Changes/Explorations workspace and shared UI components.
+> PR Guide, standalone export, direct-API catalogs, and non-Codex integrations
+> are outside 0.1.0; dated migration notes for those surfaces are historical.
+
 ## Outcome
 The reader has one persistent developer workspace: explorer left, top chat composer, resizable source and explanation. Guide, Flow and history belong to the current exploration. Settings never take a permanent pane.
 
@@ -14,20 +21,20 @@ The reader has one persistent developer workspace: explorer left, top chat compo
 Use the current design contract in docs/design/WORKSPACE_EXPLORATION.md and the real-component workspace preview. Reuse Radix buttons/tabs/inputs/popovers, CodeMirror source selection, React Flow and keyboard-accessible resizable panels. Extract shared components; do not copy the preview's illustrative data into production. Adapt the existing native immutable inventory/source commands to the shell. Remove the separate Files destination from the main learning journey while preserving source routes, chapter editing, changes and recovery as contextual tools. Preserve existing deep links and source/reader return behavior through an adapter.
 
 ## Acceptance
-The explorer stays mounted in Guide, Flow and history. Chat stays visible during independent code/content scrolling. Opening/closing a source pane does not reset explanation state. Full-width content is possible by closing source. Settings only open on demand. At 1280x800 the majority of space is real code/content; no workflow hero, phase checklist or permanent metadata column. Light/dark themes share readable tokens and a 4/8/12/16/24/32 spacing scale. Verify keyboard split resizing, 200% zoom/reflow and large explorer responsiveness. Record packaged screenshots against the same preview; relabeled navigation alone does not pass.
+The explorer stays mounted in Guide, Flow and history. Chat stays visible during independent code/content scrolling. Opening/closing a source pane does not reset explanation state. Full-width content is possible by closing source. Settings only open on demand. At 1280x800 the majority of space is real code/content; no workflow hero, phase checklist or permanent metadata column. Light/dark themes share readable tokens and a 4/8/12/16/24/32 spacing scale. Verify keyboard split resizing and large explorer responsiveness. Record packaged screenshots against the same preview; relabeled navigation alone does not pass. Formal zoom and assistive-technology audits are out of scope.
 
 ## Current status
-The production app now uses a persistent activity-bar workspace with captured Explorer source, Search, Changes and nested Explorations; Guide, Flow and chat history are views within each exploration. The interactive preview remains illustrative. Shared controls are only partly migrated, and packaged layout parity, focus/zoom behavior and the full screen matrix remain unqualified.
+The production app now uses a persistent activity-bar workspace with captured Explorer source, Search, Changes and nested Explorations; Guide, Flow and chat history are views within each exploration. The interactive preview remains illustrative. Shared controls are only partly migrated, and packaged layout parity plus core interaction acceptance remain unqualified.
 
 ## 16 October workspace migration
 
-Production migration now consumes real immutable inventory/source in a shared activity-bar workspace; packaged acceptance is being recorded in the new UI audit task na54.
+Production migration now consumes real immutable inventory/source in a shared activity-bar workspace; packaged acceptance is tracked in `13yp`.
 
 ## Shared action primitive — 28 October 2026
 
 Added `src/design/AppButton.tsx`, a forward-ref Radix Themes button wrapper with a safe `type="button"` default and shared primary, secondary, quiet and icon intents. The connection and notification header triggers use its custom style path; repository-discovery and planning actions use the primary/secondary intents, notification actions use quiet, and the planning close control and chapter-recovery reload use icon/secondary. Existing labels, handlers, discovery consent boundaries, notification focus behavior and spacing classes remain intact.
 
-The rest of the app still contains native and one-off button implementations. This source change does not establish packaged visual or accessibility parity; the broader component inventory, keyboard/split behavior, zoom/reflow and app screenshots remain open.
+The rest of the app still contains native and one-off button implementations. This source change does not establish packaged visual parity; the broader component inventory, keyboard/split behavior, supported window layouts, and app screenshots remain open.
 
 ## Offline export action migration — 28 October 2026
 
@@ -35,7 +42,7 @@ The Offline Export trigger, close action, select/clear control, and footer actio
 
 ## Flow and validation action migration — 28 October 2026
 
-The Flow relationship controls and Chapter Studio validation actions also use `AppButton`; their flow-specific classes, quiet-action styling, labels, disabled states, and source-navigation handlers are retained. The shared wrapper now covers actions across the reader, Flow, validation review, discovery/planning, connection/notification, recovery, and offline export surfaces. The remaining native controls and one-off styles have not been inventoried exhaustively. No tests/build or packaged visual/accessibility acceptance ran; task remains open.
+The Flow relationship controls and Chapter Studio validation actions also use `AppButton`; their flow-specific classes, quiet-action styling, labels, disabled states, and source-navigation handlers are retained. The shared wrapper now covers actions across the reader, Flow, validation review, discovery/planning, connection/notification, recovery, and offline export surfaces. The remaining native controls and one-off styles have not been inventoried exhaustively. No tests/build or packaged visual/interaction acceptance ran; task remains open.
 
 ## Agent handoff action migration — 28 October 2026
 
@@ -43,7 +50,7 @@ The manual Agent Handoff dialog's close, prepare, copy, import-validation, backe
 
 ## Connection settings action migration — 28 October 2026
 
-The Connections dialog's close and footer actions, plus Pocket setup/repair/cancel and Google key actions, now use `AppButton`. The Google key Save action explicitly remains a form submit; Remove remains a non-submit action. Existing credential storage, voice selection, handlers and state are unchanged. The navigation categories remain their current controls pending a broader interaction/accessibility review. No tests/build or packaged acceptance ran.
+The Connections dialog's close and footer actions, plus Pocket setup/repair/cancel and Google key actions, now use `AppButton`. The Google key Save action explicitly remains a form submit; Remove remains a non-submit action. Existing credential storage, voice selection, handlers and state are unchanged. The navigation categories remain their current controls pending an ordinary interaction review. No tests/build or packaged acceptance ran.
 
 ## Connection category tabs — 28 October 2026
 
@@ -55,7 +62,7 @@ The one-time AI connection chooser and unsupported-connection notice now use `Ap
 
 ## Notification panel header actions — 28 October 2026
 
-The notification panel's Mark all read, Dismiss read and Close controls now use the shared `AppButton` wrapper while retaining their existing classes, accessible labels, title text, callbacks and Radix popover close behavior. No notification data or storage behavior changed. No tests/build or packaged visual/accessibility acceptance ran.
+The notification panel's Mark all read, Dismiss read and Close controls now use the shared `AppButton` wrapper while retaining their existing classes, accessible labels, title text, callbacks and Radix popover close behavior. No notification data or storage behavior changed. No tests/build or packaged visual/interaction acceptance ran.
 
 ## Chapter draft recovery actions — 28 October 2026
 
@@ -83,7 +90,7 @@ The compact Changes surface now uses Radix Tabs for Diff and PR Guide, including
 
 ## PR Guide action migration — 28 October 2026
 
-PR Guide recovery, hunk review, provider request, history refresh, saved-draft, and accept/reject actions now use the shared `AppButton` wrapper while retaining their existing classes, labels, disabled states, callbacks, and explicit non-submit behavior. Rich citation links remain native buttons so their multi-line cited content and source-navigation semantics stay intact. No tests/build or packaged interaction review ran; the full UI and accessibility gates remain open.
+PR Guide recovery, hunk review, provider request, history refresh, saved-draft, and accept/reject actions now use the shared `AppButton` wrapper while retaining their existing classes, labels, disabled states, callbacks, and explicit non-submit behavior. Rich citation links remain native buttons so their multi-line cited content and source-navigation semantics stay intact. No tests/build or packaged interaction review ran; the full UI acceptance remains open.
 
 ## Git Changes actions — 28 October 2026
 
@@ -145,7 +152,7 @@ A source search found no raw HTML `<button>` elements outside the illustrative
 use `AppSearchField`. Remaining native inputs are purpose-built editors,
 credentials and executable paths, checkboxes/radios, and the narration seek
 slider. This is a source inventory only; it does not establish packaged visual,
-keyboard, VoiceOver, zoom/reflow, theme, or interaction acceptance.
+keyboard, supported-window layout, theme, or interaction acceptance.
 
 ## Shared Connections text fields — 1 November 2026
 
@@ -163,7 +170,7 @@ The production CodePane's **Explain this code** control now uses `AppButton`
 with the primary intent instead of importing Radix `Button` directly. Its
 selection callback, disabled state, tooltip, accessible name, icon and default
 non-submit behavior remain unchanged. This is source-only; no build, test, or
-packaged visual review ran. Keep the broader component and accessibility
+packaged visual review ran. Keep the broader component and packaged interaction
 acceptance open.
 
 ## Citation editor field and dialog action migration — 3 November 2026
@@ -175,7 +182,7 @@ wrapper now supports a datalist and bounded numeric inputs. Form submit remains
 an explicit submit; dialog close/cancel remain non-submit controls. The
 citation trigger and cancel use quiet/secondary intents, and **Use these
 lines** and **Done** use the primary intent. No build, test, or packaged dialog
-review ran; wider shared-component and accessibility acceptance remains open.
+review ran; wider shared-component and packaged interaction acceptance remains open.
 
 ## Persistent workspace search fields — 3 November 2026
 

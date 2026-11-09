@@ -1,4 +1,6 @@
-# Generate a chapter from an accepted learning step
+# Post-1.0: generate a chapter from an accepted learning step
+
+> **Scope:** this is a preserved design for a later release, not a Code Atlas 0.1 requirement. The first release uses one Codex connection for file explanations and repository Guides. It does not require a Codex/Claude chooser or a route-wide chapter batch. Users can ask follow-up questions from the current Guide or Flow when they want more detail. See [the current product contract](kata-tasks/00-contract.md) and [AI Guide flow](AI_GUIDE_FLOW.md).
 
 > **Current Codex flow — October 16:** connection/model/reasoning are reused from the header. AI selects relevant code using the captured index before exact source review. Accepted routes offer **Build all chapters**, a sequential batch that saves independent unaccepted drafts. See [AI guide flow](AI_GUIDE_FLOW.md) for current steps, disclosure, code-first documentation rules, scope limits and recovery. Older implementation checkpoints below retain their original acceptance qualifications.
 
@@ -44,10 +46,7 @@ Successful recovery returns to Guide and opens the original agent-only step requ
 
 ## Remaining work
 
-- Execute both agents' complete native workflows, account/runtime qualification, lifecycle and failure cases. An unavailable Claude option does not satisfy multi-agent support.
-- Qualify semantic answer quality across representative languages and real repositories. Prompt instructions are not proof of teaching quality.
-- Qualify the new [version-4 generation records and step links](CHAPTER_GENERATION_RECORDS.md). Both native agent result paths now retain original request/settings/plan scope in previews and immutable chapters, and the plan reader exposes recorded links. Legacy same-file chapters remain unassociated; metadata does not establish account attestation, teaching quality or step completion.
-- Add deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates. One generated step does not explain the entire repository.
-- Complete the deferred cases in Kata `xymb`; keep `6qk9`, `z3an`, `8gqw`, `tpta` and `2r6n` open until their actual acceptance requirements are met.
+- This proposal has no first-release acceptance checklist. If the step-specific dispatch flow is restored after 1.0, reuse the Codex connection, update scope and acceptance in Kata first, and decide then whether the feature still fits the product.
+- Repository narrative quality, language support, source grounding, and section-level updates remain in their own active first-release tasks; this document does not add separate orchestration or a second agent chooser.
 
 No tests, builds, app launches, agent/SDK probes, login or model requests were run for this source checkpoint. Changed Rust regions were formatted; this does not establish compilation or runtime behavior.

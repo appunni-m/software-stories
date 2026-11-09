@@ -2,7 +2,7 @@
 
 Code Atlas validation proves that a chapter has the expected shape and that its citations point into the selected snapshot. It cannot prove that the explanation says what the cited code actually does. This benchmark adds a separate human review gate for that semantic question.
 
-This gate currently covers the synthetic **file-chapter proposal** workflow. It does not qualify repository overviews, TTS output, provider/agent backends, accessibility, native packaging, or a release. A passing report is one piece of release evidence, not release approval by itself.
+This gate currently covers the synthetic **file-chapter proposal** workflow. It does not qualify repository overviews, TTS output, provider/agent backends, native packaging, or a release. A passing report is one piece of release evidence, not release approval by itself.
 
 ## Corpus
 

@@ -8,6 +8,8 @@ labels: phase-2, chapters, revisions
 blocked_by: t12
 ---
 
+> **Scope update — 7 November 2026:** Chapter Studio acceptance covers editing, validation, revision safety, recovery, and packaged user workflows. Formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope; keep ordinary keyboard actions that are part of these workflows.
+
 ## User outcome
 The user can verify and improve every generated explanation before it becomes part of the guide.
 
@@ -92,3 +94,29 @@ edit, restore, accept, and reject no longer rewrite a cloned revision's schema
 field. This is a source-only invariant check. No tests or build ran, and the
 packaged edit/restore/accept/reject journey remains unqualified; keep `h9sy`
 open.
+
+## Focused Chapter Studio regression evidence — 2026-11-04
+
+Revalidated the current source with `cargo test --manifest-path
+src-tauri/Cargo.toml --lib chapter_review::tests` (14/14) and
+`node --experimental-strip-types --test tests/chapterStudioActions.test.mjs`
+(22/22). The native module covers invalid-citation repair followed by
+acceptance, invalid evidence blocking acceptance, rejection payload/reason
+preservation, immutable prior revisions, unsupported edit schemas, and stale
+snapshot restore. The UI-action suite covers edit/validate/accept/reject
+callbacks, asynchronous publication races, and preserving the unsaved draft
+on stale-base errors. These focused tests pass; they do not replace the
+packaged Chapter Studio interaction checks. Keep `h9sy` open for those native
+acceptance gates.
+
+## Current Chapter Studio subsystem rerun — 2026-11-08
+
+On `main@b8b4163`, the focused native review suite passed **15/15** with
+`cargo test --locked --manifest-path src-tauri/Cargo.toml --lib chapter_review::tests`.
+The Chapter Studio action, revision comparison, and rebase suites passed
+**37/37** with
+`node --experimental-strip-types --test tests/chapterStudioActions.test.mjs tests/revisionComparison.test.mjs tests/chapterRebase.test.mjs`.
+These cover validation gates, append-only revision behavior, rejected payload
+preservation, stale-base handling, and asynchronous UI races. No packaged Mac
+workflow was run; the in-app edit/validate/accept/reject/recovery journey still
+needs native acceptance. Keep `h9sy` open.

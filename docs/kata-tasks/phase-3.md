@@ -14,12 +14,11 @@ Turn accepted file chapters into an explorable learning experience with manual s
 A reader can stop at every boundary, follow a hotspot to the exact code, return to the same section and playback position, and choose when to continue. Narration never blocks reading or source navigation.
 
 ## Child issues
-`16-walkthrough-player.md`, `17-linked-visuals.md`, and `18-optional-narration.md`.
+The basic player and linked static visuals are complete. Remaining generated visuals and narration work is tracked in `37-generated-visuals.md`, `34-pocket-runtime.md`, and `35-pocket-player-cache.md`. Generation-time prewarming is deferred to post-1.0 and is not an active acceptance gate.
 
-## Pending work — 2026-10-15
+## Current delivery scope — 8 November 2026
 
-Pending leaf: 70x5 local Pocket runtime and player/cache integration, human listening and playback acceptance. Preserve deliberate section navigation and transcript-only use.
-
-## Core delivery gaps — October 15
-
-Generated chapter visuals (`j53m`) are missing even though the typed diagram renderer exists. Local Pocket runtime (`q6g3`) and player/cache integration (`dbmd`) remain pending under `70x5`.
+Formal accessibility audits, cloud TTS options, and generation-time prewarming
+are out of scope. The local Pocket setup, playback, cache behavior, recovery,
+and human listening acceptance remain owned by `q6g3` and `dbmd`. The duplicate
+parent issue `70x5` was retired; prewarming is preserved in post-1.0 history.

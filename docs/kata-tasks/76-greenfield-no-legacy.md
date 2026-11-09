@@ -14,7 +14,7 @@ The app has one supported product contract and one clear implementation path. Ol
 
 - Use one supported version and strict validation for persisted app records and generation protocols. Reject unsupported versions clearly without migration, rewrite, deletion, retry, or budget reset.
 - Remove app-only aliases, fallback storage keys, format upgrades, historical replay rules, and obsolete generation/UI paths.
-- Preserve current Codex, Pocket TTS, direct API, source navigation, nested exploration, Guide/Flow/history, cancellation, and bounded-index behavior.
+- Preserve the first-release Codex account path, local Pocket TTS, source navigation, nested exploration, Guide/Flow/history, cancellation, and bounded-index behavior. Direct API catalogs and non-Codex agent backends are outside 0.1.0.
 - Test current behavior and rejection of unsupported formats; update current docs and macOS metadata to describe the supported contracts.
 - Do not delete existing user data or regenerate it automatically. Unsupported content may require an explicit user action.
 
@@ -62,6 +62,17 @@ old content cannot release its capacity. A record claiming a newer schema fails
 capacity inspection because its allowance cannot be known. The macOS data-format
 manifest now publishes the Guide schema and contract. Existing source-level
 fixtures were aligned to the current outline shape; no tests or build were run.
+
+## Follow-up: require current prerequisite receipts — 8 November 2026
+
+Repository Guide records now use schema 10 and contract
+`repository-guide-v11-five-initial-units`. Every attempt requires an explicit
+`prerequisiteFingerprints` field; opening attempts carry an empty list, and
+unit attempts must match their planned prerequisites. Schema-9 records and
+current-schema attempts missing the receipt are unavailable and remain byte
+for byte untouched. Focused repository-guide tests pass 115/115 (two explicit
+live probes ignored). Current formatting checks pass for the changed Rust
+files. The full project check and packaged-app acceptance remain pending.
 
 ## Follow-up: do not reserve future work for unsupported guides — 31 October 2026
 

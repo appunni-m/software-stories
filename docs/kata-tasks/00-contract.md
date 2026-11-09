@@ -7,6 +7,8 @@ labels: container, product, contract
 blocked_by:
 ---
 
+> **First-release scope — 8 November 2026:** Code Atlas 0.1.0 is Codex-first and uses the user's connected Codex account for code explanations and repository Guides. Claude Code, Antigravity, direct model API catalogs, and PR explanations are post-1.0 work. Use the [live Kata status](../KATA_STATUS.md) for current delivery status; the dated status section below is historical. Formal accessibility audit matrices are not release gates; ordinary workspace keyboard actions and readable themes remain usability expectations.
+
 > **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The workspace is implemented in source and has been inspected in a packaged app; that observation covers only its displayed build and state. Task `13yp` tracks remaining design parity and native acceptance.
 
 ## Product outcome
@@ -32,7 +34,7 @@ The authoritative interaction details are in [the workspace contract](../design/
 - Code is the source of truth. Documentation can suggest locations; flag it when evidence shows it is stale or deprecated. Claims about behavior link to exact captured source and snapshot. Inferences are labeled; static relationships are not described as runtime facts.
 - The reader controls progression through Guide cards and narration. Source links open the cited range while preserving the selected answer and playback position. Back restores the selected ancestor without regeneration.
 - Each accepted answer or chapter revision is immutable. Editing creates a new revision and invalidates only content whose declared inputs changed.
-- Configure a connection once. Show its current state in the header; expose model, reasoning, and approval preferences in connection settings. Direct model APIs and coding-agent runtimes are distinct choices. A request sends only after explicit user intent and applicable source authorization.
+- Configure the Codex connection once. Show its current state in the header; expose supported model and reasoning preferences in connection settings. Other agent backends and direct model API choices are deferred from 0.1.0. A request sends only after explicit user intent and applicable source authorization.
 - Keep indexing, code discovery, route planning, evidence validation, and asset reuse in the background. Normal reading views show useful progress and actionable outcomes, not internal orchestration details.
 - No hosted source proxy, telemetry, repository writes, script execution, paid fallback, silent regeneration, or automatic acceptance.
 
@@ -48,13 +50,13 @@ The product blueprint, technical boundaries, approved design proposals, mileston
 
 That review listed repo-level quality, local Pocket narration, section/revision/export acceptance, native reliability/release, local PR acceptance and verified agent adapters. Its issue list and recommendations are historical; use live Kata and the [current task status snapshot](../KATA_STATUS.md) for current status.
 
-## Current delivery status — 29 October 2026
+## Historical delivery snapshot — 29 October 2026 (superseded by the scope update above)
 
-- The persistent code/chat/exploration workspace and its file, search, source, Guide, Flow, history, Changes and notification surfaces exist in source. Packaged review covers specific builds and states only; remaining design and native acceptance are open in `13yp`, `3rcd`, and `x21h`.
-- Repository Guides plan a bounded route and publish independently validated slides, with up to five ready slides buffered. Complete-repository quality, first useful answer timing, failure recovery and packaged navigation remain open in `3bz5`, `gk46`, `q0sm`, `6qk9`, and `a1sm`.
-- Local Pocket TTS, distinct cache identity and generation-time narration prewarming exist in source. Voice quality, cache reuse and packaged listening acceptance remain open in `dbmd`, `tp6r`, `70x5`, and `q6g3`.
+- The persistent code/chat/exploration workspace and its file, search, source, Guide, Flow, history, Changes and notification surfaces exist in source. Packaged review covers specific builds and states only; the remaining design and native acceptance gate is `13yp`.
+- Repository Guides plan a bounded route and publish independently validated slides, with up to five ready slides buffered. Complete-repository quality, immediate first-section publication, and failure recovery remain open in `3bz5`, `gk46`, `q0sm`, and `6qk9`; the superseded accepted-route batch task `a1sm` is archived. There is no elapsed-time acceptance threshold.
+- Local Pocket TTS, distinct cache identity and generation-time narration prewarming exist in source. Voice quality, cache reuse and packaged listening acceptance remain open in `dbmd`, `tp6r`, and `q6g3`. The duplicate umbrella `70x5` was retired on 8 November; no narration acceptance was dropped.
 - Chapter-generation source supports visual payloads (chapter schema v5, visual schema v3). Source grounding, representation quality, comprehension and packaged acceptance remain open in `j53m`; language and narrative qualification remain open in `7xx7` and `6qk9`.
-- Codex and Claude Agent adapters exist in source, but no coding-agent runtime is release-qualified. Codex runtime/operation acceptance remains open in `z3an` and `tpta`; Claude automatic generation remains unavailable behind its empty release-qualification registry (`8gqw`); the Antigravity automatic adapter remains unimplemented (`m00g`). Manual handoff does not qualify as an integrated adapter.
+- Dated 29 October note, superseded by the 8 November scope: Codex operation acceptance remains open in `z3an`, now directly under M2. The former multi-backend umbrella `tpta` was retired; Claude and Antigravity moved to post-1.0 history. No extra provider chooser or direct-API catalog is a 0.1 release requirement.
 - The first Mac release is not ready to ship. Packaging, signing, notarization and clean-install acceptance remain open in `e42a` and `48yv`.
 
 These are dated implementation-status notes, not acceptance claims. Each linked task retains its own closure evidence.

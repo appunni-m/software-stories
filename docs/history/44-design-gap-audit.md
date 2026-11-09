@@ -7,9 +7,14 @@ priority: 1
 labels: product, design, audit, ux
 ---
 
+> **Superseded 8 November 2026:** Kata `x21h` was soft-deleted after
+> the separate screen-gap audit was consolidated into the single first-release workspace gate
+> `13yp`. This specification is retained as dated history; formal accessibility
+> audits are not release requirements.
+
 > **Current workspace direction — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The interactive preview remains illustrative; the production app now implements this workspace with repository-backed data. Historical observations below remain dated evidence and do not prove the current packaged build matches the approved design. The packaged audit and outstanding UI findings are tracked in [workspace UI audit](64-workspace-ui-audit.md).
 
-Latest packaged spot check: [29 October native workspace observation](../acceptance/2026-10-29-workspace-native-spotcheck.md). It confirms one populated Guide, Search, Changes, and Explorer state at 2880 × 1688 against the installed executable hash. Screenshots were inspected live but not retained; the five-reference screenshot ledger, narrow-window/multi-scene states, and accessibility review remain incomplete. Keep the issue open.
+Latest packaged spot check: [29 October native workspace observation](../acceptance/2026-10-29-workspace-native-spotcheck.md). It confirms one populated Guide, Search, Changes, and Explorer state at 2880 × 1688 against the installed executable hash. Screenshots were inspected live but not retained; the five-reference screenshot ledger and narrow-window/multi-scene states remain incomplete. Formal accessibility review is out of scope. Keep the issue open.
 
 ## Native workspace refinement — 2026-10-16
 
@@ -23,7 +28,7 @@ Implemented in this iteration:
 - Kept Previous/Continue in a separate, always-visible player row. Removed generic side cards and empty “no diagram” placeholders; evidence quotes and audio controls remain available on demand.
 - Kept the learning-plan manager behind its relevant Guide disclosure.
 
-See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, question-to-source discovery, and accessibility acceptance are not established by this iteration. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
+See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, and question-to-source discovery are not established by this iteration. Formal accessibility acceptance is out of scope. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
 
 
 ## Updated native gap ledger — 16 October

@@ -7,6 +7,11 @@ priority: 1
 labels: product, design, ux
 ---
 
+> **Superseded 8 November 2026:** Kata `3rcd` was soft-deleted after
+> duplicate packaged workspace qualification was consolidated into the single first-release workspace gate
+> `13yp`. This specification is retained as dated history; formal accessibility
+> audits are not release requirements.
+
 ## Outcome
 The shipped Mac app looks and behaves like the reviewed workspace, with a novice developer able to understand real code without learning our pipeline.
 
@@ -16,5 +21,5 @@ Open repository and connect once; ask a question, read/play a source-backed Guid
 ## Evidence
 Use the current workspace design contract and preview, then record actual packaged screenshots for Guide, Flow with inline code, nested exploration, search and notification center in both themes. Compare proportions, spacing, density and action count. Clearly label preview/sample data versus actual generated content. Test a populated large Rust repo and TypeScript repo after explicit code-sharing authorization. Do not use schema/test totals as proof of narrative quality.
 
-## Accessibility and regressions
-Keyboard-only explorer/search/tabs/chat/selection/graph/splitters, VoiceOver landmarks and focus, 200% zoom/reflow, contrast and Reduce Motion. No content trapped in tiny panes. Validate native job cancellation/recovery, source immutability, revisions/selective regeneration and changed snapshots. Existing parser, Codex account, Pocket, quality and release gates remain separately open; close this task only for its recorded real-app journeys, never for the sample preview.
+## Core interaction and regressions
+Verify ordinary explorer, search, tabs, chat, selection, graph, and splitter workflows, including keyboard shortcuts where provided. No content is trapped in tiny panes at supported window sizes. Validate native job cancellation/recovery, source immutability, revisions/selective regeneration and changed snapshots. Formal screen-reader, zoom, contrast-preference, and motion-preference audits are out of scope. Existing parser, Codex account, Pocket, quality and release work remains separately tracked; close this task only for its recorded real-app journeys, never for the sample preview.

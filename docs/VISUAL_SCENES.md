@@ -64,7 +64,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
-`ai-html-compositions-v76`, Visual design method `v66`, teaching policy
+`ai-html-compositions-v77`, Visual design method and composition review `v67`, teaching policy
 `meaning-first-v36`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this

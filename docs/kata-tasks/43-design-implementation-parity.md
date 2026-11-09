@@ -7,7 +7,13 @@ priority: 0
 labels: product, design, ux, acceptance
 ---
 
+> **Scope update — 7 November 2026:** formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope. Keep this task focused on packaged design parity, supported window sizes, ordinary keyboard workflows, and readable light/dark presentation; older audit notes are historical evidence, not open gates.
+
 > **Current design authority — 16 October:** the [persistent code/chat/exploration workspace](../design/WORKSPACE_EXPLORATION.md) supersedes the earlier Guide / Files / Changes navigation. Its VS Code-style activity bar contains Explorer, Search, Changes, and Explorations. Chat remains pinned above content; Guide, Flow, and Chat history are views within one exploration; code details stay inline. The workspace preview is illustrative, not packaged-app acceptance. Dated iteration notes below are historical evidence unless a later packaged recheck is explicitly recorded.
+
+## Codex-first connection simplification — 2026-11-08
+
+Aligned the first-use connection chooser with the Codex-first 0.1 release: the normal chooser now presents only the signed-in Codex account, and Connections no longer has a redundant “Change AI connection” action. The saved connection remains in the header and opens its details on demand. The focused generation-preferences suite passes 11/11 and the production frontend build passes. This is source/build evidence only; packaged workspace screenshots and native journey checks remain open. No VoiceOver or provider request was used.
 
 ## Native workspace refinement — 2026-10-16
 
@@ -21,7 +27,7 @@ Implemented in this iteration:
 - Kept Previous/Continue in a separate, always-visible player row. Removed generic side cards and empty “no diagram” placeholders; evidence quotes and audio controls remain available on demand.
 - Kept the learning-plan manager behind its relevant Guide disclosure.
 
-See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, question-to-source discovery, and accessibility acceptance are not established by this iteration. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
+See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, and question-to-source discovery are not established by this iteration. Formal accessibility acceptance is out of scope. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
 
 ## Dense Flow canvas correction — 2026-10-21
 
@@ -29,11 +35,11 @@ Large disconnected or cyclic Flow diagrams now use a compact grid instead of a s
 
 The focused Flow/persistence checks pass **55/55**, and the production frontend build passes. The unsigned Mac app and DMG built successfully; DMG checksum and bundle metadata verification passed. In the installed Code Atlas 0.1.0 app (arm64, executable SHA-256 `f82913d8584744290627e0afaa5a2571af8da5162f3f9d8950abac2f1f85ea9d`), Fontdone `main@5249b72371` reopened with its saved Flow selection. All nine nodes were visible in a 3×3 layout, and selecting the first node retained Flow and targeted `src/tt/mod.rs:94`.
 
-The screenshot was inspected live but is not saved as a durable file. This verifies one dark/system Flow state only. Other workspace states, themes, accessibility, large-repository behavior, and the full screen-by-screen acceptance remain open; keep `13yp` open.
+The screenshot was inspected live but is not saved as a durable file. This verifies one dark/system Flow state only. Other workspace states, themes, large-repository behavior, and the full screen-by-screen acceptance remain open; keep `13yp` open. Formal accessibility review is out of scope.
 
 ## Preserve source lines in the workspace editor — 2026-10-23
 
-The installed Fontdone workspace displayed long Rust statements as wrapped fragments in the source pane, weakening the editor-like reading experience and hiding original line shape. The source editor now leaves CodeMirror soft wrapping disabled so long code lines can be inspected with the editor's horizontal scroll. The focused editor contract check passes **2/2**, and `npm run build` passes with the existing large-bundle warning. This is a source-level correction only: the installed bundle still shows the prior wrapping behavior, and the full packaged/zoom/keyboard matrix remains open. Keep `13yp` open.
+The installed Fontdone workspace displayed long Rust statements as wrapped fragments in the source pane, weakening the editor-like reading experience and hiding original line shape. The source editor now leaves CodeMirror soft wrapping disabled so long code lines can be inspected with the editor's horizontal scroll. The focused editor contract check passes **2/2**, and `npm run build` passes with the existing large-bundle warning. This is a source-level correction only: the installed bundle still shows the prior wrapping behavior, and packaged layout and ordinary keyboard acceptance remain open. Keep `13yp` open.
 
 ## Focus the empty-repository welcome — 2026-10-28
 
@@ -41,7 +47,7 @@ When no repository is open, the initial Explorer route now receives an `is-first
 
 Source evidence: `src/App.tsx` applies the state only when there is no current project, the active workspace is Explorer, and workspace restoration is complete. `src/App.css` hides the route toolbar and visually clips (rather than removes) its labelled heading only for that state. The dedicated `AtlasEmptyState` and its open-repository action are unchanged.
 
-No build, test, app launch, or screenshot was run. This addresses the source-visible first-run hierarchy only; native layout, recent-project/error states, themes, zoom/reflow, keyboard/focus presentation, and the required packaged screenshot matrix remain unverified. Keep `13yp` open.
+No build, test, app launch, or screenshot was run. This addresses the source-visible first-run hierarchy only; native layout, recent-project/error states, themes, ordinary keyboard/focus behavior, and the required packaged screenshot matrix remain unverified. Keep `13yp` open.
 
 
 ## User outcome
@@ -66,7 +72,7 @@ These edits have not been built, tested, launched, or inspected in the native ap
 
 The no-current-overview state now offers **Create repository tour**, which opens the existing reviewed overview request flow. The user selects the captured files and reviews the exact context before any request is sent. The same card keeps a direct action for the next file explanation, and its adjacent coverage card continues to track file chapters independently. When a current-snapshot tour draft exists, Guide offers **Review tour draft**; an accepted guide from an older snapshot remains explicitly reachable without being presented as current. If the snapshot has no captured text files, the tour action is omitted and file browsing remains available.
 
-This is source-only progress in `src/App.tsx` and `src/App.css`. No test, build, app launch, or packaged screenshot was run. Native hierarchy, keyboard/focus behavior, and provider-review usability remain unverified; `13yp` and `x21h` stay open.
+This is source-only progress in `src/App.tsx` and `src/App.css`. No test, build, app launch, or packaged screenshot was run. Native hierarchy, keyboard/focus behavior, and provider-review usability remain unverified; `13yp` stays open.
 
 ## Concrete design-to-app mismatch record
 
@@ -100,11 +106,11 @@ The remaining mismatch must be judged against the current activity-bar workspace
 - Changes displays a real local comparison with selected base and head, focused diff, explanation, and exact source evidence; empty, loading, and error states explain the next action.
 - On the fontdone fixture and a second non-trivial repository, generated/repetitive relationship rows do not swamp the primary explanation. Partial-snapshot status leads directly to skipped-path review.
 - Capture packaged screenshots for Explorer with selected source, one Guide answer, one Flow answer, Search results, Changes with a selected diff, and the first-run/empty state. Review each against the current workspace preview at the same window size, record pass/fail and deviations, and include the exact app build identity.
-- Verify all activity destinations, section Previous/Next, source/citation links, and Back/root state restoration in the packaged app. Record accessibility issues under the dedicated accessibility task rather than silently treating this task as an accessibility sign-off.
+- Verify all activity destinations, section Previous/Next, source/citation links, and Back/root state restoration in the packaged app. Record ordinary interaction defects here or in a focused UX task; this is not a formal accessibility audit.
 
 ## Exclusions
 
-Do not add new model providers, generation behavior, PR hosting, or unrelated parser/index features here. Do not remove evidence, safe local Git boundaries, revision history, or accessibility work. This task does not close the separate accessibility, packaging, or chapter-quality acceptance gates.
+Do not add new model providers, generation behavior, PR hosting, or unrelated parser/index features here. Do not remove evidence, safe local Git boundaries, or revision history. This task does not close the separate packaging or chapter-quality acceptance work.
 
 ## Done evidence
 
@@ -114,7 +120,7 @@ A single reconciled reference set, updated product/design contracts, the impleme
 
 The packaged Fontdone Flow for “The Rust example classifies the constructor result” contained four source-backed nodes and zero edges. The canvas placed them as isolated graph nodes, which looked broken and called them “steps” even though no order or transition was present. Source now renders an edge-free visual as an unordered set of clickable source-point cards with exact source locations, and states that the evidence does not define a path. Real graphs remain interactive; the graph accessibility label now calls their items nodes.
 
-The focused Flow suite passes **6/6**, and `npm run build` passes with the existing large-bundle warning. The app package was not rebuilt because available disk space was 962 MiB, below the previously established 5 GB safe-build threshold after a prior truncated package. This is source/build evidence only; `13yp` still needs a verified native package and screenshot plus its broader screen, theme, and accessibility matrix.
+The focused Flow suite passes **6/6**, and `npm run build` passes with the existing large-bundle warning. The app package was not rebuilt because available disk space was 962 MiB, below the previously established 5 GB safe-build threshold after a prior truncated package. This is source/build evidence only; `13yp` still needs a verified native package and screenshot plus its broader screen, theme, and ordinary interaction review.
 
 ## Fit the current desktop header on one row — 31 October 2026
 
@@ -130,7 +136,7 @@ same size with all header controls on one in-flow row. Executable SHA-256:
 The selected saved Guide contains one scene, so it displays “Scene 1 of 1” and
 does not render previous/next arrows. This check does not qualify multi-scene
 navigation, narrower widths, zoom or accessibility. No screenshot file was
-retained; keep `13yp` and `x21h` open for remaining packaged acceptance.
+retained; keep `13yp` open for remaining packaged acceptance.
 
 ## Packaged multi-scene pager check — 31 October 2026
 
@@ -145,9 +151,8 @@ on one row. No content was generated or changed, and no provider request or
 test suite ran.
 
 This verifies one packaged multi-scene navigation path and its placement at
-one desktop size. A durable screenshot matrix, other pages, narrow/high-zoom
-layouts, keyboard and accessibility acceptance remain open; keep `13yp` and
-`x21h` open.
+one desktop size. A durable screenshot matrix, other pages, supported window
+sizes, and ordinary keyboard workflows remain open; keep `13yp` open.
 
 The second scene's “Active strike unmatched” visual control also opened its
 inline code-detail card. Selecting the card's `src/api.rs:706–726` citation
@@ -215,3 +220,43 @@ retained as an artifact. Pane-resize transitions, wider source panes, other
 themes, keyboard access, 200% reflow, and the remaining screen matrix remain
 unqualified. The implementation is in `src/design/CodePane.tsx`; this does not
 close the design audit or product-design task.
+
+## Header overflow check in the installed app — 5 November 2026
+
+On macOS 15.7.7, the installed Code Atlas 0.1.0 app (executable SHA-256
+`a0de36bf8247917df8bbb047905a894c92f6cbbe55f1366cedc45d2bbfea3331`, source
+revision `bfa3720d8d50cfdad1d025aacf2d8c0d7742e00a`) was opened on Fontdone
+`main@5249b72371`, the partial snapshot created 16 October 2026. The native
+window was 1440 × 844 points. At 100% zoom, the repository, snapshot, and
+refresh controls occupied x=30–1459; the connection, appearance, notifications,
+and shortcut controls occupied x=958–1458. They fit within the window.
+
+At 200% app zoom (`⌘=` five times), the header reflowed to 174 points high.
+The repository picker occupied x=32–555, snapshot x=571–1095, and refresh
+x=1126–1448 on the second row. Connection x=479–1044, appearance
+x=1065–1194, notifications x=1201–1319, and shortcuts x=1342–1448 stayed
+inside the window bounds (x=28–1468). This confirms the packaged header no
+longer overflows at the checked window size and zoom. The check used the
+native accessibility tree and element bounds; it did not produce a retained
+screenshot or qualify the remaining screens, themes, and ordinary interactions. Zoom was
+returned to 100%, Flow was restored, and the selected snapshot remained
+unchanged. No provider request or saved-content change occurred. Keep the
+broader `13yp` design-parity task open.
+
+The same 200% pass checked the populated Guide's scene rail. Its previous
+button occupied x=422–494, the scene selector x=494–1086, and next button
+x=1086–1158 inside the Guide pane x=128–1452; section Previous and Answer
+complete controls also remained within that pane. These controls were below
+the current scroll position in the long Guide, as expected, and their
+horizontal bounds did not overflow. The app was returned to 100% zoom and
+Flow after the check.
+
+## Reflow multi-section answer navigation in a narrow Guide pane — 8 November 2026
+
+Source review found that scene navigation already reflows, while the separate
+multi-section answer controls stayed on one row. The controls now put the
+section count on its own row and keep Previous / Next in separate columns when
+the Guide pane is 420 CSS pixels wide or narrower. Button labels may wrap
+inside their own column. This is a source-only layout correction; no build,
+test, or packaged interaction was run. The packaged narrow-pane result remains
+unverified, so `13yp` stays open.

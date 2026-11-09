@@ -1,7 +1,7 @@
 ---
 kind: task
 key: pocket-runtime
-parent: t18
+parent: m3
 title: Integrate one managed local Pocket TTS runtime
 priority: 1
 labels: speech, local, runtime
@@ -102,6 +102,21 @@ prepared voice works offline, and that local synthesis has no provider usage
 fee. This is one post-setup measurement, not a clean-install peak or a
 cross-machine measurement. Temporary disk/download requirements and memory
 remain unqualified.
+
+## Offline inference with the installed runtime — 8 November 2026
+
+The current source worker from `d108241` synthesized two synthetic technical
+narration segments using the installed pinned runtime and copied model assets
+in an isolated temporary root. Python 3.13.14 validated package versions,
+the exact compiled lock digest, readiness/config identity and asset hashes.
+With Hugging Face offline flags set, the worker produced a validated 9.64-second
+mono PCM16/24 kHz WAV of 462,764 bytes. The temporary assets and audio were
+removed. No API key, model request, server, repository source, or saved chapter
+was used. [Exact procedure and limitations](../acceptance/2026-11-08-pocket-offline-worker.md).
+
+This does not qualify fresh/clean-account setup, packaged setup or signing,
+failure/cancellation recovery, player/cache integration, app-exit cleanup, or
+human listening. Keep q6g3 open.
 
 ## Source implementation — runtime removal — 30 October 2026
 

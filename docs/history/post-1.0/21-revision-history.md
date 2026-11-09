@@ -8,6 +8,12 @@ labels: phase-4, history, revisions
 blocked_by: t20
 ---
 
+> **Archived — 9 November 2026:** Full Guide revision compare/restore is
+> post-1.0 and has no active Kata issue (`gace` was soft-deleted). This
+> specification is preserved for future planning, not as a first-release gate.
+
+> **Scope update — 7 November 2026:** formal screen-reader, zoom, contrast-preference, and reduced-motion audits are out of scope for revision-history acceptance. Keep revision integrity, recovery, and ordinary navigation checks that directly exercise this feature.
+
 ## User outcome
 The user can understand what changed in an explanation and recover an earlier version without erasing history.
 
@@ -44,7 +50,7 @@ Both native Codex/Claude chapter result closures now attach schema-4 `generation
 
 The app exposes Original generation in native agent previews, recovered previews and chapter review. The accepted plan reader lists saved chapters for the exact accepted revision/digest/step, with explicit lifecycle/snapshot labels and separate read/review actions. Recovery distinguishes recorded request/step matches from older filename candidates. These are local recorded labels, not account attestation, complete-repository coverage, proof that a question was answered or step/read completion.
 
-Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recovery remain in source. New writes/review decisions use version 4 and preserve older immutable bytes. Missing origin is omitted; present null/invalid origin and future versions fail. Manual edits ignore renderer-supplied origin replacement and preserve native lineage. Restore retains the historical source origin; edited/remapped content can differ. New section generation clears inherited origin and receives its own record only from a native agent result, preserving earlier revisions/links. See [the record, compatibility and evolution contract](../CHAPTER_GENERATION_RECORDS.md).
+Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recovery remain in source. New writes/review decisions use version 4 and preserve older immutable bytes. Missing origin is omitted; present null/invalid origin and future versions fail. Manual edits ignore renderer-supplied origin replacement and preserve native lineage. Restore retains the historical source origin; edited/remapped content can differ. New section generation clears inherited origin and receives its own record only from a native agent result, preserving earlier revisions/links. See [the record, compatibility and evolution contract](../../CHAPTER_GENERATION_RECORDS.md).
 
 **Pending:**
 - [ ] Qualify schema-4/legacy decoding, preview restart/save and immutable decision/restore behavior; prior version-3 evidence is insufficient. The schema task `8bw6` requires reopening/revalidation for this change.

@@ -7,6 +7,8 @@ priority: 1
 labels: product, design, ux
 ---
 
+> **Scope update — 7 November 2026:** formal accessibility audits are not part of this task. It covers preserving and reopening the user's exploration history and reading position; older audit references are historical.
+
 ## Outcome
 A reader can follow questions at any depth, return one level or root, and reopen the same place without regenerating.
 

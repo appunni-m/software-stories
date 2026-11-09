@@ -7,6 +7,8 @@ priority: 1
 labels: agents, citations, reliability
 ---
 
+> **Scope update — 7 November 2026:** formal accessibility audits are out of scope for agent evidence-reference acceptance. This task covers bounded native evidence references, exact source navigation, and citation integrity; dated audit notes are not blockers.
+
 ## User outcome
 
 A correct implementation explanation does not fail because the agent reformats a source comment. Readers still open the exact captured lines behind every claim and visual. Source access, permissions and generation limits stay under native ownership.
@@ -32,11 +34,11 @@ Two frozen Fontdone `memory-face` investigations failed after one correction. Th
 - Verify exact claim/visual source navigation and legacy chapter/receipt compatibility. Inject a forged reference that names real but unread code; it must fail without fallback or source disclosure.
 - Test metadata/source/payload limits and reference retention independently from inference; no new server/port or whole-file model preload.
 - Use the existing installed Codex account and GPT-6 Luna/max for one deliberate frozen Fontdone attached-function acceptance after deterministic gates pass. Preserve failures as separate artifacts. Review the actual code facts, meaningful branches, clickable diagram and spoken script independently from successful source admission.
-- Qualify the same path inside the installed app with the one-time connection and source grant, nested Guide/Flow/history navigation, restart, citations and Pocket narration. Record time to first independently admitted answer separately; the two-minute goal is a measured gate, not an exemption from evidence or quality.
+- Qualify the same path inside the installed app with the one-time connection and source grant, nested Guide/Flow/history navigation, restart, citations and Pocket narration. A section must appear once independently admitted; elapsed time is not a cutoff or acceptance gate.
 
 ## Scope boundaries
 
-This task replaces fragile model-copied citation transport. Full persistent exploration conversations, progressive section publication, complete stage tracing, broad-repository narrative/language coverage and recovery retention UI remain required in their existing tasks. Closing this child does not close parent `gk46`, chapter-quality `q0sm` or timing `ps02`.
+This task replaces fragile model-copied citation transport. Full persistent exploration conversations, progressive section publication, broad-repository narrative/language coverage and recovery retention UI remain required in their existing tasks. Closing this child does not close parent `gk46` or chapter-quality `q0sm`. The separate stage-timing task was retired; historical measurements remain available for context.
 
 ## Native citation implementation checkpoint — 17 October
 
@@ -57,7 +59,7 @@ The previous broad partial Fontdone run contains malformed short digest referenc
 Focused regressions cover strict canonical shape, exact source, unavailable IDs, tiny/unread/uncertain evidence, same-batch overlap, repeated reads and unchanged legacy replay. The first fixed complete native suite passes 359 tests with 13 explicit probes ignored, including an independently reproduced/fixed macOS queued-packet race. [Protocol, causal evidence and pending qualification](../acceptance/2026-10-17-short-native-references.md).
 
 - [ ] Run the fresh frozen broad Fontdone qualification with the exact rebuilt helper, preserving every rejection and terminal result; verify published anchors against captured bytes and review semantic/narrative quality independently.
-- [ ] Complete native source/navigation/reader and narration gates from this task's original contract. No broad Fontdone, Pocket listening or accessibility pass is claimed.
+- [ ] Complete native source/navigation/reader and narration gates from this task's original contract. No broad Fontdone or Pocket listening pass is claimed.
 
 Keep this task open; unit reliability is not answer quality.
 

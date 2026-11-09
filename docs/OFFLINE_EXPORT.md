@@ -1,5 +1,7 @@
 # Take a visual guide offline
 
+> **Post-1.0 plan:** this page documents the export implementation in source. Standalone HTML export is not part of the first-release workflow and is not required to open saved guides in Code Atlas.
+
 Export creates one HTML file that opens without Code Atlas, an account or a
 server. It includes selected **accepted** chapter revisions. Drafts and rejected
 revisions stay in the app.
@@ -55,4 +57,4 @@ Run the [synthetic fixture](../benchmarks/offline-guide/README.md) for reproduci
 layout/link/hash checks. A fixture pass does not qualify browser playback,
 native cache matching, human speech quality or every real accepted chapter.
 See the [dated verification](acceptance/2026-10-17-offline-visual-scenes.md) and
-[remaining Kata requirements](kata-tasks/22-offline-export.md).
+the archived [post-1.0 export definition](history/post-1.0/22-offline-export.md).

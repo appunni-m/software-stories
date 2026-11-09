@@ -3,10 +3,12 @@ kind: task
 key: t27
 parent: m6
 title: Generate focused, reviewed explanations for a local change set
-priority: 2
-labels: phase-6, pull-request, provider
+priority: 3
+labels: phase-6, pull-request, provider, post-1.0
 blocked_by: t10, t11, t12, t19, t26
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## User outcome
 The user can quickly understand what a local change set does and inspect every explanation against its diff or source evidence.

@@ -1,25 +1,37 @@
 ---
 kind: milestone
 key: m2
-title: M2 — Explain every eligible file
+title: M2 — On-demand file explanations and repository Guides
 priority: 4
 labels: container, milestone, phase-2, chapters
 blocked_by: m1
 ---
 
+## First-release scope
+
+Code Atlas helps a developer understand relevant code quickly. A file can be explained when requested, and a repository Guide follows a useful, source-grounded behavior path. A useful Guide does not wait for every eligible file to have its own chapter. The connected Codex path and incremental Guide work are tracked in the child issues in live Kata.
+
 ## Goal
-Create complete per-path coverage accounting and source-grounded, reviewable individual file chapters using optional, consented Gemini requests.
+
+Explain selected files and relevant repository behavior with claims grounded in the captured source. Keep the inventory available for navigation and search, while creating explanations only when the user asks for them or a Guide needs them.
 
 ## Gate
-Every eligible file can be generated and reviewed independently; every other path has an explicit disposition; substantive claims cite captured source; invalid drafts cannot be accepted; model failure leaves local views usable. Repository orientation is optional and does not count as file coverage.
 
-## Child issues
-`09-guide-coverage.md`, `10-gemini-request-boundary.md`, `11-chapter-schema.md`, `12-file-chapter-generation.md`, `13-chapter-studio.md`, `14-chapter-quality.md`, and `15-optional-overview.md`.
+- An eligible captured file can be explained on demand, with accepted claims validated against that snapshot's source.
+- A repository Guide automatically selects relevant source and explains a supported behavior path; it does not require bulk file-by-file chapter generation or complete per-path chapter coverage.
+- Published Guide sections remain useful while later sections are generated. Failure and cancellation preserve completed work and make remaining coverage clear.
+- Invalid or unsupported claims cannot be accepted, and provider failures do not disable local browsing, search, or source inspection.
 
-## Pending work — 2026-10-15
+## Excludes
 
-Pending leaf: q0sm human source-grounded benchmark and failed/repaired attempt evidence. Static UI fixes do not complete semantic quality acceptance.
+- Generating a chapter for every repository path by default.
+- Treating inventory coverage as evidence that the repository's behavior has been explained.
+- PR explanations, a direct-model API catalog, and non-Codex agent integrations in the first release; those are post-1.0 work.
 
-## Core delivery gaps — October 15
+## Related work
 
-Repository narrative planning (`6qk9`) and honest per-language capability/quality qualification (`7xx7`) are now explicit child tasks alongside file quality `q0sm`.
+Use the current child links in Kata for repository Guides, source discovery and retrieval, Codex generation, visuals, chapter review, language qualification, and quality acceptance. The previous Gemini-based and bulk file-coverage milestone wording is superseded.
+
+## Done evidence
+
+A representative repository Guide explains a real behavior path through relevant files, with independently validated source citations, incremental publication, recoverable omissions, and on-demand file drill-down. Reviewers can answer predefined comprehension questions without relying on a chapter-per-file inventory.

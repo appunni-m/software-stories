@@ -2,9 +2,11 @@
 
 Code Atlas is an in-progress macOS desktop app. This guide walks through a first local session from the source checkout. This repository does not provide a signed and notarized installer or a user download, so the native app must currently be run from source.
 
+> **First-release scope:** Code Atlas is Codex-first, with local browsing and optional Pocket narration. Direct API selection, alternate agent integrations, PR explanations, and standalone HTML export are post-1.0 work. Some development-build controls may exist before they are ready for release; you do not need them for the first session.
+
 ## What you need
 
-- macOS to use the native repository picker, local persistence, and provider keys in Keychain; Gemini narration uses a separate key.
+- macOS to use the native repository picker and local persistence. No API key is needed for the first-release Codex connection or local Pocket narration.
 - Node.js 20.19 or newer in the 20.x line, or 22.12 or newer, plus npm.
 - Rust 1.85 or newer with Cargo for the Rust 2024 edition; current stable is recommended.
 - A local Git working copy to explore.
@@ -26,20 +28,20 @@ The first command installs the versions recorded in the npm lockfile. The second
 npm run dev
 ~~~
 
-This command starts the browser-only UI preview at http://127.0.0.1:4173. The browser preview and `npm run tauri dev` share the same strict port and cannot run at once. To switch modes, stop the current development process, then start the other command; keep one Vite server on port 4173. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, local repository commands, or direct API requests. Use the Tauri command for the native workflow.
+This command starts the browser-only UI preview at http://127.0.0.1:4173. The browser preview and `npm run tauri dev` share the same strict port and cannot run at once. To switch modes, stop the current development process, then start the other command; keep one Vite server on port 4173. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, or local repository commands. Use the Tauri command for the native workflow.
 
 Code Atlas stores captures and guide history in its local application data
 folder. Read [Local data and permissions](LOCAL_DATA.md) before removing that
-folder or relying on an offline export as a backup.
+folder. Standalone HTML export is post-1.0 and is not a complete backup.
 
 ## Explore a repository
 
 1. Choose **Open repository** and select a local Git working copy. Choose **Create snapshot** to capture its eligible source. Capture is local, bounded and cancellable; partial captures remain labelled partial.
 2. The workspace opens with files on the left and a likely implementation entry point beside the explanation area. Browse files freely. Source comes from the selected immutable snapshot, rather than your changing working copy.
-3. Open **Connections** in the header. Choose Codex under **Explanations**; Code Atlas discovers the installed runtime and reuses its existing account. Saved model and reasoning choices are reused across projects. GPT-6 Luna with max reasoning is the initial preference when the installed catalog offers it; choose another supported catalog option if needed. No API key is required; account quota applies.
+3. Connect Codex once from the workspace header if it is not already connected. Code Atlas reuses the installed Codex account, and the current connection is visible in the header. No API key is needed; generation uses your Codex account and may count against its quota.
 4. Enter a question in the composer and choose **Guide me** or **Show the flow**. On the first question for this snapshot, review the sharing disclosure and choose **Allow and explain** only if you want relevant captured context sent to OpenAI through Codex. This permission is limited to the snapshot and connected account. To revoke it, open the current repository menu in the app header, choose **Repository sharing**, then choose **Revoke permission and stop questions**. A changed snapshot, account or runtime needs a new permission.
-5. Codex finds relevant implementation in the background and saves a cited draft. No reference-file checklist or second generation stage is required. Keep reading files while it works, or choose **Stop** on the question. Completion and errors collect behind the notification bell. A restart marks unfinished questions interrupted and never resends them automatically.
-6. Read **Guide**, inspect **Flow**, or review **Chat history** at the current level. Click a citation to reveal its exact captured lines. **Next section** advances only when you choose it. Each answer has its own edit and narration controls. **Play narration** uses a matching cached clip when available; otherwise Pocket prepares it locally. Choose the voice once in **Connections → Voice**. Generated explanations are drafts until reviewed and accepted.
+5. Codex finds relevant implementation in the background; no reference-file checklist or second generation stage is required. Validated sections appear in Guide as they are ready. Keep reading while it works, or choose **Stop** on the question. Completion and errors collect behind the notification bell; unfinished questions are not sent again automatically after a restart.
+6. Read **Guide**, inspect **Flow**, or open **Chat history** at the current level. Follow a citation to its exact captured lines, use **Next section** when you are ready, or ask a follow-up in the composer. Choose **Listen** when you want narration; prepare the local Pocket voice once in **Connections**. Matching audio is reused when available, and playback stays under your control.
 7. Ask another question to add an answer to this level. **Explore further** on an answer makes a child exploration. Its link and answer count stay on the originating card. Use the breadcrumb root or **Back** to return; the left exploration tree keeps branches reachable. Each exploration remembers its last Guide / Flow / history view.
 8. Drag an explorer file into chat or choose **Attach open file**. Select code in the source pane and choose **Explain this code** to ask at the current level. AI still finds supporting implementation. Captured docs may guide discovery but do not replace source evidence.
 
@@ -67,42 +69,29 @@ Choose **Changes** in the left activity bar. Its local commit list contains up t
 
 Comparisons read existing local objects only: no fetch, checkout or repository writes. Expand a changed file for exact changed-line ranges and base/head hunks. Binary, oversized, unsupported, parser-uncertain and omitted evidence is labelled. Declaration overlap is static evidence, not inferred runtime impact.
 
-The comparison's **Build a PR Guide** and **Explain hunk** tools use the existing reviewed request flows. Codex is the default connection; direct APIs are optional. Their context review is separate from the workspace question permission. Generated claims must cite the correct base/head hunk; PR decisions are saved separately and never alter Git state. Full operation acceptance remains tracked in [agent generation](AGENT_GENERATION.md).
+PR Guide and **Explain hunk** are post-1.0 follow-ups. The first release includes local, read-only Changes browsing; PR explanations are not part of the first-release journey.
 
-## Edit, narrate and take a guide offline
+## Edit and narrate a guide
 
-Open an answer's edit control to review or accept a draft, edit sections, compare immutable revisions or restore an earlier revision as a new draft. One-section regeneration preserves unaffected sections and assets; it still uses its explicit scoped review flow.
+Use an answer's edit control to update one section or inspect its saved revisions. A section update keeps unaffected sections and assets intact.
 
-**Listen** uses Pocket TTS by default for new narration preferences. On Apple Silicon, choose **Prepare voice** once; setup downloads the pinned runtime, model and voice into app storage and verifies its setup tool. You do not need to install Python or `uv` yourself. Local synthesis uses finite workers, no API key and no listening server. The transcript and manual navigation remain available without audio. Existing Google preferences and cached tracks remain distinct. See [provider disclosures](PROVIDER_DISCLOSURES.md).
+**Listen** uses Pocket TTS on this Mac. On Apple Silicon, choose **Prepare voice** once; setup downloads the runtime and voice into app storage. You do not need to install Python or `uv` yourself. Narration text stays local, no provider API key is used, and the transcript and manual navigation remain available without audio. See [provider disclosures](PROVIDER_DISCLOSURES.md).
 
-The interactive player retains **Offline export** for selected accepted revisions. Review audio coverage, source paths and excerpts before exporting a self-contained HTML reader. Export does not generate speech or send source; it contains supported visuals, text and any included cached tracks. Live code browsing and a restorable project backup are not included.
+Standalone HTML export is planned after 1.0 and is not needed to use saved guides in the app. See the [export plan](OFFLINE_EXPORT.md) for its intended contents and privacy boundaries.
 
-## Coding agents without a mandatory API key
+## Connect Codex once
 
-The shared header connection manages Codex runtime, sign-in, model and reasoning. Disconnect stops automatic account reuse. Opening connection settings is not permission to send code. Workspace questions use the native scoped snapshot grant described above; advanced editor, PR and legacy generation operations retain their exact request reviews.
+Choose the Codex connection once in the workspace header. Local browsing does not require a connection; the first question that shares captured code asks for permission for that repository snapshot. Generation uses the connected Codex account and does not require a direct API key.
 
-Automatic Claude generation is deferred. Google prohibits third-party apps from using a consumer Antigravity account; Code Atlas does not integrate that account or CLI route. Google's separate Antigravity SDK/API and Enterprise route is not implemented. Manual handoffs and direct APIs remain available in advanced backend settings, with their existing constraints. See [agent generation](AGENT_GENERATION.md) for transport and operation details, and [workspace exploration](design/WORKSPACE_EXPLORATION.md) for persistence and recovery limits.
-
-## Optional direct API generation
-
-Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To explicitly use a direct model API:
-
-1. For an operation that offers direct APIs, open the generation chooser and choose **Direct API**. The shared **Connections** header shows the current connection and opens its settings.
-2. Choose Gemini, OpenAI, or Anthropic, review its model and provider disclosures, then save that provider's API key to macOS Keychain.
-3. In Chapter Studio, select one file and choose **Generate current snapshot**.
-4. Inspect the exact selected source files, hashes, prompt, model, and estimate in the request review. The target file is included; up to eleven supporting files from the same snapshot can be selected.
-5. Read the privacy and billing notices, check each required acknowledgement, and choose **Send** only when you accept that exact request.
-6. Inspect the response. Saving creates an unaccepted local draft. Review and accept it separately in Chapter Studio. The same provider selection is available for one-section updates and PR Guides. Previously reviewed repository-overview requests can be recovered, but a new manually selected overview is not offered in the current UI; use the repository Guide for current codebase exploration.
-
-Code Atlas cannot determine account billing, region, eligibility, quota, or retention settings for a provider key. A displayed model price or free-tier label does not guarantee that a particular request is free or available. Provider-specific disclosures and first-party links are in [Provider disclosures](PROVIDER_DISCLOSURES.md).
+Direct API connections and Claude/Antigravity integrations remain future backend options; they are not choices needed for the first-release workflow. See [AI backend status](AGENT_OPERATION_PARITY.md) for implementation and qualification detail.
 
 ## Current boundaries
 
 - The local structural parser covers bounded Rust, TypeScript, TSX, JavaScript, Python, and Go subsets. These are **partial structural** capabilities, not fully qualified language support. Other captured text remains citeable but is **text only**; no language has passed the full structural and narrative qualification gate. See the [language capability matrix](LANGUAGE_CAPABILITIES.md).
-- Workspace questions automatically choose a bounded set of supporting files. The source retains a legacy sequential route-chapter builder, whose staged wizard is superseded by the workspace. Neither path guarantees complete repo-wide coverage from one question.
+- Workspace questions automatically choose a bounded set of supporting files. Large-repository Guides are built incrementally and may show uncovered topics rather than claim complete coverage from one question.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
-- Gemini, OpenAI, and Anthropic are selectable for file chapters, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient source-range explanations grounded in a verified file range. New repository-overview requests are not exposed in the current UI; saved overview revisions remain in history, and an already-reviewed operation can be recovered. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Automatic Claude/Antigravity, other agent operation pairs and native acceptance remain pending; see [Agent generation](AGENT_GENERATION.md).
-- Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Local Git comparisons now show bounded, revision-specific static references to changed files and declarations, with explicit partial results when analysis limits apply; they do not infer runtime impact. Polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
+- Direct API routes, PR explanations, and non-Codex agent integrations are future work for after 1.0. Their source implementations do not make them qualified first-release options.
+- Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Local Git comparisons show bounded, revision-specific static references to changed files and declarations; they do not infer runtime impact. Onboarding and release signing remain open; read the [Kata backlog](KATA_BACKLOG.md) for current task scope.
 - Code Atlas-authored source uses the MIT License. Third-party notices, captured source, generated answers, and evaluation assets have separate terms; see [the license scope and notices](../THIRD_PARTY_NOTICES.md) before redistributing.
 
 ## Where to go next

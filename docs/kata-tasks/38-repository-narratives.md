@@ -7,6 +7,38 @@ priority: 0
 labels: product-quality
 ---
 
+> **Scope update — 7 November 2026:** formal screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope. This task is about a complete, source-grounded repository narrative; ordinary keyboard actions and readable presentation remain product expectations, not separate audit gates.
+
+## First-release scope — 8 November 2026
+
+The first release uses the connected Codex account for repository planning and
+Guide generation. Claude Code, Antigravity, and direct model API integrations
+are deferred to the [archived post-1.0 scope](../history/post-1.0/README.md);
+references to them in the dated history below are not acceptance requirements
+for this task.
+
+Build the Guide incrementally: create a compact outline, begin the opening and
+follow-on sections as separate bounded operations, and publish each validated
+section while work continues. Keep at most five ready sections buffered. Long
+agent work has no arbitrary elapsed-time cutoff or first-answer SLA. Publish
+each validated section when ready. A failure leaves completed sections and
+explicit remaining coverage intact; resume without repeating finished work or
+claiming the Guide is complete. Code in the selected immutable snapshot is the
+source of truth; documentation only suggests where to look and may be flagged
+as stale when the captured implementation contradicts it.
+
+Guide coverage explains the behavior asked about and links to relevant files.
+File explanations remain available on demand; do not generate a chapter for
+every file as a prerequisite to a useful Guide. Automatically discover bounded
+source context from the saved snapshot permission, without a per-question
+reference-file checklist.
+
+Closure requires a real representative repository Guide with reviewed coverage,
+source links, useful per-scene visuals, understandable narration, and working
+incremental progress, recovery, navigation, and file-level drill-down. Schema
+validity or source-only implementation is not quality acceptance. Formal
+accessibility audit matrices remain out of scope.
+
 ## User outcome
 A newcomer can follow a real feature end to end, understand each relevant file, and choose deeper explanations without hearing a list of document summaries.
 
@@ -27,12 +59,18 @@ comprehension. A bounded Guide can still have uncovered routes, and a saved
 outline or first slide does not prove the later topics. Large-repository,
 representative whole-project and comprehension qualification remain open.
 
+### Incremental execution audit — 2026-11-07
+
+The current source uses `RunDeadline::UserControlled` for both repository-guide planning and progressive section generation; the ten-minute timeout is no longer applied to these operations. The initial plan is limited to five follow-on units, and the native worker publishes the initial batch incrementally while maintaining a five-slide ready buffer. Later refill calls request one slide at a time. The stored guide supports up to twenty follow-on units; additional routes remain explicit uncovered omissions instead of being presented as complete. See `src-tauri/src/repository_guide/plan.rs`, `src-tauri/src/repository_guide/mod.rs`, and the deadline/buffer assertions in `src-tauri/src/repository_guide/plan/tests.rs`.
+
+The 7 November `npm run check` exited 0 and includes those native assertions. This verifies the configured deadline, capacities, and local execution paths, not real Fontdone completion, correctness of every selected route, a full twenty-unit guide, rendered visuals, narration, or human comprehension. Keep `6qk9` open until those real-repository acceptance items are completed.
+
 ### Chapter-record policy — 23 October 2026
 The current app supports chapter schema 5 only. Earlier task notes below that describe schema 4 or legacy chapter reads are dated implementation history; older chapter versions are not read or migrated. The live schema task `8bw6` is closed, so its historical v4 notes do not require reopening. Repository-scale generation, account-backed runtime acceptance and narrative quality remain open under this task.
 
 ## Industry review follow-up — October 17
 
-The [whole-repository context study](../research/2026-10-17-repository-context-and-indexing.md) identifies DeepWiki's hierarchical, source-linked pages as the closest product reference, with a local range index and agent search/read tools as the recommended context foundation. These are recommendations, not accepted narrative generation. Local retrieval is tracked in `a699`, Codex tools in `gk46`, and phase timings in `ps02`.
+The [whole-repository context study](../research/2026-10-17-repository-context-and-indexing.md) identifies DeepWiki's hierarchical, source-linked pages as the closest product reference, with a local range index and agent search/read tools as the recommended context foundation. These are recommendations, not accepted narrative generation. Local retrieval is tracked in `a699`, Codex tools in `gk46`, and incremental publication in `3bz5`. The separate stage-timing task was retired; elapsed time is not a guide deadline or acceptance threshold.
 
 For this task, keep repository inventory, question evidence coverage and generated-guide coverage separate. Build automatic behaviour journeys and independently validated sections, then generate visuals/narration from those sections. Persist source-range and prerequisite dependencies so editing a section or source range invalidates affected dependent material without rebuilding unrelated content. Preserve partial/failed sections and older revisions; a generic overview or a valid single-file draft cannot establish complete-repository coverage. Progressive publication, selective updates and the representative language matrix remain open.
 
@@ -58,7 +96,7 @@ Codex and Claude now have separate registered native planning review commands an
 Registered native Codex/Claude plan senders now reuse agent dispatch, active source validation and cancellation, retaining the exact interruption notice. Claude remains behind the empty qualification registry. Native plan senders now save unaccepted local drafts with strict evidence replay on load. The new app caller and saved-plan reader remain unaccepted source. Accepted plan/history flow, multi-request orchestration and native acceptance are still pending. Every agent planning cell remains Missing. These concrete integrations, exact question/scope recovery and human narrative review remain required; native reviews or a manual import cannot close them. No tests, builds, launches, runtime probes, logins or model requests ran.
 
 ## Contract
-Create an explicit repository guide plan over the immutable inventory. Identify evidenced entry points and user-relevant behavior journeys, prerequisite concepts, files/relationships, success/failure paths and known unknowns. Plan distinct sections with a concrete learning question, source scope, script, optional visual and deeper source/file links. Keep the overview optional and preserve per-file coverage. Generate in bounded reviewed units through the chosen API or agent runtime; show coverage, omissions, progress and recoverable failures. Do not squeeze a whole repository into one model request.
+Create an explicit repository guide plan over the immutable inventory. Identify evidenced entry points and user-relevant behavior journeys, prerequisite concepts, files/relationships, success/failure paths and known unknowns. Plan distinct sections with a concrete learning question, source scope, narration, optional visual and deeper source/file links. Keep the overview optional and preserve per-file coverage. Generate bounded units through the connected Codex account; publish validated sections incrementally and show coverage, omissions, progress and recoverable failures. Do not squeeze a whole repository into one model request.
 
 ## Acceptance criteria
 - A reader can choose orientation, a behavior journey or any eligible file; every completed section has explicit Next, Back and Explore code actions.
@@ -155,7 +193,8 @@ cards and the introduction recites types. [Preserved generation and quality
 failures](../acceptance/2026-10-17-shared-chapter-scenes.md).
 
 This does not establish a coherent repository story. Keep the broad Fontdone
-Partial result, missing branches and timing gates open. Pending: example-led
+Partial result and missing branches remain. Historical timing observations are
+not an active gate. Pending: example-led
 causal journeys, useful meaning-level visuals, distinct guarded outcomes,
 representative-language completeness, real audio/comprehension and native
 nested source navigation. Do not close this task from a narrow file result.

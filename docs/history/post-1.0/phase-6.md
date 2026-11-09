@@ -3,9 +3,11 @@ kind: milestone
 key: m6
 title: M6 — Local PR Guide follow-up
 priority: 4
-labels: container, milestone, phase-6, pull-request
+labels: container, milestone, phase-6, pull-request, post-1.0
 blocked_by: m5
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## Goal
 Extend the trusted repository guide to a selected local Git base/head change set after the first release is stable.

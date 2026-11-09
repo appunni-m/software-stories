@@ -7,6 +7,15 @@ priority: 1
 labels: design, ux, product
 ---
 
+> **Superseded 8 November 2026:** Kata `na54` was soft-deleted after its
+> packaged workspace acceptance was consolidated into `13yp`, with shared
+> component implementation tracked in `nnsf` and Guide/Flow behavior in
+> `mrpj`. Its unique **Load latest changes** requirement was transferred to
+> `13yp`. This page is retained as a historical audit record; its formal
+> accessibility audit items are not release gates.
+
+> **Scope update — 7 November 2026:** this UI task covers normal product journeys, visual clarity, supported window sizes, and keyboard actions. Formal VoiceOver/screen-reader, 200% zoom, contrast-preference, and reduced-motion audits are out of scope; older dated audit notes are historical evidence only.
+
 ## Outcome
 Replace the installed Guide/Files workflow with the conversational developer workspace shown in workspace-preview.html. Explorer, Search and Changes live in a narrow VS Code style activity bar; source and explanation receive the remaining space. Stacked conversations and nested explorations must be visible without discovering hidden controls.
 
@@ -19,7 +28,7 @@ Replace the installed Guide/Files workflow with the conversational developer wor
 6. Shared controls: legacy 8–11px typography, inconsistent button sizes, blue paragraph text, different pane headers, dense card nesting, duplicate status labels. Use shared Radix controls and neutral semantic surfaces; keep readable text and a consistent spacing scale.
 7. Generation: source discovery and chapter generation own separate modals and discard intent. Give one question-specific background operation a lifetime independent of navigation, an explicit stop action, persisted result references and native evidence validation. A revocable snapshot permission replaces repeated source-review steps for the new workspace only; old explicit review/recovery remains available.
 8. Saved work/edit/player: do not remove revision editing, source citations, independent section changes or Pocket TTS. Expose them on the answer that owns them.
-9. Changes: comparisons require typed refs and show internal IDs. Provide a real bounded local commit list/ancestry with one-click comparison; retain exact diff/PR explanation functionality.
+9. Changes: show a real bounded local commit list/ancestry and make local comparison easy to open. AI explanations of PR diffs and hunks are post-1.0 work under M6.
 10. Search: current header search opens another workflow. Search captured paths/code beside the composer, with Explore with AI even for no results; do not run inference on typing.
 11. Notifications/settings: keep background outcomes in the existing bell, one connection in the header, settings only on demand. Remove duplicate navigation and unused controls from the normal path.
 12. First-run, capture/error, connection/recovery, chapter editor, player and Git details: review shared typography/spacing/focus; preserve actionable errors and existing records. Do not claim these flows passed merely because a detached preview looks correct.
@@ -33,7 +42,7 @@ The native workspace header now offers **Load latest changes** when a repository
 
 When a file is open, its path stays selected in the new snapshot so the updated source is immediately visible. The previous line range is cleared because its source hash belongs to the older snapshot.
 
-Packaged acceptance must verify committed and uncommitted edits appear in the new snapshot; the currently open file stays selected and shows the new bytes; prior source, answers and citations remain available from the earlier snapshot; partial captures show skipped paths; failure/cancellation keeps the prior selection; changing repositories during capture never redirects the open workspace; and the header control remains usable with keyboard, VoiceOver and narrow/high-zoom layouts.
+Packaged acceptance must verify committed and uncommitted edits appear in the new snapshot; the currently open file stays selected and shows the new bytes; prior source, answers and citations remain available from the earlier snapshot; partial captures show skipped paths; failure/cancellation keeps the prior selection; changing repositories during capture never redirects the open workspace; and the header control remains usable with ordinary keyboard actions at supported window sizes.
 
 ## Header and scene navigation overflow — source correction, 29 October 2026
 
@@ -119,7 +128,7 @@ those acceptance checks open.
 
 The [large-repository acceptance run](../acceptance/2026-10-17-fontdone.md) reproduced remaining user-facing inconsistencies:
 
-- [ ] Returning from a child, switching Guide/history or restarting restores the parent answer at section one. Preserve exact reader position under separate [task 68](68-exploration-reading-position.md), Kata `erzc`.
+- [ ] Returning from a child, switching Guide/history or restarting restores the parent answer at section one. Preserve exact reader position under separate [task 68](../kata-tasks/68-exploration-reading-position.md), Kata `erzc`.
 - [x] History labels describe stopped/interrupted/failed questions truthfully and call an explanation saved only when its exact revision is available. The current model is `historyEntry` in `src/workspace/model.ts`; regressions are in `tests/workspace.test.mjs`.
 - [x] Exploration summaries distinguish questions and child explorations from answer sections. The current model is `explorationSummaryCounts` in `src/workspace/model.ts`; failed-child and count regressions are in `tests/workspace-outcomes.test.mjs`.
 - [x] Supported inline code is rendered as inert `<code>` elements through `InlineCodeText` and `inlineCodeParts`; stored prose and citation identity are unchanged.
@@ -1838,3 +1847,33 @@ controls in the same row, while narrower windows and the explicit native-zoom
 compact rule still reflow them. This is a source-only layout correction; the
 current installed screenshot predates it. Boundary-width, long-label, packaged,
 keyboard and accessibility acceptance remains open under `x21h` and `13yp`.
+
+### Current-main packaged layout recheck — 3 November 2026
+
+Built and installed the current `main` source at `6a1e2928c1d2e55687ac6aa959339698e1e7ff83` once. The installed and built executable SHA-256 is `d981ce8cbd4c4db992b2f568b44e7cc3f89d188596a154f918157dee5de7b35d`. In the Fontdone partial snapshot `main@5249b72371`, the header controls and the active two-scene Guide pager fit without visible overlap at a 2992 × 1934 pixel window. The retained screenshot is `docs/acceptance/artifacts/2026-11-03-workspace-layout-main-6a1e292.jpg`; full context and limits are in `docs/acceptance/2026-11-01-packaged-layout-observation.md`.
+
+This closes only the current-build/current-size observation gap; it does not qualify the user's exact screenshot dimensions, other pages, resize boundaries, long labels, light appearance, keyboard, VoiceOver, 200% zoom, contrast, or motion. Keep the audit open.
+
+### Flow answer-part selector reflows in the reader pane — 3 November 2026
+
+The current packaged Flow view showed the **Answer part** label wrapping beside a long selected option, with the selector crowding the right edge of the pane. The shared answer-part row now gives the select a shrinkable flex track, ellipsizes an overlong selected value, and stacks the label above the full-width select when the explanation pane is at most 520 CSS pixels wide. This is a source-only correction; it has not yet been rebuilt or checked in the packaged app. Keep `x21h` and `13yp` open for bundled confirmation and the remaining UI/accessibility matrix.
+
+The correction is now included in pushed `main` commit `27878a4a98a07cc14bb5e612d14671cf1f64d31f`. The rebuilt installed executable matches its bundle at SHA-256 `683dfed08dfd8eee12b829e2127ae6f5a33bc3df7d926f3ae61118d3610de503`. In the same Fontdone Level 2 workspace and narrow explanation pane, a live CUA screenshot showed **Answer part** on its own line and the select filling the pane; its long selected value ends with an ellipsis inside the control. No overflow was visible. The screenshot was not retained separately. Build passed; no test suite ran. Keep `x21h` and `13yp` open for retained evidence, other pages and full accessibility/responsive acceptance.
+
+### Reject the retained 3 November workspace image — 4 November 2026
+
+Opened
+`docs/acceptance/artifacts/2026-11-03-workspace-layout-main-6a1e292.jpg` for
+visual inspection. The file shows the macOS wallpaper and menu bar, with no
+Code Atlas window. It cannot support the adjacent 6a1e292 layout claims and
+must not count as the retained packaged screenshot. The earlier live CUA
+observation was not saved separately, so its UI claims cannot be checked
+against this artifact. Keep the image for traceability, replace it with a
+capture that visibly includes the packaged app, and leave `13yp` / `x21h` open
+for native visual acceptance.
+
+The 7 November scope update at the top of this task excludes formal accessibility audit matrices. The remaining open work is packaged visual evidence for real workspace journeys, supported window sizes, and ordinary keyboard actions.
+
+### Compact header breakpoint follow-up — 4 November 2026
+
+Commit `debaca0` narrows the compact-header container breakpoint from 1440px to 1280px, with the two boundary expectations updated in `tests/workspace-reflow.test.mjs`. The focused suite passed 14/14, `npm run build` passed, and `git diff --check` passed before the commit was pushed directly to `main`. GitHub package workflow #1789 completed successfully for this commit, including the unsigned macOS bundle build and inspection. A new native capture attempt can capture the desktop, but it still cannot capture the Code Atlas surface: Quartz reports the app window as ID 33934 at 1440×844, window-specific `screencapture` fails, and System Events denies window access with `-1728`. Package success does not establish the requested packaged UI layout; keep `x21h` and `13yp` open.

@@ -7,6 +7,14 @@ labels: cache, latency, speech
 parent: dbmd
 ---
 
+> **Archived — 9 November 2026:** generation-time narration prewarming is
+> post-1.0 and has no active Kata issue (`tp6r` was soft-deleted). This
+> specification is preserved for future planning, not as a first-release gate.
+
+> **First-release scope — 8 November 2026:** Pocket is the only narration
+> backend. The prewarming behavior below is deferred; Pocket setup and cached
+> playback remain first-release work.
+
 ## User outcome
 
 The explanation is ready to follow while local Pocket TTS prepares narration in the background, so the first Play does not hold up the reader.
@@ -14,7 +22,7 @@ The explanation is ready to follow while local Pocket TTS prepares narration in 
 ## Requirements
 
 - Start preparation after each validated narration unit is checkpointed. Audio must not delay or fail answer publication.
-- Use the saved global Voice connection and prewarm only the explicitly selected Pocket path. Keep cloud speech behind its exact-text review and consent.
+- Reuse the one saved Pocket Voice connection. Do not add per-answer engine selection or a cloud fallback.
 - Reuse the canonical audio fingerprint and cache. Skip matching audio, separate changed scripts or runtime settings, and preserve earlier revision audio.
 - Reuse the single bounded Pocket worker. Coalesce duplicate fingerprints; bound the queue; handle cancellation, shutdown, navigation and worker failure without partial audio or a stranded queue.
 - Keep playback manual and source exploration available. Show a plain preparing, ready, or unavailable state; retain on-demand Play when a clip is not ready.
@@ -24,10 +32,10 @@ The explanation is ready to follow while local Pocket TTS prepares narration in 
 - A delayed-worker fixture shows the answer before synthesis completes and verifies a cache hit after completion without a second synthesis.
 - Script, pronunciation, voice/model/runtime, segmentation or output-format changes cannot reuse stale audio.
 - Queue bounds, duplicate coalescing, cancellation, shutdown and failure preserve the transcript, citations, earlier audio and future queue progress.
-- Cloud selection causes no background request and does not weaken consent.
-- In the packaged app, record the status transition and first-section latency while reading; verify manual playback and offline cache reuse.
+- Prewarming never starts playback; the reader can choose Play when ready and still read when unavailable.
+- In the packaged app, record the status transition while reading and verify manual playback and offline cache reuse. Timing is diagnostic, not a pass/fail cutoff.
 
-Do not treat after-first-play caching as generation-time prewarming. The 21 October Fontdone observation in [the Pocket player/cache task](35-pocket-player-cache.md) is evidence of a ready cached section, but does not measure the exact transition, offline restart, or cancellation/failure under load. Keep this child issue open until the remaining criteria are observed.
+Do not treat after-first-play caching as generation-time prewarming. The 21 October Fontdone observation in [the Pocket player/cache task](../../kata-tasks/35-pocket-player-cache.md) is evidence of a ready cached section, but does not measure the exact transition, offline restart, or cancellation/failure under load. If this is restored after 1.0, qualify the remaining criteria before closing it.
 
 ## Focused prewarm checks — 2026-10-21
 
@@ -282,3 +290,39 @@ still does not await synthesis, and failures remain optional. `git diff --check`
 passed; no tests, build, packaged run, or listening check was performed for
 this change. Keep the delayed-worker, cache-hit, cancellation/failure, offline
 restart, latency, and packaged-transition acceptance open.
+
+## Existing Pocket clip after app relaunch — 30 October 2026
+
+The packaged Fontdone workspace reopened on `main@5249b72371` with the saved
+`Outline::is_empty` answer still selected. Its narration reports **Ready to
+play**, `00:00 / 00:13`, with the play control idle. Connections → Voice reports
+**Pocket TTS — on this Mac, free**, **Ready to listen**, and “text stays on this
+Mac.” The active executable is
+`/Users/lazytrot/Applications/Code Atlas.app/Contents/MacOS/code-atlas-desktop`,
+SHA-256 `07fa3b6708751ac249c9c350fe780f08195d0bad7f91f7fce152c72fcba429cc`,
+running as PID 38241, started 30 October 2026 at 00:08:28 local time.
+
+This is a read-only UI observation after the app relaunched. It confirms that
+the saved section and its ready-to-play state reappear, and that Pocket remains
+the selected local voice engine. No narration was played or synthesized, no
+provider request was made, and no saved content changed. It does **not** prove
+offline byte reuse, canonical cache-key identity, time-to-ready, or audio
+quality. Keep those acceptance gates open.
+
+## Guide prewarm during conversation restoration — 5 November 2026
+
+Source review found the progressive Guide section listener waited for
+`load_workspace_conversation` before adopting a native-validated section. A
+slow conversation restore therefore delayed the local Pocket enqueue even
+though the section receipt was already durable. The listener now saves the
+chapter draft and queues its local narration as soon as the event arrives, then
+merges the section into the reader after conversation restoration completes.
+
+`node --experimental-strip-types --test tests/workspace-narration-prewarm.test.mjs`
+passed (**8 passed**). The new regression holds conversation restoration open,
+verifies section adoption and prewarm occur while it is pending, and confirms
+the section appears in the reader once restoration finishes. `git diff --check`
+passed. No audio was synthesized and no provider or model was called; no build,
+packaged run, latency capture, or listening check was performed. Keep the Kata
+open for packaged transition, offline reuse, failure/cancellation, and listening
+acceptance.

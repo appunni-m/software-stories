@@ -3,10 +3,12 @@ kind: task
 key: t26
 parent: m6
 title: Build bounded read-only evidence for local Git base and head refs
-priority: 1
-labels: phase-6, pull-request, repository
+priority: 3
+labels: phase-6, pull-request, repository, post-1.0
 blocked_by: t04, t06, t25, parser-binding-resolution
 ---
+
+> **Archived 8 November 2026:** This post-1.0 definition is preserved for future planning and is not part of the active first-release backlog. See [the archive scope](README.md). Restore its Kata issue before scheduling this work.
 
 ## User outcome
 The developer can compare two locally available Git revisions and inspect changed source, declarations, and parser-resolved cross-file references without changing the checkout.

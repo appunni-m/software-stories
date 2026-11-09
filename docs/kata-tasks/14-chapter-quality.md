@@ -8,6 +8,8 @@ labels: phase-2, quality, chapters
 blocked_by: t12, t13
 ---
 
+> **Scope update — 7 November 2026:** formal accessibility audit matrices are out of scope for chapter-quality acceptance. This task evaluates whether explanations accurately teach real code behavior; historical accessibility notes are not blockers.
+
 ## User outcome
 The user can trust that a chapter teaches the behavior in its file instead of sounding polished while staying shallow.
 
