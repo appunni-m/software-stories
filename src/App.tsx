@@ -35,9 +35,6 @@ import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useR
 import { listen } from '@tauri-apps/api/event';
 import { type CodexChapterDialogMode } from './CodexChapterDialog';
 import { CodexContextDialog } from './CodexContextDialog';
-import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
-import { RepositoryPlanHistoryDialog } from './RepositoryPlanHistoryDialog';
-import type { PlannedChapterScope } from './lib/plannedChapters';
 import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
@@ -348,40 +345,8 @@ function App() {
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
-  const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
-  const [planHistoryProjectId, setPlanHistoryProjectId] = useState<string | null>(null);
-  const [planHistoryDraftId, setPlanHistoryDraftId] = useState<string | undefined>(undefined);
   const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
   const [pendingCodeLensQuestion, setPendingCodeLensQuestion] = useState<PendingCodeLensQuestion | null>(null);
-  const planningReturnFocus = useRef<HTMLElement | null>(null);
-  const closePlanningDialog = useCallback(() => {
-    setPlanningDialog(null);
-    const previous = planningReturnFocus.current;
-    if (previous?.isConnected) previous.focus();
-  }, []);
-  const openPlanningDialog = useCallback((scope: RepositoryPlanningScope) => {
-    planningReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setPlanningDialog(scope);
-  }, []);
-  const openPlanHistory = useCallback((projectId: string, draftId?: string) => {
-    setPlanHistoryDraftId(draftId);
-    setPlanHistoryProjectId(projectId);
-  }, []);
-  const closePlanHistory = useCallback(() => {
-    setPlanHistoryProjectId(null);
-    setPlanHistoryDraftId(undefined);
-  }, []);
-  useEffect(() => {
-    if (planningDialog && (navigation.current.workspace !== 'guide-plan'
-      || navigation.current.projectId !== planningDialog.projectId || navigation.current.snapshotId !== planningDialog.snapshotId)) {
-      // Unmount the existing agent owner; it cancels work and preserves any
-      // already published unaccepted result for later native discovery.
-      setPlanningDialog(null);
-    }
-  }, [planningDialog, navigation.current.workspace, navigation.current.projectId, navigation.current.snapshotId]);
-  useEffect(() => {
-    if (planHistoryProjectId && navigation.current.projectId !== planHistoryProjectId) closePlanHistory();
-  }, [planHistoryProjectId, navigation.current.projectId, closePlanHistory]);
   useEffect(() => {
     if (!pendingLargeFileRequest) return;
     const route = navigation.current;
@@ -709,6 +674,14 @@ function App() {
     try {
       const recordedRequest = operation.providerRequest;
       if (!recordedRequest) throw new Error('The current interruption record is missing its request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
+      if (recordedRequest.purpose === 'repositoryPlan' || recordedRequest.plannedChapter) {
+        setNotice({ projectId: operation.projectId, snapshotId: operation.snapshotId,
+          title: 'Start this as a Guide question',
+          message: 'This saved Learning Plan request belongs to an older workflow and cannot be resumed. Ask the same question with Guide me to create a current, source-grounded answer.',
+          tone: 'warning',
+        });
+        return;
+      }
       if (recordedRequest.providerId !== 'codex') {
         setNotice({ projectId: operation.projectId, snapshotId: operation.snapshotId,
           title: 'This interrupted request uses an unavailable connection',
@@ -739,28 +712,6 @@ function App() {
           || exact.providerId !== recoveryBackend || exact.purpose !== recordedRequest.purpose) {
           throw new Error('The interrupted request changed during recovery. Review the current notice again.');
         }
-      }
-      if (request.purpose === 'repositoryPlan') {
-        if (!recovered || !request.repositoryPlan) throw new Error('The original planning question or native source scope is unavailable. The recovery notice was preserved.');
-        handleProjectOpenResult(opened);
-        setNavigation((state) => navigateToRoute(state, { workspace: 'guide-plan', projectId: operation.projectId,
-          snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
-        openPlanningDialog({ projectId: operation.projectId, snapshotId: operation.snapshotId,
-          question: request.repositoryPlan.question, selectedPaths: request.selectedPaths,
-          recoveryOperationId: operation.operationId, recoveryBackend });
-        return;
-      }
-      if (request.plannedChapter) {
-        if (!recovered || request.purpose !== 'fileChapter') throw new Error('The accepted reading step cannot be restored with this backend. Its recovery notice was preserved.');
-        const scope = request.plannedChapter;
-        if (scope.snapshotId !== operation.snapshotId || scope.primaryPath !== operation.targetPath) throw new Error('The accepted step differs from the interrupted chapter. No broader request was opened.');
-        handleProjectOpenResult(opened);
-        setNavigation((state) => navigateToRoute(state, { workspace: 'guide-plan', projectId: operation.projectId,
-          snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
-        openPlanningDialog({ kind: 'planned-chapter', projectId: operation.projectId, snapshotId: scope.snapshotId,
-          question: scope.question, selectedPaths: scope.selectedPaths, plannedChapter: scope,
-          recoveryOperationId: operation.operationId, recoveryBackend });
-        return;
       }
       const sectionTarget = request.sectionUpdate;
       let sectionBase: ChapterRevision | null = null;
@@ -1127,14 +1078,12 @@ function App() {
 
   useEffect(() => {
     const refresh = () => { void refreshPendingChapterPreviews(); };
-    const refreshPlans = () => { void refreshInterruptedOperations(); };
+    const refreshRecoveries = () => { void refreshInterruptedOperations(); };
     window.addEventListener('code-atlas:pending-chapter-previews-changed', refresh);
-    window.addEventListener('code-atlas:repository-plans-changed', refreshPlans);
-    window.addEventListener('code-atlas:agent-recovery-changed', refreshPlans);
+    window.addEventListener('code-atlas:agent-recovery-changed', refreshRecoveries);
     return () => {
       window.removeEventListener('code-atlas:pending-chapter-previews-changed', refresh);
-      window.removeEventListener('code-atlas:repository-plans-changed', refreshPlans);
-      window.removeEventListener('code-atlas:agent-recovery-changed', refreshPlans);
+      window.removeEventListener('code-atlas:agent-recovery-changed', refreshRecoveries);
       interruptionLookup.invalidate();
       previewLookup.invalidate();
     };
@@ -1284,7 +1233,7 @@ function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (shortcutsOpen || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (event.key === 'Escape') {
-        if (providerDialog || planningDialog) {
+        if (providerDialog) {
           event.preventDefault();
           return;
         } else if (snapshotMenuOpen) {
@@ -1347,7 +1296,7 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigation.current.snapshotId, navigationActions, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, shortcutsOpen]);
+  }, [navigation.current.snapshotId, navigationActions, openLocalRepository, projectMenuOpen, providerDialog, snapshotMenuOpen, shortcutsOpen]);
 
   useEffect(() => {
     const open = () => {
@@ -2146,11 +2095,6 @@ function App() {
                 endLine: range.endLine,
                 sourceSha256: range.sourceSha256,
               })}
-              onOpenPlanHistory={()=>{
-                if(!currentProject||!selectedSnapshot)return;
-                setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId,focusTarget:'heading:guide-plan'}));
-                openPlanHistory(currentProject.projectId);
-              }}
               onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot
                 && rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath},true)) unavailableFileLocationsRef.current.delete(currentProject.projectId); }}
               onCompare={(baseRef,headRef,remember=true) => {
@@ -2285,34 +2229,6 @@ function App() {
           </section>
         </main>
       </div>
-      {planningDialog && <RepositoryPlanningDialog
-        key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.discoveryResult ?? null, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
-        scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
-        onOpenConnections={openProviderSettings}
-        onOpenPlanHistory={(projectId,draftId)=>{closePlanningDialog();openPlanHistory(projectId,draftId);}}
-        onLargeFileDiscovered={(handoff) => {
-          closePlanningDialog();
-          openDiscoveredLargeFile(handoff);
-        }}
-        onRecoveryResultReady={completeRecoveredProviderReview}
-        onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
-      {planHistoryProjectId && <RepositoryPlanHistoryDialog
-        key={`${planHistoryProjectId}:${planHistoryDraftId??''}`}
-        projectId={planHistoryProjectId}
-        native={runtime?.native ?? isNativeRuntime()}
-        initialDraftId={planHistoryDraftId}
-        onClose={closePlanHistory}
-        onOpenSource={(snapshotId,path,startLine,endLine)=>{
-          closePlanHistory();
-          openCapturedFile(path,snapshotId,{startLine,endLine});
-        }}
-        onOpenChapter={(scope:PlannedChapterScope)=>{
-          closePlanHistory();
-          setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'guide-plan',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,focusTarget:'heading:guide-plan'}));
-          openPlanningDialog({kind:'planned-chapter',projectId:planHistoryProjectId,snapshotId:scope.snapshotId,
-            question:scope.question,selectedPaths:scope.selectedPaths,plannedChapter:scope});
-        }}
-      />}
       {providerDialog && (
         <ProviderDialog
           key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}

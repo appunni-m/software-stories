@@ -537,14 +537,6 @@ export function isRepositoryPlanIntent(question: string): boolean {
     || /\b(?:learn|understand)\b.{0,48}\b(?:repo(?:sitory)?|code\s*base|codebase|project)\b.{0,48}\b(?:step\s+by\s+step|in\s+order|route|plan|path)\b/u.test(query);
 }
 
-/** Opening saved routes is a chat action, not a permanent toolbar destination. */
-export function isRepositoryPlanHistoryIntent(question: string): boolean {
-  const query = question.trim().toLocaleLowerCase();
-  if (!query) return false;
-  return /\b(?:show|open|review|list|find)\b.{0,40}\b(?:my\s+)?(?:learning|reading)\s+(?:routes?|plans?|paths?)\b/u.test(query)
-    || /\b(?:my\s+)?(?:learning|reading)\s+(?:routes?|plans?|paths?)\b.{0,32}\b(?:history|saved|drafts?)\b/u.test(query);
-}
-
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
