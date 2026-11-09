@@ -2961,8 +2961,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const selectedSymbol = index?.symbols.find((symbol) => symbol.symbolId === view.selectedSymbol) ?? null;
   const selectedEdge = graph?.edges.find((edge) => edge.relationship.relationshipId === view.selectedRelationship) ?? null;
   const rawRelationship = index?.relationships.find((edge) => edge.relationshipId === view.selectedRelationship) ?? null;
-  const unresolvedCount = index?.relationships.filter((edge) => edge.confidence !== 'high' || edge.unresolvedReason !== null || !edge.targetId).length ?? 0;
-  const unsupportedCount = rows.filter((row) => row.parserReadiness === 'unsupported').length;
 
   const choosePath = (row: InventoryRow) => {
     const folder = row.kind === 'directory' ? row.path : null;
@@ -3187,11 +3185,13 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         onReadRevision={onReadRevision}
       />
 
-      <details className="atlas-relationship-details">
+      <details className="atlas-relationship-details" onToggle={(event) => {
+        if (event.currentTarget.open && indexState === 'pending') void startIndex();
+      }}>
         <summary>Explore connected code <span>Static links found in the source</span></summary>
         <div className="atlas-map-columns">
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
-        <header><div><strong id="atlas-map-title">Connections</strong><small>{shownEdges.length} code link{shownEdges.length === 1 ? '' : 's'}</small></div></header>
+        <header><div><strong id="atlas-map-title">Connections</strong></div></header>
         <div className="atlas-map-filters"><AppSearchField className="atlas-filter-search" ariaLabel="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onValueChange={(mapQuery)=>setView((s)=>({...s,mapQuery}))}/><label><span>Type</span><AppSelect ariaLabel="Filter relationships by type" size="1" value={view.kind} options={[{value:'all',label:'All types'},{value:'calls',label:'Calls'},{value:'imports',label:'Imports'},{value:'testReference',label:'Test references'},{value:'defines',label:'Defines'},{value:'exports',label:'Exports'}]} onValueChange={(kind)=>setView((s)=>({...s,kind:kind as AtlasWorkbenchViewState['kind']}))}/></label><label><span>Language</span><AppSelect ariaLabel="Filter relationships by language" size="1" value={view.language} options={[{value:'all',label:'All languages'},...languages.map((language)=>({value:language,label:language}))]} onValueChange={(language)=>setView((s)=>({...s,language}))}/></label></div>
         {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
           {view.selectedFolder && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></AppButton>}
@@ -3199,11 +3199,8 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
           {view.language !== 'all' && <AppButton intent="custom" className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, language: 'all' }))}>Language: {view.language} <span aria-hidden="true">×</span></AppButton>}
           <AppButton intent="custom" className="atlas-clear-filters" onClick={() => setView((s) => ({ ...s, selectedFolder: null, kind: 'all', language: 'all' }))}>Clear filters</AppButton>
         </div>}
-        {indexState === 'loading' && <div className="atlas-index-banner" role="status">Building code connections…</div>}
-        {indexState === 'pending' && <div className="atlas-index-banner" role="status"><strong>Connections aren’t ready</strong><span>{indexError ?? 'Prepare links between files to explore how this code fits together.'}</span>{!indexError && <AppButton intent="custom" onClick={() => { void startIndex(); }} disabled={startingIndex}>{startingIndex ? 'Preparing…' : 'Prepare connections'}</AppButton>}</div>}
-        {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Connections unavailable</strong><span>{indexError}</span><AppButton intent="custom" onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try again</AppButton></div>}
-        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Some connections may be out of date</strong><span>Links for changed files are hidden until they can be refreshed.</span>{isNativeRuntime() && <AppButton intent="custom" onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Refreshing…' : 'Refresh links'}</AppButton>}</div>}
-        {indexState === 'ready' && unsupportedCount > 0 && <div className="atlas-index-banner unsupported" role="status"><strong>{unsupportedCount} files have no code connections</strong><span>You can still open them in Explorer.</span></div>}
+        {indexState === 'error' && <div className="atlas-view-warning" role="alert"><strong>Couldn’t show these connections.</strong><span>{indexError}</span><AppButton intent="quiet" onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try again</AppButton></div>}
+        {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-view-warning" role="status"><strong>Some links are hidden.</strong><span>The captured source changed, so these links need a refresh.</span>{isNativeRuntime() && <AppButton intent="quiet" onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Refreshing…' : 'Refresh links'}</AppButton>}</div>}
         <div className="atlas-canvas-toolbar" role="group" aria-label="Relationship map viewport controls">
           <span>Zoom {Math.round((dragViewport ?? view.viewport).scale * 100)}% · drag empty canvas to pan</span>
           <AppButton intent="custom" aria-label="Zoom out relationship map" title="Zoom out (−)" onClick={() => zoomAtCenter(-ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale <= ATLAS_MIN_ZOOM}>−</AppButton>
@@ -3222,10 +3219,10 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
               <AppButton intent="custom" className="atlas-edge-node" onClick={() => to && chooseSymbol(to.symbolId, to.path)}><small>TO · {to?.kind ?? 'symbol'}</small><strong>{to?.qualifiedName ?? edge.targetId}</strong><code>{to?.path}</code></AppButton>
               <AppButton intent="custom" className="atlas-edge-evidence" onClick={() => chooseEdge(edge)}>{edge.evidence.path}:{edge.evidence.startLine}–{edge.evidence.endLine}<span>Inspect evidence</span></AppButton>
             </article>;
-          }) : indexState === 'ready' ? <div className="atlas-empty-note"><strong>{provenEdges.length ? 'No connections match these filters.' : 'No code connections could be confirmed.'}</strong><span>{provenEdges.length ? 'Clear the search, choose another connection type, or widen the folder scope.' : unresolvedCount ? `${unresolvedCount} possible connections could not be verified from the available code.` : 'No direct connections were found in the captured source.'}</span></div> : null}
+          }) : indexState === 'ready' ? <div className="atlas-empty-note"><strong>{provenEdges.length ? 'No connections match these filters.' : 'No code connections could be confirmed.'}</strong><span>{provenEdges.length ? 'Clear the search, choose another connection type, or widen the folder scope.' : 'No direct connections were found in the captured source.'}</span></div> : null}
           </div>
         </div>
-        <footer>{indexState === 'ready' ? `Showing ${provenEdges.length} source-supported links; ${unresolvedCount} possible connections could not be confirmed.` : 'Only connections supported by the captured code are shown.'}</footer>
+        <footer>Connections shown here come from captured source; they do not describe runtime behavior.</footer>
       </section>
 
       <aside className="atlas-details-panel" aria-labelledby="atlas-details-title">

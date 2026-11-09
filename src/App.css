@@ -427,17 +427,10 @@ html[data-app-zoom-header-compact="true"] .topbar .theme-control {max-width:160p
 .atlas-active-filter-chip, .atlas-clear-filters { padding: 5px 7px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface-raised); color: var(--accent); font-size: 12px; cursor: pointer; }
 .atlas-active-filter-chip span { padding-left: 4px; color: var(--warning); }
 .atlas-clear-filters { margin-left: auto; border-color: var(--border-strong); background: transparent; color: var(--muted); }
-.atlas-index-banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 8px 7px; padding: 9px; border: 1px solid var(--accent-border); border-radius: 5px; background: var(--surface-raised); color: var(--accent); font-size: 12px; line-height: 1.5; }
-.atlas-index-banner strong { color: var(--accent); }
-.atlas-index-banner span { flex: 1; min-width: 90px; }
 .atlas-view-warning { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--warning-border); border-radius: 6px; background: var(--surface-raised); color: var(--muted); font-size: 12px; line-height: 1.5; }
 .atlas-view-warning span { flex: 1; min-width: 140px; }
 .atlas-view-warning strong { color: var(--warning); }
 .atlas-view-warning button { min-height: 34px; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-hover); color: var(--text); font-size: 12px; cursor: pointer; }
-.atlas-index-banner.stale { border-color: var(--danger-border); background: var(--surface-raised); color: var(--warning); }
-.atlas-index-banner.stale strong { color: var(--warning); }
-.atlas-index-banner.unsupported { border-color: var(--warning-border); background: var(--surface-raised); color: var(--warning); }
-.atlas-index-banner button { min-height: 32px; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-hover); color: var(--accent); font-size: 12px; cursor: pointer; }
 .atlas-canvas-toolbar { min-height: 33px; display: flex; justify-content: flex-end; align-items: center; gap: 5px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
 .atlas-canvas-toolbar span { margin-right: auto; color: var(--muted); font: 12px var(--mono); }
 .atlas-canvas-toolbar button { min-width: 32px; min-height: 30px; padding: 4px 7px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-raised); color: var(--muted); font-size: 12px; cursor: pointer; }
