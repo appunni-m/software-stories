@@ -697,7 +697,15 @@ fn chunks(
     budget: &Budget<'_>,
 ) -> Result<Vec<Chunk>, String> {
     let starts = line_starts(text);
-    let mut boundaries = symbols
+    let mut ordered_symbols = symbols.to_vec();
+    ordered_symbols.sort_unstable_by_key(|symbol| {
+        (
+            symbol.anchor.start_byte,
+            symbol.anchor.end_byte,
+            symbol.symbol_id.as_str(),
+        )
+    });
+    let mut boundaries = ordered_symbols
         .iter()
         .flat_map(|s| [s.anchor.start_byte, s.anchor.end_byte])
         .filter(|&p| p <= text.len() && text.is_char_boundary(p))
@@ -705,6 +713,10 @@ fn chunks(
     boundaries.sort_unstable();
     boundaries.dedup();
     let mut result = vec![];
+    // Maintain only declarations that can contain the current chunk. The old
+    // per-chunk scan revisited every symbol in the file for every range.
+    let mut next_symbol = 0;
+    let mut active_symbols = Vec::new();
     let mut start = 0;
     while start < text.len() {
         budget.check()?;
@@ -714,7 +726,7 @@ fn chunks(
         }
         if end < text.len() {
             let floor = start + CHUNK_BYTES / 2;
-            if let Some(&boundary) = boundaries.iter().rev().find(|&&p| p >= floor && p <= end) {
+            if let Some(boundary) = latest_boundary_in_window(&boundaries, floor, end) {
                 end = boundary;
             } else if let Some(newline) = text[start..end]
                 .rfind('\n')
@@ -723,15 +735,17 @@ fn chunks(
                 end = start + newline + 1;
             }
         }
-        let mut containing = symbols
-            .iter()
-            .copied()
-            .filter(|s| s.anchor.start_byte <= start && s.anchor.end_byte >= end)
-            .collect::<Vec<_>>();
-        containing.sort_by_key(|s| {
+        while next_symbol < ordered_symbols.len()
+            && ordered_symbols[next_symbol].anchor.start_byte <= start
+        {
+            active_symbols.push(ordered_symbols[next_symbol]);
+            next_symbol += 1;
+        }
+        active_symbols.retain(|symbol| symbol.anchor.end_byte >= end);
+        active_symbols.sort_unstable_by_key(|symbol| {
             (
-                s.anchor.end_byte - s.anchor.start_byte,
-                s.symbol_id.as_str(),
+                symbol.anchor.end_byte - symbol.anchor.start_byte,
+                symbol.symbol_id.as_str(),
             )
         });
         result.push(Chunk {
@@ -740,8 +754,8 @@ fn chunks(
             start_line: line_at(&starts, start),
             end_line: line_at(&starts, end - 1),
             chunk_sha256: digest(text[start..end].as_bytes()),
-            enclosing: containing.first().map(|s| context(s)),
-            parent: containing.get(1).map(|s| context(s)),
+            enclosing: active_symbols.first().map(|s| context(s)),
+            parent: active_symbols.get(1).map(|s| context(s)),
         });
         start = end;
     }
@@ -1251,6 +1265,15 @@ fn prepare_cached(
         }) && base
             .as_ref()
             .is_some_and(|base| keys.iter().all(|key| base.ranges_by_key.contains_key(key)));
+        // Large files can have many declarations and many chunks. Scanning
+        // every declaration for every chunk is quadratic, so bucket those
+        // symbols once by their source start. Keep the cheap linear path for
+        // small files and avoid the work entirely when documents are reused.
+        let symbols_per_chunk = if !reused && local_chunks.len() >= 8 && symbols.len() >= 32 {
+            Some(symbols_by_chunk(&local_chunks, &symbols, budget)?)
+        } else {
+            None
+        };
         admitted_paths.insert(file.path.as_str());
         if reused {
             metadata.build.files_documents_reused += 1;
@@ -1259,7 +1282,7 @@ fn prepare_cached(
             writer.delete_term(Term::from_field_text(source_path, &file.path));
             metadata.build.documents_deleted += old.chunks;
         }
-        for (chunk, key) in local_chunks.into_iter().zip(keys) {
+        for (chunk_index, (chunk, key)) in local_chunks.into_iter().zip(keys).enumerate() {
             budget.check()?;
             if !reused {
                 let text = &source.contents[chunk.start_byte..chunk.end_byte];
@@ -1288,7 +1311,11 @@ fn prepare_cached(
                 {
                     doc.add_text(exact, word);
                 }
-                for symbol in &symbols {
+                let chunk_symbols = symbols_per_chunk
+                    .as_ref()
+                    .map(|by_chunk| by_chunk[chunk_index].as_slice())
+                    .unwrap_or(&symbols);
+                for symbol in chunk_symbols {
                     if symbol.anchor.start_byte >= chunk.start_byte
                         && symbol.anchor.start_byte < chunk.end_byte
                     {
@@ -1421,6 +1448,39 @@ fn prepare_cached(
         reused_generation: false,
         _lease: lease,
     })
+}
+
+fn chunk_index_for_symbol_start(chunks: &[Chunk], start_byte: usize) -> Option<usize> {
+    let index = chunks.partition_point(|chunk| chunk.end_byte <= start_byte);
+    chunks
+        .get(index)
+        .filter(|chunk| chunk.start_byte <= start_byte && start_byte < chunk.end_byte)
+        .map(|_| index)
+}
+
+fn symbols_by_chunk<'a>(
+    chunks: &[Chunk],
+    symbols: &[&'a index::IndexedSymbol],
+    budget: &Budget<'_>,
+) -> Result<Vec<Vec<&'a index::IndexedSymbol>>, String> {
+    let mut by_chunk = (0..chunks.len()).map(|_| Vec::new()).collect::<Vec<_>>();
+    for (offset, symbol) in symbols.iter().enumerate() {
+        if offset % 256 == 0 {
+            budget.check()?;
+        }
+        if let Some(chunk_index) = chunk_index_for_symbol_start(chunks, symbol.anchor.start_byte) {
+            by_chunk[chunk_index].push(*symbol);
+        }
+    }
+    Ok(by_chunk)
+}
+
+fn latest_boundary_in_window(boundaries: &[usize], floor: usize, end: usize) -> Option<usize> {
+    let at_or_before_end = boundaries.partition_point(|&boundary| boundary <= end);
+    boundaries
+        .get(at_or_before_end.checked_sub(1)?)
+        .copied()
+        .filter(|&boundary| boundary >= floor)
 }
 
 fn valid_chunks(chunks: &[Chunk], text: &str) -> bool {

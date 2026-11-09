@@ -1,6 +1,170 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 
+fn chunk_span(start_byte: usize, end_byte: usize) -> Chunk {
+    Chunk {
+        start_byte,
+        end_byte,
+        start_line: 1,
+        end_line: 1,
+        chunk_sha256: digest(format!("{start_byte}:{end_byte}").as_bytes()),
+        enclosing: None,
+        parent: None,
+    }
+}
+
+fn symbol_at(name: &str, start_byte: usize) -> index::IndexedSymbol {
+    symbol_span(name, start_byte, start_byte + 1)
+}
+
+fn symbol_span(name: &str, start_byte: usize, end_byte: usize) -> index::IndexedSymbol {
+    let path = "src/many.rs".to_owned();
+    index::IndexedSymbol {
+        symbol_id: format!("symbol:{name}"),
+        path: path.clone(),
+        language: "Rust".to_owned(),
+        kind: index::SymbolKind::Function,
+        name: name.to_owned(),
+        qualified_name: name.to_owned(),
+        declaration_identity: name.to_owned(),
+        signature_sha256: digest(name.as_bytes()),
+        is_exported: false,
+        is_test: false,
+        anchor: index::SourceAnchor {
+            path,
+            source_sha256: digest(b"source"),
+            start_byte,
+            end_byte,
+            start_line: 1,
+            end_line: 1,
+            start_column: start_byte + 1,
+            end_column: start_byte + 2,
+        },
+    }
+}
+
+#[test]
+fn sorted_symbol_boundaries_choose_the_latest_safe_chunk_split() {
+    let boundaries = [0, 2, 5, 7, 9, 13, 20];
+    assert_eq!(latest_boundary_in_window(&boundaries, 6, 12), Some(9));
+    assert_eq!(latest_boundary_in_window(&boundaries, 10, 12), None);
+    assert_eq!(latest_boundary_in_window(&boundaries, 7, 9), Some(9));
+    assert_eq!(latest_boundary_in_window(&[], 0, 12), None);
+}
+
+#[test]
+fn large_file_symbol_buckets_preserve_exact_chunk_boundaries_and_order() {
+    let chunks = [chunk_span(0, 5), chunk_span(5, 10), chunk_span(10, 15)];
+    let symbols = [
+        symbol_at("late", 10),
+        symbol_at("early", 3),
+        symbol_at("boundary", 5),
+        symbol_at("last", 14),
+        symbol_at("past-end", 15),
+    ];
+    let references = symbols.iter().collect::<Vec<_>>();
+    let cancelled = AtomicBool::new(false);
+    let grouped = symbols_by_chunk(&chunks, &references, &Budget::new(&cancelled)).unwrap();
+    let names = grouped
+        .iter()
+        .map(|group| {
+            group
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![vec!["early"], vec!["boundary"], vec!["late", "last"]]
+    );
+    assert_eq!(chunk_index_for_symbol_start(&chunks, 5), Some(1));
+    assert_eq!(chunk_index_for_symbol_start(&chunks, 15), None);
+}
+
+#[test]
+fn large_file_chunk_context_keeps_only_live_nesting_innermost_first() {
+    let text = "x".repeat(CHUNK_BYTES * 4);
+    let symbols = [
+        symbol_span("outer", 0, text.len()),
+        symbol_span("second child", CHUNK_BYTES * 2, text.len()),
+        symbol_span("first child", 0, CHUNK_BYTES * 2),
+    ];
+    let references = symbols.iter().collect::<Vec<_>>();
+    let cancelled = AtomicBool::new(false);
+    let chunks = chunks(&text, &references, &Budget::new(&cancelled)).unwrap();
+    assert_eq!(chunks.len(), 4);
+    assert_eq!(chunks[0].enclosing.as_ref().unwrap().name, "first child");
+    assert_eq!(chunks[0].parent.as_ref().unwrap().name, "outer");
+    assert_eq!(chunks[1].enclosing.as_ref().unwrap().name, "first child");
+    assert_eq!(chunks[1].parent.as_ref().unwrap().name, "outer");
+    assert_eq!(chunks[2].enclosing.as_ref().unwrap().name, "second child");
+    assert_eq!(chunks[2].parent.as_ref().unwrap().name, "outer");
+    assert_eq!(chunks[3].enclosing.as_ref().unwrap().name, "second child");
+    assert_eq!(chunks[3].parent.as_ref().unwrap().name, "outer");
+}
+
+#[test]
+fn large_file_indexing_uses_bounded_symbol_buckets_without_losing_search_hits() {
+    let mut fixture = Fixture::new();
+    let payload = "x".repeat(CHUNK_BYTES + 128);
+    let mut source = String::new();
+    for number in 0..32 {
+        source.push_str(&format!(
+            "pub fn unique_symbol_{number:02}() {{\n    let _payload = \"{payload}\";\n}}\n"
+        ));
+    }
+    fixture.recapture_with_source("src/many.rs", &source);
+    let file_symbols = fixture
+        .index
+        .symbols
+        .iter()
+        .filter(|symbol| symbol.path == "src/many.rs")
+        .count();
+    assert!(file_symbols >= 32);
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(
+        &fixture.storage,
+        &fixture.manifest,
+        Some(&fixture.index),
+        &budget,
+    )
+    .unwrap();
+    let indexed = prepared
+        .metadata
+        .files
+        .iter()
+        .find(|file| file.path == "src/many.rs")
+        .unwrap();
+    assert!(indexed.chunks >= 8);
+
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "unique_symbol_31",
+        Some("src/many.rs"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert!(!result.matches.is_empty());
+    assert_eq!(result.matches[0].range.path, "src/many.rs");
+    let first = &result.matches[0].range;
+    let read = read_range(
+        &fixture.storage,
+        &fixture.manifest,
+        &first.path,
+        &first.source_sha256,
+        first.start_byte,
+        first.end_byte,
+    )
+    .unwrap();
+    assert!(read.contents.contains("unique_symbol_31"));
+}
+
 pub(super) fn add_source(fixture: &mut Fixture, path: &str, text: &str) {
     let sha256 = digest(text.as_bytes());
     let blob_path = format!("objects/sha256/{}/{}", &sha256[..2], &sha256[2..]);
