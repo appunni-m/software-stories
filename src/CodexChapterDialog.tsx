@@ -13,7 +13,7 @@ import { restoreCodexConnection } from './lib/codexConnection';
 import { ensureCodexConnection, publishCodexStatus, publishCodexModels, readCodexSelection, rememberCodexSelection } from './lib/connectionStore';
 import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { requestScopeKey } from './lib/requestScopeKey';
-import { authorizeWorkspace, getWorkspace } from './workspace/store';
+import { getWorkspace } from './workspace/store';
 import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, type PlannedChapterScope } from './lib/plannedChapters';
 import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
 import {
@@ -471,6 +471,14 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const generate = async () => {
     if (!review || (!automaticSectionRepair && !consent) || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
     if (Date.now() >= review.expiresAtUnixMs) { releaseReview(); setError('This review expired. Build a new review and confirm it again.'); return; }
+    const needsSnapshotGrant = Boolean(review.generationConfig.codexSnapshotRetrieval);
+    const workspaceGrant = needsSnapshotGrant ? getWorkspace(review.projectId, review.snapshotId).grantId : undefined;
+    if (needsSnapshotGrant && !workspaceGrant) {
+      setError(discoveryResult && onFindCodeAgain
+        ? 'Snapshot sharing is no longer active. Choose “Find code again” to restore access before sending.'
+        : 'Snapshot sharing is no longer active. Close this request, restore access for this snapshot, then ask again. No explanation request was sent.');
+      return;
+    }
     const epoch = begin('send');
     if (epoch === null) return;
     const runId = review.reviewId;
@@ -483,11 +491,6 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
       if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
     };
     try {
-      let workspaceGrant: string | undefined;
-      if (review.generationConfig.codexSnapshotRetrieval) {
-        workspaceGrant = getWorkspace(review.projectId, review.snapshotId).grantId
-          ?? await authorizeWorkspace(review.projectId, review.snapshotId);
-      }
       unlisten = await listen<CodexProgress>('codex-agent-progress', ({ payload }) => {
         if (lifetime.current !== epoch || payload.runId !== runId) return;
         setProgress(payload);

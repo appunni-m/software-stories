@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const workspace=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
 const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+const codexDialog=readFileSync(new URL('../src/CodexChapterDialog.tsx',import.meta.url),'utf8');
 
 function functionBody(signature,nextSignature){
   const start=workspace.indexOf(signature);
@@ -37,6 +38,21 @@ test('selected code stays bound to the current snapshot and sharing consent',()=
   const range=functionBody('function verifiedCodeContext(context:Context,expectedSnapshotId:string)','  function askAboutSelectedCode(context:Context)');
   assert.match(range,/verifiedDisplayedContext\(context,expectedSnapshotId\)/);
   assert.match(range,/rangeValid/);
+});
+
+test('snapshot retrieval stops when its saved sharing permission is missing',()=>{
+  const start=codexDialog.indexOf('  const generate = async () => {');
+  const end=codexDialog.indexOf('  const cancelRun = async () => {',start);
+  assert.ok(start>=0&&end>start,'missing Codex generation handler');
+  const generate=codexDialog.slice(start,end);
+  const permissionGuard=generate.indexOf('if (needsSnapshotGrant && !workspaceGrant)');
+  const generationStart=generate.indexOf("const epoch = begin('send')");
+  assert.ok(permissionGuard>=0&&generationStart>permissionGuard,
+    'lost repository permission must stop the request before starting its run');
+  assert.match(generate,/getWorkspace\(review\.projectId, review\.snapshotId\)\.grantId/);
+  assert.match(generate,/Find code again/);
+  assert.doesNotMatch(generate,/authorizeWorkspace\(/,
+    'a question must not silently recreate revoked repository permission');
 });
 
 test('the captured-source action resumes in the same conversation and asks only after exact-source replay',()=>{
