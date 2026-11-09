@@ -2284,6 +2284,44 @@ fn fontdone_local_index_profile() {
             String::from_utf8(json(&serde_json::json!({"query":query,"coverage":result.coverage,"elapsedMs":result.elapsed_ms,"resultBytes":result.result_bytes,"limited":result.limited,"ranges":result.matches.iter().map(|h| &h.range).collect::<Vec<_>>()})).unwrap()).unwrap()
         );
     }
+    for query in [
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
+        "font buffer glyph image format outline hinting pixel coverage",
+    ] {
+        let started = Instant::now();
+        let result = search_files_with_mode_page(
+            &storage,
+            &manifest,
+            &prepared,
+            query,
+            None,
+            32,
+            0,
+            &budget,
+            SearchMode::Code,
+        )
+        .unwrap();
+        assert!(
+            !result.matches.is_empty(),
+            "broad Fontdone discovery should return a bounded candidate page for {query:?}"
+        );
+        println!(
+            "FONTDONE_FILE_DISCOVERY {}",
+            String::from_utf8(
+                json(&serde_json::json!({
+                    "query": query,
+                    "elapsedMs": started.elapsed().as_millis(),
+                    "searchElapsedMs": result.elapsed_ms,
+                    "resultBytes": result.result_bytes,
+                    "paths": result.matches.iter().map(|hit| &hit.range.path).collect::<Vec<_>>(),
+                    "nextOffset": result.next_offset,
+                    "limited": result.limited
+                }))
+                .unwrap()
+            )
+            .unwrap()
+        );
+    }
     let warm = Instant::now();
     assert!(
         prepare(&storage, &manifest, syntax.as_ref(), &budget)

@@ -10,7 +10,7 @@ use grep_searcher::{Searcher, sinks::UTF8};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -2511,44 +2511,49 @@ fn search_files_with_candidate_window(
     let range_key_field = field(&prepared.index, "range_key")?;
     for (term_index, variants) in term_groups.iter().enumerate() {
         budget.check()?;
-        let mut matching_ranges = BTreeSet::new();
-        for (term_field, term) in variants {
-            let query = scoped(term_query(*term_field, term), &prepared.index, path)?;
-            let documents = searcher
-                .search(&query, &tantivy::collector::DocSetCollector)
-                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
-            for (index, address) in documents.into_iter().enumerate() {
-                if index % 128 == 0 {
-                    budget.check()?;
-                }
-                let document = searcher
-                    .doc::<TantivyDocument>(address)
-                    .map_err(|_| "A code search result is unavailable.".to_owned())?;
-                let key = document
-                    .get_first(range_key_field)
-                    .and_then(|value| value.as_str())
-                    .ok_or("The code search index is invalid.")?;
-                let range_id = *prepared
-                    .ranges_by_key
-                    .get(key)
-                    .ok_or("The code search index is invalid.")?;
-                let range = prepared
-                    .metadata
-                    .ranges
-                    .get(range_id)
-                    .ok_or("The code search index is invalid.")?;
-                if in_scope(&range.path) {
-                    matching_ranges.insert(range_id);
-                }
+        // Raw and stemmed variants contribute to the same logical term. Search
+        // their union once so overlapping postings do not materialize duplicate
+        // document lists or require a sorted range set to deduplicate them.
+        let query = BooleanQuery::union(
+            variants
+                .iter()
+                .map(|(term_field, term)| term_query(*term_field, term))
+                .collect(),
+        );
+        let query = scoped(Box::new(query), &prepared.index, path)?;
+        let documents = searcher
+            .search(&query, &tantivy::collector::DocSetCollector)
+            .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+        let mut matching_ranges = Vec::with_capacity(documents.len());
+        let mut matching_paths = HashSet::new();
+        for (index, address) in documents.into_iter().enumerate() {
+            if index % 128 == 0 {
+                budget.check()?;
+            }
+            let document = searcher
+                .doc::<TantivyDocument>(address)
+                .map_err(|_| "A code search result is unavailable.".to_owned())?;
+            let key = document
+                .get_first(range_key_field)
+                .and_then(|value| value.as_str())
+                .ok_or("The code search index is invalid.")?;
+            let range_id = *prepared
+                .ranges_by_key
+                .get(key)
+                .ok_or("The code search index is invalid.")?;
+            let range = prepared
+                .metadata
+                .ranges
+                .get(range_id)
+                .ok_or("The code search index is invalid.")?;
+            if in_scope(&range.path) {
+                matching_ranges.push(range_id);
+                matching_paths.insert(range.path.as_str());
             }
         }
         if matching_ranges.is_empty() {
             continue;
         }
-        let matching_paths = matching_ranges
-            .iter()
-            .map(|range_id| prepared.metadata.ranges[*range_id].path.as_str())
-            .collect::<BTreeSet<_>>();
         let inverse_document_frequency =
             (((total_paths + 1) as f32) / ((matching_paths.len() + 1) as f32)).ln();
         term_weights[term_index] = inverse_document_frequency;
