@@ -4617,29 +4617,47 @@ mod tests {
         use std::time::Instant;
 
         let temporary = TestDirectory::new();
-        let root = temporary.path().join("representative-large-repository");
-        let source_dir = root.join("src");
-        fs::create_dir_all(&source_dir).unwrap();
-        git(&root, &["init", "-q"]);
-        git(&root, &["config", "user.name", "Code Atlas Benchmark"]);
-        git(
-            &root,
-            &["config", "user.email", "benchmark@example.invalid"],
-        );
-        git(&root, &["branch", "-M", "main"]);
-
         const FILE_COUNT: usize = 2_000;
-        for index in 0..FILE_COUNT {
-            let group_dir = source_dir.join(format!("group_{:02}", index / 100));
-            if index % 100 == 0 {
-                fs::create_dir_all(&group_dir).unwrap();
+        let external_root = std::env::var_os("CODE_ATLAS_PERF_REPOSITORY")
+            .map(PathBuf::from)
+            .map(|path| {
+                path.canonicalize()
+                    .expect("profile repository should resolve")
+            });
+        let label = std::env::var("CODE_ATLAS_PERF_LABEL").unwrap_or_else(|_| {
+            if external_root.is_some() {
+                "external-repository".to_owned()
+            } else {
+                "synthetic-typescript".to_owned()
             }
-            let source = format!(
-                "export function transform_{index:04}(input: string): string {{\n  return input.trim();\n}}\n"
+        });
+        let root = if let Some(root) = external_root.as_ref() {
+            assert!(root.is_dir(), "profile repository should be a directory");
+            root.clone()
+        } else {
+            let root = temporary.path().join("representative-large-repository");
+            let source_dir = root.join("src");
+            fs::create_dir_all(&source_dir).unwrap();
+            git(&root, &["init", "-q"]);
+            git(&root, &["config", "user.name", "Code Atlas Benchmark"]);
+            git(
+                &root,
+                &["config", "user.email", "benchmark@example.invalid"],
             );
-            fs::write(group_dir.join(format!("module_{index:04}.ts")), source).unwrap();
-        }
-        commit_fixture(&root, "representative large fixture");
+            git(&root, &["branch", "-M", "main"]);
+            for index in 0..FILE_COUNT {
+                let group_dir = source_dir.join(format!("group_{:02}", index / 100));
+                if index % 100 == 0 {
+                    fs::create_dir_all(&group_dir).unwrap();
+                }
+                let source = format!(
+                    "export function transform_{index:04}(input: string): string {{\n  return input.trim();\n}}\n"
+                );
+                fs::write(group_dir.join(format!("module_{index:04}.ts")), source).unwrap();
+            }
+            commit_fixture(&root, "representative large fixture");
+            root
+        };
 
         let storage = temporary.path().join("app-data");
         let project = fixture_project(&root);
@@ -4673,10 +4691,93 @@ mod tests {
 
         let manifest = final_manifest.unwrap();
         let index = final_index.unwrap();
-        assert_eq!(manifest.files.len(), FILE_COUNT);
-        assert_eq!(index.status, SnapshotIndexStatus::Complete);
-        assert_eq!(index.files.len(), FILE_COUNT);
-        assert!(index.symbols.len() >= FILE_COUNT);
+        if external_root.is_some() {
+            assert!(!manifest.files.is_empty());
+        } else {
+            assert_eq!(manifest.files.len(), FILE_COUNT);
+        }
+        if external_root.is_some() {
+            assert_ne!(index.status, SnapshotIndexStatus::Cancelled);
+            assert!(!index.files.is_empty());
+            assert!(index.files.len() <= manifest.files.len());
+            assert!(!index.symbols.is_empty());
+        } else {
+            assert_eq!(index.status, SnapshotIndexStatus::Complete);
+            assert_eq!(index.files.len(), FILE_COUNT);
+            assert!(index.symbols.len() >= FILE_COUNT);
+        }
+        let mut file_status_counts = std::collections::BTreeMap::new();
+        for file in &index.files {
+            *file_status_counts
+                .entry(format!("{:?}", file.status))
+                .or_insert(0usize) += 1;
+        }
+        let index_status = format!("{:?}", index.status);
+
+        let query = index
+            .symbols
+            .iter()
+            .map(|symbol| symbol.name.as_str())
+            .find(|name| {
+                let character_count = name.chars().count();
+                (2..=240).contains(&character_count) && name.chars().any(char::is_alphanumeric)
+            })
+            .expect("profile repository should provide a searchable symbol")
+            .to_owned();
+        let warm_cancelled = AtomicBool::new(false);
+        let warm_budget = crate::repository_context::Budget::new(&warm_cancelled);
+        crate::repository_context::prepare(&storage, &manifest, Some(&index), &warm_budget)
+            .expect("bounded repository context warmup should prepare");
+        let mut context_prepare_ms = Vec::with_capacity(3);
+        let mut prepared_context = None;
+        for _ in 0..3 {
+            let cancelled = AtomicBool::new(false);
+            let budget = crate::repository_context::Budget::new(&cancelled);
+            let started = Instant::now();
+            let prepared =
+                crate::repository_context::prepare(&storage, &manifest, Some(&index), &budget)
+                    .expect("bounded repository context should prepare");
+            context_prepare_ms.push(started.elapsed().as_millis());
+            prepared_context = Some(prepared);
+        }
+        let prepared_context = prepared_context.unwrap();
+        let warm_cancelled = AtomicBool::new(false);
+        let warm_budget = crate::repository_context::Budget::new(&warm_cancelled);
+        crate::repository_context::search(
+            &storage,
+            &manifest,
+            &prepared_context,
+            &query,
+            None,
+            8,
+            &warm_budget,
+        )
+        .expect("bounded repository source-search warmup should complete");
+        let mut search_us = Vec::with_capacity(3);
+        let mut search_hits = 0;
+        let mut search_result_bytes = 0;
+        for _ in 0..3 {
+            let cancelled = AtomicBool::new(false);
+            let budget = crate::repository_context::Budget::new(&cancelled);
+            let started = Instant::now();
+            let result = crate::repository_context::search(
+                &storage,
+                &manifest,
+                &prepared_context,
+                &query,
+                None,
+                8,
+                &budget,
+            )
+            .expect("bounded repository source search should complete");
+            search_us.push(started.elapsed().as_micros());
+            assert!(
+                !result.matches.is_empty(),
+                "indexed symbol should be searchable"
+            );
+            search_hits = result.matches.len();
+            search_result_bytes = result.result_bytes;
+        }
 
         fn median(values: &[u128]) -> u128 {
             let mut sorted = values.to_vec();
@@ -4685,20 +4786,30 @@ mod tests {
         }
 
         eprintln!(
-            "ATLAS_PERF os={} arch={} files={} source_bytes={} indexed_files={} symbols={} relationships={} warmup=1 samples=3 capture_ms={:?} capture_median_ms={} index_ms={:?} index_median_ms={} save_ms={:?} save_median_ms={}",
+            "ATLAS_PERF repo={} os={} arch={} captured_files={} source_bytes={} index_status={} indexed_files={} file_statuses={:?} symbols={} relationships={} context_prepare_ms={:?} context_prepare_median_ms={} query_chars={} search_hits={} search_result_bytes={} warmup=1 samples=3 capture_ms={:?} capture_median_ms={} index_ms={:?} index_median_ms={} save_ms={:?} save_median_ms={} search_us={:?} search_median_us={}",
+            label,
             std::env::consts::OS,
             std::env::consts::ARCH,
-            manifest.summary.files_captured,
+            manifest.files.len(),
             manifest.summary.total_bytes,
+            index_status,
             index.files.len(),
+            file_status_counts,
             index.symbols.len(),
             index.relationships.len(),
+            context_prepare_ms,
+            median(&context_prepare_ms),
+            query.chars().count(),
+            search_hits,
+            search_result_bytes,
             capture_ms,
             median(&capture_ms),
             index_ms,
             median(&index_ms),
             save_ms,
             median(&save_ms),
+            search_us,
+            median(&search_us),
         );
     }
 
