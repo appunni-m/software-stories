@@ -28,5 +28,6 @@ test('the reading UI hides parser and index internals while preserving useful so
 
   assert.doesNotMatch(workspace, /languageSupport(Label|Note|Tier)|supportTier|capability=/);
   assert.doesNotMatch(codePane, /languageSupport|capability|Partial structural|Text only/);
+  assert.doesNotMatch(codePane, /sourceLanguage|preview-editor-language/);
   assert.match(codePane, /Select code to ask about it/);
 });

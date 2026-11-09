@@ -8,13 +8,7 @@ import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/
 import { tags } from '@lezer/highlight';
 import type { Context as CodeContext } from '../workspace/model';
 import { codeSelectionContext } from '../lib/codeSelection';
-import { languageForPath } from '../lib/inventory';
 import { AppButton } from './AppButton';
-
-const sourceLanguage = (path: string) => {
-  const language = languageForPath(path);
-  return language.startsWith('.') || language === 'No extension' ? 'Plain text' : language;
-};
 
 type LanguageLoader = () => Promise<Extension>;
 
@@ -309,7 +303,6 @@ export function CodePane({ path, contents, sha256, theme, reveal, canExplain = t
     </div>
     <div ref={host} className="preview-editor" />
     <footer className="preview-editor-footer">
-      <span className="preview-editor-language">{sourceLanguage(path)}</span>
       <span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span>
     </footer>
   </section>;
