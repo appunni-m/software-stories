@@ -8,6 +8,16 @@ labels: acceptance, bug, code-lens
 related: design-parity, exploration-history, t08
 ---
 
+> **Current interaction contract — 9 November 2026:** selecting captured code
+> and choosing **Explain this code** is one explicit question action. Validate
+> the snapshot, path, hash, range, and size in the background; reuse the saved
+> Codex connection and existing snapshot grant without a second source-review
+> dialog. If the grant is missing, use the existing one-time scope-disclosing
+> consent. The 27 October note below about adding a review for each Code Lens
+> request records an interim interaction and is superseded by this contract;
+> its observed dialog remains historical evidence. Never send stale or invalid
+> source, and keep selection failures inside the workspace with a next step.
+
 ## User outcome
 Clicking a captured source file or Code Lens control either opens the exact source/range or presents a recoverable, actionable error. It must not crash the workspace or silently send source to an agent.
 
@@ -247,6 +257,24 @@ original report unconfirmed and `mhqx` open.
 The current source path was inspected without an app run. In `src/design/CodePane.tsx`, selection state is built from CodeMirror's selected line bounds and source hash; **Explain this code** invokes the workspace callback only when that button is clicked. `Workspace.explain` binds the selection to the displayed captured source, checks snapshot, path, inventory membership, hash and range, builds a bounded preview, and opens the local review. Its handler does not dispatch a provider request. The separate **Ask about this code** action revalidates the review, checks the saved Codex connection, and then enters the ordinary question/grant flow. Optional syntax-loader errors are caught and leave source readable as plain text.
 
 No source change is justified from this trace: the reported click target and exception are still unknown, and the inspected code has explicit guards for the captured-source review route. No tests, build, app launch or provider request ran. The original failure remains unconfirmed; retain the packaged route matrix and ask for the exact error only if a new reproduction is needed. Keep `mhqx` open.
+
+## One-action captured-code safety regression — 9 November 2026
+
+The current Code Lens entry point verifies that the displayed file belongs to
+the selected snapshot, that the SHA-256 matches, and that the selected line or
+byte range resolves against those exact captured bytes before it creates the
+pending question. The workspace reopens the same path and hash before sending,
+then applies the normal saved connection and snapshot-grant flow. Existing
+snapshot permission can be reused without another review dialog; an absent
+grant still requires the one-time consent.
+
+The current focused frontend checks pass **22/22** across
+`code-explanation-one-action.test.mjs`, `codeLens.test.mjs`, and
+`codeSelection.test.mjs`. They cover one-action submission, source identity,
+range/hash handling, CRLF and UTF-8 boundaries, and stale-source rejection.
+This is source-level regression evidence; no packaged click matrix or provider
+request ran. It does not identify the original click target or exception, so
+keep the task open and do not describe that report as fixed.
 
 ## Current packaged selected-code review — 28 October 2026
 
