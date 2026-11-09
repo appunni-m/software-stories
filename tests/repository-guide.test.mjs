@@ -72,7 +72,8 @@ test('guide coverage distinguishes complete planned topics from whole-repository
   assert.equal(repositoryGuideCoverageLabel(complete),'Planned topics complete');
   assert.equal(repositoryGuideCoverageLabel({...complete,omissions:['CLI entry paths were not covered.']}),'Partial coverage');
   assert.equal(repositoryGuideCoverageLabel({...complete,units:[{...complete.units[0],status:'ready'},complete.units[1]]}),'Partial coverage');
-  assert.equal(repositoryGuideCoverageLabel({...complete,units:[]}), 'Incomplete');
+  assert.equal(repositoryGuideCoverageLabel({...complete,units:[]}), 'Planned topics complete');
+  assert.equal(repositoryGuideCoverageLabel({...complete,units:[],omissions:['CLI entry paths were not covered.']}),'Partial coverage');
   assert.equal(repositoryGuideCoverageLabel({...active,status:'stopped'}),'Incomplete');
 });
 test('late progress cannot replace a newer stop or completion receipt',()=>{
