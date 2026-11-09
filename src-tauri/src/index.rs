@@ -5067,6 +5067,55 @@ mod tests {
             search_result_bytes = result.result_bytes;
         }
 
+        // Broad Guide questions use two more expensive paths than the exact
+        // symbol lookup above: file discovery ranks one source range per path,
+        // then range search ranks the implementation evidence. Measure those
+        // separately on an explicitly supplied repository so large-repo
+        // profiling does not quietly turn into a provider or UI test.
+        if external_root.is_some() {
+            let broad_query =
+                "How does font parsing select glyph records and load outlines from tables?";
+            let cancelled = AtomicBool::new(false);
+            let budget = crate::repository_context::Budget::new(&cancelled);
+            let started = Instant::now();
+            let file_result = crate::repository_context::search_files_with_mode_page(
+                &storage,
+                &manifest,
+                &prepared_context,
+                broad_query,
+                None,
+                8,
+                0,
+                &budget,
+                crate::repository_context::SearchMode::Code,
+            )
+            .expect("bounded broad file discovery should complete");
+            let broad_file_search_us = started.elapsed().as_micros();
+
+            let cancelled = AtomicBool::new(false);
+            let budget = crate::repository_context::Budget::new(&cancelled);
+            let started = Instant::now();
+            let broad_range_result = crate::repository_context::search(
+                &storage,
+                &manifest,
+                &prepared_context,
+                broad_query,
+                None,
+                8,
+                &budget,
+            )
+            .expect("bounded broad source search should complete");
+            let broad_range_search_us = started.elapsed().as_micros();
+            eprintln!(
+                "ATLAS_PERF broad_query_chars={} file_hits={} file_search_us={} range_hits={} range_search_us={}",
+                broad_query.chars().count(),
+                file_result.matches.len(),
+                broad_file_search_us,
+                broad_range_result.matches.len(),
+                broad_range_search_us,
+            );
+        }
+
         fn median(values: &[u128]) -> u128 {
             let mut sorted = values.to_vec();
             sorted.sort_unstable();
