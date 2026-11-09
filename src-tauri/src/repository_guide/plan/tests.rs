@@ -67,7 +67,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
         schema["properties"]["sections"]["maxItems"],
         MAX_INITIAL_UNITS + 1
     );
-    assert_eq!(schema["properties"]["sections"]["minItems"], 3);
+    assert_eq!(schema["properties"]["sections"]["minItems"], 1);
     assert_eq!(
         schema["properties"]["sections"]["prefixItems"][0]["properties"]["question"]["minLength"],
         1
@@ -90,6 +90,19 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
             .unwrap()
             .contains("Item zero is the question-first opening answer")
     );
+}
+
+#[test]
+fn narrow_question_can_be_complete_with_only_the_question_first_opening() {
+    let validator = jsonschema::validator_for(&schema()).unwrap();
+    let mut candidate = proposal();
+    candidate["sections"].as_array_mut().unwrap().truncate(1);
+    candidate["omissions"] = json!([]);
+
+    assert!(validator.is_valid(&candidate));
+    let plan = canonicalize_proposal(candidate).unwrap();
+    assert!(plan.units.is_empty());
+    assert!(plan.omissions.is_empty());
 }
 
 #[test]
@@ -273,13 +286,13 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert!(output["properties"].get("openingAnswer").is_none());
     assert!(instructions.contains("Create a compact, source-grounded initial outline"));
     assert!(instructions.contains("Do not write explanations, narration, or slide content"));
-    assert!(instructions.contains("Return a question-first opening item"));
+    assert!(instructions.contains("Return the question-first opening item"));
     assert!(instructions.contains("The app fixes the opening's placement and question"));
     assert!(instructions.contains(
         "the first follow-on unit must continue the same evidenced user journey as the opening at its next real code handoff"
     ));
     assert!(instructions.contains(
-        "later initial units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
+        "later units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
     ));
     assert!(instructions.contains("Explain setup once before its first dependent behavior"));
     assert!(instructions.contains("replace duplicate coverage with a distinct requested behavior"));
@@ -333,8 +346,14 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
         instructions
             .contains("compact, source-grounded initial outline before slide content is generated")
     );
-    assert!(instructions.contains("two to five focused behavior questions"));
-    assert!(instructions.contains("five-unit limit so the first useful slide is not blocked"));
+    assert!(instructions.contains(
+        "For a broad repository question, include two to five focused behavior questions"
+    ));
+    assert!(
+        instructions.contains("the opening may fully answer the request with no follow-on items")
+    );
+    assert!(instructions.contains("never add slides just to meet a minimum count"));
+    assert!(instructions.contains("five-unit maximum so the first useful slide is not blocked"));
     assert!(instructions.contains(
         "start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query"
     ));
@@ -348,8 +367,10 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
     assert!(instructions.contains(
         "Record every additional route that needs its own explanation as a concise, explicit pending omission"
     ));
-    assert!(instructions.contains("the highest-value path through the requested scope"));
-    assert!(instructions.contains("Return a question-first opening item"));
+    assert!(
+        instructions.contains("two to five focused behavior questions for the highest-value path")
+    );
+    assert!(instructions.contains("Return the question-first opening item"));
     assert!(instructions.contains("The opening item's key is `opening`"));
     assert!(instructions.contains("Scope the opening to a direct answer to the user's question"));
     assert!(instructions.contains("Do not detour through a generic repository entry point"));
@@ -373,7 +394,7 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
     assert!(instructions.contains(
         "creating a face from memory and loading a glyph into an existing face are separate topics"
     ));
-    assert!(instructions.contains("Plan the initial five slides in source-grounded reading order"));
+    assert!(instructions.contains("Plan follow-on slides in source-grounded reading order"));
     assert!(instructions.contains(
         "the first follow-on unit must continue the same evidenced user journey as the opening"
     ));
@@ -383,7 +404,7 @@ fn plan_instructions_keep_full_scope_and_research_stop_contract() {
     );
     assert!(
         instructions.contains(
-            "later initial units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
+            "later units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
         )
     );
     assert!(instructions.contains("Never imply that a pending omission is covered"));

@@ -31,6 +31,54 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
 }
 
 #[test]
+fn opening_only_narrow_guide_can_be_saved_and_reopened_ready() {
+    let f = Fixture::new();
+    let mut guide = record(&f);
+    let plan = guide.plan.as_mut().unwrap();
+    plan.units.clear();
+    plan.omissions.clear();
+    guide.units.clear();
+
+    let run_id = guide.planning_run_id.clone();
+    let project_id = guide.project_id.clone();
+    let snapshot_id = guide.snapshot_id.clone();
+    let question = guide.question.clone();
+    let opening = guide.opening.as_mut().unwrap();
+    let section = SectionNotice {
+        run_id: run_id.clone(),
+        project_id: project_id.clone(),
+        snapshot_id: snapshot_id.clone(),
+        key: "opening".into(),
+        order: 0,
+        generation_id: format!("generation:{}", Uuid::new_v4()),
+        revision_id: format!("revision:{}", Uuid::new_v4()),
+        supersedes: None,
+        visual_forms: Vec::new(),
+        context_elapsed_ms: 1,
+        run_elapsed_ms: Some(2),
+    };
+    opening.summary = Some(Summary {
+        run_id,
+        project_id,
+        snapshot_id,
+        question,
+        outcome: Outcome::Complete,
+        failure_code: None,
+        sections: vec![section],
+        incomplete_topics: Vec::new(),
+    });
+    guide.status = Status::Ready;
+
+    save(&f.storage, &guide, true).unwrap();
+    let reopened = read(&f.storage, &guide.id).unwrap();
+
+    assert_eq!(reopened.status, Status::Ready);
+    assert!(reopened.plan.as_ref().unwrap().units.is_empty());
+    assert!(reopened.plan.as_ref().unwrap().omissions.is_empty());
+    assert!(super::super::guide_complete(&reopened));
+}
+
+#[test]
 fn prerequisite_receipt_must_reference_a_saved_complete_prerequisite_version() {
     let f = Fixture::new();
     let mut guide = record(&f);
