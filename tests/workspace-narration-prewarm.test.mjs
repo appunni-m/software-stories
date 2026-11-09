@@ -1,38 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { flushLocalReads, workspaceStoreHarness } from './helpers/workspace-store-harness.mjs';
-import { createNarrationPrewarmQueue } from '../src/workspace/narrationQueue.ts';
-import { createWorkspace } from '../src/workspace/model.ts';
 
-const input = {
-  spokenText: 'The prefix chooses a reader.',
-  voice: 'alba',
-  style: '',
-  lexicon: [],
-};
+const revisionFor = (revisionId, spokenText) => ({
+  projectId: 'project',
+  snapshotId: 'snapshot',
+  chapterId: 'chapter',
+  revisionId,
+  revisionNumber: 1,
+  basedOnRevisionId: null,
+  lifecycle: 'draft',
+  validationStatus: 'valid',
+  target: { targetId: 'target', scope: { kind: 'overview' } },
+  sections: [{ sectionId: 'section', title: 'Dispatch', spokenText, claims: [] }],
+});
 
-test('newly published explanation sections enqueue local narration without waiting for audio', async () => {
-  const calls = [];
-  let releaseWarmup;
-  let warmupReleased = false;
-  const warmup = new Promise(resolve => {
-    releaseWarmup = () => {
-      warmupReleased = true;
-      resolve({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } });
-    };
-  });
-  const revision = {
-    projectId: 'project',
-    snapshotId: 'snapshot',
-    chapterId: 'chapter',
-    revisionId: 'revision',
-    revisionNumber: 1,
-    basedOnRevisionId: null,
-    lifecycle: 'draft',
-    validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: 'section', title: 'Dispatch', spokenText: input.spokenText, claims: [] }],
-  };
+const narrationHooks = (calls) => ({
+  native: true,
+  localNarrationPrewarmInputs: (revision) => [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }],
+  prewarmLocalNarration: (input) => {
+    calls.push(input);
+    return Promise.resolve({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } });
+  },
+});
+
+test('publishing a validated answer does not synthesize narration', async () => {
+  const prewarmCalls = [];
+  const revision = revisionFor('answer-revision', 'The prefix chooses a reader.');
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'load_workspace_conversation') return null;
     if (name === 'save_workspace_conversation') {
@@ -50,7 +44,7 @@ test('newly published explanation sections enqueue local narration without waiti
           key: 'dispatch',
           order: 1,
           generationId: 'generation:11111111-1111-4111-8111-111111111111',
-          revisionId: 'revision',
+          revisionId: revision.revisionId,
           supersedes: null,
           contextElapsedMs: 10,
           runElapsedMs: 20,
@@ -61,384 +55,110 @@ test('newly published explanation sections enqueue local narration without waiti
     if (name === 'save_workspace_answer_section') return revision;
     assert.fail(`Unexpected native command: ${name}`);
   }, {
-    native: true,
+    ...narrationHooks(prewarmCalls),
     ensureCodexConnection: async () => {},
     readCodexSelection: () => ({ modelId: 'gpt-6-luna', effort: 'max' }),
-    readVoiceConnection: () => ({ backend: 'pocket-tts' }),
-    localNarrationPrewarmInputs: (candidate, connection) => {
-      assert.equal(candidate.revisionId, revision.revisionId);
-      assert.equal(connection.backend, 'pocket-tts');
-      return [input];
-    },
-    prewarmLocalNarration: (candidate) => {
-      calls.push(candidate);
-      return warmup;
-    },
   });
 
   await h.store.prepareWorkspaceConversation('project', 'snapshot');
-  const question = h.store.appendQuestion('project', 'snapshot', 'Follow the prefix check', [], 'guide');
-  const run = h.store.runQuestion('project', 'snapshot', question, 'grant');
-  let timeout;
-  const publication = await Promise.race([
-    run.then(value => ({ value })),
-    new Promise(resolve => { timeout = setTimeout(() => resolve({ timedOut: true }), 2_000); }),
-  ]);
-  clearTimeout(timeout);
-  assert.equal(publication.timedOut, undefined, 'answer publication must not wait for Pocket TTS');
-  const saved = publication.value;
+  const turnId = h.store.appendQuestion('project', 'snapshot', 'Follow the prefix check', [], 'guide');
+  const saved = await h.store.runQuestion('project', 'snapshot', turnId, 'grant');
 
   assert.equal(saved.revisionId, revision.revisionId);
-  assert.deepEqual(calls, [input]);
-  assert.equal(warmupReleased, false, 'the answer should be ready while the audio worker is still pending');
-  const turn = h.store.getWorkspace('project', 'snapshot').explorations
-    .flatMap(item => item.turns).find(item => item.id === question);
-  assert.equal(turn.publishedSections?.[0]?.revisionId, revision.revisionId);
-  releaseWarmup();
-  assert.equal(warmupReleased, true);
+  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
+  assert.deepEqual(prewarmCalls, []);
 });
 
-test('a progressive repository-guide section is adopted and warmed before its investigation unit finishes', async () => {
-  const warmups = [];
-  const revision = {
-    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'guide-revision',
-    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: 'guide-section', title: 'Dispatch', spokenText: 'The guide section is ready.', claims: [] }],
-  };
+test('progressive Guide sections publish without starting Pocket audio', async () => {
+  const prewarmCalls = [];
+  const revision = revisionFor('guide-revision', 'The guide section is ready.');
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'load_workspace_conversation') return null;
-    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'save_workspace_conversation') {
+      return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    }
     if (name === 'save_workspace_answer_section') return revision;
     assert.fail(`Unexpected native command: ${name}`);
-  }, {
-    native: true,
-    localNarrationPrewarmInputs: candidate => [{ spokenText: candidate.revisionId, voice: 'alba', style: '', lexicon: [] }],
-    prewarmLocalNarration: input => { warmups.push(input); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
-  });
+  }, narrationHooks(prewarmCalls));
 
   await h.store.prepareWorkspaceConversation('project', 'snapshot');
   const turnId = h.store.appendRepositoryGuide('project', 'snapshot', 'Follow this repository feature');
-  const turn = h.store.getWorkspace('project', 'snapshot').explorations.flatMap(item => item.turns).find(item => item.id === turnId);
+  const turn = h.store.getWorkspace('project', 'snapshot').explorations[0].turns.find(item => item.id === turnId);
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
-  const section = {
-    projectId: 'project', snapshotId: 'snapshot', runId: '11111111-1111-4111-8111-111111111111', key: 'dispatch', order: 1,
-    generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', revisionId: revision.revisionId,
-    supersedes: null, contextElapsedMs: 10, runElapsedMs: 20,
-  };
-
-  h.emit('repository-guide-section-published', { guideId: turn.guideId, section });
-  await flushLocalReads();
-
-  assert.equal(h.calls.filter(call => call.name === 'save_workspace_answer_section').length, 1);
-  assert.deepEqual(warmups, [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }]);
-  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
-  stop();
-  assert.equal(h.listenerCount(), 0);
-});
-
-test('a validated guide section starts local prewarming while conversation restoration is still loading', async () => {
-  let finishConversationLoad;
-  const conversationLoad = new Promise(resolve => { finishConversationLoad = resolve; });
-  const warmups = [];
-  const runId = '11111111-1111-4111-8111-111111111111';
-  const guideId = '99999999-9999-4999-8999-999999999999';
-  const restored = createWorkspace('project', 'snapshot');
-  restored.explorations[0].turns.push({ id: '88888888-8888-4888-8888-888888888888', question: 'Follow this repository feature', context: [], status: 'working',
-    runIds: [runId], publishedSections: [], guideId });
-  const revision = {
-    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'early-guide-revision',
-    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: 'guide-section', title: 'Dispatch', spokenText: 'The first section is ready.', claims: [] }],
-  };
-  const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'load_workspace_conversation') return conversationLoad;
-    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
-    if (name === 'save_workspace_answer_section') return revision;
-    assert.fail(`Unexpected native command: ${name}`);
-  }, {
-    native: true,
-    localNarrationPrewarmInputs: () => [{ spokenText: 'The first section is ready.', voice: 'alba', style: '', lexicon: [] }],
-    prewarmLocalNarration: input => { warmups.push(input); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
+  h.emit('repository-guide-section-published', {
+    guideId: turn.guideId,
+    section: {
+      projectId: 'project',
+      snapshotId: 'snapshot',
+      runId: '11111111-1111-4111-8111-111111111111',
+      key: 'dispatch',
+      order: 1,
+      generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      revisionId: revision.revisionId,
+      supersedes: null,
+      contextElapsedMs: 10,
+      runElapsedMs: 20,
+    },
   });
-
-  const loading = h.store.prepareWorkspaceConversation('project', 'snapshot');
-  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
-  h.emit('repository-guide-section-published', { guideId, section: {
-    projectId: 'project', snapshotId: 'snapshot', runId, key: 'dispatch', order: 1,
-    generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', revisionId: revision.revisionId,
-    supersedes: null, contextElapsedMs: 10, runElapsedMs: 20,
-  } });
   await flushLocalReads();
 
   assert.equal(h.calls.filter(call => call.name === 'save_workspace_answer_section').length, 1);
-  assert.equal(h.calls.some(call => call.name === 'load_workspace_conversation'), true);
-  assert.deepEqual(warmups, [{ spokenText: 'The first section is ready.', voice: 'alba', style: '', lexicon: [] }]);
-  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations.flatMap(item => item.turns)
-    .some(turn => turn.publishedSections?.some(section => section.revisionId === revision.revisionId)), false,
-  'reader publication waits for the restored conversation tree');
-
-  finishConversationLoad({ schemaVersion: 1, revision: 1, state: restored });
-  await loading;
-  await flushLocalReads();
   assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
+  assert.deepEqual(prewarmCalls, []);
   stop();
   assert.equal(h.listenerCount(), 0);
 });
 
-test('restoring saved Guides rechecks unfinished Pocket clips without replaying AI', async () => {
+test('restoring saved Guides does not synthesize audio or replay the agent', async () => {
+  const prewarmCalls = [];
   const runId = '11111111-1111-4111-8111-111111111111';
-  const section = { runId, key: 'entry', order: 1, generationId: 'generation:22222222-2222-4222-8222-222222222222',
-    revisionId: 'revision', supersedes: null, contextElapsedMs: 10, runElapsedMs: 20 };
+  const section = {
+    runId,
+    key: 'entry',
+    order: 1,
+    generationId: 'generation:22222222-2222-4222-8222-222222222222',
+    revisionId: 'saved-revision',
+    supersedes: null,
+    contextElapsedMs: 10,
+    runElapsedMs: 20,
+  };
+  const guideId = '99999999-9999-4999-8999-999999999999';
   const guide = {
-    revision: 1, id: '99999999-9999-4999-8999-999999999999', projectId: 'project', snapshotId: 'snapshot',
-    question: 'How does the repository work?', title: 'Follow the request', status: 'partial',
-    openingRunId: null, openingRunIds: [], canContinue: false, canExtend: false, continuationOperations: 0,
-    units: [], answers: [{ projectId: 'project', snapshotId: 'snapshot', runId, question: 'What happens to the input?',
-      outcome: 'partial', sections: [section], incompleteTopics: [] }],
-    omissions: [], capturedFiles: 1, startingFiles: 1,
+    revision: 1,
+    id: guideId,
+    projectId: 'project',
+    snapshotId: 'snapshot',
+    question: 'How does the repository work?',
+    title: 'Follow the request',
+    status: 'partial',
+    openingRunId: null,
+    openingRunIds: [],
+    canContinue: false,
+    canExtend: false,
+    continuationOperations: 0,
+    units: [],
+    answers: [{ projectId: 'project', snapshotId: 'snapshot', runId, question: 'What happens to the input?', outcome: 'partial', sections: [section], incompleteTopics: [] }],
+    omissions: [],
+    capturedFiles: 1,
+    startingFiles: 1,
   };
-  const revision = {
-    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'revision',
-    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: 'section', title: 'Dispatch', spokenText: input.spokenText, claims: [] }],
-  };
-  const warmed = [];
+  const revision = revisionFor('saved-revision', 'The saved section remains readable.');
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'load_workspace_conversation') return null;
-    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    if (name === 'save_workspace_conversation') {
+      return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    }
     if (name === 'list_workspace_answers') return [];
     if (name === 'list_repository_guides') return { guides: [guide], unavailableCount: 0, unavailableGuides: [] };
-    assert.fail(`Restoring local narration must not dispatch AI: ${name}`);
+    assert.fail(`Restoring local Guide content must not dispatch AI or synthesize audio: ${name}`);
   }, {
-    native: true,
+    ...narrationHooks(prewarmCalls),
     listChapterRevisions: async () => [revision],
-    localNarrationPrewarmInputs: candidate => {
-      assert.equal(candidate.revisionId, revision.revisionId);
-      return [input];
-    },
-    prewarmLocalNarration: candidate => { warmed.push(candidate); return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } }); },
   });
 
   await h.store.restoreWorkspaceAnswers('project', 'snapshot');
 
-  assert.deepEqual(warmed, [input]);
+  assert.deepEqual(prewarmCalls, []);
   assert.equal(h.calls.some(call => /generate|start_repository_guide|resume_repository_guide/.test(call.name)), false);
   assert.equal(h.calls.some(call => call.name === 'list_repository_guides'), true);
-});
-
-test('a guide section stays readable during delayed Pocket work and reuses the cached clip', async () => {
-  let releaseSynthesis;
-  const synthesisGate = new Promise(resolve => { releaseSynthesis = resolve; });
-  const audioCache = new Map();
-  let synthesisCount = 0;
-  let cacheHitCount = 0;
-  const input = { spokenText: 'The guide section is ready.', voice: 'alba', style: '', lexicon: [] };
-  const prewarmer = createNarrationPrewarmQueue({
-    maxConcurrent: 1,
-    wait: async () => {},
-    prepare: async candidate => {
-      if (audioCache.get(candidate.spokenText) === 'ready') {
-        cacheHitCount += 1;
-        return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-      }
-      synthesisCount += 1;
-      audioCache.set(candidate.spokenText, 'preparing');
-      return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
-    },
-    status: async candidate => {
-      await synthesisGate;
-      audioCache.set(candidate.spokenText, 'ready');
-      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-    },
-  });
-  const revision = {
-    projectId: 'project', snapshotId: 'snapshot', chapterId: 'chapter', revisionId: 'guide-revision-delayed',
-    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: 'guide-section', title: 'Dispatch', spokenText: input.spokenText, claims: [] }],
-  };
-  const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'load_workspace_conversation') return null;
-    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
-    if (name === 'save_workspace_answer_section') return revision;
-    assert.fail(`Unexpected native command: ${name}`);
-  }, {
-    native: true,
-    localNarrationPrewarmInputs: () => [input],
-    localNarrationPrewarmer: prewarmer,
-  });
-
-  await h.store.prepareWorkspaceConversation('project', 'snapshot');
-  const turnId = h.store.appendRepositoryGuide('project', 'snapshot', 'Follow this repository feature');
-  const turn = h.store.getWorkspace('project', 'snapshot').explorations.flatMap(item => item.turns).find(item => item.id === turnId);
-  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
-  const section = {
-    projectId: 'project', snapshotId: 'snapshot', runId: '11111111-1111-4111-8111-111111111111', key: 'dispatch', order: 1,
-    generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', revisionId: revision.revisionId,
-    supersedes: null, contextElapsedMs: 10, runElapsedMs: 20,
-  };
-
-  h.emit('repository-guide-section-published', { guideId: turn.guideId, section });
-  await flushLocalReads();
-
-  assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
-  assert.equal(prewarmer.state(input), 'preparing');
-  assert.equal(synthesisCount, 1);
-  assert.equal(audioCache.get(input.spokenText), 'preparing');
-
-  releaseSynthesis();
-  await prewarmer.flush();
-  assert.equal(audioCache.get(input.spokenText), 'ready');
-  assert.equal(prewarmer.enqueue([input]), 0, 'the active app coalesces a guide refresh for a settled clip');
-  const reopenedPrewarmer = createNarrationPrewarmQueue({
-    maxConcurrent: 1,
-    wait: async () => {},
-    prepare: async candidate => {
-      if (audioCache.get(candidate.spokenText) === 'ready') {
-        cacheHitCount += 1;
-        return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-      }
-      synthesisCount += 1;
-      return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
-    },
-    status: async () => ({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } }),
-  });
-  assert.equal(reopenedPrewarmer.enqueue([input]), 1, 'a fresh process rechecks the native cache');
-  await reopenedPrewarmer.flush();
-  assert.equal(synthesisCount, 1, 'returning to the same narration reuses its completed cache entry');
-  assert.equal(cacheHitCount, 1);
-
-  stop();
-  assert.equal(h.listenerCount(), 0);
-});
-
-test('a guide update warms only new revisions already adopted by the native reader', async () => {
-  const firstRunId = '11111111-1111-4111-8111-111111111111';
-  const nextRunId = '22222222-2222-4222-8222-222222222222';
-  const firstSection = { runId: firstRunId, key: 'first', order: 1, generationId: 'generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', revisionId: 'first-revision', supersedes: null, contextElapsedMs: 10, runElapsedMs: 20 };
-  const nextSection = { runId: nextRunId, key: 'next', order: 1, generationId: 'generation:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', revisionId: 'next-revision', supersedes: null, contextElapsedMs: 30, runElapsedMs: 40 };
-  const answerFor = (runId, sections) => ({ runId, projectId: 'project', snapshotId: 'snapshot', question: `Question for ${runId}`, outcome: 'complete', sections, incompleteTopics: [] });
-  const oldAnswer = answerFor(firstRunId, [firstSection]);
-  const nextAnswer = answerFor(nextRunId, [nextSection]);
-  let guideId = '';
-  const updatedGuide = {
-    projectId: 'project', snapshotId: 'snapshot', revision: 2, id: '', question: 'Follow this repository feature', title: 'Feature path', status: 'building',
-    openingRunId: firstRunId, openingRunIds: [firstRunId], canContinue: true, canExtend: false, continuationOperations: 0,
-    units: [{ key: 'next', question: 'What happens next?', prerequisites: [], status: 'complete', runIds: [nextRunId] }],
-    answers: [oldAnswer, nextAnswer], omissions: [], capturedFiles: 2, startingFiles: 2,
-  };
-  const revisions = [firstSection, nextSection].map(section => ({
-    projectId: 'project', snapshotId: 'snapshot', chapterId: section.key, revisionId: section.revisionId,
-    revisionNumber: 1, basedOnRevisionId: null, lifecycle: 'draft', validationStatus: 'valid',
-    target: { targetId: 'target', scope: { kind: 'overview' } },
-    sections: [{ sectionId: section.key, title: section.key, spokenText: section.revisionId, claims: [] }],
-  }));
-  const warmups = [];
-  const prewarmer = createNarrationPrewarmQueue({
-    prepare: async candidate => {
-      warmups.push(candidate);
-      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-    },
-    status: async () => ({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } }),
-    wait: async () => {},
-  });
-  prewarmer.enqueue([{ spokenText: 'first-revision', voice: 'alba', style: '', lexicon: [] }]);
-  await prewarmer.flush();
-  warmups.length = 0;
-  const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'load_workspace_conversation') return null;
-    if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
-    if (name === 'load_repository_guide') return { ...updatedGuide, id: guideId };
-    if (name === 'list_repository_guides') return { guides: [{ ...updatedGuide, id: guideId }], unavailableCount: 0, unavailableGuides: [] };
-    if (name === 'list_workspace_answers') return [];
-    assert.fail(`Unexpected native command: ${name}`);
-  }, {
-    native: true,
-    listChapterRevisions: async () => revisions,
-    localNarrationPrewarmInputs: candidate => [{ spokenText: candidate.revisionId, voice: 'alba', style: '', lexicon: [] }],
-    localNarrationPrewarmer: prewarmer,
-  });
-
-  await h.store.prepareWorkspaceConversation('project', 'snapshot');
-  const turnId = h.store.appendRepositoryGuide('project', 'snapshot', updatedGuide.question);
-  const turn = h.store.getWorkspace('project', 'snapshot').explorations.flatMap(item => item.turns).find(item => item.id === turnId);
-  guideId = turn.guideId;
-  updatedGuide.id = guideId;
-  h.store.updateWorkspace('project', 'snapshot', state => ({
-    ...state,
-    explorations: state.explorations.map(exploration => ({ ...exploration, turns: exploration.turns.map(item => item.id === turnId
-      ? { ...item, guide: { ...updatedGuide, answers: undefined, revision: 1 }, runIds: [firstRunId], publishedSections: [firstSection] }
-      : item) })),
-  }));
-  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
-
-  h.emit('repository-guide-changed', { ...updatedGuide, revision: 1, title: 'Stale event payload', answers: [] });
-  await flushLocalReads();
-  await flushLocalReads();
-
-  assert.deepEqual(warmups, [{ spokenText: 'next-revision', voice: 'alba', style: '', lexicon: [] }]);
-  const updatedTurn = h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0];
-  assert.equal(updatedTurn.guide.title, 'Feature path');
-  assert.equal(JSON.stringify(updatedTurn.publishedSections.map(section => section.revisionId)), JSON.stringify(['first-revision', 'next-revision']));
-  stop();
-});
-
-test('local narration warms a bounded native runway and deduplicates identical clips', async () => {
-  const first = { spokenText: 'first scene', voice: 'alba', style: '', lexicon: [] };
-  const second = { spokenText: 'second scene', voice: 'alba', style: '', lexicon: [] };
-  const third = { spokenText: 'third scene', voice: 'alba', style: '', lexicon: [] };
-  const events = [];
-  let nativePending = 0;
-  let maximumNativePending = 0;
-  const queue = createNarrationPrewarmQueue({
-    maxPending: 4,
-    maxConcurrent: 2,
-    wait: async () => {},
-    prepare: async input => {
-      events.push(`prepare:${input.spokenText}`);
-      nativePending += 1;
-      maximumNativePending = Math.max(maximumNativePending, nativePending);
-      return { status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } };
-    },
-    status: async input => {
-      events.push(`ready:${input.spokenText}`);
-      nativePending -= 1;
-      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-    },
-  });
-
-  assert.equal(queue.enqueue([first, second, third, first]), 3);
-  await queue.flush();
-  assert.equal(maximumNativePending, 2);
-  assert.deepEqual(events.filter(event => event.startsWith('prepare:')).sort(), [
-    'prepare:first scene', 'prepare:second scene', 'prepare:third scene',
-  ]);
-  assert.deepEqual(events.filter(event => event.startsWith('ready:')).sort(), [
-    'ready:first scene', 'ready:second scene', 'ready:third scene',
-  ]);
-});
-
-test('failed local narration does not block later scenes and backlog remains bounded', async () => {
-  const first = { spokenText: 'fails once', voice: 'alba', style: '', lexicon: [] };
-  const second = { spokenText: 'still prepares', voice: 'alba', style: '', lexicon: [] };
-  const prepared = [];
-  const queue = createNarrationPrewarmQueue({
-    maxPending: 1,
-    prepare: async input => {
-      prepared.push(input.spokenText);
-      if (input === first) throw new Error('local worker unavailable');
-      return { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-    },
-    status: async () => assert.fail('a failed or ready clip should not be polled'),
-  });
-
-  assert.equal(queue.enqueue([first, second]), 1);
-  await queue.flush();
-  assert.deepEqual(prepared, ['fails once']);
-  assert.equal(queue.enqueue([second]), 1);
-  await queue.flush();
-  assert.deepEqual(prepared, ['fails once', 'still prepares']);
 });

@@ -6,7 +6,6 @@ import { AppButton } from './design/AppButton';
 import { cancelProviderRequest, getPocketTtsStatus, removePocketTtsRuntime, setupPocketTts, type PocketTtsStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
-import { invalidateLocalNarrationPrewarmIdentity } from './workspace/localNarrationQueue';
 import { notifyPocketTtsRuntimeReady } from './workspace/pocketRuntimeEvents';
 
 export function ConnectionsDialog({ native, initialSection = 'explanations', onClose }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void }) {
@@ -71,10 +70,6 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       else setError(result.error.message);
     } catch { if (alive.current) setError('Local voice setup could not finish. Try again.'); }
     finally {
-      // Setup and repair can change the runtime fingerprint used by native
-      // cached audio. Do not let an older in-flight client key suppress new
-      // Pocket work after this attempt.
-      invalidateLocalNarrationPrewarmIdentity();
       setupId.current = null;
       if (runtimeReady && typeof window !== 'undefined') notifyPocketTtsRuntimeReady(window);
       if (alive.current) setBusy(false);
@@ -88,7 +83,6 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
       if (!alive.current) return;
       if (result.status === 'ok') {
         setStatus(result.data);
-        invalidateLocalNarrationPrewarmIdentity();
         setMessage('Local voice removed. Saved narration audio is still available; set up the voice again to create new audio.');
       } else setError(result.error.message);
     } catch { if (alive.current) setError('Local voice files could not be removed. Try again.'); }

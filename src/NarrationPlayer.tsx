@@ -40,7 +40,6 @@ import {
   serializeNarrationPreferences,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
-import { localNarrationPrewarmState, localNarrationPrewarmer } from './workspace/localNarrationQueue';
 import { listenForPocketTtsRuntimeReady } from './workspace/pocketRuntimeEvents';
 import { AppButton } from './design/AppButton';
 import { AppSlider } from './design/AppSlider';
@@ -379,13 +378,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           setPrewarmState('unavailable');
           return;
         }
-        if (result.data.state === 'idle' && localNarrationPrewarmState(input) !== 'idle') {
-          // The shared queue may still be waiting for a native worker slot.
-          // Keep polling until that request is visible to native status.
-          setPrewarmState('preparing');
-          timer = setTimeout(() => { void refresh(); }, 750);
-          return;
-        }
         setPrewarmState(result.data.state);
         if (result.data.state === 'preparing') timer = setTimeout(() => { void refresh(); }, 750);
       } catch {
@@ -396,9 +388,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     const stopRuntimeReadyListener = shouldCheckCache && typeof window !== 'undefined'
       ? listenForPocketTtsRuntimeReady(window, () => {
         if (!active) return;
-        // An earlier attempt can fail before Pocket is installed. When setup
-        // finishes, retry only the clip the reader currently has open.
-        localNarrationPrewarmer.retry([input]);
+        // Refresh cache status after setup. Synthesis starts only after Play.
         if (timer !== undefined) clearTimeout(timer);
         void refresh();
       })

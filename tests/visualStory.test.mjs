@@ -467,7 +467,7 @@ describe('visual story scenes', () => {
     assert.match(component, /narrationAvailabilityLabel\(prewarmState\)/u);
   });
 
-  it('loads a completed local prewarm before Play without autoplaying it', () => {
+  it('loads a matching completed local cache before Play without synthesizing or autoplaying', () => {
     const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     assert.match(component, /useState<NarrationPrewarmState \| 'checking'>/u);
     assert.match(component, /setPrewarmState\(shouldCheckCache \? 'checking' : 'idle'\)/u);
@@ -476,6 +476,16 @@ describe('visual story scenes', () => {
     assert.match(component, /void makeReviewRef\.current\(true\)/u);
     assert.match(component, /setLoadedTrack\(cached\.data, result\.data, false, requestedDraft\)/u);
     assert.match(component, /track && savedAudioMatchesDraft && currentTime <= 0 \? narrationAvailabilityLabel\('ready'\)/u);
+
+    const playStart = component.indexOf('const playOrPause = async () => {');
+    const playEnd = component.indexOf('const listenStarted =', playStart);
+    assert.notEqual(playStart, -1);
+    assert.notEqual(playEnd, -1);
+    const playFlow = component.slice(playStart, playEnd);
+    assert.match(playFlow, /if \(currentReview\.cachedAudioAvailable\) await loadCache\(currentReview, true\)/u);
+    assert.match(playFlow, /else if \(mountedRef\.current\) await synthesize\(currentReview\)/u);
+    assert.doesNotMatch(component.slice(0, playStart), /synthesize\(/u,
+      'audio synthesis starts only from an explicit Play path');
   });
 
   it('advances the visual scene only on completed playback and leaves section pacing manual', () => {

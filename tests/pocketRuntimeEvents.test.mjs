@@ -1,32 +1,21 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { it } from 'node:test';
 import { listenForPocketTtsRuntimeReady, notifyPocketTtsRuntimeReady } from '../src/workspace/pocketRuntimeEvents.ts';
-import { createNarrationPrewarmQueue } from '../src/workspace/narrationQueue.ts';
 
-it('retries the active local clip after Pocket becomes ready', async () => {
+it('refreshes local audio status after setup without starting synthesis', () => {
   const target = new EventTarget();
-  const input = { spokenText: 'A local synthetic narration check.', voice: 'alba', style: '', lexicon: [] };
-  let attempts = 0;
-  const queue = createNarrationPrewarmQueue({
-    prepare: async () => {
-      attempts += 1;
-      return attempts === 1
-        ? { status: 'error', error: { message: 'Pocket runtime is not ready.' } }
-        : { status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } };
-    },
-    status: async () => assert.fail('ready audio should not be polled'),
-  });
-
-  queue.enqueue([input]);
-  await queue.flush();
-  assert.equal(queue.enqueue([input]), 0, 'the failed attempt is coalesced until the runtime identity changes');
-
-  queue.invalidateIdentity();
-  const stop = listenForPocketTtsRuntimeReady(target, () => { queue.enqueue([input]); });
+  let refreshCount = 0;
+  const stop = listenForPocketTtsRuntimeReady(target, () => { refreshCount += 1; });
   notifyPocketTtsRuntimeReady(target);
-  await queue.flush();
-
-  assert.equal(attempts, 2);
-  assert.equal(queue.state(input), 'idle');
   stop();
+  assert.equal(refreshCount, 1);
+
+  const player = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+  const listenerStart = player.indexOf('listenForPocketTtsRuntimeReady(window, () => {');
+  assert.notEqual(listenerStart, -1);
+  const listenerEnd = player.indexOf('})', listenerStart);
+  const listenerBody = player.slice(listenerStart, listenerEnd);
+  assert.match(listenerBody, /void refresh\(\)/u);
+  assert.doesNotMatch(listenerBody, /enqueue|retry|synthesizeReviewedNarrationAudio/u);
 });
