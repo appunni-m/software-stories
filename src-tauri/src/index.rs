@@ -14,7 +14,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v9";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v10";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -31,6 +31,29 @@ const MAX_INDEX_STORED_BYTES: usize = 64 * 1024 * 1024;
 const MAX_INDEX_EXPANDED_BYTES: usize = 256 * 1024 * 1024;
 const MAX_PARSE_TIME: Duration = Duration::from_millis(1_500);
 const MAX_RETAINED_JOBS: usize = 32;
+
+#[derive(Clone, Copy)]
+struct IndexLimits {
+    max_indexed_files: usize,
+    max_source_bytes_per_file: u64,
+    max_total_source_bytes: u64,
+    max_symbols: usize,
+    max_relationships: usize,
+    max_import_bindings: usize,
+}
+
+impl Default for IndexLimits {
+    fn default() -> Self {
+        Self {
+            max_indexed_files: MAX_INDEXED_FILES,
+            max_source_bytes_per_file: MAX_SOURCE_BYTES_PER_FILE,
+            max_total_source_bytes: MAX_TOTAL_SOURCE_BYTES,
+            max_symbols: MAX_INDEXED_SYMBOLS,
+            max_relationships: MAX_INDEXED_RELATIONSHIPS,
+            max_import_bindings: MAX_INDEXED_IMPORT_BINDINGS,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -490,6 +513,7 @@ where
         job_id,
         cancellation,
         &BTreeSet::new(),
+        IndexLimits::default(),
         on_progress,
         |captured| {
             snapshot::read_snapshot_source_from_manifest(storage_dir, manifest, &captured.path)
@@ -513,6 +537,7 @@ where
         job_id,
         cancellation,
         priority_paths,
+        IndexLimits::default(),
         on_progress,
         |captured| {
             sources.get(&captured.path).cloned().ok_or_else(|| {
@@ -527,6 +552,7 @@ fn build_snapshot_index_with_reader<R, F>(
     job_id: &str,
     cancellation: &AtomicBool,
     priority_paths: &BTreeSet<String>,
+    limits: IndexLimits,
     mut on_progress: F,
     mut read_source: R,
 ) -> SnapshotIndex
@@ -561,6 +587,7 @@ where
     let mut go_packages_by_path = HashMap::<String, String>::new();
     let mut total_source_bytes = 0_u64;
     let mut total_import_bindings = 0_usize;
+    let mut parser_attempts = 0_usize;
     let mut partial = false;
     let mut hit_global_limit = false;
     let mut ordered_files = manifest.files.iter().collect::<Vec<_>>();
@@ -571,7 +598,7 @@ where
             .then_with(|| left.path.cmp(&right.path))
     });
 
-    for (file_index, captured) in ordered_files.iter().enumerate() {
+    for captured in &ordered_files {
         progress.current_path = Some(captured.path.clone());
         if cancellation.load(Ordering::Relaxed) {
             progress.status = IndexJobStatus::Cancelled;
@@ -588,34 +615,6 @@ where
             );
         }
 
-        if file_index >= MAX_INDEXED_FILES || hit_global_limit {
-            partial = true;
-            files.push(unprocessed_file(
-                captured,
-                IndexFileStatus::IndexLimitExceeded,
-                "The snapshot index reached its 5,000-file or 50 MB source limit. The file remains available in the repository inventory.",
-            ));
-            progress.files_processed += 1;
-            continue;
-        }
-        if captured.size_bytes > MAX_SOURCE_BYTES_PER_FILE {
-            partial = true;
-            files.push(unprocessed_file(
-                captured,
-                IndexFileStatus::FileTooLarge,
-                "This file exceeds the 1 MiB per-file parser limit. Source browsing remains available.",
-            ));
-            progress.files_processed += 1;
-            update_progress_counts(
-                &mut progress,
-                &files,
-                &symbols,
-                &call_candidates,
-                &import_candidates,
-            );
-            on_progress(&progress);
-            continue;
-        }
         match captured.content_kind {
             CapturedContentKind::Binary => {
                 partial = true;
@@ -653,13 +652,57 @@ where
             on_progress(&progress);
             continue;
         };
-        if total_source_bytes.saturating_add(captured.size_bytes) > MAX_TOTAL_SOURCE_BYTES {
+        if captured.size_bytes > limits.max_source_bytes_per_file {
             partial = true;
-            hit_global_limit = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::FileTooLarge,
+                &format!(
+                    "This file exceeds the {} MiB per-file parser limit. Source browsing remains available.",
+                    limits.max_source_bytes_per_file / (1024 * 1024)
+                ),
+            ));
+            progress.files_processed += 1;
+            on_progress(&progress);
+            continue;
+        }
+        if parser_attempts >= limits.max_indexed_files {
+            partial = true;
             files.push(unprocessed_file(
                 captured,
                 IndexFileStatus::IndexLimitExceeded,
-                "The snapshot index reached its 50 MB total source limit. Remaining files stay available in the repository inventory.",
+                &format!(
+                    "The snapshot index reached its {} parser-supported file limit. The file remains available in the repository inventory.",
+                    limits.max_indexed_files
+                ),
+            ));
+            progress.files_processed += 1;
+            on_progress(&progress);
+            continue;
+        }
+        if hit_global_limit {
+            partial = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::IndexLimitExceeded,
+                &format!(
+                    "The snapshot index reached its {}-symbol limit. The file remains available in the repository inventory.",
+                    limits.max_symbols
+                ),
+            ));
+            progress.files_processed += 1;
+            on_progress(&progress);
+            continue;
+        }
+        if total_source_bytes.saturating_add(captured.size_bytes) > limits.max_total_source_bytes {
+            partial = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::IndexLimitExceeded,
+                &format!(
+                    "Indexing this file would exceed the {} MiB total source limit. The file remains available in the repository inventory.",
+                    limits.max_total_source_bytes / (1024 * 1024)
+                ),
             ));
             progress.files_processed += 1;
             on_progress(&progress);
@@ -680,6 +723,7 @@ where
             }
         };
         total_source_bytes = total_source_bytes.saturating_add(source.size_bytes);
+        parser_attempts = parser_attempts.saturating_add(1);
         let parsed = parse_file(
             &source.path,
             &source.sha256,
@@ -723,39 +767,68 @@ where
                     parsed.file.status,
                     IndexFileStatus::PartialParse | IndexFileStatus::ParseError
                 );
-                let parsed_import_binding_count = parsed
-                    .imports
-                    .iter()
-                    .map(|candidate| candidate.bindings.len())
-                    .sum::<usize>();
-                if symbols.len() + parsed.symbols.len() > MAX_INDEXED_SYMBOLS
-                    || call_candidates.len()
-                        + import_candidates.len()
-                        + parsed.calls.len()
-                        + parsed.imports.len()
-                        > MAX_INDEXED_RELATIONSHIPS
-                    || total_import_bindings.saturating_add(parsed_import_binding_count)
-                        > MAX_INDEXED_IMPORT_BINDINGS
-                {
+                if symbols.len() + parsed.symbols.len() > limits.max_symbols {
                     partial = true;
                     hit_global_limit = true;
                     files.push(unprocessed_file(
                         captured,
                         IndexFileStatus::IndexLimitExceeded,
-                        "The snapshot index reached its symbol or relationship limit. The file remains available in the repository inventory.",
+                        &format!(
+                            "Indexing this file would exceed the {}-symbol limit. The file remains available in the repository inventory.",
+                            limits.max_symbols
+                        ),
                     ));
                 } else {
-                    total_import_bindings += parsed_import_binding_count;
-                    if let Some(package_name) = parsed.go_package_name.as_ref() {
-                        go_packages_by_path.insert(parsed.file.path.clone(), package_name.clone());
+                    let mut file = parsed.file;
+                    let mut calls = parsed.calls;
+                    let mut imports = parsed.imports;
+                    let available_relationships = limits
+                        .max_relationships
+                        .saturating_sub(call_candidates.len() + import_candidates.len());
+                    let kept_calls = calls.len().min(available_relationships);
+                    let mut relationships_truncated = kept_calls < calls.len();
+                    calls.truncate(kept_calls);
+
+                    let available_imports = available_relationships.saturating_sub(calls.len());
+                    if imports.len() > available_imports {
+                        imports.truncate(available_imports);
+                        relationships_truncated = true;
+                    }
+
+                    let mut available_import_bindings = limits
+                        .max_import_bindings
+                        .saturating_sub(total_import_bindings);
+                    let mut kept_import_bindings = 0_usize;
+                    for import in &mut imports {
+                        let kept = import.bindings.len().min(available_import_bindings);
+                        if kept < import.bindings.len() {
+                            import.bindings.truncate(kept);
+                            relationships_truncated = true;
+                        }
+                        kept_import_bindings = kept_import_bindings.saturating_add(kept);
+                        available_import_bindings = available_import_bindings.saturating_sub(kept);
+                    }
+                    total_import_bindings =
+                        total_import_bindings.saturating_add(kept_import_bindings);
+                    if relationships_truncated {
+                        partial = true;
+                        let note = format!(
+                            "Declarations in this file were indexed, but some relationships were omitted at the {}-relationship or {}-import-binding limit.",
+                            limits.max_relationships, limits.max_import_bindings
+                        );
+                        append_index_file_message(&mut file, note);
+                    }
+
+                    if let Some(package_name) = parsed.go_package_name {
+                        go_packages_by_path.insert(file.path.clone(), package_name);
                     }
                     for symbol in parsed.symbols {
                         symbols.entry(symbol.symbol_id.clone()).or_insert(symbol);
                     }
-                    call_candidates.extend(parsed.calls);
-                    import_candidates.extend(parsed.imports);
+                    call_candidates.extend(calls);
+                    import_candidates.extend(imports);
                     callable_exports.extend(parsed.callable_exports);
-                    files.push(parsed.file);
+                    files.push(file);
                 }
             }
         }
@@ -787,8 +860,8 @@ where
     ));
     relationships.sort_by(relationship_order);
     relationships.dedup_by(|left, right| left.relationship_id == right.relationship_id);
-    if relationships.len() > MAX_INDEXED_RELATIONSHIPS {
-        let omitted = relationships.split_off(MAX_INDEXED_RELATIONSHIPS);
+    if relationships.len() > limits.max_relationships {
+        let omitted = relationships.split_off(limits.max_relationships);
         let omitted_paths = omitted
             .into_iter()
             .map(|edge| edge.evidence.path)
@@ -797,10 +870,12 @@ where
             .iter_mut()
             .filter(|file| omitted_paths.contains(&file.path))
         {
-            file.status = IndexFileStatus::IndexLimitExceeded;
-            file.message = Some(
-                "The index reached its 100,000-relationship limit. Some edges anchored in this file were omitted; all captured source remains browseable."
-                    .to_owned(),
+            append_index_file_message(
+                file,
+                format!(
+                    "Declarations in this file were indexed, but some edges were omitted at the {}-relationship limit. Captured source remains browseable.",
+                    limits.max_relationships
+                ),
             );
         }
         partial = true;
@@ -841,7 +916,7 @@ where
     progress.symbols_found = symbols.len();
     progress.relationships_found = relationships.len();
     progress.message = Some(if partial {
-        "Index complete with unsupported files, parse gaps, or bounded work omitted. Unresolved edges remain listed with their reasons.".to_owned()
+        "Index complete with unsupported files, parse gaps, or bounded work omitted. Declaration search may still cover files whose relationship edges were capped; unresolved edges include their reasons.".to_owned()
     } else {
         "Index complete for every captured file supported by the shipped parsers.".to_owned()
     });
@@ -957,6 +1032,13 @@ fn unprocessed_file(
         relationship_count: 0,
         message: Some(message.to_owned()),
     }
+}
+
+fn append_index_file_message(file: &mut IndexedFile, note: String) {
+    file.message = Some(match file.message.take() {
+        Some(existing) => format!("{existing} {note}"),
+        None => note,
+    });
 }
 
 #[derive(Debug)]
@@ -3269,6 +3351,128 @@ mod tests {
             &AtomicBool::new(false),
             |_| {},
         )
+    }
+
+    fn build_with_limits(
+        storage: &Path,
+        manifest: &SnapshotManifest,
+        limits: IndexLimits,
+    ) -> SnapshotIndex {
+        build_snapshot_index_with_reader(
+            manifest,
+            "test-index-job",
+            &AtomicBool::new(false),
+            &BTreeSet::new(),
+            limits,
+            |_| {},
+            |captured| {
+                snapshot::read_snapshot_source_from_manifest(storage, manifest, &captured.path)
+            },
+        )
+    }
+
+    fn indexed_file<'a>(index: &'a SnapshotIndex, path: &str) -> &'a IndexedFile {
+        index
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .expect("fixture file should appear in index inventory")
+    }
+
+    #[test]
+    fn relationship_limit_does_not_stop_later_file_declarations() {
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("repository");
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-q", "--initial-branch=main"]);
+        git(&root, &["config", "user.name", "Code Atlas Index Tests"]);
+        git(
+            &root,
+            &["config", "user.email", "index-tests@example.invalid"],
+        );
+        write_fixture(&root, "src/a.ts", "export function alpha() {}\n");
+        write_fixture(
+            &root,
+            "src/b.ts",
+            "export function firstCall() { alpha(); }\n",
+        );
+        write_fixture(
+            &root,
+            "src/c.ts",
+            "export function truncatedCall() { alpha(); }\n",
+        );
+        write_fixture(&root, "src/d.ts", "export function laterDeclaration() {}\n");
+        commit_fixture(&root, "relationship limit fixture");
+
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+        let manifest = capture(&storage, &project);
+        let indexed = build_with_limits(
+            &storage,
+            &manifest,
+            IndexLimits {
+                max_relationships: 1,
+                ..IndexLimits::default()
+            },
+        );
+
+        assert_eq!(indexed.status, SnapshotIndexStatus::Partial);
+        assert!(indexed.relationships.len() <= 1);
+        assert!(
+            indexed
+                .symbols
+                .iter()
+                .any(|symbol| symbol.path == "src/d.ts" && symbol.name == "laterDeclaration"),
+            "relationship exhaustion must not discard later declarations"
+        );
+        assert_eq!(
+            indexed_file(&indexed, "src/d.ts").status,
+            IndexFileStatus::Indexed
+        );
+    }
+
+    #[test]
+    fn unsupported_files_do_not_consume_parser_supported_file_budget() {
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("repository");
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-q", "--initial-branch=main"]);
+        git(&root, &["config", "user.name", "Code Atlas Index Tests"]);
+        git(
+            &root,
+            &["config", "user.email", "index-tests@example.invalid"],
+        );
+        write_fixture(&root, "00-notes.md", "No parser is needed for this note.\n");
+        write_fixture(&root, "src/main.ts", "export function main() {}\n");
+        commit_fixture(&root, "parser budget fixture");
+
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+        let manifest = capture(&storage, &project);
+        let indexed = build_with_limits(
+            &storage,
+            &manifest,
+            IndexLimits {
+                max_indexed_files: 1,
+                ..IndexLimits::default()
+            },
+        );
+
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "00-notes.md")
+                .unwrap()
+                .status,
+            IndexFileStatus::UnsupportedLanguage
+        );
+        assert!(
+            indexed
+                .symbols
+                .iter()
+                .any(|symbol| { symbol.path == "src/main.ts" && symbol.name == "main" })
+        );
     }
 
     #[test]
