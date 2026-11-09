@@ -631,6 +631,104 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
 }
 
 #[test]
+fn uncovered_topic_questions_are_short_and_reader_facing() {
+    assert_eq!(
+        extension_question("Not yet covered: C ABI input and rendering"),
+        "What does the code show about \"C ABI input and rendering\"?"
+    );
+}
+
+#[test]
+fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+
+    let opening_run_id = record.opening.as_ref().unwrap().run_id.clone();
+    let mut opening = attempt(&record, Outcome::Complete);
+    opening.run_id = opening_run_id.clone();
+    opening.question = opening::question(&record).unwrap().to_owned();
+    opening.prerequisite_fingerprints.clear();
+    let opening_summary = opening.summary.as_mut().unwrap();
+    opening_summary.run_id = opening_run_id.clone();
+    opening_summary.question = opening.question.clone();
+    for section in &mut opening_summary.sections {
+        section.run_id = opening_run_id.clone();
+        section.key = "opening".into();
+    }
+    record.opening = Some(opening);
+
+    for topics in [
+        vec!["A stale gap from an earlier attempt.".into()],
+        vec!["The error return after dispatch.".into()],
+        vec![
+            "The error return after dispatch.".into(),
+            "The output path remains unclear.".into(),
+            "This slide did not publish. The guide preserved its other progress.".into(),
+        ],
+    ] {
+        let mut failed = attempt_for_unit(&record, 0, Outcome::Partial);
+        failed.summary.as_mut().unwrap().incomplete_topics = topics;
+        record.units[0].attempts.push(failed);
+    }
+    let completed_second_unit = attempt_for_unit(&record, 1, Outcome::Complete);
+    record.units[1].attempts.push(completed_second_unit);
+    record.plan.as_mut().unwrap().omissions.clear();
+    record.status = Status::Partial;
+
+    assert_eq!(opening_continuation::remaining_operations(&record), 0);
+    assert_eq!(
+        pending_extension_topics(&record),
+        vec![
+            "The error return after dispatch.".to_owned(),
+            "The output path remains unclear.".to_owned(),
+        ]
+    );
+    assert!(plan_extension_eligible(&record));
+    assert_eq!(
+        opening_continuation::remaining_answer_records(&record),
+        2 + 2 * MAX_ATTEMPTS,
+        "the saved store reserves retries for new continuation units"
+    );
+
+    store::create(&f.storage, &record).unwrap();
+    let saved = store::read(&f.storage, &record.id).unwrap();
+    let extended = append_omission_units(&f.storage, &saved).unwrap();
+    let plan = extended.plan.as_ref().unwrap();
+    assert_eq!(plan.units.len(), 4);
+    assert!(plan.omissions.is_empty());
+    assert_eq!(
+        plan.units[2..]
+            .iter()
+            .map(|unit| unit.continuation_topic.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        [
+            "The error return after dispatch.",
+            "The output path remains unclear."
+        ]
+    );
+    assert!(
+        plan.units[2..]
+            .iter()
+            .all(|unit| unit.starting_ranges.is_empty())
+    );
+    assert!(guide_uncovered_topics(&extended).is_empty());
+    assert!(!plan_extension_eligible(&extended));
+    assert_eq!(terminal_guide_status(&extended), Status::Partial);
+
+    let summary = guide_summary(&extended, &f.manifest, Vec::new());
+    assert!(summary.omissions.is_empty());
+    assert_eq!(summary.units[0].incomplete_topics.len(), 2);
+    assert_eq!(
+        summary.units[2].continuation_topic.as_deref(),
+        Some("The error return after dispatch.")
+    );
+    assert_eq!(
+        store::read(&f.storage, &record.id).unwrap().plan,
+        extended.plan
+    );
+}
+
+#[test]
 fn an_exhausted_outline_with_unresolved_omissions_finishes_partial() {
     let f = Fixture::new();
     let mut record = fresh_record(&f);
@@ -667,7 +765,7 @@ fn an_exhausted_outline_with_unresolved_omissions_finishes_partial() {
     record.plan.as_mut().unwrap().omissions = vec!["One public route remains unexplored.".into()];
 
     assert!(guide_complete(&record));
-    assert!(pending_extension_topics(record.plan.as_ref().unwrap()).is_empty());
+    assert!(pending_extension_topics(&record).is_empty());
     assert!(!plan_extension_eligible(&record));
     assert_eq!(terminal_guide_status(&record), Status::Partial);
 

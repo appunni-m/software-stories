@@ -59,7 +59,7 @@ export interface RepositoryGuide {
   canExtend: boolean;
   continuationOperations: number;
   consumedSlideRevisions?: string[];
-  units: { key: string; question: string; prerequisites: string[]; status: string; latestCompleteRunId?: string; latestAttemptIncomplete?: boolean; failureCode?: ExplanationFailureCode; canRetry: boolean; canRegenerate?: boolean; runIds: string[] }[];
+  units: { key: string; question: string; prerequisites: string[]; continuationTopic?: string; incompleteTopics?: string[]; status: string; latestCompleteRunId?: string; latestAttemptIncomplete?: boolean; failureCode?: ExplanationFailureCode; canRetry: boolean; canRegenerate?: boolean; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
 export interface RepositoryGuideList {
@@ -428,9 +428,21 @@ export function repositoryGuideOmissionTopics(omissions: readonly string[]): str
 /** Include both planner omissions and planned units that never completed. */
 export function repositoryGuideUncoveredTopics(guide: Pick<RepositoryGuide, 'omissions' | 'units'> | undefined): string[] {
   if (!guide) return [];
-  return [...guide.omissions, ...guide.units
-    .filter((unit) => unit.status !== 'complete')
-    .map((unit) => unit.question)];
+  const topicKey = (topic: string) => topic.replace(/\s+/g, ' ').trim().toLowerCase();
+  const continued = new Set(guide.units.map((unit) => unit.continuationTopic).filter((topic): topic is string => Boolean(topic)).map(topicKey));
+  const candidates = [...guide.omissions];
+  for (const unit of guide.units.filter((item) => item.status !== 'complete')) {
+    const topics = unit.incompleteTopics?.filter((topic) => Boolean(topic.trim())) ?? [];
+    if (topics.length) candidates.push(...topics);
+    else candidates.push(unit.question);
+  }
+  const seen = new Set<string>();
+  return candidates.filter((topic) => {
+    const key = topicKey(topic);
+    if (!key || continued.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Keep the visible coverage note concise while naming the major omissions. */

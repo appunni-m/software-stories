@@ -158,6 +158,16 @@ test('uncovered guide topics include failed planned units',()=>{
   assert.deepEqual(repositoryGuideUncoveredTopics(undefined),[]);
 });
 
+test('uncovered guide topics prefer specific gaps and suppress topics already appended as units',()=>{
+  assert.deepEqual(repositoryGuideUncoveredTopics({
+    omissions:['C ABI errors','The error return after dispatch.'],
+    units:[
+      {key:'dispatch',question:'How does dispatch work?',prerequisites:[],status:'partial',incompleteTopics:['The error return after dispatch.','The output path remains unclear.'],runIds:['run-1']},
+      {key:'error-return',question:'What does the code show about "The error return after dispatch"?',prerequisites:[],continuationTopic:'The error return after dispatch.',status:'complete',runIds:['run-2']},
+    ],
+  }),['C ABI errors','The output path remains unclear.']);
+});
+
 test('a completed partial guide extends its saved outline in place',async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');

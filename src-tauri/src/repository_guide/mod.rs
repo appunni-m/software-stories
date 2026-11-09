@@ -219,6 +219,10 @@ struct UnitSummary {
     key: String,
     question: String,
     prerequisites: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    continuation_topic: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    incomplete_topics: Vec<String>,
     status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     latest_complete_run_id: Option<String>,
@@ -563,37 +567,110 @@ fn record_consumed_slide(
     })
 }
 
-/// Distinct omitted topics that can still be appended to the saved outline.
-/// The labels come from the validated local plan, never from the renderer.
-fn pending_extension_topics(plan: &Plan) -> Vec<String> {
-    let available = MAX_TOTAL_UNITS.saturating_sub(plan.units.len());
-    let mut seen = std::collections::HashSet::new();
-    plan.omissions
+fn topic_key(topic: &str) -> String {
+    topic
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn actionable_incomplete_topics(attempts: &[Attempt]) -> Vec<String> {
+    let Some(summary) = attempts
         .iter()
-        .filter_map(|topic| {
-            let normalized = topic
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-                .to_lowercase();
-            (seen.insert(normalized) && text(topic, 1, 240)).then(|| topic.clone())
+        .rev()
+        .filter_map(|attempt| attempt.summary.as_ref())
+        .find(|summary| summary.outcome != Outcome::Working)
+    else {
+        return Vec::new();
+    };
+    if matches!(summary.outcome, Outcome::Working | Outcome::Complete) {
+        return Vec::new();
+    }
+    summary
+        .incomplete_topics
+        .iter()
+        .filter(|topic| {
+            !matches!(
+                topic.as_str(),
+                "The investigation ended before all requested details could be completed. Only the published sections are available."
+                    | "The investigation stopped before a saved answer was available."
+                    | "This slide did not publish. The guide preserved its other progress."
+            )
         })
+        .cloned()
+        .collect()
+}
+
+/// Preserve actionable gaps from the latest terminal answer attempts alongside
+/// planner omissions. Already-appended continuation topics are represented by
+/// their own units and are not offered again.
+fn guide_uncovered_topics(record: &Record) -> Vec<String> {
+    let Some(plan) = record.plan.as_ref() else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    let continued = plan
+        .units
+        .iter()
+        .filter_map(|unit| unit.continuation_topic.as_deref())
+        .map(topic_key)
+        .collect::<std::collections::HashSet<_>>();
+    let mut candidates = Vec::new();
+    if let Some(opening) = opening_continuation::latest(record) {
+        candidates.extend(actionable_incomplete_topics(std::slice::from_ref(opening)));
+    }
+    for unit in &record.units {
+        candidates.extend(actionable_incomplete_topics(&unit.attempts));
+    }
+    candidates.extend(plan.omissions.iter().cloned());
+    candidates
+        .into_iter()
+        .filter(|topic| text(topic, 1, 240))
+        .filter(|topic| {
+            let normalized = topic_key(topic);
+            !continued.contains(&normalized) && seen.insert(normalized)
+        })
+        .collect()
+}
+
+/// Distinct uncovered topics that fit in the remaining saved-outline slots.
+fn pending_extension_topics(record: &Record) -> Vec<String> {
+    let available = record
+        .plan
+        .as_ref()
+        .map_or(0, |plan| MAX_TOTAL_UNITS.saturating_sub(plan.units.len()));
+    guide_uncovered_topics(record)
+        .into_iter()
         .take(available)
         .collect()
 }
 
 fn plan_extension_eligible(record: &Record) -> bool {
-    let Some(plan) = record.plan.as_ref() else {
+    let Some(record_plan) = record.plan.as_ref() else {
         return false;
     };
     record.status != Status::Stopped
         && record.active_run_id.is_none()
         && opening_continuation::remaining_operations(record) == 0
-        && !pending_extension_topics(plan).is_empty()
+        && !pending_extension_topics(record).is_empty()
+        && record_plan.units.len() < MAX_TOTAL_UNITS
 }
 
 fn extension_question(topic: &str) -> String {
-    format!("What can the captured code establish about the uncovered topic labeled {topic:?}?")
+    let label = topic.trim();
+    let display = ["not yet covered:", "not covered:", "uncovered:", "omitted:"]
+        .iter()
+        .find_map(|prefix| {
+            label
+                .get(..prefix.len())
+                .filter(|head| head.eq_ignore_ascii_case(prefix))
+                .map(|_| label[prefix.len()..].trim())
+        })
+        .unwrap_or(label)
+        .trim_end_matches(|character: char| matches!(character, '.' | '?' | '!'))
+        .trim();
+    format!("What does the code show about {display:?}?")
 }
 
 fn extension_key(topic: &str, keys: &std::collections::HashSet<String>) -> String {
@@ -639,11 +716,7 @@ fn append_omission_units(storage: &Path, expected: &Record) -> Result<Record, St
         {
             return Err("The saved guide changed before its uncovered topics could be appended. Existing sections were preserved.".into());
         }
-        let plan = current
-            .plan
-            .as_mut()
-            .ok_or("The guide has no saved outline.")?;
-        let topics = pending_extension_topics(plan);
+        let topics = pending_extension_topics(current);
         if topics.is_empty() {
             return Err(
                 "This guide has no remaining topics to append. Existing sections were preserved."
@@ -652,22 +725,14 @@ fn append_omission_units(storage: &Path, expected: &Record) -> Result<Record, St
         }
         let selected = topics
             .iter()
-            .map(|topic| {
-                topic
-                    .split_whitespace()
-                    .collect::<Vec<_>>()
-                    .join(" ")
-                    .to_lowercase()
-            })
+            .map(|topic| topic_key(topic))
             .collect::<std::collections::HashSet<_>>();
-        plan.omissions.retain(|topic| {
-            let normalized = topic
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-                .to_lowercase();
-            !selected.contains(&normalized)
-        });
+        let plan = current
+            .plan
+            .as_mut()
+            .ok_or("The guide has no saved outline.")?;
+        plan.omissions
+            .retain(|topic| !selected.contains(&topic_key(topic)));
         let mut keys = plan
             .units
             .iter()
@@ -1059,6 +1124,8 @@ fn guide_summary(
                 key: unit.key.clone(),
                 question: planned.question.clone(),
                 prerequisites: planned.prerequisites.clone(),
+                continuation_topic: planned.continuation_topic.clone(),
+                incomplete_topics: actionable_incomplete_topics(&unit.attempts),
                 status: unit_status(unit).into(),
                 latest_complete_run_id: unit
                     .attempts
@@ -1109,7 +1176,7 @@ fn guide_summary(
         can_extend: plan_extension_eligible(record),
         continuation_operations: opening_continuation::remaining_operations(record),
         consumed_slide_revisions: record.consumed_slide_revisions.clone(),
-        omissions: plan.map_or_else(Vec::new, |p| p.omissions.clone()),
+        omissions: guide_uncovered_topics(record),
         captured_files: manifest
             .files
             .iter()
