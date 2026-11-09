@@ -2507,18 +2507,32 @@ export function renderFont(fontData: Uint8Array) {
     #[test]
     fn partial_and_cancelled_indexes_are_reported_as_incomplete() {
         use crate::chapter_generation::tests::Fixture;
+        use lz4_flex::frame::{FrameDecoder, FrameEncoder, FrameInfo};
+        use std::io::{Read, Write};
+
         let fixture = Fixture::new();
         let input = fixture_input(&fixture);
         let index_path = saved_index_path(&fixture.storage);
         let original = std::fs::read(&index_path).unwrap();
+        let mut decoder = FrameDecoder::new(original.as_slice());
+        let mut expanded = Vec::new();
+        decoder.read_to_end(&mut expanded).unwrap();
+        let original_index: Value = serde_json::from_slice(&expanded).unwrap();
 
         for (status, expected) in [
             ("partial", DiscoveryIndexStatus::Partial),
             ("cancelled", DiscoveryIndexStatus::Cancelled),
         ] {
-            let mut encoded: Value = serde_json::from_slice(&original).unwrap();
+            let mut encoded = original_index.clone();
             encoded["status"] = Value::String(status.to_owned());
-            std::fs::write(&index_path, serde_json::to_vec(&encoded).unwrap()).unwrap();
+            let mut frame_info = FrameInfo::new();
+            frame_info.block_checksums = true;
+            frame_info.content_checksum = true;
+            let mut encoder = FrameEncoder::with_frame_info(frame_info, Vec::new());
+            encoder
+                .write_all(&serde_json::to_vec(&encoded).unwrap())
+                .unwrap();
+            std::fs::write(&index_path, encoder.finish().unwrap()).unwrap();
             let (metadata_text, sizes, _, actual, _, _) =
                 metadata(&fixture.storage, &input).unwrap();
             assert_eq!(actual, expected);
