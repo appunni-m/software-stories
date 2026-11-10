@@ -3328,7 +3328,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edge
               {previousAccepted && <p className="file-explanation-message">The saved explanation describes an older snapshot. Generate one for this version.</p>}
               <div className="file-explanation-empty"><Sparkles size={24} /><strong>What does this file do?</strong><span>Generate an explanation of its behavior, with links to the code that supports it.</span>
               <AppButton intent="primary" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={14} /> Explain this file</AppButton>
-              <small>Your backend and model are remembered. Review the source before sending.</small></div>
+              <small>We’ll follow the relevant code and link the explanation to its source.</small></div>
             </>}
     </div>
   </aside>;

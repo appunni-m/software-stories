@@ -102,4 +102,6 @@ test('file explanations enter the saved workspace flow without a per-request rev
     'ordinary file questions must use the current saved workspace conversation');
   assert.match(handler,/Choose a captured text file and try again\. Nothing was shared\./,
     'unsupported or unavailable paths fail locally without source sharing');
+  assert.doesNotMatch(app,/Review the source before sending\./,
+    'the file prompt must not imply that every question needs a separate source review');
 });
