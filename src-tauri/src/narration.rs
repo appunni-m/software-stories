@@ -2245,6 +2245,31 @@ mod tests {
         bytes
     }
 
+    pub(crate) fn seed_test_audio_cache_for_script(
+        storage_dir: &Path,
+        exact_text: &str,
+        fill: u8,
+    ) -> Vec<u8> {
+        let audio = valid_test_wav(fill);
+        let fingerprint = audio_cache_key_for_script(exact_text);
+        write_cached_audio(
+            storage_dir,
+            &fingerprint,
+            crate::pocket_tts::MODEL_ID,
+            &audio,
+        )
+        .expect("the test audio should be cached successfully");
+        audio
+    }
+
+    pub(crate) fn read_test_audio_cache_for_script(
+        storage_dir: &Path,
+        exact_text: &str,
+    ) -> Option<Vec<u8>> {
+        let fingerprint = audio_cache_key_for_script(exact_text);
+        read_cached_audio(storage_dir, &fingerprint, crate::pocket_tts::MODEL_ID)
+    }
+
     #[test]
     fn oversized_cached_wav_reads_only_the_limit_plus_sentinel() {
         struct CountingReader {
@@ -2838,3 +2863,6 @@ mod tests {
         assert!(newest.exists(), "the just-used audio should be preserved");
     }
 }
+
+#[cfg(test)]
+pub(crate) use tests::{read_test_audio_cache_for_script, seed_test_audio_cache_for_script};

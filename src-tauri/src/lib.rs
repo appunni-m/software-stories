@@ -2430,6 +2430,11 @@ mod chapter_pipeline_tests {
         assert_eq!(old_visual_assets.len(), 1);
         let old_unrelated_audio =
             narration::audio_cache_key_for_script(&old_unrelated_section.spoken_text);
+        let old_unrelated_audio_bytes = narration::seed_test_audio_cache_for_script(
+            &fixture.storage,
+            &old_unrelated_section.spoken_text,
+            73,
+        );
 
         let multiple_stale_source = chapter_generation::tests::SIMPLE_SOURCE
             .replace(
@@ -2969,6 +2974,14 @@ mod chapter_pipeline_tests {
         assert_eq!(
             narration::audio_cache_key_for_script(&next_unrelated.spoken_text,),
             old_unrelated_audio,
+        );
+        assert_eq!(
+            narration::read_test_audio_cache_for_script(
+                &fixture.storage,
+                &next_unrelated.spoken_text,
+            ),
+            Some(old_unrelated_audio_bytes),
+            "a cached clip whose narration inputs did not change must retain its bytes through repair",
         );
         assert_ne!(
             narration::audio_cache_key_for_script(&next_selected.spoken_text,),
