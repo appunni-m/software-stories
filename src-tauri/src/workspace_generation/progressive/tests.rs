@@ -858,13 +858,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
     assert!(
-        instructions.contains(
-            "Comments, imports, identifiers and defaults do not prove consumer behavior"
-        )
+        instructions
+            .contains("Comments, imports, identifiers and defaults do not prove consumer behavior")
     );
-    assert!(instructions.contains(
-        "Check guards, failures, sibling branches and later conditions"
-    ));
+    assert!(instructions.contains("Check guards, failures, sibling branches and later conditions"));
     assert!(!instructions.contains("parser fallback starts after those checks"));
     assert!(instructions.contains(
         "For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths"

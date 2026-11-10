@@ -359,15 +359,12 @@ pub(crate) mod tests {
             assert!(instructions.contains(
                 "Comments, imports, identifiers and defaults do not prove consumer behavior"
             ));
-            assert!(instructions.contains(
-                "Check guards, failures, sibling branches and later conditions"
-            ));
             assert!(
-                instructions.contains("Cite downstream consumers and producing conditions")
+                instructions
+                    .contains("Check guards, failures, sibling branches and later conditions")
             );
-            assert!(
-                instructions.contains("every relevant branch and updated field or dimension")
-            );
+            assert!(instructions.contains("Cite downstream consumers and producing conditions"));
+            assert!(instructions.contains("every relevant branch and updated field or dimension"));
             assert!(instructions.contains("otherwise mark partial"));
         }
     }
