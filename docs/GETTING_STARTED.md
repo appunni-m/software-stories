@@ -28,7 +28,7 @@ The first command installs the versions recorded in the npm lockfile. The second
 npm run dev
 ~~~
 
-This command starts the browser-only UI preview at http://127.0.0.1:4173. The browser preview and `npm run tauri dev` share the same strict port and cannot run at once. To switch modes, stop the current development process, then start the other command; keep one Vite server on port 4173. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, or local repository commands. Use the Tauri command for the native workflow.
+This command starts the browser-only UI preview at http://127.0.0.1:4173. The browser preview and `npm run tauri dev` share the same strict port and cannot run at once. To switch modes, stop the current development process, then start the other command; keep one Vite server on port 4173. The browser preview is useful for layout, but cannot use the native folder picker, local repository commands, or the installed Codex connection. Use the Tauri command for the native workflow.
 
 Code Atlas stores captures and guide history in its local application data
 folder. Read [Local data and permissions](LOCAL_DATA.md) before removing that
@@ -41,7 +41,7 @@ folder. Standalone HTML export is post-1.0 and is not a complete backup.
 3. Connect Codex once from the workspace header if it is not already connected. Code Atlas reuses the installed Codex account, and the current connection is visible in the header. No API key is needed; generation uses your Codex account and may count against its quota.
 4. Enter a question in the composer and choose **Guide me** or **Show the flow**. On the first question for this snapshot, review the sharing disclosure and choose **Allow and explain** only if you want relevant captured context sent to OpenAI through Codex. This permission is limited to the snapshot and connected account. To revoke it, open the current repository menu in the app header, choose **Repository sharing**, then choose **Revoke permission and stop questions**. A changed snapshot, account or runtime needs a new permission.
 5. Codex finds relevant implementation in the background; no reference-file checklist or second generation stage is required. Validated sections appear in Guide as they are ready. Keep reading while it works, or choose **Stop** on the question. Completion and errors collect behind the notification bell; unfinished questions are not sent again automatically after a restart.
-6. Read **Guide**, inspect **Flow**, or open **Chat history** at the current level. Follow a citation to its exact captured lines, use **Next section** when you are ready, or ask a follow-up in the composer. Choose **Listen** when you want narration; prepare the local Pocket voice once in **Connections**. Matching audio is reused when available, and playback stays under your control.
+6. Read **Guide**, inspect **Flow**, or open **Chat history** at the current level. Follow a citation to its exact captured lines, use **Next section** when you are ready, or ask a follow-up in the composer. Choose **Listen** to open narration controls; prepare the local Pocket voice once in **Connections**. Press **Create & play** when you want audio. A matching clip is reused; otherwise that action starts local synthesis.
 7. Ask another question to add an answer to this level. **Explore further** on an answer makes a child exploration. Its link and answer count stay on the originating card. Use the breadcrumb root or **Back** to return; the left exploration tree keeps branches reachable. Each exploration remembers its last Guide / Flow / history view.
 8. Drag an explorer file into chat or choose **Attach open file**. Select code in the source pane and choose **Explain this code** to ask at the current level. AI still finds supporting implementation. Captured docs may guide discovery but do not replace source evidence.
 
@@ -75,7 +75,7 @@ PR Guide and **Explain hunk** are post-1.0 follow-ups. The first release include
 
 Use an answer's edit control to update one section or inspect its saved revisions. A section update keeps unaffected sections and assets intact.
 
-**Listen** uses Pocket TTS on this Mac. On Apple Silicon, choose **Prepare voice** once; setup downloads the runtime and voice into app storage. You do not need to install Python or `uv` yourself. Narration text stays local, no provider API key is used, and the transcript and manual navigation remain available without audio. See [provider disclosures](PROVIDER_DISCLOSURES.md).
+**Listen** opens narration controls for Pocket TTS on this Mac. On Apple Silicon, choose **Prepare voice** once; setup downloads the runtime and voice into app storage. You do not need to install Python or `uv` yourself. Press **Create & play** to synthesize a section with no matching cache entry; narration text stays local, no provider API key is used, and the transcript and manual navigation remain available without audio. See [provider disclosures](PROVIDER_DISCLOSURES.md).
 
 Standalone HTML export is planned after 1.0 and is not needed to use saved guides in the app. See the [export plan](OFFLINE_EXPORT.md) for its intended contents and privacy boundaries.
 
@@ -87,7 +87,7 @@ Direct API connections and Claude/Antigravity integrations remain future backend
 
 ## Current boundaries
 
-- The local structural parser covers bounded Rust, TypeScript, TSX, JavaScript, Python, and Go subsets. These are **partial structural** capabilities, not fully qualified language support. Other captured text remains citeable but is **text only**; no language has passed the full structural and narrative qualification gate. See the [language capability matrix](LANGUAGE_CAPABILITIES.md).
+- Code Atlas works from the selected snapshot. Captured text remains openable and can support source-linked explanations even when the app cannot establish a relationship to another file. If a path is missing or unreadable, the workspace explains the specific limitation and the next useful step.
 - Workspace questions automatically choose a bounded set of supporting files. Large-repository Guides are built incrementally and may show uncovered topics rather than claim complete coverage from one question.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
 - Direct API routes, PR explanations, and non-Codex agent integrations are future work for after 1.0. Their source implementations do not make them qualified first-release options.

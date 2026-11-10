@@ -18,27 +18,24 @@ Select a directory inside a local Git working copy. Code Atlas requires Git meta
 
 If macOS denies folder access, choose an accessible local working copy and try again. The app does not execute repository scripts while capturing.
 
-## Keychain access is denied
+## The Codex account is disconnected
 
-Keychain is needed only for optional direct API keys and Gemini narration.
-Follow the macOS prompt to unlock Keychain or approve Code Atlas access, then
-retry saving the key in its provider setup; Google voice keys are in **Connections → Voice**. If you
-deny access, the key is not saved and local browsing still works. Remove a
-saved key from that same setup screen.
+Open **Connections** in the workspace header, choose **Explanations**, and
+connect or reconnect Codex with the account already installed on this Mac.
+Code Atlas does not ask you for an API key or use Keychain for this connection.
+Local browsing and saved explanations remain available while Codex is
+disconnected.
 
 ## Atlas has no source, or a path cannot be opened
 
-Confirm that a snapshot was created for the selected project. The app does not read the working tree until capture starts. In Atlas, inspect the path's capture disposition and parser/index state:
+Confirm that a snapshot was created for the selected project. The app does not read the working tree until capture starts. If the path is missing from the workspace, inspect the capture result and its skip reason:
 
 The browser preview cannot read local snapshots. Open Code Atlas in the Mac app to view captured source; this browser limitation does not indicate that the file or snapshot is corrupt.
 
 - **Skipped, excluded, binary, oversized, or invalid encoding** means source text was not captured for that path. The stated reason is the evidence available; Code Atlas does not substitute the current working-tree file.
-- **Text-only support** means the path remains in inventory without local symbol or relationship analysis. If readable source was captured, it can still be opened in Files and cited in an explanation.
-- **Partial structural support** means a local parser is available, but its syntax and relationship coverage is bounded; framework behavior and generated explanation quality are not thereby qualified.
-- **Partial index or parse error** means some structural relationships may be absent. A missing edge is not proof that two files are unrelated.
+- If readable source was captured, it can still be opened and cited even when Code Atlas cannot establish a relationship to another file.
+- A missing relationship is not proof that two files are unrelated. Ask about the file or behavior directly, or open the relevant source and follow its citations.
 - A **partial snapshot** remains partial. Capture again to make a new snapshot; prior snapshots remain separate.
-
-See the [language capability matrix](LANGUAGE_CAPABILITIES.md) for the current per-language and per-operation limits.
 
 ### A file opens, but AI cannot explain it
 
@@ -81,37 +78,38 @@ If an unaccepted generated preview remains after restarting the app, use **Revie
 
 This means the generated draft named a function or variable in its evidence metadata without connecting it to the explanation or exact source quote. It does not mean the repository is broken. Current workspace Codex questions attempt one correction within the original conversation, then apply the full source checks. If correction fails, no draft is saved and the question remains available with **Try this question again**. Existing failed questions are not sent again automatically. Older internal section IDs are hidden in the current workspace error display. A retry uses the existing snapshot sharing permission where still valid and may consume Codex account quota.
 
-## Direct API setup or request fails
+## A Codex request fails
 
-Direct API generation runs only in the native macOS app. Open **Connections** in the header to review the selected connection or configure a direct API key; API credentials are stored in macOS Keychain and are not read back into the UI. Workspace questions use the saved Codex connection. Gemini text-to-speech uses its separate Gemini key under **Connections → Voice**.
+Workspace explanations use the connected Codex account. Open **Connections**
+to confirm that the account is connected and the selected model and reasoning
+level are available. A request can fail because of sign-in, network, model
+availability, or account usage limits. Code Atlas does not switch to another
+model automatically. Resolve the issue and retry the question; an interrupted
+question is not resent automatically after restart.
 
-Before sending, inspect the request review and all provider notices. A request can fail because of network access, model availability, quota, billing, eligibility, region, or provider limits. Code Atlas does not silently retry another model or switch to paid service. After failure, create and review a fresh request before retrying; prior consent is not reused.
+The first question about a snapshot asks permission to send relevant captured
+source through Codex. Review that snapshot-specific request before allowing
+it. Code Atlas does not require an API key. See [Provider disclosures](PROVIDER_DISCLOSURES.md)
+for what is sent and where it is stored.
 
-Do not send confidential, personal, or secret source to a provider unless you have reviewed the applicable terms and have authorization to do so. See [Provider disclosures](PROVIDER_DISCLOSURES.md) for request contents, data use, billing, and first-party links.
+## AI PR explanations are unavailable
 
-## PR Guide cannot build or a citation does not open its hunk
-
-PR Guide generation requires a complete local comparison with at least one
-selected, bounded text diff. The browser preview cannot read local Git or use
-Keychain; run the native Mac app. Rebuild **Review exact provider request** after
-changing the selected files or refs. If either local ref moved, compare again
-so the old request fingerprint and consent are discarded. A citation button
-should expand the cited file and scroll to its hunk; use the shown side, commit,
-path, blob, and line range to inspect the evidence if it is not visible. A
-claim can cite real code and still be semantically wrong, so exclude it or
-reject the draft when the explanation overstates what the diff proves.
+The first release includes read-only local **Changes** browsing. AI-generated
+PR Guides and hunk explanations are not part of this release. Use the Changes
+view to inspect local commits and source hunks without sending them to an AI
+provider.
 
 ## Narration is missing or synthesis is rejected
 
 Audio is optional. The transcript and section navigation remain usable without narration.
 
 For local Pocket audio, use the native Mac app on Apple Silicon with macOS 14 or
-later. Open **Connections → Voice** and choose **Prepare voice**. First setup
-downloads the app-managed setup tool, Python runtime, pinned dependencies,
-English model, and Alba voice; it needs internet access and available disk
-space and memory. You do not need to install `uv` or Python yourself. Once prepared,
-Pocket synthesizes locally and has no provider usage fee. If setup fails, follow
-the visible connection or storage guidance and choose **Prepare voice** again.
+later. Open **Connections → Voice** and choose **Prepare voice**. Setup downloads
+the app-managed runtime, English model, and Alba voice; it needs internet access,
+about 1.1 GB of disk space, and available memory. You do not need to install
+Python or `uv` yourself. Once prepared, Pocket synthesizes locally and has no
+provider usage fee. If setup fails, follow the visible connection or storage
+guidance and choose **Prepare voice** again.
 If an already prepared installation needs repair, open **Voice details and
 troubleshooting → Repair voice setup**. Repair rebuilds the app-managed Python
 environment. Setup-only download caches remain available if setup fails so an
@@ -120,36 +118,21 @@ those temporary caches and keeps the verified runtime and voice assets. Do not
 delete the app data folder to repair narration; that folder also contains
 snapshots, indexes, revisions, and saved audio.
 
-Pocket currently offers the English Alba voice only; voice/style controls for
-Google do not apply to Pocket. Alba MacKenna's source recording is credited
+Pocket currently offers the English Alba voice only. Alba MacKenna's source recording is credited
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) in Voice details;
 see the [voice catalog](https://huggingface.co/kyutai/tts-voices). If the Mac
-does not meet Pocket's platform requirements, keep using the transcript or
-choose Google explicitly as a separate cloud option.
+does not meet Pocket's platform requirements, keep using the transcript.
 The complete runtime, platform limits, and asset identity are documented in
 [Pocket runtime](research/pocket-tts-runtime.md).
 
-Pocket Listen checks the local cache and uses prepared audio when available;
-playback remains manual. An explicitly selected Google request has its own
-exact-text review and confirmation; it sends the edited spoken script and
-speech settings, not source excerpts by default. A script can contain up to
-16,000 UTF-8 bytes; longer scripts should be divided into separate sections.
-The review shows the exact sequential requests of at most 4,000 bytes each,
-split at sentence boundaries when possible and whole-word boundaries otherwise.
-
-### Pocket audio stays preparing
-
-For a newly saved, validated section, the app can prepare Pocket audio in the
-background. Keep reading while the section remains available; the player shows
-**Preparing audio**, then **Ready to play** or **Audio unavailable**.
-Prewarming never starts playback by itself. Once ready, **Play** loads the matching local cache. A saved
-section from before background preparation was available, or a section whose
-spoken text or voice settings changed, may need a first synthesis instead.
-Select **Create & play** once; Code Atlas keeps the transcript and source
-available while it works. If prewarming reports unavailable audio but Pocket is
-ready, choose **Play** to use the on-demand local path. If Pocket is not ready,
-use **Prepare voice** or **Repair voice setup** under **Connections → Voice**.
-Gemini is never used as an automatic fallback.
+Choose **Listen** on an answer to open its narration controls. The first
+**Create & play** starts local synthesis for that section; synthesis does not
+start while a Guide is being generated, saved, or opened. Later plays reuse a
+matching complete clip from the local cache. While the first clip is being
+created, the transcript and source remain available. If playback fails, keep
+using the transcript, check the Pocket status under **Connections → Voice**, and
+retry **Create & play** when the voice is ready. Cloud speech is not available
+as a fallback.
 
 ## A capture or save fails while the Mac is low on disk space
 

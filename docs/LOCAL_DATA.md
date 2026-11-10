@@ -43,20 +43,16 @@ each and are checked against their content hash. If saved data is damaged or
 exceeds a bound, Code Atlas reports an error and keeps the original file for
 inspection or backup; it does not silently clear the history.
 
-## First-run permissions and optional model APIs
+## First-run access and the Codex connection
 
 Opening a local repository uses the native macOS folder picker. Code Atlas checks
 the selected folder and its Git metadata first; source bytes are read only when
 you choose **Create snapshot**. Local browsing, snapshots, indexes, and saved
-guides work without an AI key.
-
-Direct model APIs are optional. If you add a provider key in **Connections**,
-Code Atlas saves it in a provider-specific macOS Keychain
-item and never writes it to an app data file. Gemini narration uses a separate
-Gemini key. macOS may ask you to unlock Keychain or approve access. If access
-is denied, the app says the key was not saved; retry after unlocking Keychain
-or approving the access request. Local browsing remains available. You can
-remove a key from the same settings screen.
+guides work without an AI connection. Repository explanations use the Codex
+account installed on this Mac; Code Atlas does not request or store a provider
+API key. Connecting or signing in is managed by Codex. Optional Pocket voice
+setup is configured once in **Connections → Voice**; narration text and
+synthesized audio remain local.
 
 ## Workspace questions and conversation state
 
@@ -64,22 +60,15 @@ The first workspace question asks to share relevant captured context with OpenAI
 
 The WebView also stores versioned, snapshot-scoped conversation metadata under `code-atlas:workspace:v1:<project>:<snapshot>`. It includes questions, attached path/range references, branch relationships, view/file/scroll state and native chapter revision IDs. Generated prose and audio remain in the native chapter/cache stores. This WebView state is not a native conversation database or included in HTML exports; it can be lost if WebView storage is cleared. A storage error keeps native revisions and reports a notification. Saved explanations can be brought back into the conversation from its library.
 
-Question jobs continue while navigating files, views or repositories within the running app. Restarting marks in-flight questions interrupted and requires an explicit retry; there is no automatic resend or durable native job scheduler. Clearing a conversation's WebView state does not delete chapters or revoke its native permission file. Advanced editor and PR generation retain their separate reviewed request permissions.
+Question jobs continue while navigating files, views or repositories within the running app. Restarting marks in-flight questions interrupted and requires an explicit retry; there is no automatic resend or durable native job scheduler. Clearing a conversation's WebView state does not delete chapters or revoke its native permission file.
 
 ## Exports and backups
 
-**Offline export** creates one HTML guide from the accepted revisions you
-select. It can include cached narration audio and the exact reviewed speech
-script that produced each included track. Transcript and excerpt text pass
-through the export privacy filters, and the package manifest hashes included
-transcripts and audio separately. Those text filters do not alter cached audio;
-listen to included tracks before sharing. It does not export repository
-snapshots, indexes, draft history, recovery records, or recent-project
-metadata.
+Standalone HTML export is planned after 1.0 and is not available in the first
+release. It is intended as a reader copy, not a project backup.
 
 There is no complete application backup, restore, or import workflow yet. Keep
-the original Git repository as the canonical source. Treat exported HTML as a
-reader copy of the selected guide, not as a restorable Code Atlas project.
+the original Git repository as the canonical source.
 
 ## Removing local data
 
@@ -91,10 +80,10 @@ To remove all Code Atlas data from this Mac, quit the app, open Finder's **Go >
 Go to Folder…**, enter `~/Library/Application Support/`, and move the
 `com.codeatlas.desktop` folder to the Trash. This removes local data for every
 project in Code Atlas. Emptying the Trash makes that deletion permanent. An
-offline HTML export stored elsewhere is not removed. Direct API keys are kept
-in provider-specific Keychain entries, and Gemini narration has its own key;
-remove the relevant keys in **Connections** if you also want to
-delete them.
+offline HTML export stored elsewhere is not removed. Codex sign-in is managed
+by the installed Codex runtime; use **Connections** to disconnect the account
+from Code Atlas. Pocket voice files and cached audio are removed with the
+application data directory.
 
 ## If storage is low
 

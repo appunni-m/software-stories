@@ -7,11 +7,11 @@ and standalone audio export are outside first-release scope.
 
 ## One-time setup
 
-- Prepare Pocket TTS once in Connections. Record the app and macOS versions,
-  runtime status, and selected section. The first setup downloads the pinned
-  runtime, model, and Alba voice into app storage and needs internet, disk space,
-  and memory. Playback afterward uses local files; no API key or listening
-  server is required.
+- Prepare Pocket TTS once in **Connections → Voice**. Record the app and macOS
+  versions, runtime status, and selected section. The first setup downloads the
+  pinned runtime, model, and Alba voice into app storage; allow about 1.1 GB of
+  disk space, internet access, and available memory. Playback afterward uses
+  local files; no API key or listening server is required.
 - Confirm the saved voice connection is shown in the header and reused for
   other answers. The user should not choose an engine or configure a model for
   each section.
@@ -41,17 +41,20 @@ keep their original identifiers.
 ## Packaged-app review
 
 1. Open a generated answer and confirm its explanation, visual, source links,
-   and transcript are usable while audio is preparing or unavailable.
-   Preparation must not block reading or start playback.
-2. Play one section. Listen for natural phrasing, clear pacing, pronunciation,
-   and agreement with the visible explanation. The narration should describe
+   and transcript are usable before playing audio. Confirm that generation,
+   saving, opening, and changing sections do not start synthesis or playback.
+2. Press **Create & play** on one section. Confirm this explicit action starts
+   local synthesis when no matching clip is cached. Listen for natural phrasing,
+   clear pacing, pronunciation, and agreement with the visible explanation.
+   The narration should describe
    the behavior as a short story through its inputs, decisions, and outcomes.
    It must not simply read definitions or a documentation paragraph aloud.
 3. Pause, resume, seek, stop, replay, and move between sections. Confirm the
    transcript and selected visual stay paired with the audio, and section
    progression remains deliberate.
-4. Replay the unchanged section and confirm its cached audio is reused.
-   Change the spoken text and confirm the new audio has a distinct cache entry.
+4. Replay the unchanged section and confirm its cached audio is reused without
+   another synthesis. Change the spoken text and confirm the new audio has a
+   distinct cache entry.
    Change only source code while the spoken text stays the same and confirm
    matching audio can be reused.
 5. Navigate away during synthesis. Confirm cancellation or late
