@@ -17,14 +17,16 @@ const revisionFor = (revisionId, spokenText) => ({
 
 const narrationHooks = (calls) => ({
   native: true,
-  localNarrationPrewarmInputs: (revision) => [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }],
+  localNarrationPrewarmInputs: (revision, connection) => connection.backend === 'pocket-tts'
+    ? [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }]
+    : [],
   prewarmLocalNarration: (input) => {
     calls.push(input);
     return Promise.resolve({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } });
   },
 });
 
-test('publishing a validated answer does not synthesize narration', async () => {
+test('publishing a validated answer queues its local narration without delaying publication', async () => {
   const prewarmCalls = [];
   const revision = revisionFor('answer-revision', 'The prefix chooses a reader.');
   const h = workspaceStoreHarness(async (name, args) => {
@@ -66,10 +68,54 @@ test('publishing a validated answer does not synthesize narration', async () => 
 
   assert.equal(saved.revisionId, revision.revisionId);
   assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
+  assert.deepEqual(prewarmCalls, [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }]);
+});
+
+test('publishing with another voice engine does not schedule Pocket synthesis', async () => {
+  const prewarmCalls = [];
+  const revision = revisionFor('cloud-voice-answer', 'The selected voice engine remains in control.');
+  const h = workspaceStoreHarness(async (name, args) => {
+    if (name === 'load_workspace_conversation') return null;
+    if (name === 'save_workspace_conversation') {
+      return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
+    }
+    if (name === 'generate_progressive_workspace_answer') {
+      return {
+        projectId: args.input.projectId,
+        snapshotId: args.input.snapshotId,
+        runId: args.input.runId,
+        question: args.input.question,
+        outcome: 'complete',
+        sections: [{
+          runId: args.input.runId,
+          key: 'dispatch',
+          order: 1,
+          generationId: 'generation:33333333-3333-4333-8333-333333333333',
+          revisionId: revision.revisionId,
+          supersedes: null,
+          contextElapsedMs: 10,
+          runElapsedMs: 20,
+        }],
+        incompleteTopics: [],
+      };
+    }
+    if (name === 'save_workspace_answer_section') return revision;
+    assert.fail(`Unexpected native command: ${name}`);
+  }, {
+    ...narrationHooks(prewarmCalls),
+    readVoiceConnection: () => ({ backend: 'google' }),
+    ensureCodexConnection: async () => {},
+    readCodexSelection: () => ({ modelId: 'gpt-6-luna', effort: 'max' }),
+  });
+
+  await h.store.prepareWorkspaceConversation('project', 'snapshot');
+  const turnId = h.store.appendQuestion('project', 'snapshot', 'Explain this answer', [], 'guide');
+  await h.store.runQuestion('project', 'snapshot', turnId, 'grant');
+
   assert.deepEqual(prewarmCalls, []);
 });
 
-test('progressive Guide sections publish without starting Pocket audio', async () => {
+test('progressive Guide sections queue local audio as each saved slide arrives', async () => {
   const prewarmCalls = [];
   const revision = revisionFor('guide-revision', 'The guide section is ready.');
   const h = workspaceStoreHarness(async (name, args) => {
@@ -104,7 +150,7 @@ test('progressive Guide sections publish without starting Pocket audio', async (
 
   assert.equal(h.calls.filter(call => call.name === 'save_workspace_answer_section').length, 1);
   assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].turns[0].publishedSections[0].revisionId, revision.revisionId);
-  assert.deepEqual(prewarmCalls, []);
+  assert.deepEqual(prewarmCalls, [{ spokenText: revision.revisionId, voice: 'alba', style: '', lexicon: [] }]);
   stop();
   assert.equal(h.listenerCount(), 0);
 });
