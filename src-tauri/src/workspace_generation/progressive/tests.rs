@@ -1160,7 +1160,8 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     ));
     assert!(instructions.contains("Use a three-part transform only when one cited operation maps a named input value or state to a distinct result"));
     assert!(instructions.contains("Do not use transform as the generic layout for call paths, collection behavior, or chains of decisions"));
-    assert!(instructions.contains("pointFlow takes precedence and keeps a symbolic point visible on both sides of the operation"));
+    assert!(instructions.contains("Point/vector/outline mapping MUST use root pointFlow, not transform"));
+    assert!(instructions.contains("Aggregate with bounds/metric"));
     assert!(instructions.contains("Do not choose by file type or favorite template."));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
