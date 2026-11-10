@@ -88,7 +88,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
         schema["properties"]["sections"]["description"]
             .as_str()
             .unwrap()
-            .contains("Item zero is the question-first opening answer")
+            .contains("one question-first opening at index zero")
     );
 }
 
@@ -220,11 +220,11 @@ fn outline_rejections_report_fixed_structural_findings() {
         ),
         (
             "selfPrerequisite",
-            "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.",
+            "The outline refers to a slide before it appears; list only earlier follow-on topics as prerequisites.",
         ),
         (
             "unknownPrerequisite",
-            "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.",
+            "The outline refers to a slide before it appears; list only earlier follow-on topics as prerequisites.",
         ),
     ];
 
@@ -284,19 +284,20 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(intent["guideContext"]["guideId"], r.id);
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
-    assert!(instructions.contains("Create a compact, source-grounded initial outline"));
-    assert!(instructions.contains("Do not write explanations, narration, or slide content"));
-    assert!(instructions.contains("Return the question-first opening item"));
-    assert!(instructions.contains("The app fixes the opening's placement and question"));
-    assert!(instructions.contains(
-        "the first follow-on unit must continue the same evidenced user journey as the opening at its next real code handoff"
-    ));
-    assert!(instructions.contains(
-        "later units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
-    ));
-    assert!(instructions.contains("Explain setup once before its first dependent behavior"));
-    assert!(instructions.contains("replace duplicate coverage with a distinct requested behavior"));
-    assert!(instructions.contains("do not call `propose_answer_section`"));
+    assert!(instructions.contains("Create the initial research outline only"));
+    assert!(instructions.contains("Do not write narration, explanations, HTML, or slide content"));
+    assert!(instructions.contains("the exact question supplied by the app"));
+    assert!(
+        instructions
+            .contains("continue the opening's caller-to-engine path at its next real handoff")
+    );
+    assert!(
+        instructions
+            .contains("finish that central path, then cover alternate callers or languages")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("Do not call propose_answer_section")
+    );
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     let mut separate_opening = r.clone();
     separate_opening.opening.as_mut().unwrap().question =
@@ -338,156 +339,98 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
 }
 
 #[test]
-fn plan_instructions_keep_full_scope_and_research_stop_contract() {
+fn plan_instructions_keep_bounded_outline_and_incremental_publication() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
-    let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(
-        instructions
-            .contains("compact, source-grounded initial outline before slide content is generated")
-    );
+    let (_, schema, _, instructions) = request(&r).unwrap();
+    assert!(instructions.contains("Create the initial research outline only"));
+    assert!(instructions.contains("sections array contains 1–6 items total"));
+    assert!(instructions.contains("at most five are follow-on topics"));
+    assert!(instructions.contains("Omissions contain at most 64 unique"));
+    assert!(instructions.contains("Do not repeat labels after case/spacing normalization"));
     assert!(instructions.contains(
-        "For a broad repository question, include two to five focused behavior questions"
+        "Follow-on prerequisites are optional and may name only keys of earlier follow-on items"
+    ));
+    assert!(instructions.contains("never reference `opening`, the current item, or a later item"));
+    assert!(instructions.contains(
+        "Each follow-on also has exactly one claim with one to four delivered code references"
     ));
     assert!(
-        instructions.contains("the opening may fully answer the request with no follow-on items")
+        instructions.contains("Keep every other requested or discovered route explicitly pending")
     );
-    assert!(instructions.contains("never add slides just to meet a minimum count"));
-    assert!(instructions.contains("five-unit maximum so the first useful slide is not blocked"));
-    assert!(instructions.contains(
-        "start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query"
-    ));
-    assert!(instructions.contains(
-        "Use focused follow-up searches only when a requested stage or caller still lacks a likely path; batch reads for starting evidence"
-    ));
-    assert!(
-        instructions
-            .contains("Do not deeply investigate pending routes in this planning operation")
-    );
-    assert!(instructions.contains(
-        "Record every additional route that needs its own explanation as a concise, explicit pending omission"
-    ));
-    assert!(
-        instructions.contains("two to five focused behavior questions for the highest-value path")
-    );
-    assert!(instructions.contains("Return the question-first opening item"));
-    assert!(instructions.contains("The opening item's key is `opening`"));
-    assert!(instructions.contains("Scope the opening to a direct answer to the user's question"));
-    assert!(instructions.contains("Do not detour through a generic repository entry point"));
-    assert!(instructions.contains("internal helper that receives an already constructed object"));
-    assert!(instructions.contains("unique lowercase key using only letters, digits, and hyphens"));
-    assert!(instructions.contains("one distinct, trimmed question ending in `?`"));
-    assert!(instructions.contains(
-        "Prerequisites are optional and may name only unique keys from earlier follow-on units"
-    ));
-    assert!(instructions.contains("Never name the opening, current unit, or a later unit"));
-    assert!(instructions.contains(
-        "do a bounded route inventory from implementation, checked-in examples and build manifests"
-    ));
-    assert!(instructions.contains(
-        "do not count a language as covered because another language's example reaches the same engine"
-    ));
-    assert!(
-        instructions
-            .contains("Give each materially different surface its own question or pending topic")
-    );
-    assert!(instructions.contains(
-        "creating a face from memory and loading a glyph into an existing face are separate topics"
-    ));
-    assert!(instructions.contains("Plan follow-on slides in source-grounded reading order"));
-    assert!(instructions.contains(
-        "the first follow-on unit must continue the same evidenced user journey as the opening"
-    ));
-    assert!(
-        instructions
-            .contains("the opening orients the reader and the first unit advances the flow")
+    assert!(instructions.contains("Code proves behavior"));
+    assert!(instructions.contains("Any internal look-ahead must be small and must never gate the outline, first slide, or playback"));
+    assert!(!instructions.contains("five-slide ready buffer"));
+    assert!(!instructions.contains("keeps up to five ready slides buffered"));
+    assert_eq!(
+        schema["properties"]["sections"]["maxItems"],
+        MAX_INITIAL_UNITS + 1
     );
     assert!(
-        instructions.contains(
-            "later units must finish that central caller-to-engine path before alternate caller or language surfaces begin"
-        )
+        schema["properties"]["sections"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("six sections total")
     );
-    assert!(instructions.contains("Never imply that a pending omission is covered"));
+    assert_eq!(
+        schema["properties"]["sections"]["prefixItems"][0]["properties"]["key"]["enum"],
+        json!(["opening"])
+    );
     assert!(
-        instructions.contains("Never present one representative path as whole-project coverage")
+        schema["properties"]["sections"]["items"]["properties"]["prerequisites"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("earlier follow-on keys only")
     );
-    assert!(instructions.contains("If more than twenty units are needed"));
-    assert!(instructions.contains("one answer section's visual budget"));
-    assert!(instructions.contains("target at most eight distinct evidence nodes"));
-    assert!(
-        instructions
-            .contains("two to four claims/scenes, with hard limits of 12 nodes and 20 edges")
-    );
-    assert!(instructions.contains("One unit explains one stage or decision"));
-    assert!(instructions.contains(
-        "Split long dispatches, branch chains, separate API operations, or multi-stage behavior"
-    ));
-    assert!(instructions.contains(
-        "Give each distinct format family, backend, rendering mode, or failure policy its own question"
-    ));
-    assert!(instructions.contains(
-        "A question that combines several such paths with 'and', 'or', a slash, or a list is a signal to split the work"
-    ));
-    assert!(instructions.contains(
-        "Group alternatives only when the same code decision leads to the same consequential behavior"
-    ));
-    assert!(instructions.contains("Preserve source order, outcomes, continuation, and fallback"));
-    assert!(!instructions.contains("Publish one small, complete, illustrated section"));
-    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
             .contains("begin with one focused search_code call using resultKind:files")
     );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-        "Do not make a full module inventory a prerequisite for the first useful outline"
-    ));
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Use list_modules only for a specific inventory question")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("multiple relevant implementation files")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("caller-controlled input surface supported by captured source")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Every discovered route must appear as an initial detailed slide or an explicit pending topic")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("name remaining work as not yet covered")
-    );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("twenty-unit limit"));
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("compact, navigable initial outline")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
-    );
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-            "Read several small ranges across those files together in one read_code call"
-        )
-    );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-        "Follow nextOffset only while another page could close a concrete route or caller gap"
-    ));
-    assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("Use at most twelve code-tool calls, matching the native planner budget")
-    );
-    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-        "When a context response reports budget.stopResearch, stop researching and return the outline"
-    ));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS
+        .contains("Every discovered route must appear as an initial detailed slide or an explicit pending topic"));
+    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+}
 
-    assert_eq!(MAX_INITIAL_UNITS, 5);
-    assert_eq!(MAX_TOTAL_UNITS, 20);
-    assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
-    assert_eq!(MAX_ATTEMPTS, 3);
+#[test]
+fn planning_retry_prompt_explains_the_outline_bounds() {
+    let f = Fixture::new();
+    let mut r = crate::repository_guide::tests::fresh_record(&f);
+    r.planning_retry_count = 1;
+    let (_, _, _, instructions) = request(&r).unwrap();
+    assert!(instructions.contains("automatic retry after the previous outline was rejected"));
+    assert!(instructions.contains("one opening plus at most five follow-ons"));
+    assert!(instructions.contains("prerequisites may name only earlier follow-on keys"));
+    assert!(instructions.contains("64 unique omission labels"));
+    assert!(instructions.contains("Prefer fewer follow-ons over risking another invalid outline"));
+}
+
+#[test]
+fn invalid_outline_limits_report_the_bound_that_failed() {
+    let mut too_many_sections = proposal();
+    for index in 0..=MAX_INITIAL_UNITS {
+        too_many_sections["sections"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "key": format!("extra-{index}"),
+                "question": format!("How does the extra route {index} behave?"),
+                "prerequisites": [],
+                "claims": [{"evidence":[{"referenceId":"code:2"}]}]
+            }));
+    }
+    assert!(
+        canonicalize_proposal(too_many_sections)
+            .unwrap_err()
+            .contains("one opening and no more than five follow-ons")
+    );
+
+    let mut duplicate_omissions = proposal();
+    duplicate_omissions["omissions"] = json!(["Pending route A", " pending   ROUTE a "]);
+    assert!(
+        canonicalize_proposal(duplicate_omissions)
+            .unwrap_err()
+            .contains("too many or repeated pending topics")
+    );
 }
 
 #[test]
@@ -519,7 +462,7 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     );
     assert_eq!(schema, super::schema());
     assert!(schema["properties"].get("openingAnswer").is_none());
-    assert!(instructions.contains("Return only the supplied plan schema"));
+    assert!(instructions.contains("Return only the supplied schema"));
     assert_eq!(request(&r).unwrap().2, fingerprint);
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);

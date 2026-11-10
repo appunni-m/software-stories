@@ -101,6 +101,11 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
     && !discoveryResult && !initialSelectedPaths?.length;
   const chapterRecovery = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update')
     && mode.recoveryOperationId ? mode : null;
+  const automaticReviewRequest = mode !== 'settings' && (
+    mode.kind === 'review' && Boolean(targetPath) && !plannedChapter
+    || mode.kind === 'overview' && Boolean(discoveryResult)
+    || automaticSectionRepair
+  );
   const [recoveryReady, setRecoveryReady] = useState(!chapterRecovery);
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(native);
@@ -129,6 +134,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   const lifetime = useRef(0);
   const activeBusy = useRef<Busy | null>(null);
   const automaticReviewKey = useRef<string | null>(null);
+  const automaticGenerationKey = useRef<string | null>(null);
   const automaticSectionRunKey = useRef<string | null>(null);
   const resources = useRef<{ login: string | null; review: string | null; draft: string | null; run: string | null }>({ login: null, review: null, draft: null, run: null });
   const unlistenRef = useRef<UnlistenFn | null>(null);
@@ -154,6 +160,9 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
     && (mode === 'settings' || mode.kind === 'overview' || planning || Boolean(sectionUpdate) || targetPath));
   const retrievalLimits = review?.generationConfig.codexSnapshotRetrieval as { maxFiles?: number; maxSourceBytes?: number } | undefined;
+  const requiresFreshConsent = !automaticSectionRepair && !retrievalLimits;
+  const automaticSnapshotRequest = native && automaticReviewRequest && snapshotRetrievalRoute
+    && Boolean(retrievalLimits) && !chapterRecovery;
   const hasResult = preview !== null || codeLensResult !== null || planResult !== null;
   const locked = busy !== null || hasResult;
   const otherRun = Boolean(status?.activeRunId && status.activeRunId !== resources.current.run);
@@ -469,7 +478,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   };
 
   const generate = async () => {
-    if (!review || (!automaticSectionRepair && !consent) || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
+    if (!review || (requiresFreshConsent && !consent) || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
     if (Date.now() >= review.expiresAtUnixMs) { releaseReview(); setError('This review expired. Build a new review and confirm it again.'); return; }
     const needsSnapshotGrant = Boolean(review.generationConfig.codexSnapshotRetrieval);
     const workspaceGrant = needsSnapshotGrant ? getWorkspace(review.projectId, review.snapshotId).grantId : undefined;
@@ -702,9 +711,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
   // A fresh, explicit section-repair action also starts that one repair after
   // the fixed source scope has passed the local review. Recovery stays manual.
   useEffect(() => {
-    const automaticRequest = mode !== 'settings' && (mode.kind === 'review' && Boolean(targetPath)
-      || mode.kind === 'overview' && Boolean(discoveryResult) || automaticSectionRepair);
-    if (!automaticRequest || chapterRecovery || plannedChapter
+    if (!automaticReviewRequest || chapterRecovery || plannedChapter
       || !native || busy || review || hasResult || error || !status?.authenticated || !sourceReady || !modelReady || !recoveryReady || otherRun || login) return;
     const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, chapterQuestion,
       automaticSectionRepair ? sectionUpdate : null, paths, selection.modelId, selection.effort]);
@@ -712,6 +719,14 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
     automaticReviewKey.current = key;
     void buildReview();
   }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, chapterQuestion, automaticSectionRepair, sectionUpdate, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+
+  useEffect(() => {
+    if (!automaticSnapshotRequest || !review || !retrievalLimits || busy || hasResult || error
+      || !status?.authenticated || !modelReady || !recoveryReady || otherRun || login) return;
+    if (automaticGenerationKey.current === review.reviewId) return;
+    automaticGenerationKey.current = review.reviewId;
+    void generate();
+  }, [automaticSnapshotRequest, review, retrievalLimits, busy, hasResult, error, status?.authenticated, modelReady, recoveryReady, otherRun, login, generate]);
 
   useEffect(() => {
     if (!automaticSectionRepair || !review || busy || hasResult || error || !native || !status?.authenticated
@@ -804,7 +819,7 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
                 </>}
                 <p className="provider-small-note">{snapshotRetrievalRoute ? 'These are starting points. After consent, Codex reads only relevant ranges from this captured snapshot; your live working files are excluded.' : 'Review the captured code above before sending. Files that look private or cannot be read are left out.'}</p>
               </div>}
-              {!overviewNeedsAutomaticDiscovery && !automaticSectionRepair && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
+              {!overviewNeedsAutomaticDiscovery && !automaticSectionRepair && !automaticReviewRequest && <><AppButton intent="secondary" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Update source review' : 'Continue to source review'}</AppButton>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p></>}
               {automaticSectionRepair && <p className="provider-small-note" role="status">{error ? (chapterQuestion ? 'Section revision needs attention.' : 'Section repair needs attention.') : busy === 'build' ? 'Checking the saved source for this section…' : busy === 'send' ? (chapterQuestion ? 'Revising this section…' : 'Codex is regenerating the selected section…') : busy === 'save' ? 'Publishing the validated section…' : chapterQuestion ? 'Preparing the section revision…' : 'Preparing the section repair…'}</p>}
               {review && !automaticSectionRepair && <>
@@ -821,7 +836,9 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
                 <details className="provider-prompt-preview"><summary>Exact prompt, output schema and agent settings</summary><div><strong>System instruction</strong><pre>{review.systemInstruction}</pre><strong>User prompt</strong><pre>{review.userPrompt}</pre><strong>Settings and output schema</strong><pre>{JSON.stringify(review.generationConfig, null, 2)}</pre><strong>Effective agent request · SHA-256 {review.requestBodySha256}</strong><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></div></details>
                 <details className="provider-fingerprint"><summary>Request identity</summary><code>{review.fingerprint}</code><small>Changing the source or settings requires a fresh review.</small></details>
                 {Boolean(review.generationConfig.candidateCorrection) && <p className="provider-small-note">If a local check finds an issue, Codex can make one correction using the same reviewed code. This may use extra account quota; the result still has to pass the same checks.</p>}
-                <div className="provider-consent-list"><label><AppCheckbox checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span><strong>{retrievalLimits ? 'Allow Codex to explore this snapshot' : 'Send this reviewed context through my Codex account'}</strong>{retrievalLimits ? `I reviewed the starting files and prompt. Codex may read relevant captured code across this snapshot, up to ${retrievalLimits.maxFiles ?? 12} files and ${(retrievalLimits.maxSourceBytes ?? 250000).toLocaleString()} source bytes. Live working files stay private. This uses my Codex account and plan quota.` : 'I have reviewed the exact source, prompt and settings. This shares the selected code with OpenAI through Codex, under my account’s terms and plan quota. No API key is used; availability and remaining quota are not guaranteed.'}</span></label></div>
+                {retrievalLimits
+                  ? <p className="provider-small-note" role="status">Using your saved access for this captured snapshot.</p>
+                  : <div className="provider-consent-list"><label><AppCheckbox checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span><strong>Send this reviewed context through my Codex account</strong>I have reviewed the exact source, prompt and settings. This shares the selected code with OpenAI through Codex, under my account’s terms and plan quota. No API key is used; availability and remaining quota are not guaranteed.</span></label></div>}
               </>}
               {busy === 'send' && <div className="provider-loading" role="status" aria-live="polite"><Sparkles size={16} /><div><strong>{cancelling ? 'Cancelling Codex generation…' : progress?.message ?? 'Generating explanation…'}</strong><p>{progress?.phase ?? 'preparing'} · {planning ? 'A validated route is saved as an unaccepted plan.' : codeLensTarget ? 'This explanation will not be saved to history.' : 'No draft is saved until you choose Save.'}</p></div></div>}
               {codeLensResult && <section className="provider-response" aria-labelledby="codex-range-result-title">
@@ -860,8 +877,15 @@ export function CodexChapterDialog({ mode, native, onClose, onSaved, onRecoveryR
             : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
             : codeLensResult ? <AppButton intent="secondary" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</AppButton>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> {saved.lifecycle === 'accepted' ? `Section published · r${saved.revisionNumber}` : 'Repair draft saved'}</span> : <div className="provider-draft-actions"><AppButton intent="secondary" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</AppButton><AppButton intent="primary" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : sectionUpdate ? 'Save repair draft' : 'Save unaccepted draft'}</AppButton></div>
+              : automaticSnapshotRequest ? error
+                ? <AppButton intent="primary" onClick={() => {
+                  setError(null);
+                  if (review) { automaticGenerationKey.current = null; void generate(); }
+                  else { automaticReviewKey.current = null; void buildReview(); }
+                }} disabled={busy !== null || otherRun || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}>Try again</AppButton>
+                : <span className="provider-saved-status" role="status">{busy === 'build' ? 'Preparing your explanation…' : review ? 'Starting your explanation…' : 'Preparing your explanation…'}</span>
               : automaticSectionRepair ? <span className="provider-saved-status" role="status">{error ? (chapterQuestion ? 'Revision needs attention' : 'Repair needs attention') : busy === 'build' ? 'Checking section…' : busy === 'save' ? 'Publishing section…' : review ? (chapterQuestion ? 'Starting revision…' : 'Starting repair…') : (chapterQuestion ? 'Preparing revision…' : 'Preparing repair…')}</span>
-              : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
+              : <AppButton intent="primary" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || (requiresFreshConsent && !consent) || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</AppButton>)}
         </footer>}
       </section>
     </div>

@@ -23,6 +23,20 @@ test('Explain selected code submits directly at the current exploration level',(
   assert.ok(!workspace.includes('codeQuestionReview'));
 });
 
+test('a saved snapshot grant starts the requested explanation without another consent step',()=>{
+  assert.match(codexDialog,/const requiresFreshConsent = !automaticSectionRepair && !retrievalLimits;/);
+  assert.match(codexDialog,/if \(!review \|\| \(requiresFreshConsent && !consent\)/,
+    'only requests outside the saved snapshot grant require a fresh consent action');
+  assert.match(codexDialog,/const automaticSnapshotRequest = native && automaticReviewRequest && snapshotRetrievalRoute\s*&& Boolean\(retrievalLimits\) && !chapterRecovery;/,
+    'file and repository explanations can auto-run only when bounded snapshot retrieval is part of the reviewed request');
+  assert.match(codexDialog,/automaticGenerationKey\.current = review\.reviewId;\s*void generate\(\);/,
+    'the explicit explain action starts generation after its local review is ready');
+  assert.match(codexDialog,/Using your saved access for this captured snapshot\./,
+    'the user sees that the saved snapshot permission is being reused');
+  assert.match(codexDialog,/!automaticReviewRequest/,
+    'automatic routes do not show a separate Continue to source review action');
+});
+
 test('selected code stays bound to the current snapshot and sharing consent',()=>{
   const ask=functionBody('function ask(question:string','function verifiedCodeContext(context:Context,expectedSnapshotId:string)');
   assert.ok(ask.indexOf('requireCodexConnection()')<ask.indexOf('appendQuestion('));

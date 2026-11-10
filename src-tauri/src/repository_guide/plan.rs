@@ -6,27 +6,18 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
-const PLAN_OPERATION_VERSION: &str = "repository-guide-plan-initial-outline-v18-open-scope";
+const PLAN_OPERATION_VERSION: &str = "repository-guide-plan-initial-outline-v20-prerequisites";
 
 const PLAN_INSTRUCTIONS: &str = r#"
-Create a compact, source-grounded initial outline before slide content is generated. Return the question-first opening item followed by only the useful follow-on questions. For a broad repository question, include two to five focused behavior questions for the highest-value path; for a narrow question, the opening may fully answer the request with no follow-on items. Add a follow-on only when it explains a distinct behavior the opening does not cover; never add slides just to meet a minimum count. The opening item's key is `opening`, it has no prerequisites, and its single claim cites one to four delivered code references that directly support the opening answer. Its question must exactly match the app-provided opening question: use the top-level user question for a new guide, or `guideContext.openingQuestion` when resuming a guide whose saved opening question matches the current question. For a broad repository question, use the central supported path to give a concise answer before deeper slides; for a narrow question, start at the requested behavior instead of detouring through a generic repository entry point. The app fixes the opening's placement and question; the generated slide answers it. This initial outline has a five-unit maximum so the first useful slide is not blocked on deeply researching every route. For a repository-wide request, start file discovery with two to five distinctive terms for the central mechanism, not every requested stage in one lexical query. Identify the central input and operation path first, then identify materially different caller-controlled surfaces from captured source, examples and build manifests. Use focused follow-up searches only when a requested stage or caller still lacks a likely path; batch reads for starting evidence. Record every additional route that needs its own explanation as a concise, explicit pending omission; these are later slide topics, not covered explanations. Do not deeply investigate pending routes in this planning operation; each slide gets its own bounded research run. Do not discard a requested or source-observed route to make the initial outline shorter, and never imply that a pending topic is covered. The saved guide can hold up to twenty follow-on units; name any route that cannot fit as an uncovered omission. The reader shows the initial outline and pending topics, publishes validated slides independently, and keeps up to five ready slides buffered.
+Create the initial research outline only. Do not write narration, explanations, HTML, or slide content.
 
-Scope the opening to a direct answer to the user's question. For a narrow question, keep its cited ranges on the named condition, branch, function, or file and the callers or callees needed to establish its result. For a broad question, give a concise, evidence-backed central behavior; leave adjacent operations and alternate routes to their own follow-on units or explicit omissions. Do not detour through a generic repository entry point unless the question asks where input enters, and do not narrow the requested coverage to simplify the opening.
+Hard bounds: the title is 8–120 UTF-8 bytes. The sections array contains 1–6 items total: the first is the required opening and at most five are follow-on topics. Never return more than six sections. Add follow-ons only for distinct behavior; do not add topics to meet a minimum. Put remaining work in omissions. Omissions contain at most 64 unique, concise route labels, each 1–240 UTF-8 bytes. Do not repeat labels after case/spacing normalization. Keep keys unique and lowercase with hyphens; each follow-on question is 16–800 characters, is distinct from every other question, and ends in a question mark.
 
-Implementation code is authoritative for behavior. Documentation is only a discovery hint and may be outdated or deprecated; do not use it alone to establish current code behavior. Identify a document as stale only when a specific statement is contradicted by cited implementation; otherwise label its status unverified.
+The opening key is `opening`, has no prerequisites, and uses the exact question supplied by the app: the top-level question for a new guide, or `guideContext.openingQuestion` when resuming the same guide. Give it exactly one claim with one to four delivered code references. Each follow-on also has exactly one claim with one to four delivered code references. Follow-on prerequisites are optional and may name only keys of earlier follow-on items; never reference `opening`, the current item, or a later item. List only distinct prerequisite keys that are real reading dependencies. A narrow question may need only this opening. For a broad repository question, include up to five follow-ons only when they explain distinct stages; if useful, normally choose two to five. Keep every other requested or discovered route explicitly pending in omissions, never imply it is covered.
 
-For repository-wide requests, do not mistake an internal helper that receives an already constructed object or completed state for the repository entry point. If source shows a central engine, reserve at least two follow-on units for its primary path: caller input into the central domain representation, then the main operation through useful results and important failures. Ground these units in engine implementation, not only wrappers.
+Research only enough captured implementation to ground the opening and useful initial follow-ons. Start with two to five focused terms for the central behavior, then read a few relevant ranges in batches. Do not inventory or deeply investigate every caller, format, or language before returning the outline; later slide research is separately bounded. Arrange broad-guide topics in source-grounded reading order: continue the opening's caller-to-engine path at its next real handoff, finish that central path, then cover alternate callers or languages. Give materially different behavior its own follow-on or pending label; group alternatives only when code shows they behave the same. Code proves behavior. Treat docs as discovery hints and call them stale only when cited implementation contradicts them.
 
-For repository-wide requests, do a bounded route inventory from implementation, checked-in examples and build manifests, then spend detailed citations on the initial outline. Verify each example and binding when its own slide is investigated; do not count a language as covered because another language's example reaches the same engine. Give each materially different surface its own question or pending topic, including C, JavaScript/Node, WASM, CLI, server or public API when present. Do not combine object creation/opening with a later operation that consumes the object when inputs, results or failure behavior differ; for example, creating a face from memory and loading a glyph into an existing face are separate topics even when they share one ABI and engine. Group adapters only when source shows they accept the same caller intent and follow the same consequential behavior; name every grouped surface in its question or pending topic.
-
-Plan follow-on slides in source-grounded reading order, placing prerequisites before dependent behavior. For a broad guide, the first follow-on unit must continue the same evidenced user journey as the opening at its next real code handoff, and later units must finish that central caller-to-engine path before alternate caller or language surfaces begin. Do not open on one API/caller, jump to another surface, then return later to explain the first surface's setup. Explain setup once before its first dependent behavior; later units bridge from what the reader already learned. Before returning the outline, compare each question with earlier units, replace duplicate coverage with a distinct requested behavior, and keep any behavior not yet covered explicit as pending. Do not repeat input or setup already explained in the opening: the opening orients the reader and the first unit advances the flow. Keep every discovered public route visible either as an initial slide or an explicit pending topic. Never present one representative path as whole-project coverage. Within each initial route, follow external input through consequential transformations to useful results and important failures. If more than twenty units are needed, prioritize the core path and materially different language/API surfaces, group only adapters proven to share behavior, and record every excluded route as not yet covered. Never imply that a pending omission is covered; each omission must name pending work explicitly. For a narrow question, scope the plan to that behavior and do not enumerate unrelated routes.
-
-Every item needs a unique lowercase key using only letters, digits, and hyphens; one distinct, trimmed question ending in `?`; and exactly one claim citing one to four delivered code references relevant to that item. Prerequisites are optional and may name only unique keys from earlier follow-on units. Never name the opening, current unit, or a later unit as a prerequisite.
-
-Keep each unit small enough for one answer section's visual budget: target at most eight distinct evidence nodes and two to four claims/scenes, with hard limits of 12 nodes and 20 edges. One unit explains one stage or decision, not an entire large function. Split long dispatches, branch chains, separate API operations, or multi-stage behavior at handoffs before those limits are approached. Give each distinct format family, backend, rendering mode, or failure policy its own question when it follows different code or produces a different outcome; do not bundle them just because they meet in one higher-level function. A question that combines several such paths with 'and', 'or', a slash, or a list is a signal to split the work into adjacent units or pending topics. Group alternatives only when the same code decision leads to the same consequential behavior. Preserve source order, outcomes, continuation, and fallback; do not collapse them into dense scenes or silently omit branches. Use a few related checks per unit so each has a clear visual form and complete narration.
-
-Use delivered source references only as starting-range hints. Do not write explanations, narration, or slide content, and do not call `propose_answer_section`. Return only the supplied plan schema.
-"#;
+Return only the supplied schema, with no extra fields. Keep the outline compact and valid before trying to maximize coverage."#;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -85,16 +76,16 @@ pub(super) fn schema() -> Value {
     let follow_on_item = json!({
         "type":"object","additionalProperties":false,
         "required":["key","question","prerequisites","claims"],"properties":{
-            "key":{"type":"string","maxLength":80},
-            "question":{"type":"string","minLength":16,"maxLength":800},
-            "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
+            "key":{"type":"string","maxLength":80,"pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$","description":"Unique key for this follow-on. Do not use the reserved opening key."},
+            "question":{"type":"string","minLength":16,"maxLength":800,"description":"Distinct question ending in a question mark."},
+            "prerequisites":{"type":"array","maxItems":5,"description":"Optional earlier follow-on keys only. The opening has no section key; never reference it, the current item, or a later item. Do not repeat keys.","items":{"type":"string","maxLength":80}},
             "claims":claims
         }
     });
     let opening_item = json!({
         "type":"object","additionalProperties":false,
         "required":["key","question","prerequisites","claims"],"properties":{
-            "key":{"type":"string","maxLength":80},
+            "key":{"type":"string","enum":["opening"]},
             "question":{"type":"string","minLength":1,"maxLength":12000},
             "prerequisites":{"type":"array","maxItems":0},
             "claims":claims
@@ -105,8 +96,8 @@ pub(super) fn schema() -> Value {
         "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
-      "sections":{"type":"array","minItems":1,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Item zero is the question-first opening answer; follow-on items cover only distinct behavior needed beyond it, with a broad-guide maximum of five detailed slides. Additional discovered routes are explicit pending topics and are appended as later slide units up to the twenty-unit guide capacity.","prefixItems":[opening_item],"items":follow_on_item},
-        "omissions":{"type":"array","maxItems":MAX_OMISSIONS,"items":{"type":"string","maxLength":MAX_OMISSION_BYTES}}}})
+      "sections":{"type":"array","minItems":1,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Items include one question-first opening at index zero and at most five distinct follow-on topics (six sections total). Additional discovered routes are explicit pending topics and are appended as later slide units up to the twenty-unit guide capacity.","prefixItems":[opening_item],"items":follow_on_item},
+        "omissions":{"type":"array","maxItems":MAX_OMISSIONS,"description":"Unique, concise pending route labels not covered by the initial outline; do not repeat the same route.","items":{"type":"string","maxLength":MAX_OMISSION_BYTES}}}})
 }
 
 fn starting_ranges(
@@ -144,12 +135,20 @@ fn canonicalize(
 ) -> Result<Plan, String> {
     let proposal: Proposal = serde_json::from_str(resolved.text())
         .map_err(|_| "The guide outline has an invalid structure.")?;
-    if proposal.plan_version != "repositoryGuidePlanV1"
-        || !text(&proposal.title, 8, 120)
-        || !(1..=MAX_INITIAL_UNITS + 1).contains(&proposal.sections.len())
-        || !valid_omissions(&proposal.omissions)
-    {
-        return Err("The guide outline exceeds its fixed limits.".into());
+    if proposal.plan_version != "repositoryGuidePlanV1" {
+        return Err("The guide outline used an unsupported plan version.".into());
+    }
+    if !text(&proposal.title, 8, 120) {
+        return Err("The guide title is too short or too long.".into());
+    }
+    if !(1..=MAX_INITIAL_UNITS + 1).contains(&proposal.sections.len()) {
+        return Err(
+            "The outline has too many slides; use one opening and no more than five follow-ons."
+                .into(),
+        );
+    }
+    if !valid_omissions(&proposal.omissions) {
+        return Err("The outline has too many or repeated pending topics.".into());
     }
 
     let mut proposed_sections = proposal.sections.into_iter();
@@ -202,7 +201,7 @@ fn canonicalize(
             || unit.prerequisites.iter().any(|key| !keys.contains(key))
         {
             return Err(
-                "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.".into(),
+            "The outline refers to a slide before it appears; list only earlier follow-on topics as prerequisites.".into(),
             );
         }
         if unit
@@ -246,8 +245,13 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         "guideContext":guide_context}))
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
+    let retry_feedback = if job.planning_retry_count > 0 {
+        "This is an automatic retry after the previous outline was rejected by local validation. Keep this attempt minimal and check every bound before returning: title 8–120 UTF-8 bytes; one opening plus at most five follow-ons; distinct follow-on keys and questions; each item has one claim and one to four delivered references; prerequisites may name only earlier follow-on keys, never the opening; and no more than 64 unique omission labels of at most 240 UTF-8 bytes. Prefer fewer follow-ons over risking another invalid outline."
+    } else {
+        ""
+    };
     let instructions = format!(
-        "{PLAN_INSTRUCTIONS}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Return the compact initial outline as soon as its opening lead and up to five high-value follow-on topics are grounded. Do not finish planning every requested route before the first slide can start. Preserve routes already observed or explicitly requested as pending omissions; after the outline and opening lead are saved, the owned guide worker may promote those omissions to later slide units up to the fixed twenty-unit capacity. Keep the five-slide ready buffer for section generation. Native source and call limits still apply.",
+        "{PLAN_INSTRUCTIONS}\n{retry_feedback}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Return the compact initial outline as soon as its opening lead and up to five high-value follow-on topics are grounded. Do not finish planning every requested route before the first slide can start. Preserve routes already observed or explicitly requested as pending omissions; after the outline and opening lead are saved, the owned guide worker may promote those omissions to later slide units up to the fixed twenty-unit capacity. Publish each validated slide independently. Any internal look-ahead must be small and must never gate the outline, first slide, or playback. Native source and call limits still apply.",
         crate::provider::visual_scenes::READER_LANGUAGE_POLICY
     );
     let contract = json!({"contractVersion":job.contract,
@@ -256,7 +260,7 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         "operationPolicy":PLAN_OPERATION_VERSION,
         "readerLanguagePolicy":crate::provider::visual_scenes::READER_LANGUAGE_POLICY_VERSION,
         "model":job.model_id,"effort":job.reasoning_effort,
-        "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"maxResearchCalls":crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT,"firstBufferSlides":5,
+        "maxInitialUnits":MAX_INITIAL_UNITS,"maxTotalUnits":MAX_TOTAL_UNITS,"maxResearchCalls":crate::evidence_ledger::REPOSITORY_PLAN_CALL_LIMIT,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
         "runDeadlinePolicy":"user-controlled-stop-v1",
         "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::RESEARCH_BASE_INSTRUCTIONS});
