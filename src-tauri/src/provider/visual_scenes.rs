@@ -5,14 +5,14 @@ use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v37";
-pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v81";
+pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v82";
 pub(crate) const READER_LANGUAGE_POLICY_VERSION: &str = "reader-language-v1";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a section has a visual presentation, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Tell what the real subject does and why it matters; point to a short visual cue only to help the listener follow. Never narrate the artifact itself or open with meta commentary such as ‘these boxes show’, ‘this diagram explains’ or ‘the scene illustrates’. Avoid definition-first openings such as ‘X is…’ or ‘this function handles…’; do not catalogue responsibilities. Start at the caller, input or decision, use present-tense cause and effect to tell what changes next, then explain what the result means for the caller or following step when the code supports that consequence. Keep simple scenes to one or two short sentences; when the behavior needs room, use up to three natural sentences and 420 UTF-8 bytes to connect the input, actual decision or change, a brief cue visible in this scene and the caller-visible consequence. Aim for 20–35 words per scene. Use short clauses with measured pacing. Every spoken cue must appear in this scene and be supported by its claim. Explain every outcome plainly. At first spoken use, briefly unpack a specialist term in the role the cited implementation gives it; do not leave jargon or an error type as the whole explanation. For a failure, say what stops or continues and what the caller receives, keeping exact error labels in the visible claim and source. Suggest recovery only when cited behavior supports it. If the cited source does not establish a term's meaning or caller consequence, state that limit instead of guessing. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Do not pronounce all-capital abbreviations or format tags letter by letter; replace them with their job in the behavior. Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. When the section has no visual, write a complete natural spoken account of all claims with the same story-first style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–4,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v81
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v82
 Give every section and scene a reader-facing title that names its behavior or question in plain language. Avoid bare file names, format tags, or terse labels such as “PFR0: direct handoff.” Each scene makes one change, decision or result visible and explains why it matters.
 
 Start from a real caller, input, event, or decision shown by the cited implementation. Follow a real input through source-grounded changes and outcomes. Do not invent a user motive, interface event, runtime result, or example value. Use a visual for concrete behavior and use a text-only section only for context or an evidence boundary with no honest visual form. When every claim is context or an evidence boundary without an honest visual form, use narration only. Choose the visual mode independently for each claim scene; a visual section may mix composition and graph scenes. Use an example only when its values are supported or visibly labeled hypothetical.
@@ -27,15 +27,17 @@ const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent
 
 pub(crate) const READER_LANGUAGE_POLICY: &str = r#"Reader language policy (reader-language-v1): Write all reader-facing text, including titles, claims, summaries, caveats, visual labels and narration, in the language explicitly requested by the user; otherwise use the natural language of the user's question. If the request contains no clear language signal, use English. Keep source identifiers, file paths, code, literals, exact citations and required schema keys unchanged. Explain code tokens in the requested language rather than translating or reading the tokens aloud."#;
 
-const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v71: Let cited behavior choose the smallest app-supported form for each claim. Do not choose by file type or favorite template. Before composing, name the behavior and its best teaching form.
+const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v72: Let cited behavior choose the smallest app-supported form for each claim. Do not choose by file type or favorite template. Before composing, name the behavior and its best teaching form.
 
 Use transform when the focal claim maps a named source-backed input or state to a distinct result; show different input and result around the operation. For a proven point/vector mapping, pointFlow takes precedence and keeps point markers on both sides without invented coordinates. Use branch only when mutually exclusive, source-backed choices are the behavior being taught. An if, match, early return or other control-flow syntax alone does not justify a branch. If a guard gates a source-backed data/state change, use transform, include the guard in its operation label, and show the actual input and result; do not leave a supported change to narration alone. Give a failure its own scene unless comparing outcomes is the focal question. When matched cases are central, an enum, match, switch or pattern match uses distinct matched cases and results; use a compact table for many cases. Never reuse the guard label as an outcome label. Independent validation guards in one function are separate claim-scenes; preserve their path condition or split into a follow-up scene. Use selector only for competing ordered candidates. In prose, use it only for source-ordered candidates that continue after a miss. Each selector branch has exactly one guard and its matching result; the claim or narration must describe that handoff. Verified call order uses timeline; independent actors use lanes; actual nesting uses tree; queue shows FIFO order front to back; stack entries are authored oldest/bottom first and displayed newest/top first. Use beforeAfter only to compare states, not explain behavior. Byte/field boundaries use bytes/table, pixels use matrix, lookup uses key, hit/miss and route, and quantities use metric. Use a graph only when those forms cannot show a genuinely non-linear relationship. Every graph scene must show a labeled edge joining a node focused on that claim, and both node and edge must cite that claim's source evidence. Every other edge touching a focused node must cite the same claim; if no such evidence-backed relationships exist, choose a composition. The full map is separate.
+
+Branch only for focal choices. Table ordered guards only if early exit is clear; otherwise split by path. Use timeline for proven sequences, transform for gated changes. Never imply later checks run after failure.
 
 Rows, columns, grids, and panels arrange content; those containers are layout, not the visual idea. Use the actual source variable or field as a symbolic input/result when it clarifies static code; do not replace it with generic stand-ins such as “Loaded input” or “Processed result.” Never infer a transformation, runtime value, execution, priority, or relationship from nearby names. A code arrow asserts a source-proven relation.
 
 The visual must remain understandable with narration collapsed. Give each visual node a distinct, behavior-specific label; keep a shared mechanism label in the scene title. Use short natural-language actions or outcomes rather than raw identifiers or snake_case. Exact names stay in claims and clickable source unless spelling itself is the lesson. A value must add visible meaning beyond its label. Keep the visual focused rather than busy. Across adjacent scenes, repeat a root form only when it still fits each focal behavior; change form when the next behavior calls for a clearer supported representation. Do not force variety by adding decoration or inventing content. The app owns HTML, styling and interactions; this version uses inert app-owned HTML/CSS primitives. Raw JavaScript and 3-D/WebGL are unsupported."#;
 
-const VISUAL_COMPOSITION_REVIEW: &str = r#"Visual composition review v71: With narration collapsed, can a reader see the source-backed input, action/guard and result? Does the root form teach the claim's focal behavior, or does an incidental guard dominate it? A control-flow construct alone is not a branch reason. If data or state changes, show before/operation/result, with any gating condition in the operation. Labels and arrows must mean what the cited code proves. Repeated branches across a Guide should prompt a form check, not forced variety. Symbolic or hypothetical values must not look observed.
+const VISUAL_COMPOSITION_REVIEW: &str = r#"Visual composition review v72: With narration collapsed, can a reader see the source-backed input, action/guard and result? Does the root form teach the claim's focal behavior, or does an incidental guard dominate it? A control-flow construct alone is not a branch reason. If data or state changes, show before/operation/result, with any gating condition in the operation. Labels and arrows must mean what the cited code proves. Repeated branches across a Guide should prompt a form check, not forced variety. Symbolic or hypothetical values must not look observed.
 
 Keep one focal point and a source-appropriate semantic form: branch, selector, timeline, lanes, transform, before/after, tree, queue, stack, point-flow, comparison, or data-specific bytes, matrix, table or metric. Rows, columns, grids and panels arrange content; cards, tokens, code and prose alone are not the visual idea. If the scene can be reduced to generic boxes with different labels, choose a more informative form. Do not force a visual when no honest one helps. Cards may label a semantic form but cannot replace it. Do not repeat the same generic row/cards/arrow skeleton with only labels changed. Before proposing another section for the same answer, compare its behavior with sections already published. A new title or a second rendering of the same decision is not new coverage. If evidence or limits block a request, name the concrete uncovered behavior instead of repeating a neighboring section."#;
 
@@ -217,9 +219,12 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         let instructions = super::instructions();
         for requirement in [
-            "ai-html-compositions-v81",
-            "Visual design method v71:",
-            "Visual composition review v71:",
+            "ai-html-compositions-v82",
+            "Visual design method v72:",
+            "Visual composition review v72:",
+            "Branch only for focal choices",
+            "Table ordered guards only if early exit is clear",
+            "Never imply later checks run after failure",
             "Follow a real input through source-grounded changes and outcomes",
             "a visual section may mix composition and graph scenes",
             "Use transform when the focal claim maps a named source-backed input or state",
@@ -285,7 +290,7 @@ pub(crate) mod tests {
         assert!(normalized_reference.contains(&format!(
             "up to {sentence_limit} short sentences and {byte_limit} UTF-8 bytes"
         )));
-        assert!(normalized_reference.contains("Visual design method and composition review `v71`"));
+        assert!(normalized_reference.contains("Visual design method and composition review `v72`"));
         assert!(normalized_reference.contains(
             "Every narrated graph scene must include a node citing its own claim and at least one labeled edge connecting that focused node to another node."
         ));
@@ -366,8 +371,11 @@ pub(crate) mod tests {
         let shared = teaching_instructions();
         let instructions = super::instructions();
         for requirement in [
-            "Visual design method v71:",
-            "Visual composition review v71:",
+            "Visual design method v72:",
+            "Visual composition review v72:",
+            "Branch only for focal choices",
+            "Table ordered guards only if early exit is clear",
+            "Never imply later checks run after failure",
             "Do not choose by file type or favorite template",
             "Use branch only when mutually exclusive, source-backed choices are the behavior being taught",
             "An if, match, early return or other control-flow syntax alone does not justify a branch",
