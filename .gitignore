@@ -2,6 +2,8 @@
 *.log
 *.local
 .kata.local.toml
+# Generated exports can contain the full task history and grow to tens of MB.
+kata-export-*.jsonl
 # Local environment files can contain API keys and other secrets.
 # Cover local dotenv files in any package, including generated suffix variants.
 *.env
