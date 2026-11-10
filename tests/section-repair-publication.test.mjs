@@ -4,9 +4,13 @@ import { it } from 'node:test';
 
 it('a selected section repair builds and sends its request without another review or consent action', async () => {
   const source = await readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8');
+  const automaticReviewRequest = source.slice(
+    source.indexOf('  const automaticReviewRequest ='),
+    source.indexOf('  const [recoveryReady'),
+  );
   const buildReviewEffect = source.slice(
-    source.indexOf('    const automaticRequest ='),
-    source.indexOf('  }, [mode, targetPath, discoveryResult'),
+    source.indexOf('  useEffect(() => {\n    if (!automaticReviewRequest'),
+    source.indexOf('  useEffect(() => {\n    if (!automaticSnapshotRequest'),
   );
   const sendEffect = source.slice(
     source.indexOf('  useEffect(() => {\n    if (!automaticSectionRepair || !review'),
@@ -18,10 +22,11 @@ it('a selected section repair builds and sends its request without another revie
   );
 
   assert.match(source, /mode\.kind === 'section-update' && !mode\.recoveryOperationId/u);
-  assert.match(buildReviewEffect, /\|\| automaticSectionRepair/u);
+  assert.match(automaticReviewRequest, /\|\| automaticSectionRepair/u);
   assert.match(buildReviewEffect, /void buildReview\(\)/u);
   assert.match(sendEffect, /void generate\(\)/u);
-  assert.match(generateGuard, /!automaticSectionRepair && !consent/u);
+  assert.match(generateGuard, /!review \|\| \(requiresFreshConsent && !consent\)/u);
+  assert.match(source, /const requiresFreshConsent = !automaticSectionRepair && !retrievalLimits/u);
   assert.match(generateGuard, /!status\?\.authenticated/u);
 });
 

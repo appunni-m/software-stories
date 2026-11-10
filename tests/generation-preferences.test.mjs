@@ -61,15 +61,21 @@ describe('first-release generation connection', () => {
     }
   });
 
-  it('prepares a local review but requires explicit consent before sending', async () => {
+  it('prepares local reviews and dispatches snapshot questions only under the saved grant', async () => {
     const source = await readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8');
     const start = source.indexOf('// Prepare an AI-selected request');
     const end = source.indexOf('return (\n', start);
     const automatic = source.slice(start, end);
+    const routes = source.slice(source.indexOf('  const automaticReviewRequest ='), source.indexOf('  const [recoveryReady'));
     assert.ok(start >= 0 && end > start, 'the automatic review preparation flow is present');
     assert.match(automatic, /automaticReviewKey.current === key/);
     assert.match(automatic, /void buildReview\(\)/);
-    assert.match(automatic, /mode.kind === 'overview' && Boolean\(discoveryResult\)/);
+    assert.match(routes, /mode.kind === 'overview' && Boolean\(discoveryResult\)/);
+    assert.match(routes, /\|\| automaticSectionRepair/u);
+    assert.match(source, /const requiresFreshConsent = !automaticSectionRepair && !retrievalLimits/u);
+    assert.match(source, /const automaticSnapshotRequest = native && automaticReviewRequest && snapshotRetrievalRoute\s*&& Boolean\(retrievalLimits\) && !chapterRecovery/u);
+    assert.match(source, /if \(!automaticSnapshotRequest \|\| !review \|\| !retrievalLimits/u);
+    assert.match(source, /\(requiresFreshConsent && !consent\)/u);
     assert.doesNotMatch(automatic, /sendCodex|setConsent\(true\)/);
     assert.match(source, /setConsent\(false\)/);
     assert.match(source, /!consent/);
