@@ -6,13 +6,10 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { finishQueuedWorkspaceGenerationJob, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobsForScope, queueWorkspaceGenerationJob, recordWorkspaceGenerationQueueWait, stopWorkspaceGenerationJob, type ChapterRevision, type WorkspaceGenerationJob } from '../lib/commands';
 import {ConversationPersistence,type ConversationConflictChoice,type ConversationConflictSummary,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
-import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import type { NoticeTarget } from '../lib/noticeHistory';
 import { createQuestionOutcomeSelector, questionOutcomes, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
 import { addTurn, cleanAnswerNotes, cleanSourceDiscoveryNotes, cleanExplanationFailureCode, createWorkspace, decodeWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, MAX_REPOSITORY_GUIDE_RUN_IDS, rememberComposerDraft, serializeWorkspace, type ComposerDraft, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
-import { localNarrationPrewarmInputs } from './narrationPrewarm';
-import { localNarrationPrewarmer } from './localNarrationQueue';
 
 const states = new Map<string, WorkspaceState>();
 const browserPreviewWriteBlocked = new Set<string>();
@@ -39,21 +36,6 @@ const rendererClock = typeof globalThis.performance?.now === 'function'
   : () => Date.now();
 let closingWorkspace=false;
 let deferredCloseUpdates:(()=>void)[]=[];
-
-/** Best-effort local audio preparation starts after a validated section is
- * saved. It must never delay or fail publication, and it uses the saved voice
- * connection plus the exact narration edits the player will read. */
-function prewarmPublishedNarration(revision: ChapterRevision) {
-  if (!isNativeRuntime() || readVoiceConnectionIssue()) return;
-  try {
-    const inputs = localNarrationPrewarmInputs(revision, readVoiceConnection(), (storageKey) => {
-      try { return localStorage.getItem(storageKey); } catch { return null; }
-    });
-    if (inputs.length) localNarrationPrewarmer.enqueue(inputs);
-  } catch {
-    // Optional local audio must never make a saved explanation unavailable.
-  }
-}
 
 function clearRejectedWorkspaceGrant(project:string,snapshot:string,attemptedGrantId:string|undefined,message:string) {
   if(!attemptedGrantId||!/permission|allow.*explor|snapshot or Codex account changed/i.test(message))return;
@@ -411,17 +393,14 @@ async function adoptSection(project: string, snapshot: string, turnId: string | 
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
-async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary, prewarmAudio = false) {
+async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary) {
   if (summary.projectId !== project || summary.snapshotId !== snapshot) throw new Error('The saved answer belongs to another snapshot.');
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
   if (!turn?.runIds?.includes(summary.runId)) throw new Error('The saved answer belongs to another question.');
   let revision: ChapterRevision | null = null;
   const failures: unknown[] = [];
   for (const section of summary.sections) {
-    try {
-      revision = await adoptSection(project,snapshot,turnId,section);
-      if (prewarmAudio) prewarmPublishedNarration(revision);
-    } catch (error) { failures.push(error); }
+    try { revision = await adoptSection(project,snapshot,turnId,section); } catch (error) { failures.push(error); }
   }
   if (failures.length) throw failures[0];
   const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
@@ -517,11 +496,8 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
         if (closed || !payload.guideId || section.projectId !== project || section.snapshotId !== snapshot) return;
         // The progressive answer receipt is already durable, but repository-guide
         // summaries arrive only after a whole investigation unit. Adopt this exact
-        // validated section now, then queue its local audio without waiting for it.
-        const adoption = adoptSection(project,snapshot,undefined,section).then((revision) => {
-          prewarmPublishedNarration(revision);
-          return revision;
-        }).catch(() => null);
+        // validated section now, without making audio synthesis part of publication.
+        const adoption = adoptSection(project,snapshot,undefined,section).catch(() => null);
         whenConversationReady(async()=>{
           const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === payload.guideId);
           if(!owner){
@@ -650,7 +626,7 @@ export function appendRepositoryGuide(project: string, snapshot: string, questio
   patchTurn(project,snapshot,id,{guideId:crypto.randomUUID()});
   return id;
 }
-async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide, prewarmNewAudio = false) {
+async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide) {
   if (guide.projectId !== project || guide.snapshotId !== snapshot) throw new Error('This guide belongs to another snapshot.');
   updateWorkspace(project,snapshot,(state) => mergeRepositoryGuide(state,guide));
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
@@ -661,8 +637,7 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   for (const answer of guide.answers) for (const section of answer.sections) {
     const revision = saved.find((r) => r.revisionId === section.revisionId);
     if (revision) continue;
-    const adopted = await adoptSection(project,snapshot,turn.id,section);
-    if (prewarmNewAudio) prewarmPublishedNarration(adopted);
+    await adoptSection(project,snapshot,turn.id,section);
   }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
 }
@@ -740,7 +715,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
         ? {id:guideId,projectId:project,snapshotId:snapshot,grantId,consent:true,rendererQueueWaitMs}
         : {input:{id:guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
             modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
-    await reconcileGuide(project,snapshot,guide,true);
+    await reconcileGuide(project,snapshot,guide);
   } catch (failure) {
     try { await restoreRepositoryGuide(project,snapshot,guideId); } catch { /* Preserve saved cards and the original error. */ }
     const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
@@ -792,7 +767,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     // The native receipt is already durable. This local signal only wakes an
     // active owner in another webview so it can extend the current runway.
     try{await emit('repository-guide-slide-consumed',{guideId:current.guideId,projectId:project,snapshotId:snapshot,revisionId:consumedRevisionId,rendererSessionId});}catch{/* Refill can recover from the saved receipt on the next reader action. */}
-    await reconcileGuide(project,snapshot,guide,true);
+    await reconcileGuide(project,snapshot,guide);
   }catch(failure){
     try{await restoreRepositoryGuide(project,snapshot,guideId);}catch{/* Keep the current reader content. */}
     const message=errorMessageOr(failure,'The next slide could not be prepared. Saved slides remain available.');
@@ -844,10 +819,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {
       if (payload.runId !== runId || payload.projectId !== project || payload.snapshotId !== snapshot) return;
-      adoption = adoption.then(async () => {
-        const revision = await adoptSection(project,snapshot,id,payload);
-        prewarmPublishedNarration(revision);
-      }).catch(() => {
+      adoption = adoption.then(async () => { await adoptSection(project,snapshot,id,payload); }).catch(() => {
         // Final reconciliation retries local adoption after a lost event/reply.
         // Existing cards stay visible throughout; inference is never replayed.
       });
@@ -861,7 +833,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
         .map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,
     }});
     await adoption;
-    const revision = await reconcileAnswer(project,snapshot,id,summary,true);
+    const revision = await reconcileAnswer(project,snapshot,id,summary);
     return revision;
   } catch (failure) {
     await adoption;
@@ -884,7 +856,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     if (job.runId) {
       try {
         const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:job.runId});
-        await reconcileAnswer(project,snapshot,id,summary,true); recovered = true;
+        await reconcileAnswer(project,snapshot,id,summary); recovered = true;
       } catch { /* Preserve existing cards even if local inspection fails. */ }
     }
     if (!recovered) {
