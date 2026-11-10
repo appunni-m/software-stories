@@ -1644,6 +1644,19 @@ impl ServerProcess {
             trace,
             1,
         )?;
+        let initial_response_text = initial.response_text.clone();
+        let restore_source_evidence = crate::claim_alignment::fixed_source_chapter_diagnostics(
+            &initial_response_text,
+            input
+                .sources
+                .iter()
+                .map(|source| (source.path.as_str(), source.contents.as_str())),
+        )
+        .is_some_and(|issues| {
+            !issues.iter().any(|issue| {
+                issue.get("proposalProblem").is_some() || issue.get("quoteProblem").is_some()
+            })
+        });
         let response = crate::claim_alignment::correct_once_checked(
             input.correction_policy != crate::claim_alignment::CorrectionPolicy::Disabled,
             initial,
@@ -1665,9 +1678,17 @@ impl ServerProcess {
                     None,
                     "Refining the explanation against its cited code.",
                 ));
-                let corrected = self.generate_turn(
+                let mut corrected = self.generate_turn(
                     input, stage, &thread_id, prompt, cancelled, started_at, progress, trace, 2,
                 )?;
+                if restore_source_evidence {
+                    if let Some(response_text) = crate::claim_alignment::restore_unaffected_evidence(
+                        &initial_response_text,
+                        &corrected.response_text,
+                    ) {
+                        corrected.response_text = response_text;
+                    }
+                }
                 Ok(corrected)
             },
         )?;
@@ -3281,12 +3302,12 @@ mod tests {
         use crate::claim_alignment::CorrectionPolicy::*;
 
         assert_eq!(
-            completed_response_text(Some("not-json"), ChapterScenesV9).unwrap(),
+            completed_response_text(Some("not-json"), ChapterScenesV10).unwrap(),
             "not-json"
         );
         assert!(completed_response_text(Some("not-json"), Disabled).is_err());
         assert!(completed_response_text(Some("{}"), Disabled).is_ok());
-        assert!(completed_response_text(None, ChapterScenesV9).is_err());
+        assert!(completed_response_text(None, ChapterScenesV10).is_err());
     }
 
     #[test]

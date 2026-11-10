@@ -258,7 +258,7 @@ fn malformed_completed_text_reaches_only_the_reviewed_repair_path() {
 
     let f = Fixture::new();
     let mut input = f.input();
-    input.correction_policy = crate::claim_alignment::CorrectionPolicy::ChapterScenesV9;
+    input.correction_policy = crate::claim_alignment::CorrectionPolicy::ChapterScenesV10;
     let started = Instant::now();
     let trace = f.trace(&input, started);
     let (mut server, requests) = process(vec![completed_text(malformed)], vec![]);
