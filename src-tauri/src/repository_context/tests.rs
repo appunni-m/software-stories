@@ -532,6 +532,83 @@ fn broad_natural_search_does_not_match_only_a_filename_but_explicit_paths_do() {
 }
 
 #[test]
+fn broad_behavior_search_prioritizes_implementation_and_honors_test_intent() {
+    let mut fixture = Fixture::new();
+    let fixture_path =
+        "tests/fixtures/public-api/font-bytes-rendered-glyph-bitmap-entry-parsing-outline-hinting-rasterization.json";
+    add_source(
+        &mut fixture,
+        fixture_path,
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization\n",
+    );
+    add_source(
+        &mut fixture,
+        "src/render.rs",
+        "fn render_font_bytes(bytes: &[u8]) { let glyph = parse(bytes); rasterize(glyph); }\n",
+    );
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let broad_query =
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization";
+    let fixture_query =
+        "tests fixtures font bytes rendered glyph bitmap entry parsing outline hinting rasterization";
+
+    let broad_ranges = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        broad_query,
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(broad_ranges.matches[0].range.path, "src/render.rs");
+
+    let broad_files = search_files_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        broad_query,
+        None,
+        8,
+        0,
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+    assert_eq!(broad_files.matches[0].range.path, "src/render.rs");
+
+    let test_ranges = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        fixture_query,
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(test_ranges.matches[0].range.path, fixture_path);
+
+    let test_files = search_files_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        fixture_query,
+        None,
+        8,
+        0,
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+    assert_eq!(test_files.matches[0].range.path, fixture_path);
+}
+
+#[test]
 fn natural_range_search_admits_and_reports_bounded_per_term_candidates() {
     let mut candidates = HashMap::new();
     let mut coverage = HashMap::new();
