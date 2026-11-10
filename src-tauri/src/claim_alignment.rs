@@ -61,9 +61,15 @@ pub(crate) fn fixed_source_chapter_diagnostics<'a>(
     if response.len() > crate::chapters::MAX_GENERATED_RESPONSE_BYTES {
         return None;
     }
-    match crate::strict_json::from_slice(response.as_bytes()) {
-        Ok(value) if value.is_object() => {}
+    let value = match crate::strict_json::from_slice(response.as_bytes()) {
+        Ok(value) if value.is_object() => value,
         _ => return Some(vec![json!({"proposalProblem":"invalidJson"})]),
+    };
+    if has_malformed_citation_shape(&value) {
+        return Some(vec![json!({
+            "proposalProblem":"invalidStructure",
+            "proposalStage":"citations"
+        })]);
     }
     let Some(mut issues) = chapter_diagnostics(response) else {
         return Some(vec![
@@ -89,6 +95,53 @@ pub(crate) fn fixed_source_chapter_diagnostics<'a>(
     issues.extend(quotes);
     issues.truncate(MAX_ISSUES);
     Some(issues)
+}
+
+/// Keep malformed citation entries separate from malformed claim structure.
+/// Identifier diagnostics inspect quote text and would otherwise classify an
+/// empty evidence object as a broken chapter before the source validator sees
+/// the missing path/quote fields.
+fn has_malformed_citation_shape(chapter: &Value) -> bool {
+    fn claim_has_malformed_evidence(claim: &Value) -> bool {
+        // A non-object claim belongs to chapter-shape validation. Once a claim
+        // object exists, missing or malformed evidence is a citation failure.
+        if !claim.is_object() {
+            return false;
+        }
+        let Some(evidence) = claim.get("evidence").and_then(Value::as_array) else {
+            return true;
+        };
+        if !(1..=8).contains(&evidence.len()) {
+            return true;
+        }
+        evidence.iter().any(|item| {
+            let path = item.get("path").and_then(Value::as_str);
+            let quote = item.get("quote").and_then(Value::as_str);
+            !path.is_some_and(|value| !value.trim().is_empty())
+                || !quote.is_some_and(|value| !value.trim().is_empty())
+        })
+    }
+
+    let mut claims = Vec::new();
+    if let Some(sections) = chapter.get("sections").and_then(Value::as_array) {
+        for section in sections {
+            if let Some(section_claims) = section.get("claims").and_then(Value::as_array) {
+                claims.extend(section_claims);
+            }
+        }
+    } else if let Some(section_claims) = chapter.get("claims").and_then(Value::as_array) {
+        claims.extend(section_claims);
+    }
+    if claims
+        .iter()
+        .any(|claim| claim_has_malformed_evidence(claim))
+    {
+        return true;
+    }
+    chapter
+        .get("evidenceLimits")
+        .and_then(Value::as_array)
+        .is_some_and(|limits| limits.iter().any(claim_has_malformed_evidence))
 }
 
 /// Preserve already-validated citation objects when a single repair targets a
@@ -903,6 +956,24 @@ mod tests {
             correction_failure(&issues)
                 .contains("cited source entries are missing required fields")
         );
+
+        for location in ["claim", "evidenceLimit"] {
+            let mut malformed_citations = crate::chapter_generation::tests::simple_proposal_value();
+            if location == "claim" {
+                malformed_citations["sections"][0]["claims"][0]["evidence"] = json!([{}]);
+            } else {
+                malformed_citations["evidenceLimits"][0]["evidence"] = json!([{}]);
+            }
+            let issues = fixed_source_chapter_diagnostics(
+                &malformed_citations.to_string(),
+                [(SIMPLE_PATH, SIMPLE_SOURCE)],
+            )
+            .unwrap();
+            assert_eq!(
+                issues[0]["proposalStage"], "citations",
+                "an empty {location} citation object must be diagnosed as a citation-shape error"
+            );
+        }
 
         let malformed = "{\"sections\": [".to_owned();
         let attempts = Cell::new(0);
