@@ -365,12 +365,71 @@ fn unit_latest_attempt_incomplete_after_completion(unit: &Unit) -> bool {
             })
         })
 }
+/// Resolve an incomplete unit only when every current gap has a later,
+/// matching continuation that is itself complete or recursively resolved.
+/// The saved outline is acyclic by construction because continuations can
+/// only be appended after existing units.
+fn resolved_unit_states(record: &Record) -> Vec<bool> {
+    let mut resolved = vec![false; record.units.len()];
+    let Some(plan) = record.plan.as_ref() else {
+        return resolved;
+    };
+    let count = record.units.len().min(plan.units.len());
+    for index in (0..count).rev() {
+        let unit = &record.units[index];
+        let gaps = actionable_incomplete_topics(&unit.attempts);
+        resolved[index] = if gaps.is_empty() {
+            unit_complete(unit)
+        } else {
+            gaps.iter().all(|gap| {
+                ((index + 1)..count).any(|candidate_index| {
+                    plan.units[candidate_index]
+                        .continuation_topic
+                        .as_deref()
+                        .is_some_and(|topic| same_uncovered_topic(gap, topic))
+                        && resolved[candidate_index]
+                })
+            })
+        };
+    }
+    resolved
+}
+fn opening_resolved_by_units(record: &Record, resolved_units: &[bool]) -> bool {
+    let Some(opening) = opening_continuation::latest(record) else {
+        return false;
+    };
+    if opening
+        .summary
+        .as_ref()
+        .is_some_and(|summary| summary.outcome == Outcome::Complete && !summary.sections.is_empty())
+    {
+        return true;
+    }
+    if opening
+        .summary
+        .as_ref()
+        .is_none_or(|summary| summary.sections.is_empty())
+    {
+        return false;
+    }
+    let gaps = actionable_incomplete_topics(std::slice::from_ref(opening));
+    let Some(plan) = record.plan.as_ref() else {
+        return false;
+    };
+    !gaps.is_empty()
+        && gaps.iter().all(|gap| {
+            plan.units.iter().enumerate().any(|(index, unit)| {
+                unit.continuation_topic
+                    .as_deref()
+                    .is_some_and(|topic| same_uncovered_topic(gap, topic))
+                    && resolved_units.get(index).copied().unwrap_or(false)
+            })
+        })
+}
 fn guide_complete(record: &Record) -> bool {
-    opening_continuation::latest(record).is_some_and(|a| {
-        a.summary
-            .as_ref()
-            .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
-    }) && record.units.iter().all(unit_complete)
+    let resolved_units = resolved_unit_states(record);
+    opening_resolved_by_units(record, &resolved_units)
+        && resolved_units.iter().all(|resolved| *resolved)
 }
 /// Keep scope omissions visible as an incomplete guide when the outline has
 /// exhausted its bounded topic capacity. Existing Ready records are still
@@ -410,11 +469,13 @@ fn contains_slide(record: &Record, revision_id: &str) -> bool {
         .any(|section| section.revision_id == revision_id)
 }
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
-    record.status != Status::Stopped
-        && record
-            .units
-            .get(index)
-            .is_some_and(|unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
+    if record.status == Status::Stopped {
+        return false;
+    }
+    let resolved = resolved_unit_states(record);
+    record.units.get(index).is_some_and(|unit| {
+        !resolved.get(index).copied().unwrap_or(false) && unit.attempts.len() < MAX_ATTEMPTS
+    })
 }
 
 /// A manual retry is available after a terminal incomplete attempt, including
@@ -425,7 +486,10 @@ fn unit_retryable(record: &Record, index: usize) -> bool {
         && published_slide_count(record).saturating_sub(record.consumed_slide_revisions.len())
             < GUIDE_SLIDE_BUFFER
         && record.units.get(index).is_some_and(|unit| {
-            !unit_complete(unit)
+            !resolved_unit_states(record)
+                .get(index)
+                .copied()
+                .unwrap_or(false)
                 && unit.attempts.len() < MAX_ATTEMPTS
                 && unit
                     .attempts
@@ -575,6 +639,126 @@ fn topic_key(topic: &str) -> String {
         .to_lowercase()
 }
 
+fn topic_terms(topic: &str) -> std::collections::HashSet<String> {
+    const STOP_WORDS: &[&str] = &[
+        "a",
+        "about",
+        "after",
+        "all",
+        "also",
+        "an",
+        "and",
+        "any",
+        "are",
+        "as",
+        "at",
+        "additional",
+        "before",
+        "beyond",
+        "by",
+        "code",
+        "covered",
+        "does",
+        "each",
+        "for",
+        "from",
+        "how",
+        "in",
+        "including",
+        "into",
+        "is",
+        "it",
+        "its",
+        "more",
+        "not",
+        "of",
+        "on",
+        "or",
+        "other",
+        "over",
+        "public",
+        "remains",
+        "same",
+        "show",
+        "still",
+        "that",
+        "the",
+        "their",
+        "then",
+        "these",
+        "this",
+        "those",
+        "through",
+        "to",
+        "under",
+        "uncovered",
+        "up",
+        "when",
+        "unexplored",
+        "where",
+        "which",
+        "while",
+        "with",
+        "what",
+        "yet",
+    ];
+    topic_key(topic)
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|word| word.chars().count() > 1 && !STOP_WORDS.contains(word))
+        .map(|word| match word {
+            "errors" | "failure" | "failures" => "error".to_owned(),
+            "parsing" | "parsed" | "parser" | "parsers" => "parse".to_owned(),
+            "routes" => "route".to_owned(),
+            "callers" => "caller".to_owned(),
+            "calls" | "calling" | "called" => "call".to_owned(),
+            "formats" => "format".to_owned(),
+            "loading" | "loaded" | "loads" => "load".to_owned(),
+            "outlines" => "outline".to_owned(),
+            "decoding" | "decoded" | "decoder" | "decoders" => "decode".to_owned(),
+            "dispatching" | "dispatched" => "dispatch".to_owned(),
+            "boundaries" => "boundary".to_owned(),
+            "operations" => "operation".to_owned(),
+            "constructions" => "construction".to_owned(),
+            "points" => "point".to_owned(),
+            "stages" => "stage".to_owned(),
+            "sources" => "source".to_owned(),
+            "strikes" => "strike".to_owned(),
+            "tables" => "table".to_owned(),
+            "paths" => "path".to_owned(),
+            "metrics" => "metric".to_owned(),
+            "scenes" => "scene".to_owned(),
+            "branches" => "branch".to_owned(),
+            "terms" => "term".to_owned(),
+            "details" => "detail".to_owned(),
+            "outputs" => "output".to_owned(),
+            "glyphs" => "glyph".to_owned(),
+            "hinting" | "hints" => "hint".to_owned(),
+            "grays" | "grayscale" => "gray".to_owned(),
+            "rasterization" | "rasterizing" | "rasterized" => "rasterize".to_owned(),
+            _ => word.to_owned(),
+        })
+        .collect()
+}
+
+/// Match planner paraphrases of the same uncovered topic without collapsing
+/// short, independent follow-ups that happen to share a generic term.
+fn same_uncovered_topic(left: &str, right: &str) -> bool {
+    if topic_key(left) == topic_key(right) {
+        return true;
+    }
+    let left = topic_terms(left);
+    let right = topic_terms(right);
+    if left.len() < 4 || right.len() < 4 {
+        return false;
+    }
+    let shared = left.intersection(&right).count();
+    let smaller = left.len().min(right.len());
+    let larger = left.len().max(right.len());
+    shared >= 4
+        && shared.saturating_mul(100) >= smaller.saturating_mul(55)
+        && shared.saturating_mul(100) >= larger.saturating_mul(40)
+}
+
 fn actionable_incomplete_topics(attempts: &[Attempt]) -> Vec<String> {
     let Some(summary) = attempts
         .iter()
@@ -604,18 +788,17 @@ fn actionable_incomplete_topics(attempts: &[Attempt]) -> Vec<String> {
 
 /// Preserve actionable gaps from the latest terminal answer attempts alongside
 /// planner omissions. Already-appended continuation topics are represented by
-/// their own units and are not offered again.
+/// their own units and are not offered again, even when the planner paraphrases
+/// the same gap in a later incomplete-topic list.
 fn guide_uncovered_topics(record: &Record) -> Vec<String> {
     let Some(plan) = record.plan.as_ref() else {
         return Vec::new();
     };
-    let mut seen = std::collections::HashSet::new();
     let continued = plan
         .units
         .iter()
         .filter_map(|unit| unit.continuation_topic.as_deref())
-        .map(topic_key)
-        .collect::<std::collections::HashSet<_>>();
+        .collect::<Vec<_>>();
     let mut candidates = Vec::new();
     if let Some(opening) = opening_continuation::latest(record) {
         candidates.extend(actionable_incomplete_topics(std::slice::from_ref(opening)));
@@ -624,12 +807,21 @@ fn guide_uncovered_topics(record: &Record) -> Vec<String> {
         candidates.extend(actionable_incomplete_topics(&unit.attempts));
     }
     candidates.extend(plan.omissions.iter().cloned());
+    let mut seen = Vec::<String>::new();
     candidates
         .into_iter()
         .filter(|topic| text(topic, 1, 240))
         .filter(|topic| {
-            let normalized = topic_key(topic);
-            !continued.contains(&normalized) && seen.insert(normalized)
+            !continued
+                .iter()
+                .any(|existing| same_uncovered_topic(topic, existing))
+                && !seen
+                    .iter()
+                    .any(|existing| same_uncovered_topic(topic, existing))
+                && {
+                    seen.push(topic.clone());
+                    true
+                }
         })
         .collect()
 }
@@ -984,7 +1176,10 @@ fn saved_section(storage: &Path, section: &SectionNotice) -> Result<bool, String
         }),
     )
 }
-fn unit_status(unit: &Unit) -> &'static str {
+fn unit_status(unit: &Unit, resolved: bool) -> &'static str {
+    if resolved {
+        return "complete";
+    }
     match unit.attempts.last() {
         None => "pending",
         Some(a) => match a.summary.as_ref().map(|s| &s.outcome) {
@@ -1114,6 +1309,7 @@ fn guide_summary(
     answers: Vec<reading::Summary>,
 ) -> GuideSummary {
     let plan = record.plan.as_ref();
+    let resolved_units = resolved_unit_states(record);
     let units = plan.map_or_else(Vec::new, |plan| {
         record
             .units
@@ -1126,7 +1322,8 @@ fn guide_summary(
                 prerequisites: planned.prerequisites.clone(),
                 continuation_topic: planned.continuation_topic.clone(),
                 incomplete_topics: actionable_incomplete_topics(&unit.attempts),
-                status: unit_status(unit).into(),
+                status: unit_status(unit, resolved_units.get(index).copied().unwrap_or(false))
+                    .into(),
                 latest_complete_run_id: unit
                     .attempts
                     .iter()

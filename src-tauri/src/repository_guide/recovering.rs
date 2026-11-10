@@ -126,6 +126,9 @@ fn reconcile_with_reader(
     if matches!(next.status, Status::Planning | Status::Building) {
         next.status = terminal_status;
     }
+    if next.status != Status::Stopped && terminal_guide_status(&next) == Status::Ready {
+        next.status = Status::Ready;
+    }
     let save = || {
         store::update_if_changed(storage, &record.id, |current| {
             if current.revision != record.revision {

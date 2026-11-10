@@ -125,6 +125,21 @@ pub(super) fn attempt_for_unit(record: &Record, unit_index: usize, outcome: Outc
         }),
     }
 }
+fn complete_opening(record: &mut Record) {
+    let opening_run_id = record.opening.as_ref().unwrap().run_id.clone();
+    let mut opening = attempt_for_unit(record, 0, Outcome::Complete);
+    opening.run_id = opening_run_id.clone();
+    opening.question = record.question.clone();
+    let summary = opening.summary.as_mut().unwrap();
+    summary.run_id = opening_run_id.clone();
+    summary.question = record.question.clone();
+    for section in &mut summary.sections {
+        section.run_id = opening_run_id.clone();
+        section.key = "opening".into();
+    }
+    record.opening = Some(opening);
+    record.opening_context_sha256 = Some(opening::context_sha256(record).unwrap());
+}
 pub(super) fn fresh_record(f: &Fixture) -> Record {
     let previous = record(f);
     let mut fresh = new_record(
@@ -631,6 +646,167 @@ fn uncovered_topics_extend_the_same_saved_plan_without_replaying_completed_units
 }
 
 #[test]
+fn continuation_topics_match_paraphrases_but_keep_distinct_behaviors() {
+    assert!(same_uncovered_topic(
+        "C ABI and WASM caller routes, including glyph calls, output, and errors.",
+        "Not yet covered: C ABI and WASM caller routes, including their face-opening, glyph-operation, output, and error boundaries."
+    ));
+    assert!(same_uncovered_topic(
+        "Format-specific outline loading and failures: TrueType glyf versus CFF.",
+        "Not yet covered: format-specific TrueType glyf decoding versus CFF outline construction and their distinct failure behavior."
+    ));
+    assert!(!same_uncovered_topic(
+        "Format-specific outline loading and failures: TrueType glyf versus CFF.",
+        "CFF2 charstring subroutine limits and invalid operator errors."
+    ));
+    assert!(!same_uncovered_topic(
+        "SFNT and table-parsing failures beyond the signature-routing checks.",
+        "The individual SFNT/table parser checks that produce the mapped short-header and missing-horizontal-metrics errors were not traced."
+    ));
+    assert!(same_uncovered_topic(
+        "Hint-engine instruction execution and the normal renderer’s handoff to `grays::rasterize`.",
+        "Hinting execution and its handoff to grayscale rasterization; bitmap output, metrics, and rasterization failures."
+    ));
+}
+
+#[test]
+fn completed_followups_resolve_all_parent_gaps_but_partial_followups_do_not() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let gap_a = "C ABI callback allocation failures during glyph output.";
+    let gap_b = "WASM face allocation and internal face-open error causes.";
+    let child_gap = "SFNT parser checks for short headers and missing horizontal metrics.";
+    record.plan.as_mut().unwrap().omissions.clear();
+    record.plan.as_mut().unwrap().units[1].continuation_topic = Some(gap_a.into());
+    record.plan.as_mut().unwrap().units.push(plan::UnitPlan {
+        key: "wasm-face-errors".into(),
+        question: "How does WASM report face allocation and face-open failures?".into(),
+        prerequisites: vec![],
+        starting_ranges: vec![],
+        continuation_topic: Some(gap_b.into()),
+    });
+    record.units.push(Unit {
+        key: "wasm-face-errors".into(),
+        attempts: vec![],
+    });
+
+    let mut parent = attempt_for_unit(&record, 0, Outcome::Partial);
+    parent.summary.as_mut().unwrap().incomplete_topics = vec![gap_a.into(), gap_b.into()];
+    record.units[0].attempts.push(parent);
+    let completed_a = attempt_for_unit(&record, 1, Outcome::Complete);
+    record.units[1].attempts.push(completed_a);
+    let mut partial_child = attempt_for_unit(&record, 2, Outcome::Partial);
+    partial_child.summary.as_mut().unwrap().incomplete_topics = vec![child_gap.into()];
+    record.units[2].attempts.push(partial_child);
+    complete_opening(&mut record);
+    record.status = Status::Partial;
+
+    let resolved = resolved_unit_states(&record);
+    assert!(
+        !resolved[0],
+        "one unresolved child keeps the parent incomplete"
+    );
+    assert!(resolved[1]);
+    assert!(!resolved[2]);
+    assert!(!guide_complete(&record));
+
+    let completed_child = attempt_for_unit(&record, 2, Outcome::Complete);
+    record.units[2].attempts.push(completed_child);
+    assert!(guide_complete(&record));
+    assert_eq!(terminal_guide_status(&record), Status::Ready);
+    assert!(!unit_research_eligible(&record, 0));
+    assert!(!unit_retryable(&record, 0));
+    let summary = guide_summary(&record, &f.manifest, Vec::new());
+    assert_eq!(summary.units[0].status, "complete");
+    assert_eq!(summary.units[2].status, "complete");
+}
+
+#[test]
+fn a_completed_nested_followup_resolves_its_partial_parent_chain() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let gap = "C ABI callback allocation failures during glyph output.";
+    let nested_gap = "SFNT parser checks for short headers and missing horizontal metrics.";
+    record.plan.as_mut().unwrap().omissions.clear();
+    record.plan.as_mut().unwrap().units[1].continuation_topic = Some(gap.into());
+    record.plan.as_mut().unwrap().units.push(plan::UnitPlan {
+        key: "sfnt-error-checks".into(),
+        question: "Which SFNT parser checks produce these face-open errors?".into(),
+        prerequisites: vec![],
+        starting_ranges: vec![],
+        continuation_topic: Some(nested_gap.into()),
+    });
+    record.units.push(Unit {
+        key: "sfnt-error-checks".into(),
+        attempts: vec![],
+    });
+
+    let mut parent = attempt_for_unit(&record, 0, Outcome::Partial);
+    parent.summary.as_mut().unwrap().incomplete_topics = vec![gap.into()];
+    record.units[0].attempts.push(parent);
+    let mut child = attempt_for_unit(&record, 1, Outcome::Partial);
+    child.summary.as_mut().unwrap().incomplete_topics = vec![nested_gap.into()];
+    record.units[1].attempts.push(child);
+    let completed_nested = attempt_for_unit(&record, 2, Outcome::Complete);
+    record.units[2].attempts.push(completed_nested);
+    complete_opening(&mut record);
+    record.status = Status::Partial;
+
+    assert_eq!(resolved_unit_states(&record), vec![true, true, true]);
+    assert!(guide_complete(&record));
+    assert_eq!(terminal_guide_status(&record), Status::Ready);
+}
+
+#[test]
+fn completed_units_resolve_a_partial_opening_only_when_every_opening_gap_matches() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let opening_gap = "Hint-engine instruction execution and the normal renderer’s handoff to `grays::rasterize`.";
+    record.plan.as_mut().unwrap().omissions.clear();
+    for index in 0..record.units.len() {
+        let completed = attempt_for_unit(&record, index, Outcome::Complete);
+        record.units[index].attempts.push(completed);
+    }
+    complete_opening(&mut record);
+    let opening = record.opening.as_mut().unwrap();
+    let summary = opening.summary.as_mut().unwrap();
+    summary.outcome = Outcome::Partial;
+    summary.incomplete_topics = vec![opening_gap.into()];
+    record.status = Status::Partial;
+
+    assert!(
+        !guide_complete(&record),
+        "an uncovered opening gap remains visible"
+    );
+    let topic = "Hinting execution and its handoff to grayscale rasterization; bitmap output, metrics, and rasterization failures.";
+    let key = extension_key(topic, &std::collections::HashSet::new());
+    record.plan.as_mut().unwrap().units.push(plan::UnitPlan {
+        key: key.clone(),
+        question: extension_question(topic),
+        prerequisites: vec![],
+        starting_ranges: vec![],
+        continuation_topic: Some(topic.into()),
+    });
+    record.units.push(Unit {
+        key,
+        attempts: vec![],
+    });
+    let completed_continuation = attempt_for_unit(&record, 2, Outcome::Complete);
+    record.units[2].attempts.push(completed_continuation);
+    assert!(guide_complete(&record));
+    assert_eq!(terminal_guide_status(&record), Status::Ready);
+    assert_eq!(opening_continuation::remaining_operations(&record), 0);
+
+    store::create(&f.storage, &record).unwrap();
+    let manager = codex_agent::CodexAgentManager::default();
+    let reopened = reconcile(&f.storage, &record, &manager).unwrap();
+    assert_eq!(reopened.status, Status::Ready);
+    let continued =
+        store::prepare_continuation(&f.storage, &reopened.id, reopened.revision).unwrap();
+    assert_eq!(continued.status, Status::Ready);
+}
+
+#[test]
 fn uncovered_topic_questions_are_short_and_reader_facing() {
     assert_eq!(
         extension_question("Not yet covered: C ABI input and rendering"),
@@ -659,9 +835,9 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
 
     for topics in [
         vec!["A stale gap from an earlier attempt.".into()],
-        vec!["The error return after dispatch.".into()],
+        vec!["C ABI error return after dispatching glyph output.".into()],
         vec![
-            "The error return after dispatch.".into(),
+            "C ABI error return after dispatching glyph output.".into(),
             "The output path remains unclear.".into(),
             "This slide did not publish. The guide preserved its other progress.".into(),
         ],
@@ -679,7 +855,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     assert_eq!(
         pending_extension_topics(&record),
         vec![
-            "The error return after dispatch.".to_owned(),
+            "C ABI error return after dispatching glyph output.".to_owned(),
             "The output path remains unclear.".to_owned(),
         ]
     );
@@ -702,7 +878,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
             .map(|unit| unit.continuation_topic.as_deref().unwrap())
             .collect::<Vec<_>>(),
         [
-            "The error return after dispatch.",
+            "C ABI error return after dispatching glyph output.",
             "The output path remains unclear."
         ]
     );
@@ -720,11 +896,24 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     assert_eq!(summary.units[0].incomplete_topics.len(), 2);
     assert_eq!(
         summary.units[2].continuation_topic.as_deref(),
-        Some("The error return after dispatch.")
+        Some("C ABI error return after dispatching glyph output.")
     );
     assert_eq!(
         store::read(&f.storage, &record.id).unwrap().plan,
         extended.plan
+    );
+
+    let mut repeated = extended;
+    let mut partial = attempt_for_unit(&repeated, 2, Outcome::Partial);
+    partial.summary.as_mut().unwrap().incomplete_topics = vec![
+        "C ABI glyph failure after output dispatch.".to_owned(),
+        "CFF charstring error after invalid operator decoding.".to_owned(),
+    ];
+    repeated.units[2].attempts.push(partial);
+    assert_eq!(
+        guide_uncovered_topics(&repeated),
+        vec!["CFF charstring error after invalid operator decoding.".to_owned()],
+        "a paraphrased continuation gap must not append another unit"
     );
 }
 
@@ -1384,7 +1573,7 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
     assert_eq!(recovered.status, Status::Interrupted);
     assert!(recovered.active_run_id.is_none());
     assert!(unit_complete(&recovered.units[0]));
-    assert_eq!(unit_status(&recovered.units[1]), "interrupted");
+    assert_eq!(unit_status(&recovered.units[1], false), "interrupted");
     let question = continuation(&f.storage, &recovered, 1).unwrap();
     assert!(question.contains("The previous attempt published no sections."));
     assert!(!question.contains("preserve the already saved sections"));

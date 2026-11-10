@@ -31,9 +31,15 @@ fn explicit_retry_used(record: &Record) -> bool {
         .any(|attempt| !attempt.automatic_retry)
 }
 
+fn gaps_resolved_by_units(record: &Record) -> bool {
+    let resolved_units = super::resolved_unit_states(record);
+    super::opening_resolved_by_units(record, &resolved_units)
+}
+
 pub(super) fn automatic_retry_eligible(record: &Record) -> bool {
     record.status != Status::Stopped
         && incomplete(record)
+        && !gaps_resolved_by_units(record)
         && !automatic_retry_used(record)
         && !explicit_retry_used(record)
         && latest(record)
@@ -42,7 +48,10 @@ pub(super) fn automatic_retry_eligible(record: &Record) -> bool {
 }
 
 fn explicit_retry_eligible(record: &Record) -> bool {
-    incomplete(record) && !automatic_retry_eligible(record) && !explicit_retry_used(record)
+    incomplete(record)
+        && !gaps_resolved_by_units(record)
+        && !automatic_retry_eligible(record)
+        && !explicit_retry_used(record)
 }
 
 pub(super) fn remaining_operations(record: &Record) -> usize {
@@ -53,7 +62,7 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
                 && record.planning_retry_count < 2,
         );
     }
-    let pending = |unit: &Unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS;
+    let resolved_units = super::resolved_unit_states(record);
     let initial_opening = record
         .opening
         .as_ref()
@@ -61,7 +70,15 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
     usize::from(initial_opening)
         + usize::from(automatic_retry_eligible(record))
         + usize::from(explicit_retry_eligible(record))
-        + record.units.iter().filter(|unit| pending(unit)).count()
+        + record
+            .units
+            .iter()
+            .enumerate()
+            .filter(|(index, unit)| {
+                !resolved_units.get(*index).copied().unwrap_or(false)
+                    && unit.attempts.len() < MAX_ATTEMPTS
+            })
+            .count()
 }
 
 /// Keep capacity for all attempts this guide may still publish, plus its saved

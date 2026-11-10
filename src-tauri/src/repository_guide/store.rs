@@ -708,6 +708,10 @@ pub(in crate::repository_guide) fn prepare_continuation(
         if current.revision != revision || current.active_run_id.is_some() {
             return Err("The guide changed while continuation was being prepared. Inspect its saved progress before continuing.".into());
         }
+        if super::terminal_guide_status(current) == Status::Ready {
+            current.status = Status::Ready;
+            return Ok(());
+        }
         if opening_continuation::remaining_operations(current) == 0
             && !super::plan_extension_eligible(current)
         {
