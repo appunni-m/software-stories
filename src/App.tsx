@@ -24,7 +24,7 @@ import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { shortGitRef } from './lib/gitRefs';
-import { createLargeFileExplanation, pendingLargeFileExplanation, requiresBoundedFileExplanation, type PendingLargeFileExplanation } from './lib/largeFileExplanation';
+import { createFileExplanation, pendingFileExplanation, type PendingFileExplanation } from './lib/fileExplanation';
 import type { LargeFileDiscoveryHandoff } from './lib/sourceDiscovery';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
@@ -342,17 +342,17 @@ function App() {
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
-  const [pendingLargeFileRequest, setPendingLargeFileRequest] = useState<PendingLargeFileExplanation | null>(null);
+  const [pendingFileQuestion, setPendingFileQuestion] = useState<PendingFileExplanation | null>(null);
   const [pendingCodeLensQuestion, setPendingCodeLensQuestion] = useState<PendingCodeLensQuestion | null>(null);
   useEffect(() => {
-    if (!pendingLargeFileRequest) return;
+    if (!pendingFileQuestion) return;
     const route = navigation.current;
-    if (route.workspace !== 'guide-plan' || route.projectId !== pendingLargeFileRequest.projectId
-      || route.snapshotId !== pendingLargeFileRequest.snapshotId
-      || route.relativePath !== pendingLargeFileRequest.targetPath) {
-      setPendingLargeFileRequest(null);
+    if (route.workspace !== 'guide-plan' || route.projectId !== pendingFileQuestion.projectId
+      || route.snapshotId !== pendingFileQuestion.snapshotId
+      || route.relativePath !== pendingFileQuestion.targetPath) {
+      setPendingFileQuestion(null);
     }
-  }, [pendingLargeFileRequest, navigation.current.workspace, navigation.current.projectId,
+  }, [pendingFileQuestion, navigation.current.workspace, navigation.current.projectId,
     navigation.current.snapshotId, navigation.current.relativePath]);
   useEffect(() => {
     if (!pendingCodeLensQuestion) return;
@@ -1313,7 +1313,7 @@ function App() {
   };
 
   const openDiscoveredLargeFile = (handoff: LargeFileDiscoveryHandoff) => {
-    const pending = pendingLargeFileExplanation({
+    const pending = pendingFileExplanation({
       id: crypto.randomUUID(),
       projectId: handoff.projectId,
       snapshotId: handoff.snapshotId,
@@ -1322,7 +1322,7 @@ function App() {
       question: handoff.question,
       sourceDiscoveryNotes: handoff.discoveryNotes,
     });
-    setPendingLargeFileRequest(pending);
+    setPendingFileQuestion(pending);
     setProviderDialog(null);
     setNavigation((state) => navigateToRoute(state, {
       ...state.current,
@@ -1343,56 +1343,36 @@ function App() {
       return;
     }
     const sourceManifest = snapshotManifest?.summary.snapshotId === selectedSnapshot.snapshotId ? snapshotManifest : null;
-    const targetFile = sourceManifest?.files.find((file) => file.path === targetPath);
-    const targetSource = sourceDocument?.snapshotId === selectedSnapshot.snapshotId
-      && sourceDocument.path === targetPath ? sourceDocument : null;
-    const requestId = crypto.randomUUID();
-    const largeFileRequest = isNativeRuntime()
-      ? targetFile
-        ? createLargeFileExplanation({
-          id: requestId,
-          projectId: currentProject.projectId,
-          snapshotId: selectedSnapshot.snapshotId,
-          targetPath,
-          selectedPaths,
-          files: sourceManifest!.files,
-        })
-        : targetSource && targetSource.sha256 && requiresBoundedFileExplanation({
-          kind: 'file', contentKind: 'text', secretLike: false, sizeBytes: targetSource.sizeBytes,
-        })
-          ? pendingLargeFileExplanation({
-            id: requestId,
-            projectId: currentProject.projectId,
-            snapshotId: selectedSnapshot.snapshotId,
-            targetPath,
-            paths: selectedPaths,
-          })
-          : null
-      : null;
-    if (largeFileRequest) {
-      setPendingLargeFileRequest(largeFileRequest);
-      setProviderDialog(null);
-      setNavigation((state) => navigateToRoute(state, {
-        ...state.current,
-        workspace: 'guide-plan',
+    const fileExplanation = isNativeRuntime() && sourceManifest
+      ? createFileExplanation({
+        id: crypto.randomUUID(),
         projectId: currentProject.projectId,
         snapshotId: selectedSnapshot.snapshotId,
-        relativePath: targetPath,
-        sourceRange: undefined,
-        sourceRangeIssue: undefined,
-        atlasSelection: undefined,
-        focusTarget: 'workspace-composer',
-      }));
+        targetPath,
+        selectedPaths,
+        files: sourceManifest.files,
+      })
+      : null;
+    if (!fileExplanation) {
+      setNotice({
+        title: 'This file cannot be explained from the selected snapshot',
+        message: 'Choose a captured text file and try again. Nothing was shared.',
+      });
       return;
     }
-    providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setProviderDialog({
-      kind: 'review',
+    setPendingFileQuestion(fileExplanation);
+    setProviderDialog(null);
+    setNavigation((state) => navigateToRoute(state, {
+      ...state.current,
+      workspace: 'guide-plan',
       projectId: currentProject.projectId,
       snapshotId: selectedSnapshot.snapshotId,
-      targetPath,
-      selectedPaths,
-    });
+      relativePath: targetPath,
+      sourceRange: undefined,
+      sourceRangeIssue: undefined,
+      atlasSelection: undefined,
+      focusTarget: 'workspace-composer',
+    }));
   };
 
   const explainCodeLensRangeWithProvider = (targetPath: string, range: SourceLineRange) => {
@@ -2063,8 +2043,8 @@ function App() {
               </div>
             ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
               sharingOpen={repositorySharingOpen} onSharingOpenChange={setRepositorySharingOpen}
-              pendingLargeFileExplanation={pendingLargeFileRequest}
-              onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileRequest((current) => current?.id === id ? null : current)}
+              pendingFileExplanation={pendingFileQuestion}
+              onPendingFileExplanationConsumed={(id) => setPendingFileQuestion((current) => current?.id === id ? null : current)}
               pendingCodeLensQuestion={pendingCodeLensQuestion}
               onPendingCodeLensQuestionConsumed={(id) => setPendingCodeLensQuestion((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}

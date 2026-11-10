@@ -1,9 +1,6 @@
 import type { CapturedFile } from './commands';
 
-/** Whole-file generation sends source verbatim and shares the native 250 KB request cap. */
-export const WHOLE_FILE_EXPLANATION_LIMIT = 250_000;
-
-export interface PendingLargeFileExplanation {
+export interface PendingFileExplanation {
   id: string;
   projectId: string;
   snapshotId: string;
@@ -13,10 +10,10 @@ export interface PendingLargeFileExplanation {
   sourceDiscoveryNotes?: string[];
 }
 
-/** Build a bounded-reader handoff when the target is known but the manifest is
- * still loading. The workspace validates every path against that snapshot
- * before it creates source contexts. */
-export function pendingLargeFileExplanation(input: {
+type CapturedExplanationFile = Pick<CapturedFile, 'path' | 'kind' | 'contentKind' | 'secretLike' | 'sha256'>;
+
+/** Create a handoff without copying source bytes into the renderer or chat record. */
+export function pendingFileExplanation(input: {
   id: string;
   projectId: string;
   snapshotId: string;
@@ -24,7 +21,7 @@ export function pendingLargeFileExplanation(input: {
   paths?: readonly string[];
   question?: string;
   sourceDiscoveryNotes?: readonly string[];
-}): PendingLargeFileExplanation {
+}): PendingFileExplanation {
   const paths = [...new Set([input.targetPath, ...(input.paths ?? [])])].slice(0, 12);
   return {
     id: input.id,
@@ -37,27 +34,19 @@ export function pendingLargeFileExplanation(input: {
   };
 }
 
-type CapturedExplanationFile = Pick<CapturedFile, 'path' | 'kind' | 'contentKind' | 'secretLike' | 'sizeBytes' | 'sha256'>;
-
-/** Larger captured text should use the workspace's bounded source-range reader. */
-export function requiresBoundedFileExplanation(file: Pick<CapturedFile, 'kind' | 'contentKind' | 'secretLike' | 'sizeBytes'> | undefined): boolean {
-  return file?.kind === 'file'
-    && file.contentKind === 'text'
-    && !file.secretLike
-    && file.sizeBytes > WHOLE_FILE_EXPLANATION_LIMIT;
-}
-
-/** Build the handoff into workspace range retrieval without copying file contents. */
-export function createLargeFileExplanation(input: {
+type FileExplanationInput = {
   id: string;
   projectId: string;
   snapshotId: string;
   targetPath: string;
   selectedPaths?: readonly string[];
   files: readonly CapturedExplanationFile[];
-}): PendingLargeFileExplanation | null {
+};
+
+/** Route a captured source-file question into the saved workspace conversation. */
+export function createFileExplanation(input: FileExplanationInput): PendingFileExplanation | null {
   const target = input.files.find((file) => file.path === input.targetPath);
-  if (!requiresBoundedFileExplanation(target)) return null;
+  if (!target || target.kind !== 'file' || target.contentKind !== 'text' || target.secretLike) return null;
   const readablePaths = new Set(input.files
     .filter((file) => file.kind === 'file' && file.contentKind === 'text' && !file.secretLike)
     .map((file) => file.path));
@@ -65,7 +54,7 @@ export function createLargeFileExplanation(input: {
     .filter((path) => readablePaths.has(path))
     .slice(0, 12);
   if (!paths.includes(input.targetPath)) return null;
-  return pendingLargeFileExplanation({
+  return pendingFileExplanation({
     id: input.id,
     projectId: input.projectId,
     snapshotId: input.snapshotId,
@@ -74,9 +63,9 @@ export function createLargeFileExplanation(input: {
   });
 }
 
-/** Resolve only snapshot paths and hashes for the workspace; source bytes are fetched through bounded range tools. */
-export function largeFileExplanationContexts(
-  pending: Pick<PendingLargeFileExplanation, 'paths'>,
+/** Resolve only captured path/hash metadata; source bytes come from range reads. */
+export function fileExplanationContexts(
+  pending: Pick<PendingFileExplanation, 'paths'>,
   files: readonly CapturedExplanationFile[],
 ): { path: string; sha256: string }[] {
   const byPath = new Map(files

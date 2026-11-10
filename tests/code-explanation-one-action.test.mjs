@@ -81,11 +81,25 @@ test('the captured-source action resumes in the same conversation and asks only 
   assert.doesNotMatch(handler,/setProviderDialog\(/,'the action must not open a second provider review');
 
   const replayStart=workspace.indexOf('const handledCodeLensQuestion=useRef');
-  const replayEnd=workspace.indexOf("  useEffect(()=>{\n    const pending=props.pendingLargeFileExplanation;",replayStart);
+  const replayEnd=workspace.indexOf("  useEffect(()=>{\n    const pending=props.pendingFileExplanation;",replayStart);
   assert.ok(replayStart>=0&&replayEnd>replayStart,'missing pending Code Lens replay');
   const replay=workspace.slice(replayStart,replayEnd);
   assert.match(replay,/source\.path!==pending\.path/);
   assert.match(replay,/source\.sha256!==pending\.sourceSha256/);
   assert.match(replay,/explainSafely\(\{path:pending\.path,sha256:pending\.sourceSha256,from:pending\.startLine,to:pending\.endLine\}\)/);
   assert.match(replay,/onPendingCodeLensQuestionConsumed\?\.\(pending\.id\)/);
+});
+
+test('file explanations enter the saved workspace flow without a per-request review dialog',()=>{
+  const start=app.indexOf('const reviewFileWithProvider =');
+  const end=app.indexOf('const explainCodeLensRangeWithProvider =',start);
+  assert.ok(start>=0&&end>start,'missing file explanation action');
+  const handler=app.slice(start,end);
+  assert.match(handler,/createFileExplanation\(/);
+  assert.match(handler,/setPendingFileQuestion\(fileExplanation\)/);
+  assert.match(handler,/workspace: 'guide-plan'/);
+  assert.doesNotMatch(handler,/setProviderDialog\(\{\s*kind: 'review'/,
+    'ordinary file questions must use the current saved workspace conversation');
+  assert.match(handler,/Choose a captured text file and try again\. Nothing was shared\./,
+    'unsupported or unavailable paths fail locally without source sharing');
 });

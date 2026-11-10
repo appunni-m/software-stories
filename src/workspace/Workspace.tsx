@@ -37,7 +37,7 @@ import { errorMessageOr, explanationErrorMessage, explanationFailureMessage, gui
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
 import { featuredGuideTurnId, groupUnavailablePublishedSections, guideStackTurns, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, openWorkspaceRevision, savedAnswerAvailability, shouldSequencePublishedAnswer, unavailableGuideRecovery, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
-import { largeFileExplanationContexts } from '../lib/largeFileExplanation';
+import { fileExplanationContexts, type PendingFileExplanation } from '../lib/fileExplanation';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, rememberAnswerVersionIfCurrent, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchHit, type CodeSearchMode, type IndexLimitOmissions } from './codeSearch';
@@ -62,8 +62,8 @@ interface Props {
   onRememberSearch?:(query:string,mode:CodeSearchMode,activity:'files'|'search'|'changes'|'history')=>void;
   comparisonRefs?: { baseRef?:string; headRef?:string; resolvedHeadOid?:string };
   sharingOpen:boolean; onSharingOpenChange:(open:boolean)=>void;
-  pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string; sourceDiscoveryNotes?:string[] } | null;
-  onPendingLargeFileExplanationConsumed?:(id:string)=>void;
+  pendingFileExplanation?: PendingFileExplanation | null;
+  onPendingFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onReview:(revision:ChapterRevision)=>void;
   onOpenFreshnessRange?:(range:ChapterFreshnessLineRange)=>void;
@@ -393,8 +393,8 @@ export function DeveloperWorkspace(props:Props) {
   const [draftNotice,setDraftNotice] = useState<string|null>(null);
   const [composerDragOver,setComposerDragOver] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
-  const handledLargeFileExplanation = useRef<string|null>(null);
-  const requestedConnectionForLargeFileExplanation = useRef<string|null>(null);
+  const handledFileExplanation = useRef<string|null>(null);
+  const requestedConnectionForFileExplanation = useRef<string|null>(null);
   const autoOpenedInitialFile = useRef(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const activeFileDrag = useRef<ActiveWorkspaceFileDrag|null>(null);
@@ -853,9 +853,9 @@ export function DeveloperWorkspace(props:Props) {
   },[props.pendingCodeLensQuestion,props.onPendingCodeLensQuestionConsumed,props.routePath,workspace,
     projectId,snapshotId,source?.path,source?.sha256,sourceError,sourceBusy,generationPaused]);
   useEffect(()=>{
-    const pending=props.pendingLargeFileExplanation;
+    const pending=props.pendingFileExplanation;
     if(generationPaused||!pending||props.workspace!=='guide-plan'||props.routePath!==pending.targetPath||pending.projectId!==projectId||pending.snapshotId!==snapshotId
-      ||handledLargeFileExplanation.current===pending.id)return;
+      ||handledFileExplanation.current===pending.id)return;
     if(generationBackend!=='codex'){
       setConnectionNotice(generationBackend===null
         ? 'The saved AI connection could not be read. Choose a connection in Connections to explain this file.'
@@ -864,30 +864,30 @@ export function DeveloperWorkspace(props:Props) {
     }
     if(!connection.status?.authenticated){
       setConnectionNotice('Connect Codex in Connections to continue this file explanation.');
-      if(requestedConnectionForLargeFileExplanation.current!==pending.id){
-        requestedConnectionForLargeFileExplanation.current=pending.id;
+      if(requestedConnectionForFileExplanation.current!==pending.id){
+        requestedConnectionForFileExplanation.current=pending.id;
         props.onSettings();
       }
       return;
     }
     setConnectionNotice(null);
-    const contexts=largeFileExplanationContexts(pending,props.manifest.files);
+    const contexts=fileExplanationContexts(pending,props.manifest.files);
     if(!contexts.some((context)=>context.path===pending.targetPath)){
-      handledLargeFileExplanation.current=pending.id;
+      handledFileExplanation.current=pending.id;
       setConsentError('This file is not available as readable text in the selected snapshot.');
-      props.onPendingLargeFileExplanationConsumed?.(pending.id);
+      props.onPendingFileExplanationConsumed?.(pending.id);
       return;
     }
-    handledLargeFileExplanation.current=pending.id;
-    requestedConnectionForLargeFileExplanation.current=null;
+    handledFileExplanation.current=pending.id;
+    requestedConnectionForFileExplanation.current=null;
     const turnId=appendQuestion(projectId,snapshotId,pending.question,contexts,'guide',undefined,pending.sourceDiscoveryNotes);
     setSearchFocused(false);setNarrowPane('explanation');
     if(state.grantId)void runQuestion(projectId,snapshotId,turnId,state.grantId);
     else{setConsentError(null);setConsentTurn(turnId);}
-    props.onPendingLargeFileExplanationConsumed?.(pending.id);
+    props.onPendingFileExplanationConsumed?.(pending.id);
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
-  },[props.pendingLargeFileExplanation,props.workspace,props.routePath,props.manifest.files,props.onSettings,
-    props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,generationBackend,connection.status?.authenticated,state.grantId,generationPaused]);
+  },[props.pendingFileExplanation,props.workspace,props.routePath,props.manifest.files,props.onSettings,
+    props.onPendingFileExplanationConsumed,projectId,snapshotId,generationBackend,connection.status?.authenticated,state.grantId,generationPaused]);
   function retryTurn(turn:Turn) {
     if(generationPaused)return;
     if(!requireCodexConnection())return;
