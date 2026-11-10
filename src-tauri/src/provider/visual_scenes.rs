@@ -4,7 +4,7 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v37";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v38";
 pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v83";
 pub(crate) const READER_LANGUAGE_POLICY_VERSION: &str = "reader-language-v1";
 
@@ -23,7 +23,7 @@ Every generated visual scene must have at least one node linked to that scene's 
 
 const BEHAVIOR_TEACHING: &str = r#"State the decision rule before examples; explain every source-supported outcome, including zero/nonzero and empty-result behavior."#;
 
-const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent the behavior being explained. Distinguish rejected, missing, malformed and successfully handled inputs only when the cited implementation shows those cases. A comment, import, identifier or default constructor does not prove later consumer behavior. For downstream effects, cite the consumer plus the producing path and conditions; otherwise leave that effect unexplored. References and identifiers do not prove meaning."#;
+const EVIDENCE_MEANING: &str = r#"Check guards, failures, sibling branches and later conditions. Distinguish rejected, missing, malformed and successful inputs only when code shows them. Claims saying only, always or never require every relevant branch and updated field or dimension; otherwise mark partial. Comments, imports, identifiers and defaults do not prove consumer behavior. Cite downstream consumers and producing conditions or omit effects. Names and references do not prove meaning."#;
 
 pub(crate) const READER_LANGUAGE_POLICY: &str = r#"Reader language policy (reader-language-v1): Write all reader-facing text, including titles, claims, summaries, caveats, visual labels and narration, in the language explicitly requested by the user; otherwise use the natural language of the user's question. If the request contains no clear language signal, use English. Keep source identifiers, file paths, code, literals, exact citations and required schema keys unchanged. Explain code tokens in the requested language rather than translating or reading the tokens aloud."#;
 
@@ -357,12 +357,18 @@ pub(crate) mod tests {
     fn generation_guidance_traces_guards_failures_and_cited_consumers() {
         for instructions in [super::instructions(), teaching_instructions()] {
             assert!(instructions.contains(
-                "A comment, import, identifier or default constructor does not prove later consumer behavior"
+                "Comments, imports, identifiers and defaults do not prove consumer behavior"
             ));
-            assert!(instructions.contains("Trace the guards and failures"));
+            assert!(instructions.contains(
+                "Check guards, failures, sibling branches and later conditions"
+            ));
             assert!(
-                instructions.contains("cite the consumer plus the producing path and conditions")
+                instructions.contains("Cite downstream consumers and producing conditions")
             );
+            assert!(
+                instructions.contains("every relevant branch and updated field or dimension")
+            );
+            assert!(instructions.contains("otherwise mark partial"));
         }
     }
 
@@ -403,6 +409,7 @@ pub(crate) mod tests {
             "Use illustration only for an invented hypothetical input or output",
             "this version uses inert app-owned HTML/CSS primitives",
             "Preserve guards, alternatives, failures and uncertainty",
+            "Claims saying only, always or never require every relevant branch and updated field or dimension",
         ] {
             assert!(
                 shared.contains(requirement),

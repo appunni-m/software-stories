@@ -66,7 +66,7 @@ The reader independently checks the stored presentation before rendering.
 
 The current source contract uses story policy
 `ai-html-compositions-v83`, Visual design method and composition review `v73`, teaching policy
-`meaning-first-v37`, and reader language policy `reader-language-v1`. These
+`meaning-first-v38`, and reader language policy `reader-language-v1`. These
 policy identifiers come from
 `src-tauri/src/provider/visual_scenes.rs`; a native regression checks that this
 reference stays synchronized with the implementation. The v83 authoring prompt
@@ -75,14 +75,17 @@ are reserved for actual choices, while transformations and proven sequences use
 their matching visual forms. The typed schema and source-evidence checks remain
 the enforcement boundary. The teaching contract starts
 from a real input or situation, follows only source-supported changes and
-outcomes, and gives each scene one behavior to make visible. Section and scene
-titles name that behavior or learning question in plain language rather than
-using a bare format tag or terse classification. Scene narration targets 20–35 spoken words, keeps simple behavior to one or two
-short sentences, and allows up to 3 short sentences and 420 UTF-8 bytes when the
-real path needs room to connect its input, decision
-or change, visible cue, and caller-visible consequence. Native admission rejects
-longer speech and offers a bounded correction. If a behavior needs more room,
-split it into ordered claims/scenes without omitting outcomes. At first spoken
+outcomes, checks sibling branches before making exclusivity claims, and gives
+each scene one behavior to make visible. Section and scene titles name that
+behavior or learning question in plain language rather than a bare format tag
+or terse classification.
+
+Scene narration targets 20–35 spoken words, keeping simple behavior to one or
+two short sentences. It allows up to 3 short sentences and 420 UTF-8 bytes when
+the real path needs room to connect its input, decision or change, visible cue,
+and caller-visible consequence. Native admission rejects longer speech and
+offers a bounded correction. If a behavior needs more room, split it into
+ordered claims/scenes without omitting outcomes. At first spoken
 use, briefly unpack specialist terms using only the cited implementation. For a
 failure or fallback, say what stops or continues and what the caller receives;
 do not suggest a fix unless the cited code supports it. The complete

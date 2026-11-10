@@ -859,10 +859,12 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(!instructions.contains("then focus on the remaining research outline"));
     assert!(
         instructions.contains(
-            "A comment, import, identifier or default constructor does not prove later consumer behavior"
+            "Comments, imports, identifiers and defaults do not prove consumer behavior"
         )
     );
-    assert!(instructions.contains("Trace the guards and failures"));
+    assert!(instructions.contains(
+        "Check guards, failures, sibling branches and later conditions"
+    ));
     assert!(!instructions.contains("parser fallback starts after those checks"));
     assert!(instructions.contains(
         "For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths"
@@ -957,7 +959,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v37");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v38");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains(
         "If no scene benefits from a visual, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim"
