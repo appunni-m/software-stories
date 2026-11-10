@@ -148,6 +148,41 @@ pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
         .is_some_and(|root| root.kind == ElementKind::Selector)
 }
 
+/// Catch explicit point/vector/outline mapping language that is authored with
+/// a generic composition or graph. This is a narrow wording check; source
+/// review remains responsible for deciding whether the behavior is a mapping.
+fn explicitly_maps_points(claim: &str, title: &str, narration: &str) -> bool {
+    let text = format!("{claim} {title} {narration}").to_lowercase();
+    let subject = |word: &str| {
+        matches!(
+            word,
+            "point" | "points" | "vector" | "vectors" | "outline" | "outlines"
+        )
+    };
+    let mapping = |word: &str| {
+        ["map", "remap", "rebas", "transform", "translat"]
+            .iter()
+            .any(|stem| word.starts_with(stem))
+    };
+    text.split(['.', '!', '?', ';', ':']).any(|phrase| {
+        let words: Vec<_> = phrase
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .collect();
+        (2..=4).any(|width| {
+            words.windows(width).any(|window| {
+                window.iter().any(|word| subject(word)) && window.iter().any(|word| mapping(word))
+            })
+        })
+    })
+}
+
+fn has_point_flow_root(elements: &[SceneElement]) -> bool {
+    elements
+        .first()
+        .is_some_and(|root| root.kind == ElementKind::PointFlow)
+}
+
 /// Apply the current authored-layout rules to new content and every replayed
 /// revision so a saved scene cannot retain an obsolete presentation policy.
 pub(crate) fn validate_semantic_layouts(
@@ -194,11 +229,24 @@ pub(crate) fn validate_semantic_layouts(
 /// separate from `validate`, which is also used to replay saved user content.
 pub(crate) fn validate_authored_composition_quality(
     presentation: &ScenePresentation,
+    claims: &[ChapterClaim],
 ) -> Result<(), String> {
     if !generic_layout_positions(presentation).is_empty() {
         return Err(
             "This scene only arranges generic blocks. Choose a behavior-specific form such as a branch, timeline, transformation, state comparison, data shape, or justified graph; use narration only when no honest visual helps.".into(),
         );
+    }
+    for scene in &presentation.scenes {
+        let claim = claims
+            .get(scene.claim_index)
+            .ok_or("The authored scene refers to a missing claim.")?;
+        if explicitly_maps_points(&claim.prose, &scene.title, &scene.narration)
+            && (scene.mode != SceneMode::Composition || !has_point_flow_root(&scene.elements))
+        {
+            return Err(
+                "Point, vector, and outline mappings need a pointFlow composition at the root; show the source-backed mapping without invented coordinates.".into(),
+            );
+        }
     }
     Ok(())
 }
@@ -1187,6 +1235,37 @@ mod tests {
     }
 
     #[test]
+    fn newly_authored_point_mappings_require_a_root_point_flow_composition() {
+        let (nodes, mut claims, mut presentation) = fixture();
+        claims[0].prose = "The implementation rebases each outline point into the new contour frame without scaling.".into();
+        presentation.scenes[0].mode = SceneMode::Composition;
+        presentation.scenes[0].elements[0].kind = ElementKind::Transform;
+
+        // Previously saved content remains replayable after this authoring
+        // rule changes; only new proposals need to meet the current form.
+        validate_semantic_layouts(&presentation, &claims, &nodes).unwrap();
+        assert!(
+            validate_authored_composition_quality(&presentation, &claims)
+                .unwrap_err()
+                .contains("pointFlow composition at the root")
+        );
+
+        presentation.scenes[0].elements[0].kind = ElementKind::PointFlow;
+        validate_authored_composition_quality(&presentation, &claims).unwrap();
+    }
+
+    #[test]
+    fn point_flow_requirement_does_not_match_unrelated_point_or_mapping_mentions() {
+        let (_nodes, mut claims, mut presentation) = fixture();
+        presentation.scenes[0].elements[0].kind = ElementKind::Transform;
+        claims[0].prose = "The point of this helper is to preserve the input width.".into();
+        validate_authored_composition_quality(&presentation, &claims).unwrap();
+
+        claims[0].prose = "The implementation maps the contour into a compact table.".into();
+        validate_authored_composition_quality(&presentation, &claims).unwrap();
+    }
+
+    #[test]
     fn exact_source_values_and_mixed_graph_html_scenes_roundtrip() {
         let (nodes, claims, presentation) = fixture();
         validate(&presentation, &nodes, &claims).unwrap();
@@ -1501,7 +1580,7 @@ mod tests {
         ];
         validate(&presentation, &nodes, &claims).unwrap();
         assert!(
-            validate_authored_composition_quality(&presentation)
+            validate_authored_composition_quality(&presentation, &claims)
                 .unwrap_err()
                 .contains("only arranges generic blocks")
         );
@@ -1541,7 +1620,7 @@ mod tests {
             },
         ];
         validate(&presentation, &nodes, &claims).unwrap();
-        validate_authored_composition_quality(&presentation).unwrap();
+        validate_authored_composition_quality(&presentation, &claims).unwrap();
     }
 
     #[test]
