@@ -52,6 +52,43 @@ test('an unsupported saved Guide reports a fresh-guide recovery and remains unto
   assert.equal(turns(h).length, 0);
 });
 
+test('unavailable saved Guide notices keep one identity across restores and resolve when none remain', async () => {
+  let guideList = {
+    guides: [], unavailableCount: 2,
+    unavailableGuides: [
+      { id: 'old-guide-one', reason: 'unsupportedFormat' },
+      { id: 'old-guide-two', reason: 'unreadable' },
+    ],
+  };
+  const h = workspaceStoreHarness(async (name) => {
+    if (name === 'list_repository_guides') return guideList;
+    if (name === 'list_workspace_answers') return [];
+    assert.fail(`Unexpected command ${name}`);
+  }, { listWorkspaceGenerationJobsForScope: async () => [] });
+  const notices = [];
+  const resolved = [];
+  h.onWindowEvent('code-atlas:workspace-notice', (event) => notices.push(event.detail));
+  h.onWindowEvent('code-atlas:workspace-notice-resolved', (event) => resolved.push(event.detail));
+
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  await flushLocalReads();
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0].occurrenceId, 'unavailable-repository-guides');
+  assert.equal(notices[1].occurrenceId, notices[0].occurrenceId);
+  assert.equal(notices[1].message, notices[0].message);
+
+  guideList = { guides: [], unavailableCount: 0, unavailableGuides: [] };
+  await flushLocalReads();
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+
+  assert.equal(resolved.length, 1);
+  assert.equal(resolved[0].projectId, 'project');
+  assert.equal(resolved[0].snapshotId, 'snapshot');
+  assert.equal(resolved[0].occurrenceId, notices[0].occurrenceId);
+});
+
 test('answer restoration reads only this repository snapshot job ledger', async () => {
   let jobLists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {

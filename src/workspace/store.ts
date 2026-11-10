@@ -654,27 +654,18 @@ function announceUnavailableRepositoryGuides(
   project: string,
   snapshot: string,
   unavailableCount: number,
-  unavailableGuides: RepositoryGuideList['unavailableGuides'],
 ) {
-  if (unavailableCount <= 0) return;
-  const unsupportedCount = unavailableGuides.filter((guide) => guide.reason === 'unsupportedFormat').length;
-  const unreadableCount = unavailableGuides.filter((guide) => guide.reason === 'unreadable').length;
-  const unclassifiedCount = Math.max(0, unavailableCount - unavailableGuides.length);
-  const explanations = [
-    unsupportedCount > 0
-      ? `${unsupportedCount} saved guide${unsupportedCount === 1 ? '' : 's'} use an older format this version no longer supports`
-      : '',
-    unreadableCount > 0
-      ? `${unreadableCount} saved guide record${unreadableCount === 1 ? '' : 's'} could not be read or restored`
-      : '',
-    unclassifiedCount > 0
-      ? `${unclassifiedCount} additional saved record${unclassifiedCount === 1 ? '' : 's'} on this Mac could not be matched to this repository`
-      : '',
-  ].filter(Boolean);
+  const occurrenceId = 'unavailable-repository-guides';
+  if (unavailableCount <= 0) {
+    window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved', {
+      detail: { projectId: project, snapshotId: snapshot, occurrenceId },
+    }));
+    return;
+  }
   window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
     title:'Some saved guides could not be reopened',
-    message:`${explanations.join('. ')}. The original records remain untouched; nothing was migrated or regenerated. Start a fresh guide to explain the current repository.`,
-    projectId:project,snapshotId:snapshot,
+    message:'Some saved guides could not be reopened. Their original records remain on this Mac; nothing was changed. Start a new guide from this snapshot.',
+    projectId:project,snapshotId:snapshot,occurrenceId,
   }}));
 }
 async function restoreRepositoryGuides(project: string, snapshot: string) {
@@ -690,7 +681,7 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
       unavailableGuides.push({id:guide.id,reason:'unreadable'});
     }
   }
-  announceUnavailableRepositoryGuides(project,snapshot,unavailableCount,unavailableGuides);
+  announceUnavailableRepositoryGuides(project,snapshot,unavailableCount);
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */
