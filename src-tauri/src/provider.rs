@@ -6198,11 +6198,11 @@ fn build_section_update_context(
         .ok_or_else(|| {
             failure_review("Freshness evidence for the selected section is unavailable.".to_owned())
         })?;
-    let eligible = if same_snapshot {
-        section_freshness.status == SectionFreshnessStatus::Current
-    } else {
-        section_freshness.status == SectionFreshnessStatus::Stale
-    };
+    let eligible = section_update_status_is_eligible(
+        section_freshness.status,
+        same_snapshot,
+        repair_session.is_some(),
+    );
     if !eligible {
         return Err(failure_review(if same_snapshot {
             "Only a current accepted section can be revised against the same immutable snapshot."
@@ -6446,6 +6446,22 @@ SELECTED RELATIONSHIP EVIDENCE JSON:
     context.generation_config = section_update_generation_config();
     context.source_bytes = total_context_bytes;
     Ok(context)
+}
+
+/// A NeedsReview section can be selected only inside a repair session whose
+/// binding was verified above. Without that session, only source-proven Stale
+/// sections are eligible for cross-snapshot repair.
+fn section_update_status_is_eligible(
+    status: SectionFreshnessStatus,
+    same_snapshot: bool,
+    verified_repair_session: bool,
+) -> bool {
+    if same_snapshot {
+        status == SectionFreshnessStatus::Current
+    } else {
+        status == SectionFreshnessStatus::Stale
+            || (verified_repair_session && status == SectionFreshnessStatus::NeedsReview)
+    }
 }
 
 fn section_declared_paths(section: &chapters::ChapterSection) -> BTreeSet<String> {
@@ -9894,6 +9910,43 @@ mod tests {
                 kind: ProviderFailureKind::ProviderResponseTooLarge,
                 ..
             })
+        ));
+    }
+
+    #[test]
+    fn needs_review_section_repair_requires_a_verified_cross_snapshot_session() {
+        assert!(section_update_status_is_eligible(
+            SectionFreshnessStatus::Stale,
+            false,
+            false,
+        ));
+        assert!(!section_update_status_is_eligible(
+            SectionFreshnessStatus::NeedsReview,
+            false,
+            false,
+        ));
+        assert!(section_update_status_is_eligible(
+            SectionFreshnessStatus::NeedsReview,
+            false,
+            true,
+        ));
+
+        // Repair sessions are only valid for a changed snapshot. Same-snapshot
+        // revisions remain limited to sections whose evidence is current.
+        assert!(section_update_status_is_eligible(
+            SectionFreshnessStatus::Current,
+            true,
+            false,
+        ));
+        assert!(!section_update_status_is_eligible(
+            SectionFreshnessStatus::NeedsReview,
+            true,
+            false,
+        ));
+        assert!(!section_update_status_is_eligible(
+            SectionFreshnessStatus::Stale,
+            true,
+            false,
         ));
     }
 
