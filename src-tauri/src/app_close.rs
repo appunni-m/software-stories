@@ -220,13 +220,19 @@ fn request(app: &AppHandle, intent: Intent) -> Decision {
 pub(crate) fn handle_event(app: &AppHandle, event: &tauri::RunEvent) {
     match event {
         #[cfg(target_os = "macos")]
-        tauri::RunEvent::Reopen {
-            has_visible_windows: false,
-            ..
-        } => {
+        tauri::RunEvent::Reopen { .. } => {
             if let Some(window) = app.get_webview_window(MAIN) {
-                let _ = window.show();
-                let _ = window.set_focus();
+                for (action, result) in [
+                    ("unminimize", window.unminimize()),
+                    ("show", window.show()),
+                    ("focus", window.set_focus()),
+                ] {
+                    if let Err(error) = result {
+                        eprintln!(
+                            "Code Atlas could not {action} its main window after macOS reopen: {error}"
+                        );
+                    }
+                }
             } else if let Some(config) = app
                 .config()
                 .app
@@ -234,9 +240,22 @@ pub(crate) fn handle_event(app: &AppHandle, event: &tauri::RunEvent) {
                 .iter()
                 .find(|window| window.label == MAIN)
             {
-                if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(app, config) {
-                    let _ = builder.build();
+                match tauri::WebviewWindowBuilder::from_config(app, config) {
+                    Ok(builder) => {
+                        if let Err(error) = builder.build() {
+                            eprintln!(
+                                "Code Atlas could not recreate its main window after macOS reopen: {error}"
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "Code Atlas could not configure its main window after macOS reopen: {error}"
+                        );
+                    }
                 }
+            } else {
+                eprintln!("Code Atlas has no main-window configuration after macOS reopen.");
             }
         }
         tauri::RunEvent::ExitRequested { api, .. } => {
