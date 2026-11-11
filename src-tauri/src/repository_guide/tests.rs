@@ -836,7 +836,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     record.opening = Some(opening);
 
     for topics in [
-        vec!["A stale gap from an earlier attempt.".into()],
+        vec!["An additional gap from an earlier partial attempt.".into()],
         vec!["C ABI error return after dispatching glyph output.".into()],
         vec![
             "C ABI error return after dispatching glyph output.".into(),
@@ -879,6 +879,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         vec![
             "C ABI error return after dispatching glyph output.".to_owned(),
             "The output path remains unclear.".to_owned(),
+            "An additional gap from an earlier partial attempt.".to_owned(),
         ]
     );
     assert!(plan_extension_eligible(&record));
@@ -889,7 +890,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         .sum::<usize>();
     assert_eq!(
         opening_continuation::remaining_answer_records(&record),
-        remaining_unit_attempts + 2 * MAX_ATTEMPTS,
+        remaining_unit_attempts + 3 * MAX_ATTEMPTS,
         "the saved store reserves retries for new continuation units"
     );
 
@@ -897,7 +898,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     let saved = store::read(&f.storage, &record.id).unwrap();
     let extended = append_omission_units(&f.storage, &saved).unwrap();
     let plan = extended.plan.as_ref().unwrap();
-    assert_eq!(plan.units.len(), PREVIOUS_UNIT_LIMIT + 2);
+    assert_eq!(plan.units.len(), PREVIOUS_UNIT_LIMIT + 3);
     assert!(plan.omissions.is_empty());
     assert_eq!(
         plan.units[PREVIOUS_UNIT_LIMIT..]
@@ -906,7 +907,8 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
             .collect::<Vec<_>>(),
         [
             "C ABI error return after dispatching glyph output.",
-            "The output path remains unclear."
+            "The output path remains unclear.",
+            "An additional gap from an earlier partial attempt."
         ]
     );
     assert!(
@@ -920,7 +922,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
 
     let summary = guide_summary(&extended, &f.manifest, Vec::new());
     assert!(summary.omissions.is_empty());
-    assert_eq!(summary.units[0].incomplete_topics.len(), 2);
+    assert_eq!(summary.units[0].incomplete_topics.len(), 3);
     assert_eq!(
         summary.units[PREVIOUS_UNIT_LIMIT].continuation_topic.as_deref(),
         Some("C ABI error return after dispatching glyph output.")
@@ -930,6 +932,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         extended.plan
     );
 
+    let guide_id = extended.id.clone();
     let mut repeated = extended;
     let mut partial = attempt_for_unit(&repeated, PREVIOUS_UNIT_LIMIT, Outcome::Partial);
     partial.summary.as_mut().unwrap().incomplete_topics = vec![
@@ -941,6 +944,59 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         guide_uncovered_topics(&repeated),
         vec!["CFF charstring error after invalid operator decoding.".to_owned()],
         "a paraphrased continuation gap must not append another unit"
+    );
+
+    let mut exhausted = repeated;
+    for attempt_number in 1..MAX_ATTEMPTS {
+        let outcome_is_partial = attempt_number + 1 != MAX_ATTEMPTS;
+        let outcome = if outcome_is_partial { Outcome::Partial } else { Outcome::Failed };
+        let mut attempt = attempt_for_unit(&exhausted, PREVIOUS_UNIT_LIMIT, outcome);
+        if outcome_is_partial {
+            attempt.summary.as_mut().unwrap().incomplete_topics = vec![
+                "C ABI glyph failure after output dispatch.".to_owned(),
+                "CFF charstring error after invalid operator decoding.".to_owned(),
+            ];
+        }
+        exhausted.units[PREVIOUS_UNIT_LIMIT].attempts.push(attempt);
+    }
+    for index in (PREVIOUS_UNIT_LIMIT + 1)..exhausted.units.len() {
+        let completed = attempt_for_unit(&exhausted, index, Outcome::Complete);
+        exhausted.units[index].attempts.push(completed);
+    }
+    exhausted.status = Status::Partial;
+    let exhausted = store::update(&f.storage, &guide_id, |current| {
+        current.units = exhausted.units.clone();
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(
+        guide_uncovered_topics(&exhausted),
+        vec![
+            "C ABI glyph failure after output dispatch.".to_owned(),
+            "CFF charstring error after invalid operator decoding.".to_owned(),
+        ],
+        "an exhausted unresolved continuation can be re-queued with its uncovered gaps"
+    );
+    assert!(plan_extension_eligible(&exhausted));
+
+    let retried = append_omission_units(&f.storage, &exhausted).unwrap();
+    let retried_plan = retried.plan.as_ref().unwrap();
+    assert_eq!(retried_plan.units.len(), PREVIOUS_UNIT_LIMIT + 5);
+    assert_eq!(
+        retried_plan.units[PREVIOUS_UNIT_LIMIT + 3..]
+            .iter()
+            .map(|unit| unit.continuation_topic.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        [
+            "C ABI glyph failure after output dispatch.",
+            "CFF charstring error after invalid operator decoding."
+        ]
+    );
+    assert_eq!(
+        retried.units[PREVIOUS_UNIT_LIMIT].attempts.len(),
+        MAX_ATTEMPTS,
+        "extending a guide preserves the exhausted unit and its attempts"
     );
 }
 

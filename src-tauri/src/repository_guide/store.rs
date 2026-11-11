@@ -494,9 +494,10 @@ fn validate(record: &Record) -> Result<(), String> {
             return Err("The saved guide outline is invalid.".into());
         }
         let mut keys = std::collections::HashSet::new();
-        let mut continuation_topics = std::collections::HashSet::new();
+        let resolved_units = super::resolved_unit_states(record);
+        let mut continuation_topics = std::collections::HashMap::<String, Vec<usize>>::new();
         let mut continuation_seen = false;
-        for (unit, progress) in plan.units.iter().zip(&record.units) {
+        for (index, (unit, progress)) in plan.units.iter().zip(&record.units).enumerate() {
             if unit.continuation_topic.is_some() {
                 continuation_seen = true;
             }
@@ -511,10 +512,27 @@ fn validate(record: &Record) -> Result<(), String> {
                     .collect::<Vec<_>>()
                     .join(" ")
                     .to_lowercase();
+                let duplicate_is_retry_of_exhausted_gap = continuation_topics
+                    .get(&normalized)
+                    .is_none_or(|previous| {
+                        previous.iter().any(|previous_index| {
+                            let previous_progress = &record.units[*previous_index];
+                            previous_progress.attempts.len() >= MAX_ATTEMPTS
+                                && !resolved_units
+                                    .get(*previous_index)
+                                    .copied()
+                                    .unwrap_or(false)
+                                && super::actionable_incomplete_topics(
+                                    &previous_progress.attempts,
+                                )
+                                .iter()
+                                .any(|gap| super::same_uncovered_topic(gap, topic))
+                        })
+                    });
                 text(topic, 1, 240)
                     && unit.question == super::extension_question(topic)
                     && unit.prerequisites.is_empty()
-                    && continuation_topics.insert(normalized.clone())
+                    && duplicate_is_retry_of_exhausted_gap
                     && !plan.omissions.iter().any(|omission| {
                         omission
                             .split_whitespace()
@@ -553,6 +571,17 @@ fn validate(record: &Record) -> Result<(), String> {
                 || progress.attempts.len() > MAX_ATTEMPTS
             {
                 return Err("The saved guide's units or prerequisites changed.".into());
+            }
+            if let Some(topic) = unit.continuation_topic.as_deref() {
+                let normalized = topic
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .to_lowercase();
+                continuation_topics
+                    .entry(normalized)
+                    .or_default()
+                    .push(index);
             }
             keys.insert(unit.key.clone());
             for attempt in &progress.attempts {

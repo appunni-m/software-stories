@@ -759,52 +759,64 @@ fn same_uncovered_topic(left: &str, right: &str) -> bool {
         && shared.saturating_mul(100) >= larger.saturating_mul(40)
 }
 
+/// Keep specific gaps from terminal attempts until a complete answer closes
+/// the older attempt chain. A final failed attempt may carry no detail even
+/// though an earlier partial answer named concrete work still to do.
 fn actionable_incomplete_topics(attempts: &[Attempt]) -> Vec<String> {
-    let Some(summary) = attempts
-        .iter()
-        .rev()
-        .filter_map(|attempt| attempt.summary.as_ref())
-        .find(|summary| summary.outcome != Outcome::Working)
-    else {
-        return Vec::new();
-    };
-    if matches!(summary.outcome, Outcome::Working | Outcome::Complete) {
-        return Vec::new();
-    }
-    summary
-        .incomplete_topics
-        .iter()
-        .filter(|topic| {
-            !matches!(
+    let mut topics = Vec::<String>::new();
+    for summary in attempts.iter().rev().filter_map(|attempt| attempt.summary.as_ref()) {
+        if summary.outcome == Outcome::Working {
+            continue;
+        }
+        if summary.outcome == Outcome::Complete {
+            break;
+        }
+        for topic in &summary.incomplete_topics {
+            if matches!(
                 topic.as_str(),
                 "The investigation ended before all requested details could be completed. Only the published sections are available."
                     | "The investigation stopped before a saved answer was available."
                     | "This slide did not publish. The guide preserved its other progress."
-            )
-        })
-        .cloned()
-        .collect()
+            ) || topics
+                .iter()
+                .any(|existing| same_uncovered_topic(existing, topic))
+            {
+                continue;
+            }
+            topics.push(topic.clone());
+        }
+    }
+    topics
 }
 
-/// Preserve actionable gaps from the latest terminal answer attempts alongside
-/// planner omissions. Already-appended continuation topics are represented by
-/// their own units and are not offered again, even when the planner paraphrases
-/// the same gap in a later incomplete-topic list.
+/// Preserve actionable gaps from terminal answer attempts alongside planner
+/// omissions. Retryable or resolved continuation units own their topic; an
+/// exhausted unresolved continuation can be appended again as a fresh unit.
 fn guide_uncovered_topics(record: &Record) -> Vec<String> {
     let Some(plan) = record.plan.as_ref() else {
         return Vec::new();
     };
-    let continued = plan
-        .units
-        .iter()
-        .filter_map(|unit| unit.continuation_topic.as_deref())
-        .collect::<Vec<_>>();
+    let resolved = resolved_unit_states(record);
     let mut candidates = Vec::new();
     if let Some(opening) = opening_continuation::latest(record) {
         candidates.extend(actionable_incomplete_topics(std::slice::from_ref(opening)));
     }
-    for unit in &record.units {
+    // Prefer the wording from the newest investigation when a parent and its
+    // follow-up report the same uncovered behavior.
+    for (index, unit) in record.units.iter().enumerate().rev() {
         candidates.extend(actionable_incomplete_topics(&unit.attempts));
+        if unit.attempts.len() >= MAX_ATTEMPTS
+            && !resolved.get(index).copied().unwrap_or(false)
+            && actionable_incomplete_topics(&unit.attempts).is_empty()
+        {
+            if let Some(topic) = plan
+                .units
+                .get(index)
+                .and_then(|plan_unit| plan_unit.continuation_topic.as_ref())
+            {
+                candidates.push(topic.clone());
+            }
+        }
     }
     candidates.extend(plan.omissions.iter().cloned());
     let mut seen = Vec::<String>::new();
@@ -812,9 +824,16 @@ fn guide_uncovered_topics(record: &Record) -> Vec<String> {
         .into_iter()
         .filter(|topic| text(topic, 1, 240))
         .filter(|topic| {
-            !continued
-                .iter()
-                .any(|existing| same_uncovered_topic(topic, existing))
+            !plan.units.iter().enumerate().any(|(index, unit)| {
+                unit.continuation_topic
+                    .as_deref()
+                    .is_some_and(|existing| same_uncovered_topic(topic, existing))
+                    && (resolved.get(index).copied().unwrap_or(false)
+                        || record
+                            .units
+                            .get(index)
+                            .is_some_and(|progress| progress.attempts.len() < MAX_ATTEMPTS))
+            })
                 && !seen
                     .iter()
                     .any(|existing| same_uncovered_topic(topic, existing))
