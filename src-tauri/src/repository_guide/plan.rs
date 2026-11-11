@@ -96,7 +96,7 @@ pub(super) fn schema() -> Value {
         "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
-      "sections":{"type":"array","minItems":1,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Items include one question-first opening at index zero and at most five distinct follow-on topics (six sections total). Additional discovered routes are explicit pending topics and are appended as later slide units up to the twenty-unit guide capacity.","prefixItems":[opening_item],"items":follow_on_item},
+      "sections":{"type":"array","minItems":1,"maxItems":MAX_INITIAL_UNITS + 1,"description":"Items include one question-first opening at index zero and at most five distinct follow-on topics (six sections total). Additional discovered routes remain explicit pending topics and are appended incrementally under the total-unit guide capacity.","prefixItems":[opening_item],"items":follow_on_item},
         "omissions":{"type":"array","maxItems":MAX_OMISSIONS,"description":"Unique, concise pending route labels not covered by the initial outline; do not repeat the same route.","items":{"type":"string","maxLength":MAX_OMISSION_BYTES}}}})
 }
 
@@ -251,7 +251,7 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         ""
     };
     let instructions = format!(
-        "{PLAN_INSTRUCTIONS}\n{retry_feedback}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Return the compact initial outline as soon as its opening lead and up to five high-value follow-on topics are grounded. Do not finish planning every requested route before the first slide can start. Preserve routes already observed or explicitly requested as pending omissions; after the outline and opening lead are saved, the owned guide worker may promote those omissions to later slide units up to the fixed twenty-unit capacity. Publish each validated slide independently. Any internal look-ahead must be small and must never gate the outline, first slide, or playback. Native source and call limits still apply.",
+        "{PLAN_INSTRUCTIONS}\n{retry_feedback}\n{}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Return the compact initial outline as soon as its opening lead and up to five high-value follow-on topics are grounded. Do not finish planning every requested route before the first slide can start. Preserve routes already observed or explicitly requested as pending omissions; after the outline and opening lead are saved, the owned guide worker may promote those omissions to later slide units up to the current total-unit guide capacity. Publish each validated slide independently. Any internal look-ahead must be small and must never gate the outline, first slide, or playback. Native source and call limits still apply.",
         crate::provider::visual_scenes::READER_LANGUAGE_POLICY
     );
     let contract = json!({"contractVersion":job.contract,
