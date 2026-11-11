@@ -458,6 +458,25 @@ fn opening_binding_rejects_changed_context() {
     assert!(validate(&foreign).is_err());
 }
 #[test]
+fn extended_guide_records_above_the_previous_limit_reopen_and_list() {
+    let f = Fixture::new();
+    let guide = record(&f);
+    save(&f.storage, &guide, true).unwrap();
+
+    let location = path(&f.storage, &guide.id).unwrap();
+    let mut bytes = std::fs::read(&location).unwrap();
+    let previous_limit = 256 * 1024;
+    assert!(MAX_RECORD > previous_limit);
+    bytes.resize(previous_limit + 1, b' ');
+    std::fs::write(&location, bytes).unwrap();
+
+    assert_eq!(read(&f.storage, &guide.id).unwrap().id, guide.id);
+    let listing = list(&f.storage, &guide.project_id, &guide.snapshot_id).unwrap();
+    assert_eq!(listing.records.len(), 1);
+    assert_eq!(listing.records[0].id, guide.id);
+}
+
+#[test]
 fn nonregular_records_and_oversized_data_are_preserved() {
     let f = Fixture::new();
     let r = record(&f);
