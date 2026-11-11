@@ -512,7 +512,7 @@ fn validate(record: &Record) -> Result<(), String> {
                     .collect::<Vec<_>>()
                     .join(" ")
                     .to_lowercase();
-                let duplicate_is_retry_of_exhausted_gap = continuation_topics
+                let duplicate_is_retry_of_exhausted_unit = continuation_topics
                     .get(&normalized)
                     .is_none_or(|previous| {
                         previous.iter().any(|previous_index| {
@@ -522,17 +522,12 @@ fn validate(record: &Record) -> Result<(), String> {
                                     .get(*previous_index)
                                     .copied()
                                     .unwrap_or(false)
-                                && super::actionable_incomplete_topics(
-                                    &previous_progress.attempts,
-                                )
-                                .iter()
-                                .any(|gap| super::same_uncovered_topic(gap, topic))
                         })
                     });
                 text(topic, 1, 240)
                     && unit.question == super::extension_question(topic)
                     && unit.prerequisites.is_empty()
-                    && duplicate_is_retry_of_exhausted_gap
+                    && duplicate_is_retry_of_exhausted_unit
                     && !plan.omissions.iter().any(|omission| {
                         omission
                             .split_whitespace()

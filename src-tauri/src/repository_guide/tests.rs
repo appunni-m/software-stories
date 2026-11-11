@@ -1001,6 +1001,67 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
 }
 
 #[test]
+fn exhausted_continuation_without_gap_details_can_be_requeued() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    const TOPIC: &str = "PFR glyph decoding after every attempt failed without a specific gap";
+    complete_opening(&mut record);
+    record.plan.as_mut().unwrap().omissions.clear();
+
+    let template = record.plan.as_ref().unwrap().units[0].clone();
+    let key = "uncovered-pfr-glyph-decoding".to_owned();
+    let mut continuation = template.clone();
+    continuation.key = key.clone();
+    continuation.question = extension_question(TOPIC);
+    continuation.prerequisites.clear();
+    continuation.starting_ranges.clear();
+    continuation.continuation_topic = Some(TOPIC.to_owned());
+    record.plan.as_mut().unwrap().units.push(continuation);
+    record.units.push(Unit {
+        key: key.clone(),
+        attempts: Vec::new(),
+    });
+    let continuation_index = record.units.len() - 1;
+    for _ in 0..MAX_ATTEMPTS {
+        let failed = attempt_for_unit(&record, continuation_index, Outcome::Failed);
+        record.units[continuation_index].attempts.push(failed);
+    }
+    record.status = Status::Partial;
+
+    assert_eq!(
+        guide_uncovered_topics(&record),
+        vec![TOPIC.to_owned()]
+    );
+
+    let duplicate_key = "uncovered-pfr-glyph-decoding-retry".to_owned();
+    let mut duplicate = template;
+    duplicate.key = duplicate_key.clone();
+    duplicate.question = extension_question(TOPIC);
+    duplicate.prerequisites.clear();
+    duplicate.starting_ranges.clear();
+    duplicate.continuation_topic = Some(TOPIC.to_owned());
+    record.plan.as_mut().unwrap().units.push(duplicate);
+    record.units.push(Unit {
+        key: duplicate_key,
+        attempts: Vec::new(),
+    });
+
+    store::create(&f.storage, &record).unwrap();
+    assert_eq!(
+        store::read(&f.storage, &record.id)
+            .unwrap()
+            .plan
+            .unwrap()
+            .units
+            .last()
+            .unwrap()
+            .continuation_topic
+            .as_deref(),
+        Some(TOPIC)
+    );
+}
+
+#[test]
 fn an_exhausted_outline_with_unresolved_omissions_finishes_partial() {
     let f = Fixture::new();
     let mut record = fresh_record(&f);
