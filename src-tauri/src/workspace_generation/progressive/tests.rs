@@ -1113,6 +1113,12 @@ fn guide_progressive_research_stop_separates_budget_from_proposal_finish() {
     let instructions = system_instructions_for(true);
     assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
     assert_eq!(contract["uniqueSections"], 1);
+    assert!(instructions.contains("A repository-guide slide job has a hard 18-call total"));
+    assert!(instructions.contains("Stop source research after ten calls"));
+    assert!(instructions.contains("A generic sectionValidation has no safe repair target"));
+    assert!(!instructions.contains(
+        "a one-slide job may use up to seven corrections for its single key within 64 tool calls"
+    ));
     assert!(instructions.contains("no wall-clock deadline"));
     assert!(instructions.contains("null budget.remaining.timeMs is intentional"));
     assert!(instructions.contains("This operation owns exactly one planned slide"));
@@ -1129,6 +1135,16 @@ fn guide_progressive_research_stop_separates_budget_from_proposal_finish() {
         contract["tools"]
             .to_string()
             .contains("Do not return a final manifest in place of a supported slide")
+    );
+    assert!(
+        contract["tools"]
+            .to_string()
+            .contains("an 18-call total that includes research and proposals")
+    );
+    assert!(
+        contract["tools"]
+            .to_string()
+            .contains("stop research after ten calls")
     );
     assert!(contract["tools"].to_string().contains(
         "budget.stopResearch in a search/read/definitions response ends source retrieval only"

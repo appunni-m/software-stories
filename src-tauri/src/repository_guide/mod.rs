@@ -2586,7 +2586,7 @@ pub(crate) async fn advance_repository_guide(
         storage,
         id,
         lease,
-        false,
+        true,
         slides_needed,
         None,
         false,

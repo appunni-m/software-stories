@@ -115,9 +115,16 @@ fn proposal_correction_exhaustion_finishes_only_a_one_slide_job() {
 
 #[test]
 fn guide_slide_research_stop_preserves_the_required_publication() {
-    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains(
-        "Use at most ten source-research tool calls, then use the remaining proposal budget"
-    ));
+    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains("hard limit of 18 total context calls"));
+    assert!(GUIDE_SLIDE_BASE_INSTRUCTIONS.contains("Stop source research after ten calls"));
+    assert!(
+        GUIDE_SLIDE_BASE_INSTRUCTIONS
+            .contains("remainingCalls rather than the general 64-call cap")
+    );
+    assert!(
+        GUIDE_SLIDE_BASE_INSTRUCTIONS
+            .contains("generic sectionValidation gives no safe repair target")
+    );
     assert!(
         GUIDE_SLIDE_BASE_INSTRUCTIONS
             .contains("A context response's budget.stopResearch ends further source research only")
