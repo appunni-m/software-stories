@@ -818,6 +818,8 @@ fn uncovered_topic_questions_are_short_and_reader_facing() {
 fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics() {
     let f = Fixture::new();
     let mut record = fresh_record(&f);
+    const PREVIOUS_UNIT_LIMIT: usize = 20;
+    assert!(MAX_TOTAL_UNITS > PREVIOUS_UNIT_LIMIT);
 
     let opening_run_id = record.opening.as_ref().unwrap().run_id.clone();
     let mut opening = attempt(&record, Outcome::Complete);
@@ -848,6 +850,26 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     }
     let completed_second_unit = attempt_for_unit(&record, 1, Outcome::Complete);
     record.units[1].attempts.push(completed_second_unit);
+    let template = record.plan.as_ref().unwrap().units[0].clone();
+    for index in record.units.len()..PREVIOUS_UNIT_LIMIT {
+        let key = format!("completed-padding-{index}");
+        let topic = format!("Previously completed fixture topic {index}");
+        let mut unit = template.clone();
+        unit.key = key.clone();
+        unit.question = extension_question(&topic);
+        unit.prerequisites.clear();
+        unit.starting_ranges.clear();
+        unit.continuation_topic = Some(topic);
+        record.plan.as_mut().unwrap().units.push(unit);
+        record.units.push(Unit {
+            key,
+            attempts: Vec::new(),
+        });
+    }
+    for index in 2..record.units.len() {
+        let complete = attempt_for_unit(&record, index, Outcome::Complete);
+        record.units[index].attempts.push(complete);
+    }
     record.plan.as_mut().unwrap().omissions.clear();
     record.status = Status::Partial;
 
@@ -860,9 +882,14 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         ]
     );
     assert!(plan_extension_eligible(&record));
+    let remaining_unit_attempts = record
+        .units
+        .iter()
+        .map(|unit| MAX_ATTEMPTS.saturating_sub(unit.attempts.len()))
+        .sum::<usize>();
     assert_eq!(
         opening_continuation::remaining_answer_records(&record),
-        2 + 2 * MAX_ATTEMPTS,
+        remaining_unit_attempts + 2 * MAX_ATTEMPTS,
         "the saved store reserves retries for new continuation units"
     );
 
@@ -870,10 +897,10 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     let saved = store::read(&f.storage, &record.id).unwrap();
     let extended = append_omission_units(&f.storage, &saved).unwrap();
     let plan = extended.plan.as_ref().unwrap();
-    assert_eq!(plan.units.len(), 4);
+    assert_eq!(plan.units.len(), PREVIOUS_UNIT_LIMIT + 2);
     assert!(plan.omissions.is_empty());
     assert_eq!(
-        plan.units[2..]
+        plan.units[PREVIOUS_UNIT_LIMIT..]
             .iter()
             .map(|unit| unit.continuation_topic.as_deref().unwrap())
             .collect::<Vec<_>>(),
@@ -883,7 +910,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
         ]
     );
     assert!(
-        plan.units[2..]
+        plan.units[PREVIOUS_UNIT_LIMIT..]
             .iter()
             .all(|unit| unit.starting_ranges.is_empty())
     );
@@ -895,7 +922,7 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     assert!(summary.omissions.is_empty());
     assert_eq!(summary.units[0].incomplete_topics.len(), 2);
     assert_eq!(
-        summary.units[2].continuation_topic.as_deref(),
+        summary.units[PREVIOUS_UNIT_LIMIT].continuation_topic.as_deref(),
         Some("C ABI error return after dispatching glyph output.")
     );
     assert_eq!(
@@ -904,12 +931,12 @@ fn exhausted_partial_units_extend_the_same_guide_with_specific_uncovered_topics(
     );
 
     let mut repeated = extended;
-    let mut partial = attempt_for_unit(&repeated, 2, Outcome::Partial);
+    let mut partial = attempt_for_unit(&repeated, PREVIOUS_UNIT_LIMIT, Outcome::Partial);
     partial.summary.as_mut().unwrap().incomplete_topics = vec![
         "C ABI glyph failure after output dispatch.".to_owned(),
         "CFF charstring error after invalid operator decoding.".to_owned(),
     ];
-    repeated.units[2].attempts.push(partial);
+    repeated.units[PREVIOUS_UNIT_LIMIT].attempts.push(partial);
     assert_eq!(
         guide_uncovered_topics(&repeated),
         vec!["CFF charstring error after invalid operator decoding.".to_owned()],
@@ -1709,10 +1736,6 @@ fn fontdone_repository_guide_account_probe() {
     let resume_id = std::env::var("CODE_ATLAS_GUIDE_RESUME_ID").ok();
     let record = if let Some(id) = &resume_id {
         let original = scoped(&storage, id, project, snapshot_id).unwrap();
-        assert!(!matches!(
-            original.status,
-            Status::Planning | Status::Building
-        ));
         workspace::check_retrieval_grant(
             &storage,
             &original.grant_id,
@@ -1802,11 +1825,17 @@ fn fontdone_repository_guide_account_probe() {
     // treats each ready slide as heard; the packaged reader supplies these
     // receipts from narration completion or explicit Next actions.
     let mut first_build = true;
+    let mut build_passes = 0usize;
     let result = loop {
+        build_passes += 1;
+        assert!(
+            build_passes <= MAX_GUIDE_ANSWER_RECORDS + 4,
+            "the guide exceeded its reserved answer-operation capacity"
+        );
         let pass = build(
             &storage,
             &record.id,
-            first_build && continue_opening,
+            continue_opening || !first_build,
             &manager,
             RepositoryContextJobs::default(),
             &recovery::InterruptionJournal::default(),
@@ -1825,31 +1854,40 @@ fn fontdone_repository_guide_account_probe() {
         }
         first_build = false;
         let saved = store::read(&storage, &record.id).unwrap();
-        if saved.status != Status::WaitingForPlayback {
-            break pass;
-        }
-        let next_revision = saved
-            .opening
-            .iter()
-            .chain(&saved.opening_continuations)
-            .chain(saved.units.iter().flat_map(|unit| &unit.attempts))
-            .filter_map(|attempt| attempt.summary.as_ref())
-            .flat_map(|answer| &answer.sections)
-            .find(|section| {
-                !saved
-                    .consumed_slide_revisions
-                    .contains(&section.revision_id)
+        if saved.status == Status::WaitingForPlayback {
+            let next_revision = saved
+                .opening
+                .iter()
+                .chain(&saved.opening_continuations)
+                .chain(saved.units.iter().flat_map(|unit| &unit.attempts))
+                .filter_map(|attempt| attempt.summary.as_ref())
+                .flat_map(|answer| &answer.sections)
+                .find(|section| {
+                    !saved
+                        .consumed_slide_revisions
+                        .contains(&section.revision_id)
+                })
+                .map(|section| section.revision_id.clone())
+                .expect("a playback-waiting guide has an unheard slide");
+            let saved = store::update(&storage, &record.id, |current| {
+                if !current.consumed_slide_revisions.contains(&next_revision) {
+                    current.consumed_slide_revisions.push(next_revision.clone());
+                }
+                Ok(())
             })
-            .map(|section| section.revision_id.clone())
-            .expect("a playback-waiting guide has an unheard slide");
-        let saved = store::update(&storage, &record.id, |current| {
-            if !current.consumed_slide_revisions.contains(&next_revision) {
-                current.consumed_slide_revisions.push(next_revision.clone());
+            .unwrap();
+            store::prepare_continuation(&storage, &record.id, saved.revision).unwrap();
+            continue;
+        }
+        if opening_continuation::remaining_operations(&saved) > 0 || plan_extension_eligible(&saved) {
+            let topics = pending_extension_topics(&saved);
+            if !topics.is_empty() {
+                println!("GUIDE_EXTENSION_TOPICS {} {:?}", topics.len(), topics);
             }
-            Ok(())
-        })
-        .unwrap();
-        store::prepare_continuation(&storage, &record.id, saved.revision).unwrap();
+            store::prepare_continuation(&storage, &record.id, saved.revision).unwrap();
+            continue;
+        }
+        break pass;
     };
     let saved = store::read(&storage, &record.id).unwrap();
     let runs = std::iter::once(saved.planning_run_id.as_str())

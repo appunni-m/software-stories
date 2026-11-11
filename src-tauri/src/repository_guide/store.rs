@@ -4,7 +4,7 @@
 use super::*;
 use std::fs::{self, File, OpenOptions};
 
-const MAX_RECORD: usize = 512 * 1024;
+const MAX_RECORD: usize = 1024 * 1024;
 const MAX_GUIDES: usize = 1_000;
 const MAX_LOCK_FILES: usize = MAX_GUIDES + 256;
 const MAX_BYTES: u64 = MAX_GUIDES as u64 * MAX_RECORD as u64;

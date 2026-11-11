@@ -333,7 +333,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert!(intent["guideContext"].get("openingQuestion").is_none());
     assert!(prompt.len() < 128 * 1024);
     assert_eq!(MAX_INITIAL_UNITS, 5);
-    assert_eq!(MAX_TOTAL_UNITS, 20);
+    assert_eq!(MAX_TOTAL_UNITS, 40);
     assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
@@ -467,7 +467,7 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);
     assert_eq!(MAX_INITIAL_UNITS, 5);
-    assert_eq!(MAX_TOTAL_UNITS, 20);
+    assert_eq!(MAX_TOTAL_UNITS, 40);
     assert_eq!(GUIDE_INITIAL_BUFFER_SLIDES, 5);
     assert_eq!(MAX_ATTEMPTS, 3);
 }

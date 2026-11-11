@@ -41,8 +41,8 @@ const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-code-first-research-v3-continuous-path";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit researches its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. For a broad guide, keep the first detailed units on the opening's same caller-to-engine journey: each next unit advances at the next real code handoff, and the core implementation finishes before alternate caller or language surfaces begin. Explain setup before its first dependent step and only once; later units bridge from the established behavior instead of restarting setup. Compare each topic with earlier units: replace duplicate coverage with a distinct requested behavior, or name that behavior as pending; never silently drop requested work. Implementation code is authoritative for behavior. Documentation is a discovery hint and may be outdated or deprecated; never use it alone as proof of code behavior. Identify a document as stale only when a specific statement is contradicted by cited implementation; otherwise label its status unverified. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 // Initial slides are generated as a small outline. Discovered topics are
-// appended incrementally until the current twenty-unit guide limit.
-pub(crate) const MAX_TOTAL_UNITS: usize = 20;
+// appended incrementally so broad repositories can cover the gaps they reveal.
+pub(crate) const MAX_TOTAL_UNITS: usize = 40;
 // Keep the first source-grounded outline quick. Remaining discovered routes
 // stay explicit as pending topics and can be appended incrementally later.
 const MAX_INITIAL_UNITS: usize = 5;

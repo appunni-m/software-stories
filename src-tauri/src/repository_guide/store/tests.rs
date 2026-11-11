@@ -465,7 +465,7 @@ fn extended_guide_records_above_the_previous_limit_reopen_and_list() {
 
     let location = path(&f.storage, &guide.id).unwrap();
     let mut bytes = std::fs::read(&location).unwrap();
-    let previous_limit = 256 * 1024;
+    let previous_limit = 512 * 1024;
     assert!(MAX_RECORD > previous_limit);
     bytes.resize(previous_limit + 1, b' ');
     std::fs::write(&location, bytes).unwrap();
